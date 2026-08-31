@@ -178,9 +178,10 @@ describe("GET /api/auth/callback/google", () => {
       tokenType: "Bearer",
       scope: "scope-a",
     });
-    credentialServiceMock.connectGoogleCalendarAccount.mockResolvedValueOnce(
-      undefined
-    );
+    credentialServiceMock.connectGoogleCalendarAccount.mockResolvedValueOnce({
+      connectionId: "connection-1",
+      calendarDiscoveryStatus: "synced",
+    });
 
     const response = await GET(
       createRequest(
@@ -217,6 +218,36 @@ describe("GET /api/auth/callback/google", () => {
       },
       reconnectConnectionId: null,
     });
+  });
+
+  test("keeps the connection and reports a retryable warning when discovery fails", async () => {
+    googleCalendarMock.exchangeAuthorizationCodeForTokens.mockResolvedValueOnce({
+      accessToken: "access-token",
+      expiresIn: 3600,
+      refreshToken: "refresh-token",
+      tokenType: "Bearer",
+      scope: "scope-a",
+    });
+    credentialServiceMock.connectGoogleCalendarAccount.mockResolvedValueOnce({
+      connectionId: "connection-2",
+      calendarDiscoveryStatus: "unavailable",
+    });
+
+    const response = await GET(
+      createRequest(
+        "http://localhost/api/auth/callback/google?state=expected&code=auth-code",
+        {
+          nexusdash_google_oauth_state: "expected",
+          nexusdash_google_oauth_return_to: "/account/settings",
+          nexusdash_google_oauth_actor: "test-user",
+        }
+      )
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost/account/settings?status=calendar-connected-discovery-warning"
+    );
   });
 
   test("redirects with storage-failed when credential persistence fails", async () => {
@@ -312,9 +343,10 @@ describe("GET /api/auth/callback/google", () => {
       tokenType: "Bearer",
       scope: "scope-a",
     });
-    credentialServiceMock.connectGoogleCalendarAccount.mockResolvedValueOnce(
-      undefined
-    );
+    credentialServiceMock.connectGoogleCalendarAccount.mockResolvedValueOnce({
+      connectionId: "connection-1",
+      calendarDiscoveryStatus: "synced",
+    });
 
     const response = await GET(
       createRequest(

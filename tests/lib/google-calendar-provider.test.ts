@@ -76,4 +76,16 @@ describe("Google Calendar provider adapter", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(String(fetchSpy.mock.calls[1][0])).toContain("pageToken=page-2");
   });
+
+  test("reports the safe provider status when CalendarList discovery fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { message: "sensitive detail" } }), {
+        status: 403,
+      })
+    );
+
+    await expect(
+      googleCalendarProvider.discoverCalendars("secret-access-token")
+    ).rejects.toThrow("google-calendar-discovery-failed:403");
+  });
 });

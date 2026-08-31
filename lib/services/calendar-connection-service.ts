@@ -240,7 +240,10 @@ export async function connectGoogleCalendarAccount(input: {
   identity: CalendarProviderIdentity;
   tokens: CalendarProviderTokens;
   reconnectConnectionId?: string | null;
-}): Promise<{ connectionId: string }> {
+}): Promise<{
+  connectionId: string;
+  calendarDiscoveryStatus: "synced" | "unavailable";
+}> {
   const userId = normalizeUserId(input.userId);
   const providerName = GOOGLE_CALENDAR_PROVIDER;
   const adapter = getCalendarProvider(providerName);
@@ -306,9 +309,21 @@ export async function connectGoogleCalendarAccount(input: {
     return db.calendarConnection.create({ data: { ...data, userId } });
   });
 
-  const sources = await adapter.discoverCalendars(input.tokens.accessToken);
-  await persistDiscoveredSources({ userId, connectionId: connection.id, sources });
-  return { connectionId: connection.id };
+  try {
+    const sources = await adapter.discoverCalendars(input.tokens.accessToken);
+    await persistDiscoveredSources({ userId, connectionId: connection.id, sources });
+    return { connectionId: connection.id, calendarDiscoveryStatus: "synced" };
+  } catch (error) {
+    logServerWarning(
+      "connectGoogleCalendarAccount.calendarDiscoveryFailed",
+      "Calendar account connected, but its calendar list could not be refreshed",
+      { connectionId: connection.id, provider: providerName, error }
+    );
+    return {
+      connectionId: connection.id,
+      calendarDiscoveryStatus: "unavailable",
+    };
+  }
 }
 
 export async function syncCalendarConnection(input: {

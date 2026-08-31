@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const identity = await googleCalendarProvider.identify(tokenResponse.accessToken);
-    await connectGoogleCalendarAccount({
+    const connectionResult = await connectGoogleCalendarAccount({
       userId: actorUserId,
       identity,
       tokens: tokenResponse,
@@ -170,7 +170,10 @@ export async function GET(request: NextRequest) {
     });
 
     return buildRedirectResponse(request, returnToPath, {
-      status: "calendar-connected",
+      status:
+        connectionResult.calendarDiscoveryStatus === "synced"
+          ? "calendar-connected"
+          : "calendar-connected-discovery-warning",
     });
   } catch (error) {
     logServerError("GET /api/auth/callback/google.credentialPersistenceFailed", error);

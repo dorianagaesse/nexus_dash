@@ -75,7 +75,9 @@ async function discoverGoogleCalendars(
       items?: GoogleCalendarListItem[];
       nextPageToken?: unknown;
     } | null;
-    if (!response.ok) throw new Error("google-calendar-discovery-failed");
+    if (!response.ok) {
+      throw new Error(`google-calendar-discovery-failed:${response.status}`);
+    }
 
     for (const item of payload?.items ?? []) {
       if (!item.id || item.deleted) continue;

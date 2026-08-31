@@ -68,7 +68,7 @@ describe("calendar connection service", () => {
   });
 
   test("creates a distinct provider account and selects its primary calendar first", async () => {
-    await connectGoogleCalendarAccount({
+    await expect(connectGoogleCalendarAccount({
       userId: "user-1",
       identity: {
         accountId: "google-sub-1",
@@ -81,6 +81,9 @@ describe("calendar connection service", () => {
         expiresIn: 3600,
         scope: "openid email calendar",
       },
+    })).resolves.toEqual({
+      connectionId: "connection-1",
+      calendarDiscoveryStatus: "synced",
     });
 
     expect(prismaMock.calendarConnection.create).toHaveBeenCalledWith({
@@ -107,6 +110,34 @@ describe("calendar connection service", () => {
         writeSourceId: "source-primary",
       },
     });
+  });
+
+  test("keeps a connected account when initial calendar discovery is unavailable", async () => {
+    providerMock.discoverCalendars.mockRejectedValueOnce(
+      new Error("google-calendar-discovery-failed:403")
+    );
+
+    await expect(
+      connectGoogleCalendarAccount({
+        userId: "user-1",
+        identity: {
+          accountId: "google-sub-2",
+          email: "two@example.com",
+          label: "two@example.com",
+        },
+        tokens: {
+          accessToken: "access-two",
+          refreshToken: "refresh-two",
+          expiresIn: 3600,
+        },
+      })
+    ).resolves.toEqual({
+      connectionId: "connection-1",
+      calendarDiscoveryStatus: "unavailable",
+    });
+
+    expect(prismaMock.calendarConnection.create).toHaveBeenCalled();
+    expect(prismaMock.calendarSource.upsert).not.toHaveBeenCalled();
   });
 
   test("rejects reconnect when Google returns a different established account", async () => {
