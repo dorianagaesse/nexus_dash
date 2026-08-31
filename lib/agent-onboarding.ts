@@ -803,9 +803,9 @@ export function buildAgentSmokeTestExample(): string {
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  --output "./downloaded-smoke-image.png"',
     "",
-    "# Delete the task when finished",
-    'curl -X DELETE "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',
-    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
+    "# The completed task stays archived. Use the recommended read + write",
+    "# credential preset (no delete scope) for non-destructive missions;",
+    "# deleting tasks requires the separate task:delete scope and the owner role.",
   ].join("\n");
 }
 
