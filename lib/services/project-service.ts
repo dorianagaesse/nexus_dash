@@ -602,6 +602,10 @@ export async function listProjectKanbanTasks(
                   label: { equals: normalizedLabel, mode: "insensitive" },
                 },
                 {
+                  // Quoted-JSON containment can false-positive when a stored
+                  // label itself contains an escaped quote (e.g. `My "Docs"`
+                  // matches a `label=Docs` filter); revisit with the TASK-331
+                  // vocabulary work.
                   labelsJson: {
                     contains: JSON.stringify(normalizedLabel),
                     mode: "insensitive",
