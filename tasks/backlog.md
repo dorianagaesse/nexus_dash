@@ -21,11 +21,17 @@ status tracking, and task relationships now happen in the Nexus Dash kanban.
   (`Active Runtime Remediation`, `Execution Queue`, `External UX Feedback`,
   `Codex Session Feedback`, `Collaboration Refinement` with `P0/P1/P2`
   priority labels, `Deferred`).
+- **Work types**: every task carries a work-type label (`feature`, `fix`,
+  `docs`, `refactor`, `chore`) matching the repository branch-prefix
+  taxonomy. Delivered tasks use the prefix of their merged PR branch; the
+  rest were classified by content. TASK-372 has no work type pending scope
+  clarification.
 - **Briefs/reports**: every `Brief:` / `Report:` file referenced in the
   backlog was attached to its task as a GitHub raw link.
-- **Full entry text**: each task description carries the original backlog
-  entry (ID, title, status string, rationale, dependencies) so nothing was
-  lost in translation.
+- **Task descriptions**: each task description carries the original backlog
+  entry (ID, title, status string, rationale, brief/report pointers).
+  `Dependencies:` is omitted because relations carry it, and `Section:` is
+  omitted because the kanban lane carries it.
 
 ## Mapping conventions
 
@@ -36,6 +42,8 @@ status tracking, and task relationships now happen in the Nexus Dash kanban.
   workflow references stay searchable.
 - Backlog column order mirrors the old Execution Queue sequencing
   (Next 2 → Next 10) followed by the remaining sections in file order.
+- Epic descriptions are plain text (the epic panel renders without rich-text
+  markup).
 
 ## Known notes
 
@@ -43,8 +51,8 @@ status tracking, and task relationships now happen in the Nexus Dash kanban.
   clarification.
 - Some `Dependencies:` entries reference task IDs that have no entry in the
   old backlog (TASK-002, TASK-003, TASK-008, TASK-009) or an epic
-  (TASK-258 → TASK-022); those references remain in the task description
-  text but have no relation row.
+  (TASK-258 → TASK-022); those references have no relation row in Nexus Dash
+  and live only in git history.
 - Epic names are truncated to the Nexus Dash 80-character limit; the full
   epic title remains in the epic description.
 

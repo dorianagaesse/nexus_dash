@@ -24,6 +24,13 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Verification pass confirmed the board matches the plan: columns, ordering,
   labels, epic membership, descriptions, attachment links, and the full
   relation closure.
+- Follow-up refinement: every task now carries a work-type label
+  (`feature`, `fix`, `docs`, `refactor`, `chore`) — delivered tasks use the
+  prefix of their merged PR branch, the rest were classified by content
+  (TASK-372 stays untyped pending clarification). Task descriptions dropped
+  the `Dependencies:` (relations carry it) and `Section:` (the kanban lane
+  carries it) lines, and epic descriptions were rewritten as plain text
+  because the epic panel does not render rich-text markup.
 - `tasks/backlog.md` is replaced by this migration notice; Nexus Dash is now
   the source of truth for backlog tracking.
 
