@@ -9,6 +9,7 @@ import {
 import { mapTaskEpicSummary, type TaskEpicSummary } from "@/lib/epic";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import {
+  getTaskLabelsFromStorage,
   normalizeTaskLabels,
   parseTaskLabelsJson,
   serializeTaskLabels,
@@ -103,12 +104,14 @@ export interface UpdatedTaskPayload {
   title: string;
   label: string | null;
   labelsJson: string | null;
+  labels: string[];
   description: string | null;
   deadlineDate: string | null;
   commentCount: number;
   blockedNote: string | null;
   status: string;
   position: number;
+  completedAt: Date | null;
   archivedAt: Date | null;
   epic: TaskEpicSummary | null;
   assignee: TaskPersonSummary | null;
@@ -287,6 +290,7 @@ async function loadTaskMutationPayload(
       blockedNote: true,
       status: true,
       position: true,
+      completedAt: true,
       archivedAt: true,
       createdAt: true,
       updatedAt: true,
@@ -351,12 +355,14 @@ async function loadTaskMutationPayload(
     title: task.title,
     label: task.label,
     labelsJson: task.labelsJson,
+    labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
     description: task.description,
     deadlineDate: formatTaskDeadlineDate(task.deadlineAt),
     commentCount: task._count.comments,
     blockedNote: task.blockedNote,
     status: task.status,
     position: task.position,
+    completedAt: task.completedAt,
     archivedAt: task.archivedAt,
     epic: mapTaskEpicSummary(task.epic),
     assignee: task.assigneeUser ? mapTaskPersonSummary(task.assigneeUser) : null,
@@ -1196,6 +1202,20 @@ export async function moveTaskStatusForProject(
           completedAt: nextCompletedAt,
         },
       });
+
+      if (!sameColumn) {
+        // Compact the source lane so lanes stay dense: a later append uses the
+        // lane count as its position and would collide with any hole left by
+        // this move.
+        await db.task.updateMany({
+          where: {
+            projectId,
+            status: existingTask.status,
+            position: { gt: existingTask.position },
+          },
+          data: { position: { decrement: 1 } },
+        });
+      }
 
       await touchProjectActivity({ db, projectId });
 

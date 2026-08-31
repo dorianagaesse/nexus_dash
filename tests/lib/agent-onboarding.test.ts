@@ -134,4 +134,87 @@ describe("agent-onboarding contract", () => {
       "#/components/schemas/TaskBulkResponse"
     );
   });
+
+  test("documents the canonical task labels contract", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+    const taskRecord = document.components.schemas.TaskRecord;
+    const updateResponse = document.components.schemas.TaskUpdateResponse;
+
+    expect(taskRecord.required).toContain("labels");
+    expect(taskRecord.properties.labels).toEqual({
+      type: "array",
+      items: { type: "string" },
+      description: expect.any(String),
+    });
+    expect(taskRecord.properties.label.deprecated).toBe(true);
+    expect(taskRecord.properties.labelsJson.deprecated).toBe(true);
+
+    expect(updateResponse.properties.task.$ref).toBe(
+      "#/components/schemas/TaskRecord"
+    );
+  });
+
+  test("documents the complete task create response contract", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+    const createResponse = document.components.schemas.TaskCreateResponse;
+    const updateResponse = document.components.schemas.TaskUpdateResponse;
+
+    expect(createResponse.required).toEqual(["taskId", "task"]);
+    expect(createResponse.properties.task.$ref).toBe(
+      "#/components/schemas/TaskRecord"
+    );
+    expect(createResponse.properties.task.description).toContain(
+      "follow-up read"
+    );
+
+    expect(updateResponse.required).toEqual(["task"]);
+    expect(updateResponse.properties.task.$ref).toBe(
+      "#/components/schemas/TaskRecord"
+    );
+  });
+
+  test("documents true partial PATCH semantics for task updates", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+    const updateRequest = document.components.schemas.TaskUpdateRequest;
+
+    expect(updateRequest.required).toBeUndefined();
+    expect(updateRequest.description).toContain("partial update");
+
+    expect(updateRequest.properties.label.deprecated).toBe(true);
+    expect(updateRequest.properties.deadlineDate.description).toContain("clears");
+    expect(updateRequest.properties.labels.description).toContain("empty array clears");
+    expect(updateRequest.properties.epicId.description).toContain("null clears");
+    expect(updateRequest.properties.assigneeUserId.description).toContain(
+      "null clears"
+    );
+    expect(updateRequest.properties.relatedTaskIds.description).toContain(
+      "empty array removes"
+    );
+  });
+
+  test("documents the task list epic and label filters", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+
+    const path = document.paths["/api/projects/{projectId}/tasks"].get;
+    const queryParameters = path.parameters.filter(
+      (parameter: { in?: string }) => parameter.in === "query"
+    );
+    expect(queryParameters.map((parameter: { name: string }) => parameter.name)).toEqual([
+      "epicId",
+      "label",
+    ]);
+    expect(queryParameters.every((parameter: { required?: boolean }) => !parameter.required)).toBe(true);
+
+    const listResponse = document.components.schemas.TaskListResponse;
+    expect(listResponse.required).toEqual(["tasks", "filters"]);
+    expect(listResponse.properties.filters.required).toEqual(["epicId", "label"]);
+    expect(listResponse.properties.filters.properties.epicId.type).toEqual([
+      "string",
+      "null",
+    ]);
+    expect(listResponse.properties.filters.properties.label.type).toEqual([
+      "string",
+      "null",
+    ]);
+  });
 });

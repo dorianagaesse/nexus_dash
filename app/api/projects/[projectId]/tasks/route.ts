@@ -19,6 +19,7 @@ import { mapTaskEpicSummary } from "@/lib/epic";
 import { mapTaskPersonSummary } from "@/lib/task-person";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
 import { formatTaskReference } from "@/lib/task-reference";
+import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { mergeRelatedTaskSummaries } from "@/lib/task-related";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
@@ -86,14 +87,29 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
     );
   }
 
+  const epicIdFilter = request.nextUrl.searchParams.get("epicId")?.trim() || null;
+  const labelFilter = request.nextUrl.searchParams.get("label")?.trim() || null;
+  const filters =
+    epicIdFilter || labelFilter
+      ? {
+          ...(epicIdFilter ? { epicId: epicIdFilter } : {}),
+          ...(labelFilter ? { label: labelFilter } : {}),
+        }
+      : undefined;
+
   const tasks = await listProjectKanbanTasks(
     params.projectId,
     principalResult.principal.actorUserId,
-    agentAccess
+    agentAccess,
+    filters
   );
 
   return NextResponse.json(
     {
+      filters: {
+        epicId: epicIdFilter,
+        label: labelFilter,
+      },
       tasks: tasks.map((task) => ({
         id: task.id,
         reference: formatTaskReference(task.referenceNumber),
@@ -108,6 +124,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
         position: task.position,
         label: task.label,
         labelsJson: task.labelsJson,
+        labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
         epic: mapTaskEpicSummary(task.epic),
@@ -238,6 +255,9 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
   };
   const task = resultData.task ?? null;
 
+  // Defensive legacy fallback: the service contract always returns the full
+  // created task, so this branch is unreachable in practice and kept only so
+  // a payload-shaped regression still yields a usable taskId.
   if (!task) {
     const version = await recordProjectActivityEventVersion({
       actorUserId,

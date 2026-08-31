@@ -404,6 +404,104 @@ describe("project-service", () => {
     });
   });
 
+  test("applies an epicId filter to kanban task listing", async () => {
+    prismaMock.task.findFirst.mockResolvedValueOnce(null);
+    prismaMock.task.findMany.mockResolvedValueOnce([]);
+
+    await listProjectKanbanTasks("project-1", actorUserId, undefined, {
+      epicId: "epic-9",
+    });
+
+    expect(prismaMock.task.findMany.mock.calls[0][0].where).toEqual({
+      projectId: "project-1",
+      epicId: { equals: "epic-9" },
+      project: {
+        OR: [
+          { ownerId: actorUserId },
+          { memberships: { some: { userId: actorUserId } } },
+        ],
+      },
+    });
+  });
+
+  test("applies a label filter across legacy and JSON label storage", async () => {
+    prismaMock.task.findFirst.mockResolvedValueOnce(null);
+    prismaMock.task.findMany.mockResolvedValueOnce([]);
+
+    await listProjectKanbanTasks("project-1", actorUserId, undefined, {
+      label: "Docs",
+    });
+
+    expect(prismaMock.task.findMany.mock.calls[0][0].where).toEqual({
+      projectId: "project-1",
+      OR: [
+        { label: { equals: "Docs", mode: "insensitive" } },
+        {
+          labelsJson: {
+            contains: '"Docs"',
+            mode: "insensitive",
+          },
+        },
+      ],
+      project: {
+        OR: [
+          { ownerId: actorUserId },
+          { memberships: { some: { userId: actorUserId } } },
+        ],
+      },
+    });
+  });
+
+  test("composes epicId and label filters with AND", async () => {
+    prismaMock.task.findFirst.mockResolvedValueOnce(null);
+    prismaMock.task.findMany.mockResolvedValueOnce([]);
+
+    await listProjectKanbanTasks("project-1", actorUserId, undefined, {
+      epicId: "epic-9",
+      label: "Docs",
+    });
+
+    expect(prismaMock.task.findMany.mock.calls[0][0].where).toEqual({
+      projectId: "project-1",
+      epicId: { equals: "epic-9" },
+      OR: [
+        { label: { equals: "Docs", mode: "insensitive" } },
+        {
+          labelsJson: {
+            contains: '"Docs"',
+            mode: "insensitive",
+          },
+        },
+      ],
+      project: {
+        OR: [
+          { ownerId: actorUserId },
+          { memberships: { some: { userId: actorUserId } } },
+        ],
+      },
+    });
+  });
+
+  test("ignores empty-string filter values", async () => {
+    prismaMock.task.findFirst.mockResolvedValueOnce(null);
+    prismaMock.task.findMany.mockResolvedValueOnce([]);
+
+    await listProjectKanbanTasks("project-1", actorUserId, undefined, {
+      epicId: "   ",
+      label: "",
+    });
+
+    expect(prismaMock.task.findMany.mock.calls[0][0].where).toEqual({
+      projectId: "project-1",
+      project: {
+        OR: [
+          { ownerId: actorUserId },
+          { memberships: { some: { userId: actorUserId } } },
+        ],
+      },
+    });
+  });
+
   test("lists project collaborators with owner included once", async () => {
     prismaMock.project.findFirst.mockResolvedValueOnce({
       owner: {
