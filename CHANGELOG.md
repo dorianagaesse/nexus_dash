@@ -17,7 +17,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
   credential row by ID instead of depending on a permanent `userId` uniqueness
   constraint, preparing a backward-compatible TASK-327 expansion.
 
-## v0.38.0 - 2026-08-24
+## v0.46.0 - 2026-08-31
 
 - Made Google Calendar credential reads, refreshes, target updates, and project
   connection status fail closed for revoked credentials.
