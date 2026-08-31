@@ -22,7 +22,10 @@ make the task brief explicit before deep implementation:
   `Definition Of Done` sections; if either is missing or too vague, add or
   tighten them before implementation starts
 
-If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `tasks/backlog.md`, then update `tasks/current.md` before implementation.
+If `tasks/current.md` is complete or invalid, pick the next task from the
+Nexus Dash project kanban (agent credentials in `.config/.nd-nexus-dash.env`;
+see `tasks/backlog.md` for the migration record), then update
+`tasks/current.md` before implementation.
 
 ## 2. Implementation Quality
 
@@ -33,8 +36,8 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 ## 3. Execution Contract
 
 - One issue maps to one backlog task. If work starts from a GitHub issue,
-  create or identify the matching `TASK-XXX` entry in `tasks/backlog.md` before
-  implementation.
+  create or identify the matching `TASK-XXX` entry in the Nexus Dash project
+  kanban before implementation.
 - One task maps to exactly one branch and one pull request:
   `1 task = 1 branch = 1 PR`.
 - **Single-agent rule:** When only one agent is running, create a branch from
@@ -104,7 +107,7 @@ If `tasks/current.md` is complete or invalid, pick the next `Pending` item in `t
 Update docs in the same PR when behavior/architecture changes:
 
 - `tasks/current.md`: progress + status
-- `tasks/backlog.md`: sequencing/added tasks if scope evolves
+- Nexus Dash kanban: task status, sequencing, and new tasks
 - `journal.md`: meaningful execution events, blockers, decisions, validation outcomes
 - `adr/decisions.md`: architecture-impacting decisions
 - Add/extend a task ADR in `adr/` only when a decision needs deeper rationale

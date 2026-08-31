@@ -3,6 +3,30 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-31 - Backlog migration to Nexus Dash
+
+- Migrated the full `tasks/backlog.md` content into the Nexus Dash project
+  "Nexus Dash" (id `cmteshp27000004jic3pr6wy4`) using the agent API with the
+  credentials from `.config/.nd-nexus-dash.env`.
+- Created 5 epics (TASK-385, TASK-110, TASK-114, TASK-022, TASK-021) and 246
+  tasks. Kanban distribution: 72 Backlog, 2 In Progress (TASK-100, TASK-406),
+  172 Done; Backlog order mirrors the old Execution Queue sequencing.
+- Each task description carries the original backlog entry (ID, title, status
+  string, rationale, dependencies); old section groupings became labels
+  (including P0/P1/P2 for the collaboration program); Brief/Report files were
+  attached as GitHub raw links.
+- Dependencies became Nexus Dash task relations. The API replaces a task's
+  full relation neighborhood on PATCH, so relations were written as the
+  bilateral closure (deps + dependents) in a final order-independent pass.
+- Hit and worked around two product limits discovered during the import:
+  epic names are `VarChar(80)` (three names were truncated at word
+  boundaries), and task relations are bilateral/replace-semantics.
+- Verification pass confirmed the board matches the plan: columns, ordering,
+  labels, epic membership, descriptions, attachment links, and the full
+  relation closure.
+- `tasks/backlog.md` is replaced by this migration notice; Nexus Dash is now
+  the source of truth for backlog tracking.
+
 # 2026-08-30 - TASK-407 public privacy policy implementation
 
 - Audited the runtime before drafting disclosures: social identity connections
