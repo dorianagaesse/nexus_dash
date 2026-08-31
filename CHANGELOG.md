@@ -8,6 +8,14 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.40.0 - 2026-08-31
+
+- Agent task API responses now include a canonical `labels` string array on
+  every task (list, create, and update) while keeping the legacy `label` and
+  `labelsJson` fields as deprecated compatibility output.
+- The OpenAPI contract documents `labels` in `TaskRecord` and
+  `TaskUpdateResponse` and marks the legacy label fields deprecated.
+
 ## v0.39.0 - 2026-08-31
 
 - Agent credential creation now offers one-click scope presets with the

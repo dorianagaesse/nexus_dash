@@ -240,6 +240,9 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     title: "List tasks",
     description: "List project tasks visible to the scoped credential.",
     requiredScopes: ["task:read"],
+    notes: [
+      "Every task includes a canonical labels: string[] field. The legacy label and labelsJson fields remain for compatibility and are deprecated.",
+    ],
   },
   {
     tag: "Tasks",
@@ -252,6 +255,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     notes: [
       "Canonical agent format is application/json; multipart/form-data remains supported for browser-oriented flows.",
       "deadlineDate uses YYYY-MM-DD when provided.",
+      "Provide labels as a string array. Task responses return the canonical labels field.",
       "Use attachmentLinks as an array of { name, url } objects.",
       "Use the direct-upload attachment routes for binary files and images.",
     ],
@@ -264,7 +268,10 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "Update task metadata, rich text content, labels, and relations.",
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
-    notes: ["Set deadlineDate to null or an empty string to clear the deadline."],
+    notes: [
+      "Set deadlineDate to null or an empty string to clear the deadline.",
+      "Send labels as a string array to replace the full label set; the legacy singular label field remains accepted for compatibility.",
+    ],
   },
   {
     tag: "Tasks",
@@ -1444,6 +1451,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             "position",
             "label",
             "labelsJson",
+            "labels",
             "createdAt",
             "updatedAt",
             "epic",
@@ -1472,8 +1480,24 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               enum: TASK_STATUSES,
             },
             position: { type: "integer" },
-            label: { type: ["string", "null"] },
-            labelsJson: { type: ["string", "null"] },
+            label: {
+              type: ["string", "null"],
+              deprecated: true,
+              description:
+                "Legacy first-label value kept for compatibility. Use labels instead.",
+            },
+            labelsJson: {
+              type: ["string", "null"],
+              deprecated: true,
+              description:
+                "Legacy JSON-encoded label array kept for compatibility. Use labels instead.",
+            },
+            labels: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "Canonical label list derived from labelsJson with the legacy label fallback. Empty when the task has no labels.",
+            },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
             epic: {
@@ -1598,6 +1622,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "title",
                 "label",
                 "labelsJson",
+                "labels",
                 "description",
                 "deadlineDate",
                 "commentCount",
@@ -1621,8 +1646,24 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                   pattern: "^ND-[1-9][0-9]*$",
                 },
                 title: { type: "string" },
-                label: { type: ["string", "null"] },
-                labelsJson: { type: ["string", "null"] },
+                label: {
+                  type: ["string", "null"],
+                  deprecated: true,
+                  description:
+                    "Legacy first-label value kept for compatibility. Use labels instead.",
+                },
+                labelsJson: {
+                  type: ["string", "null"],
+                  deprecated: true,
+                  description:
+                    "Legacy JSON-encoded label array kept for compatibility. Use labels instead.",
+                },
+                labels: {
+                  type: "array",
+                  items: { type: "string" },
+                  description:
+                    "Canonical label list derived from labelsJson with the legacy label fallback. Empty when the task has no labels.",
+                },
                 description: { type: ["string", "null"] },
                 deadlineDate: { type: ["string", "null"], format: "date" },
                 commentCount: { type: "integer" },

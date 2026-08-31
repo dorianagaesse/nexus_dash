@@ -259,6 +259,7 @@ describe("agent project routes", () => {
           position: 1,
           label: null,
           labelsJson: '["docs"]',
+          labels: ["docs"],
           createdAt: "2026-04-03T09:00:00.000Z",
           updatedAt: "2026-04-03T10:00:00.000Z",
           epic: null,

@@ -9,6 +9,7 @@ import {
 import { mapTaskEpicSummary, type TaskEpicSummary } from "@/lib/epic";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import {
+  getTaskLabelsFromStorage,
   normalizeTaskLabels,
   parseTaskLabelsJson,
   serializeTaskLabels,
@@ -101,6 +102,7 @@ interface UpdatedTaskPayload {
   title: string;
   label: string | null;
   labelsJson: string | null;
+  labels: string[];
   description: string | null;
   deadlineDate: string | null;
   commentCount: number;
@@ -320,6 +322,7 @@ async function loadTaskMutationPayload(
     title: task.title,
     label: task.label,
     labelsJson: task.labelsJson,
+    labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
     description: task.description,
     deadlineDate: formatTaskDeadlineDate(task.deadlineAt),
     commentCount: task._count.comments,
