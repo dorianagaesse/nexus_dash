@@ -72,8 +72,10 @@ describe("agent-onboarding contract", () => {
     expect(updateResponse.required).toEqual(["task"]);
     expect(updateResponse.properties.task.$ref).toBe(
       "#/components/schemas/TaskRecord"
+    );
+  });
 
-test("documents true partial PATCH semantics for task updates", () => {
+  test("documents true partial PATCH semantics for task updates", () => {
     const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
     const updateRequest = document.components.schemas.TaskUpdateRequest;
 
