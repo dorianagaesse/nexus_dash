@@ -31,6 +31,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   the `Dependencies:` (relations carry it) and `Section:` (the kanban lane
   carries it) lines, and epic descriptions were rewritten as plain text
   because the epic panel does not render rich-text markup.
+- Cleanup: removed the old backlog-section labels (Active Runtime
+  Remediation, Execution Queue, External UX Feedback, Codex Session
+  Feedback, Collaboration Refinement, Deferred) as redundant; the board now
+  carries only work-type labels plus P0/P1/P2 priority labels.
 - `tasks/backlog.md` is replaced by this migration notice; Nexus Dash is now
   the source of truth for backlog tracking.
 

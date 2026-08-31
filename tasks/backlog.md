@@ -17,15 +17,13 @@ status tracking, and task relationships now happen in the Nexus Dash kanban.
 - **Dependencies**: each entry's `Dependencies:` list became task relations.
   Nexus Dash relations are bilateral, so each dependency edge is visible from
   both tasks.
-- **Sections**: the old backlog section groupings became task labels
-  (`Active Runtime Remediation`, `Execution Queue`, `External UX Feedback`,
-  `Codex Session Feedback`, `Collaboration Refinement` with `P0/P1/P2`
-  priority labels, `Deferred`).
-- **Work types**: every task carries a work-type label (`feature`, `fix`,
+- **Labels**: every task carries a work-type label (`feature`, `fix`,
   `docs`, `refactor`, `chore`) matching the repository branch-prefix
-  taxonomy. Delivered tasks use the prefix of their merged PR branch; the
-  rest were classified by content. TASK-372 has no work type pending scope
-  clarification.
+  taxonomy — delivered tasks use the prefix of their merged PR branch, the
+  rest were classified by content (TASK-372 has no work type pending scope
+  clarification). Collaboration-program tasks additionally carry `P0`/`P1`/
+  `P2` priority labels. The old backlog section names were initially imported
+  as labels and later removed as redundant.
 - **Briefs/reports**: every `Brief:` / `Report:` file referenced in the
   backlog was attached to its task as a GitHub raw link.
 - **Task descriptions**: each task description carries the original backlog
