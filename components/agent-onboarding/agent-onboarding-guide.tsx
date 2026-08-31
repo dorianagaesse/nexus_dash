@@ -189,6 +189,8 @@ export function AgentOnboardingGuide({
             </div>
             <CardDescription>
               Keep credentials narrow. Delete scopes stay separate from read and write.
+              The project credential form offers one-click presets; the recommended
+              preset grants read + write without any delete scope.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">

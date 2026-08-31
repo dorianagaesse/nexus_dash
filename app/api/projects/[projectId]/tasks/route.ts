@@ -269,6 +269,9 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
   };
   const task = resultData.task ?? null;
 
+  // Defensive legacy fallback: the service contract always returns the full
+  // created task, so this branch is unreachable in practice and kept only so
+  // a payload-shaped regression still yields a usable taskId.
   if (!task) {
     const version = await recordProjectActivityEventVersion({
       actorUserId,

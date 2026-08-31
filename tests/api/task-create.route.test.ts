@@ -158,7 +158,7 @@ describe("GET /api/projects/:projectId/tasks", () => {
     ]);
 
     const response = await GET(
-      new NextRequest("http://localhost/api/projects/p1/tasks"),
+      new Request("http://localhost/api/projects/p1/tasks") as never,
       taskRouteParams("p1")
     );
     const payload = (await response.json()) as {
@@ -258,7 +258,43 @@ describe("POST /api/projects/:projectId/tasks", () => {
   test("creates task from multipart form payload", async () => {
     projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
       ok: true,
-      data: { id: "task-created" },
+      data: {
+        task: {
+          id: "task-created",
+          reference: "ND-1",
+          title: "New Task",
+          label: null,
+          labelsJson: null,
+          labels: [],
+          description: "Description",
+          deadlineDate: "2026-04-24",
+          commentCount: 0,
+          blockedNote: null,
+          status: "Backlog",
+          position: 0,
+          completedAt: null,
+          archivedAt: null,
+          epic: null,
+          assignee: null,
+          createdBy: {
+            id: "test-user",
+            displayName: "reviewer",
+            usernameTag: null,
+            avatarSeed: "test-user",
+          },
+          updatedBy: {
+            id: "test-user",
+            displayName: "reviewer",
+            usernameTag: null,
+            avatarSeed: "test-user",
+          },
+          createdAt: "2026-04-24T10:00:00.000Z",
+          updatedAt: "2026-04-24T10:00:00.000Z",
+          relatedTasks: [],
+          blockedFollowUps: [],
+          attachments: [],
+        },
+      },
     });
 
     const formData = new FormData();
@@ -286,7 +322,16 @@ describe("POST /api/projects/:projectId/tasks", () => {
     const response = await POST(request as never, taskRouteParams("p1"));
 
     expect(response.status).toBe(201);
-    await expect(readJson(response)).resolves.toEqual({ taskId: "task-created" });
+    const payload = await readJson(response);
+    expect(payload.taskId).toBe("task-created");
+    expect(payload.task).toMatchObject({
+      id: "task-created",
+      reference: "ND-1",
+      title: "New Task",
+      labels: [],
+      completedAt: null,
+      attachments: [],
+    });
     expect(projectTaskServiceMock.createTaskForProject).toHaveBeenCalledTimes(1);
 
     const call = projectTaskServiceMock.createTaskForProject.mock.calls[0][0];
@@ -309,7 +354,43 @@ describe("POST /api/projects/:projectId/tasks", () => {
   test("creates task from json payload for agent-first callers", async () => {
     projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
       ok: true,
-      data: { id: "task-json" },
+      data: {
+        task: {
+          id: "task-json",
+          reference: "ND-2",
+          title: "Draft API smoke test",
+          label: "agent",
+          labelsJson: '["agent","qa"]',
+          labels: ["agent", "qa"],
+          description: "<p>Validate the agent route.</p>",
+          deadlineDate: "2026-04-25",
+          commentCount: 0,
+          blockedNote: null,
+          status: "Backlog",
+          position: 0,
+          completedAt: null,
+          archivedAt: null,
+          epic: null,
+          assignee: null,
+          createdBy: {
+            id: "test-user",
+            displayName: "reviewer",
+            usernameTag: null,
+            avatarSeed: "test-user",
+          },
+          updatedBy: {
+            id: "test-user",
+            displayName: "reviewer",
+            usernameTag: null,
+            avatarSeed: "test-user",
+          },
+          createdAt: "2026-04-25T10:00:00.000Z",
+          updatedAt: "2026-04-25T10:00:00.000Z",
+          relatedTasks: [],
+          blockedFollowUps: [],
+          attachments: [],
+        },
+      },
     });
 
     const request = new Request("http://localhost/api/projects/p1/tasks", {
@@ -332,7 +413,14 @@ describe("POST /api/projects/:projectId/tasks", () => {
     const response = await POST(request as never, taskRouteParams("p1"));
 
     expect(response.status).toBe(201);
-    await expect(readJson(response)).resolves.toEqual({ taskId: "task-json" });
+    const payload = await readJson(response);
+    expect(payload.taskId).toBe("task-json");
+    expect(payload.task).toMatchObject({
+      id: "task-json",
+      reference: "ND-2",
+      labels: ["agent", "qa"],
+      completedAt: null,
+    });
     expect(projectTaskServiceMock.createTaskForProject).toHaveBeenCalledWith({
       actorUserId: "test-user",
       projectId: "p1",
