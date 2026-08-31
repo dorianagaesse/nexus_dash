@@ -270,7 +270,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requestContentType: "application/json",
     notes: [
       "True partial update: only the fields present in the request body change; omitted fields are preserved.",
-      "Set deadlineDate to null or an empty string to clear the deadline.",
+      "Set deadlineDate to null to clear the deadline.",
       "Send labels as a string array to replace the full label set; an empty array clears all labels. The legacy singular label field remains accepted for compatibility.",
       "Set epicId or assigneeUserId to null to clear the epic link or assignment, and relatedTaskIds to an empty array to remove all relations.",
     ],
@@ -1618,7 +1618,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               type: ["string", "null"],
               format: "date",
               description:
-                "Replace the deadline using YYYY-MM-DD. Omit to preserve; null or an empty string clears the deadline.",
+                "Replace the deadline using YYYY-MM-DD. Omit to preserve; null clears the deadline.",
             },
             epicId: {
               type: ["string", "null"],
