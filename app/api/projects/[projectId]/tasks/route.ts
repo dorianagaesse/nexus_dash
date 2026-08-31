@@ -84,14 +84,29 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
     );
   }
 
+  const epicIdFilter = request.nextUrl.searchParams.get("epicId")?.trim() || null;
+  const labelFilter = request.nextUrl.searchParams.get("label")?.trim() || null;
+  const filters =
+    epicIdFilter || labelFilter
+      ? {
+          ...(epicIdFilter ? { epicId: epicIdFilter } : {}),
+          ...(labelFilter ? { label: labelFilter } : {}),
+        }
+      : undefined;
+
   const tasks = await listProjectKanbanTasks(
     params.projectId,
     principalResult.principal.actorUserId,
-    agentAccess
+    agentAccess,
+    filters
   );
 
   return NextResponse.json(
     {
+      filters: {
+        epicId: epicIdFilter,
+        label: labelFilter,
+      },
       tasks: tasks.map((task) => ({
         id: task.id,
         reference: formatTaskReference(task.referenceNumber),

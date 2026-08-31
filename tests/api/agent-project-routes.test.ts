@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { NextRequest } from "next/server";
 
 const apiGuardMock = vi.hoisted(() => ({
   getAgentProjectAccessContext: vi.fn(),
@@ -239,12 +240,13 @@ describe("agent project routes", () => {
     ]);
 
     const response = await getTasks(
-      new Request("http://localhost/api/projects/project-1/tasks") as never,
+      new NextRequest("http://localhost/api/projects/project-1/tasks"),
       projectRouteParams("project-1")
     );
 
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({
+      filters: { epicId: null, label: null },
       tasks: [
         {
           id: "task-1",
@@ -308,7 +310,7 @@ describe("agent project routes", () => {
     });
 
     const response = await getTasks(
-      new Request("http://localhost/api/projects/project-1/tasks") as never,
+      new NextRequest("http://localhost/api/projects/project-1/tasks"),
       projectRouteParams("project-1")
     );
 

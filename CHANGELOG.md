@@ -8,6 +8,13 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.43.0 - 2026-08-31
+
+- Agent task listing now supports server-side `epicId` and `label` query
+  filters that compose with AND, with case-insensitive whole-label matching
+  across legacy and JSON label storage, an empty list for unknown epics, and
+  an echoed `filters` object in the response.
+
 ## v0.42.0 - 2026-08-31
 
 - The agent OpenAPI contract now documents the complete task creation

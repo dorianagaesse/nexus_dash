@@ -3,6 +3,28 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-30 - TASK-377 server-side epic and label filters
+
+- `GET /api/projects/{projectId}/tasks` now accepts optional `epicId` and
+  `label` query parameters. The service composes them with AND: epicId is an
+  exact match (unknown epic yields an empty list) and label matches
+  case-insensitively on whole label values via legacy singular-label equals
+  plus quoted-JSON containment on `labelsJson`, so substrings like "Bug" in
+  "Bugs" never match.
+- The response echoes the effective filters in a `filters` object (nulls
+  when absent), documented in `TaskListResponse`. Dashboard callers keep the
+  unchanged no-filter behavior.
+- Route tests now construct `NextRequest` so `nextUrl.searchParams` is
+  populated; service tests assert the composed `where` clauses for
+  epic-only, label-only, combined, and empty-value cases; contract tests pin
+  the query parameters and the `filters` response schema.
+- Validation passed: lint, RLS inventory, 1064 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production build, release policy `0.42.0` to `0.43.0` (retargeted to `main` after TASK-373/375/376/379 merged; merged `origin/main` at v0.42.0).
+- Second-review note captured in a code comment at the `labelsJson`
+  containment site: quoted-JSON containment can false-positive when a stored
+  label contains an escaped quote; revisit with the TASK-331 vocabulary work.
+
 # 2026-08-30 - TASK-376 complete create response contract
 
 - Aligned the runtime mutation payload with the `TaskRecord` schema by adding

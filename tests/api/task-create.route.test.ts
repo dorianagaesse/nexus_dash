@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { NextRequest } from "next/server";
 
 const apiGuardMock = vi.hoisted(() => ({
   getAgentProjectAccessContext: vi.fn(),
@@ -100,7 +101,7 @@ describe("GET /api/projects/:projectId/tasks", () => {
     ]);
 
     const response = await GET(
-      new Request("http://localhost/api/projects/p1/tasks") as never,
+      new NextRequest("http://localhost/api/projects/p1/tasks"),
       taskRouteParams("p1")
     );
     const payload = (await response.json()) as {
@@ -157,7 +158,7 @@ describe("GET /api/projects/:projectId/tasks", () => {
     ]);
 
     const response = await GET(
-      new Request("http://localhost/api/projects/p1/tasks") as never,
+      new NextRequest("http://localhost/api/projects/p1/tasks"),
       taskRouteParams("p1")
     );
     const payload = (await response.json()) as {
@@ -172,6 +173,54 @@ describe("GET /api/projects/:projectId/tasks", () => {
     ]);
     expect(payload.tasks[1]?.label).toBe("frontend");
     expect(payload.tasks[1]?.labelsJson).toBe('["frontend","qa"]');
+  });
+
+  test("forwards epicId and label filters and echoes them in the response", async () => {
+    projectServiceMock.listProjectKanbanTasks.mockResolvedValueOnce([]);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/projects/p1/tasks?epicId=epic-1&label=Docs"
+      ),
+      taskRouteParams("p1")
+    );
+    const payload = (await response.json()) as {
+      filters: { epicId: string | null; label: string | null };
+      tasks: unknown[];
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.tasks).toEqual([]);
+    expect(payload.filters).toEqual({ epicId: "epic-1", label: "Docs" });
+    expect(projectServiceMock.listProjectKanbanTasks).toHaveBeenCalledWith(
+      "p1",
+      "test-user",
+      undefined,
+      { epicId: "epic-1", label: "Docs" }
+    );
+  });
+
+  test("treats empty filter query values as absent", async () => {
+    projectServiceMock.listProjectKanbanTasks.mockResolvedValueOnce([]);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/projects/p1/tasks?epicId=&label="
+      ),
+      taskRouteParams("p1")
+    );
+    const payload = (await response.json()) as {
+      filters: { epicId: string | null; label: string | null };
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.filters).toEqual({ epicId: null, label: null });
+    expect(projectServiceMock.listProjectKanbanTasks).toHaveBeenCalledWith(
+      "p1",
+      "test-user",
+      undefined,
+      undefined
+    );
   });
 });
 

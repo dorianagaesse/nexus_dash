@@ -242,6 +242,8 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requiredScopes: ["task:read"],
     notes: [
       "Every task includes a canonical labels: string[] field. The legacy label and labelsJson fields remain for compatibility and are deprecated.",
+      "Optional epicId and label query parameters filter the list server-side. They compose with AND; an unknown epicId returns an empty list. Label matching is case-insensitive on whole label values.",
+      "The response echoes the effective filters in the filters object.",
     ],
   },
   {
@@ -1543,12 +1545,28 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         TaskListResponse: {
           type: "object",
-          required: ["tasks"],
+          required: ["tasks", "filters"],
           properties: {
             tasks: {
               type: "array",
               items: {
                 $ref: "#/components/schemas/TaskRecord",
+              },
+            },
+            filters: {
+              type: "object",
+              required: ["epicId", "label"],
+              properties: {
+                epicId: {
+                  type: ["string", "null"],
+                  description:
+                    "The effective epic filter applied to this response, or null when absent.",
+                },
+                label: {
+                  type: ["string", "null"],
+                  description:
+                    "The effective label filter applied to this response, or null when absent.",
+                },
               },
             },
           },
@@ -2080,7 +2098,25 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         get: {
           ...buildOperationMetadata("GET", "/api/projects/{projectId}/tasks"),
           security: [{ BearerAuth: [] }],
-          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            {
+              name: "epicId",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description:
+                "Return only tasks linked to this epic. An unknown epicId yields an empty list.",
+            },
+            {
+              name: "label",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description:
+                "Return only tasks carrying this label. Matching is case-insensitive on whole label values, never substrings. When both filters are present, they compose with AND.",
+            },
+          ],
           responses: {
             200: {
               description: "Task list returned",
