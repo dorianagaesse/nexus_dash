@@ -8,6 +8,14 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.42.0 - 2026-08-31
+
+- The agent OpenAPI contract now documents the complete task creation
+  response: `TaskCreateResponse` includes both `taskId` and the full created
+  task, and `TaskUpdateResponse` references the shared `TaskRecord` schema.
+- Task create and update responses now include `completedAt`, completing the
+  runtime payload alignment with `TaskRecord`.
+
 ## v0.41.0 - 2026-08-31
 
 - The agent OpenAPI contract now documents true partial PATCH semantics for
@@ -50,7 +58,8 @@ SHA, deployment URL, and workflow run belong in release evidence.
   the Google API Services User Data Policy Limited Use requirements.
 - Linked the policy from the public sign-in homepage and added canonical page
   metadata plus responsive Playwright coverage.
-08-25
+
+## v0.37.2 - 2026-08-25
 
 - Restored the registered stable Vercel Preview URL for GitHub and Google OAuth
   while retaining immutable deployment, revision, environment, and database

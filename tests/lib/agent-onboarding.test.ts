@@ -51,12 +51,28 @@ describe("agent-onboarding contract", () => {
     expect(taskRecord.properties.label.deprecated).toBe(true);
     expect(taskRecord.properties.labelsJson.deprecated).toBe(true);
 
-    const updateTaskSchema = updateResponse.properties.task;
-    expect(updateTaskSchema.required).toContain("labels");
-    expect(updateTaskSchema.properties.labels.type).toBe("array");
-    expect(updateTaskSchema.properties.labels.items).toEqual({ type: "string" });
-    expect(updateTaskSchema.properties.label.deprecated).toBe(true);
-    expect(updateTaskSchema.properties.labelsJson.deprecated).toBe(true);
+    expect(updateResponse.properties.task.$ref).toBe(
+      "#/components/schemas/TaskRecord"
+    );
+  });
+
+  test("documents the complete task create response contract", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+    const createResponse = document.components.schemas.TaskCreateResponse;
+    const updateResponse = document.components.schemas.TaskUpdateResponse;
+
+    expect(createResponse.required).toEqual(["taskId", "task"]);
+    expect(createResponse.properties.task.$ref).toBe(
+      "#/components/schemas/TaskRecord"
+    );
+    expect(createResponse.properties.task.description).toContain(
+      "follow-up read"
+    );
+
+    expect(updateResponse.required).toEqual(["task"]);
+    expect(updateResponse.properties.task.$ref).toBe(
+      "#/components/schemas/TaskRecord"
+    );
   });
 
   test("documents true partial PATCH semantics for task updates", () => {

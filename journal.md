@@ -3,6 +3,27 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-30 - TASK-376 complete create response contract
+
+- Aligned the runtime mutation payload with the `TaskRecord` schema by adding
+  `completedAt` to `UpdatedTaskPayload` and `loadTaskMutationPayload`, so
+  both PATCH and create responses now carry every field the contract
+  requires (labels arrived with TASK-373 on this base branch).
+- `TaskCreateResponse` now documents `required: ["taskId", "task"]` with the
+  task referencing `TaskRecord`, and the previously duplicated inline
+  `TaskUpdateResponse` task schema is consolidated into a `$ref` to
+  `TaskRecord` so the two can no longer drift apart.
+- Route tests that pinned the legacy `{ taskId }`-only create responses now
+  mock the canonical `{ task }` service shape, and the three full-payload
+  task-update assertions pin `completedAt` explicitly. The runtime defensive
+  `{ taskId }` fallback branch stays with a clarifying comment.
+- Validation passed: lint, RLS inventory, 1058 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production build, release policy `0.41.0` to `0.42.0` (retargeted to `main` after TASK-373/375/379 merged; merged `origin/main` at v0.41.0).
+- Merge notes: retargeted to `main`; the duplicated inline `TaskUpdateResponse`
+  schema was already consolidated into a `$ref` on the base branch line, and the
+  CHANGELOG `v0.37.2` heading damaged during the 375 merge was restored here.
+
 # 2026-08-30 - TASK-375 true partial PATCH contract
 
 - Removed the incorrect `required: ["title"]` declaration from the

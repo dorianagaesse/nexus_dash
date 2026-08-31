@@ -109,6 +109,7 @@ interface UpdatedTaskPayload {
   blockedNote: string | null;
   status: string;
   position: number;
+  completedAt: Date | null;
   archivedAt: Date | null;
   epic: TaskEpicSummary | null;
   assignee: TaskPersonSummary | null;
@@ -258,6 +259,7 @@ async function loadTaskMutationPayload(
       blockedNote: true,
       status: true,
       position: true,
+      completedAt: true,
       archivedAt: true,
       createdAt: true,
       updatedAt: true,
@@ -329,6 +331,7 @@ async function loadTaskMutationPayload(
     blockedNote: task.blockedNote,
     status: task.status,
     position: task.position,
+    completedAt: task.completedAt,
     archivedAt: task.archivedAt,
     epic: mapTaskEpicSummary(task.epic),
     assignee: task.assigneeUser ? mapTaskPersonSummary(task.assigneeUser) : null,

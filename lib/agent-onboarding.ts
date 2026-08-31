@@ -258,6 +258,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "Provide labels as a string array. Task responses return the canonical labels field.",
       "Use attachmentLinks as an array of { name, url } objects.",
       "Use the direct-upload attachment routes for binary files and images.",
+      "201 responses include taskId and the complete created task covering labels, status, ordering position, epic, assignment, timestamps, attachments, and relations, so no follow-up read is needed.",
     ],
   },
   {
@@ -1583,9 +1584,14 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         TaskCreateResponse: {
           type: "object",
-          required: ["taskId"],
+          required: ["taskId", "task"],
           properties: {
             taskId: { type: "string" },
+            task: {
+              $ref: "#/components/schemas/TaskRecord",
+              description:
+                "The complete created task including canonical labels, status, ordering position, epic, assignment, timestamps, attachments, and relations, so generated clients do not need a follow-up read.",
+            },
           },
         },
         TaskUpdateRequest: {
@@ -1647,98 +1653,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           required: ["task"],
           properties: {
             task: {
-              type: "object",
-              required: [
-                "id",
-                "reference",
-                "title",
-                "label",
-                "labelsJson",
-                "labels",
-                "description",
-                "deadlineDate",
-                "commentCount",
-                "blockedNote",
-                "status",
-                "position",
-                "archivedAt",
-                "epic",
-                "assignee",
-                "createdBy",
-                "updatedBy",
-                "createdAt",
-                "updatedAt",
-                "relatedTasks",
-                "blockedFollowUps",
-              ],
-              properties: {
-                id: { type: "string" },
-                reference: {
-                  type: "string",
-                  pattern: "^ND-[1-9][0-9]*$",
-                },
-                title: { type: "string" },
-                label: {
-                  type: ["string", "null"],
-                  deprecated: true,
-                  description:
-                    "Legacy first-label value kept for compatibility. Use labels instead.",
-                },
-                labelsJson: {
-                  type: ["string", "null"],
-                  deprecated: true,
-                  description:
-                    "Legacy JSON-encoded label array kept for compatibility. Use labels instead.",
-                },
-                labels: {
-                  type: "array",
-                  items: { type: "string" },
-                  description:
-                    "Canonical label list derived from labelsJson with the legacy label fallback. Empty when the task has no labels.",
-                },
-                description: { type: ["string", "null"] },
-                deadlineDate: { type: ["string", "null"], format: "date" },
-                commentCount: { type: "integer" },
-                blockedNote: { type: ["string", "null"] },
-                status: {
-                  type: "string",
-                  enum: TASK_STATUSES,
-                },
-                position: { type: "integer" },
-                archivedAt: { type: ["string", "null"], format: "date-time" },
-                epic: {
-                  anyOf: [
-                    { $ref: "#/components/schemas/TaskEpicSummary" },
-                    { type: "null" },
-                  ],
-                },
-                assignee: {
-                  anyOf: [
-                    { $ref: "#/components/schemas/TaskCommentAuthor" },
-                    { type: "null" },
-                  ],
-                },
-                createdBy: {
-                  $ref: "#/components/schemas/TaskCommentAuthor",
-                },
-                updatedBy: {
-                  $ref: "#/components/schemas/TaskCommentAuthor",
-                },
-                createdAt: { type: "string", format: "date-time" },
-                updatedAt: { type: "string", format: "date-time" },
-                relatedTasks: {
-                  type: "array",
-                  items: {
-                    $ref: "#/components/schemas/RelatedTaskSummary",
-                  },
-                },
-                blockedFollowUps: {
-                  type: "array",
-                  items: {
-                    $ref: "#/components/schemas/TaskBlockedFollowUp",
-                  },
-                },
-              },
+              $ref: "#/components/schemas/TaskRecord",
             },
           },
         },
