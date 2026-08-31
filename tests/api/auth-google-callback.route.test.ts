@@ -268,7 +268,7 @@ describe("GET /api/auth/callback/google", () => {
       "http://localhost/projects/p1?error=calendar-auth-failed"
     );
     expect(
-      credentialServiceMock.upsertGoogleCalendarCredentialTokens
+      credentialServiceMock.connectGoogleCalendarAccount
     ).not.toHaveBeenCalled();
   });
 

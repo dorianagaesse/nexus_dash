@@ -149,8 +149,17 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  let tokenResponse: Awaited<ReturnType<typeof exchangeAuthorizationCodeForTokens>>;
   try {
-    const tokenResponse = await exchangeAuthorizationCodeForTokens(code, redirectUri);
+    tokenResponse = await exchangeAuthorizationCodeForTokens(code, redirectUri);
+  } catch (error) {
+    logServerError("GET /api/auth/callback/google.tokenExchangeFailed", error);
+    return buildRedirectResponse(request, returnToPath, {
+      error: "calendar-auth-failed",
+    });
+  }
+
+  try {
     const identity = await googleCalendarProvider.identify(tokenResponse.accessToken);
     await connectGoogleCalendarAccount({
       userId: actorUserId,
@@ -164,13 +173,13 @@ export async function GET(request: NextRequest) {
       status: "calendar-connected",
     });
   } catch (error) {
-    logServerError("GET /api/auth/callback/google.tokenExchangeFailed", error);
+    logServerError("GET /api/auth/callback/google.credentialPersistenceFailed", error);
     return buildRedirectResponse(request, returnToPath, {
       error:
         error instanceof Error &&
         error.message === "calendar-reconnect-account-mismatch"
           ? "calendar-reconnect-account-mismatch"
-          : "calendar-auth-failed",
+          : "calendar-storage-failed",
     });
   }
 }
