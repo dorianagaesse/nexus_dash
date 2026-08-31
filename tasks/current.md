@@ -32,6 +32,23 @@ Preview validation and required GitHub checks remain pending.
   setup cases timed out before their target assertions, then both complete
   unchanged specs passed on immediate rerun (9 passed).
 
+## Preview And PR Evidence
+
+- Ready-for-review PR #470 targets `main` from
+  `feature/task-384-kanban-epic-filter`.
+- Implementation commit:
+  `6e6b8899b2346b57bb8cb2ece8b2284104a8a196`.
+- Manual Preview workflow run `33386236495` explicitly checked out the feature
+  branch at `6e6b889`, deployed
+  `https://nexus-dash-5j1g5oanl-dorian-agaesses-projects.vercel.app`, and
+  verified matching revision/environment metadata, database readiness, and the
+  stable Preview auth alias.
+- All three TASK-384 Playwright tests plus the existing mobile Kanban
+  status-dock smoke passed against that immutable Preview URL (4 passed).
+- Required GitHub checks on the final documentation commit remain pending.
+  Copilot review is intentionally deferred to the user's later DeepSeek review
+  because Copilot credits are unavailable.
+
 ## Objective
 
 Let project collaborators focus the Kanban board on tasks linked to one or more

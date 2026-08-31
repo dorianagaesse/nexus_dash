@@ -48,6 +48,15 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `v0.38.0` base. This intentionally matches the still-open TASK-382 branch
   version and will need ordinary version/changelog reconciliation if both PRs
   are later integrated into `main`.
+- Opened ready-for-review PR #470 with implementation commit `6e6b889`; no
+  force-push was used.
+- Preview workflow run `33386236495` explicitly fetched and checked out
+  `feature/task-384-kanban-epic-filter` at `6e6b889`, then verified the same
+  deployed revision, Preview environment, database readiness, and stable auth
+  alias. Its immutable URL is
+  `https://nexus-dash-5j1g5oanl-dorian-agaesses-projects.vercel.app`.
+- The three dedicated TASK-384 Playwright scenarios and the existing mobile
+  Kanban status-dock smoke all passed against that immutable Preview URL (4/4).
 
 # 2026-08-30 - TASK-407 public privacy policy implementation
 
