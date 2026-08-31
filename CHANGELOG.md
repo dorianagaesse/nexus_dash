@@ -8,6 +8,15 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.41.0 - 2026-08-31
+
+- The agent OpenAPI contract now documents true partial PATCH semantics for
+  task updates: `TaskUpdateRequest` declares no required fields, every field
+  describes its omit-vs-null behavior, and the legacy singular `label` input
+  is marked deprecated in favor of `labels`.
+- `null` is now the sole documented clear value for `deadlineDate`, matching
+  the `epicId` and `assigneeUserId` contract pattern.
+
 ## v0.40.0 - 2026-08-31
 
 - Agent task API responses now include a canonical `labels` string array on
@@ -41,8 +50,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
   the Google API Services User Data Policy Limited Use requirements.
 - Linked the policy from the public sign-in homepage and added canonical page
   metadata plus responsive Playwright coverage.
-
-## v0.37.2 - 2026-08-25
+08-25
 
 - Restored the registered stable Vercel Preview URL for GitHub and Google OAuth
   while retaining immutable deployment, revision, environment, and database

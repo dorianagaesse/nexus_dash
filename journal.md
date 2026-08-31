@@ -3,6 +3,28 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-30 - TASK-375 true partial PATCH contract
+
+- Removed the incorrect `required: ["title"]` declaration from the
+  `TaskUpdateRequest` OpenAPI schema and documented true partial-update
+  semantics per field: omitted fields are preserved, `deadlineDate` null or
+  empty clears, an empty `labels` array clears all labels, `epicId` and
+  `assigneeUserId` null clear, and an empty `relatedTaskIds` array removes
+  all relations. The legacy singular `label` input is marked deprecated in
+  favor of `labels`.
+- The PATCH onboarding notes now lead with the partial-update behavior. No
+  runtime changes: the handler already applies presence-based updates,
+  pinned by the existing task-update route tests.
+- Added contract assertions in `tests/lib/agent-onboarding.test.ts`
+  covering the missing required list, deprecation marker, and per-field
+  semantics descriptions so schema drift fails fast.
+- Validation passed: lint, RLS inventory, 1058 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production build, release policy `0.40.0` to `0.41.0` (retargeted to `main` after TASK-373 and TASK-379 merged; merged `origin/main` at v0.40.0).
+- Second-review fix: `null` is now the sole documented `deadlineDate` clear
+  value; the previous "empty string clears" wording was rejected by
+  format-validating clients. Runtime leniency is unchanged.
+
 # 2026-08-31 - Backlog migration to Nexus Dash
 
 - Migrated the full `tasks/backlog.md` content into the Nexus Dash project

@@ -269,8 +269,10 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
     notes: [
-      "Set deadlineDate to null or an empty string to clear the deadline.",
-      "Send labels as a string array to replace the full label set; the legacy singular label field remains accepted for compatibility.",
+      "True partial update: only the fields present in the request body change; omitted fields are preserved.",
+      "Set deadlineDate to null to clear the deadline.",
+      "Send labels as a string array to replace the full label set; an empty array clears all labels. The legacy singular label field remains accepted for compatibility.",
+      "Set epicId or assigneeUserId to null to clear the epic link or assignment, and relatedTaskIds to an empty array to remove all relations.",
     ],
   },
   {
@@ -1588,25 +1590,55 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         TaskUpdateRequest: {
           type: "object",
-          required: ["title"],
+          description:
+            "True partial update: every field is optional and only the fields present in the request body change. Omitted fields are preserved.",
           properties: {
-            title: { type: "string" },
-            label: { type: "string" },
+            title: {
+              type: "string",
+              description:
+                "Replace the title. When provided it must be at least 2 characters.",
+            },
+            label: {
+              type: "string",
+              deprecated: true,
+              description:
+                "Legacy singular label input. Prefer labels; when provided it replaces the full label set.",
+            },
             labels: {
               type: "array",
               items: { type: "string" },
+              description:
+                "Replace the full label set with this array. An empty array clears all labels.",
             },
-            description: { type: "string" },
+            description: {
+              type: "string",
+              description: "Replace the rich-text description.",
+            },
             deadlineDate: {
               type: ["string", "null"],
               format: "date",
+              description:
+                "Replace the deadline using YYYY-MM-DD. Omit to preserve; null clears the deadline.",
             },
-            epicId: { type: ["string", "null"] },
-            assigneeUserId: { type: ["string", "null"] },
-            blockedFollowUpEntry: { type: "string" },
+            epicId: {
+              type: ["string", "null"],
+              description: "Replace the epic link. Omit to preserve; null clears it.",
+            },
+            assigneeUserId: {
+              type: ["string", "null"],
+              description:
+                "Replace the assignee. Omit to preserve; null clears the assignment.",
+            },
+            blockedFollowUpEntry: {
+              type: "string",
+              description:
+                "Append an entry to the blocked follow-up timeline when the task is Blocked.",
+            },
             relatedTaskIds: {
               type: "array",
               items: { type: "string" },
+              description:
+                "Replace the related-task set. Omit to preserve; an empty array removes all relations.",
             },
           },
         },
