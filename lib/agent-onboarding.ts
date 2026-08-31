@@ -310,7 +310,27 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "Persist task ordering across board columns and status lanes.",
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
-    notes: [`Use this route to move a task between ${TASK_STATUSES.join(", ")}.`],
+    notes: [
+      `Use this route to move a task between ${TASK_STATUSES.join(", ")}.`,
+      "For a single task, prefer POST /api/projects/{projectId}/tasks/{taskId}/status instead of rewriting the whole board.",
+    ],
+  },
+  {
+    tag: "Tasks",
+    method: "POST",
+    path: "/api/projects/{projectId}/tasks/{taskId}/status",
+    title: "Transition task status",
+    description: "Move one task to another status column without rewriting the whole board.",
+    requiredScopes: ["task:write"],
+    requestContentType: "application/json",
+    notes: [
+      `status accepts ${TASK_STATUSES.join(", ")}.`,
+      "position is a 0-based index inside the destination column. Omit it to append at the end of the destination column, or to keep the current position when the status is unchanged.",
+      "An explicit position is clamped to the column bounds; existing tasks at or after the requested position shift to make room.",
+      "Moving into Done sets completedAt; moving within Done preserves the existing completedAt; moving out of Done clears it.",
+      "Moving a task clears its archivedAt.",
+      "Requests that would not change the task return the current task without writing.",
+    ],
   },
   {
     tag: "Tasks",
@@ -495,7 +515,7 @@ export const AGENT_LIMITATIONS: readonly string[] = [
   "attachmentLinks must be arrays of { name, url } objects. Plain string URL arrays are not the canonical v1 format.",
   "Epic status and progress are automatic. Agents should not try to set them directly.",
   "Roadmap delete scope is separate from roadmap read/write. Grant it only when the agent should remove phases or events.",
-  "Task status changes happen through POST /api/projects/{projectId}/tasks/reorder, not PATCH /api/projects/{projectId}/tasks/{taskId}.",
+  "Change one task's status through POST /api/projects/{projectId}/tasks/{taskId}/status. Use POST /api/projects/{projectId}/tasks/reorder only for full-board ordering, and PATCH /api/projects/{projectId}/tasks/{taskId} never changes status.",
   "Rich HTML is sanitized. Inline <img> content should not be treated as a supported image-delivery path; use attachments instead.",
   "Preview deployments may still be protected by Vercel. If a preview returns Vercel's auth wall, make the preview reachable or use an approved bypass before testing the agent flow.",
 ];
@@ -1768,6 +1788,31 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
+        TaskStatusTransitionRequest: {
+          type: "object",
+          required: ["status"],
+          properties: {
+            status: {
+              type: "string",
+              enum: TASK_STATUSES,
+            },
+            position: {
+              type: "integer",
+              minimum: 0,
+              description:
+                "0-based index inside the destination column. Omit to append at the end of the destination column; when the task stays in its current column, omit to keep its current position.",
+            },
+          },
+        },
+        TaskStatusTransitionResponse: {
+          type: "object",
+          required: ["task"],
+          properties: {
+            task: {
+              $ref: "#/components/schemas/TaskRecord",
+            },
+          },
+        },
         OkResponse: {
           type: "object",
           required: ["ok"],
@@ -2758,6 +2803,42 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "application/json": {
                   schema: {
                     $ref: "#/components/schemas/OkResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/tasks/{taskId}/status": {
+        post: {
+          ...buildOperationMetadata(
+            "POST",
+            "/api/projects/{projectId}/tasks/{taskId}/status"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/TaskId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/TaskStatusTransitionRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Task status updated",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/TaskStatusTransitionResponse",
                   },
                 },
               },

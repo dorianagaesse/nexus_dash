@@ -8,6 +8,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.44.0 - 2026-08-31
+
+- Agent API now supports a focused single-task status transition through
+  `POST /api/projects/{projectId}/tasks/{taskId}/status` with optional
+  destination-column position, deterministic ordering, reorder-compatible
+  `completedAt` semantics, and unarchive-on-move behavior.
+- Full-board reorder stays available for bulk ordering; the OpenAPI contract
+  and onboarding guidance point single-task moves at the new route.
+- Cross-column moves now compact the source lane so later appends cannot collide with existing positions, and the response task carries the updated `completedAt`.
+
+
 ## v0.43.0 - 2026-08-31
 
 - Agent task listing now supports server-side `epicId` and `label` query
