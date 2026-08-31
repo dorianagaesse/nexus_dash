@@ -8,13 +8,39 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.38.0 - 2026-08-30
+## v0.40.0 - 2026-08-31
 
 - Agent task API responses now include a canonical `labels` string array on
   every task (list, create, and update) while keeping the legacy `label` and
   `labelsJson` fields as deprecated compatibility output.
 - The OpenAPI contract documents `labels` in `TaskRecord` and
   `TaskUpdateResponse` and marks the legacy label fields deprecated.
+
+## v0.39.0 - 2026-08-31
+
+- Agent credential creation now offers one-click scope presets with the
+  recommended non-destructive "Read + write (no delete)" preset selected by
+  default, so routine agent missions no longer steer toward task deletion.
+- Onboarding guidance and the hosted smoke-test example no longer grant or
+  exercise `task:delete` for non-destructive task work.
+
+## v0.38.1 - 2026-08-31
+
+- Fixed Google Calendar events created or edited in the project dashboard
+  shifting by the timezone offset: the form now submits explicit ISO instants,
+  so the wall-clock time the user selects is preserved regardless of the
+  server or Google Calendar timezone.
+
+## v0.38.0 - 2026-08-30
+
+- Added a public, unauthenticated NexusDash privacy policy with clear account,
+  workspace, security, service-provider, retention, deletion, and user-choice
+  disclosures.
+- Documented the exact Google Calendar event scope, on-demand event processing,
+  encrypted OAuth token storage, access-removal options, and compliance with
+  the Google API Services User Data Policy Limited Use requirements.
+- Linked the policy from the public sign-in homepage and added canonical page
+  metadata plus responsive Playwright coverage.
 
 ## v0.37.2 - 2026-08-25
 
