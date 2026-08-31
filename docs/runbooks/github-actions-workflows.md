@@ -95,6 +95,12 @@ must remain backward-compatible with the currently live release; use
 expand/contract migrations when removing or renaming data that live code still
 reads.
 
+The same rule applies more broadly to the shared Preview database. Preview
+deploys apply pending migrations and validate the resulting runtime schema, but
+never reset or roll the database back to a selected branch. Feature migrations
+must keep other testable branches compatible; destructive cleanup belongs in a
+later contract migration after dependent branches have advanced.
+
 Rollback path:
 
 - `action=rollback`

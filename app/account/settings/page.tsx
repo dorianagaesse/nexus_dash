@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { AccountSettingsShell } from "@/components/account/account-settings-shell";
 import { AppAboutCard } from "@/components/account/app-about-card";
+import { GoogleCalendarDisconnectControl } from "@/components/account/google-calendar-disconnect-control";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
@@ -19,6 +20,9 @@ type SearchParams = Record<string, string | string[] | undefined>;
 const STATUS_MESSAGES: Record<string, string> = {
   "calendar-updated": "Google Calendar target saved successfully.",
   "calendar-reset": "Google Calendar target reset to primary.",
+  "calendar-disconnected": "Google Calendar disconnected and stored credentials removed.",
+  "calendar-disconnected-revocation-warning":
+    "Google Calendar disconnected locally. Google did not confirm revocation; review NexusDash access in your Google Account permissions.",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -142,6 +146,19 @@ export default async function AccountSettingsPage({
               </Button>
             </div>
           </form>
+
+          {hasCalendarConnection ? (
+            <div className="space-y-3 border-t border-border/60 pt-4">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold">Disconnect this account</h3>
+                <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                  Disconnecting removes NexusDash&apos;s stored Google tokens. It does
+                  not delete events from Google Calendar.
+                </p>
+              </div>
+              <GoogleCalendarDisconnectControl />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
       <AppAboutCard />

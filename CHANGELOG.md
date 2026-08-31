@@ -7,6 +7,35 @@ SHA, deployment URL, and workflow run belong in release evidence.
 ## Unreleased
 
 - Define each release entry before the product-impacting PR is merged.
+- Preview deployment keeps the shared staging schema forward-only, applies
+  checked-in migrations, and rejects runtime-incompatible schemas before
+  publishing the stable alias. Feature migrations must use expand/contract for
+  destructive changes so concurrently testable branches remain compatible.
+- Made least-privilege runtime schema/table grants explicit in migrations and
+  made readiness verify access to an application table instead of only `SELECT 1`.
+- Made the single-connection Calendar service select and mutate one stable
+  credential row by ID instead of depending on a permanent `userId` uniqueness
+  constraint, preparing a backward-compatible TASK-327 expansion.
+
+## v0.46.0 - 2026-08-31
+
+- Made Google Calendar credential reads, refreshes, target updates, and project
+  connection status fail closed for revoked credentials.
+- Added a true authenticated-user disconnect that blocks local use first,
+  attempts Google token revocation, permanently removes stored tokens, and
+  provides a recovery warning when upstream revocation is unconfirmed.
+- Required encrypted Calendar token storage whenever OAuth is configured
+  outside tests and added lazy encryption for legacy plaintext local rows.
+- Added an accessible Settings confirmation flow and repaired the project
+  Calendar summary request by including its project authorization context.
+- Expanded service, API, component, environment, and real PostgreSQL RLS
+  coverage for user-owned Calendar credentials and lifecycle failures.
+- Refused Preview publication when the migrated database no longer contains
+  the tables required by the checked-out Prisma schema, preventing a newer
+  branch's forward-only migration from silently breaking an older Preview.
+- Distinguished Google token-exchange failures from credential persistence and
+  database availability failures so infrastructure drift is no longer reported
+  as invalid OAuth credentials or a reauthorization-required 401.
 
 ## v0.45.0 - 2026-08-31
 
@@ -123,7 +152,6 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Added schema constraints, backfill migration, service/API/component tests, and
   responsive identity presentation across the meeting dialog, quick panel, and
   project-wide Todos destination.
-
 ## v0.36.0 - 2026-08-05
 
 - Added an exact active meeting-todo count to the current project's `Todos`

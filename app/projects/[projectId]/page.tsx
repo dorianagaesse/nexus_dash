@@ -88,6 +88,8 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Google Calendar callback did not return an authorization code.",
   "calendar-auth-failed":
     "Google Calendar authentication failed. Check OAuth credentials and test-user settings.",
+  "calendar-storage-failed":
+    "Google Calendar authorized successfully, but NexusDash could not save the connection. Please retry after the deployment database is repaired.",
 };
 
 function readQueryValue(value: string | string[] | undefined): string | null {
@@ -233,6 +235,7 @@ export default async function ProjectDashboardPage({
               className="w-[8.75rem] shrink-0 snap-start md:w-auto"
             />
             <CalendarSummaryStatCard
+              projectId={project.id}
               isConnected={project.stats.isCalendarConnected}
               className="w-[8.75rem] shrink-0 snap-start md:w-auto"
             />

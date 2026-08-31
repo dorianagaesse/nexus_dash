@@ -64,7 +64,7 @@ export async function getAuthorizedGoogleCalendarContext(
     logServerError("getAuthorizedGoogleCalendarContext.credentialLookup", error);
     return {
       ok: false,
-      failure: { status: 401, error: "reauthorization-required" },
+      failure: { status: 503, error: "calendar-unavailable" },
     };
   }
 

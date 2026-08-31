@@ -3,34 +3,68 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const googleCalendarCredentialServiceMock = vi.hoisted(() => ({
   findGoogleCalendarCredentialCalendarId: vi.fn(),
   updateGoogleCalendarCredentialCalendarId: vi.fn(),
+  markGoogleCalendarCredentialRevokedForDisconnect: vi.fn(),
+  deleteGoogleCalendarCredential: vi.fn(),
 }));
 
-vi.mock("@/lib/services/google-calendar-credential-service", async () => {
-  const actual = await vi.importActual<
-    typeof import("@/lib/services/google-calendar-credential-service")
-  >("@/lib/services/google-calendar-credential-service");
+const googleCalendarMock = vi.hoisted(() => ({
+  revokeGoogleToken: vi.fn(),
+}));
+
+vi.mock("@/lib/services/google-calendar-credential-service", () => {
+  class GoogleCalendarCredentialTokenDecryptionError extends Error {
+    readonly originalError: unknown;
+    readonly credentialId: string;
+
+    constructor(credentialId: string, originalError: unknown) {
+      super("google-calendar-credential-token-decryption-failed");
+      this.name = "GoogleCalendarCredentialTokenDecryptionError";
+      this.credentialId = credentialId;
+      this.originalError = originalError;
+    }
+  }
 
   return {
-    ...actual,
+    DEFAULT_GOOGLE_CALENDAR_ID: "primary",
+    MAX_GOOGLE_CALENDAR_ID_LENGTH: 255,
+    GoogleCalendarCredentialTokenDecryptionError,
+    normalizeGoogleCalendarId: (value: string | null | undefined) =>
+      value?.trim() || "primary",
     findGoogleCalendarCredentialCalendarId:
       googleCalendarCredentialServiceMock.findGoogleCalendarCredentialCalendarId,
     updateGoogleCalendarCredentialCalendarId:
       googleCalendarCredentialServiceMock.updateGoogleCalendarCredentialCalendarId,
+    markGoogleCalendarCredentialRevokedForDisconnect:
+      googleCalendarCredentialServiceMock.markGoogleCalendarCredentialRevokedForDisconnect,
+    deleteGoogleCalendarCredential:
+      googleCalendarCredentialServiceMock.deleteGoogleCalendarCredential,
   };
 });
 
+vi.mock("@/lib/google-calendar", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/google-calendar")>(
+    "@/lib/google-calendar"
+  );
+  return { ...actual, revokeGoogleToken: googleCalendarMock.revokeGoogleToken };
+});
+
 import {
+  disconnectGoogleCalendar,
   getGoogleCalendarTargetSettings,
   updateGoogleCalendarTargetSettings,
 } from "@/lib/services/account-settings-service";
 import {
   DEFAULT_GOOGLE_CALENDAR_ID,
+  GoogleCalendarCredentialTokenDecryptionError,
   MAX_GOOGLE_CALENDAR_ID_LENGTH,
 } from "@/lib/services/google-calendar-credential-service";
 
 describe("account-settings-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    googleCalendarCredentialServiceMock.deleteGoogleCalendarCredential.mockResolvedValue(
+      undefined
+    );
   });
 
   test("returns primary and disconnected status when user has no credential", async () => {
@@ -153,5 +187,103 @@ describe("account-settings-service", () => {
       status: 409,
       error: "calendar-not-connected",
     });
+  });
+
+  test("rejects cross-user disconnect attempts", async () => {
+    const result = await disconnectGoogleCalendar({
+      actorUserId: "user-1",
+      subjectUserId: "user-2",
+    });
+
+    expect(result).toEqual({ ok: false, status: 403, error: "forbidden" });
+    expect(
+      googleCalendarCredentialServiceMock.markGoogleCalendarCredentialRevokedForDisconnect
+    ).not.toHaveBeenCalled();
+  });
+
+  test("disconnect is idempotent when no credential exists", async () => {
+    googleCalendarCredentialServiceMock.markGoogleCalendarCredentialRevokedForDisconnect.mockResolvedValueOnce(
+      null
+    );
+
+    await expect(
+      disconnectGoogleCalendar({ actorUserId: "user-1" })
+    ).resolves.toEqual({
+      ok: true,
+      status: 200,
+      data: {
+        hasCalendarConnection: false,
+        revocationStatus: "not-connected",
+      },
+    });
+    expect(googleCalendarMock.revokeGoogleToken).not.toHaveBeenCalled();
+  });
+
+  test("deletes local credentials after confirmed provider revocation", async () => {
+    googleCalendarCredentialServiceMock.markGoogleCalendarCredentialRevokedForDisconnect.mockResolvedValueOnce(
+      { credentialId: "credential-1", refreshToken: "refresh-token" }
+    );
+    googleCalendarMock.revokeGoogleToken.mockResolvedValueOnce(true);
+
+    await expect(
+      disconnectGoogleCalendar({ actorUserId: "user-1" })
+    ).resolves.toMatchObject({
+      ok: true,
+      data: { revocationStatus: "revoked" },
+    });
+    expect(
+      googleCalendarCredentialServiceMock.deleteGoogleCalendarCredential
+    ).toHaveBeenCalledWith("user-1", "credential-1");
+  });
+
+  test("deletes local credentials when provider revocation is unconfirmed", async () => {
+    googleCalendarCredentialServiceMock.markGoogleCalendarCredentialRevokedForDisconnect.mockResolvedValueOnce(
+      { credentialId: "credential-1", refreshToken: "refresh-token" }
+    );
+    googleCalendarMock.revokeGoogleToken.mockRejectedValueOnce(new Error("network"));
+
+    await expect(
+      disconnectGoogleCalendar({ actorUserId: "user-1" })
+    ).resolves.toMatchObject({
+      ok: true,
+      data: { revocationStatus: "unconfirmed" },
+    });
+    expect(
+      googleCalendarCredentialServiceMock.deleteGoogleCalendarCredential
+    ).toHaveBeenCalledWith("user-1", "credential-1");
+  });
+
+  test("deletes local credentials when the stored token cannot be decrypted", async () => {
+    googleCalendarCredentialServiceMock.markGoogleCalendarCredentialRevokedForDisconnect.mockRejectedValueOnce(
+      new GoogleCalendarCredentialTokenDecryptionError(
+        "credential-1",
+        new Error("invalid-google-token-ciphertext")
+      )
+    );
+
+    await expect(
+      disconnectGoogleCalendar({ actorUserId: "user-1" })
+    ).resolves.toMatchObject({
+      ok: true,
+      data: { revocationStatus: "unconfirmed" },
+    });
+    expect(googleCalendarMock.revokeGoogleToken).not.toHaveBeenCalled();
+    expect(
+      googleCalendarCredentialServiceMock.deleteGoogleCalendarCredential
+    ).toHaveBeenCalledWith("user-1", "credential-1");
+  });
+
+  test("rethrows unexpected credential lookup failures without deleting", async () => {
+    const databaseError = new Error("database unavailable");
+    googleCalendarCredentialServiceMock.markGoogleCalendarCredentialRevokedForDisconnect.mockRejectedValueOnce(
+      databaseError
+    );
+
+    await expect(
+      disconnectGoogleCalendar({ actorUserId: "user-1" })
+    ).rejects.toBe(databaseError);
+    expect(
+      googleCalendarCredentialServiceMock.deleteGoogleCalendarCredential
+    ).not.toHaveBeenCalled();
   });
 });
