@@ -23,7 +23,7 @@ interface CalendarWeekGridProps {
   weekDays: Date[];
   eventsByDay: Map<string, DayEventBucket>;
   eventsCount: number;
-  onOpenGoogleEvent: (event: CalendarEventItem) => void;
+  onOpenEventDetails: (event: CalendarEventItem) => void;
   onOpenEditEventModal: (event: CalendarEventItem) => void;
 }
 
@@ -32,7 +32,7 @@ export function CalendarWeekGrid({
   weekDays,
   eventsByDay,
   eventsCount,
-  onOpenGoogleEvent,
+  onOpenEventDetails,
   onOpenEditEventModal,
 }: CalendarWeekGridProps) {
   if (weekDays.length === 0) {
@@ -72,7 +72,7 @@ export function CalendarWeekGrid({
                     event={event}
                     canEdit={canEdit}
                     label="All day"
-                    onOpenGoogleEvent={onOpenGoogleEvent}
+                    onOpenEventDetails={onOpenEventDetails}
                     onOpenEditEventModal={onOpenEditEventModal}
                   />
                 ))}
@@ -82,7 +82,7 @@ export function CalendarWeekGrid({
                     event={event}
                     canEdit={canEdit}
                     label={formatEventTimeLabel(event)}
-                    onOpenGoogleEvent={onOpenGoogleEvent}
+                    onOpenEventDetails={onOpenEventDetails}
                     onOpenEditEventModal={onOpenEditEventModal}
                   />
                 ))}
@@ -125,7 +125,7 @@ export function CalendarWeekGrid({
                           key={`${event.calendarSourceId}:${event.id}`}
                           event={event}
                           canEdit={canEdit}
-                          onOpenGoogleEvent={onOpenGoogleEvent}
+                          onOpenEventDetails={onOpenEventDetails}
                           onOpenEditEventModal={onOpenEditEventModal}
                         />
                       ))
@@ -218,11 +218,14 @@ export function CalendarWeekGrid({
                           "absolute left-1 right-1 cursor-pointer overflow-hidden rounded-md border border-l-4 border-border/60 bg-muted/20 px-1.5 py-1 transition hover:bg-muted/40"
                         )}
                         style={style}
-                        onClick={() => onOpenGoogleEvent(event)}
+                        onClick={() => onOpenEventDetails(event)}
                         onKeyDown={(keyboardEvent) => {
+                          if (keyboardEvent.target !== keyboardEvent.currentTarget) {
+                            return;
+                          }
                           if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
                             keyboardEvent.preventDefault();
-                            onOpenGoogleEvent(event);
+                            onOpenEventDetails(event);
                           }
                         }}
                         role="button"
@@ -294,12 +297,12 @@ export function CalendarWeekGrid({
 function DesktopAllDayEventChip({
   event,
   canEdit,
-  onOpenGoogleEvent,
+  onOpenEventDetails,
   onOpenEditEventModal,
 }: {
   event: CalendarEventItem;
   canEdit: boolean;
-  onOpenGoogleEvent: (event: CalendarEventItem) => void;
+  onOpenEventDetails: (event: CalendarEventItem) => void;
   onOpenEditEventModal: (event: CalendarEventItem) => void;
 }) {
   const eventTitle = `${event.summary} - ${formatEventTimeLabel(event)} - ${event.calendarName} (${event.accountLabel})`;
@@ -315,11 +318,14 @@ function DesktopAllDayEventChip({
       )}
       style={{ borderLeftColor: visualColor }}
       title={eventTitle}
-      onClick={() => onOpenGoogleEvent(event)}
+      onClick={() => onOpenEventDetails(event)}
       onKeyDown={(keyboardEvent) => {
+        if (keyboardEvent.target !== keyboardEvent.currentTarget) {
+          return;
+        }
         if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
           keyboardEvent.preventDefault();
-          onOpenGoogleEvent(event);
+          onOpenEventDetails(event);
         }
       }}
       role="button"
@@ -349,13 +355,13 @@ function MobileCalendarEventCard({
   event,
   canEdit,
   label,
-  onOpenGoogleEvent,
+  onOpenEventDetails,
   onOpenEditEventModal,
 }: {
   event: CalendarEventItem;
   canEdit: boolean;
   label: string;
-  onOpenGoogleEvent: (event: CalendarEventItem) => void;
+  onOpenEventDetails: (event: CalendarEventItem) => void;
   onOpenEditEventModal: (event: CalendarEventItem) => void;
 }) {
   const visualColor = resolveCalendarVisualColor(
@@ -369,11 +375,14 @@ function MobileCalendarEventCard({
         "cursor-pointer rounded-lg border border-l-4 border-border/60 bg-muted/20 px-3 py-2 transition hover:bg-muted/40"
       )}
       style={{ borderLeftColor: visualColor }}
-      onClick={() => onOpenGoogleEvent(event)}
+      onClick={() => onOpenEventDetails(event)}
       onKeyDown={(keyboardEvent) => {
+        if (keyboardEvent.target !== keyboardEvent.currentTarget) {
+          return;
+        }
         if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
           keyboardEvent.preventDefault();
-          onOpenGoogleEvent(event);
+          onOpenEventDetails(event);
         }
       }}
       role="button"

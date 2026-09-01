@@ -192,7 +192,7 @@ export function CalendarEventModal({
               </label>
               <EmojiInputField
                 id="calendar-event-summary"
-                autoFocus
+                autoFocus={!isReadOnly}
                 value={eventSummary}
                 onChange={(event) => onEventSummaryChange(event.target.value)}
                 minLength={1}
@@ -349,7 +349,7 @@ export function CalendarEventModal({
               ) : null}
               {selectedEvent?.htmlLink ? (
                 <Button type="button" variant="outline" asChild className="w-full sm:w-auto">
-                  <a href={selectedEvent.htmlLink} target="_blank" rel="noreferrer">
+                  <a href={selectedEvent.htmlLink} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4" />
                     Open in Google Calendar
                   </a>

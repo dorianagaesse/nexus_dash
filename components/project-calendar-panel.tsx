@@ -143,7 +143,7 @@ export function ProjectCalendarPanel({
     setEventFormError(null);
   };
 
-  const openGoogleEvent = (event: CalendarEventItem) => {
+  const openEventDetails = (event: CalendarEventItem) => {
     openEditEventModal(event);
   };
 
@@ -484,7 +484,7 @@ export function ProjectCalendarPanel({
                   weekDays={weekDays}
                   eventsByDay={eventsByDay}
                   eventsCount={events.length}
-                  onOpenGoogleEvent={openGoogleEvent}
+                  onOpenGoogleEvent={openEventDetails}
                   onOpenEditEventModal={openEditEventModal}
                 />
               </>
