@@ -16,6 +16,8 @@ interface AuthorizedCalendarContext {
   connectionId: string;
   calendarName: string;
   calendarColor: string | null;
+  accountLabel: string;
+  accountEmail: string | null;
   scope: string | null;
   writable: boolean;
 }
@@ -56,6 +58,8 @@ export async function authorizeCalendarSourceContext(
         connectionId: sourceContext.connection.id,
         calendarName: sourceContext.source.name,
         calendarColor: sourceContext.source.color,
+        accountLabel: sourceContext.connection.accountLabel,
+        accountEmail: sourceContext.connection.accountEmail,
         scope: sourceContext.connection.scopes,
         writable:
           sourceContext.writable &&

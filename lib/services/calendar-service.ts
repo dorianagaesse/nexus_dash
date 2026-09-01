@@ -59,6 +59,8 @@ export interface CalendarEventResponseItem {
   connectionId?: string;
   calendarName?: string;
   calendarColor?: string | null;
+  accountLabel?: string;
+  accountEmail?: string | null;
   writable?: boolean;
 }
 
@@ -145,6 +147,8 @@ function normalizeGoogleEvent(
     connectionId?: string;
     calendarName?: string;
     calendarColor?: string | null;
+    accountLabel?: string;
+    accountEmail?: string | null;
     writable?: boolean;
   }
 ): CalendarEventResponseItem | null {
@@ -416,6 +420,8 @@ export async function listCalendarEvents(input: {
       connectionId: string;
       name: string;
       color: string | null;
+      accountLabel: string;
+      accountEmail: string | null;
       writable: boolean;
     }>;
   }>
@@ -539,6 +545,8 @@ export async function listCalendarEvents(input: {
                   connectionId: auth.context.connectionId,
                   calendarName: auth.context.calendarName,
                   calendarColor: auth.context.calendarColor,
+                  accountLabel: auth.context.accountLabel,
+                  accountEmail: auth.context.accountEmail,
                   writable: auth.context.writable,
                 })
               )
@@ -604,6 +612,8 @@ export async function listCalendarEvents(input: {
         connectionId: context.connection.id,
         name: context.source.name,
         color: context.source.color,
+        accountLabel: context.connection.accountLabel,
+        accountEmail: context.connection.accountEmail,
         writable:
           context.writable && hasCalendarWriteScope(context.connection.scopes),
       })),
@@ -688,6 +698,8 @@ export async function createCalendarEvent(
         connectionId: auth.body.context.connectionId,
         calendarName: auth.body.context.calendarName,
         calendarColor: auth.body.context.calendarColor,
+        accountLabel: auth.body.context.accountLabel,
+        accountEmail: auth.body.context.accountEmail,
         writable: auth.body.context.writable,
       }
     );
@@ -779,6 +791,8 @@ export async function updateCalendarEvent(
         connectionId: auth.body.context.connectionId,
         calendarName: auth.body.context.calendarName,
         calendarColor: auth.body.context.calendarColor,
+        accountLabel: auth.body.context.accountLabel,
+        accountEmail: auth.body.context.accountEmail,
         writable: auth.body.context.writable,
       }
     );

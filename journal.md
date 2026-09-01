@@ -4317,3 +4317,21 @@ Low-value entries to avoid going forward:
 - Pushed the policy-compliant replacement branch and opened draft
   [PR #416](https://github.com/dorianagaesse/nexus_dash/pull/416), superseding
   conflicting PR #410 without rewriting its protected history.
+
+## 2026-09-01 - ND-365 Calendar event source identity
+
+- Merged validated TASK-327 [PR #450](https://github.com/dorianagaesse/nexus_dash/pull/450)
+  after preserving refresh-token metadata, repairing RLS script formatting,
+  updating the destination-control E2E contract, and fixing 375 px overflow.
+  Final merge commit: `acbab9f`.
+- Created NexusDash task `ND-365` (`cmtikk10n000804ktx0lpdi6l`) and moved it to
+  In Progress. The task tracks explicit Calendar event provenance and
+  per-calendar visual cues as a follow-up to the multi-account foundation.
+- Chose color as a supplemental cue only: event cards retain visible calendar
+  text or accessible title context, and the event modal names both calendar and
+  connected account. Missing/invalid provider colors receive a deterministic
+  fallback from a bounded accessible palette.
+- Added a read-only event detail mode so every event can expose its source in
+  NexusDash without weakening CalendarSource write enforcement.
+- Prepared feature release `v0.48.0`; focused API/utility/auth tests, lint, and
+  the release policy check passed before full validation.

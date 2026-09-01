@@ -26,6 +26,8 @@ export interface CalendarEventItem {
   connectionId: string;
   calendarName: string;
   calendarColor: string | null;
+  accountLabel: string;
+  accountEmail: string | null;
   writable: boolean;
 }
 
@@ -34,7 +36,42 @@ export interface CalendarSourceOption {
   connectionId: string;
   name: string;
   color: string | null;
+  accountLabel: string;
+  accountEmail: string | null;
   writable: boolean;
+}
+
+const CALENDAR_FALLBACK_COLORS = [
+  "#2563eb",
+  "#7c3aed",
+  "#0f766e",
+  "#b45309",
+  "#be123c",
+  "#0369a1",
+] as const;
+
+export function resolveCalendarVisualColor(
+  calendarSourceId: string,
+  providerColor: string | null | undefined
+): string {
+  if (providerColor && /^#[0-9a-f]{6}$/i.test(providerColor)) {
+    return providerColor;
+  }
+
+  const hash = Array.from(calendarSourceId).reduce(
+    (value, character) => (value * 31 + character.charCodeAt(0)) >>> 0,
+    0
+  );
+  return CALENDAR_FALLBACK_COLORS[hash % CALENDAR_FALLBACK_COLORS.length];
+}
+
+export function formatCalendarSourceAccount(source: {
+  accountLabel: string;
+  accountEmail: string | null;
+}): string {
+  return source.accountEmail && source.accountEmail !== source.accountLabel
+    ? `${source.accountLabel} (${source.accountEmail})`
+    : source.accountLabel;
 }
 
 export interface CalendarEventsResponse {
