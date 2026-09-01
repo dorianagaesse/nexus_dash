@@ -235,6 +235,57 @@ async function persistDiscoveredSources(input: {
   });
 }
 
+async function persistPrimaryFallbackSource(input: {
+  userId: string;
+  connectionId: string;
+}): Promise<boolean> {
+  return withActorRlsContext(input.userId, async (db) => {
+    const existingSourceCount = await db.calendarSource.count({
+      where: { userId: input.userId, connectionId: input.connectionId },
+    });
+    if (existingSourceCount > 0) return false;
+
+    const [activeConnectionCount, preference] = await Promise.all([
+      db.calendarConnection.count({
+        where: { userId: input.userId, revokedAt: null },
+      }),
+      db.calendarPreference.findUnique({ where: { userId: input.userId } }),
+    ]);
+    const source = await db.calendarSource.upsert({
+      where: {
+        connectionId_providerCalendarId: {
+          connectionId: input.connectionId,
+          providerCalendarId: "primary",
+        },
+      },
+      update: { isAvailable: true },
+      create: {
+        userId: input.userId,
+        connectionId: input.connectionId,
+        providerCalendarId: "primary",
+        name: "Primary calendar",
+        color: null,
+        timeZone: null,
+        accessRole: "writer",
+        isPrimary: true,
+        isAvailable: true,
+        isSelected: activeConnectionCount === 1,
+      },
+    });
+
+    if (!preference && activeConnectionCount === 1) {
+      await db.calendarPreference.create({
+        data: {
+          userId: input.userId,
+          defaultConnectionId: input.connectionId,
+          writeSourceId: source.id,
+        },
+      });
+    }
+    return true;
+  });
+}
+
 export async function connectGoogleCalendarAccount(input: {
   userId: string;
   identity: CalendarProviderIdentity;
@@ -242,7 +293,7 @@ export async function connectGoogleCalendarAccount(input: {
   reconnectConnectionId?: string | null;
 }): Promise<{
   connectionId: string;
-  calendarDiscoveryStatus: "synced" | "unavailable";
+  calendarDiscoveryStatus: "synced" | "fallback" | "unavailable";
 }> {
   const userId = normalizeUserId(input.userId);
   const providerName = GOOGLE_CALENDAR_PROVIDER;
@@ -274,17 +325,7 @@ export async function connectGoogleCalendarAccount(input: {
         },
       },
     });
-    const legacy = !requestedReconnect && !matching
-      ? await db.calendarConnection.findFirst({
-          where: {
-            userId,
-            provider: providerName,
-            providerAccountId: { startsWith: "legacy:" },
-          },
-          orderBy: { createdAt: "asc" },
-        })
-      : null;
-    const target = requestedReconnect ?? matching ?? legacy;
+    const target = requestedReconnect ?? matching;
     const refreshToken = input.tokens.refreshToken ??
       (target ? decryptGoogleToken(target.refreshToken) : null);
     if (!refreshToken) throw new Error("missing-refresh-token");
@@ -319,9 +360,13 @@ export async function connectGoogleCalendarAccount(input: {
       "Calendar account connected, but its calendar list could not be refreshed",
       { connectionId: connection.id, provider: providerName, error }
     );
+    const fallbackCreated = await persistPrimaryFallbackSource({
+      userId,
+      connectionId: connection.id,
+    });
     return {
       connectionId: connection.id,
-      calendarDiscoveryStatus: "unavailable",
+      calendarDiscoveryStatus: fallbackCreated ? "fallback" : "unavailable",
     };
   }
 }
@@ -329,13 +374,25 @@ export async function connectGoogleCalendarAccount(input: {
 export async function syncCalendarConnection(input: {
   userId: string;
   connectionId: string;
-}): Promise<void> {
+}): Promise<{ calendarDiscoveryStatus: "synced" | "fallback" }> {
   const connection = await findCalendarConnection(input.userId, input.connectionId);
   if (!connection) throw new Error("calendar-connection-not-found");
   const provider = getCalendarProvider(connection.provider);
   const accessToken = await ensureFreshAccessToken(input.userId, connection);
-  const sources = await provider.discoverCalendars(accessToken);
-  await persistDiscoveredSources({ ...input, sources });
+  try {
+    const sources = await provider.discoverCalendars(accessToken);
+    await persistDiscoveredSources({ ...input, sources });
+    return { calendarDiscoveryStatus: "synced" };
+  } catch (error) {
+    const fallbackCreated = await persistPrimaryFallbackSource(input);
+    if (!fallbackCreated) throw error;
+    logServerWarning(
+      "syncCalendarConnection.calendarDiscoveryFailed",
+      "Calendar list refresh failed; retained a primary-calendar fallback",
+      { connectionId: input.connectionId, provider: connection.provider, error }
+    );
+    return { calendarDiscoveryStatus: "fallback" };
+  }
 }
 
 export async function ensureFreshAccessToken(

@@ -53,7 +53,7 @@ export default async function AccountSettingsPage({
       {status === "calendar-connected-discovery-warning" ? (
         <p role="status" className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
           Google Calendar connected, but its calendar list could not be loaded.
-          Use Refresh calendars on the new account to retry.
+          Use Refresh all calendars to retry.
         </p>
       ) : null}
       {error ? (

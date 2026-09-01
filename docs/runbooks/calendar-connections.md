@@ -31,7 +31,7 @@ and `/api/account/calendar-preferences`.
 
 - `reauthorization-required`: reconnect the same account card. A different
   Google `sub` is rejected for established connections.
-- Calendar list stale or missing: use **Refresh calendars**. Calendars absent
+- Calendar list stale or missing: use **Refresh all calendars**. Calendars absent
   from the provider response become unavailable but are not reassigned.
 - Partial project warning: retry the failed source; successful sources remain
   visible. Reads retry one 429/5xx automatically, mutations never do.

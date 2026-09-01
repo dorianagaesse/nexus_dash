@@ -40,12 +40,16 @@ describe("CalendarConnectionsManager", () => {
     );
 
     expect(html).toContain("Add Google account");
+    expect(html.match(/Refresh all calendars/g)).toHaveLength(1);
     expect(html).toContain("Reauthorization required");
     expect(html).toContain('type="checkbox"');
     expect(html).toContain('aria-label="Use Personal for new events"');
-    expect(html).toContain(
-      'aria-label="Use Company holidays for new events" title="Read-only calendar" type="radio" disabled=""'
-    );
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain("Event destination");
+    expect(html).toContain("Read only");
+    expect(html).toContain("border-primary/70");
+    expect(html).not.toContain('type="radio"');
+    expect(html).not.toContain(">Refresh calendars<");
     expect(html).toContain("min-h-11");
     expect(html).toContain("Disconnect");
   });

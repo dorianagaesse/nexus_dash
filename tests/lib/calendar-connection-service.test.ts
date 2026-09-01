@@ -11,6 +11,7 @@ const prismaMock = vi.hoisted(() => ({
     count: vi.fn(),
   },
   calendarSource: {
+    count: vi.fn(),
     findMany: vi.fn(),
     updateMany: vi.fn(),
     upsert: vi.fn(),
@@ -36,6 +37,7 @@ vi.mock("@/lib/calendar-providers/google", () => ({
 import {
   connectGoogleCalendarAccount,
   disconnectCalendarConnection,
+  syncCalendarConnection,
   updateCalendarPreferences,
 } from "@/lib/services/calendar-connection-service";
 
@@ -46,6 +48,7 @@ describe("calendar connection service", () => {
     prismaMock.calendarConnection.findFirst.mockResolvedValue(null);
     prismaMock.calendarConnection.create.mockResolvedValue({ id: "connection-1" });
     prismaMock.calendarConnection.count.mockResolvedValue(1);
+    prismaMock.calendarSource.count.mockResolvedValue(0);
     prismaMock.calendarPreference.findUnique.mockResolvedValue(null);
     prismaMock.calendarSource.updateMany.mockResolvedValue({ count: 0 });
     prismaMock.calendarSource.upsert.mockResolvedValue({ id: "source-primary" });
@@ -133,11 +136,20 @@ describe("calendar connection service", () => {
       })
     ).resolves.toEqual({
       connectionId: "connection-1",
-      calendarDiscoveryStatus: "unavailable",
+      calendarDiscoveryStatus: "fallback",
     });
 
     expect(prismaMock.calendarConnection.create).toHaveBeenCalled();
-    expect(prismaMock.calendarSource.upsert).not.toHaveBeenCalled();
+    expect(prismaMock.calendarSource.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          providerCalendarId: "primary",
+          name: "Primary calendar",
+          isPrimary: true,
+          isSelected: true,
+        }),
+      })
+    );
   });
 
   test("rejects reconnect when Google returns a different established account", async () => {
@@ -198,6 +210,7 @@ describe("calendar connection service", () => {
 
     await connectGoogleCalendarAccount({
       userId: "user-1",
+      reconnectConnectionId: "legacy-connection",
       identity: {
         accountId: "google-sub-adopted",
         email: "adopted@example.com",
@@ -218,6 +231,30 @@ describe("calendar connection service", () => {
       }),
     });
     expect(prismaMock.calendarConnection.create).not.toHaveBeenCalled();
+  });
+
+  test("does not replace a legacy account during the normal add-account flow", async () => {
+    prismaMock.calendarConnection.create.mockResolvedValueOnce({ id: "new-connection" });
+
+    await connectGoogleCalendarAccount({
+      userId: "user-1",
+      identity: {
+        accountId: "google-sub-new",
+        email: "new@example.com",
+        label: "new@example.com",
+      },
+      tokens: {
+        accessToken: "new-access",
+        refreshToken: "new-refresh",
+        expiresIn: 3600,
+      },
+    });
+
+    expect(prismaMock.calendarConnection.findFirst).not.toHaveBeenCalled();
+    expect(prismaMock.calendarConnection.update).not.toHaveBeenCalled();
+    expect(prismaMock.calendarConnection.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ providerAccountId: "google-sub-new" }),
+    });
   });
 
   test("adding a second account does not replace the existing write target", async () => {

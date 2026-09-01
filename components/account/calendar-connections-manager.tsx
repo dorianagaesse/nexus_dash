@@ -63,6 +63,8 @@ export function CalendarConnectionsManager({
         throw new Error(
           payload?.error === "calendar-write-source-not-selected"
             ? "Keep the event target selected, or choose another writable calendar."
+            : payload?.error === "calendar-sync-failed"
+              ? "Some calendars could not be refreshed. Reconnect the affected Google account, then try again."
             : payload?.error ?? "Calendar update failed."
         );
       }
@@ -96,6 +98,22 @@ export function CalendarConnectionsManager({
       })
     );
 
+  const refreshAllCalendars = () =>
+    run("sync-all", async () => {
+      const responses = await Promise.all(
+        connections.map((connection) =>
+          fetch(`/api/account/calendar-connections/${connection.id}/sync`, {
+            method: "POST",
+          })
+        )
+      );
+      const failedResponse = responses.find((response) => !response.ok);
+      return failedResponse ?? new Response(JSON.stringify({ synced: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -105,11 +123,25 @@ export function CalendarConnectionsManager({
             Choose calendars to show in projects and one writable target for new events.
           </p>
         </div>
-        <Button asChild className="min-h-11">
-          <a href="/api/auth/google?returnTo=%2Faccount%2Fsettings">
-            <UserPlus className="h-4 w-4" /> Add Google account
-          </a>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {connections.length > 0 ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="min-h-11"
+              disabled={pendingAction !== null}
+              onClick={() => void refreshAllCalendars()}
+            >
+              <RefreshCcw className={pendingAction === "sync-all" ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+              {pendingAction === "sync-all" ? "Refreshing…" : "Refresh all calendars"}
+            </Button>
+          ) : null}
+          <Button asChild className="min-h-11">
+            <a href="/api/auth/google?returnTo=%2Faccount%2Fsettings">
+              <UserPlus className="h-4 w-4" /> Add Google account
+            </a>
+          </Button>
+        </div>
       </div>
 
       {message ? (
@@ -153,7 +185,14 @@ export function CalendarConnectionsManager({
               <fieldset className="mt-4 space-y-2">
                 <legend className="text-sm font-medium">Visible calendars</legend>
                 {connection.sources.map((source) => (
-                  <div key={source.id} className="flex min-h-11 items-center gap-3 rounded-lg border border-border/60 px-3 py-2">
+                  <div
+                    key={source.id}
+                    className={`flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2 transition-colors ${
+                      writeTarget === source.id
+                        ? "border-primary/70 bg-primary/10 ring-1 ring-primary/30"
+                        : "border-border/60"
+                    }`}
+                  >
                     <input
                       id={`calendar-source-${source.id}`}
                       type="checkbox"
@@ -161,7 +200,10 @@ export function CalendarConnectionsManager({
                       onChange={(event) => {
                         const next = new Set(selectedIds);
                         if (event.target.checked) next.add(source.id);
-                        else next.delete(source.id);
+                        else {
+                          next.delete(source.id);
+                          if (writeTarget === source.id) setWriteTarget(null);
+                        }
                         setSelectedIds(next);
                       }}
                       className="h-5 w-5 rounded border-input"
@@ -173,30 +215,29 @@ export function CalendarConnectionsManager({
                         {source.isPrimary ? <span className="text-xs text-muted-foreground">Primary</span> : null}
                       </span>
                     </label>
-                    <input
+                    <button
+                      type="button"
+                      aria-pressed={writeTarget === source.id}
                       aria-label={`Use ${source.name} for new events`}
-                      title={isWritable(source.accessRole) ? "Write target" : "Read-only calendar"}
-                      type="radio"
-                      name="calendar-write-target"
-                      checked={writeTarget === source.id}
-                      onChange={() => setWriteTarget(source.id)}
+                      title={isWritable(source.accessRole) ? "Use for new events" : "Read-only calendar"}
+                      onClick={() => {
+                        setWriteTarget(source.id);
+                        setSelectedIds((current) => new Set(current).add(source.id));
+                      }}
                       disabled={!isWritable(source.accessRole)}
-                      className="h-5 w-5"
-                    />
+                      className="min-h-9 shrink-0 rounded-md border border-border/70 px-2.5 text-xs font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {writeTarget === source.id
+                        ? "Event destination"
+                        : isWritable(source.accessRole)
+                          ? "Set destination"
+                          : "Read only"}
+                    </button>
                   </div>
                 ))}
               </fieldset>
 
               <div className="mt-4 flex flex-wrap gap-2 border-t border-border/60 pt-4">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="min-h-11"
-                  disabled={pendingAction !== null}
-                  onClick={() => void run(`sync:${connection.id}`, () => fetch(`/api/account/calendar-connections/${connection.id}/sync`, { method: "POST" }))}
-                >
-                  <RefreshCcw className="h-4 w-4" /> Refresh calendars
-                </Button>
                 <Button asChild variant="outline" className="min-h-11">
                   <a href={`/api/auth/google?returnTo=%2Faccount%2Fsettings&connectionId=${encodeURIComponent(connection.id)}`}>
                     Reconnect

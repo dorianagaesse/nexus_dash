@@ -11,11 +11,11 @@ export async function POST(
   if (!authenticatedUser.ok) return authenticatedUser.response;
   const { connectionId } = await props.params;
   try {
-    await syncCalendarConnection({
+    const result = await syncCalendarConnection({
       userId: authenticatedUser.userId,
       connectionId,
     });
-    return NextResponse.json({ synced: true });
+    return NextResponse.json({ synced: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     return NextResponse.json(
