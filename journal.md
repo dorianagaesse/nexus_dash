@@ -4349,3 +4349,15 @@ Low-value entries to avoid going forward:
   `feature/nd-365-calendar-event-source-identity`, and opened ready-for-review
   [PR #475](https://github.com/dorianagaesse/nexus_dash/pull/475). Kanban
   task `ND-365` labeled `feature`, still In Progress pending user validation.
+- Deployed the branch preview via `deploy-vercel.yml` (run 33503949716,
+  `git_ref=feature/nd-365-calendar-event-source-identity`, log evidence shows
+  the checkout of that ref) and validated it with the ND-365 spec plus the
+  full smoke suite against
+  `https://nexus-dash-1hu5kui5q-dorian-agaesses-projects.vercel.app`.
+- Copilot's initial review (4 threads) found a view-mode autofocus issue, a
+  missing `noopener` on the Google Calendar link, Enter/Space bubbling from
+  inner Edit buttons into the event open handler, and the stale
+  `openGoogleEvent` name. Fixed in `a4561ad` + `14624f1` (focus, rel, keydown
+  target guard on all three card variants, rename to `openEventDetails`),
+  replied on every thread, and resolved all four. Full CI (Quality Core,
+  Tenant Isolation, E2E Smoke, Container Image) is green on `14624f1`.
