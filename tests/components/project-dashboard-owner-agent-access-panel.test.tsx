@@ -112,4 +112,40 @@ describe("project-dashboard-owner-agent-access-panel", () => {
     expect(result).toContain("NEXUSDASH_API_KEY=nda_public.secret");
     expect(result).toContain('aria-label="Copy API key for Release bot"');
   });
+
+  test("renders scope presets with the non-destructive default pre-selected", () => {
+    const result = renderToStaticMarkup(
+      React.createElement(ProjectDashboardOwnerAgentAccessPanel, {
+        projectId: "project-1",
+        accessSummary: {
+          projectId: "project-1",
+          accessTokenTtlSeconds: 600,
+          credentials: [],
+          recentEvents: [],
+        },
+        isLoadingAccessSummary: false,
+        accessError: null,
+        isCreatingCredential: false,
+        mutatingCredentialId: null,
+        latestIssuedSecret: null,
+        onCreateCredential: () => {},
+        onRotateCredential: () => {},
+        onRevokeCredential: () => {},
+        onDismissLatestSecret: () => {},
+      })
+    );
+
+    expect(result).toContain("Read only");
+    expect(result).toContain("Read + write (no delete)");
+    expect(result).toContain("Full access");
+    expect(result).toContain("Recommended");
+    expect(result).toContain("Scope presets");
+    expect(result).toContain(
+      "Start from a preset, then adjust with the checkboxes."
+    );
+
+    expect(result).toContain('aria-pressed="true"');
+    const checkedCount = (result.match(/checked=""/g) ?? []).length;
+    expect(checkedCount).toBe(3);
+  });
 });

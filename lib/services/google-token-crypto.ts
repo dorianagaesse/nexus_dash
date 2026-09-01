@@ -15,6 +15,14 @@ function getGoogleTokenEncryptionKey(): Buffer | null {
   return createHash("sha256").update(rawKey).digest();
 }
 
+export function hasGoogleTokenEncryptionKey(): boolean {
+  return getGoogleTokenEncryptionKey() !== null;
+}
+
+export function isEncryptedGoogleToken(storedToken: string): boolean {
+  return storedToken.startsWith(`${ENCRYPTED_TOKEN_PREFIX}:`);
+}
+
 export function encryptGoogleToken(rawToken: string): string {
   const key = getGoogleTokenEncryptionKey();
   if (!key) {

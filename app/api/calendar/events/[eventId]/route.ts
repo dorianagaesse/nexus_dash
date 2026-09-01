@@ -46,7 +46,8 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ ev
   const result = await deleteCalendarEvent(
     eventId,
     actorUserId,
-    request.nextUrl.searchParams.get("projectId") ?? ""
+    request.nextUrl.searchParams.get("projectId") ?? "",
+    request.nextUrl.searchParams.get("calendarSourceId")
   );
   return NextResponse.json(result.body, { status: result.status });
 }

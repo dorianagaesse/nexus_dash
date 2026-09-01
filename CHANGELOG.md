@@ -7,6 +7,151 @@ SHA, deployment URL, and workflow run belong in release evidence.
 ## Unreleased
 
 - Define each release entry before the product-impacting PR is merged.
+- Preview deployment keeps the shared staging schema forward-only, applies
+  checked-in migrations, and rejects runtime-incompatible schemas before
+  publishing the stable alias. Feature migrations must use expand/contract for
+  destructive changes so concurrently testable branches remain compatible.
+- Made least-privilege runtime schema/table grants explicit in migrations and
+  made readiness verify access to an application table instead of only `SELECT 1`.
+- Made the single-connection Calendar service select and mutate one stable
+  credential row by ID instead of depending on a permanent `userId` uniqueness
+  constraint, preparing a backward-compatible TASK-327 expansion.
+
+## v0.48.0 - 2026-09-01
+
+- Added explicit connected-account and calendar provenance to aggregated
+  Calendar events and the event detail/edit surface.
+- Added provider-color event accents, deterministic fallback colors, and a
+  visible multi-calendar legend while retaining text labels for accessibility.
+- Made read-only events open in NexusDash with source identity and an optional
+  Google Calendar link without enabling mutations.
+
+## v0.46.0 - 2026-08-31
+
+- Made Google Calendar credential reads, refreshes, target updates, and project
+  connection status fail closed for revoked credentials.
+- Added a true authenticated-user disconnect that blocks local use first,
+  attempts Google token revocation, permanently removes stored tokens, and
+  provides a recovery warning when upstream revocation is unconfirmed.
+- Required encrypted Calendar token storage whenever OAuth is configured
+  outside tests and added lazy encryption for legacy plaintext local rows.
+- Added an accessible Settings confirmation flow and repaired the project
+  Calendar summary request by including its project authorization context.
+- Expanded service, API, component, environment, and real PostgreSQL RLS
+  coverage for user-owned Calendar credentials and lifecycle failures.
+- Refused Preview publication when the migrated database no longer contains
+  the tables required by the checked-out Prisma schema, preventing a newer
+  branch's forward-only migration from silently breaking an older Preview.
+- Distinguished Google token-exchange failures from credential persistence and
+  database availability failures so infrastructure drift is no longer reported
+  as invalid OAuth credentials or a reauthorization-required 401.
+
+## v0.45.0 - 2026-08-31
+
+- Agent API now supports bounded bulk task operations through
+  `POST /api/projects/{projectId}/tasks/bulk` with up to 50 create, update,
+  and status operations per request, sequential deterministic execution,
+  and per-operation results with partial-success semantics. Bulk v1 does not
+  include delete.
+- Bulk create items are validated against the single-item field-type contract before coercion (deadline-invalid, epic-invalid, assignee-invalid).
+
+## v0.44.0 - 2026-08-31
+
+- Agent API now supports a focused single-task status transition through
+  `POST /api/projects/{projectId}/tasks/{taskId}/status` with optional
+  destination-column position, deterministic ordering, reorder-compatible
+  `completedAt` semantics, and unarchive-on-move behavior.
+- Full-board reorder stays available for bulk ordering; the OpenAPI contract
+  and onboarding guidance point single-task moves at the new route.
+- Cross-column moves now compact the source lane so later appends cannot collide with existing positions, and the response task carries the updated `completedAt`.
+
+
+## v0.43.0 - 2026-08-31
+
+- Agent task listing now supports server-side `epicId` and `label` query
+  filters that compose with AND, with case-insensitive whole-label matching
+  across legacy and JSON label storage, an empty list for unknown epics, and
+  an echoed `filters` object in the response.
+
+## v0.42.0 - 2026-08-31
+
+- The agent OpenAPI contract now documents the complete task creation
+  response: `TaskCreateResponse` includes both `taskId` and the full created
+  task, and `TaskUpdateResponse` references the shared `TaskRecord` schema.
+- Task create and update responses now include `completedAt`, completing the
+  runtime payload alignment with `TaskRecord`.
+
+## v0.41.0 - 2026-08-31
+
+- The agent OpenAPI contract now documents true partial PATCH semantics for
+  task updates: `TaskUpdateRequest` declares no required fields, every field
+  describes its omit-vs-null behavior, and the legacy singular `label` input
+  is marked deprecated in favor of `labels`.
+- `null` is now the sole documented clear value for `deadlineDate`, matching
+  the `epicId` and `assigneeUserId` contract pattern.
+
+## v0.40.0 - 2026-08-31
+
+- Agent task API responses now include a canonical `labels` string array on
+  every task (list, create, and update) while keeping the legacy `label` and
+  `labelsJson` fields as deprecated compatibility output.
+- The OpenAPI contract documents `labels` in `TaskRecord` and
+  `TaskUpdateResponse` and marks the legacy label fields deprecated.
+
+## v0.39.0 - 2026-08-31
+
+- Agent credential creation now offers one-click scope presets with the
+  recommended non-destructive "Read + write (no delete)" preset selected by
+  default, so routine agent missions no longer steer toward task deletion.
+- Onboarding guidance and the hosted smoke-test example no longer grant or
+  exercise `task:delete` for non-destructive task work.
+
+## v0.38.1 - 2026-08-31
+
+- Fixed Google Calendar events created or edited in the project dashboard
+  shifting by the timezone offset: the form now submits explicit ISO instants,
+  so the wall-clock time the user selects is preserved regardless of the
+  server or Google Calendar timezone.
+
+## v0.38.0 - 2026-08-30
+
+- Added a public, unauthenticated NexusDash privacy policy with clear account,
+  workspace, security, service-provider, retention, deletion, and user-choice
+  disclosures.
+- Documented the exact Google Calendar event scope, on-demand event processing,
+  encrypted OAuth token storage, access-removal options, and compliance with
+  the Google API Services User Data Policy Limited Use requirements.
+- Linked the policy from the public sign-in homepage and added canonical page
+  metadata plus responsive Playwright coverage.
+
+## v0.47.0 - 2026-08-31
+
+- Replaced the singular Google credential with user-owned Calendar connections,
+  discovered sources, and one account-wide writable target while preserving
+  existing encrypted tokens and target selection.
+- Added multiple Google accounts, CalendarList discovery, safe add/reconnect/
+  refresh/disconnect flows, source selection, and read-only enforcement.
+- Aggregated selected calendars with bounded concurrency, pagination, one
+  transient read retry, deterministic ordering, truncation signals, and
+  per-source partial-failure warnings.
+- Added source-aware project event creation and origin-locked mutations plus a
+  responsive, keyboard-accessible Settings management surface.
+- Expanded composite ownership constraints, forced direct-user RLS, migration,
+  provider, API, UI, and real PostgreSQL isolation coverage.
+
+## v0.38.0 - 2026-08-24
+
+- Made Google Calendar credential reads, refreshes, target updates, and project
+  connection status fail closed for revoked credentials.
+- Added a true authenticated-user disconnect that blocks local use first,
+  attempts Google token revocation, permanently removes stored tokens, and
+  provides a recovery warning when upstream revocation is unconfirmed.
+- Required encrypted Calendar token storage whenever OAuth is configured
+  outside tests and added lazy encryption for legacy plaintext local rows.
+- Added an accessible Settings confirmation flow and repaired the project
+  Calendar summary request by including its project authorization context.
+- Expanded service, API, component, environment, and real PostgreSQL RLS
+  coverage for user-owned Calendar credentials and lifecycle failures.
 
 ## v0.38.0 - 2026-08-24
 
@@ -65,7 +210,6 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Added schema constraints, backfill migration, service/API/component tests, and
   responsive identity presentation across the meeting dialog, quick panel, and
   project-wide Todos destination.
-
 ## v0.36.0 - 2026-08-05
 
 - Added an exact active meeting-todo count to the current project's `Todos`

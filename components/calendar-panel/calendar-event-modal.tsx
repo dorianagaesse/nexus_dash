@@ -1,15 +1,21 @@
-import { Trash2, X } from "lucide-react";
+import { CalendarDays, ExternalLink, Trash2, X } from "lucide-react";
 
 import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import {
+  formatCalendarSourceAccount,
+  resolveCalendarVisualColor,
+  type CalendarEventItem,
+  type CalendarSourceOption,
+} from "@/components/project-calendar-panel-utils";
 
 interface CalendarEventModalProps {
   isOpen: boolean;
   isBrowserReady: boolean;
-  eventModalMode: "create" | "edit";
+  eventModalMode: "create" | "edit" | "view";
   isEventMutationPending: boolean;
   isSavingEvent: boolean;
   isDeletingEvent: boolean;
@@ -21,6 +27,9 @@ interface CalendarEventModalProps {
   eventEndDateTime: string;
   eventLocation: string;
   eventDescription: string;
+  calendarSources: CalendarSourceOption[];
+  eventCalendarSourceId: string;
+  selectedEvent: CalendarEventItem | null;
   eventFormError: string | null;
   connectUrl: string;
   onClose: () => void;
@@ -34,6 +43,7 @@ interface CalendarEventModalProps {
   onEventEndDateTimeChange: (value: string) => void;
   onEventLocationChange: (value: string) => void;
   onEventDescriptionChange: (value: string) => void;
+  onEventCalendarSourceIdChange: (value: string) => void;
 }
 
 export function CalendarEventModal({
@@ -51,6 +61,9 @@ export function CalendarEventModal({
   eventEndDateTime,
   eventLocation,
   eventDescription,
+  calendarSources,
+  eventCalendarSourceId,
+  selectedEvent,
   eventFormError,
   connectUrl,
   onClose,
@@ -64,10 +77,16 @@ export function CalendarEventModal({
   onEventEndDateTimeChange,
   onEventLocationChange,
   onEventDescriptionChange,
+  onEventCalendarSourceIdChange,
 }: CalendarEventModalProps) {
   if (!isBrowserReady || !isOpen) {
     return null;
   }
+
+  const selectedSource =
+    calendarSources.find((source) => source.id === eventCalendarSourceId) ?? null;
+  const isReadOnly = eventModalMode === "view";
+  const controlsDisabled = isEventMutationPending || isReadOnly;
 
   return (
     <Dialog
@@ -87,8 +106,10 @@ export function CalendarEventModal({
         <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0">
           <DialogTitle className="text-lg">
             {eventModalMode === "create"
-              ? "New Google Calendar event"
-              : "Edit Google Calendar event"}
+              ? "Create calendar event"
+              : eventModalMode === "edit"
+                ? "Edit calendar event"
+                : "Calendar event"}
           </DialogTitle>
           <Button
             type="button"
@@ -113,13 +134,69 @@ export function CalendarEventModal({
               void onSubmit();
             }}
           >
+            {eventModalMode === "create" ? (
+              <div className="grid gap-2">
+                <label htmlFor="calendar-event-source" className="text-sm font-medium">
+                  Calendar
+                </label>
+                <select
+                  id="calendar-event-source"
+                  value={eventCalendarSourceId}
+                  onChange={(event) => onEventCalendarSourceIdChange(event.target.value)}
+                  disabled={isEventMutationPending}
+                  required
+                  className="min-h-11 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="" disabled>Select a writable calendar</option>
+                  {calendarSources.filter((source) => source.writable).map((source) => (
+                    <option key={source.id} value={source.id}>
+                      {source.name} — {formatCalendarSourceAccount(source)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : selectedSource ? (
+              <section
+                className="flex items-start gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-3"
+                aria-label="Event calendar source"
+              >
+                <span
+                  aria-hidden
+                  className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-foreground/15 bg-background"
+                >
+                  <CalendarDays
+                    className="h-4 w-4"
+                    style={{
+                      color: resolveCalendarVisualColor(selectedSource.id, selectedSource.color),
+                    }}
+                  />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Calendar
+                  </p>
+                  <p className="break-words text-sm font-semibold text-foreground">
+                    {selectedSource.name}
+                  </p>
+                  <p className="break-words text-xs text-muted-foreground">
+                    {formatCalendarSourceAccount(selectedSource)}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {isReadOnly
+                      ? "This calendar is read only in NexusDash."
+                      : "Existing events stay in their originating calendar."}
+                  </p>
+                </div>
+              </section>
+            ) : null}
+
             <div className="grid gap-2">
               <label htmlFor="calendar-event-summary" className="text-sm font-medium">
                 Title
               </label>
               <EmojiInputField
                 id="calendar-event-summary"
-                autoFocus
+                autoFocus={!isReadOnly}
                 value={eventSummary}
                 onChange={(event) => onEventSummaryChange(event.target.value)}
                 minLength={1}
@@ -127,7 +204,7 @@ export function CalendarEventModal({
                 required
                 className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 placeholder="Weekly planning"
-                disabled={isEventMutationPending}
+                disabled={controlsDisabled}
               />
             </div>
 
@@ -137,7 +214,7 @@ export function CalendarEventModal({
                 checked={eventAllDay}
                 onChange={(event) => onEventAllDayChange(event.target.checked)}
                 className="h-4 w-4 rounded border-input"
-                disabled={isEventMutationPending}
+                disabled={controlsDisabled}
               />
               All day event
             </label>
@@ -153,7 +230,7 @@ export function CalendarEventModal({
                     value={eventStartDate}
                     onChange={onEventStartDateChange}
                     includeTime={false}
-                    disabled={isEventMutationPending}
+                    disabled={controlsDisabled}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -165,7 +242,7 @@ export function CalendarEventModal({
                     value={eventEndDate}
                     onChange={onEventEndDateChange}
                     includeTime={false}
-                    disabled={isEventMutationPending}
+                    disabled={controlsDisabled}
                   />
                 </div>
               </div>
@@ -183,7 +260,7 @@ export function CalendarEventModal({
                     value={eventStartDateTime}
                     onChange={onEventStartDateTimeChange}
                     includeTime
-                    disabled={isEventMutationPending}
+                    disabled={controlsDisabled}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -195,7 +272,7 @@ export function CalendarEventModal({
                     value={eventEndDateTime}
                     onChange={onEventEndDateTimeChange}
                     includeTime
-                    disabled={isEventMutationPending}
+                    disabled={controlsDisabled}
                   />
                 </div>
               </div>
@@ -212,7 +289,7 @@ export function CalendarEventModal({
                 maxLength={200}
                 className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 placeholder="Office / Video call / Address"
-                disabled={isEventMutationPending}
+                disabled={controlsDisabled}
               />
             </div>
 
@@ -228,7 +305,7 @@ export function CalendarEventModal({
                 rows={4}
                 className="rounded-md border border-input bg-background px-3 py-2 text-sm"
                 placeholder="Event details..."
-                disabled={isEventMutationPending}
+                disabled={controlsDisabled}
               />
             </div>
 
@@ -259,19 +336,29 @@ export function CalendarEventModal({
                   {isDeletingEvent ? "Deleting..." : "Delete event"}
                 </Button>
               ) : null}
-              <Button
-                type="submit"
-                disabled={isEventMutationPending}
-                className="w-full sm:w-auto"
-              >
-                {isSavingEvent
-                  ? eventModalMode === "create"
-                    ? "Creating..."
-                    : "Saving..."
-                  : eventModalMode === "create"
-                    ? "Create event"
-                    : "Save changes"}
-              </Button>
+              {eventModalMode !== "view" ? (
+                <Button
+                  type="submit"
+                  disabled={isEventMutationPending}
+                  className="w-full sm:w-auto"
+                >
+                  {isSavingEvent
+                    ? eventModalMode === "create"
+                      ? "Creating..."
+                      : "Saving..."
+                    : eventModalMode === "create"
+                      ? "Create event"
+                      : "Save changes"}
+                </Button>
+              ) : null}
+              {selectedEvent?.htmlLink ? (
+                <Button type="button" variant="outline" asChild className="w-full sm:w-auto">
+                  <a href={selectedEvent.htmlLink} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4" />
+                    Open in Google Calendar
+                  </a>
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 variant="ghost"
@@ -279,7 +366,7 @@ export function CalendarEventModal({
                 disabled={isEventMutationPending}
                 className="w-full sm:w-auto"
               >
-                Cancel
+                {eventModalMode === "view" ? "Close" : "Cancel"}
               </Button>
             </div>
           </form>

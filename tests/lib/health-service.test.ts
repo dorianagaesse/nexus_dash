@@ -15,11 +15,14 @@ describe("checkDatabaseReadiness", () => {
     vi.clearAllMocks();
   });
 
-  test("resolves when prisma ping succeeds", async () => {
+  test("resolves when the runtime role can query an application table", async () => {
     prismaMock.$queryRaw.mockResolvedValueOnce([{ value: 1 }]);
 
     await expect(checkDatabaseReadiness()).resolves.toBeUndefined();
     expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(String(prismaMock.$queryRaw.mock.calls[0]?.[0])).toContain(
+      "Session"
+    );
   });
 
   test("fails fast when prisma ping does not return before timeout", async () => {

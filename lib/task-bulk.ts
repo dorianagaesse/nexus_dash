@@ -1,0 +1,1 @@
+export const MAX_BULK_TASK_OPERATIONS = 50;

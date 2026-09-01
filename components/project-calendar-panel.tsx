@@ -24,9 +24,13 @@ import {
   groupEventsByDay,
   mapEventMutationError,
   parseEventForForm,
+  resolveCalendarVisualColor,
+  resolvePreferredWriteSourceId,
+  toCalendarEventDateTime,
   toDateInputValue,
   type CalendarEventItem,
   type CalendarEventsResponse,
+  type CalendarSourceOption,
 } from "@/components/project-calendar-panel-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,9 +41,11 @@ interface ProjectCalendarPanelProps {
   projectId: string;
 }
 
-type EventModalMode = "create" | "edit";
+type EventModalMode = "create" | "edit" | "view";
 
-export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
+export function ProjectCalendarPanel({
+  projectId,
+}: ProjectCalendarPanelProps) {
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
     sectionKey: "calendar",
@@ -50,13 +56,17 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [isWritable, setIsWritable] = useState(false);
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
+  const [calendarSources, setCalendarSources] = useState<CalendarSourceOption[]>([]);
+  const [defaultCalendarSourceId, setDefaultCalendarSourceId] = useState("");
+  const [eventCalendarSourceId, setEventCalendarSourceId] = useState("");
+  const [sourceWarning, setSourceWarning] = useState<string | null>(null);
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
   const [rangeStart, setRangeStart] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-  const [eventModalMode, setEventModalMode] =
-    useState<EventModalMode>("create");
+  const [eventModalMode, setEventModalMode] = useState<EventModalMode>("create");
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEventItem | null>(null);
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [eventFormError, setEventFormError] = useState<string | null>(null);
@@ -72,8 +82,7 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
   const isEventMutationPending = isSavingEvent || isDeletingEvent;
 
   const connectUrl = useMemo(
-    () =>
-      `/api/auth/google?returnTo=${encodeURIComponent(`/projects/${projectId}`)}`,
+    () => `/api/auth/google?returnTo=${encodeURIComponent(`/projects/${projectId}`)}`,
     [projectId]
   );
 
@@ -90,22 +99,27 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
     setEventEndDateTime(defaults.end);
     setEventLocation("");
     setEventDescription("");
+    setEventCalendarSourceId(defaultCalendarSourceId);
     setEditingEventId(null);
+    setSelectedEvent(null);
     setEventFormError(null);
   };
 
   const openCreateEventModal = () => {
-    if (!isWritable) return;
+    if (!isWritable) {
+      return;
+    }
+
     setEventModalMode("create");
     resetEventForm();
     setIsEventModalOpen(true);
   };
 
   const openEditEventModal = (event: CalendarEventItem) => {
-    if (!isWritable) return;
     const parsed = parseEventForForm(event);
-    setEventModalMode("edit");
+    setEventModalMode(isWritable && event.writable ? "edit" : "view");
     setEditingEventId(event.id);
+    setSelectedEvent(event);
     setEventSummary(parsed.summary);
     setEventAllDay(parsed.isAllDay);
     setEventStartDate(parsed.startDate);
@@ -114,6 +128,7 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
     setEventEndDateTime(parsed.endDateTime);
     setEventLocation(parsed.location);
     setEventDescription(parsed.description);
+    setEventCalendarSourceId(event.calendarSourceId);
     setEventFormError(null);
     setIsEventModalOpen(true);
   };
@@ -127,78 +142,95 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
     setEventFormError(null);
   };
 
-  const openGoogleEvent = (event: CalendarEventItem) => {
-    if (!event.htmlLink) {
-      return;
-    }
-
-    window.open(event.htmlLink, "_blank", "noopener,noreferrer");
+  const openEventDetails = (event: CalendarEventItem) => {
+    openEditEventModal(event);
   };
 
   useEffect(() => {
     setIsBrowserReady(true);
   }, []);
 
-  const loadEvents = useCallback(
-    async (signal?: AbortSignal) => {
-      setIsLoading(true);
-      setError(null);
+  const loadEvents = useCallback(async (signal?: AbortSignal) => {
+    setIsLoading(true);
+    setError(null);
 
-      try {
-        const response = await fetch(
-          `/api/calendar/events?range=${CALENDAR_RANGE}&projectId=${encodeURIComponent(projectId)}`,
-          {
-            method: "GET",
-            cache: "no-store",
-            signal,
-          }
-        );
-
-        const payload = (await response
-          .json()
-          .catch(() => null)) as CalendarEventsResponse | null;
-
-        if (response.status === 401) {
-          setIsConnected(false);
-          setIsWritable(false);
-          setEvents([]);
-          setSyncedAt(null);
-          return;
+    try {
+      const response = await fetch(
+        `/api/calendar/events?range=${CALENDAR_RANGE}&projectId=${encodeURIComponent(projectId)}`,
+        {
+          method: "GET",
+          cache: "no-store",
+          signal,
         }
+      );
 
-        if (!response.ok || !payload) {
-          throw new Error(payload?.error ?? "Could not load calendar events.");
-        }
+      const payload = (await response.json().catch(() => null)) as
+        | CalendarEventsResponse
+        | null;
 
-        setIsConnected(payload.connected);
-        setIsWritable(payload.writable === true);
-        if (payload.writable !== true) {
-          setIsEventModalOpen(false);
-        }
-        setEvents(payload.events ?? []);
-        setSyncedAt(payload.syncedAt ?? null);
-        setRangeStart(payload.timeMin ?? null);
-      } catch (fetchError) {
-        if (fetchError instanceof Error && fetchError.name === "AbortError") {
-          return;
-        }
-
-        console.error("[ProjectCalendarPanel.loadEvents]", fetchError);
+      if (response.status === 401) {
+        setIsConnected(false);
         setIsWritable(false);
-        setError(
-          fetchError instanceof Error
-            ? fetchError.message
-            : "Could not load calendar events."
-        );
-        setRangeStart(null);
-      } finally {
-        setIsLoading(false);
+        setEvents([]);
+        setCalendarSources([]);
+        setDefaultCalendarSourceId("");
+        setSyncedAt(null);
+        return;
       }
-    },
-    [projectId]
-  );
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? "Could not load calendar events.");
+      }
+
+      setIsConnected(payload.connected);
+      setIsWritable(payload.writable === true);
+      if (payload.writable !== true) {
+        setIsEventModalOpen(false);
+      }
+      setEvents(payload.events ?? []);
+      setCalendarSources(payload.sources ?? []);
+      const preferredSourceId = resolvePreferredWriteSourceId(
+        payload.sources ?? [],
+        payload.writeSourceId
+      );
+      setDefaultCalendarSourceId(preferredSourceId);
+      setEventCalendarSourceId((current) =>
+        current && (payload.sources ?? []).some((source) => source.id === current)
+          ? current
+          : preferredSourceId
+      );
+      setSourceWarning(
+        payload.truncated
+          ? "Some calendars reached the 1,000-event display limit."
+          : payload.warnings?.length
+            ? `${payload.warnings.length} calendar source${payload.warnings.length === 1 ? "" : "s"} could not be loaded.`
+            : null
+      );
+      setSyncedAt(payload.syncedAt ?? null);
+      setRangeStart(payload.timeMin ?? null);
+    } catch (fetchError) {
+      if (fetchError instanceof Error && fetchError.name === "AbortError") {
+        return;
+      }
+
+      console.error("[ProjectCalendarPanel.loadEvents]", fetchError);
+      setIsWritable(false);
+      setError(
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Could not load calendar events."
+      );
+      setRangeStart(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [projectId]);
 
   const submitEventForm = async () => {
+    if (!isWritable || eventModalMode === "view") {
+      return;
+    }
+
     const trimmedSummary = eventSummary.trim();
     if (!trimmedSummary) {
       setEventFormError("Event title is required.");
@@ -210,8 +242,12 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
       return;
     }
 
-    const startValue = eventAllDay ? eventStartDate : eventStartDateTime;
-    const endValue = eventAllDay ? eventEndDate : eventEndDateTime;
+    const startValue = eventAllDay
+      ? eventStartDate
+      : toCalendarEventDateTime(eventStartDateTime);
+    const endValue = eventAllDay
+      ? eventEndDate
+      : toCalendarEventDateTime(eventEndDateTime);
     if (!startValue || !endValue) {
       setEventFormError("Please provide start and end values.");
       return;
@@ -240,17 +276,16 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
           end: endValue,
           location: eventLocation.trim(),
           description: eventDescription.trim(),
+          calendarSourceId: eventCalendarSourceId || undefined,
         }),
       });
 
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
 
       if (!response.ok) {
-        throw new Error(
-          mapEventMutationError(payload?.error ?? "calendar-internal-error")
-        );
+        throw new Error(mapEventMutationError(payload?.error ?? "calendar-internal-error"));
       }
 
       setIsEventModalOpen(false);
@@ -267,6 +302,10 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
   };
 
   const handleDeleteEvent = async () => {
+    if (!isWritable) {
+      return;
+    }
+
     if (eventModalMode !== "edit" || !editingEventId) {
       setEventFormError("No calendar event selected for deletion.");
       return;
@@ -282,20 +321,18 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
 
     try {
       const response = await fetch(
-        `/api/calendar/events/${editingEventId}?projectId=${encodeURIComponent(projectId)}`,
+        `/api/calendar/events/${editingEventId}?projectId=${encodeURIComponent(projectId)}&calendarSourceId=${encodeURIComponent(eventCalendarSourceId)}`,
         {
           method: "DELETE",
         }
       );
 
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
 
       if (!response.ok) {
-        throw new Error(
-          mapEventMutationError(payload?.error ?? "calendar-internal-error")
-        );
+        throw new Error(mapEventMutationError(payload?.error ?? "calendar-internal-error"));
       }
 
       setIsEventModalOpen(false);
@@ -325,10 +362,7 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
   }, [isExpanded, loadEvents]);
 
   const weekDays = useMemo(() => buildWeekDays(rangeStart), [rangeStart]);
-  const eventsByDay = useMemo(
-    () => groupEventsByDay(events, weekDays),
-    [events, weekDays]
-  );
+  const eventsByDay = useMemo(() => groupEventsByDay(events, weekDays), [events, weekDays]);
 
   return (
     <>
@@ -357,19 +391,12 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
                   My calendar
                 </span>
               </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Your selected Google Calendar shown alongside this project.
-                Events you create or edit here update that Google calendar, not
-                a shared NexusDash project schedule.
-              </p>
             </div>
           </button>
         </CardHeader>
 
         {isExpanded ? (
-          <CardContent
-            className={cn("space-y-4", PROJECT_SECTION_CONTENT_CLASS)}
-          >
+          <CardContent className={cn("space-y-4", PROJECT_SECTION_CONTENT_CLASS)}>
             {isLoading ? (
               <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
                 Loading calendar events...
@@ -378,10 +405,6 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
 
             {!isLoading && isConnected === false ? (
               <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
-                <p>
-                  Connect Google Calendar to overlay events from your selected
-                  calendar here.
-                </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button type="button" size="sm" asChild>
                     <a href={connectUrl}>Connect Google Calendar</a>
@@ -398,11 +421,14 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
 
             {!isLoading && isConnected === true ? (
               <>
+                {sourceWarning ? (
+                  <p role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+                    {sourceWarning}
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
                   <p className="text-xs text-muted-foreground">
-                    {syncedAt
-                      ? `Synced ${new Date(syncedAt).toLocaleString()}`
-                      : "Connected"}
+                    {syncedAt ? `Synced ${new Date(syncedAt).toLocaleString()}` : "Connected"}
                     {!isWritable ? " · Read-only" : ""}
                   </p>
                   <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -433,12 +459,37 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
                   </div>
                 </div>
 
+                {calendarSources.length > 1 ? (
+                  <div
+                    className="flex flex-wrap gap-x-4 gap-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+                    aria-label="Visible calendar sources"
+                  >
+                    {calendarSources.map((source) => (
+                      <div key={source.id} className="flex min-w-0 items-center gap-2 text-xs">
+                        <span
+                          aria-hidden
+                          className="h-2.5 w-2.5 shrink-0 rounded-full border border-foreground/20"
+                          style={{
+                            backgroundColor: resolveCalendarVisualColor(source.id, source.color),
+                          }}
+                        />
+                        <span className="truncate font-medium text-foreground">
+                          {source.name}
+                        </span>
+                        <span className="truncate text-muted-foreground">
+                          {source.accountLabel}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
                 <CalendarWeekGrid
                   canWrite={isWritable}
                   weekDays={weekDays}
                   eventsByDay={eventsByDay}
                   eventsCount={events.length}
-                  onOpenGoogleEvent={openGoogleEvent}
+                  onOpenEventDetails={openEventDetails}
                   onOpenEditEventModal={openEditEventModal}
                 />
               </>
@@ -467,7 +518,7 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
       </Card>
 
       <CalendarEventModal
-        isOpen={isWritable && isEventModalOpen}
+        isOpen={isEventModalOpen}
         isBrowserReady={isBrowserReady}
         eventModalMode={eventModalMode}
         isEventMutationPending={isEventMutationPending}
@@ -481,6 +532,9 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
         eventEndDateTime={eventEndDateTime}
         eventLocation={eventLocation}
         eventDescription={eventDescription}
+        calendarSources={calendarSources}
+        eventCalendarSourceId={eventCalendarSourceId}
+        selectedEvent={selectedEvent}
         eventFormError={eventFormError}
         connectUrl={connectUrl}
         onClose={closeEventModal}
@@ -494,6 +548,7 @@ export function ProjectCalendarPanel({ projectId }: ProjectCalendarPanelProps) {
         onEventEndDateTimeChange={setEventEndDateTime}
         onEventLocationChange={setEventLocation}
         onEventDescriptionChange={setEventDescription}
+        onEventCalendarSourceIdChange={setEventCalendarSourceId}
       />
     </>
   );
