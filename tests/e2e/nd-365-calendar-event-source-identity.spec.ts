@@ -114,7 +114,10 @@ test("identifies event calendars with text and color across responsive themes", 
   await expect(legend).toContainText("Team planning");
   await expect(legend).toContainText("Work account");
 
-  await page.locator("article").filter({ hasText: "Team review" }).click();
+  await page
+    .locator("article")
+    .filter({ hasText: "Team review", visible: true })
+    .click();
   const readOnlyDialog = page.getByRole("dialog");
   await expect(readOnlyDialog.getByRole("heading", { name: "Calendar event" })).toBeVisible();
   await expect(readOnlyDialog.getByLabel("Event calendar source")).toContainText(
@@ -138,7 +141,10 @@ test("identifies event calendars with text and color across responsive themes", 
   });
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
-  await page.locator("article").filter({ hasText: "Personal planning" }).click();
+  await page
+    .locator("article")
+    .filter({ hasText: "Personal planning", visible: true })
+    .click();
   const editableDialog = page.getByRole("dialog");
   await expect(
     editableDialog.getByRole("heading", { name: "Edit calendar event" })
