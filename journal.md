@@ -3,6 +3,34 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-01 - ND-366 Vercel Fluid compute decision and remediation program
+
+- Investigated the Vercel Hobby limit warning against live team telemetry and
+  the deployed application: 4h 15m Fluid Active CPU and 314.2 GB-hours Fluid
+  Provisioned Memory in 30 days, including 2h 3m CPU and 153.6 GB-hours in the
+  latest seven days. Production and Preview both contributed materially.
+- Root cause: the global notification SSE route and project activity SSE route
+  each stay open for 280 seconds, reconnect, and poll PostgreSQL every second
+  per tab. The work repeatedly enters Prisma RLS transactions and runs several
+  queries even when nothing changes; hidden and duplicate tabs extend both CPU
+  and provisioned-memory consumption. The twice-hourly email dispatch and
+  ordinary request volume were minor by comparison.
+- The user upgraded `dorian-agaesses-projects` to Vercel Pro for immediate
+  continuity. Recorded that Pro is a bounded safety net rather than the fix;
+  an assumed 20 CPU-hour month plus the observed seven-day memory pace should
+  remain within the plan's monthly usage credit in the dominant `iad1` region.
+- Created the Nexus Dash epic `Realtime Efficiency and Vercel Cost Control`
+  and tasks ND-366 through ND-375. The sequence covers the architecture record,
+  spend/environment controls, transport kill switch, adaptive polling,
+  multi-tab coordination, observability, secure Supabase Realtime design and
+  implementation, legacy SSE retirement/load testing, and a clean seven-day
+  hosting/plan review.
+- Accepted direction: keep Vercel during remediation; remove one-second
+  DB-polled SSE; use visibility-aware, cross-tab-coordinated adaptive polling
+  as the safe baseline; target private Supabase Realtime Broadcast for true
+  push; do not migrate hosting or move these streams to Lambda merely to mask
+  the workload.
+
 # 2026-08-30 - TASK-378 bounded bulk task operations
 
 - Added `POST /api/projects/{projectId}/tasks/bulk` with create, update

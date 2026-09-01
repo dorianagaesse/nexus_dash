@@ -1,93 +1,84 @@
 # Current Task
 
-## ND-365: Calendar event source identity and color cues
+## ND-366: Record Vercel Fluid compute decision and remediation program
 
 ## Status
 
-In Progress (created in the NexusDash project kanban on 2026-09-01 as the
-follow-up to TASK-327 / PR #450).
+In Progress (created in the Nexus Dash project kanban on 2026-09-01 under the
+`Realtime Efficiency and Vercel Cost Control` epic).
 
 ## Context
 
-TASK-327 made multiple Google accounts and calendar sources available at once,
-but the project calendar does not communicate an event's origin clearly. Users
-cannot reliably tell which connected account and calendar owns an event. This
-is especially important because existing events remain locked to their origin
-for update and deletion.
+The Vercel Hobby team exceeded its four-hour Fluid Active CPU allowance and
+approached its provisioned-memory allowance. A repository and live-telemetry
+investigation traced the material steady-state cost to the account notification
+and project activity SSE routes: both recycle every 280 seconds and poll
+PostgreSQL every second per open tab in Production and Preview. The team has
+upgraded to Pro for immediate continuity, but the inefficient transport still
+needs a recorded replacement program.
 
 ## Scope
 
-- Carry the source calendar name, connected-account identity, and provider
-  color through calendar event and source response contracts.
-- Show an explicit calendar/account identity when an existing event is opened.
-- Add stable per-calendar visual cues to week-grid events and a concise source
-  legend when multiple calendars are visible.
-- Provide a deterministic accessible fallback when Google supplies no usable
-  calendar color.
-- Keep existing create/update/delete routing, source locking, and read-only
-  permissions unchanged.
-- Add automated coverage for multi-source provenance, accessible non-color
-  identity, responsive layout, and light/dark themes.
+- Record the measured CPU, memory, route, environment, and region evidence in
+  `adr/decisions.md`.
+- Record the decision to retain Vercel during remediation, use bounded adaptive
+  polling as the immediate baseline, and target private Supabase Realtime
+  Broadcast for true push.
+- Capture the rejected immediate alternatives: treating Pro as the fix,
+  migrating hosting before optimization, or moving the streams to Lambda.
+- Create one Nexus Dash epic and all implementation/review tasks with explicit
+  acceptance criteria, definitions of done, sequencing, and relations.
 
 ## Out Of Scope
 
-- Letting users customize Google Calendar colors from NexusDash.
-- Moving existing events between calendars.
-- Changing Google OAuth scopes, token storage, discovery, or account lifecycle.
-- Redesigning the Calendar settings experience delivered by TASK-327.
+- Changing runtime behavior, Vercel settings, billing settings, or Supabase
+  configuration in this documentation task.
+- Implementing any remediation task from ND-367 through ND-375.
+- Promoting or rolling back a deployment.
 
 ## Prerequisites And Runtime Assumptions
 
-- PR #450 is merged to `main` at `acbab9f` and provides the multi-account
-  `CalendarConnection` / `CalendarSource` model.
-- `CalendarSource.color`, `name`, and connection account label/email are the
-  authoritative provenance metadata; no schema migration is expected.
-- Local build and unit validation can use non-secret localhost database
-  placeholders. Calendar E2E requires the repository PostgreSQL test setup.
-- No new runtime secret or external provider permission is required.
+- The user upgraded `dorian-agaesses-projects` to Vercel Pro on 2026-09-01.
+- Live Vercel telemetry was inspected read-only for the latest 30-day,
+  seven-day, daily, route, region, and Production/Preview views.
+- Nexus Dash agent credentials provide project/task read and write scopes; the
+  deployed production API currently uses the full-board reorder operation for
+  status changes.
 
 ## Deployment And Review Assumptions
 
-- Work occurs on `feature/nd-365-calendar-event-source-identity` with one PR.
-- Follow `agent.md` and `.github/workflows/deploy-vercel.yml` for an explicit-ref
-  Preview deployment and calendar-focused Playwright validation.
-- Open the PR ready for review, wait for Copilot's initial review, respond to
-  and resolve every actionable thread, and leave the PR unmerged for user
-  validation unless explicitly instructed otherwise.
+- Work occurs on `docs/nd-366-vercel-fluid-compute-decision` from
+  `origin/main` with one documentation PR.
+- No Preview deployment is required because runtime behavior is unchanged.
+- Open the PR ready for review, wait for the initial Copilot outcome, and
+  address actionable feedback before handoff.
 
 ## Acceptance Criteria
 
-1. Every fetched event exposes its CalendarSource name, connected account
-   label/email, and provider color when available.
-2. Opening an existing event explicitly names its originating account and
-   calendar; the information remains available for read-only events.
-3. Week-grid events use stable per-calendar visual cues, with an accessible
-   deterministic fallback when a provider color is missing or invalid.
-4. Calendar provenance never relies on color alone: event controls and the
-   opened-event surface include meaningful text or accessible labels.
-5. Existing create/update/delete behavior, write-source selection, source
-   locking, aggregation ordering, and partial-failure behavior remain intact.
-6. Unit/component and Playwright coverage exercises multiple sources, modal
-   provenance, 375px mobile behavior, desktop behavior, and light/dark themes.
+1. `adr/decisions.md` records the context, measured baseline, accepted
+   architecture, tradeoffs, target thresholds, and rejected immediate options.
+2. Nexus Dash contains one dedicated epic and an executable task sequence for
+   spend controls, transport mitigation, observability, Supabase Realtime,
+   legacy retirement, and post-remediation review.
+3. Tasks include acceptance criteria and definitions of done and are linked to
+   the epic and their direct implementation relationships.
+4. The documentation distinguishes the Pro upgrade's continuity value from the
+   required engineering remediation.
 
 ## Definition Of Done
 
-- All acceptance criteria are implemented and documented.
-- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`, and
-  `npm run build` pass.
-- Relevant Calendar Playwright tests pass locally or in CI, and an explicit-ref
-  Preview deployment is validated.
-- Version/changelog and `journal.md` are updated according to repository policy.
-- A ready PR is open, required checks pass, Copilot review has completed, and
-  every actionable review thread is addressed and resolved.
+- Documentation formatting and repository diff checks pass.
+- The epic and ND-366 through ND-375 are verified through the agent API.
+- `journal.md` records the investigation outcome and planning artifacts.
+- A ready PR is open, required checks pass, Copilot review completes, and every
+  actionable review thread is addressed.
 
 ## References
 
-- NexusDash task `ND-365` (`cmtikk10n000804ktx0lpdi6l`)
-- `agent.md`
-- `adr/task-327-calendar-connections.md`
-- `docs/runbooks/calendar-connections.md`
-- `components/project-calendar-panel.tsx`
-- `components/calendar-panel/calendar-week-grid.tsx`
-- `components/calendar-panel/calendar-event-modal.tsx`
-- `lib/services/calendar-service.ts`
+- Nexus Dash epic `Realtime Efficiency and Vercel Cost Control`
+- Nexus Dash tasks `ND-366` through `ND-375`
+- `adr/decisions.md`
+- `app/api/account/notifications/stream/route.ts`
+- `app/api/projects/[projectId]/activity/stream/route.ts`
+- `components/notification-live-updates.tsx`
+- `components/project-live-refresh.tsx`
