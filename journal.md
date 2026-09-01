@@ -4514,3 +4514,5 @@ Low-value entries to avoid going forward:
   skipped), coverage at 91.65% statements / 81.32% branches / 92.3% functions
   / 92.14% lines, and the production build with documented local-only email
   delivery and signing-secret settings.
+- Split the shared invalid-assignee error from steward-specific wording, fully
+  addressing Copilot's remaining PR #453 review comment before handoff.
