@@ -30,6 +30,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   as the safe baseline; target private Supabase Realtime Broadcast for true
   push; do not migrate hosting or move these streams to Lambda merely to mask
   the workload.
+- Published ready PR #476. Repository quality, RLS, Playwright, container, and
+  branch-name checks passed; Copilot recommended approval with zero comments.
+  Marked ND-366 Done after verifying the epic and all ten tasks through the
+  live agent API.
 
 # 2026-08-30 - TASK-378 bounded bulk task operations
 

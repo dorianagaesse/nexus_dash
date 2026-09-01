@@ -4,7 +4,7 @@
 
 ## Status
 
-In Progress (created in the Nexus Dash project kanban on 2026-09-01 under the
+Done (created in the Nexus Dash project kanban on 2026-09-01 under the
 `Realtime Efficiency and Vercel Cost Control` epic).
 
 ## Context
