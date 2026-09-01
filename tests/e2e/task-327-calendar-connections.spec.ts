@@ -84,9 +84,12 @@ test("manages multiple Calendar sources accessibly across mobile and desktop the
   await expect(page.getByText("Reauthorization required")).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /Personal/ })).toBeChecked();
   await expect(
-    page.getByRole("radio", { name: "Use Company holidays for new events" })
+    page.getByRole("button", { name: "Use Company holidays for new events" })
   ).toBeDisabled();
-  await expect(page.getByRole("radio", { name: "Use Personal for new events" })).toBeChecked();
+  await expect(
+    page.getByRole("button", { name: "Use Personal for new events" })
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Refresh all calendars" })).toHaveCount(1);
 
   const addButton = page.getByRole("link", { name: /Add Google account/ });
   const addBox = await addButton.boundingBox();

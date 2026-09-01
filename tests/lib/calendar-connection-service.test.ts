@@ -38,6 +38,7 @@ import {
   connectGoogleCalendarAccount,
   disconnectCalendarConnection,
   syncCalendarConnection,
+  updateCalendarConnectionTokens,
   updateCalendarPreferences,
 } from "@/lib/services/calendar-connection-service";
 
@@ -180,6 +181,24 @@ describe("calendar connection service", () => {
         selectedSourceIds: ["source-owned-by-user-2"],
       })
     ).rejects.toThrow("calendar-source-not-found");
+  });
+
+  test("preserves token type when a refresh response omits it", async () => {
+    await updateCalendarConnectionTokens({
+      userId: "user-1",
+      connectionId: "connection-1",
+      tokens: {
+        accessToken: "refreshed-access",
+        refreshToken: "refresh-token",
+        expiresIn: 3600,
+      },
+    });
+
+    expect(prismaMock.calendarConnection.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ tokenType: undefined }),
+      })
+    );
   });
 
   test("requires the writable target to remain selected", async () => {

@@ -569,9 +569,9 @@ try {
   );
   assert.equal(missingLookup.rowCount, 0);
 
-console.log(
-  "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, revoked membership, Calendar connections/sources/preferences, and agent credentials."
-);
+  console.log(
+    "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, revoked membership, Calendar connections/sources/preferences, and agent credentials."
+  );
 } finally {
   await cleanup().catch(() => undefined);
   await runtime.end();

@@ -157,7 +157,7 @@ export async function updateCalendarConnectionTokens(input: {
       data: {
         accessToken: encryptGoogleToken(input.tokens.accessToken),
         refreshToken: encryptGoogleToken(input.tokens.refreshToken),
-        tokenType: input.tokens.tokenType ?? null,
+        tokenType: input.tokens.tokenType ?? undefined,
         scopes: input.tokens.scope ?? undefined,
         expiresAt: createExpiryDate(input.tokens.expiresIn),
         reauthorizationRequiredAt: null,
