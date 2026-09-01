@@ -123,12 +123,12 @@ export function CalendarConnectionsManager({
             Choose calendars to show in projects and one writable target for new events.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           {connections.length > 0 ? (
             <Button
               type="button"
               variant="secondary"
-              className="min-h-11"
+              className="min-h-11 flex-1 sm:flex-none"
               disabled={pendingAction !== null}
               onClick={() => void refreshAllCalendars()}
             >
@@ -136,7 +136,7 @@ export function CalendarConnectionsManager({
               {pendingAction === "sync-all" ? "Refreshing…" : "Refresh all calendars"}
             </Button>
           ) : null}
-          <Button asChild className="min-h-11">
+          <Button asChild className="min-h-11 flex-1 sm:flex-none">
             <a href="/api/auth/google?returnTo=%2Faccount%2Fsettings">
               <UserPlus className="h-4 w-4" /> Add Google account
             </a>
@@ -187,7 +187,7 @@ export function CalendarConnectionsManager({
                 {connection.sources.map((source) => (
                   <div
                     key={source.id}
-                    className={`flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2 transition-colors ${
+                    className={`flex min-h-11 flex-wrap items-center gap-3 rounded-lg border px-3 py-2 transition-colors ${
                       writeTarget === source.id
                         ? "border-primary/70 bg-primary/10 ring-1 ring-primary/30"
                         : "border-border/60"
@@ -225,7 +225,7 @@ export function CalendarConnectionsManager({
                         setSelectedIds((current) => new Set(current).add(source.id));
                       }}
                       disabled={!isWritable(source.accessRole)}
-                      className="min-h-9 shrink-0 rounded-md border border-border/70 px-2.5 text-xs font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      className="ml-8 min-h-9 shrink-0 rounded-md border border-border/70 px-2.5 text-xs font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 sm:ml-0"
                     >
                       {writeTarget === source.id
                         ? "Event destination"
