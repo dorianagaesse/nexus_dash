@@ -4317,3 +4317,47 @@ Low-value entries to avoid going forward:
 - Pushed the policy-compliant replacement branch and opened draft
   [PR #416](https://github.com/dorianagaesse/nexus_dash/pull/416), superseding
   conflicting PR #410 without rewriting its protected history.
+
+## 2026-09-01 - ND-365 Calendar event source identity
+
+- Merged validated TASK-327 [PR #450](https://github.com/dorianagaesse/nexus_dash/pull/450)
+  after preserving refresh-token metadata, repairing RLS script formatting,
+  updating the destination-control E2E contract, and fixing 375 px overflow.
+  Final merge commit: `acbab9f`.
+- Created NexusDash task `ND-365` (`cmtikk10n000804ktx0lpdi6l`) and moved it to
+  In Progress. The task tracks explicit Calendar event provenance and
+  per-calendar visual cues as a follow-up to the multi-account foundation.
+- Chose color as a supplemental cue only: event cards retain visible calendar
+  text or accessible title context, and the event modal names both calendar and
+  connected account. Missing/invalid provider colors receive a deterministic
+  fallback from a bounded accessible palette.
+- Added a read-only event detail mode so every event can expose its source in
+  NexusDash without weakening CalendarSource write enforcement.
+- Prepared feature release `v0.48.0`; focused API/utility/auth tests, lint, and
+  the release policy check passed before full validation.
+- Completed the full validation baseline from the `nexus_dash_task365`
+  worktree: lint, RLS inventory, 1149 unit/API tests (2 skipped), coverage at
+  91.65% statements / 81.32% branches / 92.3% functions / 92.14% lines, and a
+  production build.
+- Ran the focused ND-365 Playwright spec (multi-source provenance, read-only
+  modal, 375 px mobile, desktop light/dark) plus calendar regression specs
+  (smoke calendar flow, TASK-327 multi-account, accessible overlays) — all
+  passed. The spec targets visible event cards explicitly because mobile day
+  cards and desktop all-day chips coexist in the DOM with CSS breakpoint
+  visibility.
+- Committed as `7fc5d1e` + `942eaba`, pushed
+  `feature/nd-365-calendar-event-source-identity`, and opened ready-for-review
+  [PR #475](https://github.com/dorianagaesse/nexus_dash/pull/475). Kanban
+  task `ND-365` labeled `feature`, still In Progress pending user validation.
+- Deployed the branch preview via `deploy-vercel.yml` (run 33503949716,
+  `git_ref=feature/nd-365-calendar-event-source-identity`, log evidence shows
+  the checkout of that ref) and validated it with the ND-365 spec plus the
+  full smoke suite against
+  `https://nexus-dash-1hu5kui5q-dorian-agaesses-projects.vercel.app`.
+- Copilot's initial review (4 threads) found a view-mode autofocus issue, a
+  missing `noopener` on the Google Calendar link, Enter/Space bubbling from
+  inner Edit buttons into the event open handler, and the stale
+  `openGoogleEvent` name. Fixed in `a4561ad` + `14624f1` (focus, rel, keydown
+  target guard on all three card variants, rename to `openEventDetails`),
+  replied on every thread, and resolved all four. Full CI (Quality Core,
+  Tenant Isolation, E2E Smoke, Container Image) is green on `14624f1`.

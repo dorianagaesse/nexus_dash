@@ -24,6 +24,7 @@ import {
   groupEventsByDay,
   mapEventMutationError,
   parseEventForForm,
+  resolveCalendarVisualColor,
   resolvePreferredWriteSourceId,
   toCalendarEventDateTime,
   toDateInputValue,
@@ -41,7 +42,7 @@ interface ProjectCalendarPanelProps {
   canEdit: boolean;
 }
 
-type EventModalMode = "create" | "edit";
+type EventModalMode = "create" | "edit" | "view";
 
 export function ProjectCalendarPanel({
   projectId,
@@ -66,6 +67,7 @@ export function ProjectCalendarPanel({
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [eventModalMode, setEventModalMode] = useState<EventModalMode>("create");
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEventItem | null>(null);
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [eventFormError, setEventFormError] = useState<string | null>(null);
@@ -100,6 +102,7 @@ export function ProjectCalendarPanel({
     setEventDescription("");
     setEventCalendarSourceId(defaultCalendarSourceId);
     setEditingEventId(null);
+    setSelectedEvent(null);
     setEventFormError(null);
   };
 
@@ -114,13 +117,10 @@ export function ProjectCalendarPanel({
   };
 
   const openEditEventModal = (event: CalendarEventItem) => {
-    if (!canEdit || !event.writable) {
-      return;
-    }
-
     const parsed = parseEventForForm(event);
-    setEventModalMode("edit");
+    setEventModalMode(canEdit && event.writable ? "edit" : "view");
     setEditingEventId(event.id);
+    setSelectedEvent(event);
     setEventSummary(parsed.summary);
     setEventAllDay(parsed.isAllDay);
     setEventStartDate(parsed.startDate);
@@ -143,12 +143,8 @@ export function ProjectCalendarPanel({
     setEventFormError(null);
   };
 
-  const openGoogleEvent = (event: CalendarEventItem) => {
-    if (!event.htmlLink) {
-      return;
-    }
-
-    window.open(event.htmlLink, "_blank", "noopener,noreferrer");
+  const openEventDetails = (event: CalendarEventItem) => {
+    openEditEventModal(event);
   };
 
   useEffect(() => {
@@ -226,7 +222,7 @@ export function ProjectCalendarPanel({
   }, [projectId]);
 
   const submitEventForm = async () => {
-    if (!canEdit) {
+    if (!canEdit || eventModalMode === "view") {
       return;
     }
 
@@ -458,12 +454,37 @@ export function ProjectCalendarPanel({
                   </div>
                 </div>
 
+                {calendarSources.length > 1 ? (
+                  <div
+                    className="flex flex-wrap gap-x-4 gap-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+                    aria-label="Visible calendar sources"
+                  >
+                    {calendarSources.map((source) => (
+                      <div key={source.id} className="flex min-w-0 items-center gap-2 text-xs">
+                        <span
+                          aria-hidden
+                          className="h-2.5 w-2.5 shrink-0 rounded-full border border-foreground/20"
+                          style={{
+                            backgroundColor: resolveCalendarVisualColor(source.id, source.color),
+                          }}
+                        />
+                        <span className="truncate font-medium text-foreground">
+                          {source.name}
+                        </span>
+                        <span className="truncate text-muted-foreground">
+                          {source.accountLabel}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
                 <CalendarWeekGrid
                   canEdit={canEdit}
                   weekDays={weekDays}
                   eventsByDay={eventsByDay}
                   eventsCount={events.length}
-                  onOpenGoogleEvent={openGoogleEvent}
+                  onOpenEventDetails={openEventDetails}
                   onOpenEditEventModal={openEditEventModal}
                 />
               </>
@@ -508,6 +529,7 @@ export function ProjectCalendarPanel({
         eventDescription={eventDescription}
         calendarSources={calendarSources}
         eventCalendarSourceId={eventCalendarSourceId}
+        selectedEvent={selectedEvent}
         eventFormError={eventFormError}
         connectUrl={connectUrl}
         onClose={closeEventModal}

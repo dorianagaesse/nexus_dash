@@ -52,7 +52,12 @@ describe("calendar events routes", () => {
     );
     calendarConnectionServiceMock.getSelectedCalendarSourceContexts.mockResolvedValue([
       {
-        connection: { id: "connection-1", scopes: "scope-a" },
+        connection: {
+          id: "connection-1",
+          scopes: "scope-a",
+          accountLabel: "Primary account",
+          accountEmail: "primary@example.com",
+        },
         source: {
           id: "source-1",
           providerCalendarId: "primary",
@@ -261,12 +266,22 @@ describe("calendar events routes", () => {
   test("GET returns successful sources with warnings when another source fails", async () => {
     calendarConnectionServiceMock.getSelectedCalendarSourceContexts.mockResolvedValueOnce([
       {
-        connection: { id: "connection-1", scopes: "scope-a" },
+        connection: {
+          id: "connection-1",
+          scopes: "scope-a",
+          accountLabel: "Personal account",
+          accountEmail: "person@example.com",
+        },
         source: { id: "source-1", providerCalendarId: "one", name: "One", color: "#111111" },
         writable: true,
       },
       {
-        connection: { id: "connection-2", scopes: "scope-a" },
+        connection: {
+          id: "connection-2",
+          scopes: "scope-a",
+          accountLabel: "Company account",
+          accountEmail: "company@example.com",
+        },
         source: { id: "source-2", providerCalendarId: "two", name: "Two", color: "#222222" },
         writable: false,
       },
@@ -281,6 +296,8 @@ describe("calendar events routes", () => {
           connectionId: "connection-1",
           calendarName: "One",
           calendarColor: "#111111",
+          accountLabel: "Personal account",
+          accountEmail: "person@example.com",
           scope: "scope-a",
           writable: true,
         },
@@ -294,6 +311,8 @@ describe("calendar events routes", () => {
           connectionId: "connection-2",
           calendarName: "Two",
           calendarColor: "#222222",
+          accountLabel: "Company account",
+          accountEmail: "company@example.com",
           scope: "scope-a",
           writable: false,
         },
@@ -325,6 +344,9 @@ describe("calendar events routes", () => {
         id: "event-one",
         calendarSourceId: "source-1",
         calendarName: "One",
+        calendarColor: "#111111",
+        accountLabel: "Personal account",
+        accountEmail: "person@example.com",
         writable: true,
       }),
     ]);
@@ -336,6 +358,18 @@ describe("calendar events routes", () => {
       },
     ]);
     expect(payload.writeSourceId).toBe("source-1");
+    expect(payload.sources).toEqual([
+      expect.objectContaining({
+        id: "source-1",
+        accountLabel: "Personal account",
+        accountEmail: "person@example.com",
+      }),
+      expect.objectContaining({
+        id: "source-2",
+        accountLabel: "Company account",
+        accountEmail: "company@example.com",
+      }),
+    ]);
   });
 
   test("POST rejects writes when scope is read-only", async () => {

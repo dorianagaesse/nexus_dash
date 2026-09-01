@@ -17,6 +17,15 @@ SHA, deployment URL, and workflow run belong in release evidence.
   credential row by ID instead of depending on a permanent `userId` uniqueness
   constraint, preparing a backward-compatible TASK-327 expansion.
 
+## v0.48.0 - 2026-09-01
+
+- Added explicit connected-account and calendar provenance to aggregated
+  Calendar events and the event detail/edit surface.
+- Added provider-color event accents, deterministic fallback colors, and a
+  visible multi-calendar legend while retaining text labels for accessibility.
+- Made read-only events open in NexusDash with source identity and an optional
+  Google Calendar link without enabling mutations.
+
 ## v0.46.0 - 2026-08-31
 
 - Made Google Calendar credential reads, refreshes, target updates, and project
