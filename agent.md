@@ -38,6 +38,35 @@ If `tasks/current.md` is complete or invalid, pick the next task from the
 Nexus Dash kanban (In Progress lane first, then Backlog in lane order), then
 update `tasks/current.md` before implementation.
 
+### Creating a good Nexus Dash task
+
+Before creating a task, search the live Nexus Dash project for the same outcome
+or overlapping work. Prefer refining or relating an existing task over creating
+a duplicate. A new task must be independently understandable and executable:
+
+- Use a concise, outcome-oriented title.
+- Start the description with a clear `Rationale:` that explains the user or
+  engineering problem and why the work matters.
+- State the intended scope and add testable `Acceptance criteria:`. Add an
+  explicit `Definition of done:` when the delivery or validation contract needs
+  clarification beyond the acceptance criteria.
+- Add at least one canonical work-type label: `feature`, `fix`, `docs`,
+  `refactor`, or `chore`. Use any additional priority or program labels only
+  when they are supported by the task's context.
+- Represent prerequisite and dependency tasks with actual Nexus Dash
+  **Related Tasks** relationships. Do not duplicate dependency lists or
+  `Dependency:` / `Dependencies:` prose in the description. The description
+  may explain a sequencing constraint only when the relationship alone cannot
+  communicate it.
+- Keep one implementation outcome per task. Split work when parts can be
+  delivered or reviewed independently, then connect the resulting tasks with
+  Related Tasks.
+
+After creation, read the task back through the agent API and verify its lane,
+description, label, and Related Tasks. Task creation is not complete until the
+stored task matches the intended contract and no credential, token, or other
+secret appears in its content.
+
 ## 2. Implementation Quality
 
 - Write clean, maintainable code that follows established best practices and repository patterns.
@@ -169,6 +198,7 @@ npx playwright test tests/e2e/smoke-project-task-calendar.spec.ts
 ```
 
 Notes:
+
 - The deploy workflow also writes the preview URL to the `preview-deployment` artifact and the job summary.
 - Browser automation against the preview is encouraged when the task is UI-heavy; record which preview URL was validated and whether the check was Playwright, browser automation, or both.
 
@@ -192,6 +222,7 @@ A task is complete only when:
 3. Tracking docs (`tasks/current.md`, `journal.md`, `adr/decisions.md` when applicable) are updated and consistent.
 
 Additional rule:
+
 - Every active task brief must explicitly state both `Acceptance Criteria` and
   `Definition Of Done`.
 - If a task is missing either section, the agent must add them before treating

@@ -4361,3 +4361,13 @@ Low-value entries to avoid going forward:
   target guard on all three card variants, rename to `openEventDetails`),
   replied on every thread, and resolved all four. Full CI (Quality Core,
   Tenant Isolation, E2E Smoke, Container Image) is green on `14624f1`.
+
+## 2026-09-02 - ND-387 Nexus Dash task-authoring quality contract
+
+- Corrected ND-376 through ND-386 with the canonical `feature` label, added an
+  explicit rationale where needed, and removed dependency-list prose while
+  preserving the live Related Tasks relationships.
+- Created ND-387 with the `docs` label to track the repository guidance change.
+- Documented the minimum task-authoring contract in `agent.md`: duplicate
+  check, outcome-oriented title, rationale, work-type label, testable acceptance
+  criteria, focused scope, Related Tasks dependencies, and API read-back.

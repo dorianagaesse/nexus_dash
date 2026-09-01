@@ -1,5 +1,49 @@
 # Current Task
 
+## ND-387: Document the Nexus Dash task-authoring quality contract
+
+## Status
+
+In Progress (created in the Nexus Dash project kanban on 2026-09-02).
+
+## Context
+
+Recent backlog creation captured useful rationale, acceptance criteria, and
+task relationships, but omitted the required work-type labels. The repository
+operating guide does not currently state the complete quality contract for
+creating and verifying a Nexus Dash task.
+
+## Scope
+
+- Document the required anatomy of a good Nexus Dash task in `agent.md`.
+- Require an outcome-oriented title, rationale, work-type label, and testable
+  acceptance criteria.
+- Require dependency tasks to be stored as Related Tasks instead of dependency
+  prose in the description.
+- Require duplicate checks and a post-create API read-back.
+- Correct ND-376 through ND-386 with the `feature` label and retain their
+  existing Related Tasks.
+
+## Acceptance Criteria
+
+1. `agent.md` defines the task-authoring quality contract without conflicting
+   with the existing execution workflow.
+2. The contract covers rationale, canonical work-type labels, acceptance
+   criteria, task sizing, Related Tasks, duplicate prevention, and read-back.
+3. ND-376 through ND-386 have the `feature` label and no dependency-list prose.
+4. Existing dependency relationships remain stored as Related Tasks.
+
+## Definition Of Done
+
+- Documentation formatting and diff checks pass.
+- The corrected tasks and ND-387 are verified through the agent API.
+- The documentation change is committed on its dedicated branch, pushed, and
+  opened as a ready pull request.
+
+---
+
+## Previous Task Snapshot
+
 ## ND-365: Calendar event source identity and color cues
 
 ## Status
