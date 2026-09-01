@@ -14,12 +14,10 @@ const googleCalendarMock = vi.hoisted(() => ({
 vi.mock("@/lib/services/google-calendar-credential-service", () => {
   class GoogleCalendarCredentialTokenDecryptionError extends Error {
     readonly originalError: unknown;
-    readonly credentialId: string;
 
-    constructor(credentialId: string, originalError: unknown) {
+    constructor(originalError: unknown) {
       super("google-calendar-credential-token-decryption-failed");
       this.name = "GoogleCalendarCredentialTokenDecryptionError";
-      this.credentialId = credentialId;
       this.originalError = originalError;
     }
   }
@@ -221,7 +219,7 @@ describe("account-settings-service", () => {
 
   test("deletes local credentials after confirmed provider revocation", async () => {
     googleCalendarCredentialServiceMock.markGoogleCalendarCredentialRevokedForDisconnect.mockResolvedValueOnce(
-      { credentialId: "credential-1", refreshToken: "refresh-token" }
+      { refreshToken: "refresh-token" }
     );
     googleCalendarMock.revokeGoogleToken.mockResolvedValueOnce(true);
 
@@ -233,12 +231,12 @@ describe("account-settings-service", () => {
     });
     expect(
       googleCalendarCredentialServiceMock.deleteGoogleCalendarCredential
-    ).toHaveBeenCalledWith("user-1", "credential-1");
+    ).toHaveBeenCalledWith("user-1");
   });
 
   test("deletes local credentials when provider revocation is unconfirmed", async () => {
     googleCalendarCredentialServiceMock.markGoogleCalendarCredentialRevokedForDisconnect.mockResolvedValueOnce(
-      { credentialId: "credential-1", refreshToken: "refresh-token" }
+      { refreshToken: "refresh-token" }
     );
     googleCalendarMock.revokeGoogleToken.mockRejectedValueOnce(new Error("network"));
 
@@ -250,13 +248,12 @@ describe("account-settings-service", () => {
     });
     expect(
       googleCalendarCredentialServiceMock.deleteGoogleCalendarCredential
-    ).toHaveBeenCalledWith("user-1", "credential-1");
+    ).toHaveBeenCalledWith("user-1");
   });
 
   test("deletes local credentials when the stored token cannot be decrypted", async () => {
     googleCalendarCredentialServiceMock.markGoogleCalendarCredentialRevokedForDisconnect.mockRejectedValueOnce(
       new GoogleCalendarCredentialTokenDecryptionError(
-        "credential-1",
         new Error("invalid-google-token-ciphertext")
       )
     );
@@ -270,7 +267,7 @@ describe("account-settings-service", () => {
     expect(googleCalendarMock.revokeGoogleToken).not.toHaveBeenCalled();
     expect(
       googleCalendarCredentialServiceMock.deleteGoogleCalendarCredential
-    ).toHaveBeenCalledWith("user-1", "credential-1");
+    ).toHaveBeenCalledWith("user-1");
   });
 
   test("rethrows unexpected credential lookup failures without deleting", async () => {

@@ -1,50 +1,20 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-
 import { AccountSettingsShell } from "@/components/account/account-settings-shell";
 import { AppAboutCard } from "@/components/account/app-about-card";
-import { GoogleCalendarDisconnectControl } from "@/components/account/google-calendar-disconnect-control";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  CalendarConnectionsManager,
+  type CalendarConnectionView,
+} from "@/components/account/calendar-connections-manager";
+import { Card, CardContent } from "@/components/ui/card";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import {
-  DEFAULT_GOOGLE_CALENDAR_ID,
-  MAX_GOOGLE_CALENDAR_ID_LENGTH,
-} from "@/lib/services/google-calendar-credential-service";
-import { getGoogleCalendarTargetSettings } from "@/lib/services/account-settings-service";
-
-import { updateGoogleCalendarSettingsAction } from "./actions";
+  getCalendarPreference,
+  listCalendarConnections,
+} from "@/lib/services/calendar-connection-service";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-const STATUS_MESSAGES: Record<string, string> = {
-  "calendar-updated": "Google Calendar target saved successfully.",
-  "calendar-reset": "Google Calendar target reset to primary.",
-  "calendar-disconnected": "Google Calendar disconnected and stored credentials removed.",
-  "calendar-disconnected-revocation-warning":
-    "Google Calendar disconnected locally. Google did not confirm revocation; review NexusDash access in your Google Account permissions.",
-};
-
-const ERROR_MESSAGES: Record<string, string> = {
-  unauthorized: "You must be signed in to access account settings.",
-  forbidden: "You cannot update another user's settings.",
-  "invalid-calendar-id":
-    "Calendar ID is too long. Use 255 characters or fewer.",
-  "calendar-not-connected":
-    "Connect Google Calendar first before storing a custom target ID.",
-  "update-failed": "Could not update settings. Please retry.",
-};
-
 function readQueryValue(value: string | string[] | undefined): string | null {
-  if (!value) {
-    return null;
-  }
-
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-
-  return value;
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
 }
 
 export default async function AccountSettingsPage({
@@ -54,111 +24,51 @@ export default async function AccountSettingsPage({
 }) {
   const actorUserId = await requireSessionUserIdFromServer();
   const resolvedSearchParams = await searchParams;
-
-  const settingsResult = await getGoogleCalendarTargetSettings(actorUserId);
-  if (!settingsResult.ok) {
-    notFound();
-  }
-
-  const status = readQueryValue(resolvedSearchParams?.status);
+  const [connections, preference] = await Promise.all([
+    listCalendarConnections(actorUserId),
+    getCalendarPreference(actorUserId),
+  ]);
   const error = readQueryValue(resolvedSearchParams?.error);
+  const status = readQueryValue(resolvedSearchParams?.status);
   const returnTo = readQueryValue(resolvedSearchParams?.returnTo);
-  const currentCalendarId = settingsResult.data.calendarId;
-  const hasCalendarConnection = settingsResult.data.hasCalendarConnection;
+  const views: CalendarConnectionView[] = connections.map((connection) => ({
+    ...connection,
+    reauthorizationRequiredAt:
+      connection.reauthorizationRequiredAt?.toISOString() ?? null,
+    calendarListSyncedAt: connection.calendarListSyncedAt?.toISOString() ?? null,
+  }));
 
   return (
     <AccountSettingsShell
       activeTab="calendar"
-      title="Google Calendar target"
-      description="Choose which Google Calendar receives events created from NexusDash."
+      title="Calendar connections"
+      description="Connect accounts, choose visible calendars, and set one destination for events created in NexusDash."
       returnTo={returnTo}
     >
-      {status && STATUS_MESSAGES[status] ? (
-        <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200">
-          {STATUS_MESSAGES[status]}
-        </div>
+      {status === "calendar-connected" ? (
+        <p role="status" className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200">
+          Google Calendar connected and its calendars are ready to choose.
+        </p>
       ) : null}
-
-      {error && ERROR_MESSAGES[error] ? (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {ERROR_MESSAGES[error]}
-        </div>
+      {status === "calendar-connected-discovery-warning" ? (
+        <p role="status" className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          Google Calendar connected, but its calendar list could not be loaded.
+          Use Refresh all calendars to retry.
+        </p>
       ) : null}
-
+      {error ? (
+        <p role="alert" className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error === "calendar-reconnect-account-mismatch"
+            ? "Reconnect with the same Google account shown on this card."
+            : "Google Calendar could not be connected. Please retry."}
+        </p>
+      ) : null}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">Calendar target ID</CardTitle>
-          <CardDescription>
-            Leave empty to use <code>{DEFAULT_GOOGLE_CALENDAR_ID}</code>.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm">
-            Current target: <code>{currentCalendarId}</code>
-          </div>
-
-          {!hasCalendarConnection ? (
-            <p className="text-sm text-muted-foreground">
-              Google Calendar is not connected yet. Connect it from a project dashboard,
-              then return here to save a custom calendar ID.
-            </p>
-          ) : null}
-
-          <form action={updateGoogleCalendarSettingsAction} className="grid gap-4">
-            <div className="grid gap-2">
-              <label htmlFor="calendarId" className="text-sm font-medium">
-                Google Calendar ID
-              </label>
-              <input
-                id="calendarId"
-                name="calendarId"
-                maxLength={MAX_GOOGLE_CALENDAR_ID_LENGTH}
-                defaultValue={
-                  currentCalendarId === DEFAULT_GOOGLE_CALENDAR_ID
-                    ? ""
-                    : currentCalendarId
-                }
-                placeholder={DEFAULT_GOOGLE_CALENDAR_ID}
-                className="min-h-11 rounded-md border border-input bg-background px-3 text-sm"
-                disabled={!hasCalendarConnection}
-              />
-              <p className="text-xs text-muted-foreground">
-                Example: your calendar email address or shared calendar ID.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="submit" className="min-h-11" disabled={!hasCalendarConnection}>
-                Save settings
-              </Button>
-              <Button
-                type="submit"
-                name="intent"
-                value="reset"
-                variant="secondary"
-                className="min-h-11"
-                disabled={!hasCalendarConnection}
-              >
-                Use primary calendar
-              </Button>
-              <Button asChild variant="ghost" className="min-h-11">
-                <Link href="/projects">Projects</Link>
-              </Button>
-            </div>
-          </form>
-
-          {hasCalendarConnection ? (
-            <div className="space-y-3 border-t border-border/60 pt-4">
-              <div className="space-y-1">
-                <h3 className="text-sm font-semibold">Disconnect this account</h3>
-                <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Disconnecting removes NexusDash&apos;s stored Google tokens. It does
-                  not delete events from Google Calendar.
-                </p>
-              </div>
-              <GoogleCalendarDisconnectControl />
-            </div>
-          ) : null}
+        <CardContent className="pt-6">
+          <CalendarConnectionsManager
+            connections={views}
+            writeSourceId={preference?.writeSourceId ?? null}
+          />
         </CardContent>
       </Card>
       <AppAboutCard />

@@ -27,6 +27,11 @@ interface CalendarEventsPayload {
     description: string | null;
     htmlLink: string | null;
     status: string;
+    calendarSourceId?: string;
+    connectionId?: string;
+    calendarName?: string;
+    calendarColor?: string | null;
+    writable?: boolean;
   }>;
 }
 

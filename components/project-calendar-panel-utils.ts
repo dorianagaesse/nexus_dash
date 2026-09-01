@@ -22,6 +22,19 @@ export interface CalendarEventItem {
   description: string | null;
   htmlLink: string | null;
   status: string;
+  calendarSourceId: string;
+  connectionId: string;
+  calendarName: string;
+  calendarColor: string | null;
+  writable: boolean;
+}
+
+export interface CalendarSourceOption {
+  id: string;
+  connectionId: string;
+  name: string;
+  color: string | null;
+  writable: boolean;
 }
 
 export interface CalendarEventsResponse {
@@ -32,7 +45,25 @@ export interface CalendarEventsResponse {
   timeMax?: string;
   syncedAt?: string;
   events?: CalendarEventItem[];
+  sources?: CalendarSourceOption[];
+  warnings?: Array<{
+    calendarSourceId: string;
+    connectionId: string;
+    error: string;
+  }>;
+  writeSourceId?: string | null;
+  truncated?: boolean;
   error?: string;
+}
+
+export function resolvePreferredWriteSourceId(
+  sources: CalendarSourceOption[],
+  writeSourceId: string | null | undefined
+): string {
+  const writableSources = sources.filter((source) => source.writable);
+  return writableSources.some((source) => source.id === writeSourceId)
+    ? (writeSourceId ?? "")
+    : (writableSources[0]?.id ?? "");
 }
 
 export interface DayEventBucket {

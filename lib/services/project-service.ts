@@ -518,7 +518,7 @@ export async function getProjectSummaryById(
       return null;
     }
 
-    const calendarCredential = await safeFindCalendarCredential(
+    const calendarConnection = await safeFindCalendarConnection(
       db,
       normalizedActorUserId
     );
@@ -532,22 +532,20 @@ export async function getProjectSummaryById(
         contextCards,
         meetingNotes,
         attachmentCount: taskAttachmentCount + contextAttachmentCount,
-        isCalendarConnected: calendarCredential?.revokedAt == null && Boolean(calendarCredential),
+        isCalendarConnected: Boolean(calendarConnection),
       },
     };
   }) as Promise<ProjectSummaryWithStatsRecord | null>;
 }
 
-async function safeFindCalendarCredential(
+async function safeFindCalendarConnection(
   db: DbClient,
   actorUserId: string
-): Promise<{ revokedAt: Date | null } | null> {
+): Promise<{ id: string } | null> {
   try {
-    return await db.googleCalendarCredential.findUnique({
-      where: { userId: actorUserId },
-      select: {
-        revokedAt: true,
-      },
+    return await db.calendarConnection.findFirst({
+      where: { userId: actorUserId, revokedAt: null },
+      select: { id: true },
     });
   } catch (error) {
     if (

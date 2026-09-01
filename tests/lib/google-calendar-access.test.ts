@@ -1,15 +1,12 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const credentialServiceMock = vi.hoisted(() => ({
-  findGoogleCalendarCredential: vi.fn(),
-  normalizeGoogleCalendarId: vi.fn((value: string | null | undefined) =>
-    value?.trim() || "primary"
-  ),
-  updateGoogleCalendarCredentialTokens: vi.fn(),
+const calendarConnectionServiceMock = vi.hoisted(() => ({
+  ensureFreshAccessToken: vi.fn(),
+  getWritableCalendarSourceContext: vi.fn(),
 }));
 
-vi.mock("@/lib/services/google-calendar-credential-service", () =>
-  credentialServiceMock
+vi.mock("@/lib/services/calendar-connection-service", () =>
+  calendarConnectionServiceMock
 );
 
 vi.mock("@/lib/google-calendar", () => ({
@@ -35,11 +32,15 @@ describe("getAuthorizedGoogleCalendarContext", () => {
       ok: false,
       failure: { status: 401, error: "unauthorized" },
     });
-    expect(credentialServiceMock.findGoogleCalendarCredential).not.toHaveBeenCalled();
+    expect(
+      calendarConnectionServiceMock.getWritableCalendarSourceContext
+    ).not.toHaveBeenCalled();
   });
 
   test("returns not-connected when no active credential exists", async () => {
-    credentialServiceMock.findGoogleCalendarCredential.mockResolvedValueOnce(null);
+    calendarConnectionServiceMock.getWritableCalendarSourceContext.mockResolvedValueOnce(
+      null
+    );
 
     await expect(getAuthorizedGoogleCalendarContext("user-1")).resolves.toEqual({
       ok: false,
@@ -48,8 +49,8 @@ describe("getAuthorizedGoogleCalendarContext", () => {
   });
 
   test("maps credential-store failures to service unavailable instead of 401", async () => {
-    credentialServiceMock.findGoogleCalendarCredential.mockRejectedValueOnce(
-      new Error('relation "GoogleCalendarCredential" does not exist')
+    calendarConnectionServiceMock.getWritableCalendarSourceContext.mockRejectedValueOnce(
+      new Error('relation "CalendarConnection" does not exist')
     );
 
     await expect(getAuthorizedGoogleCalendarContext("user-1")).resolves.toEqual({

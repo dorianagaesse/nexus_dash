@@ -155,7 +155,7 @@ export async function disconnectGoogleCalendar(
     return createError(403, "forbidden");
   }
 
-  let credential: { credentialId: string; refreshToken: string } | null;
+  let credential: { refreshToken: string } | null;
   try {
     credential = await markGoogleCalendarCredentialRevokedForDisconnect(
       normalizedActorUserId
@@ -170,10 +170,7 @@ export async function disconnectGoogleCalendar(
       "Google token could not be decrypted before disconnect",
       { error: error.originalError }
     );
-    await deleteGoogleCalendarCredential(
-      normalizedActorUserId,
-      error.credentialId
-    );
+    await deleteGoogleCalendarCredential(normalizedActorUserId);
     return createSuccess(200, {
       hasCalendarConnection: false as const,
       revocationStatus: "unconfirmed" as const,
@@ -198,10 +195,7 @@ export async function disconnectGoogleCalendar(
       { error }
     );
   } finally {
-    await deleteGoogleCalendarCredential(
-      normalizedActorUserId,
-      credential.credentialId
-    );
+    await deleteGoogleCalendarCredential(normalizedActorUserId);
   }
 
   return createSuccess(200, {

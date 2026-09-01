@@ -115,6 +115,35 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Linked the policy from the public sign-in homepage and added canonical page
   metadata plus responsive Playwright coverage.
 
+## v0.47.0 - 2026-08-31
+
+- Replaced the singular Google credential with user-owned Calendar connections,
+  discovered sources, and one account-wide writable target while preserving
+  existing encrypted tokens and target selection.
+- Added multiple Google accounts, CalendarList discovery, safe add/reconnect/
+  refresh/disconnect flows, source selection, and read-only enforcement.
+- Aggregated selected calendars with bounded concurrency, pagination, one
+  transient read retry, deterministic ordering, truncation signals, and
+  per-source partial-failure warnings.
+- Added source-aware project event creation and origin-locked mutations plus a
+  responsive, keyboard-accessible Settings management surface.
+- Expanded composite ownership constraints, forced direct-user RLS, migration,
+  provider, API, UI, and real PostgreSQL isolation coverage.
+
+## v0.38.0 - 2026-08-24
+
+- Made Google Calendar credential reads, refreshes, target updates, and project
+  connection status fail closed for revoked credentials.
+- Added a true authenticated-user disconnect that blocks local use first,
+  attempts Google token revocation, permanently removes stored tokens, and
+  provides a recovery warning when upstream revocation is unconfirmed.
+- Required encrypted Calendar token storage whenever OAuth is configured
+  outside tests and added lazy encryption for legacy plaintext local rows.
+- Added an accessible Settings confirmation flow and repaired the project
+  Calendar summary request by including its project authorization context.
+- Expanded service, API, component, environment, and real PostgreSQL RLS
+  coverage for user-owned Calendar credentials and lifecycle failures.
+
 ## v0.37.2 - 2026-08-25
 
 - Restored the registered stable Vercel Preview URL for GitHub and Google OAuth

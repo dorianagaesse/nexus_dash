@@ -33,8 +33,8 @@ const prismaMock = vi.hoisted(() => ({
   projectMeetingNote: {
     count: vi.fn(),
   },
-  googleCalendarCredential: {
-    findUnique: vi.fn(),
+  calendarConnection: {
+    findFirst: vi.fn(),
   },
 }));
 
@@ -109,8 +109,8 @@ describe("project-service", () => {
     prismaMock.projectMeetingNote.count.mockResolvedValueOnce(2);
     prismaMock.taskAttachment.count.mockResolvedValueOnce(3);
     prismaMock.resourceAttachment.count.mockResolvedValueOnce(3);
-    prismaMock.googleCalendarCredential.findUnique.mockResolvedValueOnce({
-      revokedAt: null,
+    prismaMock.calendarConnection.findFirst.mockResolvedValueOnce({
+      id: "connection-1",
     });
 
     const result = await getProjectSummaryById("project-1", actorUserId);
@@ -238,11 +238,9 @@ describe("project-service", () => {
         },
       },
     });
-    expect(prismaMock.googleCalendarCredential.findUnique).toHaveBeenCalledWith({
-      where: { userId: actorUserId },
-      select: {
-        revokedAt: true,
-      },
+    expect(prismaMock.calendarConnection.findFirst).toHaveBeenCalledWith({
+      where: { userId: actorUserId, revokedAt: null },
+      select: { id: true },
     });
   });
 
@@ -263,7 +261,7 @@ describe("project-service", () => {
     prismaMock.resourceAttachment.count.mockResolvedValueOnce(3);
     const p2021 = Object.create(Prisma.PrismaClientKnownRequestError.prototype);
     p2021.code = "P2021";
-    prismaMock.googleCalendarCredential.findUnique.mockRejectedValueOnce(p2021);
+    prismaMock.calendarConnection.findFirst.mockRejectedValueOnce(p2021);
 
     const result = await getProjectSummaryById("project-1", actorUserId);
 
@@ -281,7 +279,7 @@ describe("project-service", () => {
     });
   });
 
-  test("rethrows non-P2021 errors from the calendar credential query", async () => {
+  test("rethrows non-P2021 errors from the calendar connection query", async () => {
     prismaMock.project.findFirst.mockResolvedValueOnce({
       id: "project-1",
       name: "Project 1",
@@ -296,7 +294,7 @@ describe("project-service", () => {
     prismaMock.projectMeetingNote.count.mockResolvedValueOnce(2);
     prismaMock.taskAttachment.count.mockResolvedValueOnce(3);
     prismaMock.resourceAttachment.count.mockResolvedValueOnce(3);
-    prismaMock.googleCalendarCredential.findUnique.mockRejectedValueOnce(
+    prismaMock.calendarConnection.findFirst.mockRejectedValueOnce(
       new Error("connection-refused")
     );
 

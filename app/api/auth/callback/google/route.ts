@@ -4,6 +4,8 @@ import { GET as handleSocialOAuthCallback } from "@/app/api/auth/callback/[provi
 import { getSessionUserIdFromRequest } from "@/lib/auth/session-user";
 import {
   GOOGLE_OAUTH_ACTOR_COOKIE,
+  GOOGLE_OAUTH_CONNECTION_COOKIE,
+  GOOGLE_OAUTH_INTENT_COOKIE,
   GOOGLE_OAUTH_RETURN_TO_COOKIE,
   GOOGLE_OAUTH_STATE_COOKIE,
   exchangeAuthorizationCodeForTokens,
@@ -13,7 +15,8 @@ import {
 import { isProductionEnvironment } from "@/lib/env.server";
 import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 import { logServerError } from "@/lib/observability/logger";
-import { upsertGoogleCalendarCredentialTokens } from "@/lib/services/google-calendar-credential-service";
+import { googleCalendarProvider } from "@/lib/calendar-providers/google";
+import { connectGoogleCalendarAccount } from "@/lib/services/calendar-connection-service";
 import { SOCIAL_OAUTH_PROVIDER_COOKIE } from "@/lib/social-auth";
 
 function buildRedirectUrl(
@@ -63,6 +66,19 @@ function buildRedirectResponse(
     maxAge: 0,
   });
 
+  for (const cookieName of [
+    GOOGLE_OAUTH_INTENT_COOKIE,
+    GOOGLE_OAUTH_CONNECTION_COOKIE,
+  ]) {
+    response.cookies.set(cookieName, "", {
+      httpOnly: true,
+      secure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+  }
+
   return response;
 }
 
@@ -80,6 +96,10 @@ export async function GET(request: NextRequest) {
   const expectedState = request.cookies.get(GOOGLE_OAUTH_STATE_COOKIE)?.value ?? null;
   const expectedActorUserId =
     request.cookies.get(GOOGLE_OAUTH_ACTOR_COOKIE)?.value ?? null;
+  const oauthIntent =
+    request.cookies.get(GOOGLE_OAUTH_INTENT_COOKIE)?.value ?? "add";
+  const reconnectConnectionId =
+    request.cookies.get(GOOGLE_OAUTH_CONNECTION_COOKIE)?.value ?? null;
   const returnToPath = normalizeReturnToPath(
     request.cookies.get(GOOGLE_OAUTH_RETURN_TO_COOKIE)?.value ?? null
   );
@@ -140,22 +160,29 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    await upsertGoogleCalendarCredentialTokens({
+    const identity = await googleCalendarProvider.identify(tokenResponse.accessToken);
+    const connectionResult = await connectGoogleCalendarAccount({
       userId: actorUserId,
-      accessToken: tokenResponse.accessToken,
-      expiresIn: tokenResponse.expiresIn,
-      refreshToken: tokenResponse.refreshToken,
-      tokenType: tokenResponse.tokenType,
-      scope: tokenResponse.scope,
+      identity,
+      tokens: tokenResponse,
+      reconnectConnectionId:
+        oauthIntent === "reconnect" ? reconnectConnectionId : null,
     });
 
     return buildRedirectResponse(request, returnToPath, {
-      status: "calendar-connected",
+      status:
+        connectionResult.calendarDiscoveryStatus === "synced"
+          ? "calendar-connected"
+          : "calendar-connected-discovery-warning",
     });
   } catch (error) {
     logServerError("GET /api/auth/callback/google.credentialPersistenceFailed", error);
     return buildRedirectResponse(request, returnToPath, {
-      error: "calendar-storage-failed",
+      error:
+        error instanceof Error &&
+        error.message === "calendar-reconnect-account-mismatch"
+          ? "calendar-reconnect-account-mismatch"
+          : "calendar-storage-failed",
     });
   }
 }

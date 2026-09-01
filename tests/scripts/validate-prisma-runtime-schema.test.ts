@@ -25,12 +25,13 @@ model SystemGuard {
     ).toEqual(["User", "system_guard"]);
   });
 
-  test("the checked-in schema includes the Calendar credential relation", async () => {
+  test("the checked-in schema includes the Calendar connection relations", async () => {
     const schemaSource = await readFile("prisma/schema.prisma", "utf8");
+    const relations = extractPrismaModelRelations(schemaSource);
 
-    expect(extractPrismaModelRelations(schemaSource)).toContain(
-      "GoogleCalendarCredential"
-    );
+    expect(relations).toContain("CalendarConnection");
+    expect(relations).toContain("CalendarSource");
+    expect(relations).toContain("CalendarPreference");
   });
 
   test("returns missing or non-table relations from the database query", async () => {

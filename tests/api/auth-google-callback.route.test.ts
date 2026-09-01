@@ -6,21 +6,27 @@ const socialAuthCallbackRouteMock = vi.hoisted(() => ({
 }));
 
 const credentialServiceMock = vi.hoisted(() => ({
-  upsertGoogleCalendarCredentialTokens: vi.fn(),
+  connectGoogleCalendarAccount: vi.fn(),
+  identify: vi.fn(),
 }));
 
 const googleCalendarMock = vi.hoisted(() => ({
   GOOGLE_OAUTH_ACTOR_COOKIE: "nexusdash_google_oauth_actor",
   GOOGLE_OAUTH_STATE_COOKIE: "nexusdash_google_oauth_state",
   GOOGLE_OAUTH_RETURN_TO_COOKIE: "nexusdash_google_oauth_return_to",
+  GOOGLE_OAUTH_INTENT_COOKIE: "nexusdash_google_oauth_intent",
+  GOOGLE_OAUTH_CONNECTION_COOKIE: "nexusdash_google_oauth_connection",
   exchangeAuthorizationCodeForTokens: vi.fn(),
   resolveGoogleOAuthRedirectUri: vi.fn(),
   normalizeReturnToPath: vi.fn(),
 }));
 
-vi.mock("@/lib/services/google-calendar-credential-service", () => ({
-  upsertGoogleCalendarCredentialTokens:
-    credentialServiceMock.upsertGoogleCalendarCredentialTokens,
+vi.mock("@/lib/services/calendar-connection-service", () => ({
+  connectGoogleCalendarAccount: credentialServiceMock.connectGoogleCalendarAccount,
+}));
+
+vi.mock("@/lib/calendar-providers/google", () => ({
+  googleCalendarProvider: { identify: credentialServiceMock.identify },
 }));
 
 vi.mock("@/app/api/auth/callback/[provider]/route", () => ({
@@ -31,6 +37,8 @@ vi.mock("@/lib/google-calendar", () => ({
   GOOGLE_OAUTH_ACTOR_COOKIE: googleCalendarMock.GOOGLE_OAUTH_ACTOR_COOKIE,
   GOOGLE_OAUTH_STATE_COOKIE: googleCalendarMock.GOOGLE_OAUTH_STATE_COOKIE,
   GOOGLE_OAUTH_RETURN_TO_COOKIE: googleCalendarMock.GOOGLE_OAUTH_RETURN_TO_COOKIE,
+  GOOGLE_OAUTH_INTENT_COOKIE: googleCalendarMock.GOOGLE_OAUTH_INTENT_COOKIE,
+  GOOGLE_OAUTH_CONNECTION_COOKIE: googleCalendarMock.GOOGLE_OAUTH_CONNECTION_COOKIE,
   exchangeAuthorizationCodeForTokens:
     googleCalendarMock.exchangeAuthorizationCodeForTokens,
   resolveGoogleOAuthRedirectUri: googleCalendarMock.resolveGoogleOAuthRedirectUri,
@@ -74,6 +82,11 @@ describe("GET /api/auth/callback/google", () => {
     googleCalendarMock.resolveGoogleOAuthRedirectUri.mockReturnValue(
       "http://localhost/api/auth/callback/google"
     );
+    credentialServiceMock.identify.mockResolvedValue({
+      accountId: "google-sub-1",
+      email: "calendar@example.com",
+      label: "calendar@example.com",
+    });
   });
 
   test("delegates to social auth callback when social google oauth cookies are present", async () => {
@@ -116,7 +129,7 @@ describe("GET /api/auth/callback/google", () => {
     );
     expect(googleCalendarMock.exchangeAuthorizationCodeForTokens).not.toHaveBeenCalled();
     expect(
-      credentialServiceMock.upsertGoogleCalendarCredentialTokens
+      credentialServiceMock.connectGoogleCalendarAccount
     ).not.toHaveBeenCalled();
 
     const setCookie = readSetCookieHeaders(response);
@@ -165,9 +178,10 @@ describe("GET /api/auth/callback/google", () => {
       tokenType: "Bearer",
       scope: "scope-a",
     });
-    credentialServiceMock.upsertGoogleCalendarCredentialTokens.mockResolvedValueOnce(
-      undefined
-    );
+    credentialServiceMock.connectGoogleCalendarAccount.mockResolvedValueOnce({
+      connectionId: "connection-1",
+      calendarDiscoveryStatus: "synced",
+    });
 
     const response = await GET(
       createRequest(
@@ -188,14 +202,52 @@ describe("GET /api/auth/callback/google", () => {
       "auth-code",
       "http://localhost/api/auth/callback/google"
     );
-    expect(credentialServiceMock.upsertGoogleCalendarCredentialTokens).toHaveBeenCalledWith({
+    expect(credentialServiceMock.connectGoogleCalendarAccount).toHaveBeenCalledWith({
       userId: "test-user",
+      identity: {
+        accountId: "google-sub-1",
+        email: "calendar@example.com",
+        label: "calendar@example.com",
+      },
+      tokens: {
+        accessToken: "access-token",
+        expiresIn: 3600,
+        refreshToken: "refresh-token",
+        tokenType: "Bearer",
+        scope: "scope-a",
+      },
+      reconnectConnectionId: null,
+    });
+  });
+
+  test("keeps the connection and reports a retryable warning when discovery fails", async () => {
+    googleCalendarMock.exchangeAuthorizationCodeForTokens.mockResolvedValueOnce({
       accessToken: "access-token",
       expiresIn: 3600,
       refreshToken: "refresh-token",
       tokenType: "Bearer",
       scope: "scope-a",
     });
+    credentialServiceMock.connectGoogleCalendarAccount.mockResolvedValueOnce({
+      connectionId: "connection-2",
+      calendarDiscoveryStatus: "unavailable",
+    });
+
+    const response = await GET(
+      createRequest(
+        "http://localhost/api/auth/callback/google?state=expected&code=auth-code",
+        {
+          nexusdash_google_oauth_state: "expected",
+          nexusdash_google_oauth_return_to: "/account/settings",
+          nexusdash_google_oauth_actor: "test-user",
+        }
+      )
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "http://localhost/account/settings?status=calendar-connected-discovery-warning"
+    );
   });
 
   test("redirects with storage-failed when credential persistence fails", async () => {
@@ -205,7 +257,7 @@ describe("GET /api/auth/callback/google", () => {
       tokenType: "Bearer",
       scope: "scope-a",
     });
-    credentialServiceMock.upsertGoogleCalendarCredentialTokens.mockRejectedValueOnce(
+    credentialServiceMock.connectGoogleCalendarAccount.mockRejectedValueOnce(
       new Error("missing-refresh-token")
     );
 
@@ -247,7 +299,7 @@ describe("GET /api/auth/callback/google", () => {
       "http://localhost/projects/p1?error=calendar-auth-failed"
     );
     expect(
-      credentialServiceMock.upsertGoogleCalendarCredentialTokens
+      credentialServiceMock.connectGoogleCalendarAccount
     ).not.toHaveBeenCalled();
   });
 
@@ -291,9 +343,10 @@ describe("GET /api/auth/callback/google", () => {
       tokenType: "Bearer",
       scope: "scope-a",
     });
-    credentialServiceMock.upsertGoogleCalendarCredentialTokens.mockResolvedValueOnce(
-      undefined
-    );
+    credentialServiceMock.connectGoogleCalendarAccount.mockResolvedValueOnce({
+      connectionId: "connection-1",
+      calendarDiscoveryStatus: "synced",
+    });
 
     const response = await GET(
       createRequest(
