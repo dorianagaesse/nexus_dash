@@ -9,6 +9,12 @@ Implementation complete on
 `main` after TASK-406 merged. Phase 1 relabels and decouples the personal
 calendar overlay; the future shared schedule remains intentionally deferred.
 
+2026-09-02 update: merged `origin/main` (TASK-327 multi-account + ND-365 source
+identity) into the branch, dropped the redundant explanatory copy from the
+panel header and connect state per user feedback, and fixed the preview Google
+Calendar connect failure (stale pinned `GOOGLE_REDIRECT_URI` ignored in
+preview deployments; callbacks now derive from the current request).
+
 ## Context
 
 TASK-336's multi-user collaboration audit named the project Calendar panel as
@@ -75,10 +81,11 @@ second stage so the follow-up work has a clear contract to build on.
 
 ## Acceptance Criteria
 
-1. The project dashboard Calendar section header reads "My calendar" with
-   explanatory copy that names the integration as a user-scoped Google Calendar
-   overlay and clarifies that edits update the selected Google target rather
-   than a shared NexusDash project schedule.
+1. The project dashboard Calendar section header reads "My calendar" with no
+   redundant explanatory paragraph below it, and the disconnected state shows
+   only the connect actions (Connect Google Calendar, Open Google Calendar).
+   2026-09-02 user feedback: the explanatory copy previously required here was
+   removed as unnecessary.
 2. The dashboard upcoming-events summary card is relabeled to match ("My
    calendar") so the stat row and section header use one vocabulary.
 3. The Calendar section skeleton, project dashboard labels, and any other

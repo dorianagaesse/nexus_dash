@@ -3,6 +3,37 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-02 - TASK-348 refresh: preview OAuth fix, main merge, copy trim
+
+- User-reported: clicking "Connect Google Calendar" on the Vercel preview
+  failed ("Connection failed"). Diagnosis: the Preview environment still
+  pins `GOOGLE_REDIRECT_URI=https://nexus-dash-wheat.vercel.app/...` (a stale
+  immutable host that now 308-redirects to production `nexus-dash.app`).
+  The init route set state cookies on the preview host, Google redirected to
+  the stale host, production ran the callback without cookies, and the flow
+  died with `calendar-auth-state-invalid`. The runbook forbids pinning
+  `GOOGLE_REDIRECT_URI` in Preview but the resolver honored the pin blindly.
+- Fix: `resolveGoogleOAuthRedirectUri` now ignores a pinned
+  `GOOGLE_REDIRECT_URI` in preview deployments unless its origin matches the
+  request origin; preview callbacks derive from the current request and stay
+  consistent with the state cookies. Both OAuth routes
+  (`app/api/auth/google/route.ts`, `app/api/auth/callback/google/route.ts`)
+  always pass the request origin instead of trying pin-first with fallback.
+- Config cleanup is a dashboard action: remove `GOOGLE_REDIRECT_URI` from the
+  Vercel Preview environment so preview always derives per-request callbacks
+  (stable alias `PREVIEW_AUTH_ORIGIN` remains the tester-facing URL per
+  TASK-406).
+- Merged `origin/main` into `feature/task-348-personal-calendar-shared-schedule-r4`
+  (TASK-327 multi-account connections + ND-365 source identity landed since the
+  branch was cut). Kept main's multi-source pagination and per-source warnings,
+  TASK-348's write-scope role decoupling, and the merged `writable` response
+  field; resolved conflicts in the calendar panel, week grid, event modal,
+  calendar service, and route tests.
+- User feedback: removed the redundant explanatory copy below the "My
+  calendar" header and above the "Connect Google Calendar" button; the
+  disconnected state now shows only the connect actions. E2E smoke updated
+  to assert the connect button directly instead of the removed text.
+
 # 2026-08-30 - TASK-378 bounded bulk task operations
 
 - Added `POST /api/projects/{projectId}/tasks/bulk` with create, update

@@ -19,6 +19,12 @@ const allDayEvent: CalendarEventItem = {
   description: null,
   htmlLink: null,
   status: "confirmed",
+  calendarSourceId: "source-1",
+  calendarName: "Primary",
+  calendarColor: "#111111",
+  accountLabel: "Primary account",
+  accountEmail: "primary@example.com",
+  writable: true,
 };
 const timedEvent: CalendarEventItem = {
   id: "timed",
@@ -30,6 +36,12 @@ const timedEvent: CalendarEventItem = {
   description: null,
   htmlLink: null,
   status: "confirmed",
+  calendarSourceId: "source-1",
+  calendarName: "Primary",
+  calendarColor: "#111111",
+  accountLabel: "Primary account",
+  accountEmail: "primary@example.com",
+  writable: true,
 };
 const eventsByDay = new Map<string, DayEventBucket>([
   [toDateKey(day), { allDay: [allDayEvent], timed: [timedEvent] }],
@@ -43,7 +55,7 @@ describe("CalendarWeekGrid write affordances", () => {
         weekDays={[day]}
         eventsByDay={eventsByDay}
         eventsCount={2}
-        onOpenGoogleEvent={vi.fn()}
+        onOpenEventDetails={vi.fn()}
         onOpenEditEventModal={vi.fn()}
       />
     );
@@ -58,7 +70,7 @@ describe("CalendarWeekGrid write affordances", () => {
         weekDays={[day]}
         eventsByDay={eventsByDay}
         eventsCount={2}
-        onOpenGoogleEvent={vi.fn()}
+        onOpenEventDetails={vi.fn()}
         onOpenEditEventModal={vi.fn()}
       />
     );
