@@ -4335,3 +4335,17 @@ Low-value entries to avoid going forward:
   NexusDash without weakening CalendarSource write enforcement.
 - Prepared feature release `v0.48.0`; focused API/utility/auth tests, lint, and
   the release policy check passed before full validation.
+- Completed the full validation baseline from the `nexus_dash_task365`
+  worktree: lint, RLS inventory, 1149 unit/API tests (2 skipped), coverage at
+  91.65% statements / 81.32% branches / 92.3% functions / 92.14% lines, and a
+  production build.
+- Ran the focused ND-365 Playwright spec (multi-source provenance, read-only
+  modal, 375 px mobile, desktop light/dark) plus calendar regression specs
+  (smoke calendar flow, TASK-327 multi-account, accessible overlays) — all
+  passed. The spec targets visible event cards explicitly because mobile day
+  cards and desktop all-day chips coexist in the DOM with CSS breakpoint
+  visibility.
+- Committed as `7fc5d1e` + `942eaba`, pushed
+  `feature/nd-365-calendar-event-source-identity`, and opened ready-for-review
+  [PR #475](https://github.com/dorianagaesse/nexus_dash/pull/475). Kanban
+  task `ND-365` labeled `feature`, still In Progress pending user validation.
