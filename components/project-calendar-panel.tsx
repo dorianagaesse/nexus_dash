@@ -484,7 +484,7 @@ export function ProjectCalendarPanel({
                   weekDays={weekDays}
                   eventsByDay={eventsByDay}
                   eventsCount={events.length}
-                  onOpenGoogleEvent={openEventDetails}
+                  onOpenEventDetails={openEventDetails}
                   onOpenEditEventModal={openEditEventModal}
                 />
               </>
