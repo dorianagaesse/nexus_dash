@@ -47,8 +47,8 @@ a duplicate. A new task must be independently understandable and executable:
 - Use a concise, outcome-oriented title.
 - Start the description with a clear `Rationale:` that explains the user or
   engineering problem and why the work matters.
-- State the intended scope and add testable `Acceptance criteria:`. Add an
-  explicit `Definition of done:` when the delivery or validation contract needs
+- State the intended scope and add testable `Acceptance Criteria:`. Add an
+  explicit `Definition Of Done:` when the delivery or validation contract needs
   clarification beyond the acceptance criteria.
 - Add at least one canonical work-type label: `feature`, `fix`, `docs`,
   `refactor`, or `chore`. Use any additional priority or program labels only
@@ -63,7 +63,7 @@ a duplicate. A new task must be independently understandable and executable:
   Related Tasks.
 
 After creation, read the task back through the agent API and verify its lane,
-description, label, and Related Tasks. Task creation is not complete until the
+description, labels, and Related Tasks. Task creation is not complete until the
 stored task matches the intended contract and no credential, token, or other
 secret appears in its content.
 
