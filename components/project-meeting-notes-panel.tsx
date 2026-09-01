@@ -1903,12 +1903,15 @@ export function ProjectMeetingNotesPanel({
               />
             </div>
 
-            {prepareNote ? (
-              <div className="grid gap-2 rounded-2xl border border-border/60 bg-muted/15 p-3">
-                <div className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                  <span>Steward / facilitator</span>
-                </div>
+            <div className="grid gap-2">
+              <label htmlFor="meeting-participants" className="text-sm font-medium">
+                Participants
+              </label>
+              {prepareNote ? (
                 <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Facilitator
+                  </span>
                   <MeetingTodoAssigneeChip
                     id={`meeting-note-steward-prepare-${prepareNote.id}`}
                     value={prepareNote.steward ?? null}
@@ -1919,6 +1922,7 @@ export function ProjectMeetingNotesPanel({
                     disabled={pendingStewardNoteId === prepareNote.id}
                     pending={pendingStewardNoteId === prepareNote.id}
                     triggerClassName="min-h-11"
+                    identityRole="steward"
                   />
                   {pendingStewardNoteId === prepareNote.id ? (
                     <span className="text-xs text-muted-foreground">
@@ -1926,32 +1930,12 @@ export function ProjectMeetingNotesPanel({
                     </span>
                   ) : null}
                 </div>
-                {stewardError ? (
-                  <p role="alert" className="text-xs text-destructive">
-                    {stewardError}
-                  </p>
-                ) : null}
-                <p className="text-xs text-muted-foreground">
-                  New notes default to you as steward. Reassign any time without
-                  changing the note content.
+              ) : null}
+              {prepareNote && stewardError ? (
+                <p role="alert" className="text-xs text-destructive">
+                  {stewardError}
                 </p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-                  <MeetingTodoActorIdentity
-                    actor={prepareNote.createdBy ?? null}
-                    prefix="Created by"
-                  />
-                  <MeetingTodoActorIdentity
-                    actor={prepareNote.updatedBy ?? null}
-                    prefix="Last edited by"
-                  />
-                </div>
-              </div>
-            ) : null}
-
-            <div className="grid gap-2">
-              <label htmlFor="meeting-participants" className="text-sm font-medium">
-                Participants
-              </label>
+              ) : null}
               <MeetingParticipantPicker
                 id="meeting-participants"
                 value={prepareDraft.participants}
@@ -2056,6 +2040,19 @@ export function ProjectMeetingNotesPanel({
                 {draftError}
               </div>
             ) : null}
+
+            {prepareNote ? (
+              <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+                <MeetingTodoActorIdentity actor={prepareNote.createdBy ?? null} prefix="Created by" />
+                <MeetingTodoActorIdentity actor={prepareNote.updatedBy ?? null} prefix="Last edited by" />
+                <span>
+                  Updated{" "}
+                  <time dateTime={prepareNote.updatedAt}>
+                    {formatMeetingTimestamp(prepareNote.updatedAt)}
+                  </time>
+                </span>
+              </div>
+            ) : null}
           </div>
         </MeetingDialogShell>
       ) : null}
@@ -2139,34 +2136,8 @@ export function ProjectMeetingNotesPanel({
               </div>
             ) : null}
 
-            {selectedNote.participants.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {selectedNote.participants.map((participant) => (
-                  <span
-                    key={getMeetingParticipantKey(participant)}
-                    className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/70 bg-muted/40 p-1 pr-3 text-xs font-semibold text-foreground"
-                  >
-                    <MeetingParticipantAvatar
-                      participant={participant}
-                      className="h-7 w-7 text-[10px]"
-                      decorative
-                    />
-                    <span className="truncate">{participant.displayName}</span>
-                  </span>
-                ))}
-              </div>
-            ) : null}
-
-            <div className="grid gap-2 rounded-2xl border border-border/60 bg-muted/15 p-3">
-              <div className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                <span>Steward / facilitator</span>
-                {!canEdit ? (
-                  <span className="text-[10px] font-normal normal-case text-muted-foreground">
-                    View only
-                  </span>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2" aria-label="Participants and facilitator">
                 {canEdit ? (
                   <MeetingTodoAssigneeChip
                     id={`meeting-note-steward-${selectedNote.id}`}
@@ -2178,42 +2149,44 @@ export function ProjectMeetingNotesPanel({
                     disabled={pendingStewardNoteId === selectedNote.id}
                     pending={pendingStewardNoteId === selectedNote.id}
                     triggerClassName="min-h-11"
+                    identityRole="steward"
                   />
                 ) : (
                   <MeetingTodoAssigneeChipReadonly
                     actor={selectedNote.steward ?? null}
+                    identityRole="steward"
                   />
                 )}
-                {pendingStewardNoteId === selectedNote.id ? (
-                  <span className="text-xs text-muted-foreground">
-                    Updating steward…
+                {selectedNote.participants
+                  .filter(
+                    (participant) =>
+                      !(
+                        selectedNote.steward?.kind === "human" &&
+                        participant.userId === selectedNote.steward.id
+                      )
+                  )
+                  .map((participant) => (
+                  <span
+                    key={getMeetingParticipantKey(participant)}
+                    className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/70 bg-muted/40 p-1 pr-3 text-xs font-semibold text-foreground"
+                  >
+                    <MeetingParticipantAvatar
+                      participant={participant}
+                      className="h-7 w-7 text-[10px]"
+                      decorative
+                    />
+                    <span className="truncate">{participant.displayName}</span>
                   </span>
-                ) : null}
+                  ))}
               </div>
+              {pendingStewardNoteId === selectedNote.id ? (
+                <p className="text-xs text-muted-foreground">Updating steward…</p>
+              ) : null}
               {stewardError ? (
-                <p
-                  role="alert"
-                  className="text-xs text-destructive"
-                >
+                <p role="alert" className="text-xs text-destructive">
                   {stewardError}
                 </p>
               ) : null}
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-                <MeetingTodoActorIdentity
-                  actor={selectedNote.createdBy ?? null}
-                  prefix="Created by"
-                />
-                <MeetingTodoActorIdentity
-                  actor={selectedNote.updatedBy ?? null}
-                  prefix="Last edited by"
-                />
-                <span>
-                  Updated{" "}
-                  <time dateTime={selectedNote.updatedAt}>
-                    {formatMeetingTimestamp(selectedNote.updatedAt)}
-                  </time>
-                </span>
-              </div>
             </div>
 
             <SectionBlock title="Inputs">
@@ -2406,6 +2379,17 @@ export function ProjectMeetingNotesPanel({
                 {draftError}
               </div>
             ) : null}
+
+            <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+              <MeetingTodoActorIdentity actor={selectedNote.createdBy ?? null} prefix="Created by" />
+              <MeetingTodoActorIdentity actor={selectedNote.updatedBy ?? null} prefix="Last edited by" />
+              <span>
+                Updated{" "}
+                <time dateTime={selectedNote.updatedAt}>
+                  {formatMeetingTimestamp(selectedNote.updatedAt)}
+                </time>
+              </span>
+            </div>
           </div>
         </MeetingDialogShell>
       ) : null}

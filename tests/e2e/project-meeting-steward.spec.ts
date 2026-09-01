@@ -143,7 +143,7 @@ test("defaults steward to creator, supports reassignment, and filters by steward
   await expect(noteCard).toBeVisible();
   await noteCard.click();
   await expect(
-    page.getByText("Steward / facilitator", { exact: true })
+    page.getByRole("button", { name: /Change steward \/ facilitator/i })
   ).toBeVisible();
   if (screenshotDirectory) {
     await page.screenshot({

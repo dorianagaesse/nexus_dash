@@ -10,12 +10,16 @@ import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
 import { listProjectKanbanTasks } from "@/lib/services/project-service";
-import { createTaskForProject } from "@/lib/services/project-task-service";
+import {
+  createTaskForProject,
+  validateTaskCreateFieldTypes,
+} from "@/lib/services/project-task-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 import { mapTaskEpicSummary } from "@/lib/epic";
 import { mapTaskPersonSummary } from "@/lib/task-person";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
 import { formatTaskReference } from "@/lib/task-reference";
+import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { mergeRelatedTaskSummaries } from "@/lib/task-related";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
@@ -83,14 +87,29 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
     );
   }
 
+  const epicIdFilter = request.nextUrl.searchParams.get("epicId")?.trim() || null;
+  const labelFilter = request.nextUrl.searchParams.get("label")?.trim() || null;
+  const filters =
+    epicIdFilter || labelFilter
+      ? {
+          ...(epicIdFilter ? { epicId: epicIdFilter } : {}),
+          ...(labelFilter ? { label: labelFilter } : {}),
+        }
+      : undefined;
+
   const tasks = await listProjectKanbanTasks(
     params.projectId,
     principalResult.principal.actorUserId,
-    agentAccess
+    agentAccess,
+    filters
   );
 
   return NextResponse.json(
     {
+      filters: {
+        epicId: epicIdFilter,
+        label: labelFilter,
+      },
       tasks: tasks.map((task) => ({
         id: task.id,
         reference: formatTaskReference(task.referenceNumber),
@@ -105,6 +124,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
         position: task.position,
         label: task.label,
         labelsJson: task.labelsJson,
+        labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
         epic: mapTaskEpicSummary(task.epic),
@@ -162,30 +182,13 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     title = typeof payload.title === "string" ? payload.title.trim() : "";
     description =
       typeof payload.description === "string" ? payload.description.trim() : "";
-    if (
-      payload.deadlineDate !== undefined &&
-      payload.deadlineDate !== null &&
-      typeof payload.deadlineDate !== "string"
-    ) {
-      return NextResponse.json({ error: "deadline-invalid" }, { status: 400 });
+    const fieldTypeError = validateTaskCreateFieldTypes(payload);
+    if (fieldTypeError) {
+      return NextResponse.json({ error: fieldTypeError }, { status: 400 });
     }
     deadlineDate =
       typeof payload.deadlineDate === "string" ? payload.deadlineDate.trim() : "";
-    if (
-      payload.epicId !== undefined &&
-      payload.epicId !== null &&
-      typeof payload.epicId !== "string"
-    ) {
-      return NextResponse.json({ error: "epic-invalid" }, { status: 400 });
-    }
     epicId = typeof payload.epicId === "string" ? payload.epicId.trim() || null : null;
-    if (
-      payload.assigneeUserId !== undefined &&
-      payload.assigneeUserId !== null &&
-      typeof payload.assigneeUserId !== "string"
-    ) {
-      return NextResponse.json({ error: "assignee-invalid" }, { status: 400 });
-    }
     assigneeUserId =
       typeof payload.assigneeUserId === "string"
         ? payload.assigneeUserId.trim() || null
@@ -252,6 +255,9 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
   };
   const task = resultData.task ?? null;
 
+  // Defensive legacy fallback: the service contract always returns the full
+  // created task, so this branch is unreachable in practice and kept only so
+  // a payload-shaped regression still yields a usable taskId.
   if (!task) {
     const version = await recordProjectActivityEventVersion({
       actorUserId,

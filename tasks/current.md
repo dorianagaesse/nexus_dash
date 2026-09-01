@@ -4,9 +4,9 @@
 
 ## Status
 
-Implementation and validation complete on
-`feature/task-356-meeting-note-stewardship-r4`, refreshed onto current `main`
-after TASK-406 merged; ready for review.
+UI simplification and current-`main` conflict reconciliation are complete on
+`feature/task-356-meeting-note-stewardship-r4` following review feedback on
+PR #453; validation is green and the branch is ready for review.
 
 ## Context
 
@@ -38,8 +38,9 @@ workspace ownership queue.
 - Reuse the established human/agent registry and chip so removed members and
   revoked/expired agents surface as `Needs reassignment` rather than silently
   orphaning the note.
-- Keep steward independent from participants and from meeting-todo assignees;
-  no UI should conflate the three.
+- Keep steward persistence independent from participants and meeting-todo
+  assignees, while presenting the responsible participant/member with a
+  distinct crowned avatar treatment in the meeting UI.
 - Make note mutation and deletion capability explicit by reusing the existing
   owner/editor/viewer boundary; viewers see steward identity without edit
   affordances.
@@ -63,7 +64,9 @@ workspace ownership queue.
    optional steward/facilitator with actor kind, stable identifier, display
    label, avatar treatment, and current access state. Stewards are rendered
    with the same chip vocabulary used for meeting-todo assignees, including
-   `Needs reassignment` for removed or revoked actors.
+   `Needs reassignment` for removed or revoked actors. In the meeting modal,
+   the steward is visually attached to the participant/member identity with an
+   amber border and crown, while provenance sits at the bottom of the content.
 2. New notes persist a steward that defaults to the note creator. Existing
    notes are backfilled from `createdByUserId`. Editing a note preserves the
    steward unless the editor explicitly reassigns or clears it; the steward

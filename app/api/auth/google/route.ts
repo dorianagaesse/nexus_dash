@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   GOOGLE_OAUTH_ACTOR_COOKIE,
+  GOOGLE_OAUTH_CONNECTION_COOKIE,
+  GOOGLE_OAUTH_INTENT_COOKIE,
   GOOGLE_OAUTH_RETURN_TO_COOKIE,
   GOOGLE_OAUTH_STATE_COOKIE,
   buildGoogleOAuthUrl,
@@ -24,6 +26,8 @@ function withErrorParam(request: NextRequest, returnTo: string, error: string): 
 export async function GET(request: NextRequest) {
   const actorUserId = await getSessionUserIdFromRequest(request);
   const returnTo = normalizeReturnToPath(request.nextUrl.searchParams.get("returnTo"));
+  const reconnectConnectionId =
+    request.nextUrl.searchParams.get("connectionId")?.trim() || "";
   if (!actorUserId) {
     const fallback = withErrorParam(request, returnTo, "unauthorized");
     return NextResponse.redirect(fallback);
@@ -70,6 +74,26 @@ export async function GET(request: NextRequest) {
     });
 
     response.cookies.set(GOOGLE_OAUTH_ACTOR_COOKIE, actorUserId, {
+      httpOnly: true,
+      secure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 10,
+    });
+
+    response.cookies.set(
+      GOOGLE_OAUTH_INTENT_COOKIE,
+      reconnectConnectionId ? "reconnect" : "add",
+      {
+        httpOnly: true,
+        secure,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 10,
+      }
+    );
+
+    response.cookies.set(GOOGLE_OAUTH_CONNECTION_COOKIE, reconnectConnectionId, {
       httpOnly: true,
       secure,
       sameSite: "lax",

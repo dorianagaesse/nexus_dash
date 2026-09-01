@@ -31,7 +31,9 @@ model User {
   tasksUpdated                 Task[]                          @relation("TaskUpdatedBy")
   tasksAssigned                Task[]                          @relation("TaskAssignee")
   resourceAttachments          ResourceAttachment[]            @relation("ResourceAttachmentUploader")
-  googleCalendarCredential     GoogleCalendarCredential?
+  calendarConnections          CalendarConnection[]
+  calendarSources              CalendarSource[]
+  calendarPreference           CalendarPreference?
   emailVerificationTokens      EmailVerificationToken[]
   passwordResetTokens          PasswordResetToken[]
   createdApiCredentials        ApiCredential[]                 @relation("ApiCredentialCreatedBy")
@@ -659,23 +661,71 @@ model TaskBlockedFollowUp {
   @@index([taskId, createdAt])
 }
 
-model GoogleCalendarCredential {
-  id                String    @id @default(cuid())
-  userId            String    @unique
-  providerAccountId String?
-  calendarId        String    @default("primary")
-  accessToken       String?
-  refreshToken      String
-  tokenType         String?
-  scope             String?
-  expiresAt         DateTime?
-  revokedAt         DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+model CalendarConnection {
+  id                        String    @id @default(cuid())
+  userId                    String
+  provider                  String    @db.VarChar(32)
+  providerAccountId         String    @db.VarChar(255)
+  accountEmail              String?
+  accountLabel              String
+  accessToken               String?
+  refreshToken              String
+  tokenType                 String?
+  scopes                    String?
+  expiresAt                 DateTime?
+  revokedAt                 DateTime?
+  reauthorizationRequiredAt DateTime?
+  calendarListSyncedAt      DateTime?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sources            CalendarSource[]     @relation("CalendarConnectionSources")
+  defaultPreferences CalendarPreference[] @relation("DefaultCalendarConnection")
 
-  @@index([providerAccountId])
+  @@unique([userId, provider, providerAccountId])
+  @@unique([id, userId])
+  @@index([userId, revokedAt])
+}
+
+model CalendarSource {
+  id                 String   @id @default(cuid())
+  userId             String
+  connectionId       String
+  providerCalendarId String
+  name               String
+  color              String?
+  timeZone           String?
+  accessRole         String?
+  isPrimary          Boolean  @default(false)
+  isAvailable        Boolean  @default(true)
+  isSelected         Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection       CalendarConnection   @relation("CalendarConnectionSources", fields: [connectionId, userId], references: [id, userId], onDelete: Cascade)
+  writePreferences CalendarPreference[] @relation("WriteCalendarSource")
+
+  @@unique([connectionId, providerCalendarId])
+  @@unique([id, userId])
+  @@index([userId, isSelected])
+  @@index([connectionId, isAvailable])
+}
+
+model CalendarPreference {
+  userId              String   @id
+  defaultConnectionId String?
+  writeSourceId       String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultConnection CalendarConnection? @relation("DefaultCalendarConnection", fields: [defaultConnectionId, userId], references: [id, userId], onDelete: Restrict)
+  writeSource       CalendarSource?     @relation("WriteCalendarSource", fields: [writeSourceId, userId], references: [id, userId], onDelete: Restrict)
+
+  @@index([defaultConnectionId])
+  @@index([writeSourceId])
 }
 
 enum ApiCredentialScope {

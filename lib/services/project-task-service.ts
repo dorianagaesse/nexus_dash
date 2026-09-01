@@ -9,6 +9,7 @@ import {
 import { mapTaskEpicSummary, type TaskEpicSummary } from "@/lib/epic";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import {
+  getTaskLabelsFromStorage,
   normalizeTaskLabels,
   parseTaskLabelsJson,
   serializeTaskLabels,
@@ -46,6 +47,8 @@ import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 
 const MIN_TITLE_LENGTH = 2;
 
+export { MAX_BULK_TASK_OPERATIONS } from "@/lib/task-bulk";
+
 interface ServiceErrorResult {
   ok: false;
   status: number;
@@ -80,7 +83,7 @@ export interface UpdateTaskPayload {
   assigneeUserId?: string | null;
 }
 
-interface CreateTaskForProjectInput {
+export interface CreateTaskForProjectInput {
   actorUserId: string;
   projectId: string;
   title: string;
@@ -95,18 +98,20 @@ interface CreateTaskForProjectInput {
   agentAccess?: AgentProjectAccessContext;
 }
 
-interface UpdatedTaskPayload {
+export interface UpdatedTaskPayload {
   id: string;
   reference: string;
   title: string;
   label: string | null;
   labelsJson: string | null;
+  labels: string[];
   description: string | null;
   deadlineDate: string | null;
   commentCount: number;
   blockedNote: string | null;
   status: string;
   position: number;
+  completedAt: Date | null;
   archivedAt: Date | null;
   epic: TaskEpicSummary | null;
   assignee: TaskPersonSummary | null;
@@ -209,6 +214,35 @@ function parseDeadlineInput(
   };
 }
 
+export function validateTaskCreateFieldTypes(payload: {
+  deadlineDate?: unknown;
+  epicId?: unknown;
+  assigneeUserId?: unknown;
+}): string | null {
+  if (
+    payload.deadlineDate !== undefined &&
+    payload.deadlineDate !== null &&
+    typeof payload.deadlineDate !== "string"
+  ) {
+    return "deadline-invalid";
+  }
+  if (
+    payload.epicId !== undefined &&
+    payload.epicId !== null &&
+    typeof payload.epicId !== "string"
+  ) {
+    return "epic-invalid";
+  }
+  if (
+    payload.assigneeUserId !== undefined &&
+    payload.assigneeUserId !== null &&
+    typeof payload.assigneeUserId !== "string"
+  ) {
+    return "assignee-invalid";
+  }
+  return null;
+}
+
 function parseRelatedTaskIdsJson(rawValue: string): string[] | null {
   const trimmedValue = rawValue.trim();
   if (!trimmedValue) {
@@ -256,6 +290,7 @@ async function loadTaskMutationPayload(
       blockedNote: true,
       status: true,
       position: true,
+      completedAt: true,
       archivedAt: true,
       createdAt: true,
       updatedAt: true,
@@ -320,12 +355,14 @@ async function loadTaskMutationPayload(
     title: task.title,
     label: task.label,
     labelsJson: task.labelsJson,
+    labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
     description: task.description,
     deadlineDate: formatTaskDeadlineDate(task.deadlineAt),
     commentCount: task._count.comments,
     blockedNote: task.blockedNote,
     status: task.status,
     position: task.position,
+    completedAt: task.completedAt,
     archivedAt: task.archivedAt,
     epic: mapTaskEpicSummary(task.epic),
     assignee: task.assigneeUser ? mapTaskPersonSummary(task.assigneeUser) : null,
@@ -990,6 +1027,207 @@ export async function reorderProjectTasks(
     } catch (error) {
       logServerError("reorderProjectTasks", error);
       return createError(500, "Failed to persist task order");
+    }
+  });
+}
+
+export interface TaskStatusTransitionPayload {
+  status: TaskStatus;
+  position?: number;
+}
+
+export function isTaskStatusTransitionPayload(
+  payload: unknown
+): payload is TaskStatusTransitionPayload {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+
+  const candidate = payload as TaskStatusTransitionPayload;
+  if (!isTaskStatus(candidate.status)) {
+    return false;
+  }
+
+  if (
+    candidate.position !== undefined &&
+    (!Number.isInteger(candidate.position) || candidate.position < 0)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+export async function moveTaskStatusForProject(
+  projectId: string,
+  taskId: string,
+  payload: TaskStatusTransitionPayload,
+  actorUserId: string,
+  agentAccess?: AgentProjectAccessContext
+): Promise<ServiceResult<{ task: UpdatedTaskPayload }>> {
+  const normalizedActorUserId = normalizeText(actorUserId);
+  if (!normalizedActorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId,
+    requiredScopes: ["task:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
+  }
+
+  const targetStatus = payload.status;
+
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId: normalizedActorUserId,
+      projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
+
+    try {
+      const existingTask = await db.task.findUnique({
+        where: { id: taskId },
+        select: {
+          id: true,
+          projectId: true,
+          status: true,
+          position: true,
+          archivedAt: true,
+          completedAt: true,
+        },
+      });
+
+      if (!existingTask || existingTask.projectId !== projectId) {
+        return createError(404, "Task not found");
+      }
+
+      const sameColumn = existingTask.status === targetStatus;
+      const destinationTasks = await db.task.findMany({
+        where: {
+          projectId,
+          status: targetStatus,
+          ...(sameColumn ? { NOT: { id: taskId } } : {}),
+          project: {
+            OR: [
+              { ownerId: normalizedActorUserId },
+              { memberships: { some: { userId: normalizedActorUserId } } },
+            ],
+          },
+        },
+        select: { id: true, position: true },
+        orderBy: [{ position: "asc" }],
+      });
+
+      const destinationCount = destinationTasks.length;
+      const rawPosition =
+        payload.position ?? (sameColumn ? existingTask.position : destinationCount);
+      const finalPosition = Math.min(Math.max(rawPosition, 0), destinationCount);
+
+      const now = new Date();
+      const movedToDone = targetStatus === "Done" && existingTask.status !== "Done";
+      const nextCompletedAt =
+        targetStatus === "Done"
+          ? movedToDone
+            ? now
+            : existingTask.completedAt ?? now
+          : null;
+
+      const completedAtUnchanged =
+        (existingTask.completedAt === null && nextCompletedAt === null) ||
+        existingTask.completedAt?.getTime() === nextCompletedAt?.getTime();
+
+      if (
+        sameColumn &&
+        finalPosition === existingTask.position &&
+        existingTask.archivedAt === null &&
+        completedAtUnchanged
+      ) {
+        const task = await loadTaskMutationPayload(db, taskId);
+        if (!task) {
+          return createError(404, "Task not found");
+        }
+        return { ok: true, data: { task } };
+      }
+
+      if (sameColumn) {
+        const shiftDown = finalPosition > existingTask.position;
+        const shiftedTasks = destinationTasks
+          .filter((task) =>
+            shiftDown
+              ? task.position > existingTask.position &&
+                task.position <= finalPosition
+              : task.position >= finalPosition &&
+                task.position < existingTask.position
+          )
+          .sort((left, right) =>
+            shiftDown
+              ? right.position - left.position
+              : left.position - right.position
+          );
+
+        for (const task of shiftedTasks) {
+          await db.task.update({
+            where: { id: task.id },
+            data: { position: shiftDown ? task.position - 1 : task.position + 1 },
+          });
+        }
+      } else if (
+        destinationTasks.some((task) => task.position >= finalPosition)
+      ) {
+        await db.task.updateMany({
+          where: {
+            projectId,
+            status: targetStatus,
+            position: { gte: finalPosition },
+          },
+          data: { position: { increment: 1 } },
+        });
+      }
+
+      await db.task.update({
+        where: { id: taskId },
+        data: {
+          status: targetStatus,
+          position: finalPosition,
+          archivedAt: null,
+          updatedByUserId: normalizedActorUserId,
+          completedAt: nextCompletedAt,
+        },
+      });
+
+      if (!sameColumn) {
+        // Compact the source lane so lanes stay dense: a later append uses the
+        // lane count as its position and would collide with any hole left by
+        // this move.
+        await db.task.updateMany({
+          where: {
+            projectId,
+            status: existingTask.status,
+            position: { gt: existingTask.position },
+          },
+          data: { position: { decrement: 1 } },
+        });
+      }
+
+      await touchProjectActivity({ db, projectId });
+
+      const task = await loadTaskMutationPayload(db, taskId);
+      if (!task) {
+        return createError(500, "Failed to move task");
+      }
+
+      return { ok: true, data: { task } };
+    } catch (error) {
+      logServerError("moveTaskStatusForProject", error);
+      return createError(500, "Failed to move task");
     }
   });
 }

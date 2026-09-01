@@ -99,6 +99,7 @@ The matrix covers:
 - revoked membership;
 - child rows reached through foreign IDs;
 - agent credential, scope-grant, and audit visibility;
+- Calendar connection, source, preference, and composite-owner isolation;
 - the exact-public-ID agent exchange function.
 
 ## Troubleshooting

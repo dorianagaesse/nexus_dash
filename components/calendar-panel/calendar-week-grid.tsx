@@ -11,6 +11,7 @@ import {
   formatEventStartTimeLabel,
   formatEventTimeLabel,
   formatHourLabel,
+  resolveCalendarVisualColor,
   toDateKey,
   type CalendarEventItem,
   type DayEventBucket,
@@ -22,7 +23,7 @@ interface CalendarWeekGridProps {
   weekDays: Date[];
   eventsByDay: Map<string, DayEventBucket>;
   eventsCount: number;
-  onOpenGoogleEvent: (event: CalendarEventItem) => void;
+  onOpenEventDetails: (event: CalendarEventItem) => void;
   onOpenEditEventModal: (event: CalendarEventItem) => void;
 }
 
@@ -31,7 +32,7 @@ export function CalendarWeekGrid({
   weekDays,
   eventsByDay,
   eventsCount,
-  onOpenGoogleEvent,
+  onOpenEventDetails,
   onOpenEditEventModal,
 }: CalendarWeekGridProps) {
   if (weekDays.length === 0) {
@@ -67,21 +68,21 @@ export function CalendarWeekGrid({
               <div className="space-y-2">
                 {allDayEvents.map((event) => (
                   <MobileCalendarEventCard
-                    key={event.id}
+                    key={`${event.calendarSourceId}:${event.id}`}
                     event={event}
                     canEdit={canEdit}
                     label="All day"
-                    onOpenGoogleEvent={onOpenGoogleEvent}
+                    onOpenEventDetails={onOpenEventDetails}
                     onOpenEditEventModal={onOpenEditEventModal}
                   />
                 ))}
                 {timedEvents.map((event) => (
                   <MobileCalendarEventCard
-                    key={event.id}
+                    key={`${event.calendarSourceId}:${event.id}`}
                     event={event}
                     canEdit={canEdit}
                     label={formatEventTimeLabel(event)}
-                    onOpenGoogleEvent={onOpenGoogleEvent}
+                    onOpenEventDetails={onOpenEventDetails}
                     onOpenEditEventModal={onOpenEditEventModal}
                   />
                 ))}
@@ -121,10 +122,10 @@ export function CalendarWeekGrid({
                     ) : (
                       allDayEvents.map((event) => (
                         <DesktopAllDayEventChip
-                          key={event.id}
+                          key={`${event.calendarSourceId}:${event.id}`}
                           event={event}
                           canEdit={canEdit}
-                          onOpenGoogleEvent={onOpenGoogleEvent}
+                          onOpenEventDetails={onOpenEventDetails}
                           onOpenEditEventModal={onOpenEditEventModal}
                         />
                       ))
@@ -199,34 +200,36 @@ export function CalendarWeekGrid({
                     }
 
                     const isCompactEvent = layout.heightPx < CALENDAR_COMPACT_EVENT_HEIGHT_PX;
-                    const canOpen = Boolean(event.htmlLink);
-                    const eventTitle = `${event.summary} - ${formatEventTimeLabel(event)}`;
+                    const eventTitle = `${event.summary} - ${formatEventTimeLabel(event)} - ${event.calendarName} (${event.accountLabel})`;
                     const style = {
                       top: `${layout.topPx}px`,
                       height: `${layout.heightPx}px`,
+                      borderLeftColor: resolveCalendarVisualColor(
+                        event.calendarSourceId,
+                        event.calendarColor
+                      ),
                     };
 
                     return (
                       <article
-                        key={event.id}
+                        key={`${event.calendarSourceId}:${event.id}`}
                         title={eventTitle}
                         className={cn(
-                          "absolute left-1 right-1 overflow-hidden rounded-md border border-sky-500/40 bg-sky-500/10 px-1.5 py-1",
-                          canOpen ? "cursor-pointer transition hover:bg-sky-500/20" : ""
+                          "absolute left-1 right-1 cursor-pointer overflow-hidden rounded-md border border-l-4 border-border/60 bg-muted/20 px-1.5 py-1 transition hover:bg-muted/40"
                         )}
                         style={style}
-                        onClick={() => onOpenGoogleEvent(event)}
+                        onClick={() => onOpenEventDetails(event)}
                         onKeyDown={(keyboardEvent) => {
-                          if (
-                            canOpen &&
-                            (keyboardEvent.key === "Enter" || keyboardEvent.key === " ")
-                          ) {
+                          if (keyboardEvent.target !== keyboardEvent.currentTarget) {
+                            return;
+                          }
+                          if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
                             keyboardEvent.preventDefault();
-                            onOpenGoogleEvent(event);
+                            onOpenEventDetails(event);
                           }
                         }}
-                        role={canOpen ? "button" : undefined}
-                        tabIndex={canOpen ? 0 : undefined}
+                        role="button"
+                        tabIndex={0}
                       >
                         {isCompactEvent ? (
                           <div className="flex min-w-0 items-center gap-1">
@@ -236,7 +239,7 @@ export function CalendarWeekGrid({
                             <span className="shrink-0 text-[10px] text-muted-foreground">
                               {formatEventStartTimeLabel(event)}
                             </span>
-                            {canEdit ? (
+                            {canEdit && event.writable ? (
                               <button
                                 type="button"
                                 onClick={(mouseEvent) => {
@@ -259,8 +262,11 @@ export function CalendarWeekGrid({
                               <p className="truncate text-[10px] text-muted-foreground">
                                 {formatEventTimeLabel(event)}
                               </p>
+                              <p className="truncate text-[10px] text-muted-foreground">
+                                {event.calendarName}
+                              </p>
                             </div>
-                            {canEdit ? (
+                            {canEdit && event.writable ? (
                               <button
                                 type="button"
                                 onClick={(mouseEvent) => {
@@ -291,38 +297,44 @@ export function CalendarWeekGrid({
 function DesktopAllDayEventChip({
   event,
   canEdit,
-  onOpenGoogleEvent,
+  onOpenEventDetails,
   onOpenEditEventModal,
 }: {
   event: CalendarEventItem;
   canEdit: boolean;
-  onOpenGoogleEvent: (event: CalendarEventItem) => void;
+  onOpenEventDetails: (event: CalendarEventItem) => void;
   onOpenEditEventModal: (event: CalendarEventItem) => void;
 }) {
-  const canOpen = Boolean(event.htmlLink);
-  const eventTitle = `${event.summary} - ${formatEventTimeLabel(event)}`;
+  const eventTitle = `${event.summary} - ${formatEventTimeLabel(event)} - ${event.calendarName} (${event.accountLabel})`;
+  const visualColor = resolveCalendarVisualColor(
+    event.calendarSourceId,
+    event.calendarColor
+  );
 
   return (
     <article
       className={cn(
-        "flex items-center gap-1 rounded border border-border/60 bg-muted/20 px-2 py-1",
-        canOpen ? "cursor-pointer transition hover:bg-muted/30" : ""
+        "flex cursor-pointer items-center gap-1 rounded border border-l-4 border-border/60 bg-muted/20 px-2 py-1 transition hover:bg-muted/40"
       )}
+      style={{ borderLeftColor: visualColor }}
       title={eventTitle}
-      onClick={() => onOpenGoogleEvent(event)}
+      onClick={() => onOpenEventDetails(event)}
       onKeyDown={(keyboardEvent) => {
-        if (canOpen && (keyboardEvent.key === "Enter" || keyboardEvent.key === " ")) {
+        if (keyboardEvent.target !== keyboardEvent.currentTarget) {
+          return;
+        }
+        if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
           keyboardEvent.preventDefault();
-          onOpenGoogleEvent(event);
+          onOpenEventDetails(event);
         }
       }}
-      role={canOpen ? "button" : undefined}
-      tabIndex={canOpen ? 0 : undefined}
+      role="button"
+      tabIndex={0}
     >
       <p className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground">
         {event.summary}
       </p>
-      {canEdit ? (
+      {canEdit && event.writable ? (
         <button
           type="button"
           onClick={(mouseEvent) => {
@@ -343,33 +355,39 @@ function MobileCalendarEventCard({
   event,
   canEdit,
   label,
-  onOpenGoogleEvent,
+  onOpenEventDetails,
   onOpenEditEventModal,
 }: {
   event: CalendarEventItem;
   canEdit: boolean;
   label: string;
-  onOpenGoogleEvent: (event: CalendarEventItem) => void;
+  onOpenEventDetails: (event: CalendarEventItem) => void;
   onOpenEditEventModal: (event: CalendarEventItem) => void;
 }) {
-  const canOpen = Boolean(event.htmlLink);
+  const visualColor = resolveCalendarVisualColor(
+    event.calendarSourceId,
+    event.calendarColor
+  );
 
   return (
     <article
       className={cn(
-        "rounded-lg border border-border/60 bg-muted/20 px-3 py-2",
-        canOpen ? "cursor-pointer transition hover:bg-muted/30" : ""
+        "cursor-pointer rounded-lg border border-l-4 border-border/60 bg-muted/20 px-3 py-2 transition hover:bg-muted/40"
       )}
-      onClick={() => onOpenGoogleEvent(event)}
+      style={{ borderLeftColor: visualColor }}
+      onClick={() => onOpenEventDetails(event)}
       onKeyDown={(keyboardEvent) => {
-        if (canOpen && (keyboardEvent.key === "Enter" || keyboardEvent.key === " ")) {
+        if (keyboardEvent.target !== keyboardEvent.currentTarget) {
+          return;
+        }
+        if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
           keyboardEvent.preventDefault();
-          onOpenGoogleEvent(event);
+          onOpenEventDetails(event);
         }
       }}
-      role={canOpen ? "button" : undefined}
-      tabIndex={canOpen ? 0 : undefined}
-      title={`${event.summary} - ${label}`}
+      role="button"
+      tabIndex={0}
+      title={`${event.summary} - ${label} - ${event.calendarName} (${event.accountLabel})`}
     >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1 space-y-1">
@@ -377,11 +395,14 @@ function MobileCalendarEventCard({
             {label}
           </p>
           <p className="break-words text-sm font-medium text-foreground">{event.summary}</p>
+          <p className="break-words text-xs text-muted-foreground">
+            {event.calendarName} · {event.accountLabel}
+          </p>
           {event.location ? (
             <p className="text-xs text-muted-foreground">{event.location}</p>
           ) : null}
         </div>
-        {canEdit ? (
+        {canEdit && event.writable ? (
           <button
             type="button"
             onClick={(mouseEvent) => {

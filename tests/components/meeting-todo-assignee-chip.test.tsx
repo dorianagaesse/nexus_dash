@@ -63,6 +63,7 @@ interface HarnessProps {
   options?: MeetingTodoActorSummary[];
   bordered?: boolean;
   triggerClassName?: string;
+  identityRole?: "assignee" | "steward";
 }
 
 function Harness({
@@ -70,6 +71,7 @@ function Harness({
   options = HUMANS,
   bordered = true,
   triggerClassName,
+  identityRole = "assignee",
 }: HarnessProps) {
   const [value, setValue] = React.useState<MeetingTodoActorReference | null>(
     initialValue
@@ -82,6 +84,7 @@ function Harness({
       onChange={setValue}
       bordered={bordered}
       triggerClassName={triggerClassName}
+      identityRole={identityRole}
     />
   );
 }
@@ -133,6 +136,28 @@ describe("meeting-todo-assignee-chip", () => {
       );
     });
     expect(container.textContent).toContain("camille");
+  });
+
+  test("renders a crowned amber steward treatment with role-specific semantics", () => {
+    act(() => {
+      root.render(
+        <Harness
+          initialValue={{ kind: "human", id: "user-2" }}
+          options={HUMANS}
+          identityRole="steward"
+        />
+      );
+    });
+
+    const trigger = container.querySelector(
+      "[data-meeting-todo-assignee-chip='true']"
+    );
+    const steward = container.querySelector("[data-identity-role='steward']");
+    expect(trigger?.getAttribute("aria-label")).toBe(
+      "Change steward / facilitator, currently camille"
+    );
+    expect(steward?.className).toContain("border-amber-400/70");
+    expect(container.querySelector('[title="Steward / facilitator"]')).not.toBeNull();
   });
 
   test("marks the chip as needing reassignment for inactive actors", () => {

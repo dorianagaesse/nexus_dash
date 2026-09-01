@@ -16,6 +16,54 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-08-27 - Keep shared Preview schema forward-only
+- Status: Accepted
+- Context: Deploying stacked TASK-327 renamed and removed columns from the
+  Calendar credential table, which made the still-testable TASK-326 branch fail
+  against shared staging. An emergency workflow reset made the database follow
+  a branch rather than migration history.
+- Decision: Shared Preview applies checked-in migrations forward only and never
+  resets or rolls back to a branch. A pre-publication gate verifies that every
+  Prisma model has a physical runtime table; incompatible branches fail with an
+  expand/contract diagnostic before the stable alias moves.
+- Consequences: Preview retains production-like migration semantics and ordinary
+  deploys remain routine when migrations are backward-compatible. A single
+  shared database still cannot support mutually incompatible destructive
+  schemas; those changes must be phased or tested in an isolated database.
+- Links: `docs/runbooks/vercel-env-contract-and-secrets.md`,
+  `.github/workflows/deploy-vercel.yml`, PRs `#449` and `#450`
+
+## 2026-08-06 - Model Calendar accounts, sources, and preferences separately
+- Status: Accepted
+- Context: A singular Google credential and free-form target ID cannot safely
+  support multiple accounts, discovered calendars, read-only sources, or a
+  stable write target.
+- Decision: Use directly user-owned `CalendarConnection`, `CalendarSource`, and
+  `CalendarPreference` records with composite ownership keys and forced RLS;
+  place provider behavior behind an adapter and keep events live rather than
+  storing copies.
+- Consequences: Google is the sole live provider but the domain is provider-
+  ready; partial reads are explicit, mutations are source-bound, and adding or
+  removing one account never silently retargets another.
+- Links: `adr/task-327-calendar-connections.md`,
+  `tasks/task-327-additional-calendar-connections.md`
+
+## 2026-08-06 - Make Google Calendar disconnect fail-closed and user-owned
+- Status: Accepted
+- Context: The existing Calendar credential is user-scoped, but its revocation
+  marker was not enforced and the settings DELETE route only reset the target
+  calendar instead of terminating access.
+- Decision: Treat revoked credentials as unusable, require encrypted token
+  storage whenever Calendar OAuth is configured outside tests, and disconnect
+  by marking the signed-in user's row revoked before attempting Google token
+  revocation and permanently deleting the local credential.
+- Consequences: A failed provider call cannot reactivate local Calendar access;
+  users receive a safe Google Account recovery path when upstream revocation is
+  unconfirmed. PATCH remains the target-reset contract, while DELETE now means
+  disconnect.
+- Links: `tasks/task-326-google-calendar-connection-ownership.md`,
+  `docs/audits/task-325-google-calendar-integration-audit.md`
+
 ## 2026-07-30 - Keep meeting todos within current-project navigation
 - Status: Accepted; supersedes the cross-project portion of the 2026-07-27
   TASK-332 decision.

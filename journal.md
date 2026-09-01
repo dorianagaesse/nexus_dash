@@ -3,7 +3,262 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-08-30 - TASK-378 bounded bulk task operations
+
+- Added `POST /api/projects/{projectId}/tasks/bulk` with create, update
+  (partial PATCH semantics), and status operations, capped at 50 per request
+  via the new client-safe `lib/task-bulk.ts` constant. Operations execute
+  sequentially; each delegates to the existing single-item services and
+  enforces the same `task:write` scope and role checks, so failures become
+  per-operation results and never roll back siblings. Bulk v1 excludes
+  delete; update/status are idempotent while create is not.
+- Decision: the shared `MAX_BULK_TASK_OPERATIONS` constant lives in
+  `lib/task-bulk.ts` (re-exported by `project-task-service`) because
+  `agent-onboarding.ts` is imported by client components — importing the
+  service pulled prisma/pg into the client bundle and broke the Turbopack
+  build with unresolvable `fs`/`dns` builtins. This client/server boundary
+  is noted for future contract constants.
+- OpenAPI contract: `TaskBulkRequest` (oneOf create/update/status operation
+  schemas), `TaskBulkResult`/`TaskBulkResponse`, a new path, an endpoint
+  entry with batch-size and partial-failure notes, and an updated
+  `AGENT_LIMITATIONS` entry.
+- Validation passed: lint, RLS inventory, 1085 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production build, release policy `0.44.0` to `0.45.0` (retargeted to `main` after TASK-374 merged at 0.44.0).
+- This branch is stacked on `feature/task-374-single-task-status` and must
+  retarget to `origin/main` after TASK-374 merges.
+
+# 2026-08-30 - TASK-374 single-task status transition
+
+- Added `POST /api/projects/{projectId}/tasks/{taskId}/status` with a
+  `{ status, position? }` payload and a new `moveTaskStatusForProject` service
+  that appends to the destination column by default, clamps explicit
+  positions, shifts destination tasks deterministically (single `updateMany`
+  cross-column, ordered per-row shifts same-column), mirrors the reorder
+  service's `completedAt` semantics, and unarchives on move.
+- No-op detection returns the current task payload without writes when
+  status, position, archive state, and completion date are unchanged.
+- The activity event uses the existing `moved` action from the shared
+  activity vocabulary instead of introducing a new action value.
+- Contract updates: `TaskStatusTransitionRequest`/`TaskStatusTransitionResponse`
+  schemas, a new OpenAPI path, an `AGENT_API_ENDPOINTS` entry, and revised
+  onboarding guidance pointing single-task moves at this route while keeping
+  reorder for full-board ordering.
+- Validation passed: lint, RLS inventory, 1073 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production build, release policy `0.43.0` to `0.44.0` (merged `origin/main` at v0.43.0 after TASK-373/375/376/377/379 landed).
+- TASK-378 (bulk operations) will branch from this line and reuse
+  `moveTaskStatusForProject` for bulk status operations.
+
+# 2026-08-30 - TASK-377 server-side epic and label filters
+
+- `GET /api/projects/{projectId}/tasks` now accepts optional `epicId` and
+  `label` query parameters. The service composes them with AND: epicId is an
+  exact match (unknown epic yields an empty list) and label matches
+  case-insensitively on whole label values via legacy singular-label equals
+  plus quoted-JSON containment on `labelsJson`, so substrings like "Bug" in
+  "Bugs" never match.
+- The response echoes the effective filters in a `filters` object (nulls
+  when absent), documented in `TaskListResponse`. Dashboard callers keep the
+  unchanged no-filter behavior.
+- Route tests now construct `NextRequest` so `nextUrl.searchParams` is
+  populated; service tests assert the composed `where` clauses for
+  epic-only, label-only, combined, and empty-value cases; contract tests pin
+  the query parameters and the `filters` response schema.
+- Validation passed: lint, RLS inventory, 1064 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production build, release policy `0.42.0` to `0.43.0` (retargeted to `main` after TASK-373/375/376/379 merged; merged `origin/main` at v0.42.0).
+- Second-review note captured in a code comment at the `labelsJson`
+  containment site: quoted-JSON containment can false-positive when a stored
+  label contains an escaped quote; revisit with the TASK-331 vocabulary work.
+
+# 2026-08-30 - TASK-376 complete create response contract
+
+- Aligned the runtime mutation payload with the `TaskRecord` schema by adding
+  `completedAt` to `UpdatedTaskPayload` and `loadTaskMutationPayload`, so
+  both PATCH and create responses now carry every field the contract
+  requires (labels arrived with TASK-373 on this base branch).
+- `TaskCreateResponse` now documents `required: ["taskId", "task"]` with the
+  task referencing `TaskRecord`, and the previously duplicated inline
+  `TaskUpdateResponse` task schema is consolidated into a `$ref` to
+  `TaskRecord` so the two can no longer drift apart.
+- Route tests that pinned the legacy `{ taskId }`-only create responses now
+  mock the canonical `{ task }` service shape, and the three full-payload
+  task-update assertions pin `completedAt` explicitly. The runtime defensive
+  `{ taskId }` fallback branch stays with a clarifying comment.
+- Validation passed: lint, RLS inventory, 1058 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production build, release policy `0.41.0` to `0.42.0` (retargeted to `main` after TASK-373/375/379 merged; merged `origin/main` at v0.41.0).
+- Merge notes: retargeted to `main`; the duplicated inline `TaskUpdateResponse`
+  schema was already consolidated into a `$ref` on the base branch line, and the
+  CHANGELOG `v0.37.2` heading damaged during the 375 merge was restored here.
+
+# 2026-08-30 - TASK-375 true partial PATCH contract
+
+- Removed the incorrect `required: ["title"]` declaration from the
+  `TaskUpdateRequest` OpenAPI schema and documented true partial-update
+  semantics per field: omitted fields are preserved, `deadlineDate` null or
+  empty clears, an empty `labels` array clears all labels, `epicId` and
+  `assigneeUserId` null clear, and an empty `relatedTaskIds` array removes
+  all relations. The legacy singular `label` input is marked deprecated in
+  favor of `labels`.
+- The PATCH onboarding notes now lead with the partial-update behavior. No
+  runtime changes: the handler already applies presence-based updates,
+  pinned by the existing task-update route tests.
+- Added contract assertions in `tests/lib/agent-onboarding.test.ts`
+  covering the missing required list, deprecation marker, and per-field
+  semantics descriptions so schema drift fails fast.
+- Validation passed: lint, RLS inventory, 1058 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production build, release policy `0.40.0` to `0.41.0` (retargeted to `main` after TASK-373 and TASK-379 merged; merged `origin/main` at v0.40.0).
+- Second-review fix: `null` is now the sole documented `deadlineDate` clear
+  value; the previous "empty string clears" wording was rejected by
+  format-validating clients. Runtime leniency is unchanged.
+
+# 2026-08-31 - Backlog migration to Nexus Dash
+
+- Migrated the full `tasks/backlog.md` content into the Nexus Dash project
+  "Nexus Dash" (id `cmteshp27000004jic3pr6wy4`) using the agent API with the
+  credentials from `.config/.nd-nexus-dash.env`.
+- Created 5 epics (TASK-385, TASK-110, TASK-114, TASK-022, TASK-021) and 246
+  tasks. Kanban distribution: 72 Backlog, 2 In Progress (TASK-100, TASK-406),
+  172 Done; Backlog order mirrors the old Execution Queue sequencing.
+- Each task description carries the original backlog entry (ID, title, status
+  string, rationale, dependencies); old section groupings became labels
+  (including P0/P1/P2 for the collaboration program); Brief/Report files were
+  attached as GitHub raw links.
+- Dependencies became Nexus Dash task relations. The API replaces a task's
+  full relation neighborhood on PATCH, so relations were written as the
+  bilateral closure (deps + dependents) in a final order-independent pass.
+- Hit and worked around two product limits discovered during the import:
+  epic names are `VarChar(80)` (three names were truncated at word
+  boundaries), and task relations are bilateral/replace-semantics.
+- Verification pass confirmed the board matches the plan: columns, ordering,
+  labels, epic membership, descriptions, attachment links, and the full
+  relation closure.
+- Follow-up refinement: every task now carries a work-type label
+  (`feature`, `fix`, `docs`, `refactor`, `chore`) — delivered tasks use the
+  prefix of their merged PR branch, the rest were classified by content
+  (TASK-372 stays untyped pending clarification). Task descriptions dropped
+  the `Dependencies:` (relations carry it) and `Section:` (the kanban lane
+  carries it) lines, and epic descriptions were rewritten as plain text
+  because the epic panel does not render rich-text markup.
+- Cleanup: removed the old backlog-section labels (Active Runtime
+  Remediation, Execution Queue, External UX Feedback, Codex Session
+  Feedback, Collaboration Refinement, Deferred) as redundant; the board now
+  carries only work-type labels plus P0/P1/P2 priority labels.
+- Docs: `agent.md` and `project.md` now state that Nexus Dash is the source
+  of truth for task management, with credentials in
+  `.config/.nd-nexus-dash.env` and a committed contract template at
+  `.nd-nexus-dash.example.env` (real secrets stay in the gitignored
+  `.config/` directory).
+- `tasks/backlog.md` is replaced by this migration notice; Nexus Dash is now
+  the source of truth for backlog tracking.
+
+# 2026-08-30 - TASK-379 agent credential presets without delete
+
+- Added `AGENT_CREDENTIAL_PRESETS` to `lib/agent-access.ts`: Read only,
+  Read + write (no delete, recommended and default), and Full access. The
+  credential form renders one-click preset chips above the scope grid and
+  pre-selects the recommended non-destructive preset for new credentials;
+  raw checkboxes remain for advanced editing.
+- Onboarding updates: the guide's scope-model card explains the presets and
+  the prefer-no-delete rule, and the hosted smoke-test example now ends
+  with the archived-task note instead of a `DELETE /tasks/{taskId}` call,
+  so routine agent missions no longer grant or exercise `task:delete`.
+- No backend changes: the write/delete split is already enforced at the
+  service layer, and presets produce vocabulary-ordered scopes accepted by
+  the existing credential service.
+- Component coverage is static-markup based (no testing-library in the
+  repo): preset labels, the Recommended badge, and the default three-scope
+  pre-selection are asserted; lib tests validate preset definitions.
+- Validation: lint, RLS inventory, 1061 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions /
+  91.88% lines, production build, release policy `0.38.1` to `0.39.0` (merged `origin/main` at v0.38.1 with the calendar-fix and backlog-migration entries kept).
+- Playwright: full Chromium suite green (34 passed, 1 skipped). Local e2e
+  notes for future runs: `npm run db:local:up` + `npm run db:migrate` first
+  (the Playwright webServer starts `next start` directly, which skips the
+  dev/start migrate step), truncate `AuthRateLimitBucket` when repeated
+  runs hit the durable password-reset throttle, set
+  `OUTBOUND_EMAIL_DELIVERY_MODE=disabled` to avoid live email attempts, and
+  set `NODE_ENV=test` per the local-validation runbook so production-mode
+  trusted-origin resolution accepts the localhost requests.
+
+# 2026-08-30 - TASK-407 public privacy policy implementation
+
+- Audited the runtime before drafting disclosures: social identity connections
+  are separate from optional Calendar authorization; Calendar requests only
+  `https://www.googleapis.com/auth/calendar.events`; event details are fetched
+  on demand; and access/refresh tokens are encrypted before persistence.
+- Added a public `/privacy` route with canonical production metadata and
+  disclosures for account/workspace data, purposes, service providers,
+  retention, deletion requests, security, user choices, and contact.
+- Added the affirmative Google API Services User Data Policy Limited Use
+  statement, the authoritative policy link, and the Google connected-app access
+  management link. The policy does not claim an in-product disconnect or
+  account-deletion control that NexusDash does not currently provide.
+- Linked the policy from the public auth homepage and added unauthenticated,
+  Google-disclosure, navigation, and mobile-overflow Playwright coverage.
+- Applied the UI/UX design-system guidance using the existing NexusDash visual
+  language, visible focus states, reduced-motion-safe transitions, responsive
+  reading width, and a desktop-only sticky section index. Visual QA passed at
+  390x844 and 1440x1000.
+- Local validation passed: lint, RLS inventory, 1,055 unit/API tests with two
+  skipped, coverage at 91.37% statements / 81.33% branches / 92.2% functions /
+  91.88% lines, production build, and two focused Playwright tests.
+- The production build used process-local non-secret placeholders because the
+  checkout intentionally contains no usable database or production signing
+  secrets; no local, GitHub, Vercel, or Google Cloud secrets were modified.
+- Prepared product release `v0.38.0` with a matching changelog entry and opened
+  PR #463 at commit `9955e16`.
+- Preview workflow run `33278777919` explicitly fetched and checked out
+  `feature/task-407-public-privacy-policy`, validated deployment identity and
+  readiness, assigned/verified the stable Preview alias, and published immutable
+  URL `https://nexus-dash-md7838l2c-dorian-agaesses-projects.vercel.app`.
+- Both focused privacy-policy Playwright tests passed against that immutable
+  Preview URL. Required PR checks/review and merge remain pending.
+- A follow-up Preview for the evidence-only commit passed immutable deployment
+  identity/readiness but hit an existing read-after-write race when immediately
+  verifying the stable alias. Direct checks seconds later confirmed both URLs
+  on revision `0e3e05e`; no product or secret change was needed.
+- Final exact-branch workflow run `33279072092` completed cleanly for `0e3e05e`,
+  including stable-alias verification, and published immutable URL
+  `https://nexus-dash-qv707rgek-dorian-agaesses-projects.vercel.app`; both
+  focused Playwright tests passed against it.
+- PR #463 passed Quality Core, Playwright E2E, PostgreSQL tenant isolation,
+  container-image, branch-name, and release-policy checks. GitHub generated no
+  Copilot review or inline feedback during the monitored review window, leaving
+  no review threads to triage before the authorized merge.
+
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
+
+# 2026-08-30 - TASK-373 agent task API labels contract
+
+- Started the agent API improvement program (TASK-373..379) from the approved
+  plan: stacked PRs for dependent tasks (375/376/377 on 373's branch, 378 on
+  374's branch), proceeding without the pending TASK-331 capability vocabulary
+  because the write/delete scope split and epic/label models already exist.
+- Added the canonical `labels: string[]` field to every agent task read
+  response: the GET /tasks list serializer and the shared
+  `loadTaskMutationPayload` used by both PATCH and create responses, resolved
+  through the existing `getTaskLabelsFromStorage` helper so API output matches
+  the Kanban UI's label resolution. Legacy `label`/`labelsJson` stay for
+  compatibility and are marked `deprecated` in the OpenAPI `TaskRecord` and
+  `TaskUpdateResponse` schemas.
+- Covered empty, single, multi-label, and legacy-fallback serialization in the
+  task-create route tests, updated the exact-response assertions in
+  task-update and agent-project-routes tests, and added OpenAPI contract
+  assertions for the labels shape and deprecation markers.
+- Environment notes: fresh worktrees need `npm install` plus the documented
+  local env placeholders (DATABASE_URL, DIRECT_URL, AGENT_TOKEN_SIGNING_SECRET,
+  RESEND_API_KEY, STORAGE_PROVIDER). The worktree checkout produced CRLF line
+  endings that broke the `validate-supabase-project-ref` script test in
+  vite-node; converted that script to LF (no content diff) and future
+  worktrees will set `core.autocrlf false` at creation.
+- Validation passed: lint, RLS inventory, 1057 unit/API tests (2 skipped),
+  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines, production build, release policy `0.39.0` to `0.40.0` (merged `origin/main` at v0.39.0; version re-derived after the 379 merge).
+
 
 - Reproduced the provider failure from the immutable TASK-326 Preview: GitHub
   rejected its per-deployment callback because the Preview OAuth application is
@@ -145,6 +400,23 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Focused regression validation passed: 4 files, 88 tests covering request
   origin selection, environment validation, health metadata, and migration
   project-ref validation.
+# 2026-08-16 - TASK-326 review refreshed after TASK-325 merge
+
+- Merged TASK-325 through PR #418, retargeted PR #419 to `main`, and merged the
+  current base into `feature/task-326-calendar-ownership` without changing the
+  ownership or disconnect contracts.
+- Reviewed active-only credential access, fail-closed disconnect ordering,
+  provider revocation recovery, lazy token encryption, project summary context,
+  and cross-user RLS coverage against the current service architecture.
+- Advanced the feature version from `0.37.0` to `0.38.0` because current `main`
+  already owns `0.37.0`. Added 44px confirmation controls and recovery copy that
+  does not claim local revocation succeeded when the request fails early.
+- Local validation passed: 171 focused Calendar/ownership tests, 1,048 full-suite
+  tests with two expected skips, coverage at 91.42% statements / 81.33%
+  branches, lint, RLS inventory, version policy, and production build.
+- The local real-RLS rerun is unavailable because Docker Desktop is not running;
+  the required GitHub PostgreSQL RLS job remains the authoritative refreshed
+  matrix for this review.
 
 # 2026-08-08 - TASK-330 assignee control rebuilt as inline Participants-style chip
 
@@ -234,6 +506,62 @@ Use it for important implementation milestones, blockers, validation runs, and r
   non-`P2021` error still propagates. All 11 tests in that file pass; full
   `npm test` is 936 passing / 1 skipped, with 13 pre-existing integration
   files failing only because the workstation has no `DATABASE_URL`.
+# 2026-08-06 - TASK-327 multi-account Calendar connections implemented
+
+- Replaced the singular credential schema with data-preserving, directly user-
+  owned Calendar connections, sources, and preferences. Added composite owner
+  keys, forced RLS, legacy identity/source/preference adoption, and isolation
+  coverage across all three tables.
+- Added the provider adapter, Google OpenID identity and CalendarList scopes,
+  stable `sub` identities, add/reconnect mismatch handling, discovery sync,
+  per-connection disconnect, and preference APIs while retaining the singular
+  settings compatibility facade.
+- Added bounded four-source live aggregation, 1,000-event pagination limits,
+  one transient read retry, deterministic ordering, partial-source warnings,
+  source metadata, and origin-locked non-retried mutations.
+- Rebuilt Settings as responsive account cards with accessible Calendar
+  selection, one writable target, refresh/reconnect/disconnect recovery, 44px
+  controls, and focused client state. Updated the project Calendar surface with
+  source-aware creation, read-only locking, warning states, and collision-safe
+  event keys.
+- Validation: Prisma migration applied successfully to PostgreSQL; lint and RLS
+  inventory passed; 151 test files / 1,032 tests passed (two expected skips);
+  coverage passed at 91.60% statements and 81.21% branches; production build
+  passed; the expanded NOBYPASSRLS matrix passed; all 32 existing Playwright
+  tests plus the focused TASK-327 responsive/keyboard/theme test passed.
+- Pending external acceptance: two authorized Google test accounts are required
+  to exercise live OAuth, CalendarList, CRUD, reconnect, and single-account
+  disconnect. No account credentials or interactive session were available in
+  the workspace.
+- Review: addressed and resolved all three initial Copilot threads by scoping
+  compatibility targets to the default writable connection, removing N+1 RLS
+  transactions, and aligning the client warning contract. Focused regression
+  tests and lint passed.
+- Final reviewed preview: workflow run `31099193559` explicitly checked out
+  `feature/task-327-calendar-connections` at `797534c`, applied the migration,
+  and deployed `https://nexus-dash-74qj9r5kj-dorian-agaesses-projects.vercel.app`.
+  The external preview Playwright entry walkthrough passed 5/5 Chromium tests.
+
+# 2026-08-06 - TASK-326 Google Calendar ownership hardening completed
+
+- Made Calendar credential reads, refreshes, and target changes active-only,
+  added lazy encryption for legacy plaintext values, and made encryption
+  mandatory whenever Calendar OAuth is configured outside tests.
+- Replaced target reset over `DELETE` with an authenticated-user-only,
+  idempotent disconnect that revokes upstream when possible and always removes
+  local tokens. Preserved target reset through `PATCH`.
+- Added accessible disconnect/recovery UI, configurable pending confirmation
+  copy, and repaired project Calendar summary requests by supplying `projectId`.
+- Expanded unit/API/component coverage and the real PostgreSQL RLS matrix for
+  two-user Calendar credential isolation and forged cross-user operations.
+- Validation: lint and RLS inventory passed; 147 test files passed with 1,031
+  tests (two expected skips); coverage passed at 91.42% statements and 81.33%
+  branches; production build passed; PostgreSQL RLS setup/matrix passed; full
+  Playwright passed 32/32 Chromium tests.
+- Preview: workflow run `31096210298` explicitly checked out
+  `feature/task-326-calendar-ownership` at `e899238`, deployed
+  `https://nexus-dash-lvexl0fhe-dorian-agaesses-projects.vercel.app`, and the
+  external preview Playwright entry walkthrough passed 5/5 Chromium tests.
 
 # 2026-08-06 - TASK-325 Google Calendar integration audit completed
 
@@ -4121,3 +4449,68 @@ Low-value entries to avoid going forward:
   with lint and the RLS inventory check. The real PostgreSQL matrix could not
   run locally because its two required RLS database URLs are unavailable; CI
   remains the authoritative database validation.
+
+## 2026-09-01 - ND-365 Calendar event source identity
+
+- Merged validated TASK-327 [PR #450](https://github.com/dorianagaesse/nexus_dash/pull/450)
+  after preserving refresh-token metadata, repairing RLS script formatting,
+  updating the destination-control E2E contract, and fixing 375 px overflow.
+  Final merge commit: `acbab9f`.
+- Created NexusDash task `ND-365` (`cmtikk10n000804ktx0lpdi6l`) and moved it to
+  In Progress. The task tracks explicit Calendar event provenance and
+  per-calendar visual cues as a follow-up to the multi-account foundation.
+- Chose color as a supplemental cue only: event cards retain visible calendar
+  text or accessible title context, and the event modal names both calendar and
+  connected account. Missing/invalid provider colors receive a deterministic
+  fallback from a bounded accessible palette.
+- Added a read-only event detail mode so every event can expose its source in
+  NexusDash without weakening CalendarSource write enforcement.
+- Prepared feature release `v0.48.0`; focused API/utility/auth tests, lint, and
+  the release policy check passed before full validation.
+- Completed the full validation baseline from the `nexus_dash_task365`
+  worktree: lint, RLS inventory, 1149 unit/API tests (2 skipped), coverage at
+  91.65% statements / 81.32% branches / 92.3% functions / 92.14% lines, and a
+  production build.
+- Ran the focused ND-365 Playwright spec (multi-source provenance, read-only
+  modal, 375 px mobile, desktop light/dark) plus calendar regression specs
+  (smoke calendar flow, TASK-327 multi-account, accessible overlays) — all
+  passed. The spec targets visible event cards explicitly because mobile day
+  cards and desktop all-day chips coexist in the DOM with CSS breakpoint
+  visibility.
+- Committed as `7fc5d1e` + `942eaba`, pushed
+  `feature/nd-365-calendar-event-source-identity`, and opened ready-for-review
+  [PR #475](https://github.com/dorianagaesse/nexus_dash/pull/475). Kanban
+  task `ND-365` labeled `feature`, still In Progress pending user validation.
+- Deployed the branch preview via `deploy-vercel.yml` (run 33503949716,
+  `git_ref=feature/nd-365-calendar-event-source-identity`, log evidence shows
+  the checkout of that ref) and validated it with the ND-365 spec plus the
+  full smoke suite against
+  `https://nexus-dash-1hu5kui5q-dorian-agaesses-projects.vercel.app`.
+- Copilot's initial review (4 threads) found a view-mode autofocus issue, a
+  missing `noopener` on the Google Calendar link, Enter/Space bubbling from
+  inner Edit buttons into the event open handler, and the stale
+  `openGoogleEvent` name. Fixed in `a4561ad` + `14624f1` (focus, rel, keydown
+  target guard on all three card variants, rename to `openEventDetails`),
+  replied on every thread, and resolved all four. Full CI (Quality Core,
+  Tenant Isolation, E2E Smoke, Container Image) is green on `14624f1`.
+
+## 2026-09-02 - TASK-356 meeting modal readability follow-up
+
+- Merged current `origin/main` into PR #453's published r4 branch and resolved
+  conflicts by retaining TASK-356 stewardship relations alongside the new
+  multi-account Calendar schema, adopting the current backlog migration, and
+  advancing the feature release from `v0.48.0` to `v0.49.0`.
+- Replaced the prominent meeting-detail stewardship metadata card with a
+  compact participant/member treatment: the steward avatar now carries an
+  amber ring and bottom-right crown, with role-specific accessible naming and
+  the existing keyboard-operable assignment popover.
+- Removed duplicate rendering when the human steward is also a listed meeting
+  participant, kept agent and non-participant stewards visible, and retained
+  explicit pending, error, inactive-actor, and read-only states.
+- Moved created-by, last-edited-by, and updated-time provenance to a subdued
+  footer at the bottom of both meeting-detail and preparation modals.
+- Validation passed: lint, RLS inventory, release policy, 47 focused
+  stewardship component/API/service tests, all 1,167 runnable tests (2
+  skipped), coverage at 91.65% statements / 81.32% branches / 92.3% functions
+  / 92.14% lines, and the production build with documented local-only email
+  delivery and signing-secret settings.

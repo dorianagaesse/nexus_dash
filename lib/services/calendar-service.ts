@@ -1,10 +1,16 @@
 import {
+  authorizeCalendarSourceContext,
   getAuthorizedGoogleCalendarContext,
   hasCalendarWriteScope,
 } from "@/lib/google-calendar-access";
-import { logServerError } from "@/lib/observability/logger";
+import { getCalendarProvider } from "@/lib/calendar-providers/google";
+import { logServerError, logServerWarning } from "@/lib/observability/logger";
 import { requireProjectRole } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
+import {
+  getCalendarPreference,
+  getSelectedCalendarSourceContexts,
+} from "@/lib/services/calendar-connection-service";
 
 interface ServiceErrorResult {
   ok: false;
@@ -49,6 +55,13 @@ export interface CalendarEventResponseItem {
   description: string | null;
   htmlLink: string | null;
   status: string;
+  calendarSourceId?: string;
+  connectionId?: string;
+  calendarName?: string;
+  calendarColor?: string | null;
+  accountLabel?: string;
+  accountEmail?: string | null;
+  writable?: boolean;
 }
 
 interface CalendarQueryWindow {
@@ -65,6 +78,7 @@ interface UpsertEventRequestPayload {
   isAllDay: boolean;
   location?: string;
   description?: string;
+  calendarSourceId?: string;
 }
 
 function createError(status: number, body: Record<string, unknown>): ServiceErrorResult {
@@ -127,7 +141,16 @@ function buildQueryWindow(input: {
 }
 
 function normalizeGoogleEvent(
-  event: GoogleCalendarApiEvent
+  event: GoogleCalendarApiEvent,
+  source?: {
+    calendarSourceId?: string;
+    connectionId?: string;
+    calendarName?: string;
+    calendarColor?: string | null;
+    accountLabel?: string;
+    accountEmail?: string | null;
+    writable?: boolean;
+  }
 ): CalendarEventResponseItem | null {
   const start = event.start?.dateTime ?? event.start?.date;
   const end = event.end?.dateTime ?? event.end?.date ?? null;
@@ -146,6 +169,7 @@ function normalizeGoogleEvent(
     description: event.description ?? null,
     htmlLink: event.htmlLink ?? null,
     status: event.status ?? "confirmed",
+    ...(source?.calendarSourceId ? source : {}),
   };
 }
 
@@ -154,24 +178,21 @@ async function fetchGoogleCalendarEvents(input: {
   calendarId: string;
   timeMin: Date;
   timeMax: Date;
+  pageToken?: string | null;
 }) {
-  const requestUrl = new URL(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
-      input.calendarId
-    )}/events`
-  );
-  requestUrl.searchParams.set("singleEvents", "true");
-  requestUrl.searchParams.set("orderBy", "startTime");
-  requestUrl.searchParams.set("maxResults", "250");
-  requestUrl.searchParams.set("showDeleted", "false");
-  requestUrl.searchParams.set("timeMin", input.timeMin.toISOString());
-  requestUrl.searchParams.set("timeMax", input.timeMax.toISOString());
-
-  return fetch(requestUrl, {
-    headers: {
-      Authorization: `Bearer ${input.accessToken}`,
-    },
-    cache: "no-store",
+  const query = new URLSearchParams({
+    singleEvents: "true",
+    orderBy: "startTime",
+    maxResults: "250",
+    showDeleted: "false",
+    timeMin: input.timeMin.toISOString(),
+    timeMax: input.timeMax.toISOString(),
+  });
+  if (input.pageToken) query.set("pageToken", input.pageToken);
+  return getCalendarProvider("google").requestEvents({
+    accessToken: input.accessToken,
+    calendarId: input.calendarId,
+    query,
   });
 }
 
@@ -243,6 +264,7 @@ function parseUpsertEventPayload(raw: unknown):
     isAllDay?: unknown;
     location?: unknown;
     description?: unknown;
+    calendarSourceId?: unknown;
   };
 
   const summary =
@@ -262,6 +284,10 @@ function parseUpsertEventPayload(raw: unknown):
     typeof payload.location === "string" ? payload.location.trim() : "";
   const description =
     typeof payload.description === "string" ? payload.description.trim() : "";
+  const calendarSourceId =
+    typeof payload.calendarSourceId === "string"
+      ? payload.calendarSourceId.trim()
+      : "";
 
   if (isAllDay) {
     if (!isDateOnly(start) || !isDateOnly(end)) {
@@ -292,6 +318,7 @@ function parseUpsertEventPayload(raw: unknown):
       isAllDay,
       location: location || undefined,
       description: description || undefined,
+      calendarSourceId: calendarSourceId || undefined,
     },
   };
 }
@@ -320,13 +347,19 @@ function toGoogleEventRequest(payload: UpsertEventRequestPayload) {
   };
 }
 
-async function resolveWritableCalendarContext(actorUserId: string) {
-  const auth = await getAuthorizedGoogleCalendarContext(actorUserId);
+async function resolveWritableCalendarContext(
+  actorUserId: string,
+  sourceId?: string | null
+) {
+  const auth = await getAuthorizedGoogleCalendarContext(actorUserId, sourceId);
   if (!auth.ok) {
     return createError(auth.failure.status, { error: auth.failure.error });
   }
 
-  if (!hasCalendarWriteScope(auth.context.scope)) {
+  if (
+    auth.context.writable === false ||
+    !hasCalendarWriteScope(auth.context.scope)
+  ) {
     return createError(403, { error: "insufficient-scope" });
   }
 
@@ -375,6 +408,22 @@ export async function listCalendarEvents(input: {
     timeMax: string;
     syncedAt: string;
     events: CalendarEventResponseItem[];
+    warnings: Array<{
+      calendarSourceId: string;
+      connectionId: string;
+      error: string;
+    }>;
+    truncated: boolean;
+    writeSourceId: string | null;
+    sources: Array<{
+      id: string;
+      connectionId: string;
+      name: string;
+      color: string | null;
+      accountLabel: string;
+      accountEmail: string | null;
+      writable: boolean;
+    }>;
   }>
 > {
   const queryWindow = buildQueryWindow(input);
@@ -389,70 +438,185 @@ export async function listCalendarEvents(input: {
       return projectAccess;
     }
 
-    const auth = await getAuthorizedGoogleCalendarContext(input.actorUserId);
-    if (!auth.ok) {
-      return createError(auth.failure.status, {
-        connected: false,
-        error: auth.failure.error,
-      });
+    const [sourceContexts, preference] = await Promise.all([
+      getSelectedCalendarSourceContexts(input.actorUserId),
+      getCalendarPreference(input.actorUserId),
+    ]);
+    if (sourceContexts.length === 0) {
+      return createError(401, { connected: false, error: "not-connected" });
     }
 
-    const eventsResponse = await fetchGoogleCalendarEvents({
-      accessToken: auth.context.accessToken,
-      calendarId: auth.context.calendarId,
-      timeMin: queryWindow.timeMin,
-      timeMax: queryWindow.timeMax,
-    });
+    const results: Array<{
+      events: CalendarEventResponseItem[];
+      warning: {
+        calendarSourceId: string;
+        connectionId: string;
+        error: string;
+      } | null;
+      truncated: boolean;
+    }> = new Array(sourceContexts.length);
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < sourceContexts.length) {
+        const index = cursor++;
+        const sourceContext = sourceContexts[index];
+        const auth = await authorizeCalendarSourceContext(
+          input.actorUserId,
+          sourceContext
+        );
+        if (!auth.ok) {
+          results[index] = {
+            events: [],
+            warning: {
+              calendarSourceId: sourceContext.source.id,
+              connectionId: sourceContext.connection.id,
+              error: auth.failure.error,
+            },
+            truncated: false,
+          };
+          continue;
+        }
 
-    if (!eventsResponse.ok) {
-      const payload = (await eventsResponse.json().catch(() => null)) as unknown;
-      const reason = parseGoogleErrorReason(payload);
-
-      if (eventsResponse.status === 401) {
-        return createError(401, {
-          connected: false,
-          error: "reauthorization-required",
-        });
+        const events: CalendarEventResponseItem[] = [];
+        let pageToken: string | null = null;
+        let warning: (typeof results)[number]["warning"] = null;
+        let truncated = false;
+        do {
+          let response: Response;
+          try {
+            response = await fetchGoogleCalendarEvents({
+              accessToken: auth.context.accessToken,
+              calendarId: auth.context.calendarId,
+              timeMin: queryWindow.timeMin,
+              timeMax: queryWindow.timeMax,
+              pageToken,
+            });
+            if (response.status === 429 || response.status >= 500) {
+              response = await fetchGoogleCalendarEvents({
+                accessToken: auth.context.accessToken,
+                calendarId: auth.context.calendarId,
+                timeMin: queryWindow.timeMin,
+                timeMax: queryWindow.timeMax,
+                pageToken,
+              });
+            }
+          } catch (error) {
+            logServerWarning(
+              "listCalendarEvents.sourceFetchFailed",
+              "Calendar source request failed",
+              {
+                calendarSourceId: auth.context.calendarSourceId,
+                connectionId: auth.context.connectionId,
+                error,
+              }
+            );
+            warning = {
+              calendarSourceId: auth.context.calendarSourceId,
+              connectionId: auth.context.connectionId,
+              error: "calendar-fetch-failed",
+            };
+            break;
+          }
+          const payload = (await response.json().catch(() => null)) as {
+            items?: GoogleCalendarApiEvent[];
+            nextPageToken?: unknown;
+          } | null;
+          if (!response.ok) {
+            warning = {
+              calendarSourceId: auth.context.calendarSourceId,
+              connectionId: auth.context.connectionId,
+              error:
+                response.status === 401
+                  ? "reauthorization-required"
+                  : response.status === 403 &&
+                      parseGoogleErrorReason(payload) === "insufficientPermissions"
+                    ? "insufficient-scope"
+                    : response.status === 403
+                      ? "calendar-read-forbidden"
+                    : "calendar-fetch-failed",
+            };
+            break;
+          }
+          events.push(
+            ...(payload?.items ?? [])
+              .map((event) =>
+                normalizeGoogleEvent(event, {
+                  calendarSourceId: auth.context.calendarSourceId,
+                  connectionId: auth.context.connectionId,
+                  calendarName: auth.context.calendarName,
+                  calendarColor: auth.context.calendarColor,
+                  accountLabel: auth.context.accountLabel,
+                  accountEmail: auth.context.accountEmail,
+                  writable: auth.context.writable,
+                })
+              )
+              .filter((event): event is CalendarEventResponseItem => event !== null)
+          );
+          pageToken =
+            typeof payload?.nextPageToken === "string"
+              ? payload.nextPageToken
+              : null;
+          if (events.length >= 1_000 && pageToken) {
+            events.splice(1_000);
+            truncated = true;
+            pageToken = null;
+          }
+        } while (pageToken);
+        results[index] = { events, warning, truncated };
       }
-
-      if (eventsResponse.status === 403 && reason === "insufficientPermissions") {
-        return createError(403, {
-          connected: true,
-          error: "insufficient-scope",
-        });
-      }
-
-      logServerError("listCalendarEvents.googleApiError", "google-api-error", {
-        googleApi: summarizeGoogleApiError({
-          status: eventsResponse.status,
-          statusText: eventsResponse.statusText,
-          reason,
-          payload,
-        }),
-      });
-      return createError(502, {
-        connected: true,
-        error: "calendar-fetch-failed",
-      });
-    }
-
-    const payload = (await eventsResponse.json()) as {
-      items?: GoogleCalendarApiEvent[];
     };
+    await Promise.all(
+      Array.from({ length: Math.min(4, sourceContexts.length) }, () => worker())
+    );
 
-    const events = (payload.items ?? [])
-      .map((item) => normalizeGoogleEvent(item))
-      .filter((item): item is CalendarEventResponseItem => item !== null);
+    const events = results
+      .flatMap((result) => result.events)
+      .sort(
+        (left, right) =>
+          left.start.localeCompare(right.start) ||
+          (left.calendarSourceId ?? "").localeCompare(right.calendarSourceId ?? "") ||
+          left.id.localeCompare(right.id)
+      );
+    const warnings = results
+      .map((result) => result.warning)
+      .filter((warning): warning is NonNullable<typeof warning> => warning !== null);
+
+    if (events.length === 0 && warnings.length === sourceContexts.length) {
+      const error = warnings[0]?.error ?? "calendar-fetch-failed";
+      const status =
+        error === "reauthorization-required" || error === "not-connected"
+          ? 401
+          : error === "insufficient-scope" || error === "calendar-read-forbidden"
+            ? 403
+            : 502;
+      return createError(status, {
+        connected: error !== "not-connected" && error !== "reauthorization-required",
+        error,
+      });
+    }
 
     return createSuccess(200, {
       connected: true as const,
-      calendarId: auth.context.calendarId,
+      calendarId: sourceContexts[0].source.providerCalendarId,
       range: queryWindow.range,
       days: queryWindow.days,
       timeMin: queryWindow.timeMin.toISOString(),
       timeMax: queryWindow.timeMax.toISOString(),
       syncedAt: new Date().toISOString(),
       events,
+      warnings,
+      truncated: results.some((result) => result.truncated),
+      writeSourceId: preference?.writeSourceId ?? null,
+      sources: sourceContexts.map((context) => ({
+        id: context.source.id,
+        connectionId: context.connection.id,
+        name: context.source.name,
+        color: context.source.color,
+        accountLabel: context.connection.accountLabel,
+        accountEmail: context.connection.accountEmail,
+        writable:
+          context.writable && hasCalendarWriteScope(context.connection.scopes),
+      })),
     });
   } catch (error) {
     logServerError("listCalendarEvents", error);
@@ -482,29 +646,27 @@ export async function createCalendarEvent(
       return projectAccess;
     }
 
-    const auth = await resolveWritableCalendarContext(actorUserId);
-    if (!auth.ok) {
-      return auth;
-    }
-
+    const requestedSourceId =
+      rawBody && typeof rawBody === "object" &&
+      typeof (rawBody as { calendarSourceId?: unknown }).calendarSourceId === "string"
+        ? (rawBody as { calendarSourceId: string }).calendarSourceId
+        : null;
+    const auth = await resolveWritableCalendarContext(
+      actorUserId,
+      requestedSourceId
+    );
+    if (!auth.ok) return auth;
     const parsedPayload = parseUpsertEventPayload(rawBody);
     if (!parsedPayload.ok) {
       return createError(400, { error: parsedPayload.error });
     }
 
-    const response = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
-        auth.body.context.calendarId
-      )}/events`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${auth.body.context.accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(toGoogleEventRequest(parsedPayload.payload)),
-      }
-    );
+    const response = await getCalendarProvider("google").requestEvents({
+      accessToken: auth.body.context.accessToken,
+      calendarId: auth.body.context.calendarId,
+      method: "POST",
+      body: toGoogleEventRequest(parsedPayload.payload),
+    });
 
     const responsePayload = (await response.json().catch(() => null)) as unknown;
 
@@ -529,7 +691,18 @@ export async function createCalendarEvent(
       return createError(502, { error: "calendar-create-failed" });
     }
 
-    const normalized = normalizeGoogleEvent(responsePayload as GoogleCalendarApiEvent);
+    const normalized = normalizeGoogleEvent(
+      responsePayload as GoogleCalendarApiEvent,
+      {
+        calendarSourceId: auth.body.context.calendarSourceId,
+        connectionId: auth.body.context.connectionId,
+        calendarName: auth.body.context.calendarName,
+        calendarColor: auth.body.context.calendarColor,
+        accountLabel: auth.body.context.accountLabel,
+        accountEmail: auth.body.context.accountEmail,
+        writable: auth.body.context.writable,
+      }
+    );
     if (!normalized) {
       return createError(502, { error: "calendar-create-failed" });
     }
@@ -561,29 +734,28 @@ export async function updateCalendarEvent(
       return projectAccess;
     }
 
-    const auth = await resolveWritableCalendarContext(actorUserId);
-    if (!auth.ok) {
-      return auth;
-    }
-
+    const requestedSourceId =
+      rawBody && typeof rawBody === "object" &&
+      typeof (rawBody as { calendarSourceId?: unknown }).calendarSourceId === "string"
+        ? (rawBody as { calendarSourceId: string }).calendarSourceId
+        : null;
+    const auth = await resolveWritableCalendarContext(
+      actorUserId,
+      requestedSourceId
+    );
+    if (!auth.ok) return auth;
     const parsedPayload = parseUpsertEventPayload(rawBody);
     if (!parsedPayload.ok) {
       return createError(400, { error: parsedPayload.error });
     }
 
-    const response = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
-        auth.body.context.calendarId
-      )}/events/${encodeURIComponent(eventId)}`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${auth.body.context.accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(toGoogleEventRequest(parsedPayload.payload)),
-      }
-    );
+    const response = await getCalendarProvider("google").requestEvents({
+      accessToken: auth.body.context.accessToken,
+      calendarId: auth.body.context.calendarId,
+      eventId,
+      method: "PATCH",
+      body: toGoogleEventRequest(parsedPayload.payload),
+    });
 
     const responsePayload = (await response.json().catch(() => null)) as unknown;
 
@@ -612,7 +784,18 @@ export async function updateCalendarEvent(
       return createError(502, { error: "calendar-update-failed" });
     }
 
-    const normalized = normalizeGoogleEvent(responsePayload as GoogleCalendarApiEvent);
+    const normalized = normalizeGoogleEvent(
+      responsePayload as GoogleCalendarApiEvent,
+      {
+        calendarSourceId: auth.body.context.calendarSourceId,
+        connectionId: auth.body.context.connectionId,
+        calendarName: auth.body.context.calendarName,
+        calendarColor: auth.body.context.calendarColor,
+        accountLabel: auth.body.context.accountLabel,
+        accountEmail: auth.body.context.accountEmail,
+        writable: auth.body.context.writable,
+      }
+    );
     if (!normalized) {
       return createError(502, { error: "calendar-update-failed" });
     }
@@ -627,7 +810,8 @@ export async function updateCalendarEvent(
 export async function deleteCalendarEvent(
   eventId: string,
   actorUserId: string,
-  projectId: string
+  projectId: string,
+  calendarSourceId?: string | null
 ): Promise<ServiceResult<{ ok: true }>> {
   try {
     const projectAccess = await ensureCalendarProjectAccess({
@@ -639,22 +823,17 @@ export async function deleteCalendarEvent(
       return projectAccess;
     }
 
-    const auth = await resolveWritableCalendarContext(actorUserId);
+    const auth = await resolveWritableCalendarContext(actorUserId, calendarSourceId);
     if (!auth.ok) {
       return auth;
     }
 
-    const response = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
-        auth.body.context.calendarId
-      )}/events/${encodeURIComponent(eventId)}`,
-      {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${auth.body.context.accessToken}`,
-        },
-      }
-    );
+    const response = await getCalendarProvider("google").requestEvents({
+      accessToken: auth.body.context.accessToken,
+      calendarId: auth.body.context.calendarId,
+      eventId,
+      method: "DELETE",
+    });
 
     if (!response.ok) {
       const responsePayload = (await response.json().catch(() => null)) as unknown;

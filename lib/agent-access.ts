@@ -116,6 +116,48 @@ export function parseAgentScopes(value: unknown): AgentScope[] {
   );
 }
 
+export interface AgentCredentialPreset {
+  id: string;
+  label: string;
+  description: string;
+  scopes: AgentScope[];
+  recommended?: boolean;
+}
+
+export const AGENT_CREDENTIAL_PRESETS: ReadonlyArray<AgentCredentialPreset> = [
+  {
+    id: "read-only",
+    label: "Read only",
+    description: "Read project metadata and tasks without changing anything.",
+    scopes: ["project:read", "task:read"],
+  },
+  {
+    id: "read-write",
+    label: "Read + write (no delete)",
+    description:
+      "Read and update tasks, epics, and related content without destructive delete permission.",
+    scopes: ["project:read", "task:read", "task:write"],
+    recommended: true,
+  },
+  {
+    id: "full-access",
+    label: "Full access",
+    description:
+      "Everything above plus task deletion. Grant only when the agent must remove tasks.",
+    scopes: ["project:read", "task:read", "task:write", "task:delete"],
+  },
+];
+
+export const DEFAULT_AGENT_CREDENTIAL_PRESET_ID = "read-write";
+
+export function resolveAgentCredentialPreset(
+  presetId: string
+): AgentCredentialPreset | null {
+  return (
+    AGENT_CREDENTIAL_PRESETS.find((preset) => preset.id === presetId) ?? null
+  );
+}
+
 export function normalizeAgentCredentialLabel(value: unknown): string {
   if (typeof value !== "string") {
     return "";

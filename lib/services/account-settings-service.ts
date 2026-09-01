@@ -1,10 +1,15 @@
 import {
+  deleteGoogleCalendarCredential,
   DEFAULT_GOOGLE_CALENDAR_ID,
+  GoogleCalendarCredentialTokenDecryptionError,
   MAX_GOOGLE_CALENDAR_ID_LENGTH,
   findGoogleCalendarCredentialCalendarId,
+  markGoogleCalendarCredentialRevokedForDisconnect,
   normalizeGoogleCalendarId,
   updateGoogleCalendarCredentialCalendarId,
 } from "@/lib/services/google-calendar-credential-service";
+import { revokeGoogleToken } from "@/lib/google-calendar";
+import { logServerWarning } from "@/lib/observability/logger";
 
 interface AccountSettingsSuccess<T extends Record<string, unknown>> {
   ok: true;
@@ -25,6 +30,11 @@ type AccountSettingsResult<T extends Record<string, unknown>> =
 interface UpdateGoogleCalendarTargetInput {
   actorUserId: string;
   calendarIdRaw: string;
+  subjectUserId?: string;
+}
+
+interface DisconnectGoogleCalendarInput {
+  actorUserId: string;
   subjectUserId?: string;
 }
 
@@ -124,5 +134,72 @@ export async function updateGoogleCalendarTargetSettings(
 
   return createSuccess(200, {
     calendarId: normalizedCalendarId,
+  });
+}
+
+export async function disconnectGoogleCalendar(
+  input: DisconnectGoogleCalendarInput
+): Promise<
+  AccountSettingsResult<{
+    hasCalendarConnection: false;
+    revocationStatus: "revoked" | "not-connected" | "unconfirmed";
+  }>
+> {
+  const normalizedActorUserId = normalizeUserId(input.actorUserId);
+  if (!normalizedActorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const normalizedSubjectUserId = normalizeUserId(input.subjectUserId);
+  if (normalizedSubjectUserId && normalizedSubjectUserId !== normalizedActorUserId) {
+    return createError(403, "forbidden");
+  }
+
+  let credential: { refreshToken: string } | null;
+  try {
+    credential = await markGoogleCalendarCredentialRevokedForDisconnect(
+      normalizedActorUserId
+    );
+  } catch (error) {
+    if (!(error instanceof GoogleCalendarCredentialTokenDecryptionError)) {
+      throw error;
+    }
+
+    logServerWarning(
+      "disconnectGoogleCalendar.tokenDecryptionFailed",
+      "Google token could not be decrypted before disconnect",
+      { error: error.originalError }
+    );
+    await deleteGoogleCalendarCredential(normalizedActorUserId);
+    return createSuccess(200, {
+      hasCalendarConnection: false as const,
+      revocationStatus: "unconfirmed" as const,
+    });
+  }
+  if (!credential) {
+    return createSuccess(200, {
+      hasCalendarConnection: false as const,
+      revocationStatus: "not-connected" as const,
+    });
+  }
+
+  let revocationStatus: "revoked" | "unconfirmed" = "unconfirmed";
+  try {
+    revocationStatus = (await revokeGoogleToken(credential.refreshToken))
+      ? "revoked"
+      : "unconfirmed";
+  } catch (error) {
+    logServerWarning(
+      "disconnectGoogleCalendar.providerRevocationFailed",
+      "Google token revocation could not be confirmed",
+      { error }
+    );
+  } finally {
+    await deleteGoogleCalendarCredential(normalizedActorUserId);
+  }
+
+  return createSuccess(200, {
+    hasCalendarConnection: false as const,
+    revocationStatus,
   });
 }

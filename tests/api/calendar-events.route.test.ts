@@ -3,7 +3,13 @@ import { NextRequest } from "next/server";
 
 const googleCalendarAccessMock = vi.hoisted(() => ({
   getAuthorizedGoogleCalendarContext: vi.fn(),
+  authorizeCalendarSourceContext: vi.fn(),
   hasCalendarWriteScope: vi.fn(),
+}));
+
+const calendarConnectionServiceMock = vi.hoisted(() => ({
+  getCalendarPreference: vi.fn(),
+  getSelectedCalendarSourceContexts: vi.fn(),
 }));
 
 const projectAccessServiceMock = vi.hoisted(() => ({
@@ -13,7 +19,15 @@ const projectAccessServiceMock = vi.hoisted(() => ({
 vi.mock("@/lib/google-calendar-access", () => ({
   getAuthorizedGoogleCalendarContext:
     googleCalendarAccessMock.getAuthorizedGoogleCalendarContext,
+  authorizeCalendarSourceContext:
+    googleCalendarAccessMock.authorizeCalendarSourceContext,
   hasCalendarWriteScope: googleCalendarAccessMock.hasCalendarWriteScope,
+}));
+
+vi.mock("@/lib/services/calendar-connection-service", () => ({
+  getCalendarPreference: calendarConnectionServiceMock.getCalendarPreference,
+  getSelectedCalendarSourceContexts:
+    calendarConnectionServiceMock.getSelectedCalendarSourceContexts,
 }));
 
 vi.mock("@/lib/services/project-access-service", () => ({
@@ -32,6 +46,30 @@ describe("calendar events routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     googleCalendarAccessMock.hasCalendarWriteScope.mockReturnValue(true);
+    googleCalendarAccessMock.authorizeCalendarSourceContext.mockImplementation(
+      (...args: unknown[]) =>
+        googleCalendarAccessMock.getAuthorizedGoogleCalendarContext(...args)
+    );
+    calendarConnectionServiceMock.getSelectedCalendarSourceContexts.mockResolvedValue([
+      {
+        connection: {
+          id: "connection-1",
+          scopes: "scope-a",
+          accountLabel: "Primary account",
+          accountEmail: "primary@example.com",
+        },
+        source: {
+          id: "source-1",
+          providerCalendarId: "primary",
+          name: "Primary",
+          color: null,
+        },
+        writable: true,
+      },
+    ]);
+    calendarConnectionServiceMock.getCalendarPreference.mockResolvedValue({
+      writeSourceId: "source-1",
+    });
     projectAccessServiceMock.requireProjectRole.mockResolvedValue({
       ok: true,
       role: "owner",
@@ -128,7 +166,7 @@ describe("calendar events routes", () => {
         scope: "scope-a",
       },
     });
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ error: { message: "boom" } }), {
         status: 500,
       })
@@ -145,7 +183,7 @@ describe("calendar events routes", () => {
     });
   });
 
-  test("GET returns 500 when calendar fetch throws", async () => {
+  test("GET maps a single source network failure to a provider error", async () => {
     googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
       ok: true,
       context: {
@@ -160,10 +198,10 @@ describe("calendar events routes", () => {
       new NextRequest(`http://localhost/api/calendar/events?projectId=${PROJECT_ID}`)
     );
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(502);
     await expect(readJson(response)).resolves.toEqual({
-      connected: false,
-      error: "calendar-internal-error",
+      connected: true,
+      error: "calendar-fetch-failed",
     });
   });
 
@@ -222,6 +260,115 @@ describe("calendar events routes", () => {
         htmlLink: "https://calendar.google.com/event?eid=abc",
         status: "confirmed",
       },
+    ]);
+  });
+
+  test("GET returns successful sources with warnings when another source fails", async () => {
+    calendarConnectionServiceMock.getSelectedCalendarSourceContexts.mockResolvedValueOnce([
+      {
+        connection: {
+          id: "connection-1",
+          scopes: "scope-a",
+          accountLabel: "Personal account",
+          accountEmail: "person@example.com",
+        },
+        source: { id: "source-1", providerCalendarId: "one", name: "One", color: "#111111" },
+        writable: true,
+      },
+      {
+        connection: {
+          id: "connection-2",
+          scopes: "scope-a",
+          accountLabel: "Company account",
+          accountEmail: "company@example.com",
+        },
+        source: { id: "source-2", providerCalendarId: "two", name: "Two", color: "#222222" },
+        writable: false,
+      },
+    ]);
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext
+      .mockResolvedValueOnce({
+        ok: true,
+        context: {
+          accessToken: "access-one",
+          calendarId: "one",
+          calendarSourceId: "source-1",
+          connectionId: "connection-1",
+          calendarName: "One",
+          calendarColor: "#111111",
+          accountLabel: "Personal account",
+          accountEmail: "person@example.com",
+          scope: "scope-a",
+          writable: true,
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        context: {
+          accessToken: "access-two",
+          calendarId: "two",
+          calendarSourceId: "source-2",
+          connectionId: "connection-2",
+          calendarName: "Two",
+          calendarColor: "#222222",
+          accountLabel: "Company account",
+          accountEmail: "company@example.com",
+          scope: "scope-a",
+          writable: false,
+        },
+      });
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: "event-one",
+                summary: "Available event",
+                start: { dateTime: "2026-02-14T08:00:00.000Z" },
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      )
+      .mockRejectedValue(new Error("network unavailable"));
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/calendar/events?projectId=${PROJECT_ID}`)
+    );
+    const payload = await readJson(response);
+    expect(response.status).toBe(200);
+    expect(payload.events).toEqual([
+      expect.objectContaining({
+        id: "event-one",
+        calendarSourceId: "source-1",
+        calendarName: "One",
+        calendarColor: "#111111",
+        accountLabel: "Personal account",
+        accountEmail: "person@example.com",
+        writable: true,
+      }),
+    ]);
+    expect(payload.warnings).toEqual([
+      {
+        calendarSourceId: "source-2",
+        connectionId: "connection-2",
+        error: "calendar-fetch-failed",
+      },
+    ]);
+    expect(payload.writeSourceId).toBe("source-1");
+    expect(payload.sources).toEqual([
+      expect.objectContaining({
+        id: "source-1",
+        accountLabel: "Personal account",
+        accountEmail: "person@example.com",
+      }),
+      expect.objectContaining({
+        id: "source-2",
+        accountLabel: "Company account",
+        accountEmail: "company@example.com",
+      }),
     ]);
   });
 

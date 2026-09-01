@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Check,
   ChevronDown,
+  Crown,
   UserRound,
 } from "lucide-react";
 
@@ -27,6 +28,7 @@ interface AssigneeChipBaseProps {
   needsReassignment?: boolean;
   bordered?: boolean;
   className?: string;
+  identityRole?: "assignee" | "steward";
 }
 
 function AssigneeChipBase({
@@ -34,14 +36,21 @@ function AssigneeChipBase({
   needsReassignment = false,
   bordered = true,
   className,
+  identityRole = "assignee",
 }: AssigneeChipBaseProps) {
+  const isSteward = identityRole === "steward";
+
   if (!actor) {
     return (
       <span
+        data-identity-role={identityRole}
         className={cn(
           "inline-flex max-w-full items-center gap-1.5 rounded-full py-1 pl-1.5 pr-3 text-xs font-semibold text-muted-foreground",
           bordered
-            ? "border border-dashed border-border/70 bg-muted/30"
+            ? cn(
+                "border border-dashed border-border/70 bg-muted/30",
+                isSteward && "border-amber-400/70 bg-amber-500/[0.08]"
+              )
             : "bg-transparent",
           className
         )}
@@ -49,25 +58,33 @@ function AssigneeChipBase({
         <span
           aria-hidden
           className={cn(
-            "grid h-6 w-6 shrink-0 place-items-center rounded-full",
-            bordered ? "border border-dashed border-border/70" : "bg-muted/50"
+            "relative grid h-6 w-6 shrink-0 place-items-center rounded-full",
+            bordered ? "border border-dashed border-border/70" : "bg-muted/50",
+            isSteward && "border-amber-400 ring-2 ring-amber-400/80"
           )}
         >
           <UserRound className="h-3.5 w-3.5" aria-hidden />
+          {isSteward ? (
+            <span className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full border border-amber-300 bg-amber-400 text-amber-950 shadow-sm">
+              <Crown className="h-2.5 w-2.5" aria-hidden />
+            </span>
+          ) : null}
         </span>
-        <span className="truncate">Unassigned</span>
+        <span className="truncate">{isSteward ? "No facilitator" : "Unassigned"}</span>
       </span>
     );
   }
 
   return (
     <span
+      data-identity-role={identityRole}
       className={cn(
         "inline-flex max-w-full items-center gap-2 rounded-full p-1 pr-3 text-xs font-semibold text-foreground",
         bordered
           ? cn(
               "border border-border/70 bg-muted/40",
-              needsReassignment && "border-amber-500/45 bg-amber-500/[0.08]"
+              needsReassignment && "border-amber-500/45 bg-amber-500/[0.08]",
+              isSteward && "border-amber-400/70 bg-amber-500/[0.08]"
             )
           : cn(
               "bg-transparent hover:bg-muted/40",
@@ -76,27 +93,43 @@ function AssigneeChipBase({
         className
       )}
     >
-      {actor.kind === "agent" ? (
-        <AgentAvatar
-          displayName={actor.displayName}
-          decorative
-          className="h-7 w-7 text-[10px]"
-        />
-      ) : actor.avatarSeed ? (
-        <UserAvatar
-          avatarSeed={actor.avatarSeed}
-          displayName={actor.displayName}
-          decorative
-          className="h-7 w-7 text-[10px]"
-        />
-      ) : (
-        <span
-          aria-hidden
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border/60 bg-primary/10 text-[10px] font-semibold text-primary"
-        >
-          {actor.displayName.trim().charAt(0).toUpperCase() || "?"}
-        </span>
-      )}
+      <span
+        className={cn(
+          "relative inline-flex shrink-0 rounded-full",
+          isSteward && "ring-2 ring-amber-400 ring-offset-1 ring-offset-background"
+        )}
+      >
+        {actor.kind === "agent" ? (
+          <AgentAvatar
+            displayName={actor.displayName}
+            decorative
+            className="h-7 w-7 text-[10px]"
+          />
+        ) : actor.avatarSeed ? (
+          <UserAvatar
+            avatarSeed={actor.avatarSeed}
+            displayName={actor.displayName}
+            decorative
+            className="h-7 w-7 text-[10px]"
+          />
+        ) : (
+          <span
+            aria-hidden
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border/60 bg-primary/10 text-[10px] font-semibold text-primary"
+          >
+            {actor.displayName.trim().charAt(0).toUpperCase() || "?"}
+          </span>
+        )}
+        {isSteward ? (
+          <span
+            title="Steward / facilitator"
+            className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full border border-amber-300 bg-amber-400 text-amber-950 shadow-sm"
+          >
+            <Crown className="h-2.5 w-2.5" aria-hidden />
+          </span>
+        ) : null}
+        {isSteward ? <span className="sr-only">Steward / facilitator</span> : null}
+      </span>
       <span className="max-w-36 truncate sm:max-w-52">
         {actor.displayName}
         {actor.kind === "agent" ? (
@@ -121,10 +154,12 @@ export function MeetingTodoAssigneeChipReadonly({
   actor,
   bordered = true,
   className,
+  identityRole = "assignee",
 }: {
   actor: MeetingTodoActorSummary | null;
   bordered?: boolean;
   className?: string;
+  identityRole?: "assignee" | "steward";
 }) {
   const needsReassignment = actor !== null && !actor.isAssignable;
   return (
@@ -133,6 +168,7 @@ export function MeetingTodoAssigneeChipReadonly({
       needsReassignment={needsReassignment}
       bordered={bordered}
       className={className}
+      identityRole={identityRole}
     />
   );
 }
@@ -192,6 +228,7 @@ interface MeetingTodoAssigneeChipProps {
   triggerClassName?: string;
   pending?: boolean;
   bordered?: boolean;
+  identityRole?: "assignee" | "steward";
 }
 
 export function MeetingTodoAssigneeChip({
@@ -204,6 +241,7 @@ export function MeetingTodoAssigneeChip({
   triggerClassName,
   pending = false,
   bordered = true,
+  identityRole = "assignee",
 }: MeetingTodoAssigneeChipProps) {
   const generatedId = useId().replace(/:/g, "");
   const listboxId = `${id}-${generatedId}-listbox`;
@@ -234,6 +272,8 @@ export function MeetingTodoAssigneeChip({
   const isInactive = Boolean(
     currentActor && !currentActor.isAssignable
   );
+  const roleLabel =
+    identityRole === "steward" ? "steward / facilitator" : "meeting todo assignee";
 
   const humans = useMemo(
     () => options.filter((actor) => actor.kind === "human"),
@@ -314,6 +354,7 @@ export function MeetingTodoAssigneeChip({
         aria-expanded={isOpen}
         aria-controls={listboxId}
         aria-busy={pending || undefined}
+        aria-label={`Change ${roleLabel}${currentActor ? `, currently ${currentActor.displayName}` : ""}`}
         data-meeting-todo-assignee-chip="true"
         data-needs-reassignment={isInactive ? "true" : undefined}
         onClick={() => {
@@ -327,7 +368,9 @@ export function MeetingTodoAssigneeChip({
           bordered
             ? cn(
                 "border border-border/70 bg-muted/40 hover:border-border hover:bg-muted/60",
-                isInactive && "border-amber-500/45 bg-amber-500/[0.08]"
+                isInactive && "border-amber-500/45 bg-amber-500/[0.08]",
+                identityRole === "steward" &&
+                  "border-amber-400/70 bg-amber-500/[0.08] hover:bg-amber-500/[0.12]"
               )
             : cn(
                 "bg-transparent hover:bg-muted/40",
@@ -340,6 +383,7 @@ export function MeetingTodoAssigneeChip({
           actor={currentActor}
           needsReassignment={isInactive}
           bordered={bordered}
+          identityRole={identityRole}
         />
         <ChevronDown
           aria-hidden
@@ -348,7 +392,7 @@ export function MeetingTodoAssigneeChip({
             isOpen && "rotate-180"
           )}
         />
-        <span className="sr-only">Change assignee</span>
+        <span className="sr-only">Change {roleLabel}</span>
       </button>
 
       {isOpen && popoverPosition && typeof document !== "undefined"
@@ -357,7 +401,7 @@ export function MeetingTodoAssigneeChip({
               ref={popoverRef}
               id={listboxId}
               role="listbox"
-              aria-label="Assign meeting todo"
+              aria-label={`Assign ${roleLabel}`}
               data-overlay-popover="true"
               className="pointer-events-auto fixed z-[140] overflow-hidden rounded-xl border border-border/70 bg-popover p-1 shadow-lg"
               style={{
@@ -386,10 +430,10 @@ export function MeetingTodoAssigneeChip({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-foreground">
-                      Unassigned
+                      {identityRole === "steward" ? "No facilitator" : "Unassigned"}
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      Leave without an assignee
+                      Leave without {identityRole === "steward" ? "a facilitator" : "an assignee"}
                     </span>
                   </span>
                   {!currentActor ? (

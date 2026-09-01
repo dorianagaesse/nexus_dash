@@ -24,9 +24,13 @@ import {
   groupEventsByDay,
   mapEventMutationError,
   parseEventForForm,
+  resolveCalendarVisualColor,
+  resolvePreferredWriteSourceId,
+  toCalendarEventDateTime,
   toDateInputValue,
   type CalendarEventItem,
   type CalendarEventsResponse,
+  type CalendarSourceOption,
 } from "@/components/project-calendar-panel-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,7 +42,7 @@ interface ProjectCalendarPanelProps {
   canEdit: boolean;
 }
 
-type EventModalMode = "create" | "edit";
+type EventModalMode = "create" | "edit" | "view";
 
 export function ProjectCalendarPanel({
   projectId,
@@ -53,12 +57,17 @@ export function ProjectCalendarPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
+  const [calendarSources, setCalendarSources] = useState<CalendarSourceOption[]>([]);
+  const [defaultCalendarSourceId, setDefaultCalendarSourceId] = useState("");
+  const [eventCalendarSourceId, setEventCalendarSourceId] = useState("");
+  const [sourceWarning, setSourceWarning] = useState<string | null>(null);
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
   const [rangeStart, setRangeStart] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [eventModalMode, setEventModalMode] = useState<EventModalMode>("create");
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEventItem | null>(null);
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [eventFormError, setEventFormError] = useState<string | null>(null);
@@ -91,7 +100,9 @@ export function ProjectCalendarPanel({
     setEventEndDateTime(defaults.end);
     setEventLocation("");
     setEventDescription("");
+    setEventCalendarSourceId(defaultCalendarSourceId);
     setEditingEventId(null);
+    setSelectedEvent(null);
     setEventFormError(null);
   };
 
@@ -106,13 +117,10 @@ export function ProjectCalendarPanel({
   };
 
   const openEditEventModal = (event: CalendarEventItem) => {
-    if (!canEdit) {
-      return;
-    }
-
     const parsed = parseEventForForm(event);
-    setEventModalMode("edit");
+    setEventModalMode(canEdit && event.writable ? "edit" : "view");
     setEditingEventId(event.id);
+    setSelectedEvent(event);
     setEventSummary(parsed.summary);
     setEventAllDay(parsed.isAllDay);
     setEventStartDate(parsed.startDate);
@@ -121,6 +129,7 @@ export function ProjectCalendarPanel({
     setEventEndDateTime(parsed.endDateTime);
     setEventLocation(parsed.location);
     setEventDescription(parsed.description);
+    setEventCalendarSourceId(event.calendarSourceId);
     setEventFormError(null);
     setIsEventModalOpen(true);
   };
@@ -134,12 +143,8 @@ export function ProjectCalendarPanel({
     setEventFormError(null);
   };
 
-  const openGoogleEvent = (event: CalendarEventItem) => {
-    if (!event.htmlLink) {
-      return;
-    }
-
-    window.open(event.htmlLink, "_blank", "noopener,noreferrer");
+  const openEventDetails = (event: CalendarEventItem) => {
+    openEditEventModal(event);
   };
 
   useEffect(() => {
@@ -167,6 +172,8 @@ export function ProjectCalendarPanel({
       if (response.status === 401) {
         setIsConnected(false);
         setEvents([]);
+        setCalendarSources([]);
+        setDefaultCalendarSourceId("");
         setSyncedAt(null);
         return;
       }
@@ -177,6 +184,24 @@ export function ProjectCalendarPanel({
 
       setIsConnected(payload.connected);
       setEvents(payload.events ?? []);
+      setCalendarSources(payload.sources ?? []);
+      const preferredSourceId = resolvePreferredWriteSourceId(
+        payload.sources ?? [],
+        payload.writeSourceId
+      );
+      setDefaultCalendarSourceId(preferredSourceId);
+      setEventCalendarSourceId((current) =>
+        current && (payload.sources ?? []).some((source) => source.id === current)
+          ? current
+          : preferredSourceId
+      );
+      setSourceWarning(
+        payload.truncated
+          ? "Some calendars reached the 1,000-event display limit."
+          : payload.warnings?.length
+            ? `${payload.warnings.length} calendar source${payload.warnings.length === 1 ? "" : "s"} could not be loaded.`
+            : null
+      );
       setSyncedAt(payload.syncedAt ?? null);
       setRangeStart(payload.timeMin ?? null);
     } catch (fetchError) {
@@ -197,7 +222,7 @@ export function ProjectCalendarPanel({
   }, [projectId]);
 
   const submitEventForm = async () => {
-    if (!canEdit) {
+    if (!canEdit || eventModalMode === "view") {
       return;
     }
 
@@ -212,8 +237,12 @@ export function ProjectCalendarPanel({
       return;
     }
 
-    const startValue = eventAllDay ? eventStartDate : eventStartDateTime;
-    const endValue = eventAllDay ? eventEndDate : eventEndDateTime;
+    const startValue = eventAllDay
+      ? eventStartDate
+      : toCalendarEventDateTime(eventStartDateTime);
+    const endValue = eventAllDay
+      ? eventEndDate
+      : toCalendarEventDateTime(eventEndDateTime);
     if (!startValue || !endValue) {
       setEventFormError("Please provide start and end values.");
       return;
@@ -242,6 +271,7 @@ export function ProjectCalendarPanel({
           end: endValue,
           location: eventLocation.trim(),
           description: eventDescription.trim(),
+          calendarSourceId: eventCalendarSourceId || undefined,
         }),
       });
 
@@ -286,7 +316,7 @@ export function ProjectCalendarPanel({
 
     try {
       const response = await fetch(
-        `/api/calendar/events/${editingEventId}?projectId=${encodeURIComponent(projectId)}`,
+        `/api/calendar/events/${editingEventId}?projectId=${encodeURIComponent(projectId)}&calendarSourceId=${encodeURIComponent(eventCalendarSourceId)}`,
         {
           method: "DELETE",
         }
@@ -387,6 +417,11 @@ export function ProjectCalendarPanel({
 
             {!isLoading && isConnected === true ? (
               <>
+                {sourceWarning ? (
+                  <p role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+                    {sourceWarning}
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
                   <p className="text-xs text-muted-foreground">
                     {syncedAt ? `Synced ${new Date(syncedAt).toLocaleString()}` : "Connected"}
@@ -419,12 +454,37 @@ export function ProjectCalendarPanel({
                   </div>
                 </div>
 
+                {calendarSources.length > 1 ? (
+                  <div
+                    className="flex flex-wrap gap-x-4 gap-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+                    aria-label="Visible calendar sources"
+                  >
+                    {calendarSources.map((source) => (
+                      <div key={source.id} className="flex min-w-0 items-center gap-2 text-xs">
+                        <span
+                          aria-hidden
+                          className="h-2.5 w-2.5 shrink-0 rounded-full border border-foreground/20"
+                          style={{
+                            backgroundColor: resolveCalendarVisualColor(source.id, source.color),
+                          }}
+                        />
+                        <span className="truncate font-medium text-foreground">
+                          {source.name}
+                        </span>
+                        <span className="truncate text-muted-foreground">
+                          {source.accountLabel}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
                 <CalendarWeekGrid
                   canEdit={canEdit}
                   weekDays={weekDays}
                   eventsByDay={eventsByDay}
                   eventsCount={events.length}
-                  onOpenGoogleEvent={openGoogleEvent}
+                  onOpenEventDetails={openEventDetails}
                   onOpenEditEventModal={openEditEventModal}
                 />
               </>
@@ -467,6 +527,9 @@ export function ProjectCalendarPanel({
         eventEndDateTime={eventEndDateTime}
         eventLocation={eventLocation}
         eventDescription={eventDescription}
+        calendarSources={calendarSources}
+        eventCalendarSourceId={eventCalendarSourceId}
+        selectedEvent={selectedEvent}
         eventFormError={eventFormError}
         connectUrl={connectUrl}
         onClose={closeEventModal}
@@ -480,6 +543,7 @@ export function ProjectCalendarPanel({
         onEventEndDateTimeChange={setEventEndDateTime}
         onEventLocationChange={setEventLocation}
         onEventDescriptionChange={setEventDescription}
+        onEventCalendarSourceIdChange={setEventCalendarSourceId}
       />
     </>
   );

@@ -2,6 +2,7 @@ import { AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
 import { EPIC_STATUSES } from "@/lib/epic";
 import { ROADMAP_STATUSES } from "@/lib/roadmap-milestone";
+import { MAX_BULK_TASK_OPERATIONS } from "@/lib/task-bulk";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 export const AGENT_API_VERSION = "v1";
@@ -240,6 +241,11 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     title: "List tasks",
     description: "List project tasks visible to the scoped credential.",
     requiredScopes: ["task:read"],
+    notes: [
+      "Every task includes a canonical labels: string[] field. The legacy label and labelsJson fields remain for compatibility and are deprecated.",
+      "Optional epicId and label query parameters filter the list server-side. They compose with AND; an unknown epicId returns an empty list. Label matching is case-insensitive on whole label values.",
+      "The response echoes the effective filters in the filters object.",
+    ],
   },
   {
     tag: "Tasks",
@@ -252,8 +258,10 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     notes: [
       "Canonical agent format is application/json; multipart/form-data remains supported for browser-oriented flows.",
       "deadlineDate uses YYYY-MM-DD when provided.",
+      "Provide labels as a string array. Task responses return the canonical labels field.",
       "Use attachmentLinks as an array of { name, url } objects.",
       "Use the direct-upload attachment routes for binary files and images.",
+      "201 responses include taskId and the complete created task covering labels, status, ordering position, epic, assignment, timestamps, attachments, and relations, so no follow-up read is needed.",
     ],
   },
   {
@@ -264,7 +272,12 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "Update task metadata, rich text content, labels, and relations.",
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
-    notes: ["Set deadlineDate to null or an empty string to clear the deadline."],
+    notes: [
+      "True partial update: only the fields present in the request body change; omitted fields are preserved.",
+      "Set deadlineDate to null to clear the deadline.",
+      "Send labels as a string array to replace the full label set; an empty array clears all labels. The legacy singular label field remains accepted for compatibility.",
+      "Set epicId or assigneeUserId to null to clear the epic link or assignment, and relatedTaskIds to an empty array to remove all relations.",
+    ],
   },
   {
     tag: "Tasks",
@@ -298,7 +311,42 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "Persist task ordering across board columns and status lanes.",
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
-    notes: [`Use this route to move a task between ${TASK_STATUSES.join(", ")}.`],
+    notes: [
+      `Use this route to move a task between ${TASK_STATUSES.join(", ")}.`,
+      "For a single task, prefer POST /api/projects/{projectId}/tasks/{taskId}/status instead of rewriting the whole board.",
+    ],
+  },
+  {
+    tag: "Tasks",
+    method: "POST",
+    path: "/api/projects/{projectId}/tasks/{taskId}/status",
+    title: "Transition task status",
+    description: "Move one task to another status column without rewriting the whole board.",
+    requiredScopes: ["task:write"],
+    requestContentType: "application/json",
+    notes: [
+      `status accepts ${TASK_STATUSES.join(", ")}.`,
+      "position is a 0-based index inside the destination column. Omit it to append at the end of the destination column, or to keep the current position when the status is unchanged.",
+      "An explicit position is clamped to the column bounds; existing tasks at or after the requested position shift to make room.",
+      "Moving into Done sets completedAt; moving within Done preserves the existing completedAt; moving out of Done clears it.",
+      "Moving a task clears its archivedAt.",
+      "Requests that would not change the task return the current task without writing.",
+    ],
+  },
+  {
+    tag: "Tasks",
+    method: "POST",
+    path: "/api/projects/{projectId}/tasks/bulk",
+    title: "Bulk task operations",
+    description: "Run bounded create, update, and status operations on tasks in one request.",
+    requiredScopes: ["task:write"],
+    requestContentType: "application/json",
+    notes: [
+      `Each request accepts at most ${MAX_BULK_TASK_OPERATIONS} operations.`,
+      "Operations run sequentially and each one is validated and authorized independently. Failures are reported per operation and do not roll back earlier operations.",
+      "Supported operation types are create, update (partial PATCH semantics), and status. Bulk v1 does not include delete.",
+      "Create operations are not idempotent; update and status operations are.",
+    ],
   },
   {
     tag: "Tasks",
@@ -483,7 +531,8 @@ export const AGENT_LIMITATIONS: readonly string[] = [
   "attachmentLinks must be arrays of { name, url } objects. Plain string URL arrays are not the canonical v1 format.",
   "Epic status and progress are automatic. Agents should not try to set them directly.",
   "Roadmap delete scope is separate from roadmap read/write. Grant it only when the agent should remove phases or events.",
-  "Task status changes happen through POST /api/projects/{projectId}/tasks/reorder, not PATCH /api/projects/{projectId}/tasks/{taskId}.",
+  "Change one task's status through POST /api/projects/{projectId}/tasks/{taskId}/status. Use POST /api/projects/{projectId}/tasks/reorder only for full-board ordering, and PATCH /api/projects/{projectId}/tasks/{taskId} never changes status.",
+  `Bulk task operations are capped at ${MAX_BULK_TASK_OPERATIONS} per request. Failures are reported per operation and do not roll back earlier operations. Bulk v1 does not include delete.`,
   "Rich HTML is sanitized. Inline <img> content should not be treated as a supported image-delivery path; use attachments instead.",
   "Preview deployments may still be protected by Vercel. If a preview returns Vercel's auth wall, make the preview reachable or use an approved bypass before testing the agent flow.",
 ];
@@ -794,9 +843,9 @@ export function buildAgentSmokeTestExample(): string {
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  --output "./downloaded-smoke-image.png"',
     "",
-    "# Delete the task when finished",
-    'curl -X DELETE "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',
-    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
+    "# The completed task stays archived. Use the recommended read + write",
+    "# credential preset (no delete scope) for non-destructive missions;",
+    "# deleting tasks requires the separate task:delete scope and the owner role.",
   ].join("\n");
 }
 
@@ -1444,6 +1493,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             "position",
             "label",
             "labelsJson",
+            "labels",
             "createdAt",
             "updatedAt",
             "epic",
@@ -1472,8 +1522,24 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               enum: TASK_STATUSES,
             },
             position: { type: "integer" },
-            label: { type: ["string", "null"] },
-            labelsJson: { type: ["string", "null"] },
+            label: {
+              type: ["string", "null"],
+              deprecated: true,
+              description:
+                "Legacy first-label value kept for compatibility. Use labels instead.",
+            },
+            labelsJson: {
+              type: ["string", "null"],
+              deprecated: true,
+              description:
+                "Legacy JSON-encoded label array kept for compatibility. Use labels instead.",
+            },
+            labels: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "Canonical label list derived from labelsJson with the legacy label fallback. Empty when the task has no labels.",
+            },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
             epic: {
@@ -1516,12 +1582,28 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         TaskListResponse: {
           type: "object",
-          required: ["tasks"],
+          required: ["tasks", "filters"],
           properties: {
             tasks: {
               type: "array",
               items: {
                 $ref: "#/components/schemas/TaskRecord",
+              },
+            },
+            filters: {
+              type: "object",
+              required: ["epicId", "label"],
+              properties: {
+                epicId: {
+                  type: ["string", "null"],
+                  description:
+                    "The effective epic filter applied to this response, or null when absent.",
+                },
+                label: {
+                  type: ["string", "null"],
+                  description:
+                    "The effective label filter applied to this response, or null when absent.",
+                },
               },
             },
           },
@@ -1557,32 +1639,67 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         TaskCreateResponse: {
           type: "object",
-          required: ["taskId"],
+          required: ["taskId", "task"],
           properties: {
             taskId: { type: "string" },
+            task: {
+              $ref: "#/components/schemas/TaskRecord",
+              description:
+                "The complete created task including canonical labels, status, ordering position, epic, assignment, timestamps, attachments, and relations, so generated clients do not need a follow-up read.",
+            },
           },
         },
         TaskUpdateRequest: {
           type: "object",
-          required: ["title"],
+          description:
+            "True partial update: every field is optional and only the fields present in the request body change. Omitted fields are preserved.",
           properties: {
-            title: { type: "string" },
-            label: { type: "string" },
+            title: {
+              type: "string",
+              description:
+                "Replace the title. When provided it must be at least 2 characters.",
+            },
+            label: {
+              type: "string",
+              deprecated: true,
+              description:
+                "Legacy singular label input. Prefer labels; when provided it replaces the full label set.",
+            },
             labels: {
               type: "array",
               items: { type: "string" },
+              description:
+                "Replace the full label set with this array. An empty array clears all labels.",
             },
-            description: { type: "string" },
+            description: {
+              type: "string",
+              description: "Replace the rich-text description.",
+            },
             deadlineDate: {
               type: ["string", "null"],
               format: "date",
+              description:
+                "Replace the deadline using YYYY-MM-DD. Omit to preserve; null clears the deadline.",
             },
-            epicId: { type: ["string", "null"] },
-            assigneeUserId: { type: ["string", "null"] },
-            blockedFollowUpEntry: { type: "string" },
+            epicId: {
+              type: ["string", "null"],
+              description: "Replace the epic link. Omit to preserve; null clears it.",
+            },
+            assigneeUserId: {
+              type: ["string", "null"],
+              description:
+                "Replace the assignee. Omit to preserve; null clears the assignment.",
+            },
+            blockedFollowUpEntry: {
+              type: "string",
+              description:
+                "Append an entry to the blocked follow-up timeline when the task is Blocked.",
+            },
             relatedTaskIds: {
               type: "array",
               items: { type: "string" },
+              description:
+                "Replace the related-task set. Omit to preserve; an empty array removes all relations.",
             },
           },
         },
@@ -1591,81 +1708,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           required: ["task"],
           properties: {
             task: {
-              type: "object",
-              required: [
-                "id",
-                "reference",
-                "title",
-                "label",
-                "labelsJson",
-                "description",
-                "deadlineDate",
-                "commentCount",
-                "blockedNote",
-                "status",
-                "position",
-                "archivedAt",
-                "epic",
-                "assignee",
-                "createdBy",
-                "updatedBy",
-                "createdAt",
-                "updatedAt",
-                "relatedTasks",
-                "blockedFollowUps",
-              ],
-              properties: {
-                id: { type: "string" },
-                reference: {
-                  type: "string",
-                  pattern: "^ND-[1-9][0-9]*$",
-                },
-                title: { type: "string" },
-                label: { type: ["string", "null"] },
-                labelsJson: { type: ["string", "null"] },
-                description: { type: ["string", "null"] },
-                deadlineDate: { type: ["string", "null"], format: "date" },
-                commentCount: { type: "integer" },
-                blockedNote: { type: ["string", "null"] },
-                status: {
-                  type: "string",
-                  enum: TASK_STATUSES,
-                },
-                position: { type: "integer" },
-                archivedAt: { type: ["string", "null"], format: "date-time" },
-                epic: {
-                  anyOf: [
-                    { $ref: "#/components/schemas/TaskEpicSummary" },
-                    { type: "null" },
-                  ],
-                },
-                assignee: {
-                  anyOf: [
-                    { $ref: "#/components/schemas/TaskCommentAuthor" },
-                    { type: "null" },
-                  ],
-                },
-                createdBy: {
-                  $ref: "#/components/schemas/TaskCommentAuthor",
-                },
-                updatedBy: {
-                  $ref: "#/components/schemas/TaskCommentAuthor",
-                },
-                createdAt: { type: "string", format: "date-time" },
-                updatedAt: { type: "string", format: "date-time" },
-                relatedTasks: {
-                  type: "array",
-                  items: {
-                    $ref: "#/components/schemas/RelatedTaskSummary",
-                  },
-                },
-                blockedFollowUps: {
-                  type: "array",
-                  items: {
-                    $ref: "#/components/schemas/TaskBlockedFollowUp",
-                  },
-                },
-              },
+              $ref: "#/components/schemas/TaskRecord",
             },
           },
         },
@@ -1758,6 +1801,159 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                     },
                   },
                 },
+              },
+            },
+          },
+        },
+        TaskStatusTransitionRequest: {
+          type: "object",
+          required: ["status"],
+          properties: {
+            status: {
+              type: "string",
+              enum: TASK_STATUSES,
+            },
+            position: {
+              type: "integer",
+              minimum: 0,
+              description:
+                "0-based index inside the destination column. Omit to append at the end of the destination column; when the task stays in its current column, omit to keep its current position.",
+            },
+          },
+        },
+        TaskStatusTransitionResponse: {
+          type: "object",
+          required: ["task"],
+          properties: {
+            task: {
+              $ref: "#/components/schemas/TaskRecord",
+            },
+          },
+        },
+        TaskBulkRequest: {
+          type: "object",
+          required: ["operations"],
+          properties: {
+            operations: {
+              type: "array",
+              minItems: 1,
+              maxItems: MAX_BULK_TASK_OPERATIONS,
+              items: {
+                oneOf: [
+                  { $ref: "#/components/schemas/TaskBulkCreateOperation" },
+                  { $ref: "#/components/schemas/TaskBulkUpdateOperation" },
+                  { $ref: "#/components/schemas/TaskBulkStatusOperation" },
+                ],
+              },
+            },
+          },
+        },
+        TaskBulkCreateOperation: {
+          type: "object",
+          required: ["type", "task"],
+          properties: {
+            type: {
+              type: "string",
+              enum: ["create"],
+            },
+            task: {
+              type: "object",
+              required: ["title"],
+              properties: {
+                title: { type: "string" },
+                description: { type: "string" },
+                deadlineDate: { type: "string", format: "date" },
+                epicId: { type: ["string", "null"] },
+                assigneeUserId: { type: ["string", "null"] },
+                labels: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                relatedTaskIds: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                attachmentLinks: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/AttachmentLinkInput",
+                  },
+                },
+              },
+            },
+          },
+        },
+        TaskBulkUpdateOperation: {
+          type: "object",
+          required: ["type", "taskId", "changes"],
+          properties: {
+            type: {
+              type: "string",
+              enum: ["update"],
+            },
+            taskId: { type: "string" },
+            changes: {
+              $ref: "#/components/schemas/TaskUpdateRequest",
+            },
+          },
+        },
+        TaskBulkStatusOperation: {
+          type: "object",
+          required: ["type", "taskId", "status"],
+          properties: {
+            type: {
+              type: "string",
+              enum: ["status"],
+            },
+            taskId: { type: "string" },
+            status: {
+              type: "string",
+              enum: TASK_STATUSES,
+            },
+            position: {
+              type: "integer",
+              minimum: 0,
+              description:
+                "0-based index inside the destination column. Omit to append at the end.",
+            },
+          },
+        },
+        TaskBulkResult: {
+          type: "object",
+          required: ["index", "ok", "status"],
+          properties: {
+            index: {
+              type: "integer",
+              description: "The 0-based position of the operation in the request.",
+            },
+            ok: { type: "boolean" },
+            status: {
+              type: "integer",
+              description:
+                "Per-operation HTTP-equivalent status: 201 for created tasks, 200 for updates and status moves, or the error status for failed operations.",
+            },
+            taskId: {
+              type: "string",
+              description: "The task id when the operation succeeded.",
+            },
+            task: {
+              $ref: "#/components/schemas/TaskRecord",
+              description: "The complete task when the operation succeeded.",
+            },
+            error: {
+              type: "string",
+              description: "The machine-readable error code when the operation failed.",
+            },
+          },
+        },
+        TaskBulkResponse: {
+          type: "object",
+          required: ["results"],
+          properties: {
+            results: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/TaskBulkResult",
               },
             },
           },
@@ -2092,7 +2288,25 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         get: {
           ...buildOperationMetadata("GET", "/api/projects/{projectId}/tasks"),
           security: [{ BearerAuth: [] }],
-          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            {
+              name: "epicId",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description:
+                "Return only tasks linked to this epic. An unknown epicId yields an empty list.",
+            },
+            {
+              name: "label",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description:
+                "Return only tasks carrying this label. Matching is case-insensitive on whole label values, never substrings. When both filters are present, they compose with AND.",
+            },
+          ],
           responses: {
             200: {
               description: "Task list returned",
@@ -2128,6 +2342,39 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "application/json": {
                   schema: {
                     $ref: "#/components/schemas/TaskCreateResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/tasks/bulk": {
+        post: {
+          ...buildOperationMetadata(
+            "POST",
+            "/api/projects/{projectId}/tasks/bulk"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/TaskBulkRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Bulk operation results",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/TaskBulkResponse",
                   },
                 },
               },
@@ -2734,6 +2981,42 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "application/json": {
                   schema: {
                     $ref: "#/components/schemas/OkResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/tasks/{taskId}/status": {
+        post: {
+          ...buildOperationMetadata(
+            "POST",
+            "/api/projects/{projectId}/tasks/{taskId}/status"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/TaskId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/TaskStatusTransitionRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Task status updated",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/TaskStatusTransitionResponse",
                   },
                 },
               },
