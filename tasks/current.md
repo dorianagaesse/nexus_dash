@@ -1,148 +1,113 @@
 # Current Task
 
-## TASK-348: Personal Calendar Versus Shared Project Scheduling
+## TASK-356: Meeting Note Stewardship and Decision Provenance
 
 ## Status
 
-Implementation complete on
-`feature/task-348-personal-calendar-shared-schedule-r4`, refreshed onto current
-`main` after TASK-406 merged. Phase 1 relabels and decouples the personal
-calendar overlay; the future shared schedule remains intentionally deferred.
-
-2026-09-02 update: merged `origin/main` (TASK-327 multi-account + ND-365 source
-identity) into the branch, dropped the redundant explanatory copy from the
-panel header and connect state per user feedback, and fixed the preview Google
-Calendar connect failure (stale pinned `GOOGLE_REDIRECT_URI` ignored in
-preview deployments; callbacks now derive from the current request).
-
-2026-09-02 review round: triaged the Copilot review on PR #452 — moved the
-TASK-348 changelog notes into a real `v0.49.0` entry, removed the skeleton's
-explanatory paragraph, aligned the task brief Status with the r4 branch, and
-added the top-level `writable` flag to the nd-365 events mock (the merged
-panel requires it to render edit affordances). All Copilot threads replied to
-and resolved; CI green on `0fbca15`.
+User validation is complete. PR #453 is being finalized on
+`feature/task-356-meeting-note-stewardship-r4` after reconciling current
+`main`; the release advances to `v0.50.0`, and final post-merge validation is
+in progress.
 
 ## Context
 
-TASK-336's multi-user collaboration audit named the project Calendar panel as
-a P1 collaboration gap: the integration is correctly user-owned (the Google
-token belongs to the signed-in user and events come from their selected Google
-calendar), but the panel still presents itself as if it were a project module.
-A viewer cannot create an event through their own Google connection while
-looking at a project, the panel header just says "Calendar", and editor role
-controls the configured Google target in a way that suggests shared ownership.
+`ProjectMeetingNote` already records `createdByUserId` and `updatedByUserId`,
+but every editor is functionally interchangeable: there is no visible
+accountable steward, the meeting-todo follow-ups live under an anonymous
+parent, and the audit-driven "needs decision provenance" call to action has no
+note-level surface.
 
-The audit recommended a two-stage path:
-
-1. Stop presenting the user-scoped Google Calendar overlay as a shared project
-   module. Label it clearly as the signed-in user's "My calendar" overlay,
-   decouple its mutation semantics from the project editor role, and keep the
-   existing user-scoped credentials intact.
-2. Once the project actor contract lands (TASK-337) and the capability model
-   is in place (TASK-331), design and ship a NexusDash-owned shared project
-   schedule as its own artifact with owners, capabilities, history, and
-   optional external-calendar synchronization.
-
-This task delivers the first stage plus a written design proposal for the
-second stage so the follow-up work has a clear contract to build on.
+TASK-330 introduced the reusable meeting-todo actor contract for human
+project members and active project agent credentials. This task continues the
+deliberate, narrow pattern: surface a single, reassignable steward/facilitator
+on every meeting note without expanding into cross-artifact ownership or a
+workspace ownership queue.
 
 ## Scope
 
-- Relabel the project dashboard Calendar section and the upcoming-events stat
-  card as "My calendar" so users understand it is a personal overlay, not a
-  shared project schedule.
-- Decouple calendar mutations from the project editor role: a viewer who has
-  connected Google Calendar with write scope can create, update, and delete
-  events in their configured target calendar while looking at the project.
-  Project access is retained only to scope the request and read the project
-  context; the user's Google credentials and write scope authorize mutation of
-  that selected target.
-- Keep the dashboard surfaces accessible, label-aware, and consistent with the
-  existing responsive and theme baseline; update copy where it currently
-  suggests shared ownership.
-- Refresh the calendar test suite to match the new gating and add a focused
-  coverage row that exercises a viewer's authorized personal calendar edit.
-- Draft `adr/task-348-shared-schedule-contract.md` describing the future
-  NexusDash-owned shared project schedule: artifact model, actor contract,
-  capability vocabulary, history, and optional external-calendar sync. Update
-  `adr/decisions.md` with a pointer and a short summary so the design is
-  discoverable.
+- Add a durable steward/facilitator actor to `ProjectMeetingNote`, modeled on
+  the existing meeting-todo actor contract.
+- Backfill steward identity from the note creator for existing rows.
+- Surface creator, last editor, update time, and steward identity in the
+  meeting-notes panel and meeting detail view.
+- Make eligible participant chips the accessible steward assignment controls
+  (keyboard, focus, 44px target, light/dark, semantic pressed state) in meeting
+  detail and preparation; clicking the selected participant clears the role,
+  while viewers see the same crowned identity without mutation affordances.
+- Add steward responsibility filters (`All`, `Stewarded by me`,
+  `Unstewarded`) for both active and archived notes.
+- Reuse the established human/agent registry and chip so removed members and
+  revoked/expired agents surface as `Needs reassignment` rather than silently
+  orphaning the note.
+- Keep steward persistence independent from participants and meeting-todo
+  assignees, while presenting the responsible participant/member with a
+  distinct crowned avatar treatment in the meeting UI.
+- Make note mutation and deletion capability explicit by reusing the existing
+  owner/editor/viewer boundary; viewers see steward identity without edit
+  affordances.
 
 ## Out Of Scope
 
-- Implementing the shared project schedule itself. The full NexusDash-owned
-  shared schedule depends on TASK-337 (project actor identity) and TASK-331
-  (capability model). This task ships the design contract and explicitly
-  defers implementation.
-- Multi-connection or multi-provider calendar expansion. TASK-327 already
-  owns that path and is still pending.
-- RLS or schema changes. Phase 1 is a UX and authorization refactor on top of
-  the existing `GoogleCalendarCredential` model. The future shared schedule
-  ADR anticipates new tables, migrations, and RLS work, but none of that is
-  done here.
-- Calendar assignment, mentions, or notification producers; those remain the
-  domain of TASK-347.
-- Refactoring the existing personal-calendar read/write/sync paths; we keep
-  the user-scoped OAuth flow intact and only change the role gating on the
-  mutation endpoints.
+- A universal project-actor foundation or cross-artifact actor migration
+  (TASK-337).
+- A workspace-wide stewardship queue (TASK-346).
+- New agent capability vocabulary or granular meeting scopes (TASK-331).
+- Mentions, follow notifications, or notification preferences beyond the
+  existing overdue reminder pipeline (TASK-347).
+- Conflict-safe revision preconditions or draft recovery (TASK-339).
+- Durable collaboration history or audit timelines (TASK-340).
+- Decision-level authorship beyond the note-level steward/facilitator (this
+  task keeps the existing single `decisions` text field untouched).
 
 ## Acceptance Criteria
 
-1. The project dashboard Calendar section header reads "My calendar" with no
-   redundant explanatory paragraph below it, and the disconnected state shows
-   only the connect actions (Connect Google Calendar, Open Google Calendar).
-   2026-09-02 user feedback: the explanatory copy previously required here was
-   removed as unnecessary.
-2. The dashboard upcoming-events summary card is relabeled to match ("My
-   calendar") so the stat row and section header use one vocabulary.
-3. The Calendar section skeleton, project dashboard labels, and any other
-   visible "Calendar" surface are updated consistently with the new label.
-4. `ProjectCalendarPanel` no longer gates create, edit, or delete actions on
-   the project `canEdit` flag. The visible "New event" affordance, the
-   in-event-card "Edit" affordance, and the event-modal flow are reachable by
-   any signed-in project member whose Google credential exposes the calendar
-   write scope.
-5. `lib/services/calendar-service.ts` mutations require project access at
-   `viewer` level (only to scope the request to a project the user can see)
-   and require the user's Google write scope, matching the visible UI
-   affordances. The previous `minimumRole: "editor"` requirement on
-   `createCalendarEvent`, `updateCalendarEvent`, and `deleteCalendarEvent` is
-   removed.
-6. The view-only and connected-but-read-only-scope paths still surface clear
-   empty states and do not show mutation affordances.
-7. Tests covering the calendar event routes and panel are updated so that:
-   a viewer with Google write scope succeeds in `POST`, `PATCH`, and
-   `DELETE`; a viewer without write scope still receives
-   `insufficient-scope`; and the personal-overlay copy assertions reflect the
-   new label.
-8. The Calendar event modal title remains neutral (it is the user's personal
-   event, not a project record) and the modal continues to pass through the
-   connected-Google reauthorization reconnect link when applicable.
-9. `adr/task-348-shared-schedule-contract.md` describes the future
-   NexusDash-owned shared project schedule: artifact model, owner/assignee
-   actor contract, capabilities (drawing on TASK-331), history and audit
-   surface, and the optional external-calendar synchronization model. The
-   decision is logged in `adr/decisions.md` with a short summary and pointer
-   to the ADR.
-10. UI remains usable at 375px and desktop widths, in light and dark themes,
-    with visible focus, semantic status text, at least 44px primary touch
-    targets, and no behavior change for the project role semantics elsewhere
-    in the product.
+1. Every meeting note exposes creator, last editor, update time, and an
+   optional steward/facilitator with actor kind, stable identifier, display
+   label, avatar treatment, and current access state. Stewards are rendered
+   with the same chip vocabulary used for meeting-todo assignees, including
+   `Needs reassignment` for removed or revoked actors. In the meeting modal,
+   the steward is visually attached to the participant/member identity with an
+   amber border and crown, while provenance sits at the bottom of the content.
+2. New notes persist a steward that defaults to the note creator. Existing
+   notes are backfilled from `createdByUserId`. Editing a note preserves the
+   steward unless the editor explicitly reassigns or clears it; the steward
+   must survive unrelated field edits.
+3. Editors can assign a steward from meeting detail and preparation by
+   clicking an eligible project-member participant, then clear the role by
+   clicking that participant again. The toggle is keyboard operable and keeps
+   pending and error feedback; viewers see the crowned identity without
+   mutation affordances, and the mutation/deletion boundary is explicit.
+4. Steward validation is enforced in the service boundary. Human steward
+   candidates must currently own or belong to the project; agent steward
+   candidates must be active, unexpired credentials for that project.
+   Stewardship never grants access, and external meeting participants are
+   never selectable as stewards.
+5. Removed human members and revoked/expired agents remain visibly attached
+   to their note as inactive and labeled `Needs reassignment` until cleared
+   or reassigned.
+6. The meeting notes panel supports stable URL-backed
+   `All`/`Stewarded by me`/`Unstewarded` filters for both active and archived
+   lists, with accurate counts and useful filtered empty states.
+7. UI remains usable at 375px and desktop widths, in light and dark themes,
+   with visible focus, semantic status text, at least 44px primary touch
+   targets, and no color-only stewardship state.
+8. Stewardship survives the existing project-scoped realtime reconciliation,
+   and a steward change emits a project activity event so observers refresh
+   correctly.
 
 ## Definition Of Done
 
-- Calendar panel, summary card, skeleton, and modal copy are aligned to the
-  "My calendar" overlay label.
-- `ProjectCalendarPanel` and `lib/services/calendar-service.ts` mutation
-  paths no longer require project editor role.
-- Updated unit, API, and component tests cover viewer success, write-scope
-  failure, and copy assertions.
-- The shared-schedule ADR exists at `adr/task-348-shared-schedule-contract.md`
-  and is referenced from `adr/decisions.md`.
-- `tasks/current.md`, `tasks/backlog.md`, `journal.md`, and the ADR reflect
-  the delivered behavior.
+- Prisma schema, migration, RLS inventory, services, routes, UI projections,
+  and relevant documentation are updated together.
+- Focused unit, service, route, component, and Playwright coverage exercises
+  human/agent stewardship, invalid actors, inactive states, steward filters,
+  creator/last-editor provenance, role restrictions, and steward
+  defaults/backfill.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  `npm run build`, and the calendar Playwright smoke pass.
+  `npm run build`, and relevant meeting-note E2E coverage pass.
+- `tasks/current.md`, `tasks/backlog.md`,
+  `tasks/task-356-meeting-note-stewardship.md`, and `journal.md` reflect the
+  delivered behavior.
 - The branch is pushed, a ready-for-review PR is open, required checks are
   green, and initial Copilot review feedback is resolved or documented.
 

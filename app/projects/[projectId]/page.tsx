@@ -134,6 +134,12 @@ export default async function ProjectDashboardPage({
   const initialMeetingTodoId = readQueryValue(
     resolvedSearchParams?.meetingTodoId
   );
+  const stewardFilterRaw = readQueryValue(resolvedSearchParams?.meetingNoteSteward);
+  const meetingNoteStewardFilter: "all" | "mine" | "unassigned" =
+    stewardFilterRaw === "mine" || stewardFilterRaw === "unassigned"
+      ? stewardFilterRaw
+      : "all";
+  const meetingNoteQuery = readQueryValue(resolvedSearchParams?.meetingNoteQuery);
   const actorRole =
     project.ownerId === actorUserId ? "owner" : (project.memberships[0]?.role ?? "viewer");
   const canEditProjectContent = actorRole === "owner" || actorRole === "editor";
@@ -270,6 +276,8 @@ export default async function ProjectDashboardPage({
           projectId={project.id}
           actorUserId={actorUserId}
           canEdit={canEditProjectContent}
+          stewardFilter={meetingNoteStewardFilter}
+          query={meetingNoteQuery}
           initialMeetingNoteId={initialMeetingNoteId}
           initialMeetingTodoId={initialMeetingTodoId}
         />

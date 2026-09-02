@@ -17,6 +17,20 @@ SHA, deployment URL, and workflow run belong in release evidence.
   credential row by ID instead of depending on a permanent `userId` uniqueness
   constraint, preparing a backward-compatible TASK-327 expansion.
 
+## v0.50.0 - 2026-09-02
+
+- Simplified meeting-note modals by presenting the steward/facilitator as an
+  amber-highlighted, crowned participant/member identity instead of a separate
+  metadata card.
+- Removed the facilitator dropdown: editors now click an eligible participant
+  to assign the role and click the crowned participant again to clear it.
+- Refined steward chips with a single outer border, a top-left crown, pointer
+  cursor, and concise `Steward` / `Make steward` hover and focus tooltips.
+- Moved creator, last-editor, and updated-time provenance to a quiet footer at
+  the bottom of meeting-note and preparation modals.
+- Refreshed TASK-356 onto current `main` and reconciled the Calendar schema and
+  release history without weakening stewardship persistence or validation.
+
 ## v0.49.0 - 2026-09-02
 
 - Relabeled the project dashboard Calendar section, upcoming-events stat card,
@@ -87,7 +101,6 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Full-board reorder stays available for bulk ordering; the OpenAPI contract
   and onboarding guidance point single-task moves at the new route.
 - Cross-column moves now compact the source lane so later appends cannot collide with existing positions, and the response task carries the updated `completedAt`.
-
 
 ## v0.43.0 - 2026-08-31
 
@@ -176,6 +189,26 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Expanded service, API, component, environment, and real PostgreSQL RLS
   coverage for user-owned Calendar credentials and lifecycle failures.
 
+## v0.38.0 - 2026-08-24
+
+- Added a durable, reassignable steward/facilitator actor to every meeting note
+  (human project member or active project agent credential), reusing the
+  TASK-330 actor contract so removed members and revoked/expired agents render
+  as `Needs reassignment` instead of orphaning the note.
+- Persisted creator, last editor, and update-time provenance on every meeting
+  note response, surfaced alongside the steward in the meeting notes panel and
+  meeting detail view.
+- New meeting notes default the steward to the note creator; unrelated edits
+  preserve the steward; editors can explicitly reassign or clear it from the
+  detail view and the preparation flow with accessible, keyboard-operable
+  controls (44px touch target, light/dark, semantic status). Viewers see the
+  steward identity without mutation affordances.
+- Added URL-backed `All`, `Stewarded by me`, and `Unstewarded` responsibility
+  filters for both the active and archived meeting notes lists, with accurate
+  counts and useful empty states.
+- Extended the project activity event stream so stewardship changes emit a
+  project activity event and survive project-scoped realtime reconciliation.
+
 ## v0.37.2 - 2026-08-25
 
 - Restored the registered stable Vercel Preview URL for GitHub and Google OAuth
@@ -213,6 +246,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Added schema constraints, backfill migration, service/API/component tests, and
   responsive identity presentation across the meeting dialog, quick panel, and
   project-wide Todos destination.
+
 ## v0.36.0 - 2026-08-05
 
 - Added an exact active meeting-todo count to the current project's `Todos`
@@ -295,6 +329,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Preserved full titles and status in accessible option names, retained
   keyboard/listbox behavior, and added focused component and responsive
   light/dark browser coverage.
+
 ## v0.32.0 - 2026-07-30
 
 - Added immutable, globally unique task references rendered as `ND-<number>`,
