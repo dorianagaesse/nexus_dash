@@ -11,7 +11,10 @@ import {
 } from "react";
 import { Plus, X } from "lucide-react";
 
-import { MeetingParticipantAvatar } from "@/components/meeting-participants/meeting-participant-avatar";
+import {
+  MeetingParticipantAvatar,
+  MeetingParticipantStewardAffordance,
+} from "@/components/meeting-participants/meeting-participant-avatar";
 import { Button } from "@/components/ui/button";
 import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import {
@@ -429,7 +432,7 @@ export function MeetingParticipantPicker({
         )}
       >
         <div className="flex min-h-10 flex-wrap items-center gap-1.5">
-          {value.map((participant) => {
+          {value.map((participant, participantIndex) => {
             const isSteward =
               participant.userId !== null &&
               participant.userId === stewardUserId;
@@ -438,6 +441,7 @@ export function MeetingParticipantPicker({
               participant.userId &&
               (collaboratorIds.has(participant.userId) || isSteward)
             );
+            const stewardTooltipId = `${id}-${generatedId}-steward-${participantIndex}`;
 
             return (
               <span
@@ -452,8 +456,9 @@ export function MeetingParticipantPicker({
                 {canToggleSteward ? (
                   <button
                     type="button"
-                    className="inline-flex min-h-9 max-w-full items-center gap-2 rounded-full px-0.5 pr-2 text-left transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
+                    className="group relative inline-flex min-h-9 max-w-full cursor-pointer items-center gap-2 rounded-full px-0.5 pr-2 text-left transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 disabled:cursor-wait"
                     aria-pressed={isSteward}
+                    aria-describedby={stewardTooltipId}
                     aria-label={
                       isSteward
                         ? `Remove ${participant.displayName} as steward / facilitator`
@@ -464,11 +469,15 @@ export function MeetingParticipantPicker({
                       onStewardChange?.(isSteward ? null : participant.userId)
                     }
                   >
+                    <MeetingParticipantStewardAffordance
+                      isSteward={isSteward}
+                      tooltipId={stewardTooltipId}
+                    />
                     <MeetingParticipantAvatar
                       participant={participant}
                       className="h-7 w-7 text-[10px]"
                       decorative
-                      isSteward={isSteward}
+                      borderless
                     />
                     <span className="max-w-36 truncate sm:max-w-52">
                       {participant.displayName}
@@ -480,7 +489,7 @@ export function MeetingParticipantPicker({
                       participant={participant}
                       className="h-7 w-7 text-[10px]"
                       decorative
-                      isSteward={isSteward}
+                      borderless
                     />
                     <span className="max-w-36 truncate sm:max-w-52">
                       {participant.displayName}
@@ -576,9 +585,8 @@ export function MeetingParticipantPicker({
       </div>
 
       <p id={helperId} className="text-xs leading-5 text-muted-foreground">
-        {onStewardChange
-          ? "Click a project member to set or clear the facilitator. Search or type to add participants."
-          : "Search collaborators or previous guests. Press Tab, Enter, or + to add a name."}
+        Search collaborators or previous guests. Press Tab, Enter, or + to add a
+        name.
       </p>
       <span className="sr-only" role="status" aria-live="polite">
         {announcement}

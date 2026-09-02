@@ -24,6 +24,8 @@ SHA, deployment URL, and workflow run belong in release evidence.
   metadata card.
 - Removed the facilitator dropdown: editors now click an eligible participant
   to assign the role and click the crowned participant again to clear it.
+- Refined steward chips with a single outer border, a top-left crown, pointer
+  cursor, and concise `Steward` / `Make steward` hover and focus tooltips.
 - Moved creator, last-editor, and updated-time provenance to a quiet footer at
   the bottom of meeting-note and preparation modals.
 - Refreshed TASK-356 onto current `main` and reconciled the Calendar schema and

@@ -151,12 +151,18 @@ test("defaults steward to creator, supports reassignment, and filters by steward
     name: `Make ${collaborator.username} steward / facilitator`,
   });
   await expect(facilitatorToggle).toBeVisible();
+  await facilitatorToggle.hover();
+  await expect(
+    page.getByRole("tooltip", { name: "Make steward" })
+  ).toBeVisible();
   await facilitatorToggle.click();
   const clearFacilitator = page.getByRole("button", {
     name: `Remove ${collaborator.username} as steward / facilitator`,
   });
   await expect(clearFacilitator).toBeVisible();
   await expect(clearFacilitator).toHaveAttribute("aria-pressed", "true");
+  await clearFacilitator.hover();
+  await expect(page.getByRole("tooltip", { name: "Steward" })).toBeVisible();
   await clearFacilitator.click();
   await expect(facilitatorToggle).toBeVisible();
   if (screenshotDirectory) {

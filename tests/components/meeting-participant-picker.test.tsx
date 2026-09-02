@@ -230,6 +230,14 @@ describe("MeetingParticipantPicker", () => {
       "button[aria-label='Make camille steward / facilitator']"
     );
     expect(makeSteward).not.toBeNull();
+    expect(makeSteward?.classList.contains("cursor-pointer")).toBe(true);
+    expect(makeSteward?.querySelector("[role='tooltip']")?.textContent).toBe(
+      "Make steward"
+    );
+    expect(
+      makeSteward?.querySelector("img")?.parentElement?.className
+    ).toContain("border-0");
+    expect(container.textContent).not.toContain("Click a project member");
     expect(
       container.querySelector(
         "button[aria-label='Make Charlie Example steward / facilitator']"
@@ -245,6 +253,9 @@ describe("MeetingParticipantPicker", () => {
     );
     expect(removeSteward?.getAttribute("aria-pressed")).toBe("true");
     expect(removeSteward?.querySelector("svg")).not.toBeNull();
+    expect(removeSteward?.querySelector("[role='tooltip']")?.textContent).toBe(
+      "Steward"
+    );
 
     await act(async () => {
       removeSteward?.click();

@@ -26,7 +26,10 @@ import {
 } from "lucide-react";
 
 import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
-import { MeetingParticipantAvatar } from "@/components/meeting-participants/meeting-participant-avatar";
+import {
+  MeetingParticipantAvatar,
+  MeetingParticipantStewardAffordance,
+} from "@/components/meeting-participants/meeting-participant-avatar";
 import { MeetingParticipantPicker } from "@/components/meeting-participants/meeting-participant-picker";
 import type {
   MeetingNoteStatus,
@@ -2256,102 +2259,120 @@ export function ProjectMeetingNotesPanel({
                   canEdit ? (
                     <button
                       type="button"
-                      className="inline-flex min-h-11 items-center rounded-full border border-amber-400/80 bg-amber-400/10 p-1 transition-colors hover:bg-amber-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
+                      className="group relative inline-flex min-h-11 cursor-pointer items-center rounded-full border border-amber-400/80 bg-amber-400/10 p-1 transition-colors hover:bg-amber-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 disabled:cursor-wait"
                       aria-label={`Remove ${selectedNote.steward.displayName} as steward / facilitator`}
+                      aria-describedby={`meeting-note-steward-${selectedNote.id}-tooltip`}
                       disabled={pendingStewardNoteId === selectedNote.id}
                       onClick={() => void setNoteSteward(selectedNote, null)}
                     >
+                      <MeetingParticipantStewardAffordance
+                        isSteward
+                        tooltipId={`meeting-note-steward-${selectedNote.id}-tooltip`}
+                      />
                       <MeetingTodoAssigneeChipReadonly
                         actor={selectedNote.steward}
                         bordered={false}
-                        identityRole="steward"
+                        identityRole="assignee"
                       />
                     </button>
                   ) : (
-                    <MeetingTodoAssigneeChipReadonly
-                      actor={selectedNote.steward}
-                      identityRole="steward"
-                    />
+                    <span className="group relative inline-flex">
+                      <MeetingParticipantStewardAffordance isSteward />
+                      <MeetingTodoAssigneeChipReadonly
+                        actor={selectedNote.steward}
+                        className="border-amber-400/80 bg-amber-400/10"
+                        identityRole="assignee"
+                      />
+                    </span>
                   )
                 ) : null}
-                {selectedNote.participants.map((participant) => {
-                  const isSteward =
-                    selectedNote.steward?.kind === "human" &&
-                    participant.userId === selectedNote.steward.id;
-                  const canToggleSteward = Boolean(
-                    canEdit &&
-                    participant.userId &&
-                    (collaborators.some(
-                      (collaborator) => collaborator.id === participant.userId
-                    ) ||
-                      isSteward)
-                  );
-                  const chipClassName = cn(
-                    "inline-flex min-h-11 max-w-full items-center gap-2 rounded-full border p-1 pr-3 text-xs font-semibold text-foreground transition-colors",
-                    isSteward
-                      ? "border-amber-400/80 bg-amber-400/10"
-                      : "border-border/70 bg-muted/40"
-                  );
-                  const content = (
-                    <>
-                      <MeetingParticipantAvatar
-                        participant={participant}
-                        className="h-7 w-7 text-[10px]"
-                        decorative
-                        isSteward={isSteward}
-                      />
-                      <span className="truncate">
-                        {participant.displayName}
-                      </span>
-                    </>
-                  );
+                {selectedNote.participants.map(
+                  (participant, participantIndex) => {
+                    const isSteward =
+                      selectedNote.steward?.kind === "human" &&
+                      participant.userId === selectedNote.steward.id;
+                    const canToggleSteward = Boolean(
+                      canEdit &&
+                      participant.userId &&
+                      (collaborators.some(
+                        (collaborator) => collaborator.id === participant.userId
+                      ) ||
+                        isSteward)
+                    );
+                    const stewardTooltipId = `meeting-note-${selectedNote.id}-participant-${participantIndex}-steward-tooltip`;
+                    const chipClassName = cn(
+                      "inline-flex min-h-11 max-w-full items-center gap-2 rounded-full border p-1 pr-3 text-xs font-semibold text-foreground transition-colors",
+                      isSteward
+                        ? "border-amber-400/80 bg-amber-400/10"
+                        : "border-border/70 bg-muted/40"
+                    );
+                    const content = (
+                      <>
+                        <MeetingParticipantAvatar
+                          participant={participant}
+                          className="h-7 w-7 text-[10px]"
+                          decorative
+                          borderless
+                        />
+                        <span className="truncate">
+                          {participant.displayName}
+                        </span>
+                      </>
+                    );
 
-                  return canToggleSteward ? (
-                    <button
-                      key={getMeetingParticipantKey(participant)}
-                      type="button"
-                      className={cn(
-                        chipClassName,
-                        "hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
-                      )}
-                      aria-pressed={isSteward}
-                      aria-label={
-                        isSteward
-                          ? `Remove ${participant.displayName} as steward / facilitator`
-                          : `Make ${participant.displayName} steward / facilitator`
-                      }
-                      disabled={pendingStewardNoteId === selectedNote.id}
-                      onClick={() =>
-                        void setNoteSteward(
-                          selectedNote,
+                    return canToggleSteward ? (
+                      <button
+                        key={getMeetingParticipantKey(participant)}
+                        type="button"
+                        className={cn(
+                          chipClassName,
+                          "group relative cursor-pointer hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 disabled:cursor-wait"
+                        )}
+                        aria-pressed={isSteward}
+                        aria-describedby={stewardTooltipId}
+                        aria-label={
                           isSteward
-                            ? null
-                            : { kind: "human", id: participant.userId! }
-                        )
-                      }
-                    >
-                      {content}
-                    </button>
-                  ) : (
-                    <span
-                      key={getMeetingParticipantKey(participant)}
-                      className={chipClassName}
-                      aria-label={
-                        isSteward
-                          ? `${participant.displayName}, steward / facilitator`
-                          : undefined
-                      }
-                    >
-                      {content}
-                    </span>
-                  );
-                })}
+                            ? `Remove ${participant.displayName} as steward / facilitator`
+                            : `Make ${participant.displayName} steward / facilitator`
+                        }
+                        disabled={pendingStewardNoteId === selectedNote.id}
+                        onClick={() =>
+                          void setNoteSteward(
+                            selectedNote,
+                            isSteward
+                              ? null
+                              : { kind: "human", id: participant.userId! }
+                          )
+                        }
+                      >
+                        <MeetingParticipantStewardAffordance
+                          isSteward={isSteward}
+                          tooltipId={stewardTooltipId}
+                        />
+                        {content}
+                      </button>
+                    ) : (
+                      <span
+                        key={getMeetingParticipantKey(participant)}
+                        className={cn(
+                          chipClassName,
+                          isSteward && "group relative"
+                        )}
+                        aria-label={
+                          isSteward
+                            ? `${participant.displayName}, steward / facilitator`
+                            : undefined
+                        }
+                      >
+                        {isSteward ? (
+                          <MeetingParticipantStewardAffordance isSteward />
+                        ) : null}
+                        {content}
+                      </span>
+                    );
+                  }
+                )}
               </div>
-              {canEdit && selectedNote.participants.length > 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  Click a project member to set or clear the facilitator.
-                </p>
-              ) : null}
               {pendingStewardNoteId === selectedNote.id ? (
                 <p className="text-xs text-muted-foreground">
                   Updating facilitator…

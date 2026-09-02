@@ -4530,3 +4530,17 @@ Low-value entries to avoid going forward:
   functions / 92.14% lines, and the targeted browser spec pass; lint, the RLS
   inventory, and the production build also pass against the documented local
   PostgreSQL environment.
+- Applied the final steward-chip polish: removed the avatar's inner border,
+  moved the crown to the top-left of the complete identity chip, removed the
+  instructional helper sentence, and added explicit pointer and accessible
+  `Steward` / `Make steward` tooltips for editable member participants.
+- Deferred external-participant stewardship because external participants are
+  currently JSON identity snapshots with no stable project actor ID, while the
+  stewardship relation requires a durable human membership or agent
+  credential. Tracking this as a separate model/API/UI follow-up avoids
+  conflating responsibility with project access.
+- Created NexusDash backlog task `ND-396` (`cmtkgcidl000304jjasl8vshc`),
+  "External meeting participants as meeting-note stewards," with acceptance
+  criteria for durable guest identity, access neutrality, filters, lifecycle,
+  realtime behavior, migrations, and UI/test parity; related it to TASK-356
+  when the source task was available through the agent API.
