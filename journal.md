@@ -33,6 +33,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
   calendar" header and above the "Connect Google Calendar" button; the
   disconnected state now shows only the connect actions. E2E smoke updated
   to assert the connect button directly instead of the removed text.
+- PR #452 came back red after the main refresh: Quality Core failed
+  `release:check` ("CHANGELOG.md must include a ## v0.49.0 entry") and E2E
+  Smoke failed `nd-365-calendar-event-source-identity` (no "Edit calendar
+  event" dialog). Root cause of the E2E failure: the spec mocks
+  `/api/calendar/events` without the top-level `writable` field that the
+  merged panel now requires (it replaces the dropped `canEdit` prop), so the
+  panel treated every event as read-only. Added `writable: true` to the mock;
+  the real service response already carries the field.
+- Triaged all three Copilot review threads: moved the TASK-348 changelog
+  notes into a real `## v0.49.0 - 2026-09-02` entry near the top (deleting
+  the duplicate v0.38.0 block), removed the skeleton's explanatory paragraph
+  under "My calendar", and aligned the TASK-348 brief Status with
+  tasks/current.md. Replied on every thread and resolved all three.
+- Full CI green on `0fbca15`: Quality Core, Tenant Isolation, E2E Smoke,
+  Container Image, check-name.
 
 # 2026-08-30 - TASK-378 bounded bulk task operations
 

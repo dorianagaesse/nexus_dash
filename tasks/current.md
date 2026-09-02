@@ -15,6 +15,13 @@ panel header and connect state per user feedback, and fixed the preview Google
 Calendar connect failure (stale pinned `GOOGLE_REDIRECT_URI` ignored in
 preview deployments; callbacks now derive from the current request).
 
+2026-09-02 review round: triaged the Copilot review on PR #452 — moved the
+TASK-348 changelog notes into a real `v0.49.0` entry, removed the skeleton's
+explanatory paragraph, aligned the task brief Status with the r4 branch, and
+added the top-level `writable` flag to the nd-365 events mock (the merged
+panel requires it to render edit affordances). All Copilot threads replied to
+and resolved; CI green on `0fbca15`.
+
 ## Context
 
 TASK-336's multi-user collaboration audit named the project Calendar panel as
