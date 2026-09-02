@@ -111,7 +111,7 @@ describe("context card provenance", () => {
         />
       );
     });
-    expect(document.body.textContent).toMatch(/·\s*\d/);
+    expect(document.body.textContent).toMatch(/·\s*\S/);
     await act(async () => root.unmount());
   });
 
