@@ -107,6 +107,56 @@ describe("calendar event by id routes", () => {
     });
   });
 
+  test("PATCH allows a viewer with Google write scope to mutate their personal calendar", async () => {
+    projectAccessServiceMock.requireProjectRole.mockResolvedValueOnce({
+      ok: true,
+      role: "viewer",
+    });
+
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
+      ok: true,
+      context: {
+        accessToken: "token",
+        calendarId: "primary",
+        scope: "write-scope",
+      },
+    });
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          id: "evt-1",
+          summary: "Updated by viewer",
+          start: { dateTime: "2026-02-14T10:00:00.000Z" },
+          end: { dateTime: "2026-02-14T11:00:00.000Z" },
+          status: "confirmed",
+        }),
+        { status: 200 }
+      )
+    );
+
+    const response = await PATCH(
+      new NextRequest("http://localhost/api/calendar/events/evt-1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          projectId: PROJECT_ID,
+          summary: "Updated by viewer",
+          start: "2026-02-14T10:00:00.000Z",
+          end: "2026-02-14T11:00:00.000Z",
+          isAllDay: false,
+        }),
+      }),
+      { params: { eventId: "evt-1" } }
+    );
+
+    expect(response.status).toBe(200);
+
+    const accessArgs = projectAccessServiceMock.requireProjectRole.mock
+      .calls[projectAccessServiceMock.requireProjectRole.mock.calls.length - 1][0];
+    expect(accessArgs.minimumRole).toBe("viewer");
+  });
+
   test("PATCH maps Google insufficient permissions to 403", async () => {
     googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
       ok: true,
@@ -358,6 +408,38 @@ describe("calendar event by id routes", () => {
     await expect(readJson(response)).resolves.toEqual({
       error: "insufficient-scope",
     });
+  });
+
+  test("DELETE allows a viewer with Google write scope to delete their personal calendar event", async () => {
+    projectAccessServiceMock.requireProjectRole.mockResolvedValueOnce({
+      ok: true,
+      role: "viewer",
+    });
+
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
+      ok: true,
+      context: {
+        accessToken: "token",
+        calendarId: "primary",
+        scope: "write-scope",
+      },
+    });
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const response = await DELETE(
+      new NextRequest(`http://localhost/api/calendar/events/evt-1?projectId=${PROJECT_ID}`, {
+        method: "DELETE",
+      }),
+      { params: { eventId: "evt-1" } }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({ ok: true });
+
+    const accessArgs = projectAccessServiceMock.requireProjectRole.mock
+      .calls[projectAccessServiceMock.requireProjectRole.mock.calls.length - 1][0];
+    expect(accessArgs.minimumRole).toBe("viewer");
   });
 
   test("DELETE returns auth failure from calendar resolver", async () => {

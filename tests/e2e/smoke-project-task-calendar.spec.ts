@@ -598,14 +598,13 @@ test.describe("critical UI smoke flows", () => {
     await createProjectFromProjectsPage(page, projectName);
     await openNewestProjectDashboard(page, projectName);
 
-    await page.getByRole("button", { name: "Calendar" }).click();
+    await page.getByRole("button", { name: "My calendar" }).click();
 
-    const disconnectedState = page.getByText("Connect Google Calendar to show events here.");
+    const connectButton = page.getByRole("link", { name: "Connect Google Calendar" });
     const refreshButton = page.getByRole("button", { name: "Refresh" });
-    await expect(disconnectedState.or(refreshButton)).toBeVisible();
+    await expect(connectButton.or(refreshButton)).toBeVisible();
 
-    if (await disconnectedState.isVisible()) {
-      await expect(page.getByRole("link", { name: "Connect Google Calendar" })).toBeVisible();
+    if (await connectButton.isVisible()) {
       return;
     }
 

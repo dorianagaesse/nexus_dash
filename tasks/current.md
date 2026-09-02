@@ -4,10 +4,10 @@
 
 ## Status
 
-The participant-first facilitator toggle and current-`main` conflict
-reconciliation are complete on
-`feature/task-356-meeting-note-stewardship-r4` following review feedback on PR
-#453; focused component and browser validation is green.
+User validation is complete. PR #453 is being finalized on
+`feature/task-356-meeting-note-stewardship-r4` after reconciling current
+`main`; the release advances to `v0.50.0`, and final post-merge validation is
+in progress.
 
 ## Context
 

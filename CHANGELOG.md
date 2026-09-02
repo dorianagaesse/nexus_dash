@@ -17,7 +17,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
   credential row by ID instead of depending on a permanent `userId` uniqueness
   constraint, preparing a backward-compatible TASK-327 expansion.
 
-## v0.49.0 - 2026-09-02
+## v0.50.0 - 2026-09-02
 
 - Simplified meeting-note modals by presenting the steward/facilitator as an
   amber-highlighted, crowned participant/member identity instead of a separate
@@ -30,6 +30,29 @@ SHA, deployment URL, and workflow run belong in release evidence.
   the bottom of meeting-note and preparation modals.
 - Refreshed TASK-356 onto current `main` and reconciled the Calendar schema and
   release history without weakening stewardship persistence or validation.
+
+## v0.49.0 - 2026-09-02
+
+- Relabeled the project dashboard Calendar section, upcoming-events stat card,
+  panel skeleton, and event modal as a user-scoped "My calendar" overlay
+  rather than a shared NexusDash project module.
+- Decoupled connected-calendar mutations from the project editor role: a
+  signed-in project member whose Google credential exposes the calendar write
+  scope can now create, update, and delete events in their configured target
+  calendar while looking at a project. Project access only scopes the request;
+  the user's Google connection and write scope authorize the mutation.
+- Dropped the `canEdit` prop from the project calendar panel, section, and
+  grid/chip components so the visible "New event" and "Edit" affordances are
+  reachable for any project member with a writable Google credential.
+- Documented the future NexusDash-owned shared project schedule in
+  `adr/task-348-shared-schedule-contract.md` (artifact model, task-337 actor
+  contract, task-331 capability vocabulary, task-340 history surface, optional
+  external-calendar sync). The shared schedule stays queued behind TASK-337 and
+  TASK-331 so the implementation can reuse the shared actor and capability
+  vocabularies instead of inventing parallel ones.
+- Hardened preview Google OAuth callbacks: a pinned redirect URI is honored
+  only when it matches the request origin, otherwise the callback derives from
+  the current request so host-scoped OAuth state cookies stay intact.
 
 ## v0.48.0 - 2026-09-01
 

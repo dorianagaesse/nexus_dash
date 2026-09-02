@@ -2,8 +2,9 @@
 
 ## Status
 
-Implementation and validation complete on
-`feature/task-356-meeting-note-stewardship`; ready for review.
+Implementation and user validation are complete on
+`feature/task-356-meeting-note-stewardship-r4` in PR #453. Current `main`
+conflicts are reconciled and the release advances to `v0.50.0` before merge.
 
 ## Context
 

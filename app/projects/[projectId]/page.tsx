@@ -311,10 +311,7 @@ export default async function ProjectDashboardPage({
       </Suspense>
 
       <Suspense fallback={<ProjectCalendarPanelSkeleton />}>
-        <ProjectCalendarPanelSection
-          projectId={project.id}
-          canEdit={canEditProjectContent}
-        />
+        <ProjectCalendarPanelSection projectId={project.id} />
       </Suspense>
     </main>
   );
