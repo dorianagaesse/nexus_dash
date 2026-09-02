@@ -5,12 +5,16 @@
 ## Status
 
 In review via PR #459 on `feature/task-381-bounded-kanban-lanes`. On
-2026-09-02 the branch was reconciled with current `origin/main` (agent API
-program, calendar, meeting-stewardship, and dependabot changes): PR #459
-conflicts were resolved without product-code changes, the release advanced
-from the stale `v0.38.0` to `v0.51.0`, and revalidation on the merged tree is
-green. Copilot review is unavailable because the account is out of credits,
-and the user will run a DeepSeek review separately.
+2026-09-02 the branch was reconciled twice with current `origin/main`: first
+against the agent API program, calendar, meeting-stewardship, and dependabot
+changes (release advanced from the stale `v0.38.0` to `v0.51.0`), then again
+after TASK-342 (PR #451) merged and advanced main itself to `v0.51.0`. Both
+rounds resolved PR #459 conflicts without product-code changes; the release
+now sits at `v0.52.0` (merge 7293cd6) and revalidation on the final merged
+tree is green: lint, rls:check, release:check, 1,216 tests passed / 2
+skipped, coverage 91.52/81.57/92.3/92.01, and a production build. Copilot
+review is unavailable because the account is out of credits, and the user
+will run a DeepSeek review separately.
 
 ## Objective
 

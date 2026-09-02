@@ -3,6 +3,40 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-02 - TASK-381 PR #459: bounded Kanban lanes reconciled onto current main
+
+- Re-reconciled `feature/task-381-bounded-kanban-lanes` with `origin/main`
+  after TASK-342 (PR #451) merged and advanced main to v0.51.0: the earlier
+  reconciliation (merge fd4cba3, release commit 6396468, v0.51.0) went stale
+  because main moved mid-task and PR #459 flipped back to CONFLICTING.
+- Second merge 7293cd6 resolved conflicts without product-code changes
+  (`kanban-columns-grid.tsx` and its tests stay byte-identical to the branch's
+  previously validated state):
+  - CHANGELOG.md: TASK-381 section moved to the top as `v0.52.0 - 2026-09-02`
+    (the original entry had been wedged into main's release history at the
+    stale v0.38.0 position); TASK-342's section stays under `v0.51.0`. Diff vs
+    `origin/main` is exactly the 12 release-metadata lines.
+  - package.json / package-lock.json: advanced to v0.52.0 in all three version
+    spots (feature branch must minor-bump over main's v0.51.0); dependencies
+    identical to main.
+  - tasks/current.md: kept the TASK-381 brief (ours). tasks/backlog.md: took
+    main's post-migration version. journal.md: took main's version in the
+    merge and re-inserts this reconciliation entry on top.
+- Validation on the merged tree is green: lint, rls:check, release:check
+  (v0.51.0 -> v0.52.0), 1,216 tests passed / 2 skipped, coverage 91.52% stmts /
+  81.57% branch / 92.3% funcs / 92.01% lines, and a production build.
+- Windows/dev-env notes: vitest requires `node --env-file=.env` with exported
+  NODE_ENV=test and CI-style AGENT_TOKEN_SIGNING_SECRET/RESEND_API_KEY
+  placeholders; `npx prisma generate` was needed after TASK-342's
+  schema-changing merge (stale client failed the build with "'updatedAt' does
+  not exist in ResourceSelect"); scripts/validate-supabase-project-ref.mjs
+  needed local CRLF->LF normalization; the production build requires localhost
+  DATABASE_URL/DIRECT_URL parity and a GOOGLE_TOKEN_ENCRYPTION_KEY placeholder
+  when Google OAuth env vars are present.
+- Branch pushed; PR #459 re-checked for mergeability. Copilot review remains
+  unavailable (credits exhausted) — the user will run the replacement DeepSeek
+  review after delivery.
+
 # 2026-09-02 - TASK-342 PR #451: provenance chip restyle, main merge, review closeout
 
 - User feedback on the provenance chips (third iteration): the theme-adaptive
