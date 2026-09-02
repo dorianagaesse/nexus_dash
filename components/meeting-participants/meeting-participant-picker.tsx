@@ -33,6 +33,9 @@ interface MeetingParticipantPickerProps {
   maxItems?: number;
   maxInputLength?: number;
   disabled?: boolean;
+  stewardUserId?: string | null;
+  onStewardChange?: (userId: string | null) => void;
+  stewardPending?: boolean;
 }
 
 interface ParticipantSuggestion {
@@ -41,7 +44,10 @@ interface ParticipantSuggestion {
   projectRole?: ProjectMeetingParticipantCollaborator["projectRole"];
 }
 
-function matchesQuery(suggestion: ParticipantSuggestion, query: string): boolean {
+function matchesQuery(
+  suggestion: ParticipantSuggestion,
+  query: string
+): boolean {
   if (!query) {
     return true;
   }
@@ -66,6 +72,9 @@ export function MeetingParticipantPicker({
   maxItems = 40,
   maxInputLength = 80,
   disabled = false,
+  stewardUserId = null,
+  onStewardChange,
+  stewardPending = false,
 }: MeetingParticipantPickerProps) {
   const generatedId = useId().replace(/:/g, "");
   const listboxId = `${id}-${generatedId}-suggestions`;
@@ -84,8 +93,15 @@ export function MeetingParticipantPicker({
   } | null>(null);
 
   const selectedKeys = useMemo(
-    () => new Set(value.map((participant) => getMeetingParticipantKey(participant))),
+    () =>
+      new Set(
+        value.map((participant) => getMeetingParticipantKey(participant))
+      ),
     [value]
+  );
+  const collaboratorIds = useMemo(
+    () => new Set(collaborators.map((collaborator) => collaborator.id)),
+    [collaborators]
   );
   const allSuggestions = useMemo(() => {
     const suggestions: ParticipantSuggestion[] = [];
@@ -122,7 +138,8 @@ export function MeetingParticipantPicker({
     return suggestions;
   }, [collaborators, previousExternalParticipants]);
   const availableSuggestions = useMemo(() => {
-    const query = normalizeMeetingParticipantName(inputValue).toLocaleLowerCase();
+    const query =
+      normalizeMeetingParticipantName(inputValue).toLocaleLowerCase();
     return allSuggestions
       .filter(
         (suggestion) =>
@@ -168,12 +185,12 @@ export function MeetingParticipantPicker({
         availableBelow < estimatedHeight && availableAbove > availableBelow;
       const maxHeight = Math.max(
         112,
-        Math.min(
-          288,
-          (openAbove ? availableAbove : availableBelow) - 8
-        )
+        Math.min(288, (openAbove ? availableAbove : availableBelow) - 8)
       );
-      const width = Math.min(rect.width, window.innerWidth - viewportPadding * 2);
+      const width = Math.min(
+        rect.width,
+        window.innerWidth - viewportPadding * 2
+      );
       const left = Math.min(
         Math.max(viewportPadding, rect.left),
         window.innerWidth - width - viewportPadding
@@ -181,7 +198,10 @@ export function MeetingParticipantPicker({
 
       setDropdownPosition({
         top: openAbove
-          ? Math.max(viewportPadding, rect.top - Math.min(estimatedHeight, maxHeight) - 6)
+          ? Math.max(
+              viewportPadding,
+              rect.top - Math.min(estimatedHeight, maxHeight) - 6
+            )
           : rect.bottom + 6,
         left,
         width,
@@ -317,6 +337,9 @@ export function MeetingParticipantPicker({
       const removed = value[value.length - 1];
       onChange(value.slice(0, -1));
       if (removed) {
+        if (removed.userId === stewardUserId) {
+          onStewardChange?.(null);
+        }
         setAnnouncement(`${removed.displayName} removed.`);
       }
     }
@@ -406,39 +429,88 @@ export function MeetingParticipantPicker({
         )}
       >
         <div className="flex min-h-10 flex-wrap items-center gap-1.5">
-          {value.map((participant) => (
-            <span
-              key={getMeetingParticipantKey(participant)}
-              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/70 bg-muted/60 p-1 pr-1.5 text-xs font-semibold text-foreground"
-            >
-              <MeetingParticipantAvatar
-                participant={participant}
-                className="h-7 w-7 text-[10px]"
-                decorative
-              />
-              <span className="max-w-36 truncate sm:max-w-52">
-                {participant.displayName}
-              </span>
-              <button
-                type="button"
-                className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors after:absolute after:-inset-1 after:content-[''] hover:bg-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                onClick={() => {
-                  onChange(
-                    value.filter(
-                      (candidate) =>
-                        getMeetingParticipantKey(candidate) !==
-                        getMeetingParticipantKey(participant)
-                    )
-                  );
-                  setAnnouncement(`${participant.displayName} removed.`);
-                }}
-                disabled={disabled}
-                aria-label={`Remove ${participant.displayName}`}
+          {value.map((participant) => {
+            const isSteward =
+              participant.userId !== null &&
+              participant.userId === stewardUserId;
+            const canToggleSteward = Boolean(
+              onStewardChange &&
+              participant.userId &&
+              (collaboratorIds.has(participant.userId) || isSteward)
+            );
+
+            return (
+              <span
+                key={getMeetingParticipantKey(participant)}
+                className={cn(
+                  "inline-flex max-w-full items-center rounded-full border p-1 pr-1.5 text-xs font-semibold text-foreground transition-colors",
+                  isSteward
+                    ? "border-amber-400/80 bg-amber-400/10"
+                    : "border-border/70 bg-muted/60"
+                )}
               >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </span>
-          ))}
+                {canToggleSteward ? (
+                  <button
+                    type="button"
+                    className="inline-flex min-h-9 max-w-full items-center gap-2 rounded-full px-0.5 pr-2 text-left transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
+                    aria-pressed={isSteward}
+                    aria-label={
+                      isSteward
+                        ? `Remove ${participant.displayName} as steward / facilitator`
+                        : `Make ${participant.displayName} steward / facilitator`
+                    }
+                    disabled={disabled || stewardPending}
+                    onClick={() =>
+                      onStewardChange?.(isSteward ? null : participant.userId)
+                    }
+                  >
+                    <MeetingParticipantAvatar
+                      participant={participant}
+                      className="h-7 w-7 text-[10px]"
+                      decorative
+                      isSteward={isSteward}
+                    />
+                    <span className="max-w-36 truncate sm:max-w-52">
+                      {participant.displayName}
+                    </span>
+                  </button>
+                ) : (
+                  <span className="inline-flex min-h-9 max-w-full items-center gap-2 px-0.5 pr-2">
+                    <MeetingParticipantAvatar
+                      participant={participant}
+                      className="h-7 w-7 text-[10px]"
+                      decorative
+                      isSteward={isSteward}
+                    />
+                    <span className="max-w-36 truncate sm:max-w-52">
+                      {participant.displayName}
+                    </span>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors after:absolute after:-inset-1 after:content-[''] hover:bg-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  onClick={() => {
+                    onChange(
+                      value.filter(
+                        (candidate) =>
+                          getMeetingParticipantKey(candidate) !==
+                          getMeetingParticipantKey(participant)
+                      )
+                    );
+                    if (isSteward) {
+                      onStewardChange?.(null);
+                    }
+                    setAnnouncement(`${participant.displayName} removed.`);
+                  }}
+                  disabled={disabled || (isSteward && stewardPending)}
+                  aria-label={`Remove ${participant.displayName}`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            );
+          })}
 
           <input
             ref={inputRef}
@@ -479,7 +551,9 @@ export function MeetingParticipantPicker({
             maxLength={maxInputLength}
             disabled={disabled || !canAddMore}
             className="h-10 min-w-[120px] flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground"
-            placeholder={canAddMore ? "Search or type a name" : "Participant limit reached"}
+            placeholder={
+              canAddMore ? "Search or type a name" : "Participant limit reached"
+            }
             autoComplete="off"
           />
 
@@ -502,7 +576,9 @@ export function MeetingParticipantPicker({
       </div>
 
       <p id={helperId} className="text-xs leading-5 text-muted-foreground">
-        Search collaborators or previous guests. Press Tab, Enter, or + to add a name.
+        {onStewardChange
+          ? "Click a project member to set or clear the facilitator. Search or type to add participants."
+          : "Search collaborators or previous guests. Press Tab, Enter, or + to add a name."}
       </p>
       <span className="sr-only" role="status" aria-live="polite">
         {announcement}

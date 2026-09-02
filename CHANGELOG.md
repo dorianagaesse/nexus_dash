@@ -22,6 +22,8 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Simplified meeting-note modals by presenting the steward/facilitator as an
   amber-highlighted, crowned participant/member identity instead of a separate
   metadata card.
+- Removed the facilitator dropdown: editors now click an eligible participant
+  to assign the role and click the crowned participant again to clear it.
 - Moved creator, last-editor, and updated-time provenance to a quiet footer at
   the bottom of meeting-note and preparation modals.
 - Refreshed TASK-356 onto current `main` and reconciled the Calendar schema and

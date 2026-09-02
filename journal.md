@@ -4516,3 +4516,17 @@ Low-value entries to avoid going forward:
   delivery and signing-secret settings.
 - Split the shared invalid-assignee error from steward-specific wording, fully
   addressing Copilot's remaining PR #453 review comment before handoff.
+- Smoothed the follow-up interaction by removing facilitator dropdowns from
+  meeting detail and preparation. Eligible project-member participant chips
+  now act as accessible pressed-state toggles; the active chip retains its
+  amber border and crowned avatar, and a second click clears stewardship.
+- Kept external guests read-only because stewardship does not grant project
+  access, while legacy agent or non-participant stewards remain visible and
+  clearable in meeting detail.
+- Added component coverage for member toggle/clear behavior and guest
+  ineligibility, then updated the TASK-356 Playwright flow to exercise the same
+  assignment and clearing interaction. Focused tests (12), all 1,168 runnable
+  tests (2 skipped), coverage at 91.65% statements / 81.32% branches / 92.3%
+  functions / 92.14% lines, and the targeted browser spec pass; lint, the RLS
+  inventory, and the production build also pass against the documented local
+  PostgreSQL environment.

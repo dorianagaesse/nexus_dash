@@ -49,8 +49,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  EmojiInputField,
+  EmojiTextareaField,
+} from "@/components/ui/emoji-field";
 import { TokenInput } from "@/components/ui/token-input";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
@@ -63,7 +71,10 @@ import {
   PROJECT_ACTIVITY_REMOTE_EVENT,
   type ProjectActivityRemoteEventDetail,
 } from "@/lib/project-activity-client";
-import { buildProjectMeetingTodos, type ProjectMeetingTodo } from "@/lib/meeting-todo";
+import {
+  buildProjectMeetingTodos,
+  type ProjectMeetingTodo,
+} from "@/lib/meeting-todo";
 import {
   getMeetingTodoActorKey,
   type MeetingTodoActorReference,
@@ -94,7 +105,9 @@ interface ProjectMeetingNotesPanelProps {
 
 export type StewardFilterValue = "all" | "mine" | "unassigned";
 
-function normalizeStewardFilter(value: string | null | undefined): StewardFilterValue {
+function normalizeStewardFilter(
+  value: string | null | undefined
+): StewardFilterValue {
   return value === "mine" || value === "unassigned" ? value : "all";
 }
 
@@ -112,7 +125,9 @@ function buildNotesHref(input: {
     params.set("meetingNoteQuery", trimmedQuery);
   }
   const query = params.toString();
-  return query ? `/projects/${input.projectId}?${query}` : `/projects/${input.projectId}`;
+  return query
+    ? `/projects/${input.projectId}?${query}`
+    : `/projects/${input.projectId}`;
 }
 
 interface DraftAction {
@@ -169,12 +184,10 @@ const STATUS_LABELS: Record<MeetingNoteStatus, string> = {
 };
 
 const STATUS_BADGE_CLASS: Record<MeetingNoteStatus, string> = {
-  prepared:
-    "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-200",
+  prepared: "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-200",
   actions_in_progress:
     "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200",
-  done:
-    "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
+  done: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
 };
 
 const STATUS_OPTIONS: Array<{
@@ -281,14 +294,18 @@ function fromDateTimeLocal(value: string): string | null {
 }
 
 function actionCounts(note: ProjectMeetingNotePanelNote) {
-  const completed = note.actions.filter((action) => action.completedAt != null).length;
+  const completed = note.actions.filter(
+    (action) => action.completedAt != null
+  ).length;
   return {
     completed,
     total: note.actions.length,
   };
 }
 
-function sortNotes(notes: ProjectMeetingNotePanelNote[]): ProjectMeetingNotePanelNote[] {
+function sortNotes(
+  notes: ProjectMeetingNotePanelNote[]
+): ProjectMeetingNotePanelNote[] {
   return notes.slice().sort((left, right) => {
     const leftTime = left.scheduledAt
       ? new Date(left.scheduledAt).getTime()
@@ -301,7 +318,10 @@ function sortNotes(notes: ProjectMeetingNotePanelNote[]): ProjectMeetingNotePane
   });
 }
 
-function noteMatchesQuery(note: ProjectMeetingNotePanelNote, query: string): boolean {
+function noteMatchesQuery(
+  note: ProjectMeetingNotePanelNote,
+  query: string
+): boolean {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) {
     return true;
@@ -330,11 +350,17 @@ function noteMatchesLabelFilters(
     return true;
   }
 
-  const noteLabels = new Set(note.labels.map((label) => label.toLocaleLowerCase()));
-  return labelFilters.every((label) => noteLabels.has(label.toLocaleLowerCase()));
+  const noteLabels = new Set(
+    note.labels.map((label) => label.toLocaleLowerCase())
+  );
+  return labelFilters.every((label) =>
+    noteLabels.has(label.toLocaleLowerCase())
+  );
 }
 
-function buildPrepareDraftFromNote(note: ProjectMeetingNotePanelNote): PrepareDraft {
+function buildPrepareDraftFromNote(
+  note: ProjectMeetingNotePanelNote
+): PrepareDraft {
   return {
     title: note.title,
     scheduledAtLocal: toDateTimeLocal(note.scheduledAt),
@@ -346,7 +372,9 @@ function buildPrepareDraftFromNote(note: ProjectMeetingNotePanelNote): PrepareDr
   };
 }
 
-function buildNotesDraftFromNote(note: ProjectMeetingNotePanelNote): NotesDraft {
+function buildNotesDraftFromNote(
+  note: ProjectMeetingNotePanelNote
+): NotesDraft {
   return {
     outputNotes: note.outputNotes,
     status: note.status === "prepared" ? "actions_in_progress" : note.status,
@@ -476,7 +504,8 @@ function MeetingStatusSelect({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const selectedOption =
-    STATUS_OPTIONS.find((option) => option.value === value) ?? STATUS_OPTIONS[0];
+    STATUS_OPTIONS.find((option) => option.value === value) ??
+    STATUS_OPTIONS[0];
 
   useEffect(() => {
     if (!isOpen) {
@@ -509,7 +538,10 @@ function MeetingStatusSelect({
 
       setDropdownPosition({
         top: shouldOpenAbove
-          ? Math.max(viewportPadding, rect.top - Math.min(estimatedHeight, maxHeight) - 8)
+          ? Math.max(
+              viewportPadding,
+              rect.top - Math.min(estimatedHeight, maxHeight) - 8
+            )
           : rect.bottom + 8,
         left: Math.min(rect.left, Math.max(viewportPadding, maxLeft)),
         width,
@@ -523,7 +555,10 @@ function MeetingStatusSelect({
         return;
       }
 
-      if (triggerRef.current?.contains(target) || dropdownRef.current?.contains(target)) {
+      if (
+        triggerRef.current?.contains(target) ||
+        dropdownRef.current?.contains(target)
+      ) {
         return;
       }
 
@@ -641,7 +676,9 @@ function MeetingStatusSelect({
                           {option.description}
                         </p>
                       </div>
-                      {isSelected ? <Check className="h-4 w-4 text-foreground" /> : null}
+                      {isSelected ? (
+                        <Check className="h-4 w-4 text-foreground" />
+                      ) : null}
                     </button>
                   );
                 })}
@@ -695,7 +732,9 @@ function MeetingDialogShell({
                 {title}
               </DialogTitle>
               {subtitle ? (
-                <DialogDescription className="leading-6">{subtitle}</DialogDescription>
+                <DialogDescription className="leading-6">
+                  {subtitle}
+                </DialogDescription>
               ) : null}
             </div>
             <Button
@@ -756,19 +795,23 @@ export function ProjectMeetingNotesPanel({
     defaultExpanded: true,
     logLabel: "ProjectMeetingNotesPanel",
   });
-  const [localNotes, setLocalNotes] = useState<ProjectMeetingNotePanelNote[]>(() =>
-    sortNotes(notes)
+  const [localNotes, setLocalNotes] = useState<ProjectMeetingNotePanelNote[]>(
+    () => sortNotes(notes)
   );
   const [referenceNowMs] = useState(() => Date.now());
   const [query, setQuery] = useState(activeQuery);
-  const [selectedLabelFilters, setSelectedLabelFilters] = useState<string[]>([]);
+  const [selectedLabelFilters, setSelectedLabelFilters] = useState<string[]>(
+    []
+  );
   const [listView, setListView] = useState<MeetingListView>(
     initialSelectedNote?.status === "done" ? "archived" : "active"
   );
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
     initialSelectedNote?.id ?? null
   );
-  const [prepareDialog, setPrepareDialog] = useState<PrepareDialogState | null>(null);
+  const [prepareDialog, setPrepareDialog] = useState<PrepareDialogState | null>(
+    null
+  );
   const [prepareDraft, setPrepareDraft] =
     useState<PrepareDraft>(EMPTY_PREPARE_DRAFT);
   const [notesDraft, setNotesDraft] = useState<NotesDraft>(() =>
@@ -778,14 +821,16 @@ export function ProjectMeetingNotesPanel({
   );
   const [draftError, setDraftError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(null);
+  const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(
+    null
+  );
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingTodoActionId, setPendingTodoActionId] = useState<string | null>(
     null
   );
-  const [pendingStewardNoteId, setPendingStewardNoteId] = useState<string | null>(
-    null
-  );
+  const [pendingStewardNoteId, setPendingStewardNoteId] = useState<
+    string | null
+  >(null);
   const [stewardError, setStewardError] = useState<string | null>(null);
   const appliedInitialMeetingNoteIdRef = useRef<string | null>(null);
 
@@ -797,7 +842,9 @@ export function ProjectMeetingNotesPanel({
     const sortedNotes = sortNotes(notes);
     setLocalNotes(sortedNotes);
     setSelectedNoteId((current) =>
-      current && sortedNotes.some((note) => note.id === current) ? current : null
+      current && sortedNotes.some((note) => note.id === current)
+        ? current
+        : null
     );
   }, [notes]);
 
@@ -840,7 +887,8 @@ export function ProjectMeetingNotesPanel({
 
   useEffect(() => {
     const handleProjectActivity = (event: Event) => {
-      const detail = (event as CustomEvent<ProjectActivityRemoteEventDetail>).detail;
+      const detail = (event as CustomEvent<ProjectActivityRemoteEventDetail>)
+        .detail;
       if (
         detail?.activity?.projectId === projectId &&
         detail.activity.domain === "meeting-note"
@@ -850,9 +898,15 @@ export function ProjectMeetingNotesPanel({
       }
     };
 
-    window.addEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, handleProjectActivity);
+    window.addEventListener(
+      PROJECT_ACTIVITY_REMOTE_EVENT,
+      handleProjectActivity
+    );
     return () => {
-      window.removeEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, handleProjectActivity);
+      window.removeEventListener(
+        PROJECT_ACTIVITY_REMOTE_EVENT,
+        handleProjectActivity
+      );
     };
   }, [projectId]);
 
@@ -888,10 +942,13 @@ export function ProjectMeetingNotesPanel({
     [overdueTodoCounts]
   );
   const overdueMeetingCount = useMemo(
-    () => Array.from(overdueTodoCounts.values()).filter((count) => count > 0).length,
+    () =>
+      Array.from(overdueTodoCounts.values()).filter((count) => count > 0)
+        .length,
     [overdueTodoCounts]
   );
-  const visibleSourceNotes = listView === "active" ? activeNotes : archivedNotes;
+  const visibleSourceNotes =
+    listView === "active" ? activeNotes : archivedNotes;
   const stewardCounts = useMemo(() => {
     const matchesMine = (note: ProjectMeetingNotePanelNote) => {
       const steward = note.steward;
@@ -904,7 +961,8 @@ export function ProjectMeetingNotesPanel({
     return {
       all: visibleSourceNotes.length,
       mine: visibleSourceNotes.filter(matchesMine).length,
-      unassigned: visibleSourceNotes.filter((note) => note.steward == null).length,
+      unassigned: visibleSourceNotes.filter((note) => note.steward == null)
+        .length,
     };
   }, [visibleSourceNotes, currentActorUserId]);
   const noteMatchesStewardFilter = useCallback(
@@ -931,12 +989,7 @@ export function ProjectMeetingNotesPanel({
         .filter((note) => noteMatchesQuery(note, query))
         .filter((note) => noteMatchesLabelFilters(note, selectedLabelFilters))
         .filter(noteMatchesStewardFilter),
-    [
-      visibleSourceNotes,
-      query,
-      selectedLabelFilters,
-      noteMatchesStewardFilter,
-    ]
+    [visibleSourceNotes, query, selectedLabelFilters, noteMatchesStewardFilter]
   );
 
   const selectedNote = useMemo(
@@ -946,7 +999,7 @@ export function ProjectMeetingNotesPanel({
   const prepareNote = useMemo(
     () =>
       prepareDialog?.noteId
-        ? localNotes.find((note) => note.id === prepareDialog.noteId) ?? null
+        ? (localNotes.find((note) => note.id === prepareDialog.noteId) ?? null)
         : null,
     [localNotes, prepareDialog]
   );
@@ -956,7 +1009,9 @@ export function ProjectMeetingNotesPanel({
   );
   const existingLabels = useMemo(() => {
     const labels = new Set<string>();
-    localNotes.forEach((note) => note.labels.forEach((label) => labels.add(label)));
+    localNotes.forEach((note) =>
+      note.labels.forEach((label) => labels.add(label))
+    );
     return Array.from(labels).sort((left, right) => left.localeCompare(right));
   }, [localNotes]);
   const previousExternalParticipants = useMemo(() => {
@@ -1096,9 +1151,10 @@ export function ProjectMeetingNotesPanel({
           body: JSON.stringify({ completed }),
         }
       );
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string; note?: ProjectMeetingNotePanelNote }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        note?: ProjectMeetingNotePanelNote;
+      } | null;
 
       if (!response.ok || !payload?.note) {
         throw new Error(mapMeetingNoteError(payload?.error ?? "unknown"));
@@ -1106,7 +1162,9 @@ export function ProjectMeetingNotesPanel({
 
       setLocalNotes((current) =>
         sortNotes(
-          current.map((note) => (note.id === payload.note?.id ? payload.note : note))
+          current.map((note) =>
+            note.id === payload.note?.id ? payload.note : note
+          )
         )
       );
       if (selectedNoteId === payload.note.id) {
@@ -1114,13 +1172,17 @@ export function ProjectMeetingNotesPanel({
       }
       pushToast({
         variant: "success",
-        message: completed ? "Meeting todo completed." : "Meeting todo reopened.",
+        message: completed
+          ? "Meeting todo completed."
+          : "Meeting todo reopened.",
       });
     } catch (error) {
       pushToast({
         variant: "error",
         message:
-          error instanceof Error ? error.message : "Could not update meeting todo.",
+          error instanceof Error
+            ? error.message
+            : "Could not update meeting todo.",
       });
     } finally {
       setPendingTodoActionId(null);
@@ -1147,9 +1209,10 @@ export function ProjectMeetingNotesPanel({
           body: JSON.stringify({ steward }),
         }
       );
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string; note?: ProjectMeetingNotePanelNote }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        note?: ProjectMeetingNotePanelNote;
+      } | null;
       if (!response.ok || !payload?.note) {
         throw new Error(mapMeetingNoteError(payload?.error ?? "unknown"));
       }
@@ -1162,10 +1225,9 @@ export function ProjectMeetingNotesPanel({
         )
       );
       const stewardName = steward
-        ? todoActors.find(
-            (actor) =>
-              actor.kind === steward.kind && actor.id === steward.id
-          )?.displayName ?? "steward"
+        ? (todoActors.find(
+            (actor) => actor.kind === steward.kind && actor.id === steward.id
+          )?.displayName ?? "steward")
         : null;
       pushToast({
         variant: "success",
@@ -1195,7 +1257,9 @@ export function ProjectMeetingNotesPanel({
     params.delete("meetingNoteQuery");
     const nextQuery = params.toString();
     router.replace(
-      nextQuery ? `/projects/${projectId}?${nextQuery}` : `/projects/${projectId}`
+      nextQuery
+        ? `/projects/${projectId}?${nextQuery}`
+        : `/projects/${projectId}`
     );
   }, [projectId, router, searchParams]);
 
@@ -1250,12 +1314,15 @@ export function ProjectMeetingNotesPanel({
         }
       );
 
-      const responsePayload = (await response.json().catch(() => null)) as
-        | { error?: string; note?: ProjectMeetingNotePanelNote }
-        | null;
+      const responsePayload = (await response.json().catch(() => null)) as {
+        error?: string;
+        note?: ProjectMeetingNotePanelNote;
+      } | null;
 
       if (!response.ok || !responsePayload?.note) {
-        throw new Error(mapMeetingNoteError(responsePayload?.error ?? "unknown"));
+        throw new Error(
+          mapMeetingNoteError(responsePayload?.error ?? "unknown")
+        );
       }
 
       const savedNote = responsePayload.note;
@@ -1263,7 +1330,9 @@ export function ProjectMeetingNotesPanel({
         sortNotes(
           prepareDialog.mode === "create"
             ? [savedNote, ...current]
-            : current.map((note) => (note.id === savedNote.id ? savedNote : note))
+            : current.map((note) =>
+                note.id === savedNote.id ? savedNote : note
+              )
         )
       );
       setPrepareDialog(null);
@@ -1324,9 +1393,10 @@ export function ProjectMeetingNotesPanel({
     assignee: MeetingTodoActorReference | null
   ) => {
     const selectedActor = assignee
-      ? todoActors.find(
-          (actor) => getMeetingTodoActorKey(actor) === getMeetingTodoActorKey(assignee)
-        ) ?? null
+      ? (todoActors.find(
+          (actor) =>
+            getMeetingTodoActorKey(actor) === getMeetingTodoActorKey(assignee)
+        ) ?? null)
       : null;
     setNotesDraft((current) => ({
       ...current,
@@ -1391,17 +1461,22 @@ export function ProjectMeetingNotesPanel({
         }
       );
 
-      const responsePayload = (await response.json().catch(() => null)) as
-        | { error?: string; note?: ProjectMeetingNotePanelNote }
-        | null;
+      const responsePayload = (await response.json().catch(() => null)) as {
+        error?: string;
+        note?: ProjectMeetingNotePanelNote;
+      } | null;
 
       if (!response.ok || !responsePayload?.note) {
-        throw new Error(mapMeetingNoteError(responsePayload?.error ?? "unknown"));
+        throw new Error(
+          mapMeetingNoteError(responsePayload?.error ?? "unknown")
+        );
       }
 
       const savedNote = responsePayload.note;
       setLocalNotes((current) =>
-        sortNotes(current.map((note) => (note.id === savedNote.id ? savedNote : note)))
+        sortNotes(
+          current.map((note) => (note.id === savedNote.id ? savedNote : note))
+        )
       );
       setSelectedNoteId(null);
       setNotesDraft(EMPTY_NOTES_DRAFT);
@@ -1411,7 +1486,10 @@ export function ProjectMeetingNotesPanel({
       }
       pushToast({
         variant: "success",
-        message: savedNote.status === "done" ? "Meeting note archived." : "Meeting note saved.",
+        message:
+          savedNote.status === "done"
+            ? "Meeting note archived."
+            : "Meeting note saved.",
       });
     } catch (error) {
       setDraftError(
@@ -1438,9 +1516,9 @@ export function ProjectMeetingNotesPanel({
         }
       );
 
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
 
       if (!response.ok) {
         throw new Error(mapMeetingNoteError(payload?.error ?? "unknown"));
@@ -1462,7 +1540,9 @@ export function ProjectMeetingNotesPanel({
       pushToast({
         variant: "error",
         message:
-          error instanceof Error ? error.message : "Could not delete meeting note.",
+          error instanceof Error
+            ? error.message
+            : "Could not delete meeting note.",
       });
     } finally {
       setIsDeleting(false);
@@ -1653,7 +1733,8 @@ export function ProjectMeetingNotesPanel({
                 {existingLabels.map((label) => {
                   const isSelected = selectedLabelFilters.some(
                     (selectedLabel) =>
-                      selectedLabel.toLocaleLowerCase() === label.toLocaleLowerCase()
+                      selectedLabel.toLocaleLowerCase() ===
+                      label.toLocaleLowerCase()
                   );
 
                   return (
@@ -1671,7 +1752,9 @@ export function ProjectMeetingNotesPanel({
                       )}
                       style={{ backgroundColor: getTaskLabelColor(label) }}
                     >
-                      {isSelected ? <Check className="h-3 w-3 shrink-0" /> : null}
+                      {isSelected ? (
+                        <Check className="h-3 w-3 shrink-0" />
+                      ) : null}
                       <span className="truncate">{label}</span>
                     </button>
                   );
@@ -1687,11 +1770,13 @@ export function ProjectMeetingNotesPanel({
                 <div>
                   <p className="font-semibold">
                     {overdueTodoTotal} overdue todo
-                    {overdueTodoTotal === 1 ? "" : "s"} across {overdueMeetingCount} meeting
+                    {overdueTodoTotal === 1 ? "" : "s"} across{" "}
+                    {overdueMeetingCount} meeting
                     {overdueMeetingCount === 1 ? "" : "s"}.
                   </p>
                   <p className="mt-1 text-xs leading-5 text-amber-800/80 dark:text-amber-100/80">
-                    Open todos are marked overdue seven days after the meeting date.
+                    Open todos are marked overdue seven days after the meeting
+                    date.
                   </p>
                 </div>
               </div>
@@ -1714,9 +1799,9 @@ export function ProjectMeetingNotesPanel({
                     ? "Choose All to see notes stewarded by other collaborators or awaiting a steward."
                     : activeStewardFilter === "unassigned"
                       ? "Choose All to see notes that already have a steward."
-                  : listView === "archived"
-                    ? "Done meeting notes will land here."
-                    : "Prepare one before the next discussion."}
+                      : listView === "archived"
+                        ? "Done meeting notes will land here."
+                        : "Prepare one before the next discussion."}
               </p>
             </div>
           ) : (
@@ -1737,8 +1822,8 @@ export function ProjectMeetingNotesPanel({
                       isOverdue
                         ? "border-amber-500/40 bg-amber-500/10 shadow-[0_18px_50px_-36px_rgba(245,158,11,0.9)]"
                         : isSelected
-                        ? "border-primary/40 bg-primary/5"
-                        : "border-border/70 bg-background/70"
+                          ? "border-primary/40 bg-primary/5"
+                          : "border-border/70 bg-background/70"
                     )}
                     aria-pressed={isSelected}
                   >
@@ -1754,7 +1839,10 @@ export function ProjectMeetingNotesPanel({
                       </div>
                       <Badge
                         variant="outline"
-                        className={cn("shrink-0 text-[11px]", STATUS_BADGE_CLASS[note.status])}
+                        className={cn(
+                          "shrink-0 text-[11px]",
+                          STATUS_BADGE_CLASS[note.status]
+                        )}
                       >
                         {STATUS_LABELS[note.status]}
                       </Badge>
@@ -1823,7 +1911,11 @@ export function ProjectMeetingNotesPanel({
 
       {prepareDialog ? (
         <MeetingDialogShell
-          title={prepareDialog.mode === "create" ? "Prepare meeting" : "Edit preparation"}
+          title={
+            prepareDialog.mode === "create"
+              ? "Prepare meeting"
+              : "Edit preparation"
+          }
           subtitle="Set the meeting frame first. Outputs and todos are captured after opening the note."
           onClose={closePrepareDialog}
           dismissible={!isSaving}
@@ -1870,7 +1962,10 @@ export function ProjectMeetingNotesPanel({
 
             <div className="grid gap-2">
               <div className="flex items-center justify-between gap-3">
-                <label htmlFor="meeting-scheduled-at" className="text-sm font-medium">
+                <label
+                  htmlFor="meeting-scheduled-at"
+                  className="text-sm font-medium"
+                >
                   Meeting time
                 </label>
                 {prepareDraft.scheduledAtLocal ? (
@@ -1905,33 +2000,12 @@ export function ProjectMeetingNotesPanel({
             </div>
 
             <div className="grid gap-2">
-              <label htmlFor="meeting-participants" className="text-sm font-medium">
+              <label
+                htmlFor="meeting-participants"
+                className="text-sm font-medium"
+              >
                 Participants
               </label>
-              {prepareNote ? (
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Facilitator
-                  </span>
-                  <MeetingTodoAssigneeChip
-                    id={`meeting-note-steward-prepare-${prepareNote.id}`}
-                    value={prepareNote.steward ?? null}
-                    options={todoActors}
-                    onChange={(steward) => {
-                      void setNoteSteward(prepareNote, steward);
-                    }}
-                    disabled={pendingStewardNoteId === prepareNote.id}
-                    pending={pendingStewardNoteId === prepareNote.id}
-                    triggerClassName="min-h-11"
-                    identityRole="steward"
-                  />
-                  {pendingStewardNoteId === prepareNote.id ? (
-                    <span className="text-xs text-muted-foreground">
-                      Updating steward…
-                    </span>
-                  ) : null}
-                </div>
-              ) : null}
               {prepareNote && stewardError ? (
                 <p role="alert" className="text-xs text-destructive">
                   {stewardError}
@@ -1957,7 +2031,30 @@ export function ProjectMeetingNotesPanel({
                 }
                 maxItems={40}
                 disabled={isSaving}
+                stewardUserId={
+                  prepareNote?.steward?.kind === "human"
+                    ? prepareNote.steward.id
+                    : null
+                }
+                stewardPending={
+                  prepareNote ? pendingStewardNoteId === prepareNote.id : false
+                }
+                onStewardChange={
+                  prepareNote
+                    ? (userId) => {
+                        void setNoteSteward(
+                          prepareNote,
+                          userId ? { kind: "human", id: userId } : null
+                        );
+                      }
+                    : undefined
+                }
               />
+              {prepareNote && pendingStewardNoteId === prepareNote.id ? (
+                <p className="text-xs text-muted-foreground">
+                  Updating facilitator…
+                </p>
+              ) : null}
             </div>
 
             <div className="grid gap-2">
@@ -1986,7 +2083,9 @@ export function ProjectMeetingNotesPanel({
                 maxInputLength={60}
                 placeholder="Type label and press Enter"
                 tokenClassName="border-transparent text-slate-950"
-                getTokenStyle={(label) => ({ backgroundColor: getTaskLabelColor(label) })}
+                getTokenStyle={(label) => ({
+                  backgroundColor: getTaskLabelColor(label),
+                })}
                 disabled={isSaving}
               />
               {labelSuggestions.length > 0 ? (
@@ -2044,8 +2143,14 @@ export function ProjectMeetingNotesPanel({
 
             {prepareNote ? (
               <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-border/60 pt-4 text-xs text-muted-foreground">
-                <MeetingTodoActorIdentity actor={prepareNote.createdBy ?? null} prefix="Created by" />
-                <MeetingTodoActorIdentity actor={prepareNote.updatedBy ?? null} prefix="Last edited by" />
+                <MeetingTodoActorIdentity
+                  actor={prepareNote.createdBy ?? null}
+                  prefix="Created by"
+                />
+                <MeetingTodoActorIdentity
+                  actor={prepareNote.updatedBy ?? null}
+                  prefix="Last edited by"
+                />
                 <span>
                   Updated{" "}
                   <time dateTime={prepareNote.updatedAt}>
@@ -2138,50 +2243,119 @@ export function ProjectMeetingNotesPanel({
             ) : null}
 
             <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2" aria-label="Participants and facilitator">
-                {canEdit ? (
-                  <MeetingTodoAssigneeChip
-                    id={`meeting-note-steward-${selectedNote.id}`}
-                    value={selectedNote.steward ?? null}
-                    options={todoActors}
-                    onChange={(steward) => {
-                      void setNoteSteward(selectedNote, steward);
-                    }}
-                    disabled={pendingStewardNoteId === selectedNote.id}
-                    pending={pendingStewardNoteId === selectedNote.id}
-                    triggerClassName="min-h-11"
-                    identityRole="steward"
-                  />
-                ) : (
-                  <MeetingTodoAssigneeChipReadonly
-                    actor={selectedNote.steward ?? null}
-                    identityRole="steward"
-                  />
-                )}
-                {selectedNote.participants
-                  .filter(
-                    (participant) =>
-                      !(
-                        selectedNote.steward?.kind === "human" &&
-                        participant.userId === selectedNote.steward.id
-                      )
-                  )
-                  .map((participant) => (
-                  <span
-                    key={getMeetingParticipantKey(participant)}
-                    className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/70 bg-muted/40 p-1 pr-3 text-xs font-semibold text-foreground"
-                  >
-                    <MeetingParticipantAvatar
-                      participant={participant}
-                      className="h-7 w-7 text-[10px]"
-                      decorative
+              <div
+                className="flex flex-wrap items-center gap-2"
+                aria-label="Participants and facilitator"
+              >
+                {selectedNote.steward &&
+                !selectedNote.participants.some(
+                  (participant) =>
+                    selectedNote.steward?.kind === "human" &&
+                    participant.userId === selectedNote.steward.id
+                ) ? (
+                  canEdit ? (
+                    <button
+                      type="button"
+                      className="inline-flex min-h-11 items-center rounded-full border border-amber-400/80 bg-amber-400/10 p-1 transition-colors hover:bg-amber-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
+                      aria-label={`Remove ${selectedNote.steward.displayName} as steward / facilitator`}
+                      disabled={pendingStewardNoteId === selectedNote.id}
+                      onClick={() => void setNoteSteward(selectedNote, null)}
+                    >
+                      <MeetingTodoAssigneeChipReadonly
+                        actor={selectedNote.steward}
+                        bordered={false}
+                        identityRole="steward"
+                      />
+                    </button>
+                  ) : (
+                    <MeetingTodoAssigneeChipReadonly
+                      actor={selectedNote.steward}
+                      identityRole="steward"
                     />
-                    <span className="truncate">{participant.displayName}</span>
-                  </span>
-                  ))}
+                  )
+                ) : null}
+                {selectedNote.participants.map((participant) => {
+                  const isSteward =
+                    selectedNote.steward?.kind === "human" &&
+                    participant.userId === selectedNote.steward.id;
+                  const canToggleSteward = Boolean(
+                    canEdit &&
+                    participant.userId &&
+                    (collaborators.some(
+                      (collaborator) => collaborator.id === participant.userId
+                    ) ||
+                      isSteward)
+                  );
+                  const chipClassName = cn(
+                    "inline-flex min-h-11 max-w-full items-center gap-2 rounded-full border p-1 pr-3 text-xs font-semibold text-foreground transition-colors",
+                    isSteward
+                      ? "border-amber-400/80 bg-amber-400/10"
+                      : "border-border/70 bg-muted/40"
+                  );
+                  const content = (
+                    <>
+                      <MeetingParticipantAvatar
+                        participant={participant}
+                        className="h-7 w-7 text-[10px]"
+                        decorative
+                        isSteward={isSteward}
+                      />
+                      <span className="truncate">
+                        {participant.displayName}
+                      </span>
+                    </>
+                  );
+
+                  return canToggleSteward ? (
+                    <button
+                      key={getMeetingParticipantKey(participant)}
+                      type="button"
+                      className={cn(
+                        chipClassName,
+                        "hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
+                      )}
+                      aria-pressed={isSteward}
+                      aria-label={
+                        isSteward
+                          ? `Remove ${participant.displayName} as steward / facilitator`
+                          : `Make ${participant.displayName} steward / facilitator`
+                      }
+                      disabled={pendingStewardNoteId === selectedNote.id}
+                      onClick={() =>
+                        void setNoteSteward(
+                          selectedNote,
+                          isSteward
+                            ? null
+                            : { kind: "human", id: participant.userId! }
+                        )
+                      }
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    <span
+                      key={getMeetingParticipantKey(participant)}
+                      className={chipClassName}
+                      aria-label={
+                        isSteward
+                          ? `${participant.displayName}, steward / facilitator`
+                          : undefined
+                      }
+                    >
+                      {content}
+                    </span>
+                  );
+                })}
               </div>
+              {canEdit && selectedNote.participants.length > 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Click a project member to set or clear the facilitator.
+                </p>
+              ) : null}
               {pendingStewardNoteId === selectedNote.id ? (
-                <p className="text-xs text-muted-foreground">Updating steward…</p>
+                <p className="text-xs text-muted-foreground">
+                  Updating facilitator…
+                </p>
               ) : null}
               {stewardError ? (
                 <p role="alert" className="text-xs text-destructive">
@@ -2198,7 +2372,10 @@ export function ProjectMeetingNotesPanel({
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),320px]">
               <div className="grid gap-2">
-                <label htmlFor="meeting-outputs" className="text-sm font-medium">
+                <label
+                  htmlFor="meeting-outputs"
+                  className="text-sm font-medium"
+                >
                   Outputs
                 </label>
                 <EmojiTextareaField
@@ -2218,7 +2395,10 @@ export function ProjectMeetingNotesPanel({
 
               <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <label htmlFor="meeting-status" className="text-sm font-medium">
+                  <label
+                    htmlFor="meeting-status"
+                    className="text-sm font-medium"
+                  >
                     State
                   </label>
                   <MeetingStatusSelect
@@ -2277,9 +2457,10 @@ export function ProjectMeetingNotesPanel({
                                   pendingTodoActionId === action.id
                                 }
                                 onClick={() => {
-                                  const persistedAction = selectedNote.actions.find(
-                                    (entry) => entry.id === action.id
-                                  );
+                                  const persistedAction =
+                                    selectedNote.actions.find(
+                                      (entry) => entry.id === action.id
+                                    );
                                   if (action.persisted && persistedAction) {
                                     void setTodoCompleted(
                                       {
@@ -2307,11 +2488,16 @@ export function ProjectMeetingNotesPanel({
                                 wrapperClassName="min-w-0 flex-1"
                                 value={action.content}
                                 onChange={(event) =>
-                                  updateDraftAction(action.id, event.target.value)
+                                  updateDraftAction(
+                                    action.id,
+                                    event.target.value
+                                  )
                                 }
                                 className={cn(
                                   "h-11 rounded-md border border-input bg-background px-3 text-sm",
-                                  isComplete ? "text-muted-foreground line-through" : ""
+                                  isComplete
+                                    ? "text-muted-foreground line-through"
+                                    : ""
                                 )}
                                 placeholder="Send recap to stakeholders"
                                 maxLength={240}
@@ -2324,7 +2510,10 @@ export function ProjectMeetingNotesPanel({
                                   value={action.assignee ?? null}
                                   options={todoActors}
                                   onChange={(assignee) =>
-                                    updateDraftActionAssignee(action.id, assignee)
+                                    updateDraftActionAssignee(
+                                      action.id,
+                                      assignee
+                                    )
                                   }
                                   disabled={isSaving}
                                   pending={isSaving}
@@ -2382,8 +2571,14 @@ export function ProjectMeetingNotesPanel({
             ) : null}
 
             <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-border/60 pt-4 text-xs text-muted-foreground">
-              <MeetingTodoActorIdentity actor={selectedNote.createdBy ?? null} prefix="Created by" />
-              <MeetingTodoActorIdentity actor={selectedNote.updatedBy ?? null} prefix="Last edited by" />
+              <MeetingTodoActorIdentity
+                actor={selectedNote.createdBy ?? null}
+                prefix="Created by"
+              />
+              <MeetingTodoActorIdentity
+                actor={selectedNote.updatedBy ?? null}
+                prefix="Last edited by"
+              />
               <span>
                 Updated{" "}
                 <time dateTime={selectedNote.updatedAt}>

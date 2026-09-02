@@ -38,7 +38,7 @@ test("defaults steward to creator, supports reassignment, and filters by steward
       avatarSeed: "task-356-steward-avatar",
       emailVerified: new Date(),
     },
-    select: { id: true },
+    select: { id: true, username: true },
   });
   await prisma.projectMembership.create({
     data: {
@@ -54,7 +54,12 @@ test("defaults steward to creator, supports reassignment, and filters by steward
       data: {
         title: "Stewardship kickoff",
         status: "prepared",
-        participants: [],
+        participants: [
+          {
+            userId: collaborator.id,
+            displayName: collaborator.username,
+          },
+        ],
       },
     }
   );
@@ -109,19 +114,17 @@ test("defaults steward to creator, supports reassignment, and filters by steward
     `/api/projects/${projectIdValue}/meeting-notes?steward=unassigned`
   );
   expect(filtered.status()).toBe(200);
-  const filteredPayload = (await filtered.json()) as { notes: Array<{ id: string }> };
+  const filteredPayload = (await filtered.json()) as {
+    notes: Array<{ id: string }>;
+  };
   expect(filteredPayload.notes.some((note) => note.id === noteId)).toBe(true);
 
-  await page.goto(
-    `/projects/${projectIdValue}?meetingNoteSteward=unassigned`
-  );
+  await page.goto(`/projects/${projectIdValue}?meetingNoteSteward=unassigned`);
   await expect(page.getByRole("link", { name: "All 2" })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Stewarded by me 1" })
   ).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Unstewarded 1" })
-  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Unstewarded 1" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: /Owner retrospective/i })
   ).toHaveCount(0);
@@ -132,7 +135,9 @@ test("defaults steward to creator, supports reassignment, and filters by steward
   await expect(
     page.getByRole("button", { name: /Owner retrospective/i })
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Clear meeting notes search" }).click();
+  await page
+    .getByRole("button", { name: "Clear meeting notes search" })
+    .click();
   await expect(
     page.getByRole("button", { name: /Owner retrospective/i })
   ).toBeVisible();
@@ -142,9 +147,18 @@ test("defaults steward to creator, supports reassignment, and filters by steward
     .first();
   await expect(noteCard).toBeVisible();
   await noteCard.click();
-  await expect(
-    page.getByRole("button", { name: /Change steward \/ facilitator/i })
-  ).toBeVisible();
+  const facilitatorToggle = page.getByRole("button", {
+    name: `Make ${collaborator.username} steward / facilitator`,
+  });
+  await expect(facilitatorToggle).toBeVisible();
+  await facilitatorToggle.click();
+  const clearFacilitator = page.getByRole("button", {
+    name: `Remove ${collaborator.username} as steward / facilitator`,
+  });
+  await expect(clearFacilitator).toBeVisible();
+  await expect(clearFacilitator).toHaveAttribute("aria-pressed", "true");
+  await clearFacilitator.click();
+  await expect(facilitatorToggle).toBeVisible();
   if (screenshotDirectory) {
     await page.screenshot({
       path: path.resolve(screenshotDirectory, "meeting-note-steward.png"),

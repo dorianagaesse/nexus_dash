@@ -30,10 +30,10 @@ expanding into cross-artifact ownership or a workspace ownership queue.
 - Backfill steward identity from the note creator for existing rows.
 - Surface creator, last editor, update time, and steward identity in the
   meeting-notes panel and meeting detail view.
-- Add accessible steward assignment controls (label, keyboard, focus, 44px
-  target, light/dark, semantic status) in the meeting detail and note
-  preparation flow; viewers see the same identity without mutation
-  affordances.
+- Make eligible participant chips the accessible steward assignment controls
+  (keyboard, focus, 44px target, light/dark, semantic pressed state) in meeting
+  detail and preparation; clicking the selected participant clears the role,
+  while viewers see the same crowned identity without mutation affordances.
 - Add steward responsibility filters ("All", "Stewarded by me",
   "Unassigned/unstewarded") for both active and archived notes.
 - Reuse the established human/agent registry and chip so removed members
@@ -73,10 +73,11 @@ expanding into cross-artifact ownership or a workspace ownership queue.
    notes are backfilled from `createdByUserId`. Editing a note preserves
    the steward unless the editor explicitly reassigns or clears it; the
    steward must survive unrelated field edits.
-3. Editors can assign or clear a steward from meeting detail and the
-   preparation flow using a labeled, keyboard-operable chip with pending
-   and error feedback. Viewers see steward identity without mutation
-   affordances, and the mutation/deletion boundary is explicit in the UI.
+3. Editors can assign a steward from meeting detail and preparation by
+   clicking an eligible project-member participant, then clear the role by
+   clicking that participant again. The toggle is keyboard operable and keeps
+   pending and error feedback; viewers see the crowned identity without
+   mutation affordances, and the mutation/deletion boundary is explicit.
 4. Steward validation is enforced in the service boundary. Human steward
    candidates must currently own or belong to the project; agent steward
    candidates must be active, unexpired credentials for that project.
