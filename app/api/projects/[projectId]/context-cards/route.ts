@@ -8,6 +8,7 @@ import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
+import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
 import { createContextCardForProject } from "@/lib/services/context-card-service";
 
 import {
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
           id: card.id,
           title: card.name,
           content: card.content,
-          color: card.color,
+          color: card.color ?? CONTEXT_CARD_COLORS[0],
           createdAt: card.createdAt.toISOString(),
           updatedAt: cardRecord.updatedAt.toISOString(),
           attachments: card.attachments.map((attachment) =>
