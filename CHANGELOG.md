@@ -17,6 +17,18 @@ SHA, deployment URL, and workflow run belong in release evidence.
   credential row by ID instead of depending on a permanent `userId` uniqueness
   constraint, preparing a backward-compatible TASK-327 expansion.
 
+## v0.51.0 - 2026-09-02
+
+- Bounded every Kanban lane to a responsive viewport-aware height with an
+  independently scrollable, keyboard-focusable task region and fixed lane
+  metadata and controls.
+- Preserved mounted desktop and mobile lane instances so scroll positions and
+  pointer or keyboard drag-and-drop behavior remain stable across task changes
+  and mobile status switches.
+- Added accessible region names, visible focus treatment, contained overscroll,
+  stable scrollbar gutters, and regression coverage for desktop, mobile, and
+  landscape layouts.
+
 ## v0.50.0 - 2026-09-02
 
 - Simplified meeting-note modals by presenting the steward/facilitator as an
@@ -208,18 +220,6 @@ SHA, deployment URL, and workflow run belong in release evidence.
   counts and useful empty states.
 - Extended the project activity event stream so stewardship changes emit a
   project activity event and survive project-scoped realtime reconciliation.
-
-## v0.38.0 - 2026-08-29
-
-- Bounded every Kanban lane to a responsive viewport-aware height with an
-  independently scrollable, keyboard-focusable task region and fixed lane
-  metadata and controls.
-- Preserved mounted desktop and mobile lane instances so scroll positions and
-  pointer or keyboard drag-and-drop behavior remain stable across task changes
-  and mobile status switches.
-- Added accessible region names, visible focus treatment, contained overscroll,
-  stable scrollbar gutters, and regression coverage for desktop, mobile, and
-  landscape layouts.
 
 ## v0.37.2 - 2026-08-25
 
