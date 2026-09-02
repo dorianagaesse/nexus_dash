@@ -21,8 +21,7 @@ const STATUS_LABEL: Record<ProjectContextActorSummary["status"], string> = {
   expired: "expired credential",
 };
 
-const CHIP_CLASS =
-  "inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/70 px-2 py-0.5 text-[11px] text-foreground";
+const CHIP_CLASS = "inline-flex items-center gap-1 text-[11px] text-slate-800";
 
 export function ContextCardActorChip({
   actor,
@@ -40,7 +39,7 @@ export function ContextCardActorChip({
         <span className="truncate">
           {label ? `${label}: ` : ""}
           {fallback}
-          {dateLabel ? <span className="text-muted-foreground"> · {dateLabel}</span> : null}
+          {dateLabel ? <span className="text-slate-600"> · {dateLabel}</span> : null}
         </span>
       </span>
     );
@@ -68,8 +67,8 @@ export function ContextCardActorChip({
       <span className="truncate">
         {label ? `${label}: ` : ""}
         <span className="font-medium">{actor.displayName}</span>
-        <span className="text-muted-foreground">{statusLabel}</span>
-        {dateLabel ? <span className="text-muted-foreground"> · {dateLabel}</span> : null}
+        <span className="text-slate-600">{statusLabel}</span>
+        {dateLabel ? <span className="text-slate-600"> · {dateLabel}</span> : null}
       </span>
     </span>
   );
