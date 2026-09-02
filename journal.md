@@ -21,12 +21,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
   and the steward controls test; added `context-card-provenance.test.tsx`
   covering agent/human attribution, timestamps, fallbacks, and the modal/grid
   surfaces. Backend stewardship service, route, and DB contract stay intact.
-- Local validation: lint and RLS inventory pass; full vitest suite passes
-  (995 passed; the remaining failures are the known local env-dependent
-  baseline, missing DATABASE_URL, identical to the root checkout). Production
-  build compiles; the webpack type-check error on
-  `app/account/settings/developers/page.tsx` (PageProps/searchParams) is
-  pre-existing on main and reproduced identically in the root checkout.
+- Local validation: lint and RLS inventory pass; the full vitest suite passes
+  with `validate:local` env injection (1,092 passed, 2 skipped; coverage
+  91.37% stmts / 81.33% branches / 92.2% funcs / 91.88% lines). Production
+  build (Turbopack) is green with local DB overrides plus the dev
+  `GOOGLE_TOKEN_ENCRYPTION_KEY`; `local-validation.mjs` does not inject that
+  key, a pre-existing script gap (the check only fires when `GOOGLE_CLIENT_ID`
+  is set, so CI is unaffected).
+- CI Quality Gates initially caught a locale-dependent assertion in the new
+  provenance test (`/·\s*\d/` matched day-first locales like "1 août" but not
+  en-US "Aug 1"); fixed to `/·\s*\S/` and re-verified green.
 - Worktree gotcha resolved: a CRLF-checked-out `scripts/validate-supabase-project-ref.mjs`
   broke vitest's transform (`SyntaxError: Invalid or unexpected token`);
   normalizing that file to LF fixed it without content change.
