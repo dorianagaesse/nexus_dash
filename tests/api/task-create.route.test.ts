@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { NextRequest } from "next/server";
 
 const apiGuardMock = vi.hoisted(() => ({
   getAgentProjectAccessContext: vi.fn(),
@@ -18,9 +19,13 @@ vi.mock("@/lib/auth/api-guard", () => ({
   requireApiPrincipal: apiGuardMock.requireApiPrincipal,
 }));
 
-vi.mock("@/lib/services/project-task-service", () => ({
-  createTaskForProject: projectTaskServiceMock.createTaskForProject,
-}));
+vi.mock("@/lib/services/project-task-service", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/services/project-task-service")>();
+  return {
+    ...original,
+    createTaskForProject: projectTaskServiceMock.createTaskForProject,
+  };
+});
 
 vi.mock("@/lib/services/project-attachment-service", () => ({
   mapTaskAttachmentResponse: vi.fn((projectId: string, taskId: string, attachment: Record<string, unknown>) => ({
@@ -100,7 +105,7 @@ describe("GET /api/projects/:projectId/tasks", () => {
     ]);
 
     const response = await GET(
-      new Request("http://localhost/api/projects/p1/tasks") as never,
+      new NextRequest("http://localhost/api/projects/p1/tasks"),
       taskRouteParams("p1")
     );
     const payload = (await response.json()) as {
@@ -117,6 +122,109 @@ describe("GET /api/projects/:projectId/tasks", () => {
         archivedAt: "2026-07-29T08:00:00.000Z",
       },
     ]);
+  });
+
+  test("serializes canonical labels arrays with empty, multi-label, and legacy fallbacks", async () => {
+    const baseTask = {
+      id: "task-base",
+      referenceNumber: 1,
+      title: "Task",
+      description: null,
+      blockedNote: null,
+      deadlineAt: null,
+      _count: { comments: 0 },
+      completedAt: null,
+      archivedAt: null,
+      status: "Backlog",
+      position: 0,
+      createdAt: new Date("2026-07-30T08:00:00.000Z"),
+      updatedAt: new Date("2026-07-30T08:00:00.000Z"),
+      epic: null,
+      assigneeUser: null,
+      createdByUser: null,
+      updatedByUser: null,
+      attachments: [],
+      outgoingRelations: [],
+      incomingRelations: [],
+      blockedFollowUps: [],
+    };
+
+    projectServiceMock.listProjectKanbanTasks.mockResolvedValueOnce([
+      { ...baseTask, id: "task-empty", referenceNumber: 2, label: null, labelsJson: null },
+      {
+        ...baseTask,
+        id: "task-multi",
+        referenceNumber: 3,
+        label: "frontend",
+        labelsJson: '["frontend","qa"]',
+      },
+      { ...baseTask, id: "task-legacy", referenceNumber: 4, label: "docs", labelsJson: null },
+    ]);
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/projects/p1/tasks"),
+      taskRouteParams("p1")
+    );
+    const payload = (await response.json()) as {
+      tasks: Array<{ id: string; label: string | null; labelsJson: string | null; labels: string[] }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.tasks.map((task) => [task.id, task.labels])).toEqual([
+      ["task-empty", []],
+      ["task-multi", ["frontend", "qa"]],
+      ["task-legacy", ["docs"]],
+    ]);
+    expect(payload.tasks[1]?.label).toBe("frontend");
+    expect(payload.tasks[1]?.labelsJson).toBe('["frontend","qa"]');
+  });
+
+  test("forwards epicId and label filters and echoes them in the response", async () => {
+    projectServiceMock.listProjectKanbanTasks.mockResolvedValueOnce([]);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/projects/p1/tasks?epicId=epic-1&label=Docs"
+      ),
+      taskRouteParams("p1")
+    );
+    const payload = (await response.json()) as {
+      filters: { epicId: string | null; label: string | null };
+      tasks: unknown[];
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.tasks).toEqual([]);
+    expect(payload.filters).toEqual({ epicId: "epic-1", label: "Docs" });
+    expect(projectServiceMock.listProjectKanbanTasks).toHaveBeenCalledWith(
+      "p1",
+      "test-user",
+      undefined,
+      { epicId: "epic-1", label: "Docs" }
+    );
+  });
+
+  test("treats empty filter query values as absent", async () => {
+    projectServiceMock.listProjectKanbanTasks.mockResolvedValueOnce([]);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/projects/p1/tasks?epicId=&label="
+      ),
+      taskRouteParams("p1")
+    );
+    const payload = (await response.json()) as {
+      filters: { epicId: string | null; label: string | null };
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.filters).toEqual({ epicId: null, label: null });
+    expect(projectServiceMock.listProjectKanbanTasks).toHaveBeenCalledWith(
+      "p1",
+      "test-user",
+      undefined,
+      undefined
+    );
   });
 });
 
@@ -154,7 +262,43 @@ describe("POST /api/projects/:projectId/tasks", () => {
   test("creates task from multipart form payload", async () => {
     projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
       ok: true,
-      data: { id: "task-created" },
+      data: {
+        task: {
+          id: "task-created",
+          reference: "ND-1",
+          title: "New Task",
+          label: null,
+          labelsJson: null,
+          labels: [],
+          description: "Description",
+          deadlineDate: "2026-04-24",
+          commentCount: 0,
+          blockedNote: null,
+          status: "Backlog",
+          position: 0,
+          completedAt: null,
+          archivedAt: null,
+          epic: null,
+          assignee: null,
+          createdBy: {
+            id: "test-user",
+            displayName: "reviewer",
+            usernameTag: null,
+            avatarSeed: "test-user",
+          },
+          updatedBy: {
+            id: "test-user",
+            displayName: "reviewer",
+            usernameTag: null,
+            avatarSeed: "test-user",
+          },
+          createdAt: "2026-04-24T10:00:00.000Z",
+          updatedAt: "2026-04-24T10:00:00.000Z",
+          relatedTasks: [],
+          blockedFollowUps: [],
+          attachments: [],
+        },
+      },
     });
 
     const formData = new FormData();
@@ -182,7 +326,16 @@ describe("POST /api/projects/:projectId/tasks", () => {
     const response = await POST(request as never, taskRouteParams("p1"));
 
     expect(response.status).toBe(201);
-    await expect(readJson(response)).resolves.toEqual({ taskId: "task-created" });
+    const payload = await readJson(response);
+    expect(payload.taskId).toBe("task-created");
+    expect(payload.task).toMatchObject({
+      id: "task-created",
+      reference: "ND-1",
+      title: "New Task",
+      labels: [],
+      completedAt: null,
+      attachments: [],
+    });
     expect(projectTaskServiceMock.createTaskForProject).toHaveBeenCalledTimes(1);
 
     const call = projectTaskServiceMock.createTaskForProject.mock.calls[0][0];
@@ -205,7 +358,43 @@ describe("POST /api/projects/:projectId/tasks", () => {
   test("creates task from json payload for agent-first callers", async () => {
     projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
       ok: true,
-      data: { id: "task-json" },
+      data: {
+        task: {
+          id: "task-json",
+          reference: "ND-2",
+          title: "Draft API smoke test",
+          label: "agent",
+          labelsJson: '["agent","qa"]',
+          labels: ["agent", "qa"],
+          description: "<p>Validate the agent route.</p>",
+          deadlineDate: "2026-04-25",
+          commentCount: 0,
+          blockedNote: null,
+          status: "Backlog",
+          position: 0,
+          completedAt: null,
+          archivedAt: null,
+          epic: null,
+          assignee: null,
+          createdBy: {
+            id: "test-user",
+            displayName: "reviewer",
+            usernameTag: null,
+            avatarSeed: "test-user",
+          },
+          updatedBy: {
+            id: "test-user",
+            displayName: "reviewer",
+            usernameTag: null,
+            avatarSeed: "test-user",
+          },
+          createdAt: "2026-04-25T10:00:00.000Z",
+          updatedAt: "2026-04-25T10:00:00.000Z",
+          relatedTasks: [],
+          blockedFollowUps: [],
+          attachments: [],
+        },
+      },
     });
 
     const request = new Request("http://localhost/api/projects/p1/tasks", {
@@ -228,7 +417,14 @@ describe("POST /api/projects/:projectId/tasks", () => {
     const response = await POST(request as never, taskRouteParams("p1"));
 
     expect(response.status).toBe(201);
-    await expect(readJson(response)).resolves.toEqual({ taskId: "task-json" });
+    const payload = await readJson(response);
+    expect(payload.taskId).toBe("task-json");
+    expect(payload.task).toMatchObject({
+      id: "task-json",
+      reference: "ND-2",
+      labels: ["agent", "qa"],
+      completedAt: null,
+    });
     expect(projectTaskServiceMock.createTaskForProject).toHaveBeenCalledWith({
       actorUserId: "test-user",
       projectId: "p1",

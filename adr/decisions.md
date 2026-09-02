@@ -16,6 +16,93 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-08-27 - Keep shared Preview schema forward-only
+- Status: Accepted
+- Context: Deploying stacked TASK-327 renamed and removed columns from the
+  Calendar credential table, which made the still-testable TASK-326 branch fail
+  against shared staging. An emergency workflow reset made the database follow
+  a branch rather than migration history.
+- Decision: Shared Preview applies checked-in migrations forward only and never
+  resets or rolls back to a branch. A pre-publication gate verifies that every
+  Prisma model has a physical runtime table; incompatible branches fail with an
+  expand/contract diagnostic before the stable alias moves.
+- Consequences: Preview retains production-like migration semantics and ordinary
+  deploys remain routine when migrations are backward-compatible. A single
+  shared database still cannot support mutually incompatible destructive
+  schemas; those changes must be phased or tested in an isolated database.
+- Links: `docs/runbooks/vercel-env-contract-and-secrets.md`,
+  `.github/workflows/deploy-vercel.yml`, PRs `#449` and `#450`
+
+## 2026-08-06 - Model Calendar accounts, sources, and preferences separately
+- Status: Accepted
+- Context: A singular Google credential and free-form target ID cannot safely
+  support multiple accounts, discovered calendars, read-only sources, or a
+  stable write target.
+- Decision: Use directly user-owned `CalendarConnection`, `CalendarSource`, and
+  `CalendarPreference` records with composite ownership keys and forced RLS;
+  place provider behavior behind an adapter and keep events live rather than
+  storing copies.
+- Consequences: Google is the sole live provider but the domain is provider-
+  ready; partial reads are explicit, mutations are source-bound, and adding or
+  removing one account never silently retargets another.
+- Links: `adr/task-327-calendar-connections.md`,
+  `tasks/task-327-additional-calendar-connections.md`
+
+## 2026-08-06 - Make Google Calendar disconnect fail-closed and user-owned
+- Status: Accepted
+- Context: The existing Calendar credential is user-scoped, but its revocation
+  marker was not enforced and the settings DELETE route only reset the target
+  calendar instead of terminating access.
+- Decision: Treat revoked credentials as unusable, require encrypted token
+  storage whenever Calendar OAuth is configured outside tests, and disconnect
+  by marking the signed-in user's row revoked before attempting Google token
+  revocation and permanently deleting the local credential.
+- Consequences: A failed provider call cannot reactivate local Calendar access;
+  users receive a safe Google Account recovery path when upstream revocation is
+  unconfirmed. PATCH remains the target-reset contract, while DELETE now means
+  disconnect.
+- Links: `tasks/task-326-google-calendar-connection-ownership.md`,
+  `docs/audits/task-325-google-calendar-integration-audit.md`
+
+## 2026-08-09 - Relabel personal Google Calendar overlay and decouple it from project editor role
+- Status: Accepted
+- Context: TASK-336's multi-user collaboration audit named the project
+  Calendar panel as a P1 collaboration gap. The current integration is
+  correctly user-owned (the Google token belongs to the signed-in user and
+  events come from their personal calendar), but the panel is presented as
+  if it were a shared project module: a viewer cannot create an event in
+  their own Google Calendar while looking at a project, the panel header
+  just says "Calendar", and editor role controls mutation of the user's
+  private calendar in a way that suggests shared ownership.
+- Decision: Phase 1 of TASK-348 relabels the project dashboard Calendar
+  section, the upcoming-events summary card, the modal, and the empty
+  state as "My calendar" so users understand it is a personal overlay. The
+  mutation routes (`POST` / `PATCH` / `DELETE`) drop the `minimumRole:
+  "editor"` requirement down to `viewer` so the user's own Google write
+  scope — not the project editor role — is the only authorization to
+  mutate their private calendar. Project access is retained only so the
+  dashboard can scope the request to a project the caller can see. Tests
+  add a viewer success path and an explicit `insufficient-scope` row. The
+  full shared project schedule is deferred behind TASK-337 (project actor
+  identity) and TASK-331 (capability model) and is documented in the
+  deep-dive ADR below.
+- Consequences: A viewer can now manage their own Google Calendar events
+  while looking at a project; the UI no longer suggests shared ownership;
+  existing view-only, read-only-scope, and disconnected flows keep their
+  copy and affordances. The future shared schedule will be a separate
+  NexusDash-owned artifact (artifact model, actor contract, capabilities,
+  history, optional external sync) and will not regress the personal
+  overlay.
+- Links: `tasks/task-348-personal-calendar-shared-schedule.md`,
+  `tasks/current.md`, `adr/task-348-shared-schedule-contract.md`,
+  `lib/services/calendar-service.ts`,
+  `components/project-calendar-panel.tsx`,
+  `components/project-dashboard/calendar-summary-stat-card.tsx`,
+  `components/calendar-panel/calendar-event-modal.tsx`,
+  `tests/api/calendar-events.route.test.ts`,
+  `tests/api/calendar-event-id.route.test.ts`,
+  `tests/e2e/smoke-project-task-calendar.spec.ts`
+
 ## 2026-07-30 - Keep meeting todos within current-project navigation
 - Status: Accepted; supersedes the cross-project portion of the 2026-07-27
   TASK-332 decision.
@@ -461,3 +548,39 @@ Keep UI-only or task-only notes in `journal.md`.
 - Context: Local port conflicts blocked developer startup.
 - Decision: Keep container port `3000`, map host port with `${APP_PORT:-3000}`.
 - Consequences: Safer local onboarding in mixed environments.
+
+## 2026-08-09 - TASK-356: Reuse the TASK-330 actor contract for meeting note stewards
+
+- Status: Accepted
+- Context: The collaboration refinement audit (TASK-336) flagged meeting
+  notes as having "no visible accountable owner" and recommended that
+  steward/facilitator identity be added without conflating it with
+  individual todo assignees or participants. TASK-330 already shipped a
+  reusable human-or-agent actor contract (`MeetingTodoActorReference`,
+  `MeetingTodoActorSummary`, `loadMeetingTodoActorRegistry`,
+  `resolveAssignableMeetingTodoActorFromRegistry`) that all meeting-todo
+  mutations flow through.
+- Decision: Adopted the same contract for the new
+  `ProjectMeetingNote.steward*` columns and the
+  `setProjectMeetingNoteSteward` service. New columns mirror the
+  todo-assignee dual-key shape (`stewardUserId` xor `stewardCredentialId`,
+  `stewardKind`, `stewardDisplayNameSnapshot`) and the CHECK constraint
+  (`steward_actor_check`) so removed human members and revoked/expired
+  agents are surfaced through the existing chip vocabulary as "Needs
+  reassignment" instead of being silently nulled out. The UI reuses the
+  established `MeetingTodoAssigneeChip` / `MeetingTodoAssigneeChipReadonly`
+  components and `MeetingTodoActorIdentity` control so the steward, todo
+  assignee, and creator chips all share one identity language. Actor status is
+  read through `app.list_project_meeting_note_actors`, a SECURITY DEFINER
+  projection that returns display-safe identity/status fields to authorized
+  project members without exposing credential secrets or relying on
+  owner-only membership and credential row visibility.
+- Consequences: Steward responsibilities are filtered with the same
+  `mine` / `unassigned` / `all` URL-backed semantics already used for
+  meeting todos; viewers never see mutation affordances; and the project
+  does not grow a parallel actor pipeline before TASK-337's universal
+  actor foundation ships. Cross-artifact ownership and a workspace
+  stewardship queue are explicitly deferred to TASK-346.
+- Links: `tasks/task-356-meeting-note-stewardship.md`,
+  `docs/audits/task-336-multi-user-collaboration-audit.md`,
+  `tasks/task-330-meeting-todo-assignees.md`.

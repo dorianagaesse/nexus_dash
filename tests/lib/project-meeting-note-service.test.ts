@@ -18,6 +18,7 @@ const loggerMock = vi.hoisted(() => ({
 }));
 
 const dbMock = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
   project: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
@@ -87,6 +88,7 @@ import {
   listProjectMeetingNotes,
   setProjectMeetingNoteActionAssignee,
   setProjectMeetingNoteActionCompletion,
+  setProjectMeetingNoteSteward,
   updateProjectMeetingNote,
 } from "@/lib/services/project-meeting-note-service";
 
@@ -106,6 +108,35 @@ const baseMeetingNoteRecord = {
   decisions: "Keep TASK-098 focused.",
   createdAt: new Date("2026-06-08T13:00:00.000Z"),
   updatedAt: new Date("2026-06-08T15:00:00.000Z"),
+  stewardUserId: "user-1",
+  stewardCredentialId: null,
+  stewardKind: "human" as const,
+  stewardDisplayNameSnapshot: "owner",
+  stewardUser: {
+    id: "user-1",
+    name: "Owner",
+    email: "owner@example.com",
+    username: "owner",
+    usernameDiscriminator: "0001",
+    avatarSeed: "seed-owner",
+  },
+  stewardCredential: null,
+  createdByUser: {
+    id: "user-1",
+    name: "Owner",
+    email: "owner@example.com",
+    username: "owner",
+    usernameDiscriminator: "0001",
+    avatarSeed: "seed-owner",
+  },
+  updatedByUser: {
+    id: "user-1",
+    name: "Owner",
+    email: "owner@example.com",
+    username: "owner",
+    usernameDiscriminator: "0001",
+    avatarSeed: "seed-owner",
+  },
   actions: [
     {
       id: "action-1",
@@ -162,6 +193,7 @@ describe("project-meeting-note-service", () => {
       memberships: [],
       apiCredentials: [],
     });
+    dbMock.$queryRaw.mockResolvedValue([]);
     dbMock.user.findUnique.mockResolvedValue(owner);
     rlsContextMock.withActorRlsContext.mockImplementation(
       async (_actorUserId: string, operation: (db: typeof dbMock) => unknown) =>
@@ -225,6 +257,72 @@ describe("project-meeting-note-service", () => {
     });
   });
 
+  test("uses the safe actor projection when RLS hides collaborator and agent rows", async () => {
+    dbMock.$queryRaw.mockResolvedValueOnce([
+      {
+        kind: "human",
+        actorId: "user-2",
+        name: "Editor",
+        email: "editor@example.com",
+        username: "editor",
+        usernameDiscriminator: "0002",
+        avatarSeed: "seed-editor",
+        label: null,
+        revokedAt: null,
+        expiresAt: null,
+      },
+      {
+        kind: "agent",
+        actorId: "credential-1",
+        name: null,
+        email: null,
+        username: null,
+        usernameDiscriminator: null,
+        avatarSeed: null,
+        label: "Release agent",
+        revokedAt: null,
+        expiresAt: null,
+      },
+    ]);
+    dbMock.projectMeetingNote.findMany.mockResolvedValueOnce([
+      {
+        ...baseMeetingNoteRecord,
+        stewardUserId: "user-2",
+        stewardDisplayNameSnapshot: "editor",
+        stewardUser: null,
+        actions: [
+          {
+            ...baseMeetingNoteRecord.actions[0],
+            assigneeKind: "agent",
+            assigneeCredentialId: "credential-1",
+            assigneeDisplayNameSnapshot: "Release agent",
+            assigneeCredential: null,
+          },
+        ],
+      },
+    ]);
+
+    const result = await listProjectMeetingNotes({
+      actorUserId: "user-1",
+      projectId: "project-1",
+    });
+
+    expect(result[0]?.steward).toMatchObject({
+      kind: "human",
+      id: "user-2",
+      displayName: "editor",
+      status: "active",
+      isAssignable: true,
+    });
+    expect(result[0]?.actions[0]?.assignee).toMatchObject({
+      kind: "agent",
+      id: "credential-1",
+      displayName: "Release agent",
+      status: "active",
+      isAssignable: true,
+    });
+  });
+
   test("creates a structured meeting note and normalizes participants/actions", async () => {
     dbMock.projectMeetingNote.create.mockResolvedValueOnce({ id: "note-1" });
     dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce(baseMeetingNoteRecord);
@@ -266,6 +364,10 @@ describe("project-meeting-note-service", () => {
         decisions: "Keep TASK-098 focused.",
         createdByUserId: "user-1",
         updatedByUserId: "user-1",
+        stewardUserId: "user-1",
+        stewardCredentialId: null,
+        stewardKind: "human",
+        stewardDisplayNameSnapshot: "owner",
         actions: {
           create: [
             {
@@ -755,6 +857,287 @@ describe("project-meeting-note-service", () => {
         completedByCredentialId: "credential-1",
         completedByDisplayNameSnapshot: "Release agent",
       }),
+    });
+  });
+
+  describe("stewardship", () => {
+    test("defaults the steward to the note creator on create", async () => {
+      dbMock.projectMeetingNote.create.mockResolvedValueOnce({ id: "note-1" });
+      dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce(
+        baseMeetingNoteRecord
+      );
+
+      const result = await createProjectMeetingNote({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        title: "Roadmap review",
+      });
+
+      expect(result.ok).toBe(true);
+      expect(dbMock.projectMeetingNote.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            stewardUserId: "user-1",
+            stewardCredentialId: null,
+            stewardKind: "human",
+            stewardDisplayNameSnapshot: "owner",
+          }),
+        })
+      );
+    });
+
+    test("preserves the steward when unrelated fields are updated", async () => {
+      dbMock.projectMeetingNote.findFirst
+        .mockResolvedValueOnce({ id: "note-1", actions: [] })
+        .mockResolvedValueOnce(baseMeetingNoteRecord);
+      dbMock.projectMeetingNote.update.mockResolvedValueOnce({ id: "note-1" });
+
+      await updateProjectMeetingNote({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        noteId: "note-1",
+        title: "Refocused review",
+      });
+
+      const call = dbMock.projectMeetingNote.update.mock.calls[0]?.[0];
+      expect(call).toBeDefined();
+      expect(call?.data).not.toHaveProperty("stewardUserId");
+      expect(call?.data).not.toHaveProperty("stewardKind");
+    });
+
+    test("reassigns steward to an active human project member", async () => {
+      const collaborator = {
+        id: "user-2",
+        name: "Editor",
+        email: "editor@example.com",
+        username: "editor",
+        usernameDiscriminator: "0002",
+        avatarSeed: "seed-editor",
+      };
+      dbMock.project.findUnique.mockResolvedValueOnce({
+        owner: {
+          id: "user-1",
+          name: "Owner",
+          email: "owner@example.com",
+          username: "owner",
+          usernameDiscriminator: "0001",
+          avatarSeed: "seed-owner",
+        },
+        memberships: [{ user: collaborator }],
+        apiCredentials: [],
+      });
+      dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+        id: "note-1",
+      });
+      dbMock.projectMeetingNote.update.mockResolvedValueOnce({ id: "note-1" });
+      dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce(
+        baseMeetingNoteRecord
+      );
+
+      const result = await setProjectMeetingNoteSteward({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        noteId: "note-1",
+        steward: { kind: "human", id: "user-2" },
+      });
+
+      expect(result.ok).toBe(true);
+      expect(dbMock.projectMeetingNote.update).toHaveBeenCalledWith({
+        where: { id: "note-1" },
+        data: {
+          stewardKind: "human",
+          stewardUserId: "user-2",
+          stewardCredentialId: null,
+          stewardDisplayNameSnapshot: "editor",
+          updatedByUserId: "user-1",
+        },
+      });
+    });
+
+    test("rejects steward assignments for removed human members", async () => {
+      dbMock.project.findUnique.mockResolvedValueOnce({
+        owner: {
+          id: "user-1",
+          name: "Owner",
+          email: "owner@example.com",
+          username: "owner",
+          usernameDiscriminator: "0001",
+          avatarSeed: "seed-owner",
+        },
+        memberships: [],
+        apiCredentials: [],
+      });
+      dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+        id: "note-1",
+      });
+
+      const result = await setProjectMeetingNoteSteward({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        noteId: "note-1",
+        steward: { kind: "human", id: "user-removed" },
+      });
+
+      expect(result).toEqual({
+        ok: false,
+        status: 400,
+        error: "meeting-note-steward-invalid",
+      });
+      expect(dbMock.projectMeetingNote.update).not.toHaveBeenCalled();
+    });
+
+    test("clears the steward when given null", async () => {
+      dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+        id: "note-1",
+      });
+      dbMock.projectMeetingNote.update.mockResolvedValueOnce({ id: "note-1" });
+      dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce(
+        baseMeetingNoteRecord
+      );
+
+      const result = await setProjectMeetingNoteSteward({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        noteId: "note-1",
+        steward: null,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(dbMock.projectMeetingNote.update).toHaveBeenCalledWith({
+        where: { id: "note-1" },
+        data: {
+          stewardKind: null,
+          stewardUserId: null,
+          stewardCredentialId: null,
+          stewardDisplayNameSnapshot: null,
+          updatedByUserId: "user-1",
+        },
+      });
+    });
+
+    test("filters unstewarded notes from the list", async () => {
+      dbMock.projectMeetingNote.findMany.mockResolvedValueOnce([
+        baseMeetingNoteRecord,
+        {
+          ...baseMeetingNoteRecord,
+          id: "note-2",
+          stewardUserId: null,
+          stewardCredentialId: null,
+          stewardKind: null,
+          stewardDisplayNameSnapshot: null,
+          stewardUser: null,
+        },
+      ]);
+
+      const result = await listProjectMeetingNotes({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        stewardFilter: "unassigned",
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe("note-2");
+    });
+
+    test("filters notes stewarded by the current actor", async () => {
+      dbMock.project.findUnique.mockReset();
+      dbMock.project.findUnique.mockResolvedValue({
+        owner: {
+          id: "user-2",
+          name: "Editor",
+          email: "editor@example.com",
+          username: "editor",
+          usernameDiscriminator: "0002",
+          avatarSeed: "seed-editor",
+        },
+        memberships: [],
+        apiCredentials: [],
+      });
+      dbMock.projectMeetingNote.findMany.mockResolvedValueOnce([
+        {
+          ...baseMeetingNoteRecord,
+          stewardUserId: "user-2",
+          stewardKind: "human" as const,
+          stewardDisplayNameSnapshot: "editor",
+          stewardUser: {
+            id: "user-2",
+            name: "Editor",
+            email: "editor@example.com",
+            username: "editor",
+            usernameDiscriminator: "0002",
+            avatarSeed: "seed-editor",
+          },
+          createdByUser: {
+            id: "user-2",
+            name: "Editor",
+            email: "editor@example.com",
+            username: "editor",
+            usernameDiscriminator: "0002",
+            avatarSeed: "seed-editor",
+          },
+          updatedByUser: {
+            id: "user-2",
+            name: "Editor",
+            email: "editor@example.com",
+            username: "editor",
+            usernameDiscriminator: "0002",
+            avatarSeed: "seed-editor",
+          },
+        },
+      ]);
+
+      const result = await listProjectMeetingNotes({
+        actorUserId: "user-2",
+        projectId: "project-1",
+        stewardFilter: "mine",
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe("note-1");
+    });
+
+    test("filters notes stewarded by the calling agent credential", async () => {
+      const credential = {
+        id: "credential-1",
+        label: "Release agent",
+        projectId: "project-1",
+        revokedAt: null,
+        expiresAt: null,
+      };
+      dbMock.project.findUnique.mockResolvedValueOnce({
+        owner: baseMeetingNoteRecord.createdByUser,
+        memberships: [],
+        apiCredentials: [credential],
+      });
+      dbMock.projectMeetingNote.findMany.mockResolvedValueOnce([
+        {
+          ...baseMeetingNoteRecord,
+          stewardUserId: null,
+          stewardCredentialId: credential.id,
+          stewardKind: "agent" as const,
+          stewardDisplayNameSnapshot: credential.label,
+          stewardUser: null,
+          stewardCredential: credential,
+        },
+      ]);
+
+      const result = await listProjectMeetingNotes({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        stewardFilter: "mine",
+        agentAccess: {
+          credentialId: credential.id,
+          projectId: "project-1",
+          scopes: ["task:read"],
+        },
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.steward).toMatchObject({
+        kind: "agent",
+        id: credential.id,
+        status: "active",
+      });
     });
   });
 });

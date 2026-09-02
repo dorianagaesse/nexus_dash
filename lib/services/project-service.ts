@@ -588,7 +588,7 @@ export async function getProjectSummaryById(
       return null;
     }
 
-    const calendarCredential = await safeFindCalendarCredential(
+    const calendarConnection = await safeFindCalendarConnection(
       db,
       normalizedActorUserId
     );
@@ -602,22 +602,20 @@ export async function getProjectSummaryById(
         contextCards,
         meetingNotes,
         attachmentCount: taskAttachmentCount + contextAttachmentCount,
-        isCalendarConnected: calendarCredential?.revokedAt == null && Boolean(calendarCredential),
+        isCalendarConnected: Boolean(calendarConnection),
       },
     };
   }) as Promise<ProjectSummaryWithStatsRecord | null>;
 }
 
-async function safeFindCalendarCredential(
+async function safeFindCalendarConnection(
   db: DbClient,
   actorUserId: string
-): Promise<{ revokedAt: Date | null } | null> {
+): Promise<{ id: string } | null> {
   try {
-    return await db.googleCalendarCredential.findUnique({
-      where: { userId: actorUserId },
-      select: {
-        revokedAt: true,
-      },
+    return await db.calendarConnection.findFirst({
+      where: { userId: actorUserId, revokedAt: null },
+      select: { id: true },
     });
   } catch (error) {
     if (
@@ -630,10 +628,16 @@ async function safeFindCalendarCredential(
   }
 }
 
+export interface TaskListFilters {
+  epicId?: string;
+  label?: string;
+}
+
 export async function listProjectKanbanTasks(
   projectId: string,
   actorUserId: string,
-  agentAccess?: AgentProjectAccessContext
+  agentAccess?: AgentProjectAccessContext,
+  filters?: TaskListFilters
 ): Promise<ProjectKanbanTaskRecord[]> {
   const normalizedActorUserId = normalizeActorUserId(actorUserId);
   if (!normalizedActorUserId) {
@@ -649,12 +653,35 @@ export async function listProjectKanbanTasks(
     return [];
   }
 
+  const normalizedEpicId = filters?.epicId?.trim() || undefined;
+  const normalizedLabel = filters?.label?.trim() || undefined;
+
   return withActorRlsContext(normalizedActorUserId, async (db) => {
     await archiveStaleDoneTasks(projectId, normalizedActorUserId, db);
 
     return db.task.findMany({
       where: {
         projectId,
+        ...(normalizedEpicId ? { epicId: { equals: normalizedEpicId } } : {}),
+        ...(normalizedLabel
+          ? {
+              OR: [
+                {
+                  label: { equals: normalizedLabel, mode: "insensitive" },
+                },
+                {
+                  // Quoted-JSON containment can false-positive when a stored
+                  // label itself contains an escaped quote (e.g. `My "Docs"`
+                  // matches a `label=Docs` filter); revisit with the TASK-331
+                  // vocabulary work.
+                  labelsJson: {
+                    contains: JSON.stringify(normalizedLabel),
+                    mode: "insensitive",
+                  },
+                },
+              ],
+            }
+          : {}),
         project: buildProjectPrincipalWhere(normalizedActorUserId),
       },
       orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],

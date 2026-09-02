@@ -3,7 +3,8 @@ const DAY_END_HOUR = 19;
 const HOUR_CELL_HEIGHT_PX = 56;
 const COMPACT_EVENT_HEIGHT_PX = 42;
 const TOTAL_DAY_MINUTES = (DAY_END_HOUR - DAY_START_HOUR) * 60;
-const TOTAL_GRID_HEIGHT_PX = (DAY_END_HOUR - DAY_START_HOUR) * HOUR_CELL_HEIGHT_PX;
+const TOTAL_GRID_HEIGHT_PX =
+  (DAY_END_HOUR - DAY_START_HOUR) * HOUR_CELL_HEIGHT_PX;
 
 export const CALENDAR_RANGE = "current-week";
 export const CALENDAR_DAY_START_HOUR = DAY_START_HOUR;
@@ -22,17 +23,86 @@ export interface CalendarEventItem {
   description: string | null;
   htmlLink: string | null;
   status: string;
+  calendarSourceId: string;
+  connectionId: string;
+  calendarName: string;
+  calendarColor: string | null;
+  accountLabel: string;
+  accountEmail: string | null;
+  writable: boolean;
+}
+
+export interface CalendarSourceOption {
+  id: string;
+  connectionId: string;
+  name: string;
+  color: string | null;
+  accountLabel: string;
+  accountEmail: string | null;
+  writable: boolean;
+}
+
+const CALENDAR_FALLBACK_COLORS = [
+  "#2563eb",
+  "#7c3aed",
+  "#0f766e",
+  "#b45309",
+  "#be123c",
+  "#0369a1",
+] as const;
+
+export function resolveCalendarVisualColor(
+  calendarSourceId: string,
+  providerColor: string | null | undefined
+): string {
+  if (providerColor && /^#[0-9a-f]{6}$/i.test(providerColor)) {
+    return providerColor;
+  }
+
+  const hash = Array.from(calendarSourceId).reduce(
+    (value, character) => (value * 31 + character.charCodeAt(0)) >>> 0,
+    0
+  );
+  return CALENDAR_FALLBACK_COLORS[hash % CALENDAR_FALLBACK_COLORS.length];
+}
+
+export function formatCalendarSourceAccount(source: {
+  accountLabel: string;
+  accountEmail: string | null;
+}): string {
+  return source.accountEmail && source.accountEmail !== source.accountLabel
+    ? `${source.accountLabel} (${source.accountEmail})`
+    : source.accountLabel;
 }
 
 export interface CalendarEventsResponse {
   connected: boolean;
+  writable?: boolean;
   calendarId?: string;
   range?: string;
   timeMin?: string;
   timeMax?: string;
   syncedAt?: string;
   events?: CalendarEventItem[];
+  sources?: CalendarSourceOption[];
+  warnings?: Array<{
+    calendarSourceId: string;
+    connectionId: string;
+    error: string;
+  }>;
+  writeSourceId?: string | null;
+  truncated?: boolean;
   error?: string;
+}
+
+export function resolvePreferredWriteSourceId(
+  sources: CalendarSourceOption[],
+  writeSourceId: string | null | undefined
+): string {
+  const writableSources = sources.filter((source) => source.writable);
+  return writableSources.some((source) => source.id === writeSourceId)
+    ? (writeSourceId ?? "")
+    : (writableSources[0]?.id ?? "");
 }
 
 export interface DayEventBucket {
@@ -170,7 +240,8 @@ export function buildTimedEventLayout(event: CalendarEventItem): {
   }
 
   const topPx =
-    ((clippedStart - windowStartMinute) / TOTAL_DAY_MINUTES) * TOTAL_GRID_HEIGHT_PX;
+    ((clippedStart - windowStartMinute) / TOTAL_DAY_MINUTES) *
+    TOTAL_GRID_HEIGHT_PX;
   const heightPx = Math.max(
     24,
     ((clippedEnd - clippedStart) / TOTAL_DAY_MINUTES) * TOTAL_GRID_HEIGHT_PX
@@ -216,7 +287,9 @@ export function buildDefaultTimedWindow() {
   };
 }
 
-export function parseEventForForm(event: CalendarEventItem): CalendarEventFormState {
+export function parseEventForForm(
+  event: CalendarEventItem
+): CalendarEventFormState {
   if (event.isAllDay) {
     const startDate = /^\d{4}-\d{2}-\d{2}$/.test(event.start)
       ? event.start
@@ -290,6 +363,10 @@ export function parseDateTimeInputValue(value: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+export function toCalendarEventDateTime(value: string): string | null {
+  return parseDateTimeInputValue(value)?.toISOString() ?? null;
+}
+
 export function toMonthStart(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
@@ -315,8 +392,13 @@ export function buildCalendarGrid(monthDate: Date): Date[] {
   });
 }
 
-export function formatPickerFieldValue(value: string, includeTime: boolean): string {
-  const parsed = includeTime ? parseDateTimeInputValue(value) : parseDateInputValue(value);
+export function formatPickerFieldValue(
+  value: string,
+  includeTime: boolean
+): string {
+  const parsed = includeTime
+    ? parseDateTimeInputValue(value)
+    : parseDateInputValue(value);
   if (!parsed) {
     return includeTime ? "Select date and time" : "Select date";
   }

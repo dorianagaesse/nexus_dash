@@ -1,22 +1,36 @@
-import { getOptionalServerEnv, getRequiredServerEnv } from "@/lib/env.server";
+import {
+  getOptionalServerEnv,
+  getRequiredServerEnv,
+  isPreviewDeployment,
+} from "@/lib/env.server";
 import { normalizeReturnToPath } from "@/lib/navigation/return-to";
 
 export { normalizeReturnToPath } from "@/lib/navigation/return-to";
 
 const GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
+const GOOGLE_REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke";
 export const GOOGLE_OAUTH_CALLBACK_PATH = "/api/auth/callback/google";
 export const GOOGLE_CALENDAR_SCOPE_EVENTS =
   "https://www.googleapis.com/auth/calendar.events";
+export const GOOGLE_CALENDAR_LIST_SCOPE_READONLY =
+  "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
 export const GOOGLE_CALENDAR_SCOPE_READONLY =
   "https://www.googleapis.com/auth/calendar.readonly";
 export const GOOGLE_CALENDAR_SCOPE_FULL =
   "https://www.googleapis.com/auth/calendar";
-const GOOGLE_CALENDAR_SCOPE = GOOGLE_CALENDAR_SCOPE_EVENTS;
+const GOOGLE_CALENDAR_SCOPES = [
+  "openid",
+  "email",
+  GOOGLE_CALENDAR_SCOPE_EVENTS,
+  GOOGLE_CALENDAR_LIST_SCOPE_READONLY,
+].join(" ");
 
 export const GOOGLE_OAUTH_STATE_COOKIE = "nexusdash_google_oauth_state";
 export const GOOGLE_OAUTH_RETURN_TO_COOKIE = "nexusdash_google_oauth_return_to";
 export const GOOGLE_OAUTH_ACTOR_COOKIE = "nexusdash_google_oauth_actor";
+export const GOOGLE_OAUTH_INTENT_COOKIE = "nexusdash_google_oauth_intent";
+export const GOOGLE_OAUTH_CONNECTION_COOKIE = "nexusdash_google_oauth_connection";
 export const DEFAULT_CALENDAR_EVENT_DAYS = 14;
 
 interface GoogleOAuthEnv {
@@ -63,6 +77,30 @@ function normalizeOrigin(value: string): string | null {
 
 export function resolveGoogleOAuthRedirectUri(appOrigin?: string): string {
   const configuredRedirectUri = getOptionalServerEnv("GOOGLE_REDIRECT_URI");
+  const requestOrigin = appOrigin ? normalizeOrigin(appOrigin) : null;
+
+  if (isPreviewDeployment()) {
+    // Preview callbacks must derive from the current request: state cookies
+    // are host-scoped, so a pinned GOOGLE_REDIRECT_URI pointing at a stale
+    // or foreign origin (e.g. an old immutable host that redirects to
+    // production) breaks the flow. Only honor a pin on the request origin.
+    const configuredOrigin = normalizeOrigin(configuredRedirectUri ?? "");
+    if (
+      configuredOrigin !== null &&
+      requestOrigin !== null &&
+      configuredOrigin === requestOrigin
+    ) {
+      return configuredRedirectUri!;
+    }
+    if (!appOrigin) {
+      throw new Error("missing-google-redirect-uri");
+    }
+    if (!requestOrigin) {
+      throw new Error("invalid-google-redirect-origin");
+    }
+    return new URL(GOOGLE_OAUTH_CALLBACK_PATH, requestOrigin).toString();
+  }
+
   if (configuredRedirectUri) {
     return configuredRedirectUri;
   }
@@ -70,13 +108,11 @@ export function resolveGoogleOAuthRedirectUri(appOrigin?: string): string {
   if (!appOrigin) {
     throw new Error("missing-google-redirect-uri");
   }
-
-  const origin = normalizeOrigin(appOrigin);
-  if (!origin) {
+  if (!requestOrigin) {
     throw new Error("invalid-google-redirect-origin");
   }
 
-  return new URL(GOOGLE_OAUTH_CALLBACK_PATH, origin).toString();
+  return new URL(GOOGLE_OAUTH_CALLBACK_PATH, requestOrigin).toString();
 }
 
 export function getGoogleCalendarId(): string {
@@ -93,7 +129,7 @@ export function buildGoogleOAuthUrl(state: string, redirectUri: string): string 
     access_type: "offline",
     prompt: "consent",
     include_granted_scopes: "true",
-    scope: GOOGLE_CALENDAR_SCOPE,
+    scope: GOOGLE_CALENDAR_SCOPES,
     state,
   });
 
@@ -185,6 +221,19 @@ export async function refreshAccessToken(
   });
 
   return postTokenForm(body);
+}
+
+export async function revokeGoogleToken(token: string): Promise<boolean> {
+  const response = await fetch(GOOGLE_REVOKE_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({ token }),
+    cache: "no-store",
+  });
+
+  return response.ok;
 }
 
 export function createExpiryDate(expiresInSeconds: number): Date {

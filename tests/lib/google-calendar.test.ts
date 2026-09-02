@@ -9,6 +9,7 @@ import {
   normalizeReturnToPath,
   parseTokenResponse,
   refreshAccessToken,
+  revokeGoogleToken,
   resolveGoogleOAuthRedirectUri,
 } from "@/lib/google-calendar";
 
@@ -50,14 +51,58 @@ describe("google-calendar", () => {
     expect(url.searchParams.get("redirect_uri")).toBe(
       "http://localhost:3000/api/auth/callback/google"
     );
-    expect(url.searchParams.get("scope")).toBe(
-      "https://www.googleapis.com/auth/calendar.events"
+    expect(url.searchParams.get("scope")?.split(" ")).toEqual(
+      expect.arrayContaining([
+        "openid",
+        "email",
+        "https://www.googleapis.com/auth/calendar.events",
+        "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+      ])
     );
   });
 
   test("resolves redirect uri from configured env override", () => {
     expect(resolveGoogleOAuthRedirectUri("https://ignored.example.com")).toBe(
       "http://localhost:3000/api/auth/google/callback"
+    );
+  });
+
+  test("derives redirect uri from request origin in preview when the pin is stale", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv(
+      "GOOGLE_REDIRECT_URI",
+      "https://nexus-dash-wheat.vercel.app/api/auth/callback/google"
+    );
+
+    expect(resolveGoogleOAuthRedirectUri("https://nexus-dash-abc123.vercel.app")).toBe(
+      "https://nexus-dash-abc123.vercel.app/api/auth/callback/google"
+    );
+  });
+
+  test("honors a redirect uri pin in preview only when it matches the request origin", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv(
+      "GOOGLE_REDIRECT_URI",
+      "https://nexus-dash.app/api/auth/callback/google"
+    );
+
+    expect(resolveGoogleOAuthRedirectUri("https://nexus-dash.app")).toBe(
+      "https://nexus-dash.app/api/auth/callback/google"
+    );
+  });
+
+  test("throws in preview when no request origin can resolve the callback", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv(
+      "GOOGLE_REDIRECT_URI",
+      "https://nexus-dash-wheat.vercel.app/api/auth/callback/google"
+    );
+
+    expect(() => resolveGoogleOAuthRedirectUri()).toThrow(
+      "missing-google-redirect-uri"
     );
   });
 
@@ -142,5 +187,17 @@ describe("google-calendar", () => {
     );
 
     await expect(refreshAccessToken("bad-refresh")).rejects.toThrow("invalid_grant");
+  });
+
+  test("revokes a refresh token through Google's server endpoint", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 200 }));
+
+    await expect(revokeGoogleToken("refresh-token")).resolves.toBe(true);
+    const request = fetchSpy.mock.calls[0];
+    expect(request[0]).toBe("https://oauth2.googleapis.com/revoke");
+    expect(request[1]).toMatchObject({ method: "POST" });
+    expect((request[1]?.body as URLSearchParams).get("token")).toBe("refresh-token");
   });
 });

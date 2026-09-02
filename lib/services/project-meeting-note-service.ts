@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+
 import { logServerError } from "@/lib/observability/logger";
 import {
   normalizeMeetingParticipantName,
@@ -96,6 +98,14 @@ export interface MeetingNoteUpdateInput extends MeetingNoteMutationInput {
   noteId: string;
 }
 
+export interface MeetingNoteStewardInput {
+  actorUserId: string;
+  projectId: string;
+  noteId: string;
+  steward: MeetingTodoActorReference | null;
+  agentAccess?: AgentProjectAccessContext;
+}
+
 export interface ProjectMeetingNoteSummary {
   id: string;
   projectId: string;
@@ -108,8 +118,11 @@ export interface ProjectMeetingNoteSummary {
   outputNotes: string;
   decisions: string;
   actions: ProjectMeetingNoteActionSummary[];
+  steward: MeetingTodoActorSummary | null;
   createdAt: Date;
   updatedAt: Date;
+  createdBy: MeetingTodoActorSummary | null;
+  updatedBy: MeetingTodoActorSummary | null;
 }
 
 export interface ProjectMeetingNoteActionSummary {
@@ -179,6 +192,14 @@ type MeetingNoteRecord = {
   decisions: string;
   createdAt: Date;
   updatedAt: Date;
+  stewardUserId: string | null;
+  stewardCredentialId: string | null;
+  stewardKind: "human" | "agent" | null;
+  stewardDisplayNameSnapshot: string | null;
+  stewardUser: TaskPersonRecord | null;
+  stewardCredential: MeetingTodoActorCredentialRecord | null;
+  createdByUser: TaskPersonRecord;
+  updatedByUser: TaskPersonRecord;
   actions: Array<MeetingTodoStoredActorFields & {
     id: string;
     content: string;
@@ -194,6 +215,13 @@ const meetingTodoActionActorInclude = {
   assigneeCredential: { select: meetingTodoActorCredentialSelect },
   completedByUser: { select: meetingTodoActorUserSelect },
   completedByCredential: { select: meetingTodoActorCredentialSelect },
+} as const;
+
+const meetingNoteActorInclude = {
+  stewardUser: { select: meetingTodoActorUserSelect },
+  stewardCredential: { select: meetingTodoActorCredentialSelect },
+  createdByUser: { select: meetingTodoActorUserSelect },
+  updatedByUser: { select: meetingTodoActorUserSelect },
 } as const;
 
 function createError(status: number, error: string): ServiceErrorResult {
@@ -377,6 +405,85 @@ function validateMeetingNoteDraft(input: {
   return null;
 }
 
+interface RlsSafeMeetingActorRow {
+  kind: "human" | "agent";
+  actorId: string;
+  name: string | null;
+  email: string | null;
+  username: string | null;
+  usernameDiscriminator: string | null;
+  avatarSeed: string | null;
+  label: string | null;
+  revokedAt: Date | null;
+  expiresAt: Date | null;
+}
+
+async function loadMeetingNoteActorRegistry(input: {
+  db: DbClient;
+  projectId: string;
+}): Promise<MeetingTodoActorRegistry | null> {
+  const [visibleRegistry, projectedRows] = await Promise.all([
+    loadMeetingTodoActorRegistry(input),
+    input.db.$queryRaw<RlsSafeMeetingActorRow[]>(Prisma.sql`
+      SELECT *
+      FROM app.list_project_meeting_note_actors(${input.projectId})
+    `),
+  ]);
+
+  const activeHumanIds = new Set(visibleRegistry?.activeHumanIds ?? []);
+  const humanById = new Map(visibleRegistry?.humanById ?? []);
+  const credentialById = new Map(visibleRegistry?.credentialById ?? []);
+
+  for (const row of projectedRows) {
+    if (row.kind === "human") {
+      const actor = mapStoredMeetingTodoActor({
+        kind: "human",
+        id: row.actorId,
+        displayNameSnapshot: null,
+        user: {
+          id: row.actorId,
+          name: row.name,
+          email: row.email,
+          username: row.username,
+          usernameDiscriminator: row.usernameDiscriminator,
+          avatarSeed: row.avatarSeed,
+        },
+        isCurrentProjectHuman: true,
+      });
+      if (actor) {
+        activeHumanIds.add(row.actorId);
+        humanById.set(row.actorId, actor);
+      }
+      continue;
+    }
+
+    const actor = mapStoredMeetingTodoActor({
+      kind: "agent",
+      id: row.actorId,
+      displayNameSnapshot: row.label,
+      credential: {
+        id: row.actorId,
+        label: row.label ?? "Project agent",
+        projectId: input.projectId,
+        revokedAt: row.revokedAt,
+        expiresAt: row.expiresAt,
+      },
+    });
+    if (actor) {
+      credentialById.set(row.actorId, actor);
+    }
+  }
+
+  if (!visibleRegistry && projectedRows.length === 0) {
+    return null;
+  }
+
+  const assignable = [...humanById.values(), ...credentialById.values()].filter(
+    (actor) => actor.isAssignable
+  );
+  return { activeHumanIds, humanById, credentialById, assignable };
+}
+
 function mapActionActor(input: {
   kind: "human" | "agent" | null;
   userId: string | null;
@@ -389,6 +496,15 @@ function mapActionActor(input: {
   if (!input.kind) {
     return null;
   }
+  const actorId = input.kind === "human" ? input.userId : input.credentialId;
+  const projectedActor = actorId
+    ? input.kind === "human"
+      ? input.registry?.humanById.get(actorId)
+      : input.registry?.credentialById.get(actorId)
+    : null;
+  if (projectedActor) {
+    return projectedActor;
+  }
   return mapStoredMeetingTodoActor({
     kind: input.kind,
     id: input.kind === "human" ? input.userId : input.credentialId,
@@ -399,6 +515,30 @@ function mapActionActor(input: {
       input.kind === "human" && Boolean(input.userId) &&
       Boolean(input.registry?.activeHumanIds.has(input.userId ?? "")),
   });
+}
+
+function mapNoteActor(input: {
+  kind: "human" | "agent" | null;
+  userId: string | null;
+  credentialId: string | null;
+  snapshot: string | null;
+  user: TaskPersonRecord | null;
+  credential: MeetingTodoActorCredentialRecord | null;
+  registry: MeetingTodoActorRegistry | null;
+}): MeetingTodoActorSummary | null {
+  return mapActionActor(input);
+}
+
+function isCurrentActiveActor(
+  actor: MeetingTodoActorSummary | null,
+  currentActor: MeetingTodoActorReference
+): boolean {
+  return (
+    actor !== null &&
+    actor.status === "active" &&
+    actor.kind === currentActor.kind &&
+    actor.id === currentActor.id
+  );
 }
 
 function mapMeetingNote(
@@ -472,6 +612,33 @@ function mapMeetingNote(
       })),
     createdAt: note.createdAt,
     updatedAt: note.updatedAt,
+    steward: mapNoteActor({
+      kind: note.stewardKind,
+      userId: note.stewardUserId,
+      credentialId: note.stewardCredentialId,
+      snapshot: note.stewardDisplayNameSnapshot,
+      user: note.stewardUser,
+      credential: note.stewardCredential,
+      registry,
+    }),
+    createdBy: mapNoteActor({
+      kind: "human",
+      userId: note.createdByUser.id,
+      credentialId: null,
+      snapshot: null,
+      user: note.createdByUser,
+      credential: null,
+      registry,
+    }),
+    updatedBy: mapNoteActor({
+      kind: "human",
+      userId: note.updatedByUser.id,
+      credentialId: null,
+      snapshot: null,
+      user: note.updatedByUser,
+      credential: null,
+      registry,
+    }),
   };
 }
 
@@ -487,12 +654,29 @@ function noteMatchesSearch(note: ProjectMeetingNoteSummary, query: string): bool
     note.status,
     note.inputNotes,
     note.outputNotes,
+    note.steward?.displayName ?? "",
     ...note.actions.map((action) => action.content),
   ]
     .join(" ")
     .toLocaleLowerCase();
 
   return haystack.includes(query.toLocaleLowerCase());
+}
+
+function noteMatchesStewardFilter(input: {
+  note: ProjectMeetingNoteSummary;
+  stewardFilter: "all" | "mine" | "unassigned";
+  currentActor: MeetingTodoActorReference;
+}): boolean {
+  if (input.stewardFilter === "all") {
+    return true;
+  }
+
+  if (input.stewardFilter === "unassigned") {
+    return input.note.steward === null;
+  }
+
+  return isCurrentActiveActor(input.note.steward, input.currentActor);
 }
 
 async function readMeetingNoteById(input: {
@@ -507,6 +691,7 @@ async function readMeetingNoteById(input: {
       projectId: input.projectId,
     },
     include: {
+      ...meetingNoteActorInclude,
       participants: {
         orderBy: [{ position: "asc" }, { createdAt: "asc" }],
         include: {
@@ -521,7 +706,7 @@ async function readMeetingNoteById(input: {
       },
     },
     }),
-    loadMeetingTodoActorRegistry({
+    loadMeetingNoteActorRegistry({
       db: input.db,
       projectId: input.projectId,
     }),
@@ -714,6 +899,7 @@ export async function listProjectMeetingNotes(input: {
   actorUserId: string;
   projectId: string;
   query?: string | null;
+  stewardFilter?: "all" | "mine" | "unassigned";
   agentAccess?: AgentProjectAccessContext;
 }): Promise<ProjectMeetingNoteSummary[]> {
   const actorUserId = normalizeText(input.actorUserId);
@@ -731,6 +917,11 @@ export async function listProjectMeetingNotes(input: {
       return [];
     }
   }
+
+  const stewardFilter = input.stewardFilter ?? "all";
+  const currentActor: MeetingTodoActorReference = input.agentAccess
+    ? { kind: "agent", id: input.agentAccess.credentialId }
+    : { kind: "human", id: actorUserId };
 
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
@@ -750,6 +941,7 @@ export async function listProjectMeetingNotes(input: {
       },
       orderBy: [{ scheduledAt: "desc" }, { createdAt: "desc" }],
       include: {
+        ...meetingNoteActorInclude,
         participants: {
           orderBy: [{ position: "asc" }, { createdAt: "asc" }],
           include: {
@@ -764,13 +956,20 @@ export async function listProjectMeetingNotes(input: {
         },
       },
       }),
-      loadMeetingTodoActorRegistry({ db, projectId: input.projectId }),
+      loadMeetingNoteActorRegistry({ db, projectId: input.projectId }),
     ]);
 
     const query = normalizeText(input.query).toLocaleLowerCase();
     return notes
       .map((note) => mapMeetingNote(note, registry))
-      .filter((note) => noteMatchesSearch(note, query));
+      .filter((note) => noteMatchesSearch(note, query))
+      .filter((note) =>
+        noteMatchesStewardFilter({
+          note,
+          stewardFilter,
+          currentActor,
+        })
+      );
   }) as Promise<ProjectMeetingNoteSummary[]>;
 }
 
@@ -827,7 +1026,7 @@ export async function createProjectMeetingNote(
             projectId: input.projectId,
             agentAccess: input.agentAccess,
           }),
-          loadMeetingTodoActorRegistry({ db, projectId: input.projectId }),
+          loadMeetingNoteActorRegistry({ db, projectId: input.projectId }),
         ]);
       if (!participantResolution.ok) {
         return participantResolution;
@@ -858,6 +1057,10 @@ export async function createProjectMeetingNote(
           decisions: draft.decisions,
           createdByUserId: actorUserId,
           updatedByUserId: actorUserId,
+          stewardUserId: mutationActor.actor.userId,
+          stewardCredentialId: mutationActor.actor.credentialId,
+          stewardKind: mutationActor.actor.summary.kind,
+          stewardDisplayNameSnapshot: mutationActor.actor.displayNameSnapshot,
           actions: {
             create: draft.actions.map((action, index) => ({
               content: action.content,
@@ -978,7 +1181,7 @@ export async function updateProjectMeetingNote(
             projectId: input.projectId,
             agentAccess: input.agentAccess,
           }),
-          loadMeetingTodoActorRegistry({ db, projectId: input.projectId }),
+          loadMeetingNoteActorRegistry({ db, projectId: input.projectId }),
         ]);
       if (!participantResolution.ok) {
         return participantResolution;
@@ -1265,7 +1468,7 @@ export async function setProjectMeetingNoteActionAssignee(
 
     const assignment = input.assignee
       ? await (async () => {
-          const registry = await loadMeetingTodoActorRegistry({
+          const registry = await loadMeetingNoteActorRegistry({
             db,
             projectId: input.projectId,
           });
@@ -1314,6 +1517,105 @@ export async function setProjectMeetingNoteActionAssignee(
     } catch (error) {
       logServerError("setProjectMeetingNoteActionAssignee", error);
       return createError(500, "meeting-note-action-update-failed");
+    }
+  });
+}
+
+export async function setProjectMeetingNoteSteward(
+  input: MeetingNoteStewardInput
+): Promise<ServiceResult<{ note: ProjectMeetingNoteSummary }>> {
+  const actorUserId = normalizeText(input.actorUserId);
+  const noteId = normalizeText(input.noteId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+  if (!noteId) {
+    return createError(400, "meeting-note-not-found");
+  }
+
+  if (input.agentAccess) {
+    const agentScopeAccess = requireAgentProjectScopes({
+      agentAccess: input.agentAccess,
+      projectId: input.projectId,
+      requiredScopes: ["task:write"],
+    });
+    if (!agentScopeAccess.ok) {
+      return createError(agentScopeAccess.status, agentScopeAccess.error);
+    }
+  }
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
+
+    const existing = await db.projectMeetingNote.findFirst({
+      where: { id: noteId, projectId: input.projectId },
+      select: { id: true },
+    });
+    if (!existing) {
+      return createError(404, "meeting-note-not-found");
+    }
+
+    const stewardUpdate = input.steward
+      ? await (async () => {
+          const registry = await loadMeetingNoteActorRegistry({
+            db,
+            projectId: input.projectId,
+          });
+          return resolveAssignableMeetingTodoActorFromRegistry({
+            registry,
+            reference: input.steward as MeetingTodoActorReference,
+          });
+        })()
+      : null;
+    if (stewardUpdate && !stewardUpdate.ok) {
+      const errorCode =
+        stewardUpdate.error === "meeting-note-action-assignee-invalid"
+          ? "meeting-note-steward-invalid"
+          : stewardUpdate.error;
+      return createError(stewardUpdate.status, errorCode);
+    }
+
+    try {
+      await db.projectMeetingNote.update({
+        where: { id: noteId },
+        data: stewardUpdate
+          ? {
+              stewardKind: stewardUpdate.actor.summary.kind,
+              stewardUserId: stewardUpdate.actor.userId,
+              stewardCredentialId: stewardUpdate.actor.credentialId,
+              stewardDisplayNameSnapshot: stewardUpdate.actor.displayNameSnapshot,
+              updatedByUserId: actorUserId,
+            }
+          : {
+              stewardKind: null,
+              stewardUserId: null,
+              stewardCredentialId: null,
+              stewardDisplayNameSnapshot: null,
+              updatedByUserId: actorUserId,
+            },
+      });
+
+      const note = await readMeetingNoteById({
+        db,
+        projectId: input.projectId,
+        noteId,
+      });
+      if (!note) {
+        return createError(404, "meeting-note-not-found");
+      }
+      await touchProjectActivity({ db, projectId: input.projectId });
+      return { ok: true, data: { note } };
+    } catch (error) {
+      logServerError("setProjectMeetingNoteSteward", error);
+      return createError(500, "meeting-note-steward-update-failed");
     }
   });
 }
