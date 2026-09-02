@@ -30,18 +30,10 @@ export interface ProjectContextActorSummary {
   isAssignable: boolean;
 }
 
-export interface ProjectContextReviewState {
-  needsReview: boolean;
-  thresholdDays: number;
-  lastEditedAt: string;
-}
-
 export interface ProjectContextCardProjection {
   id: string;
   creator: ProjectContextActorSummary | null;
   lastEditor: ProjectContextActorSummary | null;
-  steward: ProjectContextActorSummary | null;
-  review: ProjectContextReviewState;
   attachments: ProjectContextAttachmentProjection[];
 }
 

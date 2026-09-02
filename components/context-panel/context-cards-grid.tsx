@@ -4,9 +4,6 @@ import { MoreHorizontal, Paperclip, Pencil, PlusSquare, Trash2 } from "lucide-re
 import {
   ContextCardActorChip,
 } from "@/components/context-panel/context-card-actor-chip";
-import {
-  ContextCardReviewBadge,
-} from "@/components/context-panel/context-card-review-badge";
 import type {
   ProjectContextAttachment,
   ProjectContextCard,
@@ -113,12 +110,17 @@ export function ContextCardsGrid({
             </div>
 
             <div className="mt-2 flex flex-wrap items-center gap-1">
-              <ContextCardReviewBadge review={card.projection.review} />
               <ContextCardActorChip
-                actor={card.projection.steward}
-                label="Steward"
-                fallback="Unassigned"
-                needsReassignment
+                actor={card.projection.creator}
+                label="Created"
+                fallback="Unknown"
+                timestamp={card.createdAt}
+              />
+              <ContextCardActorChip
+                actor={card.projection.lastEditor}
+                label="Last edit"
+                fallback="No edits yet"
+                timestamp={card.updatedAt}
               />
             </div>
 

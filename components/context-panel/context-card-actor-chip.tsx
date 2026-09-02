@@ -1,6 +1,7 @@
 import { UserRound } from "lucide-react";
 
 import type { ProjectContextActorSummary } from "@/components/project-context-panel-types";
+import { formatContextCardDate } from "@/components/project-context-panel-utils";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/utils";
@@ -9,8 +10,8 @@ interface ContextCardActorChipProps {
   actor: ProjectContextActorSummary | null;
   fallback: string;
   label?: string;
+  timestamp?: string | null;
   className?: string;
-  needsReassignment?: boolean;
 }
 
 const STATUS_LABEL: Record<ProjectContextActorSummary["status"], string> = {
@@ -20,39 +21,39 @@ const STATUS_LABEL: Record<ProjectContextActorSummary["status"], string> = {
   expired: "expired credential",
 };
 
+// Cards keep their light pastel background in both themes, so chips use a
+// fixed light surface with dark text instead of theme tokens, which would be
+// unreadable in dark mode (dark chip on dark card).
+const CHIP_CLASS =
+  "inline-flex items-center gap-1 rounded-full border border-slate-900/15 bg-white/70 px-2 py-0.5 text-[11px] text-slate-800";
+
 export function ContextCardActorChip({
   actor,
   fallback,
   label,
+  timestamp,
   className,
-  needsReassignment = false,
 }: ContextCardActorChipProps) {
+  const dateLabel = timestamp ? formatContextCardDate(timestamp) : "";
+
   if (!actor) {
     return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground",
-          className
-        )}
-      >
+      <span className={cn(CHIP_CLASS, className)}>
         <UserRound className="h-3 w-3" aria-hidden="true" />
-        <span className="truncate">{label ? `${label}: ` : ""}{fallback}</span>
+        <span className="truncate">
+          {label ? `${label}: ` : ""}
+          {fallback}
+          {dateLabel ? <span className="text-slate-600"> · {dateLabel}</span> : null}
+        </span>
       </span>
     );
   }
 
   const statusLabel =
     actor.status === "active" ? "" : ` · ${STATUS_LABEL[actor.status]}`;
-  const reassignmentLabel =
-    needsReassignment && !actor.isAssignable ? " · Needs reassignment" : "";
 
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/70 px-2 py-0.5 text-[11px] text-slate-800",
-        className
-      )}
-    >
+    <span className={cn(CHIP_CLASS, className)}>
       {actor.kind === "agent" ? (
         <AgentAvatar
           displayName={actor.displayName}
@@ -70,12 +71,8 @@ export function ContextCardActorChip({
       <span className="truncate">
         {label ? `${label}: ` : ""}
         <span className="font-medium">{actor.displayName}</span>
-        <span className="text-muted-foreground">{statusLabel}</span>
-        {reassignmentLabel ? (
-          <span className="font-medium text-amber-700 dark:text-amber-200">
-            {reassignmentLabel}
-          </span>
-        ) : null}
+        <span className="text-slate-600">{statusLabel}</span>
+        {dateLabel ? <span className="text-slate-600"> · {dateLabel}</span> : null}
       </span>
     </span>
   );

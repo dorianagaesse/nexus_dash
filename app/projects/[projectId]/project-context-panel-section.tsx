@@ -42,7 +42,6 @@ export async function ProjectContextPanelSection({
     actorUserId,
     projectId,
   });
-  const assignableActors = registry?.assignable ?? [];
   const now = new Date();
 
   const cards = resources.map((resource) => {
@@ -87,12 +86,6 @@ export async function ProjectContextPanelSection({
             : (attachmentProjection.uploadedAt as unknown as string),
       }));
 
-    const lastEditedAt = (
-      projection.review.lastEditedAt instanceof Date
-        ? projection.review.lastEditedAt.toISOString()
-        : projection.review.lastEditedAt
-    ) as string;
-
     return {
       id: resource.id,
       title: resource.name,
@@ -105,12 +98,6 @@ export async function ProjectContextPanelSection({
         id: projection.id,
         creator: projection.creator as ProjectContextActorSummary | null,
         lastEditor: projection.lastEditor as ProjectContextActorSummary | null,
-        steward: projection.steward as ProjectContextActorSummary | null,
-        review: {
-          needsReview: projection.review.needsReview,
-          thresholdDays: projection.review.thresholdDays,
-          lastEditedAt,
-        },
         attachments: attachmentProjections,
       },
     };
@@ -122,7 +109,6 @@ export async function ProjectContextPanelSection({
       projectId={projectId}
       storageProvider={storageProvider}
       cards={cards}
-      assignableActors={assignableActors as ProjectContextActorSummary[]}
     />
   );
 }
