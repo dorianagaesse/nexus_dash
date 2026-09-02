@@ -14,7 +14,7 @@
 | `project.md` | **What exists.** Architecture snapshot, data model, known gaps, active priorities (TASK-124/126/127/131). |
 | `README.md` | **Runtime reference.** Local setup, env vars, scripts, auth model, storage, CI/CD, testing, runbooks. |
 | `tasks/current.md` | Active task scope with acceptance criteria and definition of done. |
-| `tasks/backlog.md` | Pending/completed task queue and sequencing. |
+| `tasks/backlog.md` | Migration record — the backlog now lives in Nexus Dash (see `.config/.nd-nexus-dash.env`). |
 | `journal.md` | Execution log — blockers, decisions, validation outcomes. |
 | `adr/decisions.md` + `adr/*.md` | Architecture decisions with rationale. |
 
@@ -39,7 +39,7 @@ For UI/auth/calendar/upload flows: also `npm run test:e2e`.
 
 In the same PR:
 - `tasks/current.md` — mark done, update status
-- `tasks/backlog.md` — sequencing changes if scope evolved
+- Nexus Dash kanban — task status, sequencing, and new tasks
 - `journal.md` — log execution events, blockers, decisions, validation outcomes
 - `adr/decisions.md` or `adr/*.md` — architecture-impacting decisions only
 

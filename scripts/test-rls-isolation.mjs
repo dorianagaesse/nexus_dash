@@ -39,6 +39,10 @@ const ids = {
   credentialB: `rls_credential_b_${suffix}`,
   auditA: `rls_audit_a_${suffix}`,
   auditB: `rls_audit_b_${suffix}`,
+  calendarA: `rls_calendar_a_${suffix}`,
+  calendarB: `rls_calendar_b_${suffix}`,
+  calendarSourceA: `rls_calendar_source_a_${suffix}`,
+  calendarSourceB: `rls_calendar_source_b_${suffix}`,
 };
 
 const admin = new Client({ connectionString: adminDatabaseUrl });
@@ -206,6 +210,44 @@ async function seed() {
       ids.projectB,
       ids.credentialB,
       ids.ownerB,
+    ]
+  );
+  await admin.query(
+    `INSERT INTO "CalendarConnection"
+      ("id", "userId", "provider", "providerAccountId", "accountLabel", "refreshToken", "createdAt", "updatedAt")
+     VALUES
+       ($1, $2, 'google', 'sub-a', 'Account A', 'refresh-a', NOW(), NOW()),
+       ($3, $4, 'google', 'sub-b', 'Account B', 'refresh-b', NOW(), NOW())`,
+    [ids.calendarA, ids.ownerA, ids.calendarB, ids.ownerB]
+  );
+  await admin.query(
+    `INSERT INTO "CalendarSource"
+      ("id", "userId", "connectionId", "providerCalendarId", "name", "accessRole", "isPrimary", "isSelected", "createdAt", "updatedAt")
+     VALUES
+       ($1, $2, $3, 'primary-a', 'Primary A', 'owner', true, true, NOW(), NOW()),
+       ($4, $5, $6, 'primary-b', 'Primary B', 'owner', true, true, NOW(), NOW())`,
+    [
+      ids.calendarSourceA,
+      ids.ownerA,
+      ids.calendarA,
+      ids.calendarSourceB,
+      ids.ownerB,
+      ids.calendarB,
+    ]
+  );
+  await admin.query(
+    `INSERT INTO "CalendarPreference"
+      ("userId", "defaultConnectionId", "writeSourceId", "createdAt", "updatedAt")
+     VALUES
+       ($1, $2, $3, NOW(), NOW()),
+       ($4, $5, $6, NOW(), NOW())`,
+    [
+      ids.ownerA,
+      ids.calendarA,
+      ids.calendarSourceA,
+      ids.ownerB,
+      ids.calendarB,
+      ids.calendarSourceB,
     ]
   );
 }
@@ -439,6 +481,67 @@ try {
   );
   assert.deepEqual(ownerAAudit.rows.map((row) => row.id), [ids.auditA]);
 
+  const ownerACalendarCredentials = await runtimeTransaction(ids.ownerA, () =>
+    runtime.query(
+      `SELECT "id" FROM "CalendarConnection" WHERE "id" IN ($1, $2)`,
+      [ids.calendarA, ids.calendarB]
+    )
+  );
+  assert.deepEqual(ownerACalendarCredentials.rows.map((row) => row.id), [
+    ids.calendarA,
+  ]);
+
+  const crossCalendarUpdate = await runtimeTransaction(ids.ownerA, () =>
+    runtime.query(
+      `UPDATE "CalendarConnection" SET "accountLabel" = 'blocked' WHERE "id" = $1`,
+      [ids.calendarB]
+    )
+  );
+  assert.equal(crossCalendarUpdate.rowCount, 0);
+
+  const crossCalendarDelete = await runtimeTransaction(ids.ownerA, () =>
+    runtime.query(`DELETE FROM "CalendarConnection" WHERE "id" = $1`, [
+      ids.calendarB,
+    ])
+  );
+  assert.equal(crossCalendarDelete.rowCount, 0);
+
+  await expectRlsViolation(
+    () =>
+      runtimeTransaction(ids.ownerA, () =>
+        runtime.query(
+          `INSERT INTO "CalendarConnection"
+            ("id", "userId", "provider", "providerAccountId", "accountLabel", "refreshToken", "createdAt", "updatedAt")
+           VALUES ($1, $2, 'google', 'blocked-sub', 'Blocked', 'blocked', NOW(), NOW())`,
+          [`rls_cross_calendar_${suffix}`, ids.ownerB]
+        )
+      ),
+    "cross-user calendar credential insert"
+  );
+
+  const ownerASources = await runtimeTransaction(ids.ownerA, () =>
+    runtime.query(`SELECT "id" FROM "CalendarSource" WHERE "id" IN ($1, $2)`, [
+      ids.calendarSourceA,
+      ids.calendarSourceB,
+    ])
+  );
+  assert.deepEqual(ownerASources.rows.map((row) => row.id), [ids.calendarSourceA]);
+
+  const crossSourceUpdate = await runtimeTransaction(ids.ownerA, () =>
+    runtime.query(`UPDATE "CalendarSource" SET "isSelected" = false WHERE "id" = $1`, [
+      ids.calendarSourceB,
+    ])
+  );
+  assert.equal(crossSourceUpdate.rowCount, 0);
+
+  const ownerAPreferences = await runtimeTransaction(ids.ownerA, () =>
+    runtime.query(`SELECT "userId" FROM "CalendarPreference" WHERE "userId" IN ($1, $2)`, [
+      ids.ownerA,
+      ids.ownerB,
+    ])
+  );
+  assert.deepEqual(ownerAPreferences.rows.map((row) => row.userId), [ids.ownerA]);
+
   const crossCredentialUpdate = await runtimeTransaction(ids.ownerA, () =>
     runtime.query(`UPDATE "ApiCredential" SET "label" = 'Cross' WHERE "id" = $1`, [
       ids.credentialB,
@@ -467,7 +570,7 @@ try {
   assert.equal(missingLookup.rowCount, 0);
 
   console.log(
-    "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, revoked membership, and agent credentials."
+    "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, revoked membership, Calendar connections/sources/preferences, and agent credentials."
   );
 } finally {
   await cleanup().catch(() => undefined);

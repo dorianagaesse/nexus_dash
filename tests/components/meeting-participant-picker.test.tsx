@@ -12,7 +12,9 @@ import type {
 } from "@/lib/meeting-participant";
 
 (globalThis as { React?: typeof React }).React = React;
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 const COLLABORATORS: ProjectMeetingParticipantCollaborator[] = [
   {
@@ -48,6 +50,36 @@ function Harness() {
       previousExternalParticipants={PREVIOUS_EXTERNALS}
       onInputValueChange={setInputValue}
       onChange={setParticipants}
+    />
+  );
+}
+
+function StewardHarness() {
+  const [participants, setParticipants] = useState<
+    ProjectMeetingParticipantIdentity[]
+  >([
+    {
+      userId: COLLABORATORS[0].id,
+      displayName: COLLABORATORS[0].displayName,
+      usernameTag: COLLABORATORS[0].usernameTag,
+      avatarSeed: COLLABORATORS[0].avatarSeed,
+    },
+    PREVIOUS_EXTERNALS[0],
+  ]);
+  const [inputValue, setInputValue] = useState("");
+  const [stewardUserId, setStewardUserId] = useState<string | null>(null);
+
+  return (
+    <MeetingParticipantPicker
+      id="steward-participants"
+      value={participants}
+      inputValue={inputValue}
+      collaborators={COLLABORATORS}
+      previousExternalParticipants={PREVIOUS_EXTERNALS}
+      onInputValueChange={setInputValue}
+      onChange={setParticipants}
+      stewardUserId={stewardUserId}
+      onStewardChange={setStewardUserId}
     />
   );
 }
@@ -110,9 +142,7 @@ describe("MeetingParticipantPicker", () => {
 
     expect(spaceEvent.defaultPrevented).toBe(false);
     expect(commaEvent.defaultPrevented).toBe(false);
-    expect(
-      container.querySelector("button[aria-label^='Remove']")
-    ).toBeNull();
+    expect(container.querySelector("button[aria-label^='Remove']")).toBeNull();
 
     await act(async () => {
       input.dispatchEvent(
@@ -125,9 +155,7 @@ describe("MeetingParticipantPicker", () => {
     });
 
     expect(
-      container.querySelector(
-        "button[aria-label='Remove Firstname Name']"
-      )
+      container.querySelector("button[aria-label='Remove Firstname Name']")
     ).not.toBeNull();
     expect(container.textContent).toContain("FN");
   });
@@ -143,9 +171,7 @@ describe("MeetingParticipantPicker", () => {
     });
     await act(async () => {});
 
-    const option = document.body.querySelector<HTMLElement>(
-      "[role='option']"
-    );
+    const option = document.body.querySelector<HTMLElement>("[role='option']");
     expect(option?.textContent).toContain("camille");
     expect(option?.textContent).toContain("Editor");
 
@@ -193,5 +219,54 @@ describe("MeetingParticipantPicker", () => {
     expect(
       container.querySelector("button[aria-label='Remove Morgan Lee']")
     ).not.toBeNull();
+  });
+
+  test("sets and clears the facilitator by clicking an eligible participant", async () => {
+    await act(async () => {
+      root.render(<StewardHarness />);
+    });
+
+    const makeSteward = container.querySelector<HTMLButtonElement>(
+      "button[aria-label='Make camille steward / facilitator']"
+    );
+    expect(makeSteward).not.toBeNull();
+    expect(makeSteward?.classList.contains("cursor-pointer")).toBe(true);
+    expect(makeSteward?.querySelector("[role='tooltip']")?.textContent).toBe(
+      "Make steward"
+    );
+    expect(
+      makeSteward?.querySelector("img")?.parentElement?.className
+    ).toContain("border-0");
+    expect(container.textContent).not.toContain("Click a project member");
+    expect(
+      container.querySelector(
+        "button[aria-label='Make Charlie Example steward / facilitator']"
+      )
+    ).toBeNull();
+
+    await act(async () => {
+      makeSteward?.click();
+    });
+
+    const removeSteward = container.querySelector<HTMLButtonElement>(
+      "button[aria-label='Remove camille as steward / facilitator']"
+    );
+    expect(removeSteward?.getAttribute("aria-pressed")).toBe("true");
+    expect(removeSteward?.querySelector("svg")).not.toBeNull();
+    expect(removeSteward?.querySelector("[role='tooltip']")?.textContent).toBe(
+      "Steward"
+    );
+
+    await act(async () => {
+      removeSteward?.click();
+    });
+
+    expect(
+      container
+        .querySelector(
+          "button[aria-label='Make camille steward / facilitator']"
+        )
+        ?.getAttribute("aria-pressed")
+    ).toBe("false");
   });
 });

@@ -88,6 +88,8 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Google Calendar callback did not return an authorization code.",
   "calendar-auth-failed":
     "Google Calendar authentication failed. Check OAuth credentials and test-user settings.",
+  "calendar-storage-failed":
+    "Google Calendar authorized successfully, but NexusDash could not save the connection. Please retry after the deployment database is repaired.",
 };
 
 function readQueryValue(value: string | string[] | undefined): string | null {
@@ -132,6 +134,12 @@ export default async function ProjectDashboardPage({
   const initialMeetingTodoId = readQueryValue(
     resolvedSearchParams?.meetingTodoId
   );
+  const stewardFilterRaw = readQueryValue(resolvedSearchParams?.meetingNoteSteward);
+  const meetingNoteStewardFilter: "all" | "mine" | "unassigned" =
+    stewardFilterRaw === "mine" || stewardFilterRaw === "unassigned"
+      ? stewardFilterRaw
+      : "all";
+  const meetingNoteQuery = readQueryValue(resolvedSearchParams?.meetingNoteQuery);
   const actorRole =
     project.ownerId === actorUserId ? "owner" : (project.memberships[0]?.role ?? "viewer");
   const canEditProjectContent = actorRole === "owner" || actorRole === "editor";
@@ -233,6 +241,7 @@ export default async function ProjectDashboardPage({
               className="w-[8.75rem] shrink-0 snap-start md:w-auto"
             />
             <CalendarSummaryStatCard
+              projectId={project.id}
               isConnected={project.stats.isCalendarConnected}
               className="w-[8.75rem] shrink-0 snap-start md:w-auto"
             />
@@ -267,6 +276,8 @@ export default async function ProjectDashboardPage({
           projectId={project.id}
           actorUserId={actorUserId}
           canEdit={canEditProjectContent}
+          stewardFilter={meetingNoteStewardFilter}
+          query={meetingNoteQuery}
           initialMeetingNoteId={initialMeetingNoteId}
           initialMeetingTodoId={initialMeetingTodoId}
         />
@@ -300,10 +311,7 @@ export default async function ProjectDashboardPage({
       </Suspense>
 
       <Suspense fallback={<ProjectCalendarPanelSkeleton />}>
-        <ProjectCalendarPanelSection
-          projectId={project.id}
-          canEdit={canEditProjectContent}
-        />
+        <ProjectCalendarPanelSection projectId={project.id} />
       </Suspense>
     </main>
   );

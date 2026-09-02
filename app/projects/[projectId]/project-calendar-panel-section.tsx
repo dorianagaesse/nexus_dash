@@ -10,14 +10,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ProjectCalendarPanelSectionProps {
   projectId: string;
-  canEdit: boolean;
 }
 
 export function ProjectCalendarPanelSection({
   projectId,
-  canEdit,
 }: ProjectCalendarPanelSectionProps) {
-  return <ProjectCalendarPanel projectId={projectId} canEdit={canEdit} />;
+  return <ProjectCalendarPanel projectId={projectId} />;
 }
 
 export function ProjectCalendarPanelSkeleton() {
@@ -26,7 +24,7 @@ export function ProjectCalendarPanelSkeleton() {
       <CardHeader className={PROJECT_SECTION_HEADER_CLASS}>
         <CardTitle className="flex items-center gap-2 text-base">
           <CalendarDays className="h-4 w-4" />
-          Calendar
+          My calendar
         </CardTitle>
       </CardHeader>
       <CardContent className={`space-y-3 ${PROJECT_SECTION_CONTENT_CLASS}`}>

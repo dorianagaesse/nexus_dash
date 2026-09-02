@@ -20,33 +20,36 @@ model User {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  accounts                    Account[]
-  sessions                    Session[]
-  ownedProjects               Project[]                       @relation("ProjectOwner")
-  projectMemberships          ProjectMembership[]
-  projectInvitationsSent      ProjectInvitation[]             @relation("ProjectInvitationInviter")
-  taskAttachments             TaskAttachment[]                @relation("TaskAttachmentUploader")
-  taskComments                TaskComment[]                   @relation("TaskCommentAuthor")
-  tasksCreated                Task[]                          @relation("TaskCreatedBy")
-  tasksUpdated                Task[]                          @relation("TaskUpdatedBy")
-  tasksAssigned               Task[]                          @relation("TaskAssignee")
-  resourceAttachments         ResourceAttachment[]            @relation("ResourceAttachmentUploader")
-  googleCalendarCredential    GoogleCalendarCredential?
-  emailVerificationTokens     EmailVerificationToken[]
-  passwordResetTokens         PasswordResetToken[]
-  createdApiCredentials       ApiCredential[]                 @relation("ApiCredentialCreatedBy")
-  revokedApiCredentials       ApiCredential[]                 @relation("ApiCredentialRevokedBy")
-  authAuditEvents             AuthAuditEvent[]                @relation("AuthAuditEventActorUser")
-  notifications               Notification[]                  @relation("NotificationRecipient")
-  projectNotificationEmails   ProjectNotificationEmail[]      @relation("ProjectNotificationEmailRecipient")
-  taskCommentReactions        TaskCommentReaction[]
-  projectActivityEvents       ProjectActivityEvent[]
-  projectMeetingNotesCreated  ProjectMeetingNote[]            @relation("ProjectMeetingNoteCreatedBy")
-  projectMeetingNotesUpdated  ProjectMeetingNote[]            @relation("ProjectMeetingNoteUpdatedBy")
-  projectMeetingParticipants  ProjectMeetingNoteParticipant[]
-  meetingTodoActionsCreated   ProjectMeetingNoteAction[]      @relation("MeetingTodoCreatedByUser")
-  meetingTodoActionsAssigned  ProjectMeetingNoteAction[]      @relation("MeetingTodoAssignedToUser")
-  meetingTodoActionsCompleted ProjectMeetingNoteAction[]      @relation("MeetingTodoCompletedByUser")
+  accounts                     Account[]
+  sessions                     Session[]
+  ownedProjects                Project[]                       @relation("ProjectOwner")
+  projectMemberships           ProjectMembership[]
+  projectInvitationsSent       ProjectInvitation[]             @relation("ProjectInvitationInviter")
+  taskAttachments              TaskAttachment[]                @relation("TaskAttachmentUploader")
+  taskComments                 TaskComment[]                   @relation("TaskCommentAuthor")
+  tasksCreated                 Task[]                          @relation("TaskCreatedBy")
+  tasksUpdated                 Task[]                          @relation("TaskUpdatedBy")
+  tasksAssigned                Task[]                          @relation("TaskAssignee")
+  resourceAttachments          ResourceAttachment[]            @relation("ResourceAttachmentUploader")
+  calendarConnections          CalendarConnection[]
+  calendarSources              CalendarSource[]
+  calendarPreference           CalendarPreference?
+  emailVerificationTokens      EmailVerificationToken[]
+  passwordResetTokens          PasswordResetToken[]
+  createdApiCredentials        ApiCredential[]                 @relation("ApiCredentialCreatedBy")
+  revokedApiCredentials        ApiCredential[]                 @relation("ApiCredentialRevokedBy")
+  authAuditEvents              AuthAuditEvent[]                @relation("AuthAuditEventActorUser")
+  notifications                Notification[]                  @relation("NotificationRecipient")
+  projectNotificationEmails    ProjectNotificationEmail[]      @relation("ProjectNotificationEmailRecipient")
+  taskCommentReactions         TaskCommentReaction[]
+  projectActivityEvents        ProjectActivityEvent[]
+  projectMeetingNotesCreated   ProjectMeetingNote[]            @relation("ProjectMeetingNoteCreatedBy")
+  projectMeetingNotesUpdated   ProjectMeetingNote[]            @relation("ProjectMeetingNoteUpdatedBy")
+  projectMeetingNotesStewarded ProjectMeetingNote[]            @relation("ProjectMeetingNoteSteward")
+  projectMeetingParticipants   ProjectMeetingNoteParticipant[]
+  meetingTodoActionsCreated    ProjectMeetingNoteAction[]      @relation("MeetingTodoCreatedByUser")
+  meetingTodoActionsAssigned   ProjectMeetingNoteAction[]      @relation("MeetingTodoAssignedToUser")
+  meetingTodoActionsCompleted  ProjectMeetingNoteAction[]      @relation("MeetingTodoCompletedByUser")
 
   @@unique([username, usernameDiscriminator])
   @@index([username])
@@ -211,31 +214,39 @@ model Project {
 }
 
 model ProjectMeetingNote {
-  id              String    @id @default(cuid())
-  projectId       String
-  title           String    @db.VarChar(140)
-  scheduledAt     DateTime?
-  status          String    @default("prepared") @db.VarChar(40)
-  labelsJson      String?
-  inputNotes      String    @default("")
-  outputNotes     String    @default("")
-  decisions       String    @default("")
-  createdByUserId String
-  updatedByUserId String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                         String                @id @default(cuid())
+  projectId                  String
+  title                      String                @db.VarChar(140)
+  scheduledAt                DateTime?
+  status                     String                @default("prepared") @db.VarChar(40)
+  labelsJson                 String?
+  inputNotes                 String                @default("")
+  outputNotes                String                @default("")
+  decisions                  String                @default("")
+  createdByUserId            String
+  updatedByUserId            String
+  stewardUserId              String?
+  stewardCredentialId        String?
+  stewardKind                MeetingTodoActorKind?
+  stewardDisplayNameSnapshot String?               @db.VarChar(80)
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
 
-  project       Project                         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdByUser User                            @relation("ProjectMeetingNoteCreatedBy", fields: [createdByUserId], references: [id])
-  updatedByUser User                            @relation("ProjectMeetingNoteUpdatedBy", fields: [updatedByUserId], references: [id])
-  actions       ProjectMeetingNoteAction[]
-  participants  ProjectMeetingNoteParticipant[]
+  project           Project                         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdByUser     User                            @relation("ProjectMeetingNoteCreatedBy", fields: [createdByUserId], references: [id])
+  updatedByUser     User                            @relation("ProjectMeetingNoteUpdatedBy", fields: [updatedByUserId], references: [id])
+  stewardUser       User?                           @relation("ProjectMeetingNoteSteward", fields: [stewardUserId], references: [id], onDelete: SetNull)
+  stewardCredential ApiCredential?                  @relation("MeetingNoteStewardCredential", fields: [stewardCredentialId], references: [id], onDelete: SetNull)
+  actions           ProjectMeetingNoteAction[]
+  participants      ProjectMeetingNoteParticipant[]
 
   @@index([projectId, scheduledAt])
   @@index([projectId, status, scheduledAt])
   @@index([projectId, updatedAt])
   @@index([createdByUserId])
   @@index([updatedByUserId])
+  @@index([stewardUserId])
+  @@index([stewardCredentialId])
 }
 
 model ProjectMeetingNoteParticipant {
@@ -650,23 +661,71 @@ model TaskBlockedFollowUp {
   @@index([taskId, createdAt])
 }
 
-model GoogleCalendarCredential {
-  id                String    @id @default(cuid())
-  userId            String    @unique
-  providerAccountId String?
-  calendarId        String    @default("primary")
-  accessToken       String?
-  refreshToken      String
-  tokenType         String?
-  scope             String?
-  expiresAt         DateTime?
-  revokedAt         DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+model CalendarConnection {
+  id                        String    @id @default(cuid())
+  userId                    String
+  provider                  String    @db.VarChar(32)
+  providerAccountId         String    @db.VarChar(255)
+  accountEmail              String?
+  accountLabel              String
+  accessToken               String?
+  refreshToken              String
+  tokenType                 String?
+  scopes                    String?
+  expiresAt                 DateTime?
+  revokedAt                 DateTime?
+  reauthorizationRequiredAt DateTime?
+  calendarListSyncedAt      DateTime?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sources            CalendarSource[]     @relation("CalendarConnectionSources")
+  defaultPreferences CalendarPreference[] @relation("DefaultCalendarConnection")
 
-  @@index([providerAccountId])
+  @@unique([userId, provider, providerAccountId])
+  @@unique([id, userId])
+  @@index([userId, revokedAt])
+}
+
+model CalendarSource {
+  id                 String   @id @default(cuid())
+  userId             String
+  connectionId       String
+  providerCalendarId String
+  name               String
+  color              String?
+  timeZone           String?
+  accessRole         String?
+  isPrimary          Boolean  @default(false)
+  isAvailable        Boolean  @default(true)
+  isSelected         Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection       CalendarConnection   @relation("CalendarConnectionSources", fields: [connectionId, userId], references: [id, userId], onDelete: Cascade)
+  writePreferences CalendarPreference[] @relation("WriteCalendarSource")
+
+  @@unique([connectionId, providerCalendarId])
+  @@unique([id, userId])
+  @@index([userId, isSelected])
+  @@index([connectionId, isAvailable])
+}
+
+model CalendarPreference {
+  userId              String   @id
+  defaultConnectionId String?
+  writeSourceId       String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultConnection CalendarConnection? @relation("DefaultCalendarConnection", fields: [defaultConnectionId, userId], references: [id, userId], onDelete: Restrict)
+  writeSource       CalendarSource?     @relation("WriteCalendarSource", fields: [writeSourceId, userId], references: [id, userId], onDelete: Restrict)
+
+  @@index([defaultConnectionId])
+  @@index([writeSourceId])
 }
 
 enum ApiCredentialScope {
@@ -729,6 +788,7 @@ model ApiCredential {
   meetingTodoActionsCreated   ProjectMeetingNoteAction[] @relation("MeetingTodoCreatedByCredential")
   meetingTodoActionsAssigned  ProjectMeetingNoteAction[] @relation("MeetingTodoAssignedToCredential")
   meetingTodoActionsCompleted ProjectMeetingNoteAction[] @relation("MeetingTodoCompletedByCredential")
+  meetingNotesStewarded       ProjectMeetingNote[]       @relation("MeetingNoteStewardCredential")
 
   @@index([projectId])
   @@index([createdByUserId])

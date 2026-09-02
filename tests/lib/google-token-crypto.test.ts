@@ -3,6 +3,8 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   decryptGoogleToken,
   encryptGoogleToken,
+  hasGoogleTokenEncryptionKey,
+  isEncryptedGoogleToken,
 } from "@/lib/services/google-token-crypto";
 
 describe("google-token-crypto", () => {
@@ -18,6 +20,8 @@ describe("google-token-crypto", () => {
 
     expect(encrypted).toBe("token-abc");
     expect(decrypted).toBe("token-abc");
+    expect(hasGoogleTokenEncryptionKey()).toBe(false);
+    expect(isEncryptedGoogleToken(encrypted)).toBe(false);
   });
 
   test("encrypts and decrypts token payload with configured key", () => {
@@ -28,6 +32,8 @@ describe("google-token-crypto", () => {
 
     expect(encrypted).not.toBe("token-abc");
     expect(encrypted.startsWith("enc:v1:")).toBe(true);
+    expect(hasGoogleTokenEncryptionKey()).toBe(true);
+    expect(isEncryptedGoogleToken(encrypted)).toBe(true);
     expect(decrypted).toBe("token-abc");
   });
 });

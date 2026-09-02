@@ -10,6 +10,7 @@ import {
 } from "@/lib/project-dashboard";
 
 interface CalendarSummaryStatCardProps {
+  projectId: string;
   isConnected: boolean;
   className?: string;
 }
@@ -26,10 +27,20 @@ interface CalendarEventsPayload {
     description: string | null;
     htmlLink: string | null;
     status: string;
+    calendarSourceId?: string;
+    connectionId?: string;
+    calendarName?: string;
+    calendarColor?: string | null;
+    writable?: boolean;
   }>;
 }
 
+export function buildCalendarSummaryEventsUrl(projectId: string): string {
+  return `/api/calendar/events?range=current-week&projectId=${encodeURIComponent(projectId)}`;
+}
+
 export function CalendarSummaryStatCard({
+  projectId,
   isConnected,
   className,
 }: CalendarSummaryStatCardProps) {
@@ -49,10 +60,13 @@ export function CalendarSummaryStatCard({
       setIsLoading(true);
 
       try {
-        const response = await fetch("/api/calendar/events?range=current-week", {
+        const response = await fetch(
+          buildCalendarSummaryEventsUrl(projectId),
+          {
           cache: "no-store",
           signal: controller.signal,
-        });
+          }
+        );
         const payload = (await response.json().catch(() => null)) as
           | CalendarEventsPayload
           | null;
@@ -77,13 +91,13 @@ export function CalendarSummaryStatCard({
     void loadEvents();
 
     return () => controller.abort();
-  }, [isConnected]);
+  }, [isConnected, projectId]);
 
   if (!isConnected) {
     return (
       <DashboardStatCard
         icon={CalendarX2}
-        label="Calendar"
+        label="My calendar"
         value="Not connected"
         className={className}
         valueClassName="text-muted-foreground"
@@ -94,15 +108,15 @@ export function CalendarSummaryStatCard({
   return (
     <DashboardStatCard
       icon={CalendarCheck2}
-      label="Calendar"
+      label="My calendar"
       value={isLoading ? "Loading..." : formatUpcomingEventsLabel(upcomingCount)}
       className={className}
       valueClassName="text-foreground"
       labelTrailing={
-          <span className="hidden h-4 shrink-0 items-center whitespace-nowrap rounded-full border border-emerald-500/20 bg-emerald-500/8 px-1.5 text-[8px] font-semibold uppercase leading-none tracking-[0.04em] text-emerald-700 sm:inline-flex dark:text-emerald-300">
-            Connected
-          </span>
-        }
-      />
+        <span className="hidden h-4 shrink-0 items-center whitespace-nowrap rounded-full border border-emerald-500/20 bg-emerald-500/8 px-1.5 text-[8px] font-semibold uppercase leading-none tracking-[0.04em] text-emerald-700 sm:inline-flex dark:text-emerald-300">
+          Connected
+        </span>
+      }
+    />
   );
 }

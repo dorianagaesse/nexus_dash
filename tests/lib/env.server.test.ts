@@ -528,7 +528,21 @@ describe("env.server", () => {
     vi.stubEnv("GOOGLE_TOKEN_ENCRYPTION_KEY", "");
 
     expect(() => validateServerRuntimeConfig()).toThrow(
-      "GOOGLE_TOKEN_ENCRYPTION_KEY is required in production when Google Calendar OAuth is enabled."
+      "GOOGLE_TOKEN_ENCRYPTION_KEY is required when Google Calendar OAuth is enabled outside tests."
+    );
+  });
+
+  test("fails development validation when google oauth is enabled without token encryption key", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DATABASE_URL", "postgresql://localhost:5432/postgres");
+    vi.stubEnv("DIRECT_URL", "postgresql://localhost:5433/postgres");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "client-id");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("GOOGLE_REDIRECT_URI", "http://localhost:3000/api/auth/callback/google");
+    vi.stubEnv("GOOGLE_TOKEN_ENCRYPTION_KEY", "");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "GOOGLE_TOKEN_ENCRYPTION_KEY is required when Google Calendar OAuth is enabled outside tests."
     );
   });
 

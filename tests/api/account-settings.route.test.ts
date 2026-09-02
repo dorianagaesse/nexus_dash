@@ -8,6 +8,7 @@ const apiGuardMock = vi.hoisted(() => ({
 const settingsServiceMock = vi.hoisted(() => ({
   getGoogleCalendarTargetSettings: vi.fn(),
   updateGoogleCalendarTargetSettings: vi.fn(),
+  disconnectGoogleCalendar: vi.fn(),
 }));
 
 const logServerWarningMock = vi.hoisted(() => vi.fn());
@@ -25,6 +26,7 @@ vi.mock("@/lib/services/account-settings-service", () => ({
     settingsServiceMock.getGoogleCalendarTargetSettings,
   updateGoogleCalendarTargetSettings:
     settingsServiceMock.updateGoogleCalendarTargetSettings,
+  disconnectGoogleCalendar: settingsServiceMock.disconnectGoogleCalendar,
 }));
 
 import {
@@ -131,12 +133,13 @@ describe("account Google Calendar settings route", () => {
     expect(settingsServiceMock.updateGoogleCalendarTargetSettings).not.toHaveBeenCalled();
   });
 
-  test("DELETE resets target calendar to default", async () => {
-    settingsServiceMock.updateGoogleCalendarTargetSettings.mockResolvedValueOnce({
+  test("DELETE disconnects the authenticated user's calendar", async () => {
+    settingsServiceMock.disconnectGoogleCalendar.mockResolvedValueOnce({
       ok: true,
       status: 200,
       data: {
-        calendarId: "primary",
+        hasCalendarConnection: false,
+        revocationStatus: "revoked",
       },
     });
 
@@ -149,12 +152,12 @@ describe("account Google Calendar settings route", () => {
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({
       settings: {
-        calendarId: "primary",
+        hasCalendarConnection: false,
+        revocationStatus: "revoked",
       },
     });
-    expect(settingsServiceMock.updateGoogleCalendarTargetSettings).toHaveBeenCalledWith({
+    expect(settingsServiceMock.disconnectGoogleCalendar).toHaveBeenCalledWith({
       actorUserId: "user-1",
-      calendarIdRaw: "",
     });
   });
 });
