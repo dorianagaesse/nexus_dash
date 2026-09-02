@@ -10,19 +10,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 ## v0.38.0 - 2026-08-24
 
-- Added durable creator, last-editor, and optional human or agent steward
-  identity to context cards, with display snapshots that remain readable after
-  membership removal or credential revocation.
-- Added accessible stewardship controls for project editors and owners, while
-  preserving read-only identity details for viewers and validating every
-  assignment at the service boundary.
+- Added durable creator and last-editor identity to context cards, with human
+  and agent attribution (avatar and credential label) and display snapshots
+  that remain readable after membership removal or credential revocation.
 - Surfaced attachment-uploader provenance and explicit inactive-actor states so
   historical knowledge sources remain attributable.
-- Added a configurable derived `Needs review` signal across context-card grid,
-  preview, and edit surfaces for cards that have not been updated recently.
 - Added migration, service, route, component, and browser coverage for actor
-  assignment, inactive identities, attachment attribution, permissions, and
-  responsive stewardship presentation.
+  attribution, inactive identities, attachment attribution, and permissions.
+- Context-card UI keeps provenance minimal: every card shows only `Created`
+  and `Last edit` chips with timestamps, rendered legibly in light and dark
+  themes; stewardship assignment and the derived review signal remain
+  persisted at the service boundary but are not surfaced in the card UI.
 
 ## v0.37.2 - 2026-08-25
 

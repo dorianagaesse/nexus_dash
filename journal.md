@@ -3,6 +3,34 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-02 - TASK-342 context card provenance UI refinement (PR #451)
+
+- User takeover of PR #451: the card info render was unreadable and noisy.
+  Removed the steward chip, steward picker, and the derived review badge
+  (`Needs review (90d)` / `Reviewed X days ago`) from the card grid, preview
+  modal, and edit modal; the card UI now shows only `Created` and `Last edit`
+  chips with timestamps.
+- Fixed dark-mode rendering: context cards keep fixed pastel backgrounds in
+  both themes, so the actor chips now use fixed light surfaces
+  (`bg-white/70 text-slate-800`) instead of theme tokens that produced dark
+  text on dark chips.
+- Confirmed agent attribution already works end-to-end: the projection carries
+  `kind: "agent"` with the credential label, and the chip renders the agent
+  avatar for agent-authored cards — no new actor-identity task needed.
+- Deleted `context-card-review-badge.tsx`, `context-card-steward-picker.tsx`,
+  and the steward controls test; added `context-card-provenance.test.tsx`
+  covering agent/human attribution, timestamps, fallbacks, and the modal/grid
+  surfaces. Backend stewardship service, route, and DB contract stay intact.
+- Local validation: lint and RLS inventory pass; full vitest suite passes
+  (995 passed; the remaining failures are the known local env-dependent
+  baseline, missing DATABASE_URL, identical to the root checkout). Production
+  build compiles; the webpack type-check error on
+  `app/account/settings/developers/page.tsx` (PageProps/searchParams) is
+  pre-existing on main and reproduced identically in the root checkout.
+- Worktree gotcha resolved: a CRLF-checked-out `scripts/validate-supabase-project-ref.mjs`
+  broke vitest's transform (`SyntaxError: Invalid or unexpected token`);
+  normalizing that file to LF fixed it without content change.
+
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 
 - Reproduced the provider failure from the immutable TASK-326 Preview: GitHub
