@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { MoreHorizontal, Paperclip, Pencil, PlusSquare, Trash2 } from "lucide-react";
 
+import {
+  ContextCardActorChip,
+} from "@/components/context-panel/context-card-actor-chip";
 import type {
   ProjectContextAttachment,
   ProjectContextCard,
@@ -55,7 +58,7 @@ export function ContextCardsGrid({
         return (
           <article
             key={card.id}
-            className="flex h-[152px] cursor-pointer flex-col overflow-hidden rounded-xl border p-3 transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-18px_rgba(15,23,42,0.45)] hover:ring-2 hover:ring-slate-900/10"
+            className="flex h-[200px] cursor-pointer flex-col overflow-hidden rounded-xl border p-3 transition duration-150 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-18px_rgba(15,23,42,0.45)] hover:ring-2 hover:ring-slate-900/10"
             style={{ backgroundColor: card.color, borderColor: "rgb(15 23 42 / 0.15)" }}
             onClick={() => onOpenPreview(card.id)}
           >
@@ -103,6 +106,21 @@ export function ContextCardsGrid({
                 style={{
                   background: `linear-gradient(to top, ${card.color}, transparent)`,
                 }}
+              />
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-1">
+              <ContextCardActorChip
+                actor={card.projection.creator}
+                label="Created"
+                fallback="Unknown"
+                timestamp={card.createdAt}
+              />
+              <ContextCardActorChip
+                actor={card.projection.lastEditor}
+                label="Last edit"
+                fallback="No edits yet"
+                timestamp={card.updatedAt}
               />
             </div>
 

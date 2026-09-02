@@ -21,6 +21,9 @@ const prismaMock = vi.hoisted(() => ({
   resourceAttachment: {
     create: vi.fn(),
   },
+  user: {
+    findUnique: vi.fn(),
+  },
 }));
 
 const attachmentStorageMock = vi.hoisted(() => ({
@@ -71,6 +74,14 @@ describe("project-attachment-service", () => {
     vi.clearAllMocks();
     prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
     prismaMock.project.findFirst.mockResolvedValue({ ownerId: actorUserId, memberships: [] });
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: actorUserId,
+      name: "Ada Lovelace",
+      email: "ada@example.com",
+      username: "ada",
+      usernameDiscriminator: "0001",
+      avatarSeed: "seed-ada",
+    });
   });
 
   test("maps task upload storage-unavailable errors to actionable message", async () => {
@@ -340,5 +351,29 @@ describe("project-attachment-service", () => {
     });
     expect(prismaMock.resourceAttachment.create).toHaveBeenCalledTimes(1);
     expect(attachmentStorageMock.deleteAttachmentFile).not.toHaveBeenCalled();
+  });
+
+  test("rejects agent context uploads instead of misattributing them to a human", async () => {
+    const result = await finalizeContextAttachmentDirectUpload({
+      actorUserId,
+      projectId: "project-1",
+      cardId: "card-1",
+      storageKey: "v1/user-1/project-1/context-card/card-1/key-spec.pdf",
+      name: "spec.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 2048,
+      agentAccess: {
+        credentialId: "credential-1",
+        projectId: "project-1",
+        scopes: ["context:write"],
+      },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 403,
+      error: "agent-context-attachments-unsupported",
+    });
+    expect(prismaMock.resourceAttachment.create).not.toHaveBeenCalled();
   });
 });

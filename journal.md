@@ -3,49 +3,64 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
-# 2026-09-02 - TASK-381 reconciled onto current main (PR #459)
+# 2026-09-02 - TASK-342 PR #451: provenance chip restyle, main merge, review closeout
 
-- Merged `origin/main` into `feature/task-381-bounded-kanban-lanes` to clear
-  the PR #459 merge conflicts. Main had advanced past the branch's 2026-08-29
-  base with the TASK-373..379 agent API program, TASK-407 privacy policy,
-  TASK-326/327/348/356 calendar and stewardship work, and dependabot bumps.
-- Conflict resolution produced no product-code changes: the Kanban component
-  and its tests are byte-identical to the previously validated branch state
-  because main never touched those files. Resolved conflicts were confined to
-  release metadata and repo-side docs:
-  - `package.json`/`package-lock.json`: advanced from the stale `v0.38.0` to
-    `v0.51.0` (feature minor over main's `v0.50.0`), keeping main's dependency
-    bumps (`@playwright/test` 1.62.1, `@aws-sdk/client-s3` 3.1120.0,
-    `@vitest/coverage-v8` 4.1.11).
-  - `CHANGELOG.md`: recorded the TASK-381 entry as `v0.51.0 - 2026-09-02`. The
-    auto-merge had silently stranded the branch's original `v0.38.0` section
-    inside main's release history, so it was removed as a duplicate.
-  - `tasks/current.md`: kept the TASK-381 brief (the file describes this
-    branch's active task) instead of main's merged TASK-356 brief.
-  - `tasks/backlog.md`: adopted main's post-migration layout; the branch's
-    one-line TASK-381 status edit targets content main intentionally removed
-    on 2026-08-31, and that status now lives in the Nexus Dash kanban.
-  - `journal.md`: consolidated main's entries with the TASK-381 log.
-- Windows/local environment notes recorded for future runs: vitest does not
-  read `.env`, so local test runs must load it into the process
-  (`node --env-file=.env`) and export `NODE_ENV=test`, an
-  `AGENT_TOKEN_SIGNING_SECRET` placeholder (>= 32 chars), and a
-  `RESEND_API_KEY` placeholder. A CRLF checkout of
-  `scripts/validate-supabase-project-ref.mjs` breaks its vitest import via the
-  shebang line; normalizing the worktree copy to LF fixes it with no committed
-  diff (same finding as the original TASK-381 entry). The production build
-  additionally needs localhost `DATABASE_URL`/`DIRECT_URL` values and a
-  `GOOGLE_TOKEN_ENCRYPTION_KEY` placeholder because Next.js auto-loads `.env`.
-- Revalidated the merged tree: `git diff --check`, `npm run lint`,
-  `npm run rls:check`, release policy `v0.50.0` -> `v0.51.0`, 1,179 unit/API
-  tests (2 skipped), coverage at 91.52% statements / 81.57% branches / 92.3%
-  functions / 92.01% lines, and the production build all pass. The pre-merge
-  e2e evidence (34 runnable Playwright tests plus the focused TASK-381 rerun)
-  stands for this tree: the merge changed no product code, and main's own PRs
-  validated the identical Playwright 1.62.1 bump through their e2e runs.
-- Resolution commits: `fd4cba3` (merge with conflict resolution) and
-  `6396468` (CHANGELOG v0.51.0 entry), plus the docs commit carrying this
-  journal entry and the `tasks/current.md` status refresh.
+- User feedback on the provenance chips (third iteration): the theme-adaptive
+  filled pill still clashed with the pastel card surface. Removed the pill
+  entirely (no border, no background, no theme tokens): chips now render as
+  plain fixed dark slate text (`text-slate-800`, secondary `text-slate-600`)
+  matching the card's own slate text, so they read the same in light and dark
+  themes. Avatars (agent credential or human) are unchanged. Committed as
+  98dd498; provenance tests (6/6) and eslint green.
+- Merged `origin/main` into the branch (main had advanced to v0.50.0 with
+  TASK-356/348/327/ND-365 since the branch base). Resolved conflicts:
+  - `prisma/schema.prisma`: union of both relation sets (context-card
+    creator/lastEditor/steward relations + main's calendar-connection,
+    meeting-note steward relations), re-canonicalized with `prisma format`.
+  - `package.json`/`package-lock.json`: took main's file and advanced the
+    release to v0.51.0 (our branch still carried v0.38.0).
+  - `CHANGELOG.md`: moved the context-card provenance entry from the stale
+    embedded v0.38.0 section to the top as v0.51.0 - 2026-09-02, following the
+    refresh-onto-main convention; noted the final plain-dark-text chip styling.
+  - `tasks/current.md`: kept the TASK-342 brief (last-merged task owns the
+    tracker). `tasks/backlog.md`: took main's post-migration cleaned version.
+  - `journal.md`: union of both sides (top 09-02 refinement entry + tail
+    08-09 TASK-342 entry re-inserted into main's journal at their positions).
+- Copilot review closeout per agent.md: the single review comment (null
+  `color` in the context-cards list API, fixed in 17a9e5c) was replied to and
+  the thread is now resolved; Quality Gates re-run on the merged head.
+
+# 2026-09-02 - TASK-342 context card provenance UI refinement (PR #451)
+
+- User takeover of PR #451: the card info render was unreadable and noisy.
+  Removed the steward chip, steward picker, and the derived review badge
+  (`Needs review (90d)` / `Reviewed X days ago`) from the card grid, preview
+  modal, and edit modal; the card UI now shows only `Created` and `Last edit`
+  chips with timestamps.
+- Fixed dark-mode rendering: context cards keep fixed pastel backgrounds in
+  both themes, so the actor chips now use fixed light surfaces
+  (`bg-white/70 text-slate-800`) instead of theme tokens that produced dark
+  text on dark chips.
+- Confirmed agent attribution already works end-to-end: the projection carries
+  `kind: "agent"` with the credential label, and the chip renders the agent
+  avatar for agent-authored cards — no new actor-identity task needed.
+- Deleted `context-card-review-badge.tsx`, `context-card-steward-picker.tsx`,
+  and the steward controls test; added `context-card-provenance.test.tsx`
+  covering agent/human attribution, timestamps, fallbacks, and the modal/grid
+  surfaces. Backend stewardship service, route, and DB contract stay intact.
+- Local validation: lint and RLS inventory pass; the full vitest suite passes
+  with `validate:local` env injection (1,092 passed, 2 skipped; coverage
+  91.37% stmts / 81.33% branches / 92.2% funcs / 91.88% lines). Production
+  build (Turbopack) is green with local DB overrides plus the dev
+  `GOOGLE_TOKEN_ENCRYPTION_KEY`; `local-validation.mjs` does not inject that
+  key, a pre-existing script gap (the check only fires when `GOOGLE_CLIENT_ID`
+  is set, so CI is unaffected).
+- CI Quality Gates initially caught a locale-dependent assertion in the new
+  provenance test (`/·\s*\d/` matched day-first locales like "1 août" but not
+  en-US "Aug 1"); fixed to `/·\s*\S/` and re-verified green.
+- Worktree gotcha resolved: a CRLF-checked-out `scripts/validate-supabase-project-ref.mjs`
+  broke vitest's transform (`SyntaxError: Invalid or unexpected token`);
+  normalizing that file to LF fixed it without content change.
 
 # 2026-09-02 - TASK-348 refresh: preview OAuth fix, main merge, copy trim
 
@@ -319,48 +334,6 @@ Use it for important implementation milestones, blockers, validation runs, and r
   container-image, branch-name, and release-policy checks. GitHub generated no
   Copilot review or inline feedback during the monitored review window, leaving
   no review threads to triage before the authorized merge.
-
-# 2026-08-29 - TASK-381 bounded Kanban lanes started
-
-- Reprioritized TASK-381 at the user's direction ahead of the broader pending
-  TASK-100 and TASK-133 UX passes while preserving their remaining scope.
-- Created the dedicated `feature/task-381-bounded-kanban-lanes` worktree from
-  current `origin/main` and drafted the task contract before implementation.
-- Selected a `clamp(20rem, 64dvh, 42rem)` lane with fixed metadata and an
-  independently focusable task scroller so dense boards remain bounded without
-  replacing the established mobile status dock or drag-and-drop model.
-- Implemented fixed lane chrome with named, focusable task regions, contained
-  overscroll, stable scrollbar gutters, and a separately bounded Done archive.
-  Kept every lane mounted and retained the flex layout when hidden mobile lanes
-  become visible together at the desktop breakpoint.
-- Added focused component coverage and a dedicated Playwright suite for
-  independent scroll, fixed metadata, pointer and keyboard cross-lane moves,
-  preserved mobile scroll positions, archive access, light/dark behavior,
-  reduced motion, and 375 px plus landscape containment.
-- Local validation passed: diff check, feature release policy from `v0.37.2` to
-  `v0.38.0`, lint, RLS inventory, 1,057 unit/API tests with two skipped,
-  coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
-  lines, production compilation, all 34 runnable Playwright tests with the one
-  Preview-only scenario skipped, and the final focused browser rerun.
-- Local Docker was unavailable, so validation used the configured development
-  database with `NODE_ENV=test`. On Windows, Prettier-normalizing the existing
-  CRLF shebang locally was required for one baseline script test; it produced
-  no committed source diff.
-- Opened ready-for-review PR #459 from commit `28073b8`; the branch remains
-  intentionally open and independent from TASK-382 and TASK-384.
-- Required GitHub checks passed on final implementation/test commit `88cb5e3`,
-  including Quality Core, Playwright smoke, tenant isolation, branch naming,
-  and the container image artifact.
-- Explicit-ref Preview workflow run `33221124897` checked out
-  `feature/task-381-bounded-kanban-lanes` at `88cb5e3`, verified immutable
-  Preview `https://nexus-dash-6pkpwaih9-dorian-agaesses-projects.vercel.app`,
-  and confirmed revision, environment, database readiness, and stable alias.
-  The focused TASK-381 scenarios and existing mobile Kanban smoke passed
-  against that deployment.
-- Automatic, REST, and supported CLI Copilot review requests produced no
-  review because the account is out of credits. At the user's direction,
-  recorded DeepSeek review as a post-delivery replacement and continued to
-  TASK-382 without merging PR #459.
 
 # 2026-08-25 - TASK-406 stable Preview OAuth alias remediation
 
@@ -4879,6 +4852,67 @@ Low-value entries to avoid going forward:
   [PR #416](https://github.com/dorianagaesse/nexus_dash/pull/416), superseding
   conflicting PR #410 without rewriting its protected history.
 
+# 2026-08-09 - TASK-342 context knowledge stewardship and attachment provenance
+
+- Started the task on `feature/task-342-context-knowledge-stewardship` cut from
+  `origin/main`. Drafted `tasks/task-342-context-knowledge-stewardship.md` plus
+  the Acceptance Criteria/Definition of Done in `tasks/current.md`; bumped the
+  backlog entry to Now 1.
+- Added the `ContextCardActorKind` enum and 13 stewardship/provenance columns
+  on `Resource` (creator/lastEditor/steward × user/credential/kind/snapshot,
+  plus `updatedAt`). Added `uploadedByKind` and
+  `uploadedByDisplayNameSnapshot` to `ResourceAttachment` with a CHECK
+  constraint enforcing human-only uploads. Migration
+  `20260809120000_task342_context_knowledge_stewardship` backfills existing
+  rows from the existing `uploadedByUserId` and resets `Resource.updatedAt`
+  to `createdAt`.
+- Mirrored the TASK-330 actor pattern via `lib/context-card-actor.ts` and
+  `lib/services/context-card-actor-service.ts`. New
+  `lib/services/context-card-stewardship-service.ts` exposes the review
+  threshold (env-overridable via `CONTEXT_CARD_REVIEW_THRESHOLD_DAYS`,
+  defaulting to 90), `projectContextCard`, `assignContextCardSteward`, and
+  `recordContextCardCreator`/`recordContextCardEditor` write helpers.
+- Updated `lib/services/context-card-service.ts` so create/update persist the
+  creator/last editor snapshots and return the full `ContextCardResponse`
+  with the projection block. `lib/services/project-attachment-service.ts`
+  resolves the uploader display snapshot via a new `resolveUploaderDisplaySnapshot`
+  helper for both form and direct-upload paths.
+- Added `PATCH /api/projects/:projectId/context-cards/:cardId/stewardship`
+  with editor-role eligibility and surface the new `projection` block +
+  project-wide `assignableActors` in the list/get responses.
+- UI: new `ContextCardActorChip`, `ContextCardReviewBadge`, and searchable
+  `ContextCardStewardPicker` (combobox). Wired into the preview header and
+  edit modal. Cards now show a review/steward chip strip on the grid surface.
+- Validation: `npm run lint`, `npm test` (969 passing — 27 new), `npm run
+  rls:check`, and `npm run build` all clean in the worktree.
+- PR #428 CI repair: Quality Core stopped at `release:check` because
+  `package.json` had advanced to `0.38.0` while the lockfile remained at
+  `0.37.0`, and the feature release had no matching changelog entry. Aligned
+  both root lockfile versions and documented `v0.38.0` in `CHANGELOG.md`.
+- The repaired release gate exposed three stale route-test fixtures: the
+  context-card list test did not mock the new stewardship projection/registry,
+  and update-route mocks omitted timestamps now serialized in the response.
+  Updated those mocks and expectations without changing production behavior.
+- Repair validation passed: release policy, lint, RLS inventory, 12 focused
+  route tests, the full unit/API suite (1064 passed, 2 skipped), coverage
+  (91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines),
+  and the production build. No deployment was triggered.
+- Replacement PR #446 Copilot review identified stale realtime projections,
+  RLS-hidden actor choices, incomplete preview stewardship controls, and agent
+  attachment attribution gaps. Added a display-safe SECURITY DEFINER actor
+  projection, preserved card edit timestamps during stewardship-only writes,
+  and now reject agent-authenticated attachment creation until the attachment
+  schema can persist credential identity without misattribution.
+- Realtime context-card updates now carry timestamps and complete stewardship
+  projections. The grid, preview, and edit surfaces use shared user/agent
+  avatars, explicitly call out inactive stewards as needing reassignment, and
+  expose labeled 44px keyboard-operable assignment controls with pending/error
+  behavior. Added focused component, route, and service regressions.
+- Review-fix validation passed: release policy, lint, RLS inventory, Prisma
+  validation, production build, 1,080 unit/API/component tests (2 skipped), and
+  coverage (91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines). The standalone project-ref script test remains a Windows CRLF/shebang
+  loader limitation and is covered by the Linux CI run.
 # 2026-08-09 - TASK-356 meeting note stewardship and decision provenance
 
 - Drafted the task brief at `tasks/task-356-meeting-note-stewardship.md`

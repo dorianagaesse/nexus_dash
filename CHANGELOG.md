@@ -17,7 +17,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
   credential row by ID instead of depending on a permanent `userId` uniqueness
   constraint, preparing a backward-compatible TASK-327 expansion.
 
-## v0.51.0 - 2026-09-02
+## v0.52.0 - 2026-09-02
 
 - Bounded every Kanban lane to a responsive viewport-aware height with an
   independently scrollable, keyboard-focusable task region and fixed lane
@@ -28,6 +28,21 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Added accessible region names, visible focus treatment, contained overscroll,
   stable scrollbar gutters, and regression coverage for desktop, mobile, and
   landscape layouts.
+
+## v0.51.0 - 2026-09-02
+
+- Added durable creator and last-editor identity to context cards, with human
+  and agent attribution (avatar and credential label) and display snapshots
+  that remain readable after membership removal or credential revocation.
+- Surfaced attachment-uploader provenance and explicit inactive-actor states so
+  historical knowledge sources remain attributable.
+- Added migration, service, route, component, and browser coverage for actor
+  attribution, inactive identities, attachment attribution, and permissions.
+- Context-card UI keeps provenance minimal: every card shows only `Created`
+  and `Last edit` chips with timestamps, rendered as plain dark text on the
+  pastel card surface so they stay legible in light and dark themes;
+  stewardship assignment and the derived review signal remain persisted at the
+  service boundary but are not surfaced in the card UI.
 
 ## v0.50.0 - 2026-09-02
 
