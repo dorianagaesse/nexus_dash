@@ -26,10 +26,6 @@ export function ProjectCalendarPanelSkeleton() {
           <CalendarDays className="h-4 w-4" />
           My calendar
         </CardTitle>
-        <p className="text-xs text-muted-foreground">
-          Your selected Google Calendar overlay. Connect Google to view events
-          from your configured calendar here.
-        </p>
       </CardHeader>
       <CardContent className={`space-y-3 ${PROJECT_SECTION_CONTENT_CLASS}`}>
         <div className="h-10 w-44 animate-pulse rounded-xl bg-muted" />

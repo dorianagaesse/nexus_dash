@@ -2,12 +2,11 @@
 
 ## Status
 
-Implementation in progress on
-`feature/task-348-personal-calendar-shared-schedule`. Phase 1 (relabel and
-decouple) is being delivered alongside a design ADR for the future shared
-schedule. TASK-348's full shared-schedule implementation is intentionally
-deferred until TASK-337 (project actor identity) and TASK-331 (capability
-model) land.
+Implementation complete on
+`feature/task-348-personal-calendar-shared-schedule-r4`, refreshed onto current
+`main` after TASK-406 merged. Phase 1 relabels and decouples the personal
+calendar overlay; the future shared schedule remains intentionally deferred
+until TASK-337 (project actor identity) and TASK-331 (capability model) land.
 
 ## Context
 

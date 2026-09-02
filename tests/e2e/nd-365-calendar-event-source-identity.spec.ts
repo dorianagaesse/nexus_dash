@@ -35,6 +35,7 @@ test("identifies event calendars with text and color across responsive themes", 
       contentType: "application/json",
       body: JSON.stringify({
         connected: true,
+        writable: true,
         range: "current-week",
         timeMin: monday.toISOString(),
         timeMax: new Date(monday.getTime() + 7 * 86_400_000).toISOString(),
