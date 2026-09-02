@@ -123,6 +123,10 @@ export function CalendarEventModal({
           </Button>
         </CardHeader>
         <CardContent className="flex-1 min-h-0 overflow-y-auto">
+          <p className="mb-3 text-xs text-muted-foreground">
+            Saves to your selected Google Calendar, not to a shared NexusDash
+            project schedule.
+          </p>
           <form
             className="grid gap-4"
             onSubmit={(submitEvent) => {

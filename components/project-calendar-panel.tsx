@@ -39,14 +39,12 @@ import { cn } from "@/lib/utils";
 
 interface ProjectCalendarPanelProps {
   projectId: string;
-  canEdit: boolean;
 }
 
 type EventModalMode = "create" | "edit" | "view";
 
 export function ProjectCalendarPanel({
   projectId,
-  canEdit,
 }: ProjectCalendarPanelProps) {
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
@@ -56,6 +54,7 @@ export function ProjectCalendarPanel({
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
+  const [isWritable, setIsWritable] = useState(false);
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
   const [calendarSources, setCalendarSources] = useState<CalendarSourceOption[]>([]);
   const [defaultCalendarSourceId, setDefaultCalendarSourceId] = useState("");
@@ -107,7 +106,7 @@ export function ProjectCalendarPanel({
   };
 
   const openCreateEventModal = () => {
-    if (!canEdit) {
+    if (!isWritable) {
       return;
     }
 
@@ -118,7 +117,7 @@ export function ProjectCalendarPanel({
 
   const openEditEventModal = (event: CalendarEventItem) => {
     const parsed = parseEventForForm(event);
-    setEventModalMode(canEdit && event.writable ? "edit" : "view");
+    setEventModalMode(isWritable && event.writable ? "edit" : "view");
     setEditingEventId(event.id);
     setSelectedEvent(event);
     setEventSummary(parsed.summary);
@@ -171,6 +170,7 @@ export function ProjectCalendarPanel({
 
       if (response.status === 401) {
         setIsConnected(false);
+        setIsWritable(false);
         setEvents([]);
         setCalendarSources([]);
         setDefaultCalendarSourceId("");
@@ -183,6 +183,10 @@ export function ProjectCalendarPanel({
       }
 
       setIsConnected(payload.connected);
+      setIsWritable(payload.writable === true);
+      if (payload.writable !== true) {
+        setIsEventModalOpen(false);
+      }
       setEvents(payload.events ?? []);
       setCalendarSources(payload.sources ?? []);
       const preferredSourceId = resolvePreferredWriteSourceId(
@@ -210,6 +214,7 @@ export function ProjectCalendarPanel({
       }
 
       console.error("[ProjectCalendarPanel.loadEvents]", fetchError);
+      setIsWritable(false);
       setError(
         fetchError instanceof Error
           ? fetchError.message
@@ -222,7 +227,7 @@ export function ProjectCalendarPanel({
   }, [projectId]);
 
   const submitEventForm = async () => {
-    if (!canEdit || eventModalMode === "view") {
+    if (!isWritable || eventModalMode === "view") {
       return;
     }
 
@@ -297,7 +302,7 @@ export function ProjectCalendarPanel({
   };
 
   const handleDeleteEvent = async () => {
-    if (!canEdit) {
+    if (!isWritable) {
       return;
     }
 
@@ -383,14 +388,14 @@ export function ProjectCalendarPanel({
               <CardTitle className="text-lg font-semibold tracking-tight">
                 <span className="inline-flex items-center gap-2">
                   <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                  Calendar
+                  My calendar
                 </span>
               </CardTitle>
             </div>
           </button>
-      </CardHeader>
+        </CardHeader>
 
-      {isExpanded ? (
+        {isExpanded ? (
           <CardContent className={cn("space-y-4", PROJECT_SECTION_CONTENT_CLASS)}>
             {isLoading ? (
               <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
@@ -400,7 +405,6 @@ export function ProjectCalendarPanel({
 
             {!isLoading && isConnected === false ? (
               <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
-                <p>Connect Google Calendar to show events here.</p>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button type="button" size="sm" asChild>
                     <a href={connectUrl}>Connect Google Calendar</a>
@@ -425,9 +429,10 @@ export function ProjectCalendarPanel({
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
                   <p className="text-xs text-muted-foreground">
                     {syncedAt ? `Synced ${new Date(syncedAt).toLocaleString()}` : "Connected"}
+                    {!isWritable ? " · Read-only" : ""}
                   </p>
                   <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                    {canEdit ? (
+                    {isWritable ? (
                       <Button
                         type="button"
                         variant="secondary"
@@ -480,7 +485,7 @@ export function ProjectCalendarPanel({
                 ) : null}
 
                 <CalendarWeekGrid
-                  canEdit={canEdit}
+                  canWrite={isWritable}
                   weekDays={weekDays}
                   eventsByDay={eventsByDay}
                   eventsCount={events.length}

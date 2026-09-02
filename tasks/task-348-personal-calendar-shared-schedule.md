@@ -1,26 +1,12 @@
-# Current Task
-
-## TASK-348: Personal Calendar Versus Shared Project Scheduling
+# TASK-348: Personal Calendar Versus Shared Project Scheduling
 
 ## Status
 
 Implementation complete on
 `feature/task-348-personal-calendar-shared-schedule-r4`, refreshed onto current
 `main` after TASK-406 merged. Phase 1 relabels and decouples the personal
-calendar overlay; the future shared schedule remains intentionally deferred.
-
-2026-09-02 update: merged `origin/main` (TASK-327 multi-account + ND-365 source
-identity) into the branch, dropped the redundant explanatory copy from the
-panel header and connect state per user feedback, and fixed the preview Google
-Calendar connect failure (stale pinned `GOOGLE_REDIRECT_URI` ignored in
-preview deployments; callbacks now derive from the current request).
-
-2026-09-02 review round: triaged the Copilot review on PR #452 — moved the
-TASK-348 changelog notes into a real `v0.49.0` entry, removed the skeleton's
-explanatory paragraph, aligned the task brief Status with the r4 branch, and
-added the top-level `writable` flag to the nd-365 events mock (the merged
-panel requires it to render edit affordances). All Copilot threads replied to
-and resolved; CI green on `0fbca15`.
+calendar overlay; the future shared schedule remains intentionally deferred
+until TASK-337 (project actor identity) and TASK-331 (capability model) land.
 
 ## Context
 
@@ -88,11 +74,10 @@ second stage so the follow-up work has a clear contract to build on.
 
 ## Acceptance Criteria
 
-1. The project dashboard Calendar section header reads "My calendar" with no
-   redundant explanatory paragraph below it, and the disconnected state shows
-   only the connect actions (Connect Google Calendar, Open Google Calendar).
-   2026-09-02 user feedback: the explanatory copy previously required here was
-   removed as unnecessary.
+1. The project dashboard Calendar section header reads "My calendar" with
+   explanatory copy that names the integration as a user-scoped Google Calendar
+   overlay and clarifies that edits update the selected Google target rather
+   than a shared NexusDash project schedule.
 2. The dashboard upcoming-events summary card is relabeled to match ("My
    calendar") so the stat row and section header use one vocabulary.
 3. The Calendar section skeleton, project dashboard labels, and any other
@@ -115,8 +100,8 @@ second stage so the follow-up work has a clear contract to build on.
    `DELETE`; a viewer without write scope still receives
    `insufficient-scope`; and the personal-overlay copy assertions reflect the
    new label.
-8. The Calendar event modal title remains neutral (it is the user's personal
-   event, not a project record) and the modal continues to pass through the
+8. The Calendar event modal title remains neutral (it targets the user's
+   selected Google calendar, not a project record) and continues to pass through the
    connected-Google reauthorization reconnect link when applicable.
 9. `adr/task-348-shared-schedule-contract.md` describes the future
    NexusDash-owned shared project schedule: artifact model, owner/assignee
