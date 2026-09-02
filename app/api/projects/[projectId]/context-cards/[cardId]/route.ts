@@ -11,6 +11,7 @@ import { withProjectActivityVersionHeader } from "@/lib/project-activity-version
 import {
   deleteContextCardForProject,
   updateContextCardForProject,
+  type ContextCardResponse,
 } from "@/lib/services/context-card-service";
 
 interface ContextCardUpdateJsonRequestBody {
@@ -29,6 +30,25 @@ function readText(formData: FormData, key: string): string {
 
 function isJsonRequest(request: NextRequest): boolean {
   return request.headers.get("content-type")?.includes("application/json") ?? false;
+}
+
+function serializeContextCard(card: ContextCardResponse) {
+  return {
+    ...card,
+    createdAt: card.createdAt.toISOString(),
+    updatedAt: card.updatedAt.toISOString(),
+    projection: {
+      ...card.projection,
+      review: {
+        ...card.projection.review,
+        lastEditedAt: card.projection.review.lastEditedAt.toISOString(),
+      },
+      attachments: card.projection.attachments.map((attachment) => ({
+        ...attachment,
+        uploadedAt: attachment.uploadedAt.toISOString(),
+      })),
+    },
+  };
 }
 
 export async function PATCH(
@@ -103,6 +123,7 @@ export async function PATCH(
     );
   }
 
+  const serializedCard = serializeContextCard(result.data);
   const version = await recordProjectActivityEventVersion({
     actorUserId,
     projectId,
@@ -110,17 +131,14 @@ export async function PATCH(
     action: "updated",
     entityId: cardId,
     payload: {
-      card: {
-        id: cardId,
-        title,
-        content,
-        color,
-      },
+      card: serializedCard,
     },
   });
 
   return NextResponse.json(
-    { ok: true },
+    {
+      card: serializedCard,
+    },
     { headers: withProjectActivityVersionHeader(timing.headers(), version) }
   );
 }

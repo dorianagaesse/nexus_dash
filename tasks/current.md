@@ -1,113 +1,102 @@
 # Current Task
 
-## TASK-356: Meeting Note Stewardship and Decision Provenance
+## TASK-342: Context Knowledge Stewardship and Attachment Provenance
 
 ## Status
 
-User validation is complete. PR #453 is being finalized on
-`feature/task-356-meeting-note-stewardship-r4` after reconciling current
-`main`; the release advances to `v0.50.0`, and final post-merge validation is
-in progress.
+Implementation complete on
+`feature/task-342-context-knowledge-stewardship-r4`, refreshed onto current
+`main` after TASK-406 merged; ready for review.
+
+Follow-up refinement (2026-09-02): the card UI now shows only `Created` and
+`Last edit` provenance chips. Steward assignment controls, the steward chip,
+and the derived `Needs review` / `Reviewed X` badge were removed from the UI.
+Agent attribution was confirmed supported: cards created or edited by an
+agent show the agent avatar and credential label, so no separate actor-identity
+task is needed.
 
 ## Context
 
-`ProjectMeetingNote` already records `createdByUserId` and `updatedByUserId`,
-but every editor is functionally interchangeable: there is no visible
-accountable steward, the meeting-todo follow-ups live under an anonymous
-parent, and the audit-driven "needs decision provenance" call to action has no
-note-level surface.
+Context cards today expose only title, color, content, and attachments. There
+is no record of who created the card or who last edited it. A card written by
+a former project member or agent looks identical to a fresh card written
+yesterday.
 
-TASK-330 introduced the reusable meeting-todo actor contract for human
-project members and active project agent credentials. This task continues the
-deliberate, narrow pattern: surface a single, reassignable steward/facilitator
-on every meeting note without expanding into cross-artifact ownership or a
-workspace ownership queue.
+TASK-337's universal project-actor model is not implemented yet. This task
+introduces a deliberately narrow, reusable context-card actor contract for
+human project members and active project agent credentials — mirroring the
+TASK-330 meeting-todo pattern — without expanding into cross-artifact ownership
+or a shared scheduling system.
 
 ## Scope
 
-- Add a durable steward/facilitator actor to `ProjectMeetingNote`, modeled on
-  the existing meeting-todo actor contract.
-- Backfill steward identity from the note creator for existing rows.
-- Surface creator, last editor, update time, and steward identity in the
-  meeting-notes panel and meeting detail view.
-- Make eligible participant chips the accessible steward assignment controls
-  (keyboard, focus, 44px target, light/dark, semantic pressed state) in meeting
-  detail and preparation; clicking the selected participant clears the role,
-  while viewers see the same crowned identity without mutation affordances.
-- Add steward responsibility filters (`All`, `Stewarded by me`,
-  `Unstewarded`) for both active and archived notes.
-- Reuse the established human/agent registry and chip so removed members and
-  revoked/expired agents surface as `Needs reassignment` rather than silently
-  orphaning the note.
-- Keep steward persistence independent from participants and meeting-todo
-  assignees, while presenting the responsible participant/member with a
-  distinct crowned avatar treatment in the meeting UI.
-- Make note mutation and deletion capability explicit by reusing the existing
-  owner/editor/viewer boundary; viewers see steward identity without edit
-  affordances.
+- Persist durable creator and last editor identity for every context card,
+  including safe display snapshots.
+- Backfill existing card creators from existing provenance (the resource
+  `createdAt` is preserved and remains the immutable creation timestamp).
+- Show `Created` and `Last edit` chips with actor identity and timestamps on
+  every card: agent actors render the agent avatar plus credential label,
+  human actors render their avatar, and removed members render their recorded
+  display snapshot.
+- Surface the already-stored attachment uploader (human identity and display
+  snapshot) on context card attachments so each link/file shows who added it.
+- Render the provenance chips legibly in light and dark themes (cards use
+  fixed pastel backgrounds, so chips use fixed light surfaces).
+- Persist steward assignment and review derivation at the service boundary
+  only; these are not surfaced in the card UI.
 
 ## Out Of Scope
 
-- A universal project-actor foundation or cross-artifact actor migration
-  (TASK-337).
-- A workspace-wide stewardship queue (TASK-346).
-- New agent capability vocabulary or granular meeting scopes (TASK-331).
-- Mentions, follow notifications, or notification preferences beyond the
-  existing overdue reminder pipeline (TASK-347).
-- Conflict-safe revision preconditions or draft recovery (TASK-339).
-- Durable collaboration history or audit timelines (TASK-340).
-- Decision-level authorship beyond the note-level steward/facilitator (this
-  task keeps the existing single `decisions` text field untouched).
+- A universal actor table or cross-artifact actor migration (TASK-337).
+- Cross-project knowledge responsibility queues (TASK-346).
+- New agent capability vocabulary or granular context scopes (TASK-331).
+- Assignment notifications or preference controls beyond what the existing
+  in-product surfaces already expose (TASK-347).
+- Edit locking or revision preconditions on context cards (TASK-339).
+- Persisting a full attachment-lifecycle event log. The migration adds
+  `uploadedByKind` and `uploadedByDisplayNameSnapshot` to `ResourceAttachment`
+  so future producers can rely on a stable contract; existing rows backfill
+  `uploadedByKind = human` from the `uploadedByUserId` foreign key.
+- Steward assignment UI and the derived review/staleness badge in the card
+  grid, preview modal, and edit modal. The underlying steward persistence and
+  service-boundary validation remain in place.
 
 ## Acceptance Criteria
 
-1. Every meeting note exposes creator, last editor, update time, and an
-   optional steward/facilitator with actor kind, stable identifier, display
-   label, avatar treatment, and current access state. Stewards are rendered
-   with the same chip vocabulary used for meeting-todo assignees, including
-   `Needs reassignment` for removed or revoked actors. In the meeting modal,
-   the steward is visually attached to the participant/member identity with an
-   amber border and crown, while provenance sits at the bottom of the content.
-2. New notes persist a steward that defaults to the note creator. Existing
-   notes are backfilled from `createdByUserId`. Editing a note preserves the
-   steward unless the editor explicitly reassigns or clears it; the steward
-   must survive unrelated field edits.
-3. Editors can assign a steward from meeting detail and preparation by
-   clicking an eligible project-member participant, then clear the role by
-   clicking that participant again. The toggle is keyboard operable and keeps
-   pending and error feedback; viewers see the crowned identity without
-   mutation affordances, and the mutation/deletion boundary is explicit.
-4. Steward validation is enforced in the service boundary. Human steward
-   candidates must currently own or belong to the project; agent steward
-   candidates must be active, unexpired credentials for that project.
-   Stewardship never grants access, and external meeting participants are
-   never selectable as stewards.
-5. Removed human members and revoked/expired agents remain visibly attached
-   to their note as inactive and labeled `Needs reassignment` until cleared
-   or reassigned.
-6. The meeting notes panel supports stable URL-backed
-   `All`/`Stewarded by me`/`Unstewarded` filters for both active and archived
-   lists, with accurate counts and useful filtered empty states.
-7. UI remains usable at 375px and desktop widths, in light and dark themes,
-   with visible focus, semantic status text, at least 44px primary touch
-   targets, and no color-only stewardship state.
-8. Stewardship survives the existing project-scoped realtime reconciliation,
-   and a steward change emits a project activity event so observers refresh
-   correctly.
+1. Each context card exposes creator and last editor identity, with actor
+   kind, stable identifier, display label, avatar treatment, and current
+   access state.
+2. New cards record creator and last editor on creation. Existing cards
+   backfill creator and last editor from existing provenance (when present)
+   and otherwise expose `Unknown actor` snapshots that are clearly labeled
+   inactive so they cannot be confused with live collaborators. Editing a
+   card advances the last editor but never replaces creator identity.
+3. Agent-authored cards show the agent avatar and credential label in both
+   the `Created` and `Last edit` chips; no additional actor-identity work is
+   required for agent attribution.
+4. Cards created or edited by removed human members continue to show their
+   original identity and are labeled as no longer project-active.
+5. Each context-card attachment shows the recorded uploader with a stable
+   display label and avatar treatment. Attachments uploaded by removed
+   human members continue to show their original identity and are labeled
+   as no longer project-active.
+6. The card UI contains no steward assignment controls, no steward chip, and
+   no `Needs review` / `Reviewed X` badge; only `Created` and `Last edit`
+   chips with timestamps remain, legible at 375px and desktop widths, in
+   light and dark themes, with visible focus and semantic status text.
 
 ## Definition Of Done
 
 - Prisma schema, migration, RLS inventory, services, routes, UI projections,
-  and relevant documentation are updated together.
+  attachment uploader display, and relevant documentation are updated
+  together.
 - Focused unit, service, route, component, and Playwright coverage exercises
-  human/agent stewardship, invalid actors, inactive states, steward filters,
-  creator/last-editor provenance, role restrictions, and steward
-  defaults/backfill.
+  human/agent actor attribution, inactive actors, attachment uploader display,
+  and optimistic projection.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  `npm run build`, and relevant meeting-note E2E coverage pass.
-- `tasks/current.md`, `tasks/backlog.md`,
-  `tasks/task-356-meeting-note-stewardship.md`, and `journal.md` reflect the
-  delivered behavior.
+  `npm run build`, and a focused context-card Playwright coverage pass.
+- `tasks/current.md`, `tasks/backlog.md`, `tasks/task-342-context-knowledge-stewardship.md`,
+  and `journal.md` reflect the delivered behavior.
 - The branch is pushed, a ready-for-review PR is open, required checks are
   green, and initial Copilot review feedback is resolved or documented.
 

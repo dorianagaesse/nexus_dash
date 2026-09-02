@@ -3,6 +3,65 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-02 - TASK-342 PR #451: provenance chip restyle, main merge, review closeout
+
+- User feedback on the provenance chips (third iteration): the theme-adaptive
+  filled pill still clashed with the pastel card surface. Removed the pill
+  entirely (no border, no background, no theme tokens): chips now render as
+  plain fixed dark slate text (`text-slate-800`, secondary `text-slate-600`)
+  matching the card's own slate text, so they read the same in light and dark
+  themes. Avatars (agent credential or human) are unchanged. Committed as
+  98dd498; provenance tests (6/6) and eslint green.
+- Merged `origin/main` into the branch (main had advanced to v0.50.0 with
+  TASK-356/348/327/ND-365 since the branch base). Resolved conflicts:
+  - `prisma/schema.prisma`: union of both relation sets (context-card
+    creator/lastEditor/steward relations + main's calendar-connection,
+    meeting-note steward relations), re-canonicalized with `prisma format`.
+  - `package.json`/`package-lock.json`: took main's file and advanced the
+    release to v0.51.0 (our branch still carried v0.38.0).
+  - `CHANGELOG.md`: moved the context-card provenance entry from the stale
+    embedded v0.38.0 section to the top as v0.51.0 - 2026-09-02, following the
+    refresh-onto-main convention; noted the final plain-dark-text chip styling.
+  - `tasks/current.md`: kept the TASK-342 brief (last-merged task owns the
+    tracker). `tasks/backlog.md`: took main's post-migration cleaned version.
+  - `journal.md`: union of both sides (top 09-02 refinement entry + tail
+    08-09 TASK-342 entry re-inserted into main's journal at their positions).
+- Copilot review closeout per agent.md: the single review comment (null
+  `color` in the context-cards list API, fixed in 17a9e5c) was replied to and
+  the thread is now resolved; Quality Gates re-run on the merged head.
+
+# 2026-09-02 - TASK-342 context card provenance UI refinement (PR #451)
+
+- User takeover of PR #451: the card info render was unreadable and noisy.
+  Removed the steward chip, steward picker, and the derived review badge
+  (`Needs review (90d)` / `Reviewed X days ago`) from the card grid, preview
+  modal, and edit modal; the card UI now shows only `Created` and `Last edit`
+  chips with timestamps.
+- Fixed dark-mode rendering: context cards keep fixed pastel backgrounds in
+  both themes, so the actor chips now use fixed light surfaces
+  (`bg-white/70 text-slate-800`) instead of theme tokens that produced dark
+  text on dark chips.
+- Confirmed agent attribution already works end-to-end: the projection carries
+  `kind: "agent"` with the credential label, and the chip renders the agent
+  avatar for agent-authored cards — no new actor-identity task needed.
+- Deleted `context-card-review-badge.tsx`, `context-card-steward-picker.tsx`,
+  and the steward controls test; added `context-card-provenance.test.tsx`
+  covering agent/human attribution, timestamps, fallbacks, and the modal/grid
+  surfaces. Backend stewardship service, route, and DB contract stay intact.
+- Local validation: lint and RLS inventory pass; the full vitest suite passes
+  with `validate:local` env injection (1,092 passed, 2 skipped; coverage
+  91.37% stmts / 81.33% branches / 92.2% funcs / 91.88% lines). Production
+  build (Turbopack) is green with local DB overrides plus the dev
+  `GOOGLE_TOKEN_ENCRYPTION_KEY`; `local-validation.mjs` does not inject that
+  key, a pre-existing script gap (the check only fires when `GOOGLE_CLIENT_ID`
+  is set, so CI is unaffected).
+- CI Quality Gates initially caught a locale-dependent assertion in the new
+  provenance test (`/·\s*\d/` matched day-first locales like "1 août" but not
+  en-US "Aug 1"); fixed to `/·\s*\S/` and re-verified green.
+- Worktree gotcha resolved: a CRLF-checked-out `scripts/validate-supabase-project-ref.mjs`
+  broke vitest's transform (`SyntaxError: Invalid or unexpected token`);
+  normalizing that file to LF fixed it without content change.
+
 # 2026-09-02 - TASK-348 refresh: preview OAuth fix, main merge, copy trim
 
 - User-reported: clicking "Connect Google Calendar" on the Vercel preview
@@ -4793,6 +4852,67 @@ Low-value entries to avoid going forward:
   [PR #416](https://github.com/dorianagaesse/nexus_dash/pull/416), superseding
   conflicting PR #410 without rewriting its protected history.
 
+# 2026-08-09 - TASK-342 context knowledge stewardship and attachment provenance
+
+- Started the task on `feature/task-342-context-knowledge-stewardship` cut from
+  `origin/main`. Drafted `tasks/task-342-context-knowledge-stewardship.md` plus
+  the Acceptance Criteria/Definition of Done in `tasks/current.md`; bumped the
+  backlog entry to Now 1.
+- Added the `ContextCardActorKind` enum and 13 stewardship/provenance columns
+  on `Resource` (creator/lastEditor/steward × user/credential/kind/snapshot,
+  plus `updatedAt`). Added `uploadedByKind` and
+  `uploadedByDisplayNameSnapshot` to `ResourceAttachment` with a CHECK
+  constraint enforcing human-only uploads. Migration
+  `20260809120000_task342_context_knowledge_stewardship` backfills existing
+  rows from the existing `uploadedByUserId` and resets `Resource.updatedAt`
+  to `createdAt`.
+- Mirrored the TASK-330 actor pattern via `lib/context-card-actor.ts` and
+  `lib/services/context-card-actor-service.ts`. New
+  `lib/services/context-card-stewardship-service.ts` exposes the review
+  threshold (env-overridable via `CONTEXT_CARD_REVIEW_THRESHOLD_DAYS`,
+  defaulting to 90), `projectContextCard`, `assignContextCardSteward`, and
+  `recordContextCardCreator`/`recordContextCardEditor` write helpers.
+- Updated `lib/services/context-card-service.ts` so create/update persist the
+  creator/last editor snapshots and return the full `ContextCardResponse`
+  with the projection block. `lib/services/project-attachment-service.ts`
+  resolves the uploader display snapshot via a new `resolveUploaderDisplaySnapshot`
+  helper for both form and direct-upload paths.
+- Added `PATCH /api/projects/:projectId/context-cards/:cardId/stewardship`
+  with editor-role eligibility and surface the new `projection` block +
+  project-wide `assignableActors` in the list/get responses.
+- UI: new `ContextCardActorChip`, `ContextCardReviewBadge`, and searchable
+  `ContextCardStewardPicker` (combobox). Wired into the preview header and
+  edit modal. Cards now show a review/steward chip strip on the grid surface.
+- Validation: `npm run lint`, `npm test` (969 passing — 27 new), `npm run
+  rls:check`, and `npm run build` all clean in the worktree.
+- PR #428 CI repair: Quality Core stopped at `release:check` because
+  `package.json` had advanced to `0.38.0` while the lockfile remained at
+  `0.37.0`, and the feature release had no matching changelog entry. Aligned
+  both root lockfile versions and documented `v0.38.0` in `CHANGELOG.md`.
+- The repaired release gate exposed three stale route-test fixtures: the
+  context-card list test did not mock the new stewardship projection/registry,
+  and update-route mocks omitted timestamps now serialized in the response.
+  Updated those mocks and expectations without changing production behavior.
+- Repair validation passed: release policy, lint, RLS inventory, 12 focused
+  route tests, the full unit/API suite (1064 passed, 2 skipped), coverage
+  (91.37% statements / 81.33% branches / 92.2% functions / 91.88% lines),
+  and the production build. No deployment was triggered.
+- Replacement PR #446 Copilot review identified stale realtime projections,
+  RLS-hidden actor choices, incomplete preview stewardship controls, and agent
+  attachment attribution gaps. Added a display-safe SECURITY DEFINER actor
+  projection, preserved card edit timestamps during stewardship-only writes,
+  and now reject agent-authenticated attachment creation until the attachment
+  schema can persist credential identity without misattribution.
+- Realtime context-card updates now carry timestamps and complete stewardship
+  projections. The grid, preview, and edit surfaces use shared user/agent
+  avatars, explicitly call out inactive stewards as needing reassignment, and
+  expose labeled 44px keyboard-operable assignment controls with pending/error
+  behavior. Added focused component, route, and service regressions.
+- Review-fix validation passed: release policy, lint, RLS inventory, Prisma
+  validation, production build, 1,080 unit/API/component tests (2 skipped), and
+  coverage (91.37% statements / 81.33% branches / 92.2% functions / 91.88%
+  lines). The standalone project-ref script test remains a Windows CRLF/shebang
+  loader limitation and is covered by the Linux CI run.
 # 2026-08-09 - TASK-356 meeting note stewardship and decision provenance
 
 - Drafted the task brief at `tasks/task-356-meeting-note-stewardship.md`

@@ -92,6 +92,32 @@ function createError(status: number, error: string): ServiceErrorResult {
   return { ok: false, status, error };
 }
 
+async function resolveUploaderDisplaySnapshot(input: {
+  db: DbClient;
+  actorUserId: string;
+}): Promise<string> {
+  const user = await input.db.user.findUnique({
+    where: { id: input.actorUserId },
+    select: {
+      name: true,
+      email: true,
+      username: true,
+      usernameDiscriminator: true,
+      avatarSeed: true,
+      id: true,
+    },
+  });
+  if (!user) {
+    return "Unknown uploader";
+  }
+  return (
+    user.username?.trim() ||
+    user.name?.trim() ||
+    user.email?.split("@", 1)[0]?.trim() ||
+    "Unknown uploader"
+  );
+}
+
 function normalizeActorUserId(actorUserId: string | null | undefined): string {
   if (typeof actorUserId !== "string") {
     return "";
@@ -317,9 +343,13 @@ export async function createContextAttachmentsFromDraft(input: {
   links: ParsedAttachmentLink[];
   files: File[];
   db?: DbClient;
+  uploaderDisplayNameSnapshot?: string;
 }): Promise<void> {
   const db = input.db ?? prisma;
   const savedStorageKeys: string[] = [];
+
+  const uploaderDisplayNameSnapshot =
+    input.uploaderDisplayNameSnapshot ?? "Unknown uploader";
 
   try {
     if (input.links.length > 0) {
@@ -327,6 +357,8 @@ export async function createContextAttachmentsFromDraft(input: {
         data: input.links.map((link) => ({
           resourceId: input.cardId,
           uploadedByUserId: input.actorUserId,
+          uploadedByKind: "human" as const,
+          uploadedByDisplayNameSnapshot: uploaderDisplayNameSnapshot,
           kind: ATTACHMENT_KIND_LINK,
           name: link.name,
           url: link.url,
@@ -352,6 +384,8 @@ export async function createContextAttachmentsFromDraft(input: {
         data: {
           resourceId: input.cardId,
           uploadedByUserId: input.actorUserId,
+          uploadedByKind: "human",
+          uploadedByDisplayNameSnapshot: uploaderDisplayNameSnapshot,
           kind: ATTACHMENT_KIND_FILE,
           name: storedFile.originalName,
           storageKey: storedFile.storageKey,
@@ -570,6 +604,11 @@ export async function createContextAttachmentFromForm(input: {
       return createError(404, "Context card not found");
     }
 
+    const uploaderDisplayNameSnapshot = await resolveUploaderDisplaySnapshot({
+      db,
+      actorUserId,
+    });
+
     const kind = readText(input.formData, "kind");
 
     if (!isAttachmentKind(kind)) {
@@ -590,6 +629,8 @@ export async function createContextAttachmentFromForm(input: {
           data: {
             resourceId: input.cardId,
             uploadedByUserId: actorUserId,
+            uploadedByKind: "human",
+            uploadedByDisplayNameSnapshot: uploaderDisplayNameSnapshot,
             kind: ATTACHMENT_KIND_LINK,
             name: providedName || new URL(normalizedUrl).hostname,
             url: normalizedUrl,
@@ -666,6 +707,8 @@ export async function createContextAttachmentFromForm(input: {
         data: {
           resourceId: input.cardId,
           uploadedByUserId: actorUserId,
+          uploadedByKind: "human",
+          uploadedByDisplayNameSnapshot: uploaderDisplayNameSnapshot,
           kind: ATTACHMENT_KIND_FILE,
           name: providedName || storedFile.originalName,
           storageKey: storedFile.storageKey,
@@ -954,6 +997,10 @@ export async function createContextAttachmentUploadTarget(input: {
     return agentScopeError;
   }
 
+  if (input.agentAccess) {
+    return createError(403, "agent-context-attachments-unsupported");
+  }
+
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
@@ -1047,6 +1094,10 @@ export async function finalizeContextAttachmentDirectUpload(input: {
     return agentScopeError;
   }
 
+  if (input.agentAccess) {
+    return createError(403, "agent-context-attachments-unsupported");
+  }
+
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
@@ -1094,6 +1145,11 @@ export async function finalizeContextAttachmentDirectUpload(input: {
       return normalizedUpload;
     }
 
+    const uploaderDisplayNameSnapshot = await resolveUploaderDisplaySnapshot({
+      db,
+      actorUserId,
+    });
+
     try {
       const metadata = await readAttachmentStoredFileMetadata(normalizedStorageKey);
       if (!metadata) {
@@ -1136,6 +1192,8 @@ export async function finalizeContextAttachmentDirectUpload(input: {
         data: {
           resourceId: input.cardId,
           uploadedByUserId: actorUserId,
+          uploadedByKind: "human",
+          uploadedByDisplayNameSnapshot: uploaderDisplayNameSnapshot,
           kind: ATTACHMENT_KIND_FILE,
           name: normalizedUpload.data.name,
           storageKey: normalizedStorageKey,

@@ -14,12 +14,22 @@ import {
   createContextAttachmentsFromDraft,
   mapContextAttachmentResponse,
 } from "@/lib/services/project-attachment-service";
+import { loadContextCardActorRegistry } from "@/lib/services/context-card-actor-service";
 import {
   requireAgentProjectScopes,
   requireProjectRole,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
+import {
+  contextCardAttachmentSelect,
+  contextCardCardSelect,
+  projectContextCard,
+  recordContextCardCreator,
+  recordContextCardEditor,
+  resolveContextCardMutationActor,
+  type ContextCardProjection,
+} from "@/lib/services/context-card-stewardship-service";
 
 const MIN_TITLE_LENGTH = 2;
 const MAX_CONTEXT_TITLE_LENGTH = 120;
@@ -66,21 +76,25 @@ interface DeleteContextCardInput {
   agentAccess?: AgentProjectAccessContext;
 }
 
-interface ContextCardAttachmentRecord {
+export interface ContextCardAttachmentResponsePayload {
   id: string;
   kind: string;
   name: string;
   url: string | null;
   mimeType: string | null;
   sizeBytes: number | null;
+  downloadUrl: string | null;
 }
 
-interface ContextCardRecord {
+export interface ContextCardResponse {
   id: string;
-  name: string;
+  title: string;
   content: string;
-  color: string | null;
-  attachments: ContextCardAttachmentRecord[];
+  color: string;
+  createdAt: Date;
+  updatedAt: Date;
+  attachments: ContextCardAttachmentResponsePayload[];
+  projection: ContextCardProjection;
 }
 
 function createError(status: number, error: string): ServiceErrorResult {
@@ -106,15 +120,37 @@ function resolveContextColor(value: string): string | null {
   return value;
 }
 
-function mapContextCardRecord(projectId: string, card: ContextCardRecord) {
+function mapContextCardResponse(input: {
+  projectId: string;
+  card: {
+    id: string;
+    name: string;
+    content: string;
+    color: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  attachments: Array<{
+    id: string;
+    kind: string;
+    name: string;
+    url: string | null;
+    mimeType: string | null;
+    sizeBytes: number | null;
+  }>;
+  projection: ContextCardProjection;
+}): ContextCardResponse {
   return {
-    id: card.id,
-    title: card.name,
-    content: card.content,
-    color: card.color ?? CONTEXT_CARD_COLORS[0],
-    attachments: card.attachments.map((attachment) =>
-      mapContextAttachmentResponse(projectId, card.id, attachment)
+    id: input.card.id,
+    title: input.card.name,
+    content: input.card.content,
+    color: input.card.color ?? CONTEXT_CARD_COLORS[0],
+    createdAt: input.card.createdAt,
+    updatedAt: input.card.updatedAt,
+    attachments: input.attachments.map((attachment) =>
+      mapContextAttachmentResponse(input.projectId, input.card.id, attachment)
     ),
+    projection: input.projection,
   };
 }
 
@@ -123,7 +159,7 @@ export async function createContextCardForProject(
 ): Promise<
   ServiceResult<{
     id: string;
-    card: ReturnType<typeof mapContextCardRecord>;
+    card: ContextCardResponse;
   }>
 > {
   const actorUserId = normalizeText(input.actorUserId);
@@ -170,6 +206,13 @@ export async function createContextCardForProject(
     return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
+  if (
+    input.agentAccess &&
+    (parsedLinks.links.length > 0 || input.attachmentFiles.length > 0)
+  ) {
+    return createError(403, "agent-context-attachments-unsupported");
+  }
+
   let createdCardId: string | null = null;
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -181,6 +224,16 @@ export async function createContextCardForProject(
     });
     if (!access.ok) {
       return createError(access.status, access.error);
+    }
+
+    const mutationActor = await resolveContextCardMutationActor({
+      db,
+      actorUserId,
+      projectId: input.projectId,
+      agentAccess: input.agentAccess,
+    });
+    if (!mutationActor.ok) {
+      return createError(mutationActor.status, mutationActor.error);
     }
 
     try {
@@ -196,6 +249,17 @@ export async function createContextCardForProject(
       });
       createdCardId = createdCard.id;
 
+      await recordContextCardCreator({
+        db,
+        cardId: createdCard.id,
+        creator: {
+          userId: mutationActor.actor.userId,
+          credentialId: mutationActor.actor.credentialId,
+          displayNameSnapshot: mutationActor.actor.displayNameSnapshot,
+          kind: mutationActor.actor.summary.kind,
+        },
+      });
+
       await createContextAttachmentsFromDraft({
         actorUserId,
         projectId: input.projectId,
@@ -203,25 +267,17 @@ export async function createContextCardForProject(
         links: parsedLinks.links,
         files: input.attachmentFiles,
         db,
+        uploaderDisplayNameSnapshot: mutationActor.actor.displayNameSnapshot,
       });
 
       const createdCardWithAttachments = await db.resource.findUnique({
         where: { id: createdCard.id },
         select: {
-          id: true,
-          name: true,
-          content: true,
-          color: true,
+          ...contextCardCardSelect,
+          createdAt: true,
           attachments: {
             orderBy: [{ createdAt: "desc" }],
-            select: {
-              id: true,
-              kind: true,
-              name: true,
-              url: true,
-              mimeType: true,
-              sizeBytes: true,
-            },
+            select: contextCardAttachmentSelect,
           },
         },
       });
@@ -232,11 +288,34 @@ export async function createContextCardForProject(
 
       await touchProjectActivity({ db, projectId: input.projectId });
 
+      const registry = await loadContextCardActorRegistry({
+        db,
+        projectId: input.projectId,
+      });
+      const projection = projectContextCard({
+        card: createdCardWithAttachments,
+        registry,
+      });
+
+      const response = mapContextCardResponse({
+        projectId: input.projectId,
+        card: {
+          id: createdCard.id,
+          name: title,
+          content,
+          color,
+          createdAt: createdCardWithAttachments.createdAt,
+          updatedAt: createdCardWithAttachments.updatedAt,
+        },
+        attachments: createdCardWithAttachments.attachments,
+        projection,
+      });
+
       return {
         ok: true,
         data: {
           id: createdCard.id,
-          card: mapContextCardRecord(input.projectId, createdCardWithAttachments),
+          card: response,
         },
       };
     } catch (error) {
@@ -258,7 +337,7 @@ export async function createContextCardForProject(
 
 export async function updateContextCardForProject(
   input: UpdateContextCardInput
-): Promise<ServiceResult<{ ok: true }>> {
+): Promise<ServiceResult<ContextCardResponse>> {
   const actorUserId = normalizeText(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -309,17 +388,27 @@ export async function updateContextCardForProject(
       return createError(access.status, access.error);
     }
 
+    const mutationActor = await resolveContextCardMutationActor({
+      db,
+      actorUserId,
+      projectId: input.projectId,
+      agentAccess: input.agentAccess,
+    });
+    if (!mutationActor.ok) {
+      return createError(mutationActor.status, mutationActor.error);
+    }
+
     try {
-      const existingCard = await db.resource.findUnique({
-        where: { id: cardId },
-        select: { id: true, projectId: true, type: true },
+      const existingCard = await db.resource.findFirst({
+        where: {
+          id: cardId,
+          projectId: input.projectId,
+          type: RESOURCE_TYPE_CONTEXT_CARD,
+        },
+        select: { id: true },
       });
 
-      if (
-        !existingCard ||
-        existingCard.projectId !== input.projectId ||
-        existingCard.type !== RESOURCE_TYPE_CONTEXT_CARD
-      ) {
+      if (!existingCard) {
         return createError(404, "context-card-not-found");
       }
 
@@ -332,11 +421,59 @@ export async function updateContextCardForProject(
         },
       });
 
+      await recordContextCardEditor({
+        db,
+        cardId,
+        editor: {
+          userId: mutationActor.actor.userId,
+          credentialId: mutationActor.actor.credentialId,
+          displayNameSnapshot: mutationActor.actor.displayNameSnapshot,
+          kind: mutationActor.actor.summary.kind,
+        },
+      });
+
+      const updatedCard = await db.resource.findUnique({
+        where: { id: cardId },
+        select: {
+          ...contextCardCardSelect,
+          createdAt: true,
+          attachments: {
+            orderBy: [{ createdAt: "desc" }],
+            select: contextCardAttachmentSelect,
+          },
+        },
+      });
+
+      if (!updatedCard) {
+        return createError(500, "context-update-failed");
+      }
+
       await touchProjectActivity({ db, projectId: input.projectId });
+
+      const registry = await loadContextCardActorRegistry({
+        db,
+        projectId: input.projectId,
+      });
+      const projection = projectContextCard({
+        card: updatedCard,
+        registry,
+      });
 
       return {
         ok: true,
-        data: { ok: true },
+        data: mapContextCardResponse({
+          projectId: input.projectId,
+          card: {
+            id: updatedCard.id,
+            name: title,
+            content,
+            color,
+            createdAt: updatedCard.createdAt,
+            updatedAt: updatedCard.updatedAt,
+          },
+          attachments: updatedCard.attachments,
+          projection,
+        }),
       };
     } catch (error) {
       logServerError("updateContextCardForProject", error);
@@ -380,16 +517,16 @@ export async function deleteContextCardForProject(
     }
 
     try {
-      const existingCard = await db.resource.findUnique({
-        where: { id: cardId },
-        select: { id: true, projectId: true, type: true },
+      const existingCard = await db.resource.findFirst({
+        where: {
+          id: cardId,
+          projectId: input.projectId,
+          type: RESOURCE_TYPE_CONTEXT_CARD,
+        },
+        select: { id: true },
       });
 
-      if (
-        !existingCard ||
-        existingCard.projectId !== input.projectId ||
-        existingCard.type !== RESOURCE_TYPE_CONTEXT_CARD
-      ) {
+      if (!existingCard) {
         return createError(404, "context-card-not-found");
       }
 
