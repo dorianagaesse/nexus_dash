@@ -3,6 +3,50 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-02 - TASK-381 reconciled onto current main (PR #459)
+
+- Merged `origin/main` into `feature/task-381-bounded-kanban-lanes` to clear
+  the PR #459 merge conflicts. Main had advanced past the branch's 2026-08-29
+  base with the TASK-373..379 agent API program, TASK-407 privacy policy,
+  TASK-326/327/348/356 calendar and stewardship work, and dependabot bumps.
+- Conflict resolution produced no product-code changes: the Kanban component
+  and its tests are byte-identical to the previously validated branch state
+  because main never touched those files. Resolved conflicts were confined to
+  release metadata and repo-side docs:
+  - `package.json`/`package-lock.json`: advanced from the stale `v0.38.0` to
+    `v0.51.0` (feature minor over main's `v0.50.0`), keeping main's dependency
+    bumps (`@playwright/test` 1.62.1, `@aws-sdk/client-s3` 3.1120.0,
+    `@vitest/coverage-v8` 4.1.11).
+  - `CHANGELOG.md`: recorded the TASK-381 entry as `v0.51.0 - 2026-09-02`. The
+    auto-merge had silently stranded the branch's original `v0.38.0` section
+    inside main's release history, so it was removed as a duplicate.
+  - `tasks/current.md`: kept the TASK-381 brief (the file describes this
+    branch's active task) instead of main's merged TASK-356 brief.
+  - `tasks/backlog.md`: adopted main's post-migration layout; the branch's
+    one-line TASK-381 status edit targets content main intentionally removed
+    on 2026-08-31, and that status now lives in the Nexus Dash kanban.
+  - `journal.md`: consolidated main's entries with the TASK-381 log.
+- Windows/local environment notes recorded for future runs: vitest does not
+  read `.env`, so local test runs must load it into the process
+  (`node --env-file=.env`) and export `NODE_ENV=test`, an
+  `AGENT_TOKEN_SIGNING_SECRET` placeholder (>= 32 chars), and a
+  `RESEND_API_KEY` placeholder. A CRLF checkout of
+  `scripts/validate-supabase-project-ref.mjs` breaks its vitest import via the
+  shebang line; normalizing the worktree copy to LF fixes it with no committed
+  diff (same finding as the original TASK-381 entry). The production build
+  additionally needs localhost `DATABASE_URL`/`DIRECT_URL` values and a
+  `GOOGLE_TOKEN_ENCRYPTION_KEY` placeholder because Next.js auto-loads `.env`.
+- Revalidated the merged tree: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, release policy `v0.50.0` -> `v0.51.0`, 1,179 unit/API
+  tests (2 skipped), coverage at 91.52% statements / 81.57% branches / 92.3%
+  functions / 92.01% lines, and the production build all pass. The pre-merge
+  e2e evidence (34 runnable Playwright tests plus the focused TASK-381 rerun)
+  stands for this tree: the merge changed no product code, and main's own PRs
+  validated the identical Playwright 1.62.1 bump through their e2e runs.
+- Resolution commits: `fd4cba3` (merge with conflict resolution) and
+  `6396468` (CHANGELOG v0.51.0 entry), plus the docs commit carrying this
+  journal entry and the `tasks/current.md` status refresh.
+
 # 2026-09-02 - TASK-348 refresh: preview OAuth fix, main merge, copy trim
 
 - User-reported: clicking "Connect Google Calendar" on the Vercel preview

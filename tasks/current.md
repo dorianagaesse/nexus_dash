@@ -4,9 +4,13 @@
 
 ## Status
 
-In review via PR #459 on `feature/task-381-bounded-kanban-lanes`; validation
-and Preview QA are complete. Copilot review is unavailable because the account
-is out of credits, and the user will run a DeepSeek review separately.
+In review via PR #459 on `feature/task-381-bounded-kanban-lanes`. On
+2026-09-02 the branch was reconciled with current `origin/main` (agent API
+program, calendar, meeting-stewardship, and dependabot changes): PR #459
+conflicts were resolved without product-code changes, the release advanced
+from the stale `v0.38.0` to `v0.51.0`, and revalidation on the merged tree is
+green. Copilot review is unavailable because the account is out of credits,
+and the user will run a DeepSeek review separately.
 
 ## Objective
 
