@@ -11,10 +11,16 @@ changes (release advanced from the stale `v0.38.0` to `v0.51.0`), then again
 after TASK-342 (PR #451) merged and advanced main itself to `v0.51.0`. Both
 rounds resolved PR #459 conflicts without product-code changes; the release
 now sits at `v0.52.0` (merge 7293cd6) and revalidation on the final merged
-tree is green: lint, rls:check, release:check, 1,216 tests passed / 2
+tree was green: lint, rls:check, release:check, 1,216 tests passed / 2
 skipped, coverage 91.52/81.57/92.3/92.01, and a production build. Copilot
-review is unavailable because the account is out of credits, and the user
-will run a DeepSeek review separately.
+then completed a review on the reconciled head (2026-09-02/03) and its three
+threads were triaged on 2026-09-03: the archived Done scroller received the
+same visible focus-visible ring as the lane scrollers, read-only (viewer)
+task cards became keyboard-operable with a button role, tab stop, and
+Enter/Space activation, and the stale version-description thread was closed
+against the reconciled v0.52.0 release notes with rationale (no code change
+needed). Regression coverage was added in the component and Playwright
+suites; revalidation is green.
 
 ## Objective
 
@@ -95,9 +101,8 @@ reviewed or reordered.
 - The explicit-branch Preview workflow succeeds and focused Preview browser
   checks pass at mobile and desktop widths.
 - The branch is committed and pushed, a ready-for-review PR is open, required
-  checks pass, and review state is recorded. Copilot is currently unavailable
-  due to exhausted credits; the user will perform the replacement DeepSeek
-  review after delivery.
+  checks pass, and review state is recorded. The Copilot review threads on PR
+  #459 are addressed and resolved on the updated head.
 - `tasks/current.md`, `tasks/backlog.md`, `CHANGELOG.md`, and `journal.md` are
   consistent, and the final handoff records PR, commit, Preview, validation,
   and review evidence without merging the PR.

@@ -92,7 +92,13 @@ function createRenderer() {
   return { container, root };
 }
 
-async function renderGrid(root: Root) {
+async function renderGrid(
+  root: Root,
+  options: {
+    canEdit?: boolean;
+    onSelectTask?: (task: KanbanTask) => void;
+  } = {}
+) {
   const columns = createEmptyColumns<KanbanTask>();
   columns.Backlog = [createTask("1", "Backlog"), createTask("2", "Backlog")];
   columns["In Progress"] = [createTask("3", "In Progress")];
@@ -105,13 +111,13 @@ async function renderGrid(root: Root) {
   await act(async () => {
     root.render(
       <KanbanColumnsGrid
-        canEdit
+        canEdit={options.canEdit ?? true}
         columns={columns}
         archivedDoneTasks={[archivedTask]}
         mentionUsers={[]}
         highlightedTaskIds={new Set()}
         onDragEnd={vi.fn()}
-        onSelectTask={vi.fn()}
+        onSelectTask={options.onSelectTask ?? vi.fn()}
         onEditTask={vi.fn()}
         onTaskHoverChange={vi.fn()}
       />
@@ -210,6 +216,86 @@ describe("KanbanColumnsGrid bounded lanes", () => {
     );
     expect(backlogScroller.scrollTop).toBe(96);
     expect(progressScroller.scrollTop).toBe(24);
+
+    await act(async () => root.unmount());
+  });
+
+  test("gives the archived Done scroller the lane scroller focus treatment", async () => {
+    const { container, root } = createRenderer();
+    await renderGrid(root);
+
+    const archiveRegion = container.querySelector<HTMLElement>(
+      '[aria-label="Archived Done tasks"]'
+    );
+    expect(archiveRegion).not.toBeNull();
+    expect(archiveRegion?.getAttribute("role")).toBe("region");
+    expect(archiveRegion?.tabIndex).toBe(0);
+    [
+      "overflow-y-auto",
+      "overscroll-y-contain",
+      "focus-visible:outline-none",
+      "focus-visible:ring-2",
+      "focus-visible:ring-inset",
+      "focus-visible:ring-ring",
+    ].forEach((token) => {
+      expect(archiveRegion?.className).toContain(token);
+    });
+
+    await act(async () => root.unmount());
+  });
+
+  test("keeps task cards keyboard-operable when editing is disabled", async () => {
+    const { container, root } = createRenderer();
+    const onSelectTask = vi.fn();
+    await renderGrid(root, { canEdit: false, onSelectTask });
+
+    const card = container.querySelector<HTMLElement>(
+      '[data-kanban-task-id="1"]'
+    );
+    expect(card).not.toBeNull();
+    expect(card?.getAttribute("role")).toBe("button");
+    expect(card?.tabIndex).toBe(0);
+
+    await act(async () => {
+      card?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(onSelectTask).toHaveBeenCalledTimes(1);
+    expect(onSelectTask).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "1", title: "Task 1" })
+    );
+
+    onSelectTask.mockClear();
+    await act(async () => {
+      card?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: " ",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(onSelectTask).toHaveBeenCalledTimes(1);
+    expect(onSelectTask).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "1" })
+    );
+
+    onSelectTask.mockClear();
+    await act(async () => {
+      card?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Tab",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    expect(onSelectTask).not.toHaveBeenCalled();
 
     await act(async () => root.unmount());
   });

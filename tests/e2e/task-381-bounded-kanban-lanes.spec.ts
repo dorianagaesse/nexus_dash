@@ -182,9 +182,17 @@ test.describe("TASK-381 bounded Kanban lanes", () => {
     const archiveSummary = page.getByText("Archive (1)", { exact: true });
     await expect(archiveSummary).toBeVisible();
     await archiveSummary.click();
-    await expect(
-      page.getByRole("region", { name: "Archived Done tasks" })
-    ).toContainText("Archived dense task");
+    const archiveRegion = page.getByRole("region", {
+      name: "Archived Done tasks",
+    });
+    await expect(archiveRegion).toContainText("Archived dense task");
+    await page.keyboard.press("Tab");
+    await expect(archiveRegion).toBeFocused();
+    expect(
+      await archiveRegion.evaluate(
+        (element) => getComputedStyle(element).boxShadow
+      )
+    ).not.toBe("none");
   });
 
   test("keeps mobile lane scroll state and viewport containment", async ({

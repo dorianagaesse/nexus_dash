@@ -28,6 +28,9 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Added accessible region names, visible focus treatment, contained overscroll,
   stable scrollbar gutters, and regression coverage for desktop, mobile, and
   landscape layouts.
+- Kept read-only task cards keyboard-operable with a visible focus ring and
+  Enter/Space activation, and extended the visible focus treatment to the
+  archived Done scroller.
 
 ## v0.51.0 - 2026-09-02
 

@@ -4,7 +4,10 @@ import {
   Droppable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { useState } from "react";
+import {
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import {
   Archive,
   CheckCircle2,
@@ -239,7 +242,7 @@ function KanbanColumn({
               Archive ({archivedDoneTasks.length})
             </summary>
             <div
-              className="max-h-40 space-y-2 overflow-y-auto overscroll-y-contain border-t border-border/60 p-2 [scrollbar-gutter:stable]"
+              className="max-h-40 space-y-2 overflow-y-auto overscroll-y-contain border-t border-border/60 p-2 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               aria-label="Archived Done tasks"
               role="region"
               tabIndex={0}
@@ -326,14 +329,30 @@ function KanbanColumn({
                       <article
                         ref={draggableProvided.innerRef}
                         {...draggableProvided.draggableProps}
-                        {...(canEdit ? draggableProvided.dragHandleProps : {})}
+                        {...(canEdit
+                          ? draggableProvided.dragHandleProps
+                          : {
+                              role: "button",
+                              tabIndex: 0,
+                              onKeyDown: (
+                                event: ReactKeyboardEvent<HTMLElement>
+                              ) => {
+                                if (
+                                  event.key === "Enter" ||
+                                  event.key === " "
+                                ) {
+                                  event.preventDefault();
+                                  onSelectTask(task);
+                                }
+                              },
+                            })}
                         data-kanban-task-id={task.id}
                         style={buildDragStyle(
                           draggableProvided.draggableProps.style,
                           draggableSnapshot.isDragging
                         )}
                         className={cn(
-                          "rounded-xl border border-border/70 bg-card/95 p-3 shadow-sm transition duration-150",
+                          "rounded-xl border border-border/70 bg-card/95 p-3 shadow-sm transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           canEdit
                             ? "cursor-grab active:cursor-grabbing"
                             : "cursor-pointer",
