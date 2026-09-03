@@ -17,6 +17,21 @@ SHA, deployment URL, and workflow run belong in release evidence.
   credential row by ID instead of depending on a permanent `userId` uniqueness
   constraint, preparing a backward-compatible TASK-327 expansion.
 
+## v0.52.0 - 2026-09-02
+
+- Bounded every Kanban lane to a responsive viewport-aware height with an
+  independently scrollable, keyboard-focusable task region and fixed lane
+  metadata and controls.
+- Preserved mounted desktop and mobile lane instances so scroll positions and
+  pointer or keyboard drag-and-drop behavior remain stable across task changes
+  and mobile status switches.
+- Added accessible region names, visible focus treatment, contained overscroll,
+  stable scrollbar gutters, and regression coverage for desktop, mobile, and
+  landscape layouts.
+- Kept read-only task cards keyboard-operable with a visible focus ring and
+  Enter/Space activation, and extended the visible focus treatment to the
+  archived Done scroller.
+
 ## v0.51.0 - 2026-09-02
 
 - Added durable creator and last-editor identity to context cards, with human

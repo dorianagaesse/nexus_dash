@@ -1,109 +1,108 @@
 # Current Task
 
-## TASK-342: Context Knowledge Stewardship and Attachment Provenance
+## TASK-381: Bounded Kanban Height With Independently Scrollable Lanes
 
 ## Status
 
-Implementation complete on
-`feature/task-342-context-knowledge-stewardship-r4`, refreshed onto current
-`main` after TASK-406 merged; ready for review.
+In review via PR #459 on `feature/task-381-bounded-kanban-lanes`. On
+2026-09-02 the branch was reconciled twice with current `origin/main`: first
+against the agent API program, calendar, meeting-stewardship, and dependabot
+changes (release advanced from the stale `v0.38.0` to `v0.51.0`), then again
+after TASK-342 (PR #451) merged and advanced main itself to `v0.51.0`. Both
+rounds resolved PR #459 conflicts without product-code changes; the release
+now sits at `v0.52.0` (merge 7293cd6) and revalidation on the final merged
+tree was green: lint, rls:check, release:check, 1,216 tests passed / 2
+skipped, coverage 91.52/81.57/92.3/92.01, and a production build. Copilot
+then completed a review on the reconciled head (2026-09-02/03) and its three
+threads were triaged on 2026-09-03: the archived Done scroller received the
+same visible focus-visible ring as the lane scrollers, read-only (viewer)
+task cards became keyboard-operable with a button role, tab stop, and
+Enter/Space activation, and the stale version-description thread was closed
+against the reconciled v0.52.0 release notes with rationale (no code change
+needed). Regression coverage was added in the component and Playwright
+suites; revalidation is green.
 
-Follow-up refinement (2026-09-02): the card UI now shows only `Created` and
-`Last edit` provenance chips. Steward assignment controls, the steward chip,
-and the derived `Needs review` / `Reviewed X` badge were removed from the UI.
-Agent attribution was confirmed supported: cards created or edited by an
-agent show the agent avatar and credential label, so no separate actor-identity
-task is needed.
+## Objective
 
-## Context
+Keep dense Kanban boards usable by bounding each visible lane to a responsive
+viewport-aware height and scrolling each lane's task region independently.
+Lane metadata and board actions must remain visible while long task lists are
+reviewed or reordered.
 
-Context cards today expose only title, color, content, and attachments. There
-is no record of who created the card or who last edited it. A card written by
-a former project member or agent looks identical to a fresh card written
-yesterday.
+## Product Decisions
 
-TASK-337's universal project-actor model is not implemented yet. This task
-introduces a deliberately narrow, reusable context-card actor contract for
-human project members and active project agent credentials — mirroring the
-TASK-330 meeting-todo pattern — without expanding into cross-artifact ownership
-or a shared scheduling system.
+- Each lane uses `clamp(20rem, 64dvh, 42rem)` so it remains useful on small
+  screens without growing indefinitely on large displays.
+- The lane header and count stay outside the scroll region. The existing board
+  header, create action, archive control, and mobile status dock retain their
+  established placement.
+- The task region is an explicitly named, keyboard-focusable scroll region
+  with contained overscroll and a stable scrollbar gutter.
+- All lane components remain mounted while the mobile status dock changes the
+  visible lane, preserving their native scroll positions.
 
 ## Scope
 
-- Persist durable creator and last editor identity for every context card,
-  including safe display snapshots.
-- Backfill existing card creators from existing provenance (the resource
-  `createdAt` is preserved and remains the immutable creation timestamp).
-- Show `Created` and `Last edit` chips with actor identity and timestamps on
-  every card: agent actors render the agent avatar plus credential label,
-  human actors render their avatar, and removed members render their recorded
-  display snapshot.
-- Surface the already-stored attachment uploader (human identity and display
-  snapshot) on context card attachments so each link/file shows who added it.
-- Render the provenance chips legibly in light and dark themes (cards use
-  fixed pastel backgrounds, so chips use fixed light surfaces).
-- Persist steward assignment and review derivation at the service boundary
-  only; these are not surfaced in the card UI.
+- Bound active Kanban lane height on mobile and desktop.
+- Make every lane's task area vertically scrollable without coupling lane
+  scroll positions.
+- Preserve pointer and keyboard drag-and-drop, including long-lane auto-scroll
+  and movement within or between lanes.
+- Preserve archive access, task selection/editing, viewer behavior, live
+  refresh, and mobile status navigation.
+- Add focused component and Playwright coverage for layout, accessibility,
+  scrolling, responsive containment, and drag behavior.
 
 ## Out Of Scope
 
-- A universal actor table or cross-artifact actor migration (TASK-337).
-- Cross-project knowledge responsibility queues (TASK-346).
-- New agent capability vocabulary or granular context scopes (TASK-331).
-- Assignment notifications or preference controls beyond what the existing
-  in-product surfaces already expose (TASK-347).
-- Edit locking or revision preconditions on context cards (TASK-339).
-- Persisting a full attachment-lifecycle event log. The migration adds
-  `uploadedByKind` and `uploadedByDisplayNameSnapshot` to `ResourceAttachment`
-  so future producers can rely on a stable contract; existing rows backfill
-  `uploadedByKind = human` from the `uploadedByUserId` foreign key.
-- Steward assignment UI and the derived review/staleness badge in the card
-  grid, preview modal, and edit modal. The underlying steward persistence and
-  service-boundary validation remain in place.
-
-## Acceptance Criteria
-
-1. Each context card exposes creator and last editor identity, with actor
-   kind, stable identifier, display label, avatar treatment, and current
-   access state.
-2. New cards record creator and last editor on creation. Existing cards
-   backfill creator and last editor from existing provenance (when present)
-   and otherwise expose `Unknown actor` snapshots that are clearly labeled
-   inactive so they cannot be confused with live collaborators. Editing a
-   card advances the last editor but never replaces creator identity.
-3. Agent-authored cards show the agent avatar and credential label in both
-   the `Created` and `Last edit` chips; no additional actor-identity work is
-   required for agent attribution.
-4. Cards created or edited by removed human members continue to show their
-   original identity and are labeled as no longer project-active.
-5. Each context-card attachment shows the recorded uploader with a stable
-   display label and avatar treatment. Attachments uploaded by removed
-   human members continue to show their original identity and are labeled
-   as no longer project-active.
-6. The card UI contains no steward assignment controls, no steward chip, and
-   no `Needs review` / `Reviewed X` badge; only `Created` and `Last edit`
-   chips with timestamps remain, legible at 375px and desktop widths, in
-   light and dark themes, with visible focus and semantic status text.
-
-## Definition Of Done
-
-- Prisma schema, migration, RLS inventory, services, routes, UI projections,
-  attachment uploader display, and relevant documentation are updated
-  together.
-- Focused unit, service, route, component, and Playwright coverage exercises
-  human/agent actor attribution, inactive actors, attachment uploader display,
-  and optimistic projection.
-- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  `npm run build`, and a focused context-card Playwright coverage pass.
-- `tasks/current.md`, `tasks/backlog.md`, `tasks/task-342-context-knowledge-stewardship.md`,
-  and `journal.md` reflect the delivered behavior.
-- The branch is pushed, a ready-for-review PR is open, required checks are
-  green, and initial Copilot review feedback is resolved or documented.
+- Task search, label filters, or Epic filters.
+- Task virtualization, pagination, persistence changes, or API changes.
+- Redesigning task cards, the task detail dialog, the project shell, or other
+  dashboard sections.
+- URL-backed or persisted lane scroll positions across full navigation.
 
 ## Runtime Assumptions
 
-- Local database-backed validation uses the repository `.env` contract and a
-  reachable PostgreSQL instance when migration or E2E execution requires it.
-- No new secrets or external provider configuration are introduced.
-- Preview deployment is not an acceptance requirement; local browser coverage
-  is sufficient unless review feedback exposes a preview-only concern.
+- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged.
+- `@hello-pangea/dnd` continues to provide pointer and keyboard sensors and
+  recognizes the focusable lane task area as its scroll container.
+- The user has explicitly reprioritized TASK-381 ahead of the still-pending
+  broad TASK-100 and TASK-133 UX passes.
+- Preview validation uses `feature/task-381-bounded-kanban-lanes` as the
+  explicit workflow `git_ref`.
+
+## Acceptance Criteria
+
+1. Every visible lane is `clamp(20rem, 64dvh, 42rem)` high and cannot grow with
+   its task count.
+2. Lane title and visible task count remain fixed while only that lane's task
+   region scrolls; scrolling one lane does not move another lane.
+3. Each task region has an accessible lane-specific name, keyboard focus, a
+   visible focus indicator, contained overscroll, and stable scrollbar space.
+4. Pointer and keyboard drag-and-drop continue to work within and across long
+   lanes, with destination auto-scroll and no unrelated scroll reset.
+5. The Done archive remains reachable outside the Done task-list overflow and
+   the global create action remains outside all lane scroll regions.
+6. Switching lanes through the mobile status dock preserves each mounted
+   lane's scroll position and produces no horizontal viewport overflow at
+   375 px or in mobile landscape.
+7. Owner/editor and viewer behavior, task modal actions, live refresh, light
+   and dark themes, and reduced-motion behavior remain unchanged.
+
+## Definition Of Done
+
+- The bounded independent lane layout and accessibility semantics are
+  implemented with focused automated coverage.
+- UI/UX Pro Max guidance is applied for `dvh` sizing, keyboard access, visible
+  focus, responsive containment, theme parity, and non-jacking scroll behavior.
+- `git diff --check`, release validation, `npm run lint`, `npm run rls:check`,
+  `npm test`, `npm run test:coverage`, `npm run build`, and `npm run test:e2e`
+  pass.
+- The explicit-branch Preview workflow succeeds and focused Preview browser
+  checks pass at mobile and desktop widths.
+- The branch is committed and pushed, a ready-for-review PR is open, required
+  checks pass, and review state is recorded. The Copilot review threads on PR
+  #459 are addressed and resolved on the updated head.
+- `tasks/current.md`, `tasks/backlog.md`, `CHANGELOG.md`, and `journal.md` are
+  consistent, and the final handoff records PR, commit, Preview, validation,
+  and review evidence without merging the PR.

@@ -3,6 +3,66 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-03 - TASK-381 PR #459: Copilot review triage and accessibility fixes
+
+- Copilot completed a review of PR #459 ("Changes recommended") with three
+  threads on the reconciled head; the earlier note about exhausted credits had
+  gone stale. Triaged all three:
+  - The archived Done scroller was keyboard-focusable (`role="region"`,
+    `tabIndex=0`) but lacked the focus-visible ring that TASK-381 gave the lane
+    scrollers and the Archive summary. Applied the same
+    `focus-visible:ring-2 ring-inset` treatment.
+  - Task cards in read-only (viewer) mode were click-only: without the dnd
+    drag-handle props there was no role, tab stop, or keyboard activation.
+    Added a non-drag fallback (`role="button"`, `tabIndex=0`, Enter/Space
+    opens the task) and a visible `focus-visible` ring on the card for both
+    editor and viewer focus, without touching drag-and-drop semantics when
+    editing is enabled.
+  - The version thread referenced the pre-reconciliation description
+    (v0.37.2 -> v0.38.0) and the intermediate v0.50.0 -> v0.51.0 bump; the
+    description, CHANGELOG top entry, and package version were reconciled to
+    v0.52.0 on 2026-09-02, so the thread was closed with rationale and no code
+    change.
+- Added regression coverage: component tests assert the archive scroller focus
+  classes and viewer-card button semantics plus Enter/Space activation, and
+  the TASK-381 Playwright spec now checks the archive scroller's computed
+  focus ring. CHANGELOG v0.52.0 bullet records the keyboard-operable viewer
+  cards and archive focus treatment.
+
+# 2026-09-02 - TASK-381 PR #459: bounded Kanban lanes reconciled onto current main
+
+- Re-reconciled `feature/task-381-bounded-kanban-lanes` with `origin/main`
+  after TASK-342 (PR #451) merged and advanced main to v0.51.0: the earlier
+  reconciliation (merge fd4cba3, release commit 6396468, v0.51.0) went stale
+  because main moved mid-task and PR #459 flipped back to CONFLICTING.
+- Second merge 7293cd6 resolved conflicts without product-code changes
+  (`kanban-columns-grid.tsx` and its tests stay byte-identical to the branch's
+  previously validated state):
+  - CHANGELOG.md: TASK-381 section moved to the top as `v0.52.0 - 2026-09-02`
+    (the original entry had been wedged into main's release history at the
+    stale v0.38.0 position); TASK-342's section stays under `v0.51.0`. Diff vs
+    `origin/main` is exactly the 12 release-metadata lines.
+  - package.json / package-lock.json: advanced to v0.52.0 in all three version
+    spots (feature branch must minor-bump over main's v0.51.0); dependencies
+    identical to main.
+  - tasks/current.md: kept the TASK-381 brief (ours). tasks/backlog.md: took
+    main's post-migration version. journal.md: took main's version in the
+    merge and re-inserts this reconciliation entry on top.
+- Validation on the merged tree is green: lint, rls:check, release:check
+  (v0.51.0 -> v0.52.0), 1,216 tests passed / 2 skipped, coverage 91.52% stmts /
+  81.57% branch / 92.3% funcs / 92.01% lines, and a production build.
+- Windows/dev-env notes: vitest requires `node --env-file=.env` with exported
+  NODE_ENV=test and CI-style AGENT_TOKEN_SIGNING_SECRET/RESEND_API_KEY
+  placeholders; `npx prisma generate` was needed after TASK-342's
+  schema-changing merge (stale client failed the build with "'updatedAt' does
+  not exist in ResourceSelect"); scripts/validate-supabase-project-ref.mjs
+  needed local CRLF->LF normalization; the production build requires localhost
+  DATABASE_URL/DIRECT_URL parity and a GOOGLE_TOKEN_ENCRYPTION_KEY placeholder
+  when Google OAuth env vars are present.
+- Branch pushed; PR #459 re-checked for mergeability. Copilot review remains
+  unavailable (credits exhausted) — the user will run the replacement DeepSeek
+  review after delivery.
+
 # 2026-09-02 - TASK-342 PR #451: provenance chip restyle, main merge, review closeout
 
 - User feedback on the provenance chips (third iteration): the theme-adaptive
