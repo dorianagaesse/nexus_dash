@@ -3,6 +3,44 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-03 - ND-408: unified Kanban search + label/epic filter bar (unites PRs #469/#470)
+
+- User direction: PR #469 (TASK-382 search + label filters) and PR #470
+  (TASK-384 epic filter) both change the same Kanban area from the shared base
+  `77686d6`; `main` (tip `e151620`) has not touched Kanban files since. Close
+  both as superseded and deliver one united PR with a minimal, self-evident
+  UI: a single search row plus one Filter popover grouping Labels and Epics
+  (incl. "No epic"). No helper text, no result-count pills (consistent with
+  the standing no-explanation-copy preference).
+- Created the Nexus Dash card ND-408 via the agent API (title only, auto-ID),
+  moved it to In Progress, and cut `feature/nd-408-kanban-search-filter` from
+  `origin/main` at `e151620`.
+- Ported the search foundation unchanged from PR A tip `5c9fbce` (service,
+  route, `useKanbanTaskSearch` hook + their tests). Superseded UI from both
+  PRs (toolbar, epic filter, their e2e specs) was replaced by:
+  - `kanban-filter-utils.ts`: search-AND-labels-AND-epics semantics with a
+    "No epic" sentinel, identity short-circuit, and `applyFilteredTaskDrop`
+    mapping visible indices onto full persisted columns (hidden tasks never
+    act as drag anchors).
+  - `kanban-filter-bar.tsx`: search (clear/loading/error+retry) + Filter
+    trigger with active-count badge; hand-rolled portal popover (per
+    `epic-select.tsx` pattern) with `aria-pressed` option rows, ESC/outside/
+    focusin close, and focus return to the trigger.
+  - Board wiring: combined `visibleColumns`/archived filtering, one drag path,
+    stale-epic prune, case-insensitive label Map; grid gets `isFiltering`
+    empty copy and controlled Archive auto-open.
+- Coverage rewrite complete: merged utils semantics matrix + drop mapping,
+  filter-bar component suite (10 tests), consolidated
+  `tests/e2e/nd-408-kanban-search-filter.spec.ts` (combined filters + foreign
+  isolation + archive auto-open, filtered pointer and keyboard drags with
+  interleaved hidden tasks, viewer read-only affordances, 375px/landscape/
+  dark popover containment).
+- Release metadata advanced to v0.52.0 (feature bump from 0.51.0) with a
+  CHANGELOG `## Unreleased` entry; `tasks/current.md` carries the ND-408 brief
+  with the TASK-342 brief preserved under `## Previous Task Snapshot`.
+- Validation and delivery (lint, RLS check, unit/coverage, build, e2e, push,
+  PR superseding #469/#470, board sync) remain as the closing steps.
+
 # 2026-09-02 - TASK-342 PR #451: provenance chip restyle, main merge, review closeout
 
 - User feedback on the provenance chips (third iteration): the theme-adaptive

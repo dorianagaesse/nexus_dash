@@ -1,5 +1,105 @@
 # Current Task
 
+## ND-408: Unified Kanban task search and filter bar
+
+## Status
+
+In progress on `feature/nd-408-kanban-search-filter` (branch from `origin/main`
+at `e151620`). Unites the previously open PRs #469 (TASK-382 server-backed task
+search + label filters) and #470 (TASK-384 epic filter) into one minimal UI:
+a single search bar above the board plus one Filter button whose popover groups
+Labels and Epics (including "No epic"). Both superseded PRs will be closed once
+this PR is open.
+
+## Context
+
+PR #469 and PR #470 both add task-filter UI to the same Kanban board area and
+share the same merge base; `main` has not touched Kanban files since, so their
+changes apply cleanly onto current main except version/docs conflicts. Rather
+than merging two visually heavy, overlapping surfaces (stacked toolbar cards
+with helper text and result-count pills), this task delivers one united,
+self-evident surface: search and filter live on a single compact row.
+
+## Scope
+
+- Port the server-backed search foundation unchanged: `searchProjectTaskIds`
+  service, `/api/projects/{projectId}/tasks/search` route, and the
+  `useKanbanTaskSearch` hook (200ms debounce, abort, error + retry).
+- Unified filter core in `components/kanban/kanban-filter-utils.ts`:
+  search IDs AND labels (all selected) AND epics (any selected, "No epic"
+  matches tasks without an epic), with an identity short-circuit when nothing
+  is active, and filtered drag-drop mapping that keeps hidden tasks in place.
+- `KanbanFilterBar`: search input (clear button, loading spinner, error + retry
+  only) and one Filter trigger (active count badge) opening a portal popover
+  grouping Labels and Epics with multi-select `aria-pressed` rows and a
+  "Clear all filters" footer shown only while anything is active.
+- Filtered board: empty columns say `No matching <status> tasks`, archived
+  Done matches auto-open the Archive group, and the mobile status navigation
+  keeps working.
+- Viewers keep the filter surface but never get create or drag affordances.
+
+## Out Of Scope
+
+- Reintroducing the superseded stacked toolbar UI, helper/explanation copy, or
+  "X / Y tasks" result-count pills (superseding #469/#470 changes them).
+- Clickable label chips on task cards as a second filter surface (the popover
+  is the only filter surface).
+- Server-side filtering/pagination of the board beyond the existing search
+  route; label/epic filtering stays client-side over loaded tasks.
+- Changing Kanban drag behavior, persistence semantics, or board data loading.
+
+## Acceptance Criteria
+
+1. One search row sits above the board: typing searches server-side across
+   titles, descriptions, references, statuses, labels, epics, assignees,
+   comments, attachments, and related tasks, with debounced loading feedback,
+   a clear button, and an error state offering retry.
+2. One Filter button opens a popover grouping Labels and Epics (plus "No
+   epic"); rows use `aria-pressed` with check marks, the trigger shows an
+   active-selection count (labels + epics only), and "Clear all filters"
+   appears only while search or selections are active and resets everything.
+3. Search, labels (AND), and epics (OR, including "No epic") combine; tasks
+   from other projects never appear, and a task detail modal is not required
+   to understand any state.
+4. Dragging a visible task while filters are active lands relative to visible
+   cards only; tasks hidden by the filter keep their relative order after
+   persistence and reload.
+5. Archived Done tasks matching the active filters surface in an open Archive
+   group; clearing filters restores the un-filtered board exactly.
+6. The filter surface contains no helper text and no result-count pill; at
+   375px, in landscape, and in dark mode the popover stays fully on-screen
+   without horizontal page scroll.
+
+## Definition Of Done
+
+- Kanban search route/service, filter utilities, filter bar, board wiring, and
+  columns grid are covered by focused unit, component, and Playwright specs
+  (combined filter semantics, filtered drag with interleaved hidden tasks,
+  viewer read-only affordances, clear-all, popover containment).
+- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
+  `npm run build`, and `npm run test:e2e` pass; `git diff --check` is clean.
+- `package.json`/`package-lock.json` advance to v0.52.0, `CHANGELOG.md`
+  carries the `## Unreleased` entry, and `journal.md` logs the execution.
+- The branch is pushed and a ready-for-review PR superseding #469 and #470 is
+  open; both superseded PRs are commented and closed; the Nexus Dash board
+  card reflects the final status.
+
+## Runtime Assumptions
+
+- Local database-backed validation uses the repository `.env` contract and a
+  reachable PostgreSQL instance when migration or E2E execution requires it.
+- The Nexus Dash task card exists (ND-408, created via the agent API) and
+  drives the branch/PR identity; no secrets leave `.env`/`.config` files.
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` brief (TASK-342, released in v0.51.0) is
+preserved verbatim below for history.
+
+---
+
+# Current Task
+
 ## TASK-342: Context Knowledge Stewardship and Attachment Provenance
 
 ## Status
