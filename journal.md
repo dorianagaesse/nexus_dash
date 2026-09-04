@@ -42,6 +42,15 @@ Use it for important implementation milestones, blockers, validation runs, and r
   commits 2a06fda (styling + specs), d9ae6bf (release metadata), ef6cb3e
   (dated changelog). Board card ND-421 remains In Progress until merge; the
   docs commit closes out the brief in `tasks/current.md`.
+- Copilot review round on PR #487 ("changes recommended") produced two items,
+  both applied: changelog/journal dates aligned from 2026-09-05 (local) to the
+  commit UTC date 2026-09-04 (6672f00), and `SLIM_SCROLLBAR_CLASSES`
+  converted from a long single-line string to a joined token array (d6e6020).
+  A reply on the inline thread and a summary PR comment record the responses;
+  re-review could not be triggered from the CLI (Copilot code review
+  re-request is a UI action) and is pending on the human side. CI checks on
+  the final head are green (Quality Core, E2E Smoke, Tenant Isolation,
+  Container Image, branch name).
 
 # 2026-09-03 - TASK-381 PR #459: Copilot review triage and accessibility fixes
 
