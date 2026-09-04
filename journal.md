@@ -5241,3 +5241,13 @@ Low-value entries to avoid going forward:
   1,177 runnable tests (2 skipped), coverage at 91.52% statements / 81.57%
   branches / 92.3% functions / 92.01% lines, production build, and the focused
   TASK-356 Playwright stewardship flow.
+
+## 2026-09-02 - ND-387 Nexus Dash task-authoring quality contract
+
+- Corrected ND-376 through ND-386 with the canonical `feature` label, added an
+  explicit rationale where needed, and removed dependency-list prose while
+  preserving the live Related Tasks relationships.
+- Created ND-387 with the `docs` label to track the repository guidance change.
+- Documented the minimum task-authoring contract in `agent.md`: duplicate
+  check, outcome-oriented title, rationale, work-type label, testable acceptance
+  criteria, focused scope, Related Tasks dependencies, and API read-back.
