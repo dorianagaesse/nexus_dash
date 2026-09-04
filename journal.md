@@ -3,7 +3,7 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
-# 2026-09-05 - ND-421 Kanban lane scrollbar styling follow-up
+# 2026-09-04 - ND-421 Kanban lane scrollbar styling follow-up
 
 - Picked up ND-421 from GitHub issue #484 (TASK-381 follow-up): the bounded
   lane task regions and the archived Done scroller introduced by TASK-381
