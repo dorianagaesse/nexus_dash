@@ -3,6 +3,29 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-05 - ND-408: mobile review iteration (popover alignment + Done button)
+
+- Second review round on the united filter bar (mobile): (1) the popover was
+  not aligned with the Filter trigger at narrow widths — empirically the
+  button is centered beneath the search row and is narrower than it
+  (x45/w285 vs bar x32/w311 at 375px), so a full-width panel could never line
+  up; (2) unclear that selecting options was complete without clicking the
+  trigger again — user asked for an ok/close button beside the clear action.
+- `kanban-filter-bar.tsx`: on viewports < 640px the popover now sizes to the
+  trigger's own rect (no 360px desktop minimum), keeping it pixel-aligned
+  under the button; the panel footer is now always rendered with an explicit
+  **Done** button (default variant, Check icon) that closes the panel and
+  restores focus to the trigger, alongside the conditional Clear all filters.
+- Component suite extended to 15 tests (Done present with and without active
+  filters; closes + restores focus); e2e responsive spec asserts the 375px
+  popover matches the trigger box (x and width within 1px) and shows Done.
+- Validation: lint clean, targeted component suites 27/27, ND-408 Playwright
+  spec 6/6 green against the dockerized PostgreSQL (port 55432). One
+  pointer-drag run failed mid-suite (persisted-order poll timeout) but passed
+  in isolation and again in the full rerun — flake, not regression; the drag
+  code path is untouched by this round.
+- Committed 49a9227 and pushed; PR #483 remains open.
+
 # 2026-09-05 - ND-408: popover review iteration + card brief made precise
 
 - Review feedback on the united filter bar: (1) with several labels/epics the

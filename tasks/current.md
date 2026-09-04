@@ -28,6 +28,15 @@ added; ND-408 e2e spec stays green. Nexus Dash card ND-408 description
 rewritten with a precise Rationale/Scope/Acceptance Criteria/Definition of
 Done brief and the `feature` label per the authoring contract in `agent.md`.
 
+Mobile review iteration (2026-09-05, second round): on viewports under 640px
+the popover sizes to the Filter trigger's own rect (the button is centered
+beneath the search row and narrower than it), so it is pixel-aligned with the
+button; the popover footer is now always rendered with an explicit **Done**
+button (Check icon) that closes the panel and restores focus to the trigger,
+alongside the conditional Clear all filters. Component suite at 15 tests and
+the 375px e2e assertion (popover box matches the trigger within 1px, Done
+visible) cover both. Committed 49a9227; PR #483 remains open.
+
 ## Context
 
 PR #469 and PR #470 both add task-filter UI to the same Kanban board area and
@@ -52,9 +61,11 @@ self-evident surface: search and filter live on a single compact row.
   dot when idle, pastel fill + check when selected). A small search field at
   the top of the popover filters label/epic options live, groups larger than
   12 chips collapse behind a "Show all N labels/epics" toggle (auto-expanded
-  while searching), and a "Clear all filters" footer appears only while
-  anything is active. The popover opens directly under the trigger and only
-  flips above when there is under 240px of room below.
+  while searching), and a footer with an always-present **Done** button (closes
+  the panel, restores focus to the trigger) plus a "Clear all filters" action
+  that appears only while anything is active. The popover opens directly under
+  the trigger and only flips above when there is under 240px of room below; on
+  narrow viewports it sizes to the trigger so it stays aligned with it.
 - Filtered board: empty columns say `No matching <status> tasks`, archived
   Done matches auto-open the Archive group, and the mobile status navigation
   keeps working.
