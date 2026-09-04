@@ -93,8 +93,15 @@ const STATUS_ICONS: Record<TaskStatus, typeof CircleDashed> = {
   Done: CheckCircle2,
 };
 
-const SLIM_SCROLLBAR_CLASSES =
-  "[scrollbar-color:rgba(148,163,184,0.52)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]";
+const SLIM_SCROLLBAR_CLASSES = [
+  "[scrollbar-color:rgba(148,163,184,0.52)_transparent]",
+  "[scrollbar-width:thin]",
+  "[&::-webkit-scrollbar]:w-2",
+  "[&::-webkit-scrollbar-track]:rounded-full",
+  "[&::-webkit-scrollbar-track]:bg-transparent",
+  "[&::-webkit-scrollbar-thumb]:rounded-full",
+  "[&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]",
+].join(" ");
 
 interface KanbanColumnsGridProps {
   canEdit: boolean;
