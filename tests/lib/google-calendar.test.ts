@@ -67,6 +67,45 @@ describe("google-calendar", () => {
     );
   });
 
+  test("derives redirect uri from request origin in preview when the pin is stale", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv(
+      "GOOGLE_REDIRECT_URI",
+      "https://nexus-dash-wheat.vercel.app/api/auth/callback/google"
+    );
+
+    expect(resolveGoogleOAuthRedirectUri("https://nexus-dash-abc123.vercel.app")).toBe(
+      "https://nexus-dash-abc123.vercel.app/api/auth/callback/google"
+    );
+  });
+
+  test("honors a redirect uri pin in preview only when it matches the request origin", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv(
+      "GOOGLE_REDIRECT_URI",
+      "https://nexus-dash.app/api/auth/callback/google"
+    );
+
+    expect(resolveGoogleOAuthRedirectUri("https://nexus-dash.app")).toBe(
+      "https://nexus-dash.app/api/auth/callback/google"
+    );
+  });
+
+  test("throws in preview when no request origin can resolve the callback", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv(
+      "GOOGLE_REDIRECT_URI",
+      "https://nexus-dash-wheat.vercel.app/api/auth/callback/google"
+    );
+
+    expect(() => resolveGoogleOAuthRedirectUri()).toThrow(
+      "missing-google-redirect-uri"
+    );
+  });
+
   test("resolves redirect uri from trusted app origin when env override is unset", () => {
     vi.stubEnv("GOOGLE_REDIRECT_URI", "");
 

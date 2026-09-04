@@ -3,7 +3,8 @@ const DAY_END_HOUR = 19;
 const HOUR_CELL_HEIGHT_PX = 56;
 const COMPACT_EVENT_HEIGHT_PX = 42;
 const TOTAL_DAY_MINUTES = (DAY_END_HOUR - DAY_START_HOUR) * 60;
-const TOTAL_GRID_HEIGHT_PX = (DAY_END_HOUR - DAY_START_HOUR) * HOUR_CELL_HEIGHT_PX;
+const TOTAL_GRID_HEIGHT_PX =
+  (DAY_END_HOUR - DAY_START_HOUR) * HOUR_CELL_HEIGHT_PX;
 
 export const CALENDAR_RANGE = "current-week";
 export const CALENDAR_DAY_START_HOUR = DAY_START_HOUR;
@@ -76,6 +77,7 @@ export function formatCalendarSourceAccount(source: {
 
 export interface CalendarEventsResponse {
   connected: boolean;
+  writable?: boolean;
   calendarId?: string;
   range?: string;
   timeMin?: string;
@@ -238,7 +240,8 @@ export function buildTimedEventLayout(event: CalendarEventItem): {
   }
 
   const topPx =
-    ((clippedStart - windowStartMinute) / TOTAL_DAY_MINUTES) * TOTAL_GRID_HEIGHT_PX;
+    ((clippedStart - windowStartMinute) / TOTAL_DAY_MINUTES) *
+    TOTAL_GRID_HEIGHT_PX;
   const heightPx = Math.max(
     24,
     ((clippedEnd - clippedStart) / TOTAL_DAY_MINUTES) * TOTAL_GRID_HEIGHT_PX
@@ -284,7 +287,9 @@ export function buildDefaultTimedWindow() {
   };
 }
 
-export function parseEventForForm(event: CalendarEventItem): CalendarEventFormState {
+export function parseEventForForm(
+  event: CalendarEventItem
+): CalendarEventFormState {
   if (event.isAllDay) {
     const startDate = /^\d{4}-\d{2}-\d{2}$/.test(event.start)
       ? event.start
@@ -387,8 +392,13 @@ export function buildCalendarGrid(monthDate: Date): Date[] {
   });
 }
 
-export function formatPickerFieldValue(value: string, includeTime: boolean): string {
-  const parsed = includeTime ? parseDateTimeInputValue(value) : parseDateInputValue(value);
+export function formatPickerFieldValue(
+  value: string,
+  includeTime: boolean
+): string {
+  const parsed = includeTime
+    ? parseDateTimeInputValue(value)
+    : parseDateInputValue(value);
   if (!parsed) {
     return includeTime ? "Select date and time" : "Select date";
   }

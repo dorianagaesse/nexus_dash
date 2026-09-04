@@ -27,6 +27,11 @@ const contextCardServiceMock = vi.hoisted(() => ({
   createContextCardForProject: vi.fn(),
 }));
 
+const contextCardStewardshipServiceMock = vi.hoisted(() => ({
+  loadContextCardActorRegistryForProject: vi.fn(),
+  projectContextCard: vi.fn(),
+}));
+
 vi.mock("@/lib/auth/api-guard", () => ({
   getAgentProjectAccessContext: apiGuardMock.getAgentProjectAccessContext,
   requireApiPrincipal: apiGuardMock.requireApiPrincipal,
@@ -51,6 +56,12 @@ vi.mock("@/lib/services/project-task-service", () => ({
 
 vi.mock("@/lib/services/context-card-service", () => ({
   createContextCardForProject: contextCardServiceMock.createContextCardForProject,
+}));
+
+vi.mock("@/lib/services/context-card-stewardship-service", () => ({
+  loadContextCardActorRegistryForProject:
+    contextCardStewardshipServiceMock.loadContextCardActorRegistryForProject,
+  projectContextCard: contextCardStewardshipServiceMock.projectContextCard,
 }));
 
 vi.mock("@/lib/services/project-attachment-service", () => ({
@@ -104,6 +115,12 @@ describe("agent project routes", () => {
       scopes: ["project:read", "task:read", "context:read"],
     });
     projectAccessServiceMock.requireAgentProjectScopes.mockReturnValue({ ok: true });
+    contextCardStewardshipServiceMock.loadContextCardActorRegistryForProject.mockResolvedValue(
+      { assignable: [] }
+    );
+    contextCardStewardshipServiceMock.projectContextCard.mockReturnValue({
+      needsReview: false,
+    });
   });
 
   test("GET /api/projects/:projectId returns project summary for valid agent scope", async () => {
@@ -337,7 +354,8 @@ describe("agent project routes", () => {
         name: "Sprint notes",
         content: "<p>Rich text</p>",
         color: "#abc",
-        createdAt: "2026-03-31T09:00:00.000Z",
+        createdAt: new Date("2026-03-31T09:00:00.000Z"),
+        updatedAt: new Date("2026-03-31T10:00:00.000Z"),
         attachments: [
           {
             id: "context-att-1",
@@ -365,6 +383,7 @@ describe("agent project routes", () => {
           content: "<p>Rich text</p>",
           color: "#abc",
           createdAt: "2026-03-31T09:00:00.000Z",
+          updatedAt: "2026-03-31T10:00:00.000Z",
           attachments: [
             {
               id: "context-att-1",
@@ -377,8 +396,12 @@ describe("agent project routes", () => {
                 "/api/projects/project-1/context-cards/card-1/attachments/context-att-1/download",
             },
           ],
+          projection: {
+            needsReview: false,
+          },
         },
       ],
+      assignableActors: [],
     });
     expect(projectAccessServiceMock.requireAgentProjectScopes).toHaveBeenCalledWith({
       agentAccess: undefined,

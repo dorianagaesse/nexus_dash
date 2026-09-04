@@ -25,8 +25,7 @@ interface ServiceSuccessResult<T extends Record<string, unknown>> {
 }
 
 type ServiceResult<T extends Record<string, unknown>> =
-  | ServiceSuccessResult<T>
-  | ServiceErrorResult;
+  ServiceSuccessResult<T> | ServiceErrorResult;
 
 interface GoogleCalendarApiEvent {
   id?: string;
@@ -81,7 +80,10 @@ interface UpsertEventRequestPayload {
   calendarSourceId?: string;
 }
 
-function createError(status: number, body: Record<string, unknown>): ServiceErrorResult {
+function createError(
+  status: number,
+  body: Record<string, unknown>
+): ServiceErrorResult {
   return { ok: false, status, body };
 }
 
@@ -250,7 +252,9 @@ function isDateOnly(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-function parseUpsertEventPayload(raw: unknown):
+function parseUpsertEventPayload(
+  raw: unknown
+):
   | { ok: true; payload: UpsertEventRequestPayload }
   | { ok: false; error: string } {
   if (!raw || typeof raw !== "object") {
@@ -401,6 +405,7 @@ export async function listCalendarEvents(input: {
 }): Promise<
   ServiceResult<{
     connected: true;
+    writable: boolean;
     calendarId: string;
     range: "current-week" | "rolling-days";
     days: number;
@@ -564,6 +569,7 @@ export async function listCalendarEvents(input: {
         } while (pageToken);
         results[index] = { events, warning, truncated };
       }
+
     };
     await Promise.all(
       Array.from({ length: Math.min(4, sourceContexts.length) }, () => worker())
@@ -598,6 +604,10 @@ export async function listCalendarEvents(input: {
     return createSuccess(200, {
       connected: true as const,
       calendarId: sourceContexts[0].source.providerCalendarId,
+      writable: sourceContexts.some(
+        (context) =>
+          context.writable && hasCalendarWriteScope(context.connection.scopes)
+      ),
       range: queryWindow.range,
       days: queryWindow.days,
       timeMin: queryWindow.timeMin.toISOString(),
@@ -637,10 +647,13 @@ export async function createCalendarEvent(
   }>
 > {
   try {
+    // Calendar mutations act on the signed-in user's private Google Calendar,
+    // not on the project. Project access is only required so the dashboard
+    // can scope the request to a project the caller can see.
     const projectAccess = await ensureCalendarProjectAccess({
       actorUserId,
       projectId,
-      minimumRole: "editor",
+      minimumRole: "viewer",
     });
     if (!projectAccess.ok) {
       return projectAccess;
@@ -668,7 +681,9 @@ export async function createCalendarEvent(
       body: toGoogleEventRequest(parsedPayload.payload),
     });
 
-    const responsePayload = (await response.json().catch(() => null)) as unknown;
+    const responsePayload = (await response
+      .json()
+      .catch(() => null)) as unknown;
 
     if (!response.ok) {
       const reason = parseGoogleErrorReason(responsePayload);
@@ -702,6 +717,7 @@ export async function createCalendarEvent(
         accountEmail: auth.body.context.accountEmail,
         writable: auth.body.context.writable,
       }
+
     );
     if (!normalized) {
       return createError(502, { error: "calendar-create-failed" });
@@ -725,10 +741,13 @@ export async function updateCalendarEvent(
   }>
 > {
   try {
+    // Calendar mutations act on the signed-in user's private Google Calendar,
+    // not on the project. Project access is only required so the dashboard
+    // can scope the request to a project the caller can see.
     const projectAccess = await ensureCalendarProjectAccess({
       actorUserId,
       projectId,
-      minimumRole: "editor",
+      minimumRole: "viewer",
     });
     if (!projectAccess.ok) {
       return projectAccess;
@@ -757,7 +776,9 @@ export async function updateCalendarEvent(
       body: toGoogleEventRequest(parsedPayload.payload),
     });
 
-    const responsePayload = (await response.json().catch(() => null)) as unknown;
+    const responsePayload = (await response
+      .json()
+      .catch(() => null)) as unknown;
 
     if (!response.ok) {
       const reason = parseGoogleErrorReason(responsePayload);
@@ -814,10 +835,13 @@ export async function deleteCalendarEvent(
   calendarSourceId?: string | null
 ): Promise<ServiceResult<{ ok: true }>> {
   try {
+    // Calendar mutations act on the signed-in user's private Google Calendar,
+    // not on the project. Project access is only required so the dashboard
+    // can scope the request to a project the caller can see.
     const projectAccess = await ensureCalendarProjectAccess({
       actorUserId,
       projectId,
-      minimumRole: "editor",
+      minimumRole: "viewer",
     });
     if (!projectAccess.ok) {
       return projectAccess;
@@ -836,7 +860,9 @@ export async function deleteCalendarEvent(
     });
 
     if (!response.ok) {
-      const responsePayload = (await response.json().catch(() => null)) as unknown;
+      const responsePayload = (await response
+        .json()
+        .catch(() => null)) as unknown;
       const reason = parseGoogleErrorReason(responsePayload);
       if (response.status === 403 && reason === "insufficientPermissions") {
         return createError(403, { error: "insufficient-scope" });

@@ -20,35 +20,39 @@ model User {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  accounts                    Account[]
-  sessions                    Session[]
-  ownedProjects               Project[]                       @relation("ProjectOwner")
-  projectMemberships          ProjectMembership[]
-  projectInvitationsSent      ProjectInvitation[]             @relation("ProjectInvitationInviter")
-  taskAttachments             TaskAttachment[]                @relation("TaskAttachmentUploader")
-  taskComments                TaskComment[]                   @relation("TaskCommentAuthor")
-  tasksCreated                Task[]                          @relation("TaskCreatedBy")
-  tasksUpdated                Task[]                          @relation("TaskUpdatedBy")
-  tasksAssigned               Task[]                          @relation("TaskAssignee")
-  resourceAttachments         ResourceAttachment[]            @relation("ResourceAttachmentUploader")
-  calendarConnections         CalendarConnection[]
-  calendarSources             CalendarSource[]
-  calendarPreference          CalendarPreference?
-  emailVerificationTokens     EmailVerificationToken[]
-  passwordResetTokens         PasswordResetToken[]
-  createdApiCredentials       ApiCredential[]                 @relation("ApiCredentialCreatedBy")
-  revokedApiCredentials       ApiCredential[]                 @relation("ApiCredentialRevokedBy")
-  authAuditEvents             AuthAuditEvent[]                @relation("AuthAuditEventActorUser")
-  notifications               Notification[]                  @relation("NotificationRecipient")
-  projectNotificationEmails   ProjectNotificationEmail[]      @relation("ProjectNotificationEmailRecipient")
-  taskCommentReactions        TaskCommentReaction[]
-  projectActivityEvents       ProjectActivityEvent[]
-  projectMeetingNotesCreated  ProjectMeetingNote[]            @relation("ProjectMeetingNoteCreatedBy")
-  projectMeetingNotesUpdated  ProjectMeetingNote[]            @relation("ProjectMeetingNoteUpdatedBy")
-  projectMeetingParticipants  ProjectMeetingNoteParticipant[]
-  meetingTodoActionsCreated   ProjectMeetingNoteAction[]      @relation("MeetingTodoCreatedByUser")
-  meetingTodoActionsAssigned  ProjectMeetingNoteAction[]      @relation("MeetingTodoAssignedToUser")
-  meetingTodoActionsCompleted ProjectMeetingNoteAction[]      @relation("MeetingTodoCompletedByUser")
+  accounts                     Account[]
+  sessions                     Session[]
+  ownedProjects                Project[]                       @relation("ProjectOwner")
+  projectMemberships           ProjectMembership[]
+  projectInvitationsSent       ProjectInvitation[]             @relation("ProjectInvitationInviter")
+  taskAttachments              TaskAttachment[]                @relation("TaskAttachmentUploader")
+  taskComments                 TaskComment[]                   @relation("TaskCommentAuthor")
+  tasksCreated                 Task[]                          @relation("TaskCreatedBy")
+  tasksUpdated                 Task[]                          @relation("TaskUpdatedBy")
+  tasksAssigned                Task[]                          @relation("TaskAssignee")
+  resourceAttachments          ResourceAttachment[]            @relation("ResourceAttachmentUploader")
+  calendarConnections          CalendarConnection[]
+  calendarSources              CalendarSource[]
+  calendarPreference           CalendarPreference?
+  emailVerificationTokens      EmailVerificationToken[]
+  passwordResetTokens          PasswordResetToken[]
+  createdApiCredentials        ApiCredential[]                 @relation("ApiCredentialCreatedBy")
+  revokedApiCredentials        ApiCredential[]                 @relation("ApiCredentialRevokedBy")
+  authAuditEvents              AuthAuditEvent[]                @relation("AuthAuditEventActorUser")
+  notifications                Notification[]                  @relation("NotificationRecipient")
+  projectNotificationEmails    ProjectNotificationEmail[]      @relation("ProjectNotificationEmailRecipient")
+  taskCommentReactions         TaskCommentReaction[]
+  projectActivityEvents        ProjectActivityEvent[]
+  projectMeetingNotesCreated   ProjectMeetingNote[]            @relation("ProjectMeetingNoteCreatedBy")
+  projectMeetingNotesUpdated   ProjectMeetingNote[]            @relation("ProjectMeetingNoteUpdatedBy")
+  projectMeetingNotesStewarded ProjectMeetingNote[]            @relation("ProjectMeetingNoteSteward")
+  projectMeetingParticipants   ProjectMeetingNoteParticipant[]
+  meetingTodoActionsCreated    ProjectMeetingNoteAction[]      @relation("MeetingTodoCreatedByUser")
+  meetingTodoActionsAssigned   ProjectMeetingNoteAction[]      @relation("MeetingTodoAssignedToUser")
+  meetingTodoActionsCompleted  ProjectMeetingNoteAction[]      @relation("MeetingTodoCompletedByUser")
+  contextCardsCreated          Resource[]                      @relation("ContextCardCreatedByUser")
+  contextCardsLastEdited       Resource[]                      @relation("ContextCardLastEditedByUser")
+  contextCardsStewarded        Resource[]                      @relation("ContextCardStewardedUser")
 
   @@unique([username, usernameDiscriminator])
   @@index([username])
@@ -180,6 +184,11 @@ enum MeetingTodoActorKind {
   agent
 }
 
+enum ContextCardActorKind {
+  human
+  agent
+}
+
 enum RoadmapMilestoneStatus {
   planned
   active
@@ -213,31 +222,39 @@ model Project {
 }
 
 model ProjectMeetingNote {
-  id              String    @id @default(cuid())
-  projectId       String
-  title           String    @db.VarChar(140)
-  scheduledAt     DateTime?
-  status          String    @default("prepared") @db.VarChar(40)
-  labelsJson      String?
-  inputNotes      String    @default("")
-  outputNotes     String    @default("")
-  decisions       String    @default("")
-  createdByUserId String
-  updatedByUserId String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                         String                @id @default(cuid())
+  projectId                  String
+  title                      String                @db.VarChar(140)
+  scheduledAt                DateTime?
+  status                     String                @default("prepared") @db.VarChar(40)
+  labelsJson                 String?
+  inputNotes                 String                @default("")
+  outputNotes                String                @default("")
+  decisions                  String                @default("")
+  createdByUserId            String
+  updatedByUserId            String
+  stewardUserId              String?
+  stewardCredentialId        String?
+  stewardKind                MeetingTodoActorKind?
+  stewardDisplayNameSnapshot String?               @db.VarChar(80)
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
 
-  project       Project                         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdByUser User                            @relation("ProjectMeetingNoteCreatedBy", fields: [createdByUserId], references: [id])
-  updatedByUser User                            @relation("ProjectMeetingNoteUpdatedBy", fields: [updatedByUserId], references: [id])
-  actions       ProjectMeetingNoteAction[]
-  participants  ProjectMeetingNoteParticipant[]
+  project           Project                         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdByUser     User                            @relation("ProjectMeetingNoteCreatedBy", fields: [createdByUserId], references: [id])
+  updatedByUser     User                            @relation("ProjectMeetingNoteUpdatedBy", fields: [updatedByUserId], references: [id])
+  stewardUser       User?                           @relation("ProjectMeetingNoteSteward", fields: [stewardUserId], references: [id], onDelete: SetNull)
+  stewardCredential ApiCredential?                  @relation("MeetingNoteStewardCredential", fields: [stewardCredentialId], references: [id], onDelete: SetNull)
+  actions           ProjectMeetingNoteAction[]
+  participants      ProjectMeetingNoteParticipant[]
 
   @@index([projectId, scheduledAt])
   @@index([projectId, status, scheduledAt])
   @@index([projectId, updatedAt])
   @@index([createdByUserId])
   @@index([updatedByUserId])
+  @@index([stewardUserId])
+  @@index([stewardCredentialId])
 }
 
 model ProjectMeetingNoteParticipant {
@@ -593,17 +610,44 @@ model TaskRelation {
 }
 
 model Resource {
-  id          String               @id @default(cuid())
-  type        String
-  name        String
-  content     String
-  color       String?
-  projectId   String
-  project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  attachments ResourceAttachment[]
-  createdAt   DateTime             @default(now())
+  id                            String                @id @default(cuid())
+  type                          String
+  name                          String
+  content                       String
+  color                         String?
+  projectId                     String
+  project                       Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  attachments                   ResourceAttachment[]
+  createdByUserId               String?
+  createdByCredentialId         String?
+  creatorKind                   ContextCardActorKind  @default(human)
+  creatorDisplayNameSnapshot    String                @default("Unknown actor") @db.VarChar(80)
+  lastEditedByUserId            String?
+  lastEditedByCredentialId      String?
+  lastEditorKind                ContextCardActorKind?
+  lastEditorDisplayNameSnapshot String?               @db.VarChar(80)
+  stewardUserId                 String?
+  stewardCredentialId           String?
+  stewardKind                   ContextCardActorKind?
+  stewardDisplayNameSnapshot    String?               @db.VarChar(80)
+  createdAt                     DateTime              @default(now())
+  updatedAt                     DateTime              @updatedAt
+
+  createdByUser          User?          @relation("ContextCardCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByCredential    ApiCredential? @relation("ContextCardCreatedByCredential", fields: [createdByCredentialId], references: [id], onDelete: SetNull)
+  lastEditedByUser       User?          @relation("ContextCardLastEditedByUser", fields: [lastEditedByUserId], references: [id], onDelete: SetNull)
+  lastEditedByCredential ApiCredential? @relation("ContextCardLastEditedByCredential", fields: [lastEditedByCredentialId], references: [id], onDelete: SetNull)
+  stewardUser            User?          @relation("ContextCardStewardedUser", fields: [stewardUserId], references: [id], onDelete: SetNull)
+  stewardCredential      ApiCredential? @relation("ContextCardStewardedCredential", fields: [stewardCredentialId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
+  @@index([createdByUserId])
+  @@index([createdByCredentialId])
+  @@index([lastEditedByUserId])
+  @@index([lastEditedByCredentialId])
+  @@index([stewardUserId])
+  @@index([stewardCredentialId])
+  @@index([projectId, updatedAt])
 }
 
 model TaskAttachment {
@@ -625,18 +669,20 @@ model TaskAttachment {
 }
 
 model ResourceAttachment {
-  id               String   @id @default(cuid())
-  resourceId       String
-  uploadedByUserId String
-  resource         Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
-  uploadedBy       User     @relation("ResourceAttachmentUploader", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
-  kind             String
-  name             String
-  url              String?
-  storageKey       String?
-  mimeType         String?
-  sizeBytes        Int?
-  createdAt        DateTime @default(now())
+  id                            String               @id @default(cuid())
+  resourceId                    String
+  uploadedByUserId              String
+  uploadedByKind                ContextCardActorKind @default(human)
+  uploadedByDisplayNameSnapshot String               @default("Unknown uploader") @db.VarChar(80)
+  resource                      Resource             @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  uploadedBy                    User                 @relation("ResourceAttachmentUploader", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  kind                          String
+  name                          String
+  url                           String?
+  storageKey                    String?
+  mimeType                      String?
+  sizeBytes                     Int?
+  createdAt                     DateTime             @default(now())
 
   @@index([resourceId])
   @@index([uploadedByUserId])
@@ -779,6 +825,10 @@ model ApiCredential {
   meetingTodoActionsCreated   ProjectMeetingNoteAction[] @relation("MeetingTodoCreatedByCredential")
   meetingTodoActionsAssigned  ProjectMeetingNoteAction[] @relation("MeetingTodoAssignedToCredential")
   meetingTodoActionsCompleted ProjectMeetingNoteAction[] @relation("MeetingTodoCompletedByCredential")
+  contextCardsCreated         Resource[]                 @relation("ContextCardCreatedByCredential")
+  contextCardsLastEdited      Resource[]                 @relation("ContextCardLastEditedByCredential")
+  contextCardsStewarded       Resource[]                 @relation("ContextCardStewardedCredential")
+  meetingNotesStewarded       ProjectMeetingNote[]       @relation("MeetingNoteStewardCredential")
 
   @@index([projectId])
   @@index([createdByUserId])

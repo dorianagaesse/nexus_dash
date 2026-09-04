@@ -326,7 +326,7 @@ describe("GET /api/auth/callback/google", () => {
     expect(googleCalendarMock.exchangeAuthorizationCodeForTokens).not.toHaveBeenCalled();
   });
 
-  test("falls back to request origin when explicit callback redirect uri is not configured", async () => {
+  test("derives redirect uri from request origin", async () => {
     googleCalendarMock.resolveGoogleOAuthRedirectUri.mockImplementation(
       (origin?: string) => {
         if (!origin) {
@@ -363,9 +363,7 @@ describe("GET /api/auth/callback/google", () => {
     expect(response.headers.get("location")).toBe(
       "http://localhost/projects/p1?status=calendar-connected"
     );
-    expect(googleCalendarMock.resolveGoogleOAuthRedirectUri).toHaveBeenNthCalledWith(1);
-    expect(googleCalendarMock.resolveGoogleOAuthRedirectUri).toHaveBeenNthCalledWith(
-      2,
+    expect(googleCalendarMock.resolveGoogleOAuthRedirectUri).toHaveBeenCalledWith(
       "http://localhost:3000"
     );
     expect(googleCalendarMock.exchangeAuthorizationCodeForTokens).toHaveBeenCalledWith(

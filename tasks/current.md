@@ -1,84 +1,108 @@
 # Current Task
 
-## ND-366: Record Vercel Fluid compute decision and remediation program
+## TASK-381: Bounded Kanban Height With Independently Scrollable Lanes
 
 ## Status
 
-Done (created in the Nexus Dash project kanban on 2026-09-01 under the
-`Realtime Efficiency and Vercel Cost Control` epic).
+In review via PR #459 on `feature/task-381-bounded-kanban-lanes`. On
+2026-09-02 the branch was reconciled twice with current `origin/main`: first
+against the agent API program, calendar, meeting-stewardship, and dependabot
+changes (release advanced from the stale `v0.38.0` to `v0.51.0`), then again
+after TASK-342 (PR #451) merged and advanced main itself to `v0.51.0`. Both
+rounds resolved PR #459 conflicts without product-code changes; the release
+now sits at `v0.52.0` (merge 7293cd6) and revalidation on the final merged
+tree was green: lint, rls:check, release:check, 1,216 tests passed / 2
+skipped, coverage 91.52/81.57/92.3/92.01, and a production build. Copilot
+then completed a review on the reconciled head (2026-09-02/03) and its three
+threads were triaged on 2026-09-03: the archived Done scroller received the
+same visible focus-visible ring as the lane scrollers, read-only (viewer)
+task cards became keyboard-operable with a button role, tab stop, and
+Enter/Space activation, and the stale version-description thread was closed
+against the reconciled v0.52.0 release notes with rationale (no code change
+needed). Regression coverage was added in the component and Playwright
+suites; revalidation is green.
 
-## Context
+## Objective
 
-The Vercel Hobby team exceeded its four-hour Fluid Active CPU allowance and
-approached its provisioned-memory allowance. A repository and live-telemetry
-investigation traced the material steady-state cost to the account notification
-and project activity SSE routes: both recycle every 280 seconds and poll
-PostgreSQL every second per open tab in Production and Preview. The team has
-upgraded to Pro for immediate continuity, but the inefficient transport still
-needs a recorded replacement program.
+Keep dense Kanban boards usable by bounding each visible lane to a responsive
+viewport-aware height and scrolling each lane's task region independently.
+Lane metadata and board actions must remain visible while long task lists are
+reviewed or reordered.
+
+## Product Decisions
+
+- Each lane uses `clamp(20rem, 64dvh, 42rem)` so it remains useful on small
+  screens without growing indefinitely on large displays.
+- The lane header and count stay outside the scroll region. The existing board
+  header, create action, archive control, and mobile status dock retain their
+  established placement.
+- The task region is an explicitly named, keyboard-focusable scroll region
+  with contained overscroll and a stable scrollbar gutter.
+- All lane components remain mounted while the mobile status dock changes the
+  visible lane, preserving their native scroll positions.
 
 ## Scope
 
-- Record the measured CPU, memory, route, environment, and region evidence in
-  `adr/decisions.md`.
-- Record the decision to retain Vercel during remediation, use bounded adaptive
-  polling as the immediate baseline, and target private Supabase Realtime
-  Broadcast for true push.
-- Capture the rejected immediate alternatives: treating Pro as the fix,
-  migrating hosting before optimization, or moving the streams to Lambda.
-- Create one Nexus Dash epic and all implementation/review tasks with explicit
-  acceptance criteria, definitions of done, sequencing, and relations.
+- Bound active Kanban lane height on mobile and desktop.
+- Make every lane's task area vertically scrollable without coupling lane
+  scroll positions.
+- Preserve pointer and keyboard drag-and-drop, including long-lane auto-scroll
+  and movement within or between lanes.
+- Preserve archive access, task selection/editing, viewer behavior, live
+  refresh, and mobile status navigation.
+- Add focused component and Playwright coverage for layout, accessibility,
+  scrolling, responsive containment, and drag behavior.
 
 ## Out Of Scope
 
-- Changing runtime behavior, Vercel settings, billing settings, or Supabase
-  configuration in this documentation task.
-- Implementing any remediation task from ND-367 through ND-375.
-- Promoting or rolling back a deployment.
+- Task search, label filters, or Epic filters.
+- Task virtualization, pagination, persistence changes, or API changes.
+- Redesigning task cards, the task detail dialog, the project shell, or other
+  dashboard sections.
+- URL-backed or persisted lane scroll positions across full navigation.
 
-## Prerequisites And Runtime Assumptions
+## Runtime Assumptions
 
-- The user upgraded `dorian-agaesses-projects` to Vercel Pro on 2026-09-01.
-- Live Vercel telemetry was inspected read-only for the latest 30-day,
-  seven-day, daily, route, region, and Production/Preview views.
-- Nexus Dash agent credentials provide project/task read and write scopes; the
-  deployed production API currently uses the full-board reorder operation for
-  status changes.
-
-## Deployment And Review Assumptions
-
-- Work occurs on `docs/nd-366-vercel-fluid-compute-decision` from
-  `origin/main` with one documentation PR.
-- No Preview deployment is required because runtime behavior is unchanged.
-- Open the PR ready for review, wait for the initial Copilot outcome, and
-  address actionable feedback before handoff.
+- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged.
+- `@hello-pangea/dnd` continues to provide pointer and keyboard sensors and
+  recognizes the focusable lane task area as its scroll container.
+- The user has explicitly reprioritized TASK-381 ahead of the still-pending
+  broad TASK-100 and TASK-133 UX passes.
+- Preview validation uses `feature/task-381-bounded-kanban-lanes` as the
+  explicit workflow `git_ref`.
 
 ## Acceptance Criteria
 
-1. `adr/decisions.md` records the context, measured baseline, accepted
-   architecture, tradeoffs, target thresholds, and rejected immediate options.
-2. Nexus Dash contains one dedicated epic and an executable task sequence for
-   spend controls, transport mitigation, observability, Supabase Realtime,
-   legacy retirement, and post-remediation review.
-3. Tasks include acceptance criteria and definitions of done and are linked to
-   the epic and their direct implementation relationships.
-4. The documentation distinguishes the Pro upgrade's continuity value from the
-   required engineering remediation.
+1. Every visible lane is `clamp(20rem, 64dvh, 42rem)` high and cannot grow with
+   its task count.
+2. Lane title and visible task count remain fixed while only that lane's task
+   region scrolls; scrolling one lane does not move another lane.
+3. Each task region has an accessible lane-specific name, keyboard focus, a
+   visible focus indicator, contained overscroll, and stable scrollbar space.
+4. Pointer and keyboard drag-and-drop continue to work within and across long
+   lanes, with destination auto-scroll and no unrelated scroll reset.
+5. The Done archive remains reachable outside the Done task-list overflow and
+   the global create action remains outside all lane scroll regions.
+6. Switching lanes through the mobile status dock preserves each mounted
+   lane's scroll position and produces no horizontal viewport overflow at
+   375 px or in mobile landscape.
+7. Owner/editor and viewer behavior, task modal actions, live refresh, light
+   and dark themes, and reduced-motion behavior remain unchanged.
 
 ## Definition Of Done
 
-- Documentation formatting and repository diff checks pass.
-- The epic and ND-366 through ND-375 are verified through the agent API.
-- `journal.md` records the investigation outcome and planning artifacts.
-- A ready PR is open, required checks pass, Copilot review completes, and every
-  actionable review thread is addressed.
-
-## References
-
-- Nexus Dash epic `Realtime Efficiency and Vercel Cost Control`
-- Nexus Dash tasks `ND-366` through `ND-375`
-- `adr/decisions.md`
-- `app/api/account/notifications/stream/route.ts`
-- `app/api/projects/[projectId]/activity/stream/route.ts`
-- `components/notification-live-updates.tsx`
-- `components/project-live-refresh.tsx`
+- The bounded independent lane layout and accessibility semantics are
+  implemented with focused automated coverage.
+- UI/UX Pro Max guidance is applied for `dvh` sizing, keyboard access, visible
+  focus, responsive containment, theme parity, and non-jacking scroll behavior.
+- `git diff --check`, release validation, `npm run lint`, `npm run rls:check`,
+  `npm test`, `npm run test:coverage`, `npm run build`, and `npm run test:e2e`
+  pass.
+- The explicit-branch Preview workflow succeeds and focused Preview browser
+  checks pass at mobile and desktop widths.
+- The branch is committed and pushed, a ready-for-review PR is open, required
+  checks pass, and review state is recorded. The Copilot review threads on PR
+  #459 are addressed and resolved on the updated head.
+- `tasks/current.md`, `tasks/backlog.md`, `CHANGELOG.md`, and `journal.md` are
+  consistent, and the final handoff records PR, commit, Preview, validation,
+  and review evidence without merging the PR.
