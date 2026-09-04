@@ -3,6 +3,36 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-05 - ND-408: popover review iteration + card brief made precise
+
+- Review feedback on the united filter bar: (1) with several labels/epics the
+  popover opened "way above" the Filter trigger — the old flip rule estimated
+  up to 480px of content and switched to above whenever that did not fit
+  below, stretching the panel to the top of the viewport; (2) a single-column
+  row list would not scale to tens of labels/epics. User direction: anchor
+  below the button, compact layout, plus an in-popover search field and
+  expandable groups; inspiration from facet-filter panels (Zalando-style).
+- Popover rework in `kanban-filter-bar.tsx`: open-below preference with a
+  240px minimum below-space (flip only when genuinely no room, never stretched
+  above), height capped at 520px; Labels/Epics now render as wrap chips in the
+  card-label visual language (color dot idle, pastel fill + check selected;
+  epics use their palette soft/border/accent tones); small search field inside
+  the popover filters options live with a clear button; groups above 12 chips
+  collapse behind "Show all N labels/epics" / "Show fewer" toggles that are
+  bypassed while searching; "No matching options" empty state; option search
+  and group expansion reset when the panel closes. Panel is now a flex column
+  (fixed header + footer, scrolling middle) so long lists cannot clip the
+  Clear all footer.
+- Component suite extended to 14 tests (option search + clear, no-matches
+  state, Show all/Show fewer with reset on reopen); all ND-408 vitest files
+  53/53 green, lint clean, production build green, ND-408 Playwright spec 6/6
+  green against the dockerized PostgreSQL (port 55432, runbook overrides).
+- Nexus Dash card ND-408 was title-only; rewritten per the task-authoring
+  contract in `agent.md` with an HTML rich-text description (Rationale, Scope
+  incl. this review iteration, 7 numbered Acceptance Criteria, Definition of
+  Done) plus the `feature` label. Note: card descriptions are rich text —
+  plain-text angle brackets are parsed as tags and stripped/escaped.
+
 # 2026-09-04 - ND-408: validation and delivery (PR #483)
 
 - Local validation ran against a dockerized PostgreSQL (per

@@ -34,6 +34,8 @@ interface HarnessProps {
   initialQuery?: string;
   initialLabels?: string[];
   initialEpics?: string[];
+  availableLabels?: string[];
+  availableEpics?: ProjectEpicOption[];
   isSearchLoading?: boolean;
   searchError?: string | null;
   onRetrySearch?: () => void;
@@ -44,6 +46,8 @@ function Harness({
   initialQuery = "",
   initialLabels = [],
   initialEpics = [],
+  availableLabels = AVAILABLE_LABELS,
+  availableEpics = AVAILABLE_EPICS,
   isSearchLoading = false,
   searchError = null,
   onRetrySearch = vi.fn(),
@@ -73,8 +77,8 @@ function Harness({
   return (
     <KanbanFilterBar
       query={query}
-      availableLabels={AVAILABLE_LABELS}
-      availableEpics={AVAILABLE_EPICS}
+      availableLabels={availableLabels}
+      availableEpics={availableEpics}
       selectedLabels={selectedLabels}
       selectedEpicFilters={selectedEpicFilters}
       isSearchLoading={isSearchLoading}
@@ -363,5 +367,107 @@ describe("KanbanFilterBar", () => {
     await click(filterTrigger());
     expect(buttonByText("Clear all filters")).toBeNull();
     expect(pressedOptions()).toHaveLength(0);
+  });
+
+  test("filters option chips with the in-panel search field and clears it", async () => {
+    const { root } = createTestRenderer();
+    await renderWithRoot(
+      root,
+      <Harness
+        availableLabels={["Frontend", "Urgent", "Accessibility"]}
+        availableEpics={[]}
+      />
+    );
+    await click(filterTrigger());
+    expect(optionByText("Frontend")).not.toBeNull();
+
+    const optionSearch = () =>
+      document.body.querySelector<HTMLInputElement>(
+        'input[aria-label="Search labels and epics"]'
+      );
+    await act(async () => {
+      setInputValue(optionSearch()!, "access");
+    });
+    expect(optionSearch()?.value).toBe("access");
+    expect(optionByText("Accessibility")).not.toBeNull();
+    expect(optionByText("Frontend")).toBeNull();
+    expect(optionByText("Urgent")).toBeNull();
+    expect(
+      document.body.querySelector('button[aria-label="Clear option search"]')
+    ).not.toBeNull();
+
+    await click(
+      document.body.querySelector<HTMLButtonElement>(
+        'button[aria-label="Clear option search"]'
+      )
+    );
+    expect(optionSearch()?.value).toBe("");
+    expect(optionByText("Frontend")).not.toBeNull();
+    expect(optionByText("Accessibility")).not.toBeNull();
+  });
+
+  test("shows a no-matches state when the option search matches nothing", async () => {
+    const { root } = createTestRenderer();
+    await renderWithRoot(
+      root,
+      <Harness
+        availableLabels={["Frontend", "Urgent"]}
+        availableEpics={[]}
+      />
+    );
+    await click(filterTrigger());
+
+    await act(async () => {
+      setInputValue(
+        document.body.querySelector<HTMLInputElement>(
+          'input[aria-label="Search labels and epics"]'
+        )!,
+        "zzz"
+      );
+    });
+
+    expect(document.body.querySelector('[role="group"]')).toBeNull();
+    expect(document.body.textContent).toContain("No matching options");
+    expect(optionByText("No epic")).toBeNull();
+  });
+
+  test("previews long label lists behind a Show all toggle and resets on reopen", async () => {
+    const manyLabels = Array.from({ length: 18 }, (_, index) => {
+      const letter = String.fromCharCode(65 + index);
+      return `Label ${letter}`;
+    });
+    const { root } = createTestRenderer();
+    await renderWithRoot(
+      root,
+      <Harness availableLabels={manyLabels} availableEpics={[]} />
+    );
+    await click(filterTrigger());
+
+    // 12 previewed label chips + the No epic chip (nothing selected yet).
+    const allOptionButtons = () =>
+      document.body.querySelectorAll('button[aria-pressed]');
+    expect(allOptionButtons()).toHaveLength(13);
+    expect(optionByText("Label A")).not.toBeNull();
+    expect(optionByText("Label R")).toBeNull();
+    expect(buttonByText("Show all 18 labels")).not.toBeNull();
+
+    await click(buttonByText("Show all 18 labels"));
+    expect(allOptionButtons()).toHaveLength(19);
+    expect(optionByText("Label R")).not.toBeNull();
+    expect(buttonByText("Show fewer labels")).not.toBeNull();
+
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+    await click(filterTrigger());
+    expect(allOptionButtons()).toHaveLength(13);
+    expect(optionByText("Label R")).toBeNull();
+    expect(buttonByText("Show all 18 labels")).not.toBeNull();
   });
 });

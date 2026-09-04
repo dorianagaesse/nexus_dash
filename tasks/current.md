@@ -18,6 +18,16 @@ thresholds, lint/rls:check/diff checks clean. Full `npm test` /
 (`prisma.$transaction is not a function`, reproduced on a pristine tree) that
 predates this branch; see the PR body.
 
+Review iteration (2026-09-05): popover anchored directly below the Filter
+trigger (flip-above only when under 240px of room below, capped at 520px so it
+never stretches to the viewport top), Labels/Epics rendered as compact wrap
+chips in the card-label visual language, an in-popover search field that
+filters options live, and groups beyond 12 chips collapsing behind a
+"Show all N" toggle (auto-expanded while searching). New component tests
+added; ND-408 e2e spec stays green. Nexus Dash card ND-408 description
+rewritten with a precise Rationale/Scope/Acceptance Criteria/Definition of
+Done brief and the `feature` label per the authoring contract in `agent.md`.
+
 ## Context
 
 PR #469 and PR #470 both add task-filter UI to the same Kanban board area and
@@ -38,8 +48,13 @@ self-evident surface: search and filter live on a single compact row.
   is active, and filtered drag-drop mapping that keeps hidden tasks in place.
 - `KanbanFilterBar`: search input (clear button, loading spinner, error + retry
   only) and one Filter trigger (active count badge) opening a portal popover
-  grouping Labels and Epics with multi-select `aria-pressed` rows and a
-  "Clear all filters" footer shown only while anything is active.
+  grouping Labels and Epics as multi-select wrap chips (`aria-pressed`, color
+  dot when idle, pastel fill + check when selected). A small search field at
+  the top of the popover filters label/epic options live, groups larger than
+  12 chips collapse behind a "Show all N labels/epics" toggle (auto-expanded
+  while searching), and a "Clear all filters" footer appears only while
+  anything is active. The popover opens directly under the trigger and only
+  flips above when there is under 240px of room below.
 - Filtered board: empty columns say `No matching <status> tasks`, archived
   Done matches auto-open the Archive group, and the mobile status navigation
   keeps working.
@@ -61,10 +76,14 @@ self-evident surface: search and filter live on a single compact row.
    titles, descriptions, references, statuses, labels, epics, assignees,
    comments, attachments, and related tasks, with debounced loading feedback,
    a clear button, and an error state offering retry.
-2. One Filter button opens a popover grouping Labels and Epics (plus "No
-   epic"); rows use `aria-pressed` with check marks, the trigger shows an
-   active-selection count (labels + epics only), and "Clear all filters"
-   appears only while search or selections are active and resets everything.
+2. One Filter button opens a popover directly under it (flipping above only
+   when there is under 240px of room below, and never stretching to the top of
+   the viewport) grouping Labels and Epics (plus "No epic") as wrap chips with
+   `aria-pressed` and check marks. The trigger shows an active-selection count
+   (labels + epics only); an in-popover search field narrows label/epic
+   options and groups beyond 12 chips hide behind a "Show all N" toggle;
+   "Clear all filters" appears only while search or selections are active and
+   resets everything.
 3. Search, labels (AND), and epics (OR, including "No epic") combine; tasks
    from other projects never appear, and a task detail modal is not required
    to understand any state.

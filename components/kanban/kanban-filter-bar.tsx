@@ -7,7 +7,6 @@ import {
   ChevronDown,
   CircleSlash2,
   Filter,
-  Flag,
   LoaderCircle,
   RotateCcw,
   Search,
@@ -44,6 +43,21 @@ interface FilterPanelPosition {
   maxHeight: number;
 }
 
+const VIEWPORT_PADDING = 12;
+const TRIGGER_GAP = 6;
+const MIN_BELOW_SPACE = 240;
+const PANEL_MIN_WIDTH = 360;
+const PANEL_MAX_HEIGHT = 520;
+const OPTION_GROUP_PREVIEW = 12;
+
+type OptionGroupName = "labels" | "epics";
+
+const CHIP_CLASS =
+  "inline-flex min-h-11 min-w-0 cursor-pointer items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover";
+
+const GROUP_HEADING_CLASS =
+  "px-3 pb-1 pt-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground";
+
 export function KanbanFilterBar({
   query,
   availableLabels,
@@ -60,6 +74,10 @@ export function KanbanFilterBar({
 }: KanbanFilterBarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<FilterPanelPosition | null>(null);
+  const [panelQuery, setPanelQuery] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<OptionGroupName>>(
+    () => new Set()
+  );
   const barRef = useRef<HTMLElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -76,11 +94,10 @@ export function KanbanFilterBar({
   useEffect(() => {
     if (!isOpen) {
       setPosition(null);
+      setPanelQuery("");
+      setExpandedGroups(new Set());
       return;
     }
-
-    const optionCount = availableLabels.length + availableEpics.length + 1;
-    const estimatedHeight = Math.min(48 * optionCount + 120, 480);
 
     const updatePosition = () => {
       const trigger = triggerRef.current;
@@ -89,24 +106,39 @@ export function KanbanFilterBar({
       }
 
       const rect = trigger.getBoundingClientRect();
-      const viewportPadding = 12;
-      const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
-      const availableAbove = rect.top - viewportPadding;
-      const openAbove = availableBelow < estimatedHeight && availableAbove > availableBelow;
-      const maxHeight = Math.max(
-        160,
-        (openAbove ? availableAbove : availableBelow) - 6
-      );
-      const width = Math.min(Math.max(rect.width, 320), window.innerWidth - 24);
+      const availableBelow = window.innerHeight - rect.bottom - VIEWPORT_PADDING;
+      const availableAbove = rect.top - VIEWPORT_PADDING;
 
-      setPosition({
-        top: openAbove
-          ? Math.max(viewportPadding, rect.top - maxHeight - 6)
-          : rect.bottom + 6,
-        left: Math.min(Math.max(viewportPadding, rect.left), window.innerWidth - width - viewportPadding),
-        width,
-        maxHeight,
-      });
+      // Prefer opening directly under the trigger. Flip above only when there
+      // is genuinely no usable room below, and never stretch the panel to the
+      // top of the viewport when flipped.
+      const openBelow =
+        availableBelow >= MIN_BELOW_SPACE || availableBelow >= availableAbove;
+      let maxHeight = Math.min(
+        Math.max(
+          (openBelow ? availableBelow : availableAbove) - TRIGGER_GAP,
+          120
+        ),
+        PANEL_MAX_HEIGHT
+      );
+      let top = openBelow
+        ? rect.bottom + TRIGGER_GAP
+        : rect.top - maxHeight - TRIGGER_GAP;
+      if (top < VIEWPORT_PADDING) {
+        maxHeight = Math.max(80, maxHeight - (VIEWPORT_PADDING - top));
+        top = VIEWPORT_PADDING;
+      }
+
+      const width = Math.min(
+        Math.max(rect.width, PANEL_MIN_WIDTH),
+        window.innerWidth - VIEWPORT_PADDING * 2
+      );
+      const left = Math.min(
+        Math.max(VIEWPORT_PADDING, rect.left),
+        window.innerWidth - width - VIEWPORT_PADDING
+      );
+
+      setPosition({ top, left, width, maxHeight });
     };
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -158,7 +190,7 @@ export function KanbanFilterBar({
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [isOpen, availableLabels.length, availableEpics.length, closePanel]);
+  }, [isOpen, closePanel]);
 
   const toggleLabel = (label: string) => {
     onToggleLabel(label);
@@ -169,6 +201,49 @@ export function KanbanFilterBar({
     onToggleEpic(epicId);
     setIsOpen(true);
   };
+
+  const toggleGroupExpansion = (group: OptionGroupName) => {
+    setExpandedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(group)) {
+        next.delete(group);
+      } else {
+        next.add(group);
+      }
+      return next;
+    });
+  };
+
+  const normalizedOptionQuery = panelQuery.trim().toLowerCase();
+  const isOptionSearching = normalizedOptionQuery.length > 0;
+  const matchesOptionQuery = (value: string) =>
+    !isOptionSearching ||
+    value.toLowerCase().includes(normalizedOptionQuery);
+
+  const matchingLabels = availableLabels.filter(matchesOptionQuery);
+  const matchingEpics = availableEpics.filter((epic) =>
+    matchesOptionQuery(epic.name)
+  );
+  const noEpicMatches =
+    !isOptionSearching || "no epic".includes(normalizedOptionQuery);
+
+  const labelsOverflow =
+    !isOptionSearching && availableLabels.length > OPTION_GROUP_PREVIEW;
+  const epicsOverflow =
+    !isOptionSearching && availableEpics.length > OPTION_GROUP_PREVIEW;
+  const labelsExpanded = expandedGroups.has("labels");
+  const epicsExpanded = expandedGroups.has("epics");
+  const shownLabels =
+    labelsOverflow && !labelsExpanded
+      ? matchingLabels.slice(0, OPTION_GROUP_PREVIEW)
+      : matchingLabels;
+  const shownEpics =
+    epicsOverflow && !epicsExpanded
+      ? matchingEpics.slice(0, OPTION_GROUP_PREVIEW)
+      : matchingEpics;
+
+  const optionTotal =
+    matchingLabels.length + matchingEpics.length + (noEpicMatches ? 1 : 0);
 
   return (
     <section
@@ -270,110 +345,216 @@ export function KanbanFilterBar({
             <div
               ref={panelRef}
               id="kanban-filter-panel"
-              className="pointer-events-auto z-[140] overflow-hidden rounded-xl border border-border/70 bg-popover p-1.5 shadow-lg"
+              className="pointer-events-auto fixed z-[140] flex flex-col overflow-hidden rounded-xl border border-border/70 bg-popover p-1.5 shadow-lg"
               style={{
-                position: "fixed",
                 top: position.top,
                 left: position.left,
                 width: position.width,
                 maxHeight: position.maxHeight,
               }}
             >
-              <div
-                className="scrollbar-hidden overflow-y-auto overscroll-contain"
-                style={{ maxHeight: position.maxHeight - 12 }}
-              >
-                {availableLabels.length > 0 ? (
-                  <div role="group" aria-label="Labels" className="pb-1">
-                    <p className="px-3 pb-1 pt-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      Labels
-                    </p>
-                    {availableLabels.map((label) => {
-                      const isSelected = selectedLabels.has(label);
-                      return (
-                        <button
-                          key={label}
-                          type="button"
-                          aria-pressed={isSelected}
-                          className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 text-left text-sm text-foreground transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          onClick={() => toggleLabel(label)}
-                        >
-                          <span className="flex min-w-0 items-center gap-3">
-                            <span
-                              aria-hidden="true"
-                              className="h-3.5 w-3.5 shrink-0 rounded-full border border-black/10"
-                              style={{ backgroundColor: getTaskLabelColor(label) }}
-                            />
-                            <span className="truncate font-medium">{label}</span>
-                          </span>
-                          {isSelected ? (
-                            <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-
-                <div role="group" aria-label="Epics" className="pb-1">
-                  <p className="px-3 pb-1 pt-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Epics
-                  </p>
-                  {availableEpics.map((epic) => {
-                    const isSelected = selectedEpicFilters.has(epic.id);
-                    const color = getEpicColorFromName(epic.name);
-                    return (
-                      <button
-                        key={epic.id}
-                        type="button"
-                        aria-pressed={isSelected}
-                        className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 text-left text-sm text-foreground transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        onClick={() => toggleEpic(epic.id)}
-                      >
-                        <span className="flex min-w-0 items-center gap-3">
-                          <span
-                            aria-hidden="true"
-                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border"
-                            style={{
-                              backgroundColor: color.soft,
-                              borderColor: color.border,
-                              color: color.accent,
-                            }}
-                          >
-                            <Flag className="h-3 w-3" />
-                          </span>
-                          <span className="truncate font-medium">{epic.name}</span>
-                        </span>
-                        {isSelected ? (
-                          <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    aria-pressed={selectedEpicFilters.has(NO_EPIC_FILTER_VALUE)}
-                    className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 text-left text-sm text-foreground transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    onClick={() => toggleEpic(NO_EPIC_FILTER_VALUE)}
-                  >
-                    <span className="flex min-w-0 items-center gap-3">
-                      <span
-                        aria-hidden="true"
-                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-border/70 bg-muted/30 text-muted-foreground"
-                      >
-                        <CircleSlash2 className="h-3.5 w-3.5" />
-                      </span>
-                      <span className="truncate font-medium">No epic</span>
-                    </span>
-                    {selectedEpicFilters.has(NO_EPIC_FILTER_VALUE) ? (
-                      <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    ) : null}
-                  </button>
+              <div className="px-0.5 pb-1.5">
+                <div className="relative">
+                  <Search
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <input
+                    id="kanban-filter-options"
+                    type="search"
+                    role="searchbox"
+                    aria-label="Search labels and epics"
+                    value={panelQuery}
+                    maxLength={120}
+                    autoComplete="off"
+                    placeholder="Search labels and epics"
+                    className={cn(
+                      "h-11 w-full rounded-lg border border-input bg-background py-2 pl-9 pr-9 text-sm text-foreground shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-popover [&::-webkit-search-cancel-button]:hidden",
+                      isOptionSearching && "pr-16"
+                    )}
+                    onChange={(event) => setPanelQuery(event.target.value)}
+                  />
+                  {isOptionSearching ? (
+                    <button
+                      type="button"
+                      aria-label="Clear option search"
+                      className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => setPanelQuery("")}
+                    >
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-1.5">
+                {availableLabels.length > 0 && matchingLabels.length > 0 ? (
+                  <div role="group" aria-label="Labels">
+                    <p className={GROUP_HEADING_CLASS}>Labels</p>
+                    <div className="flex flex-wrap gap-2 px-3 pb-1.5">
+                      {shownLabels.map((label) => {
+                        const isSelected = selectedLabels.has(label);
+                        const labelColor = getTaskLabelColor(label);
+                        return (
+                          <button
+                            key={label}
+                            type="button"
+                            aria-pressed={isSelected}
+                            title={label}
+                            className={cn(
+                              CHIP_CLASS,
+                              isSelected
+                                ? "border-transparent text-slate-900"
+                                : "border-input bg-background text-foreground hover:bg-accent"
+                            )}
+                            style={
+                              isSelected
+                                ? { backgroundColor: labelColor }
+                                : undefined
+                            }
+                            onClick={() => toggleLabel(label)}
+                          >
+                            {isSelected ? (
+                              <Check
+                                className="h-4 w-4 shrink-0"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <span
+                                aria-hidden="true"
+                                className="h-2.5 w-2.5 shrink-0 rounded-full border border-black/10"
+                                style={{ backgroundColor: labelColor }}
+                              />
+                            )}
+                            <span className="max-w-[10rem] truncate">
+                              {label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {labelsOverflow ? (
+                      <div className="px-1 pb-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-11 w-full justify-start px-3 text-sm font-medium text-primary hover:text-primary"
+                          onClick={() => toggleGroupExpansion("labels")}
+                        >
+                          {labelsExpanded
+                            ? "Show fewer labels"
+                            : `Show all ${availableLabels.length} labels`}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {(availableEpics.length > 0 && matchingEpics.length > 0) ||
+                noEpicMatches ? (
+                  <div role="group" aria-label="Epics">
+                    <p className={GROUP_HEADING_CLASS}>Epics</p>
+                    <div className="flex flex-wrap gap-2 px-3 pb-1.5">
+                      {shownEpics.map((epic) => {
+                        const isSelected = selectedEpicFilters.has(epic.id);
+                        const color = getEpicColorFromName(epic.name);
+                        return (
+                          <button
+                            key={epic.id}
+                            type="button"
+                            aria-pressed={isSelected}
+                            title={epic.name}
+                            className={cn(
+                              CHIP_CLASS,
+                              isSelected
+                                ? "border-transparent text-slate-900"
+                                : "border-input bg-background text-foreground hover:bg-accent"
+                            )}
+                            style={
+                              isSelected
+                                ? {
+                                    backgroundColor: color.soft,
+                                    borderColor: color.border,
+                                  }
+                                : undefined
+                            }
+                            onClick={() => toggleEpic(epic.id)}
+                          >
+                            {isSelected ? (
+                              <Check
+                                className="h-4 w-4 shrink-0"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <span
+                                aria-hidden="true"
+                                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                style={{ backgroundColor: color.accent }}
+                              />
+                            )}
+                            <span className="max-w-[10rem] truncate">
+                              {epic.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                      {noEpicMatches ? (
+                        <button
+                          type="button"
+                          aria-pressed={selectedEpicFilters.has(
+                            NO_EPIC_FILTER_VALUE
+                          )}
+                          className={cn(
+                            CHIP_CLASS,
+                            "border-dashed",
+                            selectedEpicFilters.has(NO_EPIC_FILTER_VALUE)
+                              ? "border-primary/60 bg-primary/10 text-primary"
+                              : "border-input bg-background text-foreground hover:bg-accent"
+                          )}
+                          onClick={() => toggleEpic(NO_EPIC_FILTER_VALUE)}
+                        >
+                          <CircleSlash2
+                            className="h-4 w-4 shrink-0 opacity-70"
+                            aria-hidden="true"
+                          />
+                          <span>No epic</span>
+                          {selectedEpicFilters.has(NO_EPIC_FILTER_VALUE) ? (
+                            <Check
+                              className="h-4 w-4 shrink-0"
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                        </button>
+                      ) : null}
+                    </div>
+                    {epicsOverflow ? (
+                      <div className="px-1 pb-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-11 w-full justify-start px-3 text-sm font-medium text-primary hover:text-primary"
+                          onClick={() => toggleGroupExpansion("epics")}
+                        >
+                          {epicsExpanded
+                            ? "Show fewer epics"
+                            : `Show all ${availableEpics.length} epics`}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {isOptionSearching && optionTotal === 0 ? (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">
+                    No matching options
+                  </p>
+                ) : null}
+              </div>
+
               {hasActiveFilters ? (
-                <div className="mt-1 flex justify-end border-t border-border/60 pt-1.5">
+                <div className="flex justify-end border-t border-border/60 pt-1.5">
                   <Button
                     type="button"
                     variant="ghost"
