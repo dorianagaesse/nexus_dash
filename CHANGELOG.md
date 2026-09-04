@@ -4,6 +4,13 @@ Product releases use SemVer-style pre-1.0 versioning. Keep build identity
 separate from product version: release entries describe `v0.x.y`, while commit
 SHA, deployment URL, and workflow run belong in release evidence.
 
+## v0.52.1 - 2026-09-04
+
+- Matched the Kanban lane task regions and the archived Done scroller to the
+  app-wide slim scrollbar styling (thin rounded thumb, transparent track, light
+  and dark parity) without changing lane scrolling, keyboard focus, or
+  drag-and-drop behavior.
+
 ## Unreleased
 
 - Define each release entry before the product-impacting PR is merged.

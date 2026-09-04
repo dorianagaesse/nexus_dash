@@ -130,6 +130,16 @@ afterEach(() => {
 });
 
 describe("KanbanColumnsGrid bounded lanes", () => {
+  const APP_SCROLLBAR_TOKENS = [
+    "[scrollbar-color:rgba(148,163,184,0.52)_transparent]",
+    "[scrollbar-width:thin]",
+    "[&::-webkit-scrollbar]:w-2",
+    "[&::-webkit-scrollbar-track]:rounded-full",
+    "[&::-webkit-scrollbar-track]:bg-transparent",
+    "[&::-webkit-scrollbar-thumb]:rounded-full",
+    "[&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]",
+  ];
+
   test("keeps lane metadata and archive controls outside named task scrollers", async () => {
     const { container, root } = createRenderer();
     await renderGrid(root);
@@ -157,6 +167,9 @@ describe("KanbanColumnsGrid bounded lanes", () => {
       expect(scroller.className).toContain("overscroll-y-contain");
       expect(scroller.className).toContain("[scrollbar-gutter:stable]");
       expect(scroller.getAttribute("aria-labelledby")).not.toBeNull();
+      APP_SCROLLBAR_TOKENS.forEach((token) => {
+        expect(scroller.className).toContain(token);
+      });
     });
 
     const doneScroller = container.querySelector<HTMLElement>(
@@ -237,6 +250,7 @@ describe("KanbanColumnsGrid bounded lanes", () => {
       "focus-visible:ring-2",
       "focus-visible:ring-inset",
       "focus-visible:ring-ring",
+      ...APP_SCROLLBAR_TOKENS,
     ].forEach((token) => {
       expect(archiveRegion?.className).toContain(token);
     });

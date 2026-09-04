@@ -3,6 +3,55 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-04 - ND-421 Kanban lane scrollbar styling follow-up
+
+- Picked up ND-421 from GitHub issue #484 (TASK-381 follow-up): the bounded
+  lane task regions and the archived Done scroller introduced by TASK-381
+  (PR #459) render the default browser scrollbar instead of the app-wide slim
+  scrollbar surface. Board card ND-421 (`cmtnjaipp001u04i8ss5zv3eb`, fix
+  label) already carried the Acceptance Criteria/DoD brief and its relation to
+  TASK-381 (`cmth7fp9c004504jujdnf4gs0`); moved it to In Progress via the
+  agent task-status API.
+- Branch `fix/nd-421-kanban-lane-scrollbar-styling` created from
+  `origin/main` (TASK-381 merge 14a41af present; the unmerged ND-408 filter
+  bar branch predates TASK-381 and was not touched).
+- Implemented a `SLIM_SCROLLBAR_CLASSES` token set matching the exact
+  scrollbar stack already used by the task detail modal, create-task dialog,
+  and related-task field (thin `scrollbar-width`, `w-2` rounded thumb in
+  `rgba(148,163,184,0.52)` over a transparent track, light/dark parity) and
+  applied it to both TASK-381 scroller kinds in
+  `components/kanban/kanban-columns-grid.tsx`, keeping their focusable-region
+  (`role`/`tabIndex`/focus ring), `overscroll-y-contain`, and
+  `[scrollbar-gutter:stable]` semantics. Component specs now assert every
+  styling token on all four lane scrollers and the archived Done scroller.
+- Local validation against the dockerized PostgreSQL (host port 55432) with
+  local env overrides was green: lint, `rls:check`, 1,218 tests passed / 2
+  skipped, coverage 91.52/81.57/92.3/92.01, production build, and the full
+  Playwright suite (39 passed / 1 skipped), including both TASK-381
+  bounded-lane specs.
+- First full e2e attempt failed across 36 tests for an environmental reason:
+  Playwright's `reuseExistingServer` picked up a stale `next start` orphan
+  from the TASK-381 worktree (`nexus_dash_task381`, started 2026-09-03) still
+  listening on port 3000, so the suite ran against the old v0.52.0 worktree
+  build. Stopped PID 22536 and reran against the branch build with a fresh
+  server; rerun fully green.
+- Release metadata advanced patch to v0.52.1 (`package.json` +
+  `package-lock.json` via `release:version`) with a dated CHANGELOG `v0.52.1`
+  section; `npm run release:check -- --base origin/main` passes.
+- PR #487 open in ready-for-review state (closes #484); branch pushed with
+  commits 2a06fda (styling + specs), d9ae6bf (release metadata), ef6cb3e
+  (dated changelog). Board card ND-421 remains In Progress until merge; the
+  docs commit closes out the brief in `tasks/current.md`.
+- Copilot review round on PR #487 ("changes recommended") produced two items,
+  both applied: changelog/journal dates aligned from 2026-09-05 (local) to the
+  commit UTC date 2026-09-04 (6672f00), and `SLIM_SCROLLBAR_CLASSES`
+  converted from a long single-line string to a joined token array (d6e6020).
+  A reply on the inline thread and a summary PR comment record the responses;
+  re-review could not be triggered from the CLI (Copilot code review
+  re-request is a UI action) and is pending on the human side. CI checks on
+  the final head are green (Quality Core, E2E Smoke, Tenant Isolation,
+  Container Image, branch name).
+
 # 2026-09-03 - TASK-381 PR #459: Copilot review triage and accessibility fixes
 
 - Copilot completed a review of PR #459 ("Changes recommended") with three
