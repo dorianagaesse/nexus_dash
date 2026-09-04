@@ -1,4 +1,8 @@
-import { getOptionalServerEnv, getRequiredServerEnv } from "@/lib/env.server";
+import {
+  getOptionalServerEnv,
+  getRequiredServerEnv,
+  isPreviewDeployment,
+} from "@/lib/env.server";
 import { normalizeReturnToPath } from "@/lib/navigation/return-to";
 
 export { normalizeReturnToPath } from "@/lib/navigation/return-to";
@@ -73,6 +77,30 @@ function normalizeOrigin(value: string): string | null {
 
 export function resolveGoogleOAuthRedirectUri(appOrigin?: string): string {
   const configuredRedirectUri = getOptionalServerEnv("GOOGLE_REDIRECT_URI");
+  const requestOrigin = appOrigin ? normalizeOrigin(appOrigin) : null;
+
+  if (isPreviewDeployment()) {
+    // Preview callbacks must derive from the current request: state cookies
+    // are host-scoped, so a pinned GOOGLE_REDIRECT_URI pointing at a stale
+    // or foreign origin (e.g. an old immutable host that redirects to
+    // production) breaks the flow. Only honor a pin on the request origin.
+    const configuredOrigin = normalizeOrigin(configuredRedirectUri ?? "");
+    if (
+      configuredOrigin !== null &&
+      requestOrigin !== null &&
+      configuredOrigin === requestOrigin
+    ) {
+      return configuredRedirectUri!;
+    }
+    if (!appOrigin) {
+      throw new Error("missing-google-redirect-uri");
+    }
+    if (!requestOrigin) {
+      throw new Error("invalid-google-redirect-origin");
+    }
+    return new URL(GOOGLE_OAUTH_CALLBACK_PATH, requestOrigin).toString();
+  }
+
   if (configuredRedirectUri) {
     return configuredRedirectUri;
   }
@@ -80,13 +108,11 @@ export function resolveGoogleOAuthRedirectUri(appOrigin?: string): string {
   if (!appOrigin) {
     throw new Error("missing-google-redirect-uri");
   }
-
-  const origin = normalizeOrigin(appOrigin);
-  if (!origin) {
+  if (!requestOrigin) {
     throw new Error("invalid-google-redirect-origin");
   }
 
-  return new URL(GOOGLE_OAUTH_CALLBACK_PATH, origin).toString();
+  return new URL(GOOGLE_OAUTH_CALLBACK_PATH, requestOrigin).toString();
 }
 
 export function getGoogleCalendarId(): string {

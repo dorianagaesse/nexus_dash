@@ -1,8 +1,10 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   Archive,
@@ -24,7 +26,10 @@ import {
 } from "lucide-react";
 
 import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
-import { MeetingParticipantAvatar } from "@/components/meeting-participants/meeting-participant-avatar";
+import {
+  MeetingParticipantAvatar,
+  MeetingParticipantStewardAffordance,
+} from "@/components/meeting-participants/meeting-participant-avatar";
 import { MeetingParticipantPicker } from "@/components/meeting-participants/meeting-participant-picker";
 import type {
   MeetingNoteStatus,
@@ -47,8 +52,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  EmojiInputField,
+  EmojiTextareaField,
+} from "@/components/ui/emoji-field";
 import { TokenInput } from "@/components/ui/token-input";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
@@ -61,7 +74,10 @@ import {
   PROJECT_ACTIVITY_REMOTE_EVENT,
   type ProjectActivityRemoteEventDetail,
 } from "@/lib/project-activity-client";
-import { buildProjectMeetingTodos, type ProjectMeetingTodo } from "@/lib/meeting-todo";
+import {
+  buildProjectMeetingTodos,
+  type ProjectMeetingTodo,
+} from "@/lib/meeting-todo";
 import {
   getMeetingTodoActorKey,
   type MeetingTodoActorReference,
@@ -80,11 +96,41 @@ type PrepareDialogMode = "create" | "edit";
 interface ProjectMeetingNotesPanelProps {
   projectId: string;
   canEdit: boolean;
+  currentActorUserId?: string;
   notes: ProjectMeetingNotePanelNote[];
   collaborators: ProjectMeetingParticipantCollaborator[];
   todoActors: MeetingTodoActorSummary[];
+  stewardFilter?: StewardFilterValue;
+  initialQuery?: string | null;
   initialMeetingNoteId?: string | null;
   initialMeetingTodoId?: string | null;
+}
+
+export type StewardFilterValue = "all" | "mine" | "unassigned";
+
+function normalizeStewardFilter(
+  value: string | null | undefined
+): StewardFilterValue {
+  return value === "mine" || value === "unassigned" ? value : "all";
+}
+
+function buildNotesHref(input: {
+  projectId: string;
+  stewardFilter: StewardFilterValue;
+  query?: string | null;
+}): string {
+  const params = new URLSearchParams();
+  if (input.stewardFilter !== "all") {
+    params.set("meetingNoteSteward", input.stewardFilter);
+  }
+  const trimmedQuery = (input.query ?? "").trim();
+  if (trimmedQuery.length > 0) {
+    params.set("meetingNoteQuery", trimmedQuery);
+  }
+  const query = params.toString();
+  return query
+    ? `/projects/${input.projectId}?${query}`
+    : `/projects/${input.projectId}`;
 }
 
 interface DraftAction {
@@ -141,12 +187,10 @@ const STATUS_LABELS: Record<MeetingNoteStatus, string> = {
 };
 
 const STATUS_BADGE_CLASS: Record<MeetingNoteStatus, string> = {
-  prepared:
-    "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-200",
+  prepared: "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-200",
   actions_in_progress:
     "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200",
-  done:
-    "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
+  done: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
 };
 
 const STATUS_OPTIONS: Array<{
@@ -210,6 +254,25 @@ function formatShortDate(value: string | null): string {
   }).format(date);
 }
 
+function formatMeetingTimestamp(value: string | null): string {
+  if (!value) {
+    return "—";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
 function toDateTimeLocal(value: string | null): string {
   if (!value) {
     return "";
@@ -234,14 +297,18 @@ function fromDateTimeLocal(value: string): string | null {
 }
 
 function actionCounts(note: ProjectMeetingNotePanelNote) {
-  const completed = note.actions.filter((action) => action.completedAt != null).length;
+  const completed = note.actions.filter(
+    (action) => action.completedAt != null
+  ).length;
   return {
     completed,
     total: note.actions.length,
   };
 }
 
-function sortNotes(notes: ProjectMeetingNotePanelNote[]): ProjectMeetingNotePanelNote[] {
+function sortNotes(
+  notes: ProjectMeetingNotePanelNote[]
+): ProjectMeetingNotePanelNote[] {
   return notes.slice().sort((left, right) => {
     const leftTime = left.scheduledAt
       ? new Date(left.scheduledAt).getTime()
@@ -254,7 +321,10 @@ function sortNotes(notes: ProjectMeetingNotePanelNote[]): ProjectMeetingNotePane
   });
 }
 
-function noteMatchesQuery(note: ProjectMeetingNotePanelNote, query: string): boolean {
+function noteMatchesQuery(
+  note: ProjectMeetingNotePanelNote,
+  query: string
+): boolean {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) {
     return true;
@@ -283,11 +353,17 @@ function noteMatchesLabelFilters(
     return true;
   }
 
-  const noteLabels = new Set(note.labels.map((label) => label.toLocaleLowerCase()));
-  return labelFilters.every((label) => noteLabels.has(label.toLocaleLowerCase()));
+  const noteLabels = new Set(
+    note.labels.map((label) => label.toLocaleLowerCase())
+  );
+  return labelFilters.every((label) =>
+    noteLabels.has(label.toLocaleLowerCase())
+  );
 }
 
-function buildPrepareDraftFromNote(note: ProjectMeetingNotePanelNote): PrepareDraft {
+function buildPrepareDraftFromNote(
+  note: ProjectMeetingNotePanelNote
+): PrepareDraft {
   return {
     title: note.title,
     scheduledAtLocal: toDateTimeLocal(note.scheduledAt),
@@ -299,7 +375,9 @@ function buildPrepareDraftFromNote(note: ProjectMeetingNotePanelNote): PrepareDr
   };
 }
 
-function buildNotesDraftFromNote(note: ProjectMeetingNotePanelNote): NotesDraft {
+function buildNotesDraftFromNote(
+  note: ProjectMeetingNotePanelNote
+): NotesDraft {
   return {
     outputNotes: note.outputNotes,
     status: note.status === "prepared" ? "actions_in_progress" : note.status,
@@ -362,6 +440,14 @@ function mapMeetingNoteError(errorCode: string): string {
       return "Meeting todo not found.";
     case "meeting-note-action-update-failed":
       return "Could not update the meeting todo. Please retry.";
+    case "meeting-note-steward-required":
+      return "Send a steward reference to update this note.";
+    case "meeting-note-steward-invalid":
+      return "That steward no longer has access to this project. Pick a current project member or active agent.";
+    case "meeting-note-action-assignee-invalid":
+      return "That assignee no longer has access to this project. Pick a current project member or active agent.";
+    case "meeting-note-steward-update-failed":
+      return "Could not update the steward. Please retry.";
     case "meeting-note-not-found":
       return "Meeting note not found.";
     case "forbidden":
@@ -421,7 +507,8 @@ function MeetingStatusSelect({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const selectedOption =
-    STATUS_OPTIONS.find((option) => option.value === value) ?? STATUS_OPTIONS[0];
+    STATUS_OPTIONS.find((option) => option.value === value) ??
+    STATUS_OPTIONS[0];
 
   useEffect(() => {
     if (!isOpen) {
@@ -454,7 +541,10 @@ function MeetingStatusSelect({
 
       setDropdownPosition({
         top: shouldOpenAbove
-          ? Math.max(viewportPadding, rect.top - Math.min(estimatedHeight, maxHeight) - 8)
+          ? Math.max(
+              viewportPadding,
+              rect.top - Math.min(estimatedHeight, maxHeight) - 8
+            )
           : rect.bottom + 8,
         left: Math.min(rect.left, Math.max(viewportPadding, maxLeft)),
         width,
@@ -468,7 +558,10 @@ function MeetingStatusSelect({
         return;
       }
 
-      if (triggerRef.current?.contains(target) || dropdownRef.current?.contains(target)) {
+      if (
+        triggerRef.current?.contains(target) ||
+        dropdownRef.current?.contains(target)
+      ) {
         return;
       }
 
@@ -586,7 +679,9 @@ function MeetingStatusSelect({
                           {option.description}
                         </p>
                       </div>
-                      {isSelected ? <Check className="h-4 w-4 text-foreground" /> : null}
+                      {isSelected ? (
+                        <Check className="h-4 w-4 text-foreground" />
+                      ) : null}
                     </button>
                   );
                 })}
@@ -640,7 +735,9 @@ function MeetingDialogShell({
                 {title}
               </DialogTitle>
               {subtitle ? (
-                <DialogDescription className="leading-6">{subtitle}</DialogDescription>
+                <DialogDescription className="leading-6">
+                  {subtitle}
+                </DialogDescription>
               ) : null}
             </div>
             <Button
@@ -675,34 +772,49 @@ function MeetingDialogShell({
 export function ProjectMeetingNotesPanel({
   projectId,
   canEdit,
+  currentActorUserId = "",
   notes,
   collaborators,
   todoActors,
+  stewardFilter = "all",
+  initialQuery = null,
   initialMeetingNoteId = null,
   initialMeetingTodoId = null,
 }: ProjectMeetingNotesPanelProps) {
   const initialSelectedNote =
     notes.find((note) => note.id === initialMeetingNoteId) ?? null;
   const { pushToast } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlStewardFilter = normalizeStewardFilter(
+    searchParams.get("meetingNoteSteward")
+  );
+  const urlQuery = searchParams.get("meetingNoteQuery") ?? "";
+  const activeStewardFilter = stewardFilter ?? urlStewardFilter;
+  const activeQuery = initialQuery ?? urlQuery;
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
     sectionKey: "meeting-notes",
     defaultExpanded: true,
     logLabel: "ProjectMeetingNotesPanel",
   });
-  const [localNotes, setLocalNotes] = useState<ProjectMeetingNotePanelNote[]>(() =>
-    sortNotes(notes)
+  const [localNotes, setLocalNotes] = useState<ProjectMeetingNotePanelNote[]>(
+    () => sortNotes(notes)
   );
   const [referenceNowMs] = useState(() => Date.now());
-  const [query, setQuery] = useState("");
-  const [selectedLabelFilters, setSelectedLabelFilters] = useState<string[]>([]);
+  const [query, setQuery] = useState(activeQuery);
+  const [selectedLabelFilters, setSelectedLabelFilters] = useState<string[]>(
+    []
+  );
   const [listView, setListView] = useState<MeetingListView>(
     initialSelectedNote?.status === "done" ? "archived" : "active"
   );
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
     initialSelectedNote?.id ?? null
   );
-  const [prepareDialog, setPrepareDialog] = useState<PrepareDialogState | null>(null);
+  const [prepareDialog, setPrepareDialog] = useState<PrepareDialogState | null>(
+    null
+  );
   const [prepareDraft, setPrepareDraft] =
     useState<PrepareDraft>(EMPTY_PREPARE_DRAFT);
   const [notesDraft, setNotesDraft] = useState<NotesDraft>(() =>
@@ -712,18 +824,30 @@ export function ProjectMeetingNotesPanel({
   );
   const [draftError, setDraftError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(null);
+  const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(
+    null
+  );
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingTodoActionId, setPendingTodoActionId] = useState<string | null>(
     null
   );
+  const [pendingStewardNoteId, setPendingStewardNoteId] = useState<
+    string | null
+  >(null);
+  const [stewardError, setStewardError] = useState<string | null>(null);
   const appliedInitialMeetingNoteIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setQuery(activeQuery);
+  }, [activeQuery]);
 
   useEffect(() => {
     const sortedNotes = sortNotes(notes);
     setLocalNotes(sortedNotes);
     setSelectedNoteId((current) =>
-      current && sortedNotes.some((note) => note.id === current) ? current : null
+      current && sortedNotes.some((note) => note.id === current)
+        ? current
+        : null
     );
   }, [notes]);
 
@@ -766,7 +890,8 @@ export function ProjectMeetingNotesPanel({
 
   useEffect(() => {
     const handleProjectActivity = (event: Event) => {
-      const detail = (event as CustomEvent<ProjectActivityRemoteEventDetail>).detail;
+      const detail = (event as CustomEvent<ProjectActivityRemoteEventDetail>)
+        .detail;
       if (
         detail?.activity?.projectId === projectId &&
         detail.activity.domain === "meeting-note"
@@ -776,9 +901,15 @@ export function ProjectMeetingNotesPanel({
       }
     };
 
-    window.addEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, handleProjectActivity);
+    window.addEventListener(
+      PROJECT_ACTIVITY_REMOTE_EVENT,
+      handleProjectActivity
+    );
     return () => {
-      window.removeEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, handleProjectActivity);
+      window.removeEventListener(
+        PROJECT_ACTIVITY_REMOTE_EVENT,
+        handleProjectActivity
+      );
     };
   }, [projectId]);
 
@@ -814,16 +945,54 @@ export function ProjectMeetingNotesPanel({
     [overdueTodoCounts]
   );
   const overdueMeetingCount = useMemo(
-    () => Array.from(overdueTodoCounts.values()).filter((count) => count > 0).length,
+    () =>
+      Array.from(overdueTodoCounts.values()).filter((count) => count > 0)
+        .length,
     [overdueTodoCounts]
   );
-  const visibleSourceNotes = listView === "active" ? activeNotes : archivedNotes;
+  const visibleSourceNotes =
+    listView === "active" ? activeNotes : archivedNotes;
+  const stewardCounts = useMemo(() => {
+    const matchesMine = (note: ProjectMeetingNotePanelNote) => {
+      const steward = note.steward;
+      return (
+        steward?.kind === "human" &&
+        steward.status === "active" &&
+        steward.id === currentActorUserId
+      );
+    };
+    return {
+      all: visibleSourceNotes.length,
+      mine: visibleSourceNotes.filter(matchesMine).length,
+      unassigned: visibleSourceNotes.filter((note) => note.steward == null)
+        .length,
+    };
+  }, [visibleSourceNotes, currentActorUserId]);
+  const noteMatchesStewardFilter = useCallback(
+    (note: ProjectMeetingNotePanelNote): boolean => {
+      if (activeStewardFilter === "all") {
+        return true;
+      }
+      if (activeStewardFilter === "unassigned") {
+        return note.steward == null;
+      }
+      // mine
+      const steward = note.steward;
+      return (
+        steward?.kind === "human" &&
+        steward.status === "active" &&
+        steward.id === currentActorUserId
+      );
+    },
+    [activeStewardFilter, currentActorUserId]
+  );
   const filteredNotes = useMemo(
     () =>
       visibleSourceNotes
         .filter((note) => noteMatchesQuery(note, query))
-        .filter((note) => noteMatchesLabelFilters(note, selectedLabelFilters)),
-    [visibleSourceNotes, query, selectedLabelFilters]
+        .filter((note) => noteMatchesLabelFilters(note, selectedLabelFilters))
+        .filter(noteMatchesStewardFilter),
+    [visibleSourceNotes, query, selectedLabelFilters, noteMatchesStewardFilter]
   );
 
   const selectedNote = useMemo(
@@ -833,7 +1002,7 @@ export function ProjectMeetingNotesPanel({
   const prepareNote = useMemo(
     () =>
       prepareDialog?.noteId
-        ? localNotes.find((note) => note.id === prepareDialog.noteId) ?? null
+        ? (localNotes.find((note) => note.id === prepareDialog.noteId) ?? null)
         : null,
     [localNotes, prepareDialog]
   );
@@ -843,7 +1012,9 @@ export function ProjectMeetingNotesPanel({
   );
   const existingLabels = useMemo(() => {
     const labels = new Set<string>();
-    localNotes.forEach((note) => note.labels.forEach((label) => labels.add(label)));
+    localNotes.forEach((note) =>
+      note.labels.forEach((label) => labels.add(label))
+    );
     return Array.from(labels).sort((left, right) => left.localeCompare(right));
   }, [localNotes]);
   const previousExternalParticipants = useMemo(() => {
@@ -873,7 +1044,10 @@ export function ProjectMeetingNotesPanel({
       current.filter((label) => availableLabels.has(label.toLocaleLowerCase()))
     );
   }, [existingLabels]);
-  const hasActiveFilters = query.trim() !== "" || selectedLabelFilters.length > 0;
+  const hasActiveFilters =
+    query.trim() !== "" ||
+    selectedLabelFilters.length > 0 ||
+    activeStewardFilter !== "all";
   const labelSuggestions = useMemo(() => {
     const queryValue = prepareDraft.labelInput.trim().toLocaleLowerCase();
     if (!queryValue) {
@@ -980,9 +1154,10 @@ export function ProjectMeetingNotesPanel({
           body: JSON.stringify({ completed }),
         }
       );
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string; note?: ProjectMeetingNotePanelNote }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        note?: ProjectMeetingNotePanelNote;
+      } | null;
 
       if (!response.ok || !payload?.note) {
         throw new Error(mapMeetingNoteError(payload?.error ?? "unknown"));
@@ -990,7 +1165,9 @@ export function ProjectMeetingNotesPanel({
 
       setLocalNotes((current) =>
         sortNotes(
-          current.map((note) => (note.id === payload.note?.id ? payload.note : note))
+          current.map((note) =>
+            note.id === payload.note?.id ? payload.note : note
+          )
         )
       );
       if (selectedNoteId === payload.note.id) {
@@ -998,18 +1175,96 @@ export function ProjectMeetingNotesPanel({
       }
       pushToast({
         variant: "success",
-        message: completed ? "Meeting todo completed." : "Meeting todo reopened.",
+        message: completed
+          ? "Meeting todo completed."
+          : "Meeting todo reopened.",
       });
     } catch (error) {
       pushToast({
         variant: "error",
         message:
-          error instanceof Error ? error.message : "Could not update meeting todo.",
+          error instanceof Error
+            ? error.message
+            : "Could not update meeting todo.",
       });
     } finally {
       setPendingTodoActionId(null);
     }
   };
+
+  const setNoteSteward = async (
+    note: ProjectMeetingNotePanelNote,
+    steward: MeetingTodoActorReference | null
+  ) => {
+    if (!canEdit || pendingStewardNoteId) {
+      return;
+    }
+
+    setPendingStewardNoteId(note.id);
+    setStewardError(null);
+    try {
+      const response = await fetchProjectActivityMutation(
+        projectId,
+        `/api/projects/${projectId}/meeting-notes/${note.id}/steward`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ steward }),
+        }
+      );
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        note?: ProjectMeetingNotePanelNote;
+      } | null;
+      if (!response.ok || !payload?.note) {
+        throw new Error(mapMeetingNoteError(payload?.error ?? "unknown"));
+      }
+
+      setLocalNotes((current) =>
+        sortNotes(
+          current.map((entry) =>
+            entry.id === payload.note?.id ? payload.note : entry
+          )
+        )
+      );
+      const stewardName = steward
+        ? (todoActors.find(
+            (actor) => actor.kind === steward.kind && actor.id === steward.id
+          )?.displayName ?? "steward")
+        : null;
+      pushToast({
+        variant: "success",
+        message: stewardName
+          ? `${stewardName} is now stewarding this note.`
+          : "Steward cleared from this note.",
+      });
+      router.refresh();
+    } catch (error) {
+      setStewardError(
+        error instanceof Error
+          ? error.message
+          : "Could not update the steward. The actor may no longer have project access."
+      );
+    } finally {
+      setPendingStewardNoteId(null);
+    }
+  };
+
+  const clearMeetingNotesQuery = useCallback(() => {
+    setQuery("");
+    if (!searchParams.has("meetingNoteQuery")) {
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("meetingNoteQuery");
+    const nextQuery = params.toString();
+    router.replace(
+      nextQuery
+        ? `/projects/${projectId}?${nextQuery}`
+        : `/projects/${projectId}`
+    );
+  }, [projectId, router, searchParams]);
 
   const closeNoteDialog = () => {
     if (isSaving) {
@@ -1062,12 +1317,15 @@ export function ProjectMeetingNotesPanel({
         }
       );
 
-      const responsePayload = (await response.json().catch(() => null)) as
-        | { error?: string; note?: ProjectMeetingNotePanelNote }
-        | null;
+      const responsePayload = (await response.json().catch(() => null)) as {
+        error?: string;
+        note?: ProjectMeetingNotePanelNote;
+      } | null;
 
       if (!response.ok || !responsePayload?.note) {
-        throw new Error(mapMeetingNoteError(responsePayload?.error ?? "unknown"));
+        throw new Error(
+          mapMeetingNoteError(responsePayload?.error ?? "unknown")
+        );
       }
 
       const savedNote = responsePayload.note;
@@ -1075,7 +1333,9 @@ export function ProjectMeetingNotesPanel({
         sortNotes(
           prepareDialog.mode === "create"
             ? [savedNote, ...current]
-            : current.map((note) => (note.id === savedNote.id ? savedNote : note))
+            : current.map((note) =>
+                note.id === savedNote.id ? savedNote : note
+              )
         )
       );
       setPrepareDialog(null);
@@ -1136,9 +1396,10 @@ export function ProjectMeetingNotesPanel({
     assignee: MeetingTodoActorReference | null
   ) => {
     const selectedActor = assignee
-      ? todoActors.find(
-          (actor) => getMeetingTodoActorKey(actor) === getMeetingTodoActorKey(assignee)
-        ) ?? null
+      ? (todoActors.find(
+          (actor) =>
+            getMeetingTodoActorKey(actor) === getMeetingTodoActorKey(assignee)
+        ) ?? null)
       : null;
     setNotesDraft((current) => ({
       ...current,
@@ -1203,17 +1464,22 @@ export function ProjectMeetingNotesPanel({
         }
       );
 
-      const responsePayload = (await response.json().catch(() => null)) as
-        | { error?: string; note?: ProjectMeetingNotePanelNote }
-        | null;
+      const responsePayload = (await response.json().catch(() => null)) as {
+        error?: string;
+        note?: ProjectMeetingNotePanelNote;
+      } | null;
 
       if (!response.ok || !responsePayload?.note) {
-        throw new Error(mapMeetingNoteError(responsePayload?.error ?? "unknown"));
+        throw new Error(
+          mapMeetingNoteError(responsePayload?.error ?? "unknown")
+        );
       }
 
       const savedNote = responsePayload.note;
       setLocalNotes((current) =>
-        sortNotes(current.map((note) => (note.id === savedNote.id ? savedNote : note)))
+        sortNotes(
+          current.map((note) => (note.id === savedNote.id ? savedNote : note))
+        )
       );
       setSelectedNoteId(null);
       setNotesDraft(EMPTY_NOTES_DRAFT);
@@ -1223,7 +1489,10 @@ export function ProjectMeetingNotesPanel({
       }
       pushToast({
         variant: "success",
-        message: savedNote.status === "done" ? "Meeting note archived." : "Meeting note saved.",
+        message:
+          savedNote.status === "done"
+            ? "Meeting note archived."
+            : "Meeting note saved.",
       });
     } catch (error) {
       setDraftError(
@@ -1250,9 +1519,9 @@ export function ProjectMeetingNotesPanel({
         }
       );
 
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
 
       if (!response.ok) {
         throw new Error(mapMeetingNoteError(payload?.error ?? "unknown"));
@@ -1274,7 +1543,9 @@ export function ProjectMeetingNotesPanel({
       pushToast({
         variant: "error",
         message:
-          error instanceof Error ? error.message : "Could not delete meeting note.",
+          error instanceof Error
+            ? error.message
+            : "Could not delete meeting note.",
       });
     } finally {
       setIsDeleting(false);
@@ -1346,7 +1617,14 @@ export function ProjectMeetingNotesPanel({
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  const nextQuery = event.target.value;
+                  if (nextQuery.length === 0) {
+                    clearMeetingNotesQuery();
+                    return;
+                  }
+                  setQuery(nextQuery);
+                }}
                 className="h-11 w-full rounded-md border border-input bg-background pl-9 pr-10 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
                 placeholder="Search titles, participants, labels, inputs, outputs, actions"
                 aria-label="Search meeting notes"
@@ -1354,7 +1632,7 @@ export function ProjectMeetingNotesPanel({
               {query ? (
                 <button
                   type="button"
-                  onClick={() => setQuery("")}
+                  onClick={clearMeetingNotesQuery}
                   className="absolute right-2 top-1/2 rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                   aria-label="Clear meeting notes search"
                 >
@@ -1396,6 +1674,47 @@ export function ProjectMeetingNotesPanel({
             </div>
           </div>
 
+          <div className="rounded-2xl border border-border/60 bg-muted/15 p-3">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <ClipboardList className="h-3.5 w-3.5" />
+              Steward
+            </div>
+            <nav
+              aria-label="Steward filter"
+              className="mt-2 grid grid-cols-1 gap-1 rounded-xl bg-muted/40 p-1 sm:grid-cols-3"
+            >
+              {(
+                [
+                  ["all", "All", stewardCounts.all],
+                  ["mine", "Stewarded by me", stewardCounts.mine],
+                  ["unassigned", "Unstewarded", stewardCounts.unassigned],
+                ] as const
+              ).map(([value, label, count]) => {
+                const isCurrent = activeStewardFilter === value;
+                return (
+                  <Link
+                    key={value}
+                    href={buildNotesHref({
+                      projectId,
+                      stewardFilter: value,
+                      query: query.trim() || null,
+                    })}
+                    aria-current={isCurrent ? "page" : undefined}
+                    className={cn(
+                      "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      isCurrent
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <span className="truncate">{label}</span>
+                    <span className="tabular-nums text-xs">{count}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+
           {existingLabels.length > 0 ? (
             <div className="space-y-2 rounded-2xl border border-border/60 bg-muted/15 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1417,7 +1736,8 @@ export function ProjectMeetingNotesPanel({
                 {existingLabels.map((label) => {
                   const isSelected = selectedLabelFilters.some(
                     (selectedLabel) =>
-                      selectedLabel.toLocaleLowerCase() === label.toLocaleLowerCase()
+                      selectedLabel.toLocaleLowerCase() ===
+                      label.toLocaleLowerCase()
                   );
 
                   return (
@@ -1435,7 +1755,9 @@ export function ProjectMeetingNotesPanel({
                       )}
                       style={{ backgroundColor: getTaskLabelColor(label) }}
                     >
-                      {isSelected ? <Check className="h-3 w-3 shrink-0" /> : null}
+                      {isSelected ? (
+                        <Check className="h-3 w-3 shrink-0" />
+                      ) : null}
                       <span className="truncate">{label}</span>
                     </button>
                   );
@@ -1451,11 +1773,13 @@ export function ProjectMeetingNotesPanel({
                 <div>
                   <p className="font-semibold">
                     {overdueTodoTotal} overdue todo
-                    {overdueTodoTotal === 1 ? "" : "s"} across {overdueMeetingCount} meeting
+                    {overdueTodoTotal === 1 ? "" : "s"} across{" "}
+                    {overdueMeetingCount} meeting
                     {overdueMeetingCount === 1 ? "" : "s"}.
                   </p>
                   <p className="mt-1 text-xs leading-5 text-amber-800/80 dark:text-amber-100/80">
-                    Open todos are marked overdue seven days after the meeting date.
+                    Open todos are marked overdue seven days after the meeting
+                    date.
                   </p>
                 </div>
               </div>
@@ -1472,11 +1796,15 @@ export function ProjectMeetingNotesPanel({
                     : "No active meeting notes yet."}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {hasActiveFilters
+                {query.trim() !== "" || selectedLabelFilters.length > 0
                   ? "Try another search or clear the selected labels."
-                  : listView === "archived"
-                    ? "Done meeting notes will land here."
-                    : "Prepare one before the next discussion."}
+                  : activeStewardFilter === "mine"
+                    ? "Choose All to see notes stewarded by other collaborators or awaiting a steward."
+                    : activeStewardFilter === "unassigned"
+                      ? "Choose All to see notes that already have a steward."
+                      : listView === "archived"
+                        ? "Done meeting notes will land here."
+                        : "Prepare one before the next discussion."}
               </p>
             </div>
           ) : (
@@ -1497,8 +1825,8 @@ export function ProjectMeetingNotesPanel({
                       isOverdue
                         ? "border-amber-500/40 bg-amber-500/10 shadow-[0_18px_50px_-36px_rgba(245,158,11,0.9)]"
                         : isSelected
-                        ? "border-primary/40 bg-primary/5"
-                        : "border-border/70 bg-background/70"
+                          ? "border-primary/40 bg-primary/5"
+                          : "border-border/70 bg-background/70"
                     )}
                     aria-pressed={isSelected}
                   >
@@ -1514,7 +1842,10 @@ export function ProjectMeetingNotesPanel({
                       </div>
                       <Badge
                         variant="outline"
-                        className={cn("shrink-0 text-[11px]", STATUS_BADGE_CLASS[note.status])}
+                        className={cn(
+                          "shrink-0 text-[11px]",
+                          STATUS_BADGE_CLASS[note.status]
+                        )}
                       >
                         {STATUS_LABELS[note.status]}
                       </Badge>
@@ -1544,6 +1875,13 @@ export function ProjectMeetingNotesPanel({
                     <p className="mt-3 line-clamp-2 text-xs leading-5 text-muted-foreground">
                       {note.inputNotes || "No preparation inputs captured."}
                     </p>
+
+                    <div className="mt-3">
+                      <MeetingTodoActorIdentity
+                        actor={note.steward ?? null}
+                        prefix="Steward"
+                      />
+                    </div>
 
                     <div className="mt-auto flex flex-wrap items-center gap-2 pt-4 text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
@@ -1576,7 +1914,11 @@ export function ProjectMeetingNotesPanel({
 
       {prepareDialog ? (
         <MeetingDialogShell
-          title={prepareDialog.mode === "create" ? "Prepare meeting" : "Edit preparation"}
+          title={
+            prepareDialog.mode === "create"
+              ? "Prepare meeting"
+              : "Edit preparation"
+          }
           subtitle="Set the meeting frame first. Outputs and todos are captured after opening the note."
           onClose={closePrepareDialog}
           dismissible={!isSaving}
@@ -1623,7 +1965,10 @@ export function ProjectMeetingNotesPanel({
 
             <div className="grid gap-2">
               <div className="flex items-center justify-between gap-3">
-                <label htmlFor="meeting-scheduled-at" className="text-sm font-medium">
+                <label
+                  htmlFor="meeting-scheduled-at"
+                  className="text-sm font-medium"
+                >
                   Meeting time
                 </label>
                 {prepareDraft.scheduledAtLocal ? (
@@ -1658,9 +2003,17 @@ export function ProjectMeetingNotesPanel({
             </div>
 
             <div className="grid gap-2">
-              <label htmlFor="meeting-participants" className="text-sm font-medium">
+              <label
+                htmlFor="meeting-participants"
+                className="text-sm font-medium"
+              >
                 Participants
               </label>
+              {prepareNote && stewardError ? (
+                <p role="alert" className="text-xs text-destructive">
+                  {stewardError}
+                </p>
+              ) : null}
               <MeetingParticipantPicker
                 id="meeting-participants"
                 value={prepareDraft.participants}
@@ -1681,7 +2034,30 @@ export function ProjectMeetingNotesPanel({
                 }
                 maxItems={40}
                 disabled={isSaving}
+                stewardUserId={
+                  prepareNote?.steward?.kind === "human"
+                    ? prepareNote.steward.id
+                    : null
+                }
+                stewardPending={
+                  prepareNote ? pendingStewardNoteId === prepareNote.id : false
+                }
+                onStewardChange={
+                  prepareNote
+                    ? (userId) => {
+                        void setNoteSteward(
+                          prepareNote,
+                          userId ? { kind: "human", id: userId } : null
+                        );
+                      }
+                    : undefined
+                }
               />
+              {prepareNote && pendingStewardNoteId === prepareNote.id ? (
+                <p className="text-xs text-muted-foreground">
+                  Updating facilitator…
+                </p>
+              ) : null}
             </div>
 
             <div className="grid gap-2">
@@ -1710,7 +2086,9 @@ export function ProjectMeetingNotesPanel({
                 maxInputLength={60}
                 placeholder="Type label and press Enter"
                 tokenClassName="border-transparent text-slate-950"
-                getTokenStyle={(label) => ({ backgroundColor: getTaskLabelColor(label) })}
+                getTokenStyle={(label) => ({
+                  backgroundColor: getTaskLabelColor(label),
+                })}
                 disabled={isSaving}
               />
               {labelSuggestions.length > 0 ? (
@@ -1763,6 +2141,25 @@ export function ProjectMeetingNotesPanel({
             {draftError ? (
               <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {draftError}
+              </div>
+            ) : null}
+
+            {prepareNote ? (
+              <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+                <MeetingTodoActorIdentity
+                  actor={prepareNote.createdBy ?? null}
+                  prefix="Created by"
+                />
+                <MeetingTodoActorIdentity
+                  actor={prepareNote.updatedBy ?? null}
+                  prefix="Last edited by"
+                />
+                <span>
+                  Updated{" "}
+                  <time dateTime={prepareNote.updatedAt}>
+                    {formatMeetingTimestamp(prepareNote.updatedAt)}
+                  </time>
+                </span>
               </div>
             ) : null}
           </div>
@@ -1848,23 +2245,145 @@ export function ProjectMeetingNotesPanel({
               </div>
             ) : null}
 
-            {selectedNote.participants.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {selectedNote.participants.map((participant) => (
-                  <span
-                    key={getMeetingParticipantKey(participant)}
-                    className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/70 bg-muted/40 p-1 pr-3 text-xs font-semibold text-foreground"
-                  >
-                    <MeetingParticipantAvatar
-                      participant={participant}
-                      className="h-7 w-7 text-[10px]"
-                      decorative
-                    />
-                    <span className="truncate">{participant.displayName}</span>
-                  </span>
-                ))}
+            <div className="space-y-2">
+              <div
+                className="flex flex-wrap items-center gap-2"
+                aria-label="Participants and facilitator"
+              >
+                {selectedNote.steward &&
+                !selectedNote.participants.some(
+                  (participant) =>
+                    selectedNote.steward?.kind === "human" &&
+                    participant.userId === selectedNote.steward.id
+                ) ? (
+                  canEdit ? (
+                    <button
+                      type="button"
+                      className="group relative inline-flex min-h-11 cursor-pointer items-center rounded-full border border-amber-400/80 bg-amber-400/10 p-1 transition-colors hover:bg-amber-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 disabled:cursor-wait"
+                      aria-label={`Remove ${selectedNote.steward.displayName} as steward / facilitator`}
+                      aria-describedby={`meeting-note-steward-${selectedNote.id}-tooltip`}
+                      disabled={pendingStewardNoteId === selectedNote.id}
+                      onClick={() => void setNoteSteward(selectedNote, null)}
+                    >
+                      <MeetingParticipantStewardAffordance
+                        isSteward
+                        tooltipId={`meeting-note-steward-${selectedNote.id}-tooltip`}
+                      />
+                      <MeetingTodoAssigneeChipReadonly
+                        actor={selectedNote.steward}
+                        bordered={false}
+                        identityRole="assignee"
+                      />
+                    </button>
+                  ) : (
+                    <span className="group relative inline-flex">
+                      <MeetingParticipantStewardAffordance isSteward />
+                      <MeetingTodoAssigneeChipReadonly
+                        actor={selectedNote.steward}
+                        className="border-amber-400/80 bg-amber-400/10"
+                        identityRole="assignee"
+                      />
+                    </span>
+                  )
+                ) : null}
+                {selectedNote.participants.map(
+                  (participant, participantIndex) => {
+                    const isSteward =
+                      selectedNote.steward?.kind === "human" &&
+                      participant.userId === selectedNote.steward.id;
+                    const canToggleSteward = Boolean(
+                      canEdit &&
+                      participant.userId &&
+                      (collaborators.some(
+                        (collaborator) => collaborator.id === participant.userId
+                      ) ||
+                        isSteward)
+                    );
+                    const stewardTooltipId = `meeting-note-${selectedNote.id}-participant-${participantIndex}-steward-tooltip`;
+                    const chipClassName = cn(
+                      "inline-flex min-h-11 max-w-full items-center gap-2 rounded-full border p-1 pr-3 text-xs font-semibold text-foreground transition-colors",
+                      isSteward
+                        ? "border-amber-400/80 bg-amber-400/10"
+                        : "border-border/70 bg-muted/40"
+                    );
+                    const content = (
+                      <>
+                        <MeetingParticipantAvatar
+                          participant={participant}
+                          className="h-7 w-7 text-[10px]"
+                          decorative
+                          borderless
+                        />
+                        <span className="truncate">
+                          {participant.displayName}
+                        </span>
+                      </>
+                    );
+
+                    return canToggleSteward ? (
+                      <button
+                        key={getMeetingParticipantKey(participant)}
+                        type="button"
+                        className={cn(
+                          chipClassName,
+                          "group relative cursor-pointer hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 disabled:cursor-wait"
+                        )}
+                        aria-pressed={isSteward}
+                        aria-describedby={stewardTooltipId}
+                        aria-label={
+                          isSteward
+                            ? `Remove ${participant.displayName} as steward / facilitator`
+                            : `Make ${participant.displayName} steward / facilitator`
+                        }
+                        disabled={pendingStewardNoteId === selectedNote.id}
+                        onClick={() =>
+                          void setNoteSteward(
+                            selectedNote,
+                            isSteward
+                              ? null
+                              : { kind: "human", id: participant.userId! }
+                          )
+                        }
+                      >
+                        <MeetingParticipantStewardAffordance
+                          isSteward={isSteward}
+                          tooltipId={stewardTooltipId}
+                        />
+                        {content}
+                      </button>
+                    ) : (
+                      <span
+                        key={getMeetingParticipantKey(participant)}
+                        className={cn(
+                          chipClassName,
+                          isSteward && "group relative"
+                        )}
+                        aria-label={
+                          isSteward
+                            ? `${participant.displayName}, steward / facilitator`
+                            : undefined
+                        }
+                      >
+                        {isSteward ? (
+                          <MeetingParticipantStewardAffordance isSteward />
+                        ) : null}
+                        {content}
+                      </span>
+                    );
+                  }
+                )}
               </div>
-            ) : null}
+              {pendingStewardNoteId === selectedNote.id ? (
+                <p className="text-xs text-muted-foreground">
+                  Updating facilitator…
+                </p>
+              ) : null}
+              {stewardError ? (
+                <p role="alert" className="text-xs text-destructive">
+                  {stewardError}
+                </p>
+              ) : null}
+            </div>
 
             <SectionBlock title="Inputs">
               <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
@@ -1874,7 +2393,10 @@ export function ProjectMeetingNotesPanel({
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),320px]">
               <div className="grid gap-2">
-                <label htmlFor="meeting-outputs" className="text-sm font-medium">
+                <label
+                  htmlFor="meeting-outputs"
+                  className="text-sm font-medium"
+                >
                   Outputs
                 </label>
                 <EmojiTextareaField
@@ -1894,7 +2416,10 @@ export function ProjectMeetingNotesPanel({
 
               <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <label htmlFor="meeting-status" className="text-sm font-medium">
+                  <label
+                    htmlFor="meeting-status"
+                    className="text-sm font-medium"
+                  >
                     State
                   </label>
                   <MeetingStatusSelect
@@ -1953,9 +2478,10 @@ export function ProjectMeetingNotesPanel({
                                   pendingTodoActionId === action.id
                                 }
                                 onClick={() => {
-                                  const persistedAction = selectedNote.actions.find(
-                                    (entry) => entry.id === action.id
-                                  );
+                                  const persistedAction =
+                                    selectedNote.actions.find(
+                                      (entry) => entry.id === action.id
+                                    );
                                   if (action.persisted && persistedAction) {
                                     void setTodoCompleted(
                                       {
@@ -1983,11 +2509,16 @@ export function ProjectMeetingNotesPanel({
                                 wrapperClassName="min-w-0 flex-1"
                                 value={action.content}
                                 onChange={(event) =>
-                                  updateDraftAction(action.id, event.target.value)
+                                  updateDraftAction(
+                                    action.id,
+                                    event.target.value
+                                  )
                                 }
                                 className={cn(
                                   "h-11 rounded-md border border-input bg-background px-3 text-sm",
-                                  isComplete ? "text-muted-foreground line-through" : ""
+                                  isComplete
+                                    ? "text-muted-foreground line-through"
+                                    : ""
                                 )}
                                 placeholder="Send recap to stakeholders"
                                 maxLength={240}
@@ -2000,7 +2531,10 @@ export function ProjectMeetingNotesPanel({
                                   value={action.assignee ?? null}
                                   options={todoActors}
                                   onChange={(assignee) =>
-                                    updateDraftActionAssignee(action.id, assignee)
+                                    updateDraftActionAssignee(
+                                      action.id,
+                                      assignee
+                                    )
                                   }
                                   disabled={isSaving}
                                   pending={isSaving}
@@ -2056,6 +2590,23 @@ export function ProjectMeetingNotesPanel({
                 {draftError}
               </div>
             ) : null}
+
+            <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+              <MeetingTodoActorIdentity
+                actor={selectedNote.createdBy ?? null}
+                prefix="Created by"
+              />
+              <MeetingTodoActorIdentity
+                actor={selectedNote.updatedBy ?? null}
+                prefix="Last edited by"
+              />
+              <span>
+                Updated{" "}
+                <time dateTime={selectedNote.updatedAt}>
+                  {formatMeetingTimestamp(selectedNote.updatedAt)}
+                </time>
+              </span>
+            </div>
           </div>
         </MeetingDialogShell>
       ) : null}

@@ -11,6 +11,10 @@ const contextCardServiceMock = vi.hoisted(() => ({
   deleteContextCardForProject: vi.fn(),
 }));
 
+const activityEventResponseMock = vi.hoisted(() => ({
+  recordProjectActivityEventVersion: vi.fn(),
+}));
+
 vi.mock("@/lib/auth/api-guard", () => ({
   getAgentProjectAccessContext: apiGuardMock.getAgentProjectAccessContext,
   requireApiPrincipal: apiGuardMock.requireApiPrincipal,
@@ -20,6 +24,11 @@ vi.mock("@/lib/services/context-card-service", () => ({
   createContextCardForProject: contextCardServiceMock.createContextCardForProject,
   updateContextCardForProject: contextCardServiceMock.updateContextCardForProject,
   deleteContextCardForProject: contextCardServiceMock.deleteContextCardForProject,
+}));
+
+vi.mock("@/lib/project-activity-event-response", () => ({
+  recordProjectActivityEventVersion:
+    activityEventResponseMock.recordProjectActivityEventVersion,
 }));
 
 import { POST } from "@/app/api/projects/[projectId]/context-cards/route";
@@ -44,6 +53,9 @@ describe("context cards mutation routes", () => {
       },
     });
     apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
+    activityEventResponseMock.recordProjectActivityEventVersion.mockResolvedValue(
+      new Date("2026-08-16T12:00:00.000Z")
+    );
   });
 
   test("POST creates context card from form payload", async () => {
@@ -127,9 +139,27 @@ describe("context cards mutation routes", () => {
   });
 
   test("PATCH updates context card via service", async () => {
+    const lastEditedAt = new Date("2026-08-16T12:00:00.000Z");
+    const projection = {
+      id: "c1",
+      creator: null,
+      lastEditor: null,
+      steward: null,
+      review: { needsReview: false, thresholdDays: 90, lastEditedAt },
+      attachments: [],
+    };
     contextCardServiceMock.updateContextCardForProject.mockResolvedValueOnce({
       ok: true,
-      data: { ok: true },
+      data: {
+        id: "c1",
+        title: "Updated title",
+        content: "<p>Updated content</p>",
+        color: "#def",
+        createdAt: new Date("2026-08-15T09:00:00.000Z"),
+        updatedAt: new Date("2026-08-16T12:00:00.000Z"),
+        attachments: [],
+        projection,
+      },
     });
 
     const formData = new FormData();
@@ -150,7 +180,24 @@ describe("context cards mutation routes", () => {
     });
 
     expect(response.status).toBe(200);
-    await expect(readJson(response)).resolves.toEqual({ ok: true });
+    await expect(readJson(response)).resolves.toEqual({
+      card: {
+        id: "c1",
+        title: "Updated title",
+        content: "<p>Updated content</p>",
+        color: "#def",
+        createdAt: "2026-08-15T09:00:00.000Z",
+        updatedAt: "2026-08-16T12:00:00.000Z",
+        attachments: [],
+        projection: {
+          ...projection,
+          review: {
+            ...projection.review,
+            lastEditedAt: lastEditedAt.toISOString(),
+          },
+        },
+      },
+    });
     expect(contextCardServiceMock.updateContextCardForProject).toHaveBeenCalledWith({
       actorUserId: "test-user",
       projectId: "p1",
@@ -163,9 +210,27 @@ describe("context cards mutation routes", () => {
   });
 
   test("PATCH accepts json payloads", async () => {
+    const lastEditedAt = new Date("2026-08-16T12:00:00.000Z");
+    const projection = {
+      id: "c1",
+      creator: null,
+      lastEditor: null,
+      steward: null,
+      review: { needsReview: false, thresholdDays: 90, lastEditedAt },
+      attachments: [],
+    };
     contextCardServiceMock.updateContextCardForProject.mockResolvedValueOnce({
       ok: true,
-      data: { ok: true },
+      data: {
+        id: "c1",
+        title: "Updated from JSON",
+        content: "<p>JSON body</p>",
+        color: "#def",
+        createdAt: new Date("2026-08-15T09:00:00.000Z"),
+        updatedAt: new Date("2026-08-16T12:00:00.000Z"),
+        attachments: [],
+        projection,
+      },
     });
 
     const request = new Request("http://localhost/api/projects/p1/context-cards/c1", {
@@ -185,7 +250,24 @@ describe("context cards mutation routes", () => {
     });
 
     expect(response.status).toBe(200);
-    await expect(readJson(response)).resolves.toEqual({ ok: true });
+    await expect(readJson(response)).resolves.toEqual({
+      card: {
+        id: "c1",
+        title: "Updated from JSON",
+        content: "<p>JSON body</p>",
+        color: "#def",
+        createdAt: "2026-08-15T09:00:00.000Z",
+        updatedAt: "2026-08-16T12:00:00.000Z",
+        attachments: [],
+        projection: {
+          ...projection,
+          review: {
+            ...projection.review,
+            lastEditedAt: lastEditedAt.toISOString(),
+          },
+        },
+      },
+    });
     expect(contextCardServiceMock.updateContextCardForProject).toHaveBeenCalledWith({
       actorUserId: "test-user",
       projectId: "p1",

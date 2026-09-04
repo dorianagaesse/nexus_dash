@@ -81,13 +81,17 @@ describe("calendar events routes", () => {
   });
 
   test("GET returns auth failure payload from calendar context resolver", async () => {
-    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
-      ok: false,
-      failure: { status: 401, error: "not-connected" },
-    });
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce(
+      {
+        ok: false,
+        failure: { status: 401, error: "not-connected" },
+      }
+    );
 
     const response = await GET(
-      new NextRequest(`http://localhost/api/calendar/events?projectId=${PROJECT_ID}`)
+      new NextRequest(
+        `http://localhost/api/calendar/events?projectId=${PROJECT_ID}`
+      )
     );
 
     expect(response.status).toBe(401);
@@ -98,14 +102,16 @@ describe("calendar events routes", () => {
   });
 
   test("GET maps insufficient permissions from Google API to 403", async () => {
-    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
-      ok: true,
-      context: {
-        accessToken: "access-token",
-        calendarId: "primary",
-        scope: "scope-a",
-      },
-    });
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce(
+      {
+        ok: true,
+        context: {
+          accessToken: "access-token",
+          calendarId: "primary",
+          scope: "scope-a",
+        },
+      }
+    );
 
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(
@@ -132,14 +138,16 @@ describe("calendar events routes", () => {
   });
 
   test("GET maps 401 from Google API to reauthorization-required", async () => {
-    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
-      ok: true,
-      context: {
-        accessToken: "access-token",
-        calendarId: "primary",
-        scope: "scope-a",
-      },
-    });
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce(
+      {
+        ok: true,
+        context: {
+          accessToken: "access-token",
+          calendarId: "primary",
+          scope: "scope-a",
+        },
+      }
+    );
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(JSON.stringify({ error: { message: "unauthorized" } }), {
         status: 401,
@@ -147,7 +155,9 @@ describe("calendar events routes", () => {
     );
 
     const response = await GET(
-      new NextRequest(`http://localhost/api/calendar/events?projectId=${PROJECT_ID}`)
+      new NextRequest(
+        `http://localhost/api/calendar/events?projectId=${PROJECT_ID}`
+      )
     );
 
     expect(response.status).toBe(401);
@@ -173,7 +183,9 @@ describe("calendar events routes", () => {
     );
 
     const response = await GET(
-      new NextRequest(`http://localhost/api/calendar/events?projectId=${PROJECT_ID}`)
+      new NextRequest(
+        `http://localhost/api/calendar/events?projectId=${PROJECT_ID}`
+      )
     );
 
     expect(response.status).toBe(502);
@@ -195,7 +207,9 @@ describe("calendar events routes", () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network-failure"));
 
     const response = await GET(
-      new NextRequest(`http://localhost/api/calendar/events?projectId=${PROJECT_ID}`)
+      new NextRequest(
+        `http://localhost/api/calendar/events?projectId=${PROJECT_ID}`
+      )
     );
 
     expect(response.status).toBe(502);
@@ -206,14 +220,16 @@ describe("calendar events routes", () => {
   });
 
   test("GET returns normalized event payload", async () => {
-    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
-      ok: true,
-      context: {
-        accessToken: "access-token",
-        calendarId: "primary",
-        scope: "scope-a",
-      },
-    });
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce(
+      {
+        ok: true,
+        context: {
+          accessToken: "access-token",
+          calendarId: "primary",
+          scope: "scope-a",
+        },
+      }
+    );
 
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(
@@ -238,12 +254,15 @@ describe("calendar events routes", () => {
     );
 
     const response = await GET(
-      new NextRequest(`http://localhost/api/calendar/events?days=3&projectId=${PROJECT_ID}`)
+      new NextRequest(
+        `http://localhost/api/calendar/events?days=3&projectId=${PROJECT_ID}`
+      )
     );
     const payload = await readJson(response);
 
     expect(response.status).toBe(200);
     expect(payload.connected).toBe(true);
+    expect(payload.writable).toBe(true);
     expect(payload.range).toBe("rolling-days");
     expect(payload.days).toBe(3);
     expect(Array.isArray(payload.events)).toBe(true);
@@ -261,6 +280,36 @@ describe("calendar events routes", () => {
         status: "confirmed",
       },
     ]);
+  });
+
+  test("GET reports a connected read-only calendar as non-writable", async () => {
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce(
+      {
+        ok: true,
+        context: {
+          accessToken: "access-token",
+          calendarId: "primary",
+          scope: "readonly-scope",
+        },
+      }
+    );
+    googleCalendarAccessMock.hasCalendarWriteScope.mockReturnValueOnce(false);
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ items: [] }), { status: 200 })
+    );
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost/api/calendar/events?projectId=${PROJECT_ID}`
+      )
+    );
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toMatchObject({
+      connected: true,
+      writable: false,
+      events: [],
+    });
   });
 
   test("GET returns successful sources with warnings when another source fails", async () => {
@@ -403,11 +452,79 @@ describe("calendar events routes", () => {
     });
   });
 
-  test("POST returns auth failure payload when calendar is not connected", async () => {
-    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
-      ok: false,
-      failure: { status: 401, error: "not-connected" },
+  test("POST allows a viewer with Google write scope to mutate their personal calendar", async () => {
+    projectAccessServiceMock.requireProjectRole.mockResolvedValueOnce({
+      ok: true,
+      role: "viewer",
     });
+
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce(
+      {
+        ok: true,
+        context: {
+          accessToken: "access-token",
+          calendarId: "primary",
+          scope: "write-scope",
+        },
+      }
+    );
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          id: "evt-viewer",
+          summary: "Personal standup",
+          start: { dateTime: "2026-02-14T08:00:00.000Z" },
+          end: { dateTime: "2026-02-14T08:30:00.000Z" },
+          status: "confirmed",
+        }),
+        { status: 200 }
+      )
+    );
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/calendar/events", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          projectId: PROJECT_ID,
+          summary: "Personal standup",
+          start: "2026-02-14T08:00:00.000Z",
+          end: "2026-02-14T08:30:00.000Z",
+          isAllDay: false,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    await expect(readJson(response)).resolves.toEqual({
+      event: {
+        id: "evt-viewer",
+        summary: "Personal standup",
+        start: "2026-02-14T08:00:00.000Z",
+        end: "2026-02-14T08:30:00.000Z",
+        isAllDay: false,
+        location: null,
+        description: null,
+        htmlLink: null,
+        status: "confirmed",
+      },
+    });
+
+    const accessArgs =
+      projectAccessServiceMock.requireProjectRole.mock.calls[
+        projectAccessServiceMock.requireProjectRole.mock.calls.length - 1
+      ][0];
+    expect(accessArgs.minimumRole).toBe("viewer");
+  });
+
+  test("POST returns auth failure payload when calendar is not connected", async () => {
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce(
+      {
+        ok: false,
+        failure: { status: 401, error: "not-connected" },
+      }
+    );
 
     const response = await POST(
       new NextRequest("http://localhost/api/calendar/events", {
@@ -420,18 +537,22 @@ describe("calendar events routes", () => {
     );
 
     expect(response.status).toBe(401);
-    await expect(readJson(response)).resolves.toEqual({ error: "not-connected" });
+    await expect(readJson(response)).resolves.toEqual({
+      error: "not-connected",
+    });
   });
 
   test("POST validates payload and returns 400 for invalid summary", async () => {
-    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
-      ok: true,
-      context: {
-        accessToken: "access-token",
-        calendarId: "primary",
-        scope: "write-scope",
-      },
-    });
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce(
+      {
+        ok: true,
+        context: {
+          accessToken: "access-token",
+          calendarId: "primary",
+          scope: "write-scope",
+        },
+      }
+    );
 
     const response = await POST(
       new NextRequest("http://localhost/api/calendar/events", {
@@ -454,14 +575,16 @@ describe("calendar events routes", () => {
   });
 
   test("POST maps 401 from Google API to reauthorization-required", async () => {
-    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
-      ok: true,
-      context: {
-        accessToken: "access-token",
-        calendarId: "primary",
-        scope: "write-scope",
-      },
-    });
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce(
+      {
+        ok: true,
+        context: {
+          accessToken: "access-token",
+          calendarId: "primary",
+          scope: "write-scope",
+        },
+      }
+    );
 
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(JSON.stringify({ error: { message: "unauthorized" } }), {
@@ -490,14 +613,16 @@ describe("calendar events routes", () => {
   });
 
   test("POST maps insufficient permissions from Google API to 403", async () => {
-    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
-      ok: true,
-      context: {
-        accessToken: "access-token",
-        calendarId: "primary",
-        scope: "write-scope",
-      },
-    });
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce(
+      {
+        ok: true,
+        context: {
+          accessToken: "access-token",
+          calendarId: "primary",
+          scope: "write-scope",
+        },
+      }
+    );
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -530,16 +655,20 @@ describe("calendar events routes", () => {
   });
 
   test("POST maps malformed success payload to 502", async () => {
-    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
-      ok: true,
-      context: {
-        accessToken: "access-token",
-        calendarId: "primary",
-        scope: "write-scope",
-      },
-    });
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce(
+      {
+        ok: true,
+        context: {
+          accessToken: "access-token",
+          calendarId: "primary",
+          scope: "write-scope",
+        },
+      }
+    );
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify({ summary: "missing id/start" }), { status: 200 })
+      new Response(JSON.stringify({ summary: "missing id/start" }), {
+        status: 200,
+      })
     );
 
     const response = await POST(
@@ -563,15 +692,19 @@ describe("calendar events routes", () => {
   });
 
   test("POST returns 500 when downstream request throws", async () => {
-    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
-      ok: true,
-      context: {
-        accessToken: "access-token",
-        calendarId: "primary",
-        scope: "write-scope",
-      },
-    });
-    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network-failure"));
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce(
+      {
+        ok: true,
+        context: {
+          accessToken: "access-token",
+          calendarId: "primary",
+          scope: "write-scope",
+        },
+      }
+    );
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
+      new Error("network-failure")
+    );
 
     const response = await POST(
       new NextRequest("http://localhost/api/calendar/events", {
@@ -594,14 +727,16 @@ describe("calendar events routes", () => {
   });
 
   test("POST creates all-day event and converts end date to exclusive day", async () => {
-    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
-      ok: true,
-      context: {
-        accessToken: "access-token",
-        calendarId: "team-calendar@example.com",
-        scope: "write-scope",
-      },
-    });
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce(
+      {
+        ok: true,
+        context: {
+          accessToken: "access-token",
+          calendarId: "team-calendar@example.com",
+          scope: "write-scope",
+        },
+      }
+    );
 
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(
@@ -654,6 +789,8 @@ describe("calendar events routes", () => {
 
     const expectedExclusiveEnd = new Date("2026-02-20T00:00:00");
     expectedExclusiveEnd.setDate(expectedExclusiveEnd.getDate() + 1);
-    expect(sentBody.end.date).toBe(expectedExclusiveEnd.toISOString().slice(0, 10));
+    expect(sentBody.end.date).toBe(
+      expectedExclusiveEnd.toISOString().slice(0, 10)
+    );
   });
 });

@@ -1,137 +1,108 @@
 # Current Task
 
-## ND-387: Document the Nexus Dash task-authoring quality contract
+## TASK-381: Bounded Kanban Height With Independently Scrollable Lanes
 
 ## Status
 
-In Progress (created in the Nexus Dash project kanban on 2026-09-02).
+In review via PR #459 on `feature/task-381-bounded-kanban-lanes`. On
+2026-09-02 the branch was reconciled twice with current `origin/main`: first
+against the agent API program, calendar, meeting-stewardship, and dependabot
+changes (release advanced from the stale `v0.38.0` to `v0.51.0`), then again
+after TASK-342 (PR #451) merged and advanced main itself to `v0.51.0`. Both
+rounds resolved PR #459 conflicts without product-code changes; the release
+now sits at `v0.52.0` (merge 7293cd6) and revalidation on the final merged
+tree was green: lint, rls:check, release:check, 1,216 tests passed / 2
+skipped, coverage 91.52/81.57/92.3/92.01, and a production build. Copilot
+then completed a review on the reconciled head (2026-09-02/03) and its three
+threads were triaged on 2026-09-03: the archived Done scroller received the
+same visible focus-visible ring as the lane scrollers, read-only (viewer)
+task cards became keyboard-operable with a button role, tab stop, and
+Enter/Space activation, and the stale version-description thread was closed
+against the reconciled v0.52.0 release notes with rationale (no code change
+needed). Regression coverage was added in the component and Playwright
+suites; revalidation is green.
 
-## Context
+## Objective
 
-Recent backlog creation captured useful rationale, acceptance criteria, and
-task relationships, but omitted the required work-type labels. The repository
-operating guide does not currently state the complete quality contract for
-creating and verifying a Nexus Dash task.
+Keep dense Kanban boards usable by bounding each visible lane to a responsive
+viewport-aware height and scrolling each lane's task region independently.
+Lane metadata and board actions must remain visible while long task lists are
+reviewed or reordered.
 
-## Scope
+## Product Decisions
 
-- Document the required anatomy of a good Nexus Dash task in `agent.md`.
-- Require an outcome-oriented title, rationale, work-type label, and testable
-  acceptance criteria.
-- Require dependency tasks to be stored as Related Tasks instead of dependency
-  prose in the description.
-- Require duplicate checks and a post-create API read-back.
-- Correct ND-376 through ND-386 with the `feature` label and retain their
-  existing Related Tasks.
-
-## Acceptance Criteria
-
-1. `agent.md` defines the task-authoring quality contract without conflicting
-   with the existing execution workflow.
-2. The contract covers rationale, canonical work-type labels, acceptance
-   criteria, task sizing, Related Tasks, duplicate prevention, and read-back.
-3. ND-376 through ND-386 have the `feature` label and no dependency-list prose.
-4. Existing dependency relationships remain stored as Related Tasks.
-
-## Definition Of Done
-
-- Documentation formatting and diff checks pass.
-- The corrected tasks and ND-387 are verified through the agent API.
-- The documentation change is committed on its dedicated branch, pushed, and
-  opened as a ready pull request.
-
----
-
-## Previous Task Snapshot
-
-## ND-365: Calendar event source identity and color cues
-
-## Status
-
-In Progress (created in the NexusDash project kanban on 2026-09-01 as the
-follow-up to TASK-327 / PR #450).
-
-## Context
-
-TASK-327 made multiple Google accounts and calendar sources available at once,
-but the project calendar does not communicate an event's origin clearly. Users
-cannot reliably tell which connected account and calendar owns an event. This
-is especially important because existing events remain locked to their origin
-for update and deletion.
+- Each lane uses `clamp(20rem, 64dvh, 42rem)` so it remains useful on small
+  screens without growing indefinitely on large displays.
+- The lane header and count stay outside the scroll region. The existing board
+  header, create action, archive control, and mobile status dock retain their
+  established placement.
+- The task region is an explicitly named, keyboard-focusable scroll region
+  with contained overscroll and a stable scrollbar gutter.
+- All lane components remain mounted while the mobile status dock changes the
+  visible lane, preserving their native scroll positions.
 
 ## Scope
 
-- Carry the source calendar name, connected-account identity, and provider
-  color through calendar event and source response contracts.
-- Show an explicit calendar/account identity when an existing event is opened.
-- Add stable per-calendar visual cues to week-grid events and a concise source
-  legend when multiple calendars are visible.
-- Provide a deterministic accessible fallback when Google supplies no usable
-  calendar color.
-- Keep existing create/update/delete routing, source locking, and read-only
-  permissions unchanged.
-- Add automated coverage for multi-source provenance, accessible non-color
-  identity, responsive layout, and light/dark themes.
+- Bound active Kanban lane height on mobile and desktop.
+- Make every lane's task area vertically scrollable without coupling lane
+  scroll positions.
+- Preserve pointer and keyboard drag-and-drop, including long-lane auto-scroll
+  and movement within or between lanes.
+- Preserve archive access, task selection/editing, viewer behavior, live
+  refresh, and mobile status navigation.
+- Add focused component and Playwright coverage for layout, accessibility,
+  scrolling, responsive containment, and drag behavior.
 
 ## Out Of Scope
 
-- Letting users customize Google Calendar colors from NexusDash.
-- Moving existing events between calendars.
-- Changing Google OAuth scopes, token storage, discovery, or account lifecycle.
-- Redesigning the Calendar settings experience delivered by TASK-327.
+- Task search, label filters, or Epic filters.
+- Task virtualization, pagination, persistence changes, or API changes.
+- Redesigning task cards, the task detail dialog, the project shell, or other
+  dashboard sections.
+- URL-backed or persisted lane scroll positions across full navigation.
 
-## Prerequisites And Runtime Assumptions
+## Runtime Assumptions
 
-- PR #450 is merged to `main` at `acbab9f` and provides the multi-account
-  `CalendarConnection` / `CalendarSource` model.
-- `CalendarSource.color`, `name`, and connection account label/email are the
-  authoritative provenance metadata; no schema migration is expected.
-- Local build and unit validation can use non-secret localhost database
-  placeholders. Calendar E2E requires the repository PostgreSQL test setup.
-- No new runtime secret or external provider permission is required.
-
-## Deployment And Review Assumptions
-
-- Work occurs on `feature/nd-365-calendar-event-source-identity` with one PR.
-- Follow `agent.md` and `.github/workflows/deploy-vercel.yml` for an explicit-ref
-  Preview deployment and calendar-focused Playwright validation.
-- Open the PR ready for review, wait for Copilot's initial review, respond to
-  and resolve every actionable thread, and leave the PR unmerged for user
-  validation unless explicitly instructed otherwise.
+- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged.
+- `@hello-pangea/dnd` continues to provide pointer and keyboard sensors and
+  recognizes the focusable lane task area as its scroll container.
+- The user has explicitly reprioritized TASK-381 ahead of the still-pending
+  broad TASK-100 and TASK-133 UX passes.
+- Preview validation uses `feature/task-381-bounded-kanban-lanes` as the
+  explicit workflow `git_ref`.
 
 ## Acceptance Criteria
 
-1. Every fetched event exposes its CalendarSource name, connected account
-   label/email, and provider color when available.
-2. Opening an existing event explicitly names its originating account and
-   calendar; the information remains available for read-only events.
-3. Week-grid events use stable per-calendar visual cues, with an accessible
-   deterministic fallback when a provider color is missing or invalid.
-4. Calendar provenance never relies on color alone: event controls and the
-   opened-event surface include meaningful text or accessible labels.
-5. Existing create/update/delete behavior, write-source selection, source
-   locking, aggregation ordering, and partial-failure behavior remain intact.
-6. Unit/component and Playwright coverage exercises multiple sources, modal
-   provenance, 375px mobile behavior, desktop behavior, and light/dark themes.
+1. Every visible lane is `clamp(20rem, 64dvh, 42rem)` high and cannot grow with
+   its task count.
+2. Lane title and visible task count remain fixed while only that lane's task
+   region scrolls; scrolling one lane does not move another lane.
+3. Each task region has an accessible lane-specific name, keyboard focus, a
+   visible focus indicator, contained overscroll, and stable scrollbar space.
+4. Pointer and keyboard drag-and-drop continue to work within and across long
+   lanes, with destination auto-scroll and no unrelated scroll reset.
+5. The Done archive remains reachable outside the Done task-list overflow and
+   the global create action remains outside all lane scroll regions.
+6. Switching lanes through the mobile status dock preserves each mounted
+   lane's scroll position and produces no horizontal viewport overflow at
+   375 px or in mobile landscape.
+7. Owner/editor and viewer behavior, task modal actions, live refresh, light
+   and dark themes, and reduced-motion behavior remain unchanged.
 
 ## Definition Of Done
 
-- All acceptance criteria are implemented and documented.
-- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`, and
-  `npm run build` pass.
-- Relevant Calendar Playwright tests pass locally or in CI, and an explicit-ref
-  Preview deployment is validated.
-- Version/changelog and `journal.md` are updated according to repository policy.
-- A ready PR is open, required checks pass, Copilot review has completed, and
-  every actionable review thread is addressed and resolved.
-
-## References
-
-- NexusDash task `ND-365` (`cmtikk10n000804ktx0lpdi6l`)
-- `agent.md`
-- `adr/task-327-calendar-connections.md`
-- `docs/runbooks/calendar-connections.md`
-- `components/project-calendar-panel.tsx`
-- `components/calendar-panel/calendar-week-grid.tsx`
-- `components/calendar-panel/calendar-event-modal.tsx`
-- `lib/services/calendar-service.ts`
+- The bounded independent lane layout and accessibility semantics are
+  implemented with focused automated coverage.
+- UI/UX Pro Max guidance is applied for `dvh` sizing, keyboard access, visible
+  focus, responsive containment, theme parity, and non-jacking scroll behavior.
+- `git diff --check`, release validation, `npm run lint`, `npm run rls:check`,
+  `npm test`, `npm run test:coverage`, `npm run build`, and `npm run test:e2e`
+  pass.
+- The explicit-branch Preview workflow succeeds and focused Preview browser
+  checks pass at mobile and desktop widths.
+- The branch is committed and pushed, a ready-for-review PR is open, required
+  checks pass, and review state is recorded. The Copilot review threads on PR
+  #459 are addressed and resolved on the updated head.
+- `tasks/current.md`, `tasks/backlog.md`, `CHANGELOG.md`, and `journal.md` are
+  consistent, and the final handoff records PR, commit, Preview, validation,
+  and review evidence without merging the PR.

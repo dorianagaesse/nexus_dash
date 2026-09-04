@@ -350,6 +350,16 @@ export function ProjectContextPanel({
                     typeof remoteCard.color === "string"
                       ? remoteCard.color
                       : card.color,
+                  updatedAt:
+                    typeof remoteCard.updatedAt === "string"
+                      ? remoteCard.updatedAt
+                      : card.updatedAt,
+                  projection: remoteCard.projection
+                    ? {
+                        ...card.projection,
+                        ...remoteCard.projection,
+                      }
+                    : card.projection,
                 }
               : card
           )
@@ -550,13 +560,22 @@ export function ProjectContextPanel({
 
     closeCreateModal();
     setIsCreatingCard(false);
+    const optimisticNow = new Date().toISOString();
     setLocalCards((previous) => [
       {
         id: optimisticCardId,
         title: optimisticTitle,
         content: normalizeContextCardContentHtml(optimisticContent),
         color: optimisticColor,
+        createdAt: optimisticNow,
+        updatedAt: optimisticNow,
         attachments: optimisticAttachments,
+        projection: {
+          id: optimisticCardId,
+          creator: null,
+          lastEditor: null,
+          attachments: [],
+        },
       },
       ...previous,
     ]);
@@ -580,11 +599,7 @@ export function ProjectContextPanel({
           | {
               error?: string;
               cardId?: string;
-              card?: {
-                id: string;
-                title: string;
-                content: string;
-                color: string;
+              card?: Omit<ProjectContextCard, "attachments"> & {
                 attachments: Omit<ProjectContextAttachment, "downloadUrl">[];
               };
             }
