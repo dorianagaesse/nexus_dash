@@ -34,7 +34,10 @@ update `tasks/current.md`. Follow the "Creating a good Nexus Dash task"
 quality rules in `agent.md` (duplicate check, outcome-oriented title,
 `Rationale:`, one canonical work-type label `feature`/`fix`/`docs`/
 `refactor`/`chore`, testable `Acceptance Criteria:`, and Related Tasks for
-dependencies) — never raw `Dependencies:` prose in descriptions.
+dependencies) — never raw `Dependencies:` prose in descriptions. Cards with a
+counterpart GitHub issue or external resource attach it at creation as a link
+attachment (`attachmentLinks` with `{ name, url }`); adding links to existing
+cards is UI-only today — details in `agent.md`.
 
 ## Workflow Rules
 

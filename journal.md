@@ -3,6 +3,24 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-05 - Nexus Dash task link attachments: agent guidance and edit-gap follow-ups
+
+- The user asked to link follow-up GitHub issue #484 to card ND-421 via the
+  Nexus Dash task link feature (link attachments). Verified the current
+  surface: agents can attach links only at task creation through
+  `attachmentLinks`; PATCH `/tasks/{id}` has no `attachmentLinks`, and the
+  kanban Add-link route (`POST /tasks/{id}/attachments`) requires a user
+  session and rejects agent bearer credentials — so the link had to be added
+  manually in the UI by the user.
+- Filed GitHub issue #486 with Nexus Dash ND-424 (feature), "Allow agents to
+  attach link attachments to existing tasks," created with the issue attached
+  as a link attachment (the canonical pattern); ND-425 (docs), "Audit the
+  Nexus Dash agent API for task-edit gaps vs the kanban UI," created related
+  to ND-424. Issue #486 cross-links both cards.
+- Documented the link-attachment pattern in `agent.md` (task-authoring rules)
+  and `CLAUDE.md` (Task Management section) in this PR, including the note
+  that retro-adding links to existing cards is UI-only until ND-424 ships.
+
 # 2026-09-05 - CLAUDE.md: surface Nexus Dash task management and sync validation baseline
 
 - Per user request (direct, no board card), applied a docs PR to CLAUDE.md.
