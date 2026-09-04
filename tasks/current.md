@@ -4,12 +4,19 @@
 
 ## Status
 
-In progress on `feature/nd-408-kanban-search-filter` (branch from `origin/main`
-at `e151620`). Unites the previously open PRs #469 (TASK-382 server-backed task
-search + label filters) and #470 (TASK-384 epic filter) into one minimal UI:
-a single search bar above the board plus one Filter button whose popover groups
-Labels and Epics (including "No epic"). Both superseded PRs will be closed once
-this PR is open.
+Delivered: PR #483 (https://github.com/dorianagaesse/nexus_dash/pull/483) is
+open from `feature/nd-408-kanban-search-filter`, superseding PR #469 (TASK-382
+server-backed task search + label filters) and #470 (TASK-384 epic filter),
+which were both commented with pointers and closed. The Nexus Dash board card
+(ND-408) reflects In Progress.
+
+Local validation passed against a dockerized PostgreSQL with env overrides
+(runbook `docs/runbooks/local-validation.md`): production build green, ND-408
+Playwright spec 6/6, focused vitest 50/50 with scoped coverage above
+thresholds, lint/rls:check/diff checks clean. Full `npm test` /
+`npm run test:coverage` remain red only on a pre-existing main breakage
+(`prisma.$transaction is not a function`, reproduced on a pristine tree) that
+predates this branch; see the PR body.
 
 ## Context
 

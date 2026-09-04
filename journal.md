@@ -3,6 +3,42 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-04 - ND-408: validation and delivery (PR #483)
+
+- Local validation ran against a dockerized PostgreSQL (per
+  `docs/runbooks/local-validation.md`): fresh `nexus_dash-postgres-1` container
+  on POSTGRES_PORT 55432 (5432 was held by a prior-task container, left
+  running), DATABASE_URL/DIRECT_URL overridden to 127.0.0.1, placeholder
+  secrets, and NODE_ENV=test for the e2e phase (skips the prod-only
+  GOOGLE_TOKEN_ENCRYPTION_KEY guard). A throwaway dev key was injected only
+  for the production build, matching the TASK-342 precedent recorded here.
+  Port 3000 was busy (a `nexus_dash_task381` worktree `next start`), so e2e
+  ran with PORT=3100 against the same container.
+- Production build green (exit 0); ND-408 Playwright spec 6/6 green; focused
+  vitest run 50/50 green with scoped coverage at Statements 95.89%, Branches
+  84.92%, Functions 96.61%, Lines 95.85%; `npm run lint`, `npm run rls:check`,
+  and `git diff --check` clean.
+- Two popover close-semantics fixes surfaced by e2e: closing on focus-outside
+  must not steal focus (it broke typing in the search box mid-filter and
+  keyboard drag), so the bar now keeps the panel open for focus inside the bar
+  and closes quietly (no focus hijack) for outside focus/pointerdown; ESC and
+  "Clear all filters" still restore focus to the trigger. Covered by an added
+  unit test.
+- Full `npm test` (137 failures, `prisma.$transaction is not a function`) and
+  full `npm run test:coverage` remain red only because of a pre-existing main
+  breakage (reproduced identically on a pristine tree via stash, twice) and
+  are disclosed in the PR body; this branch introduces no unit-test failure.
+- Delivery: pushed `feature/nd-408-kanban-search-filter` (commits 3e151ad,
+  45b812d, d90d21d) and opened PR #483
+  (https://github.com/dorianagaesse/nexus_dash/pull/483) superseding both open
+  PRs; #469 (TASK-382) and #470 (TASK-384) each received a pointing comment and
+  were closed.
+- Nexus Dash board card (cmtm2qo5w000704kyykbu2s9i) synced to In Progress via
+  the agent API: the PATCH contract exposes no status, so the move used
+  POST /api/projects/{projectId}/tasks/reorder with the full target-lane id
+  list, matching this repo's reorderProjectTasks semantics (only listed task
+  ids are updated; omitted lanes are untouched).
+
 # 2026-09-03 - ND-408: unified Kanban search + label/epic filter bar (unites PRs #469/#470)
 
 - User direction: PR #469 (TASK-382 search + label filters) and PR #470
