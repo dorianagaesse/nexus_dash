@@ -569,8 +569,13 @@ test("filter panel stays on-screen and horizontal-scroll free at 375px, landscap
 
   const panel = await openFilterPanel(page);
   await assertPanelInsideViewport();
+  const triggerBox = (await page.getByRole("button", { name: /^Filter/ }).boundingBox())!;
+  const panelBox = (await panel.boundingBox())!;
+  expect(Math.abs(panelBox.x - triggerBox.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(panelBox.width - triggerBox.width)).toBeLessThanOrEqual(1);
   await expect(panel.getByRole("button", { name: "Frontend" })).toBeVisible();
   await expect(panel.getByRole("button", { name: "No epic" })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Done" })).toBeVisible();
 
   await page.evaluate(() => {
     window.localStorage.setItem("nexusdash-theme", "dark");

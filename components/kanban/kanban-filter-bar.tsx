@@ -129,16 +129,27 @@ export function KanbanFilterBar({
         top = VIEWPORT_PADDING;
       }
 
-      const width = Math.min(
-        Math.max(rect.width, PANEL_MIN_WIDTH),
-        window.innerWidth - VIEWPORT_PADDING * 2
-      );
-      const left = Math.min(
+      // On narrow viewports the Filter button sits centered under the search
+      // row rather than spanning it, so size the panel to the button to keep
+      // the popover visually aligned with its trigger.
+      const isNarrowViewport = window.innerWidth < 640;
+      const panelWidth = isNarrowViewport
+        ? Math.min(rect.width, window.innerWidth - VIEWPORT_PADDING * 2)
+        : Math.min(
+            Math.max(rect.width, PANEL_MIN_WIDTH),
+            window.innerWidth - VIEWPORT_PADDING * 2
+          );
+      const panelLeft = Math.min(
         Math.max(VIEWPORT_PADDING, rect.left),
-        window.innerWidth - width - VIEWPORT_PADDING
+        window.innerWidth - panelWidth - VIEWPORT_PADDING
       );
 
-      setPosition({ top, left, width, maxHeight });
+      setPosition({
+        top,
+        left: panelLeft,
+        width: panelWidth,
+        maxHeight,
+      });
     };
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -553,13 +564,13 @@ export function KanbanFilterBar({
                 ) : null}
               </div>
 
-              {hasActiveFilters ? (
-                <div className="flex justify-end border-t border-border/60 pt-1.5">
+              <div className="flex items-center justify-end gap-2 border-t border-border/60 pt-1.5">
+                {hasActiveFilters ? (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-10 text-muted-foreground hover:text-foreground"
+                    className="min-h-11 text-muted-foreground hover:text-foreground"
                     onClick={() => {
                       onClearAll();
                       closePanel();
@@ -568,8 +579,18 @@ export function KanbanFilterBar({
                     <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                     Clear all filters
                   </Button>
-                </div>
-              ) : null}
+                ) : null}
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  className="min-h-11 px-5"
+                  onClick={closePanel}
+                >
+                  <Check className="h-4 w-4" aria-hidden="true" />
+                  Done
+                </Button>
+              </div>
             </div>,
             document.body
           )

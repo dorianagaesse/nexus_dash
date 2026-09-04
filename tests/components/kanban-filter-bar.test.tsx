@@ -470,4 +470,25 @@ describe("KanbanFilterBar", () => {
     expect(optionByText("Label R")).toBeNull();
     expect(buttonByText("Show all 18 labels")).not.toBeNull();
   });
+
+  test("offers an explicit Done button that closes the popover and restores focus", async () => {
+    const { root } = createTestRenderer();
+    await renderWithRoot(root, <Harness />);
+    await click(filterTrigger());
+    expect(buttonByText("Done")).not.toBeNull();
+    expect(buttonByText("Clear all filters")).toBeNull();
+
+    await click(buttonByText("Done"));
+    expect(filterPanel()).toBeNull();
+    expect(filterTrigger()?.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(filterTrigger());
+
+    await renderWithRoot(
+      root,
+      <Harness key="active-done" initialLabels={["Frontend"]} />
+    );
+    await click(filterTrigger());
+    expect(buttonByText("Done")).not.toBeNull();
+    expect(buttonByText("Clear all filters")).not.toBeNull();
+  });
 });
