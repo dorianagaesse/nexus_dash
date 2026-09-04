@@ -6,6 +6,10 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 ## Unreleased
 
+- Matched the Kanban lane task regions and the archived Done scroller to the
+  app-wide slim scrollbar styling (thin rounded thumb, transparent track, light
+  and dark parity) without changing lane scrolling, keyboard focus, or
+  drag-and-drop behavior.
 - Define each release entry before the product-impacting PR is merged.
 - Preview deployment keeps the shared staging schema forward-only, applies
   checked-in migrations, and rejects runtime-incompatible schemas before
