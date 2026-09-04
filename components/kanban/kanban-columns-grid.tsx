@@ -93,6 +93,9 @@ const STATUS_ICONS: Record<TaskStatus, typeof CircleDashed> = {
   Done: CheckCircle2,
 };
 
+const SLIM_SCROLLBAR_CLASSES =
+  "[scrollbar-color:rgba(148,163,184,0.52)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]";
+
 interface KanbanColumnsGridProps {
   canEdit: boolean;
   columns: TaskColumns<KanbanTask>;
@@ -242,7 +245,10 @@ function KanbanColumn({
               Archive ({archivedDoneTasks.length})
             </summary>
             <div
-              className="max-h-40 space-y-2 overflow-y-auto overscroll-y-contain border-t border-border/60 p-2 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              className={cn(
+                "max-h-40 space-y-2 overflow-y-auto overscroll-y-contain border-t border-border/60 p-2 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                SLIM_SCROLLBAR_CLASSES
+              )}
               aria-label="Archived Done tasks"
               role="region"
               tabIndex={0}
@@ -301,6 +307,7 @@ function KanbanColumn({
             tabIndex={0}
             className={cn(
               "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain rounded-md px-6 pb-6 pt-2 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+              SLIM_SCROLLBAR_CLASSES,
               snapshot.isDraggingOver && chrome.dragState
             )}
           >
