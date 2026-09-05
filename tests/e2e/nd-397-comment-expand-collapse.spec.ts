@@ -95,7 +95,10 @@ test.describe("ND-397 comment expand/collapse", () => {
     await expect(longBody).toBeVisible();
     await expect(shortBody).toBeVisible();
 
-    const togglePattern = /^(Show more|Show less) of E2E Smoke User's comment$/;
+    // The toggle's accessible name is scoped to the comment author's identity
+    // (displayName = username for seeded users), so match it generically and
+    // pin the control to the long comment via aria-controls below.
+    const togglePattern = /^(Show more|Show less) of .+'s comment$/;
     const toggle = page.getByRole("button", { name: togglePattern });
 
     // Only the overflowing comment gets a toggle; the short one stays bare.
