@@ -3,6 +3,42 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-05 - Nexus Dash task link attachments: agent guidance and edit-gap follow-ups
+
+- The user asked to link follow-up GitHub issue #484 to card ND-421 via the
+  Nexus Dash task link feature (link attachments). Verified the current
+  surface: agents can attach links only at task creation through
+  `attachmentLinks`; PATCH `/tasks/{id}` has no `attachmentLinks`, and the
+  kanban Add-link route (`POST /tasks/{id}/attachments`) requires a user
+  session and rejects agent bearer credentials — so the link had to be added
+  manually in the UI by the user.
+- Filed GitHub issue #486 with Nexus Dash ND-424 (feature), "Allow agents to
+  attach link attachments to existing tasks," created with the issue attached
+  as a link attachment (the canonical pattern); ND-425 (docs), "Audit the
+  Nexus Dash agent API for task-edit gaps vs the kanban UI," created related
+  to ND-424. Issue #486 cross-links both cards.
+- Documented the link-attachment pattern in `agent.md` (task-authoring rules)
+  and `CLAUDE.md` (Task Management section) in this PR, including the note
+  that retro-adding links to existing cards is UI-only until ND-424 ships.
+
+# 2026-09-05 - CLAUDE.md: surface Nexus Dash task management and sync validation baseline
+
+- Per user request (direct, no board card), applied a docs PR to CLAUDE.md.
+  Motivation: CLAUDE.md is autoloaded by Claude Code while agent.md is not,
+  yet both must stay current because Codex reads agent.md and not CLAUDE.md —
+  so the Nexus Dash task-management guidance now lives in both files as
+  compressed stable facts rather than a single volatile copy.
+- Added a "Task Management (Nexus Dash)" section (source-of-truth kanban,
+  credentials/env pointer, startup task selection, pointer to the ND-387
+  task-authoring quality rules in agent.md).
+- Synced the Validation Before Handoff baseline with agent.md section 6:
+  `rls:check`, docs-only exemption, e2e flows, RLS matrix runbook pointer, and
+  `git diff --check` clean.
+- Removed the stale project.md pointer "(TASK-124/126/127/131)" from the
+  context file map — those priorities now live in the Nexus Dash kanban.
+- Prettier-formatted the file map table; validation limited to `prettier
+  --check` and `git diff --check` (docs-only change).
+
 # 2026-09-03 - TASK-381 PR #459: Copilot review triage and accessibility fixes
 
 - Copilot completed a review of PR #459 ("Changes recommended") with three
