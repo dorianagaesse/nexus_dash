@@ -5287,3 +5287,34 @@ Low-value entries to avoid going forward:
 - Documented the minimum task-authoring contract in `agent.md`: duplicate
   check, outcome-oriented title, rationale, work-type label, testable acceptance
   criteria, focused scope, Related Tasks dependencies, and API read-back.
+# 2026-09-05 - ND-397: Constrain long task comments with expand/collapse
+
+- Onboarded: read agent.md/project.md/README.md/tasks briefs; verified ND-397
+  on the Nexus Dash board (feature label, Backlog), the user-assigned task for
+  this session. Multi-agent rule applied: created worktree
+  `../nexus_dash_task397` from `origin/main` (1daffc0) on
+  `feature/nd-397-comment-expand-collapse`; the root checkout's uncommitted
+  ND-421 work was left untouched (that agent subsequently committed and pushed
+  it from the root checkout).
+- Root-caused local quirk: `.config/.nd-nexus-dash.env` is UTF-16LE; decoded
+  with iconv before sourcing. Moved board card ND-397 to In Progress via
+  `POST /api/projects/{id}/tasks/{id}/status` `{"status":"In Progress"}`.
+- Implemented `components/kanban/task-comment-body.tsx` (reusable comment body
+  presentation: consistent 7.5rem collapsed cap, measured overflow via
+  `lib/comment-body-overflow.ts`, accessible `Show more`/`Show less` toggle
+  with `aria-expanded`/`aria-controls`, shown only when the rendered body
+  overflows) and wired it into the task detail modal thread in
+  `components/kanban/task-detail-modal.tsx`, the only surface rendering full
+  comment bodies today.
+- Added component coverage (short/no control, long collapsed, expand,
+  re-collapse, generic vs authored aria labels), a unit test for the overflow
+  measure, and `tests/e2e/nd-397-comment-expand-collapse.spec.ts` for
+  real-browser collapsed/expanded behavior with keyboard activation.
+- Validation so far on the worktree (local Postgres on 127.0.0.1:5433
+  container `nexus_dash_task397-postgres-1`, migrations applied): lint clean;
+  full vitest suite 1,225 passed / 2 skipped; coverage and production build
+  re-run after the 0.53.0 bump (first coverage/build pass raced the version
+  bump and failed on an empty package.json read, transient). Release advanced
+  0.52.0 -> 0.53.0 (`release:version -- feature`) with a CHANGELOG Unreleased
+  entry. rls:check/release:check pending; focused Playwright run pending.
+- Commit `ee3feae` pushed; PR to be opened referencing ND-397.
