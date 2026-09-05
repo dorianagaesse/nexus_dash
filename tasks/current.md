@@ -1,5 +1,113 @@
 # Current Task
 
+## ND-397: Constrain long task comments with expand/collapse
+
+## Status
+
+In progress on `feature/nd-397-comment-expand-collapse` (worktree
+`../nexus_dash_task397`, branched from `origin/main` at 1daffc0). The Nexus
+Dash board card ND-397 (feature label) is the source of truth and moved to In
+Progress on 2026-09-05. No GitHub issue exists for this task; the PR will
+carry the ND-397 reference.
+
+## Context
+
+Long comments can dominate the task detail modal and make adjacent discussion
+difficult to scan. Every task-comment surface should show comment bodies at a
+consistent default maximum visible height, clip overflow without breaking
+words or horizontal layout, and offer an explicit accessible expand/collapse
+control only when a comment actually overflows. Short comments must stay fully
+visible with no extra control.
+
+## Scope
+
+- Add a reusable comment-body presentation component
+  (`components/kanban/task-comment-body.tsx`) that renders the mention-aware
+  body with a consistent collapsed cap, a measured overflow decision, and an
+  accessible expand/collapse toggle.
+- Use that component in the task detail modal comment thread
+  (`components/kanban/task-detail-modal.tsx`), the only surface that renders
+  full comment bodies today, so any future comment surface inherits the same
+  treatment.
+- Add focused component coverage for short, long, expanded, and collapsed
+  comments and a focused Playwright spec for real-browser overflow behavior.
+
+## Product Decisions
+
+- The collapsed cap is a fixed height derived from the comment body's own
+  line height (six lines of `text-sm`/`leading-5` at the app font baseline:
+  `7.5rem`), so the same cap applies on every layout and breakpoint.
+- Overflow is measured against the rendered body (scroll height vs. cap)
+  rather than estimated from text length, so mention chips and wrapping never
+  misclassify a comment.
+- The toggle is a text button with clear state copy (`Show more` / `Show
+  less`), `aria-expanded`, and `aria-controls` pointing at the body it
+  reveals; it appears only for overflowing comments.
+- Clipping uses `max-height` + `overflow-hidden` with the existing
+  `whitespace-pre-wrap break-words` body classes so words never break and no
+  horizontal layout appears.
+
+## Out Of Scope
+
+- Comment authoring, editing, mention input, reactions, or agent-identity
+  surfaces.
+- Rich-text comment authoring/rendering (ND-398) and comment attachments
+  (ND-399), which will build on the plain-text body presentation later.
+- Constraining any non-comment text surface (task descriptions, meeting
+  notes, context cards, roadmap notes).
+- Board semantics, modal chrome, or lane behavior.
+
+## Acceptance Criteria
+
+1. Comment bodies have a consistent default maximum visible height in every
+   task-comment surface, including responsive layouts.
+2. Comments that exceed the limit are initially clipped without breaking
+   words or horizontal layout.
+3. An explicit, accessible expand/collapse control is shown only when a
+   comment overflows; it reveals the complete comment and can restore the
+   collapsed state.
+4. The control has clear state text and is keyboard-operable with appropriate
+   accessible semantics.
+5. Short comments remain fully visible and do not show an unnecessary
+   control.
+6. The behavior is covered by automated UI tests for short, long, expanded,
+   and collapsed comments.
+
+## Definition Of Done
+
+- The comment body presentation with measured expand/collapse is implemented
+  in the task detail modal thread through a shared component.
+- Focused component tests cover short (no control), long collapsed (control
+  shown, body capped), expanded (full height, `Show less`), and re-collapsed
+  states plus `aria-expanded`/`aria-controls` wiring; a focused Playwright
+  spec covers real-browser overflow behavior for short and long comments.
+- `npm run lint`, `npm run rls:check`, `npm run release:check`, `npm test`,
+  `npm run test:coverage`, `npm run build`, and the focused Playwright run are
+  green on the final tree.
+- `package.json`/`package-lock.json` advance minor to v0.53.0 and the
+  CHANGELOG `## Unreleased` entry documents the feature.
+- The Nexus Dash board card ND-397 is updated (Done on delivery) and
+  `tasks/current.md` + `journal.md` reflect the execution.
+- Branch is pushed with an open ready-for-review PR referencing ND-397.
+
+## Runtime Assumptions
+
+- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged;
+  this task introduces no schema, service, or route changes.
+- Comments are plain text with `@mention` highlighting; real-browser overflow
+  behavior is validated by the focused Playwright run against a local
+  database, and preview deployment is not an acceptance requirement for this
+  presentational change.
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` brief (TASK-381, released in v0.52.0) is
+preserved verbatim below for history.
+
+---
+
+# Current Task
+
 ## TASK-381: Bounded Kanban Height With Independently Scrollable Lanes
 
 ## Status
