@@ -4,11 +4,13 @@
 
 ## Status
 
-In progress on `feature/nd-397-comment-expand-collapse` (worktree
-`../nexus_dash_task397`, branched from `origin/main` at 1daffc0). The Nexus
-Dash board card ND-397 (feature label) is the source of truth and moved to In
-Progress on 2026-09-05. No GitHub issue exists for this task; the PR will
-carry the ND-397 reference.
+Implemented and validated on `feature/nd-397-comment-expand-collapse`
+(worktree `../nexus_dash_task397`, branched from `origin/main` at 1daffc0).
+The Nexus Dash board card ND-397 (feature label) is the source of truth and
+moved to In Progress on 2026-09-05. No GitHub issue exists for this task; the
+PR carries the ND-397 reference. Validation is green: lint, `rls:check`,
+`release:check`, unit tests (1225 passed / 2 skipped), coverage thresholds,
+production build, and the focused Playwright spec. Ready for review.
 
 ## Context
 
