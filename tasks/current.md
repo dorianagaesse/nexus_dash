@@ -16,6 +16,12 @@ descriptions) and ND-381 (meeting note input/output) stay Backlog. Scope and
 product semantics were confirmed with the user on 2026-09-06 (whole-line
 conversion; shortcuts only, toolbar unchanged).
 
+Reconciled with `origin/main` on 2026-09-06 after the ND-421 merge (PR #487,
+v0.54.1): release metadata kept v0.55.0 (feature minor above v0.54.1),
+CHANGELOG ordered `## v0.55.0` above `## v0.54.1`, and this brief stays
+active with the ND-421 brief preserved verbatim as the previous snapshot
+below. Product code (editor, Kanban grid) auto-merged with no overlap.
+
 Validation on the final tree (2026-09-06): lint, rls:check, 1294 unit tests
 passed / 2 skipped, coverage 92.93/82.94/93.83/93.25, production build, and
 `git diff --check` are green. The focused Playwright spec
@@ -132,8 +138,8 @@ capability, content contract, and saved-content rendering stays unchanged.
   `npm run build`, and the focused Playwright run are green; `git diff
   --check` is clean.
 - `package.json`/`package-lock.json` advance minor to v0.55.0 over the current
-  `origin/main` (v0.54.0) and the CHANGELOG `## Unreleased` entry documents
-  the feature.
+  `origin/main` (v0.54.1 after the ND-421 merge) and the CHANGELOG dated
+  `## v0.55.0` entry documents the feature.
 - The Nexus Dash board card ND-379 is updated (In Progress, then Done on
   delivery) and `tasks/current.md` + `journal.md` reflect the execution.
 - Branch is pushed with an open ready-for-review PR referencing ND-379; the
@@ -147,10 +153,105 @@ capability, content contract, and saved-content rendering stays unchanged.
   flows in the task detail modal and create-task dialog); preview deployment
   is not an acceptance requirement.
 
+
 ## Previous Task Snapshot
 
-The previous `tasks/current.md` brief (ND-408, merged in v0.54.0 via PR #483)
-is preserved verbatim below for history.
+The previous `tasks/current.md` brief (ND-421, merged in v0.54.1 via PR #487) is
+preserved verbatim below for history, itself preserving the ND-408 brief.
+
+## ND-421: Match Kanban lane scrollbars to the app-wide smooth scrollbar styling
+
+## Status
+
+Delivered: PR #487 (https://github.com/dorianagaesse/nexus_dash/pull/487) is
+open in ready-for-review state from
+`fix/nd-421-kanban-lane-scrollbar-styling` and closes issue #484. Branch
+created from `origin/main` (carries TASK-381 via merge 14a41af / PR #459); the
+unmerged ND-408 filter-bar branch predates TASK-381 and was not touched. Local
+validation is green: lint, rls:check, 1,218 tests passed / 2 skipped,
+coverage 91.52/81.57/92.3/92.01, production build, and the full Playwright
+suite (39 passed / 1 skipped) including both TASK-381 bounded-lane specs.
+Release metadata advances patch to v0.54.1 over the current origin/main base
+(v0.54.0 after PR #483/ND-408 merged; earlier bases v0.53.0 after PR
+#488/ND-397 and pre-#485) and `npm run release:check` passes. Each upstream
+merge was reconciled from a worktree (root checkout hosts other sessions'
+in-flight work): the journal.md top-entry collisions, the release-metadata
+retargets (v0.52.1 -> v0.53.1 -> v0.54.1), and the tasks/current.md brief
+collisions (ND-421 kept active; the preceding brief — ND-408, then ND-397 —
+preserved verbatim as the previous snapshot) were resolved with no
+product-code conflicts; `kanban-columns-grid.tsx` and its specs auto-merged
+against both ND-397 and ND-408. PR checks on each reconciled head were green
+(Quality Core, E2E Smoke, Tenant Isolation, Container Image, check-name;
+merge state clean); one E2E Smoke failure on the pre-reconciliation docs
+commit cbf7f03 (home-entry `data-link-count > 780`) was confirmed as a
+one-off environment flake by the fully green re-run. Copilot's initial review
+items were applied (changelog/journal dates aligned to the commit UTC date;
+scrollbar class list as a joined token array) with replies posted; a
+re-review is pending on the GitHub UI side. Nexus Dash board card ND-421 (fix
+label, GitHub issue #484) is the source of truth and reflects In Progress
+until the PR merges.
+
+## Context
+
+TASK-381 (PR #459) bounded Kanban lane heights and made each lane's task
+region independently scrollable; it also introduced the archived Done scroller
+inside the Done lane. Those scrollers were left with the default browser
+scrollbar, which looks out of place next to the smooth slim scrollbar
+treatment used across the rest of the app (task detail modal, create-task
+dialog, related-task field, roadmap lanes). This task applies that same
+surface to the two TASK-381 scroller kinds.
+
+## Scope
+
+- Apply the app-wide slim scrollbar styling (thin scrollbar, 2px-wide rounded
+  thumb over a transparent track, matching light/dark parity) to the Kanban
+  lane task regions (`data-kanban-lane-scroll`) and the archived Done
+  scroller in `components/kanban/kanban-columns-grid.tsx`.
+- Keep the existing focusable scroll-region semantics (`role=region`,
+  `tabIndex=0`, focus ring), `overscroll-y-contain`, and
+  `[scrollbar-gutter:stable]` intact.
+- Add focused component coverage asserting both scroller kinds carry the app
+  scrollbar styling tokens.
+
+## Out Of Scope
+
+- Restyling any other default scroll region in the app (pre-existing modal
+  comment lists etc.) — only the TASK-381 scrollers are in scope.
+- Changes to lane sizing, drag-and-drop, archive behavior, or board semantics.
+- The unmerged ND-408 Kanban search/filter work (separate branch/PR).
+
+## Acceptance Criteria
+
+1. Kanban lane scrollers and the archived Done scroller render the same
+   scrollbar treatment as other app scroll areas in light and dark themes.
+2. No regression in lane scrolling, keyboard focus, drag-and-drop, or
+   375px/mobile behavior covered by the TASK-381 specs.
+
+## Definition Of Done
+
+- `components/kanban/kanban-columns-grid.tsx` applies the app scrollbar
+  styling to both TASK-381 scroller kinds, with focused component assertions.
+- TASK-381 Kanban component and Playwright specs still pass, and `npm run
+  lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`, `npm run
+  build`, and the focused Kanban Playwright run are green.
+- `package.json`/`package-lock.json` advance patch to v0.52.1 and the
+  CHANGELOG `## Unreleased` entry documents the fix.
+- The Nexus Dash board card ND-421 is updated (In Progress, then Done on
+  delivery), keeps its relation to TASK-381, and `tasks/current.md` +
+  `journal.md` reflect the execution.
+- Branch is pushed with an open ready-for-review PR referencing issue #484.
+
+## Runtime Assumptions
+
+- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged.
+- This is a presentational follow-up to a merged behavior change; preview
+  deployment is not an acceptance requirement, and local component +
+  Playwright coverage is sufficient.
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` brief (ND-408, released in v0.54.0) is
+preserved verbatim below for history.
 
 ---
 
