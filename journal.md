@@ -5570,3 +5570,18 @@ Low-value entries to avoid going forward:
   migration/scope breadth, so there were no threads to triage or resolve;
   CI checks all green (Quality Core, E2E Smoke, Tenant Isolation RLS,
   Container Image). Clean review state; awaiting merge.
+- Review follow-up: rebased PR #489 onto `origin/main` at `633278e` (ND-408),
+  reconciling the shared v0.54.0 release notes while preserving the current
+  ND-408 brief. Fixed the initial Kanban load to map task authors through
+  `mapTaskAuthorRecord`, so a page reload retains an agent credential's label,
+  avatar, kind, and owner instead of reverting to its human owner. Added the
+  initial-load regression test and service tests for agent attribution on
+  reorder, status, field update, archive, and unarchive mutations.
+- Follow-up validation: lint, RLS inventory, documented full Vitest command
+  (1,297 passed / 2 skipped), coverage (92.93% statements, 82.94% branches,
+  93.83% functions, 93.25% lines), real PostgreSQL RLS setup/matrix against
+  the local port-55432 container, and a production build with local database
+  plus transient required runtime placeholders all passed. The plain `npm
+  test`/build commands remain unsuitable with this machine's remote `.env`
+  because it omits test DB loading and violates the production remote-URL
+  split guard; no repository behavior was changed for that local setup.

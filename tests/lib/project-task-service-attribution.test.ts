@@ -9,6 +9,9 @@ const prismaMock = vi.hoisted(() => ({
     aggregate: vi.fn(),
     create: vi.fn(),
     findUnique: vi.fn(),
+    findMany: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
     delete: vi.fn(),
   },
   taskRelation: {
@@ -25,8 +28,13 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import {
+  archiveTaskForProject,
   createTaskForProject,
+  moveTaskStatusForProject,
+  reorderProjectTasks,
   type CreateTaskForProjectInput,
+  unarchiveTaskForProject,
+  updateTaskForProject,
 } from "@/lib/services/project-task-service";
 import { AGENT_TASK_AUTHOR_AVATAR_SEED } from "@/lib/task-author";
 import type { TaskPersonRecord } from "@/lib/task-person";
@@ -256,5 +264,189 @@ describe("createTaskForProject attribution", () => {
       agentCredentialLabel: null,
       owner: null,
     });
+  });
+});
+
+describe("task mutation attribution", () => {
+  const agentAccess = {
+    credentialId: "cred-1",
+    projectId: "project-1",
+    scopes: ["task:write"],
+  } as const;
+
+  function queueAgentCredential() {
+    prismaMock.apiCredential.findFirst.mockResolvedValueOnce({
+      id: "cred-1",
+      label: "Release bot",
+    });
+  }
+
+  function queueProjectAccess() {
+    prismaMock.project.findFirst.mockResolvedValueOnce({
+      id: "project-1",
+      ownerId: "owner-1",
+      memberships: [],
+    });
+  }
+
+  function expectAgentUpdateAttribution() {
+    expect(prismaMock.task.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          updatedByUserId: "owner-1",
+          updatedByCredentialId: "cred-1",
+          updatedByCredentialLabel: "Release bot",
+        }),
+      })
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("records agent attribution when reordering tasks", async () => {
+    queueProjectAccess();
+    prismaMock.task.findMany.mockResolvedValueOnce([
+      {
+        id: "task-1",
+        status: "Backlog",
+        position: 0,
+        archivedAt: null,
+        completedAt: null,
+      },
+    ]);
+    queueAgentCredential();
+    prismaMock.task.update.mockResolvedValueOnce({ id: "task-1" });
+    prismaMock.project.update.mockResolvedValueOnce({ id: "project-1" });
+
+    const result = await reorderProjectTasks(
+      "project-1",
+      { columns: [{ status: "In Progress", taskIds: ["task-1"] }] },
+      "owner-1",
+      agentAccess
+    );
+
+    expect(result).toEqual({ ok: true, data: { ok: true } });
+    expectAgentUpdateAttribution();
+  });
+
+  test("records agent attribution when changing task status", async () => {
+    queueProjectAccess();
+    prismaMock.task.findUnique
+      .mockResolvedValueOnce({
+        id: "task-1",
+        projectId: "project-1",
+        status: "Backlog",
+        position: 0,
+        archivedAt: null,
+        completedAt: null,
+      })
+      .mockResolvedValueOnce(
+        buildStoredTask({
+          createdByCredentialId: null,
+          createdByCredentialLabel: null,
+          updatedByCredentialId: "cred-1",
+          updatedByCredentialLabel: "Release bot",
+        })
+      );
+    prismaMock.task.findMany.mockResolvedValueOnce([]);
+    queueAgentCredential();
+    prismaMock.task.update.mockResolvedValueOnce({ id: "task-1" });
+    prismaMock.task.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.project.update.mockResolvedValueOnce({ id: "project-1" });
+
+    const result = await moveTaskStatusForProject(
+      "project-1",
+      "task-1",
+      { status: "In Progress" },
+      "owner-1",
+      agentAccess
+    );
+
+    expect(result.ok).toBe(true);
+    expectAgentUpdateAttribution();
+  });
+
+  test("records agent attribution when editing task fields", async () => {
+    queueProjectAccess();
+    prismaMock.task.findUnique
+      .mockResolvedValueOnce({
+        id: "task-1",
+        projectId: "project-1",
+        status: "Backlog",
+        position: 0,
+        epicId: null,
+        assigneeUserId: null,
+        outgoingRelations: [],
+        incomingRelations: [],
+      })
+      .mockResolvedValueOnce(
+        buildStoredTask({
+          createdByCredentialId: null,
+          createdByCredentialLabel: null,
+          updatedByCredentialId: "cred-1",
+          updatedByCredentialLabel: "Release bot",
+        })
+      );
+    queueAgentCredential();
+    prismaMock.task.update.mockResolvedValueOnce({ id: "task-1" });
+    prismaMock.project.update.mockResolvedValueOnce({ id: "project-1" });
+
+    const result = await updateTaskForProject(
+      "project-1",
+      "task-1",
+      { title: "Updated task" },
+      "owner-1",
+      agentAccess
+    );
+
+    expect(result.ok).toBe(true);
+    expectAgentUpdateAttribution();
+  });
+
+  test("records agent attribution when archiving and unarchiving a task", async () => {
+    queueProjectAccess();
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      projectId: "project-1",
+      status: "Done",
+      archivedAt: null,
+    });
+    queueAgentCredential();
+    prismaMock.task.update.mockResolvedValueOnce({ archivedAt: new Date() });
+    prismaMock.project.update.mockResolvedValueOnce({ id: "project-1" });
+
+    const archiveResult = await archiveTaskForProject(
+      "project-1",
+      "task-1",
+      "owner-1",
+      agentAccess
+    );
+
+    expect(archiveResult.ok).toBe(true);
+    expectAgentUpdateAttribution();
+
+    vi.clearAllMocks();
+    queueProjectAccess();
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      projectId: "project-1",
+      status: "Done",
+      archivedAt: new Date(),
+    });
+    queueAgentCredential();
+    prismaMock.task.update.mockResolvedValueOnce({ id: "task-1" });
+    prismaMock.project.update.mockResolvedValueOnce({ id: "project-1" });
+
+    const unarchiveResult = await unarchiveTaskForProject(
+      "project-1",
+      "task-1",
+      "owner-1",
+      agentAccess
+    );
+
+    expect(unarchiveResult).toEqual({ ok: true, data: { ok: true } });
+    expectAgentUpdateAttribution();
   });
 });
