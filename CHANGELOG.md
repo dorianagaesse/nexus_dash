@@ -7,6 +7,9 @@ SHA, deployment URL, and workflow run belong in release evidence.
 ## Unreleased
 
 - Define each release entry before the product-impacting PR is merged.
+
+## v0.54.0 - 2026-09-06
+
 - Added unified Kanban task search and filters (ND-408): a single search bar
   queries the server (title, description, reference, status, labels, epic,
   assignee, comments, attachments, and related tasks) with debounced loading
