@@ -3,6 +3,51 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-06 - ND-421 PR #487 reconciled with main and revalidated
+
+- PR #485 merged into main on 2026-09-05 (CLAUDE.md/agent.md Nexus Dash
+  task-management guidance). Merged `origin/main` into
+  `fix/nd-421-kanban-lane-scrollbar-styling` (0b992fb): the only conflict was
+  `journal.md`, where both sides had added top-of-file dated entries — kept
+  #485's 2026-09-05 entries above the ND-421 2026-09-04 entry. CLAUDE.md and
+  agent.md auto-merged; no product-code conflict.
+- The Quality Gates run for the pre-reconciliation docs commit cbf7f03 failed
+  exactly one E2E Smoke assertion — home-entry `data-link-count > 780` on the
+  animated node field — which the docs-only delta cannot have caused; Quality
+  Core and Tenant Isolation were green on that same head. The fresh Quality
+  Gates run on the reconciled head passed in full (Quality Core, E2E Smoke,
+  Tenant Isolation, Container Image, check-name), confirming the failure as a
+  one-off environment flake rather than a code regression.
+- PR #488 (ND-397 comment expand/collapse) merged into main on 2026-09-05 as
+  v0.53.0, advancing the version line past this branch's fix metadata. Merged
+  `origin/main` into the branch again; conflicts were confined to release
+  metadata and the task brief:
+  - Version retarget: main now carries v0.53.0, so the fix release was
+    retargeted from v0.52.1 to v0.53.1 — took main's package.json/
+    package-lock.json (0.53.0) and re-ran `npm run release:version -- fix`
+    (0.53.0 -> 0.53.1); the CHANGELOG bullet moved from the obsolete
+    `v0.52.1 - 2026-09-04` section into a dated `v0.53.1 - 2026-09-06`
+    section placed under the standing Unreleased block, matching main's
+    v0.53.0 layout.
+  - `tasks/current.md` brief collision: resolved with ND-421 active and
+    main's ND-397 brief (including its own TASK-381 snapshot) preserved
+    verbatim under Previous Task Snapshot. `journal.md` and `CHANGELOG.md`
+    auto-merged; no product-code conflict.
+  - All product code merged cleanly — the Kanban scrollbar styling and the
+    ND-397 comment overflow work touch disjoint surfaces.
+- PR #483 (ND-408 unified Kanban search/filters) merged into main on
+  2026-09-06 as v0.54.0. Merged `origin/main` a third time — from a separate
+  worktree (`../nexus_dash_nd421_wt`) because the root checkout was already
+  holding another session's in-flight ND-178 work, which was left untouched.
+  Conflicts again confined to release metadata and docs: version retargeted
+  v0.53.1 -> v0.54.1 (`release:version -- fix` over main's 0.54.0); the
+  CHANGELOG bullet moved to a dated `v0.54.1 - 2026-09-06` section; the
+  journal keeps both the ND-408 and ND-421 entries in newest-first order; the
+  `tasks/current.md` brief keeps ND-421 active with main's ND-408 brief as
+  its previous snapshot. `kanban-columns-grid.tsx` and its component specs
+  auto-merged (ND-408's search/filter lane work and the scrollbar tokens are
+  disjoint surfaces); no product-code conflicts.
+
 # 2026-09-06 - ND-408: PR #483 reconciled with main and Copilot review triaged
 
 - origin/main advanced past the ND-408 fork point with TASK-381 (PR #459,
@@ -87,6 +132,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Done) plus the `feature` label. Note: card descriptions are rich text —
   plain-text angle brackets are parsed as tags and stripped/escaped.
 
+
 # 2026-09-05 - Nexus Dash task link attachments: agent guidance and edit-gap follow-ups
 
 - The user asked to link follow-up GitHub issue #484 to card ND-421 via the
@@ -123,7 +169,6 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Prettier-formatted the file map table; validation limited to `prettier
   --check` and `git diff --check` (docs-only change).
 
-
 # 2026-09-05 - ND-397: Constrain long task comments with expand/collapse
 
 - Onboarded: read agent.md/project.md/README.md/tasks briefs; verified ND-397
@@ -155,6 +200,59 @@ Use it for important implementation milestones, blockers, validation runs, and r
   0.52.0 -> 0.53.0 (`release:version -- feature`) with a CHANGELOG Unreleased
   entry. rls:check/release:check pending; focused Playwright run pending.
 - Commit `ee3feae` pushed; PR to be opened referencing ND-397.
+
+# 2026-09-04 - ND-421 Kanban lane scrollbar styling follow-up
+
+- Picked up ND-421 from GitHub issue #484 (TASK-381 follow-up): the bounded
+  lane task regions and the archived Done scroller introduced by TASK-381
+  (PR #459) render the default browser scrollbar instead of the app-wide slim
+  scrollbar surface. Board card ND-421 (`cmtnjaipp001u04i8ss5zv3eb`, fix
+  label) already carried the Acceptance Criteria/DoD brief and its relation to
+  TASK-381 (`cmth7fp9c004504jujdnf4gs0`); moved it to In Progress via the
+  agent task-status API.
+- Branch `fix/nd-421-kanban-lane-scrollbar-styling` created from
+  `origin/main` (TASK-381 merge 14a41af present; the unmerged ND-408 filter
+  bar branch predates TASK-381 and was not touched).
+- Implemented a `SLIM_SCROLLBAR_CLASSES` token set matching the exact
+  scrollbar stack already used by the task detail modal, create-task dialog,
+  and related-task field (thin `scrollbar-width`, `w-2` rounded thumb in
+  `rgba(148,163,184,0.52)` over a transparent track, light/dark parity) and
+  applied it to both TASK-381 scroller kinds in
+  `components/kanban/kanban-columns-grid.tsx`, keeping their focusable-region
+  (`role`/`tabIndex`/focus ring), `overscroll-y-contain`, and
+  `[scrollbar-gutter:stable]` semantics. Component specs now assert every
+  styling token on all four lane scrollers and the archived Done scroller.
+- Local validation against the dockerized PostgreSQL (host port 55432) with
+  local env overrides was green: lint, `rls:check`, 1,218 tests passed / 2
+  skipped, coverage 91.52/81.57/92.3/92.01, production build, and the full
+  Playwright suite (39 passed / 1 skipped), including both TASK-381
+  bounded-lane specs.
+- First full e2e attempt failed across 36 tests for an environmental reason:
+  Playwright's `reuseExistingServer` picked up a stale `next start` orphan
+  from the TASK-381 worktree (`nexus_dash_task381`, started 2026-09-03) still
+  listening on port 3000, so the suite ran against the old v0.52.0 worktree
+  build. Stopped PID 22536 and reran against the branch build with a fresh
+  server; rerun fully green.
+- Release metadata advanced patch to v0.52.1 (`package.json` +
+  `package-lock.json` via `release:version`) with a dated CHANGELOG `v0.52.1`
+  section; `npm run release:check -- --base origin/main` passes.
+- PR #487 open in ready-for-review state (closes #484); branch pushed with
+  commits 2a06fda (styling + specs), d9ae6bf (release metadata), ef6cb3e
+  (dated changelog). Board card ND-421 remains In Progress until merge; the
+  docs commit closes out the brief in `tasks/current.md`.
+- Copilot review round on PR #487 ("changes recommended") produced two items,
+  both applied: changelog/journal dates aligned from 2026-09-05 (local) to the
+  commit UTC date 2026-09-04 (6672f00), and `SLIM_SCROLLBAR_CLASSES`
+  converted from a long single-line string to a joined token array (d6e6020).
+  A reply on the inline thread and a summary PR comment record the responses;
+  re-review could not be triggered from the CLI (Copilot code review
+  re-request is a UI action) and is pending on the human side. Quality Core
+  and Tenant Isolation checks passed on the final head (cbf7f03); the E2E
+  Smoke run for that head failed a single count-based home-entry assertion
+  (`data-link-count > 780` on the animated node field) that this docs-only
+  delta cannot have caused — re-run on the reconciled head, outcome recorded
+  below.
+
 
 # 2026-09-04 - ND-408: validation and delivery (PR #483)
 
