@@ -22,6 +22,13 @@ SHA, deployment URL, and workflow run belong in release evidence.
   participant assignment, member parity, and rejection of unknown or
   non-participant names.
 
+## v0.54.1 - 2026-09-06
+
+- Matched the Kanban lane task regions and the archived Done scroller to the
+  app-wide slim scrollbar styling (thin rounded thumb, transparent track, light
+  and dark parity) without changing lane scrolling, keyboard focus, or
+  drag-and-drop behavior.
+
 ## v0.54.0 - 2026-09-06
 
 - Added unified Kanban task search and filters (ND-408): a single search bar
