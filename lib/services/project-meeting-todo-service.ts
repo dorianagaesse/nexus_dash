@@ -103,6 +103,7 @@ export async function listProjectMeetingTodos(input: {
             status: true,
             createdAt: true,
             participants: {
+              orderBy: [{ position: "asc" }, { createdAt: "asc" }],
               select: {
                 userId: true,
                 displayName: true,
