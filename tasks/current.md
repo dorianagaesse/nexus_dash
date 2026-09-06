@@ -13,12 +13,18 @@ validation is green: lint, rls:check, 1,218 tests passed / 2 skipped,
 coverage 91.52/81.57/92.3/92.01, production build, and the full Playwright
 suite (39 passed / 1 skipped) including both TASK-381 bounded-lane specs.
 Release metadata advances patch to v0.52.1 and `npm run release:check` passes.
-PR checks on the final head are green (Quality Core, E2E Smoke, Tenant
-Isolation, Container Image). Copilot's initial review items were applied
-(changelog/journal dates aligned to the commit UTC date; scrollbar class list
-as a joined token array) with replies posted; a re-review is pending on the
-GitHub UI side. Nexus Dash board card ND-421 (fix label, GitHub issue #484)
-is the source of truth and reflects In Progress until the PR merges.
+The branch was reconciled with `origin/main` after PR #485 merged (merge
+0b992fb; the only conflict was a journal.md top-entry collision — no
+product-code conflict) and PR checks on the reconciled head are green
+(Quality Core, E2E Smoke, Tenant Isolation, Container Image, check-name;
+merge state clean). One E2E Smoke failure on the pre-reconciliation docs
+commit cbf7f03 (home-entry `data-link-count > 780`) was confirmed as a
+one-off environment flake by the fully green re-run. Copilot's initial review
+items were applied (changelog/journal dates aligned to the commit UTC date;
+scrollbar class list as a joined token array) with replies posted; a re-review
+is pending on the GitHub UI side. Nexus Dash board card ND-421 (fix label,
+GitHub issue #484) is the source of truth and reflects In Progress until the
+PR merges.
 
 ## Context
 

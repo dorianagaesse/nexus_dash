@@ -3,6 +3,24 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-06 - ND-421 PR #487 reconciled with main and revalidated
+
+- PR #485 merged into main on 2026-09-05 (CLAUDE.md/agent.md Nexus Dash
+  task-management guidance). Merged `origin/main` into
+  `fix/nd-421-kanban-lane-scrollbar-styling` (0b992fb): the only conflict was
+  `journal.md`, where both sides had added top-of-file dated entries — kept
+  #485's 2026-09-05 entries above the ND-421 2026-09-04 entry. CLAUDE.md and
+  agent.md auto-merged; no product-code conflict.
+- The Quality Gates run for the pre-reconciliation docs commit cbf7f03 failed
+  exactly one E2E Smoke assertion — home-entry `data-link-count > 780` on the
+  animated node field — which the docs-only delta cannot have caused; Quality
+  Core and Tenant Isolation were green on that same head. The fresh Quality
+  Gates run on the reconciled head passed in full (Quality Core, E2E Smoke,
+  Tenant Isolation, Container Image, check-name), confirming the failure as a
+  one-off environment flake rather than a code regression. PR #487 is back to
+  `MERGEABLE` with a clean merge state, ready for merge and the pending Copilot
+  re-review.
+
 # 2026-09-05 - Nexus Dash task link attachments: agent guidance and edit-gap follow-ups
 
 - The user asked to link follow-up GitHub issue #484 to card ND-421 via the
