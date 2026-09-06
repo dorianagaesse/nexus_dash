@@ -5318,3 +5318,46 @@ Low-value entries to avoid going forward:
   0.52.0 -> 0.53.0 (`release:version -- feature`) with a CHANGELOG Unreleased
   entry. rls:check/release:check pending; focused Playwright run pending.
 - Commit `ee3feae` pushed; PR to be opened referencing ND-397.
+
+# 2026-09-06 - TASK-337 (ND-178): First-class project actor identity
+
+- Onboarded: read agent.md/project.md/README.md and the board card ND-178
+  (cmth7h25c006504jurvwtrlrk, project cmteshp27000004jic3pr6wy4) on
+  `feature/nd-178-project-actor-identity` from `origin/main` (2e1722b,
+  v0.53.0). No GitHub issue exists; the PR carries the ND-178 reference.
+- Confirmed duplication: `lib/meeting-todo-actor.ts` was byte-identical to
+  `lib/context-card-actor.ts` apart from prefixes, and the two actor services
+  shared ~95% logic; agent task mutations persisted only the credential
+  owner's user id, losing the acting agent.
+- Implemented the canonical contract `lib/project-actor.ts` +
+  `lib/services/project-actor-service.ts` (kind/status/reference vocabulary,
+  registry building with first-wins dedupe, assignable resolution,
+  `resolveProjectMutationActor`), then re-based the meeting-todo and
+  context-card actor modules onto it as delegating shims preserving export
+  surface, per-domain registry loaders (Prisma read vs
+  `app.list_project_context_card_actors`), and error codes — consumer files
+  stayed zero-diff and all 29 prior actor tests passed unchanged.
+- Schema + migration `20260906100000_task337_project_actor_identity`: nullable
+  `createdBy/updatedByCredentialId` + `Label` (VarChar 80) on Task with
+  indexed `ON DELETE SET NULL` FKs modeled on the TASK-307 comment pattern.
+- Attribution: all task mutation write sites (create, reorder, status,
+  archive, unarchive, update) resolve the acting credential at write time via
+  `resolveTaskAgentAttribution` and snapshot id + trimmed label; a credential
+  row missing at write time degrades to human-only attribution (FK guard);
+  rename/revocation never rewrites past rows.
+- Author records: `lib/task-author.ts` maps task authors to the TASK-307
+  human/agent vocabulary; task payload mapping and the agent API GET task
+  response now surface `createdBy`/`updatedBy` with `kind`, credential id,
+  label, and owner.
+- Coverage added: `tests/lib/task-author.test.ts` (7 mapping cases) and
+  `tests/lib/project-task-service-attribution.test.ts` (3 service-level
+  create scenarios: human null attribution, agent snapshot with trimming,
+  missing-credential degradation). Full task/actor route+lib set: 114 passed
+  (11 files).
+- Local test quirk resolved: `.env` sets NODE_ENV=development which disables
+  the rls-context test bypass; correct runner is
+  `NODE_ENV=test node --env-file=.env ./node_modules/vitest/vitest.mjs run`.
+- Release advanced 0.53.0 -> 0.54.0 (`release:version -- feature`) with the
+  `## v0.54.0 - 2026-09-06` CHANGELOG entry; ADR entry recorded in
+  `adr/decisions.md`. Full validation baseline, real-Postgres RLS matrix
+  (schema change), push, PR opening, and Copilot review pending.
