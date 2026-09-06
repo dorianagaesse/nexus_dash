@@ -6,6 +6,10 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 ## Unreleased
 
+- Define each release entry before the product-impacting PR is merged.
+
+## v0.55.0 - 2026-09-06
+
 - Added Codex-style Markdown list shortcuts to the task description editor
   (ND-379): typing `* ` or `- ` at the start of a paragraph converts the whole
   line into a bulleted list item on the spot, preserving inline formatting and
