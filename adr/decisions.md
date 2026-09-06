@@ -16,6 +16,57 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-09-01 - Replace database-polled SSE and keep Vercel Pro as a bounded safety net
+- Status: Accepted; supersedes the transport portions of the 2026-06-03
+  project-activity SSE decision and the 2026-06-04 notification SSE decision.
+- Context: The Vercel Hobby team reached 4h 15m of Fluid Active CPU against a
+  4h limit and 314.2 GB-hours of Fluid Provisioned Memory against a 360
+  GB-hour limit. The latest seven days accounted for 2h 3m CPU and 153.6
+  GB-hours, with Production and Preview both contributing materially. The
+  notification and project-activity streams each live for 280 seconds,
+  reconnect automatically, and wake every second to run authenticated Prisma
+  and PostgreSQL RLS work even when no application change occurred. Hidden and
+  duplicate tabs keep those streams active. The email scheduler, ordinary
+  request volume, and builds were not material CPU drivers. The team upgraded
+  to Vercel Pro to remove the immediate pause risk; at an assumed 20 monthly
+  CPU hours and the observed seven-day memory run rate, expected metered
+  infrastructure remains within Pro's monthly usage credit in the dominant
+  `iad1` region.
+- Decision: Keep Vercel Pro during remediation and treat it as an uptime and
+  spend-management safety net, not as the architectural fix. Add a runtime
+  transport kill switch, disable persistent DB-polled SSE in Preview by
+  default, and replace the one-second server loops with bounded adaptive
+  client polling that suspends in hidden tabs and coordinates duplicate tabs.
+  Preserve the existing typed activity, notification snapshot, mutation
+  acknowledgement, edit-lock, and missed-update reconciliation contracts.
+  Instrument CPU, provisioned memory, invocations, transport mode, reconnects,
+  fallback behavior, and database-query volume by environment. For true push,
+  design and adopt private Supabase Realtime Broadcast channels secured by
+  short-lived tokens derived from existing Nexus Dash sessions and
+  project/user authorization; keep adaptive polling as the degraded-mode
+  fallback. Do not migrate hosting or introduce AWS Lambda for this incident:
+  both would move or mask the per-tab database workload without fixing it, and
+  Lambda response streaming has an unfavorable full-duration billing model.
+- Consequences: The immediate baseline temporarily accepts 10-30 second remote
+  freshness in exchange for eliminating continuous idle database and function
+  work. Preview behavior becomes intentionally cheaper than Production unless
+  realtime is under explicit test. Supabase Realtime adds token issuance,
+  private-channel RLS, provider quotas, and reconnect/reconciliation concerns,
+  but it changes only the transport rather than replacing Prisma, PostgreSQL,
+  application sessions, or service authorization. Vercel remains the hosting
+  platform while a clean seven-day window is measured; the program targets
+  less than 30 CPU minutes and 40 GB-hours of provisioned memory per
+  representative seven days unless documented workload growth explains the
+  difference. That review will decide whether to retain Pro, downgrade when
+  Hobby policy and pause risk permit, or open a separately justified hosting
+  migration.
+- Links: Nexus Dash epic `Realtime Efficiency and Vercel Cost Control`;
+  `ND-366` through `ND-375`;
+  `app/api/account/notifications/stream/route.ts`;
+  `app/api/projects/[projectId]/activity/stream/route.ts`;
+  `components/notification-live-updates.tsx`;
+  `components/project-live-refresh.tsx`
+
 ## 2026-08-27 - Keep shared Preview schema forward-only
 - Status: Accepted
 - Context: Deploying stacked TASK-327 renamed and removed columns from the

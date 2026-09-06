@@ -4,7 +4,11 @@ import {
   Droppable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import {
   Archive,
   CheckCircle2,
@@ -25,7 +29,7 @@ import type {
   ProjectTaskCollaborator,
 } from "@/components/kanban-board-types";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getEpicColorFromName } from "@/lib/epic";
 import { renderContentWithMentions } from "@/lib/content-with-mentions";
@@ -134,7 +138,7 @@ export function KanbanColumnsGrid({
             onSelectTask={onSelectTask}
             onEditTask={onEditTask}
             onTaskHoverChange={onTaskHoverChange}
-            className={cn(status !== activeMobileStatus && "hidden xl:block")}
+            className={cn(status !== activeMobileStatus && "hidden xl:flex")}
           />
         ))}
       </div>
@@ -214,27 +218,34 @@ function KanbanColumn({
   className,
 }: KanbanColumnProps) {
   const chrome = COLUMN_CHROME[status];
-  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const laneTitleId = `kanban-lane-${status.toLowerCase().replaceAll(" ", "-")}-title`;
+  // The archive is open when the user toggled it, or while filtering surfaces
+  // archived matches unless the user explicitly dismissed that auto-open.
+  // Auto-opening is derived (not stored), so ending filters returns the group
+  // to the user's own open/closed state instead of leaving an auto-open behind.
+  const [userArchiveOpen, setUserArchiveOpen] = useState(false);
+  const [autoOpenDismissed, setAutoOpenDismissed] = useState(false);
+  const autoOpenArchive = isFiltering && archivedDoneTasks.length > 0;
+  const isArchiveOpen = userArchiveOpen || (autoOpenArchive && !autoOpenDismissed);
 
   useEffect(() => {
-    if (isFiltering && archivedDoneTasks.length > 0) {
-      setIsArchiveOpen(true);
-    }
-  }, [archivedDoneTasks.length, isFiltering]);
+    setAutoOpenDismissed(false);
+  }, [isFiltering]);
 
   return (
     <Card
+      data-kanban-lane={status}
       data-kanban-status={status}
       className={cn(
-        "min-h-[320px] overflow-hidden border shadow-[0_18px_48px_-42px_rgba(15,23,42,0.7)]",
+        "flex h-[clamp(20rem,64dvh,42rem)] min-h-0 flex-col overflow-hidden border shadow-[0_18px_48px_-42px_rgba(15,23,42,0.7)]",
         chrome.column,
         className
       )}
     >
-      <div className={cn("h-1.5 w-full", chrome.accent)} />
-      <CardHeader className="pb-3">
+      <div className={cn("h-1.5 w-full shrink-0", chrome.accent)} />
+      <CardHeader className="shrink-0 pb-3">
         <CardTitle className="flex items-center justify-between text-base">
-          <span>{status}</span>
+          <span id={laneTitleId}>{status}</span>
           <Badge
             variant="outline"
             className={TASK_STATUS_BADGE_CLASS_NAMES[status]}
@@ -243,17 +254,37 @@ function KanbanColumn({
           </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        {status === "Done" && archivedDoneTasks.length > 0 ? (
+      {status === "Done" && archivedDoneTasks.length > 0 ? (
+        <div className="shrink-0 px-6 pb-3">
           <details
-            className="mb-3 rounded-xl border border-border/60 bg-background/55"
+            className="rounded-xl border border-border/60 bg-background/55"
             open={isArchiveOpen}
-            onToggle={(event) => setIsArchiveOpen(event.currentTarget.open)}
+            onToggle={(event) => {
+              // React's own attribute sync also fires toggle; only treat a
+              // change that contradicts the rendered state as a user action.
+              const open = event.currentTarget.open;
+              if (open === isArchiveOpen) {
+                return;
+              }
+              if (open) {
+                setUserArchiveOpen(true);
+              } else {
+                setUserArchiveOpen(false);
+                if (autoOpenArchive) {
+                  setAutoOpenDismissed(true);
+                }
+              }
+            }}
           >
-            <summary className="flex min-h-11 cursor-pointer items-center px-3 py-2 text-xs font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+            <summary className="min-h-11 cursor-pointer rounded-xl px-3 py-3 text-xs font-medium text-muted-foreground transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
               Archive ({archivedDoneTasks.length})
             </summary>
-            <div className="space-y-2 border-t border-border/60 p-2">
+            <div
+              className="max-h-40 space-y-2 overflow-y-auto overscroll-y-contain border-t border-border/60 p-2 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              aria-label="Archived Done tasks"
+              role="region"
+              tabIndex={0}
+            >
               {archivedDoneTasks.map((task) => (
                 <button
                   key={task.id}
@@ -294,19 +325,25 @@ function KanbanColumn({
               ))}
             </div>
           </details>
-        ) : null}
+        </div>
+      ) : null}
 
-        <Droppable droppableId={status} isDropDisabled={!canEdit}>
-          {(provided, snapshot) => (
-            <div
-              ref={provided.innerRef}
-              {...provided.droppableProps}
-              data-kanban-dropzone={status}
-              className={cn(
-                "min-h-[180px] space-y-3 rounded-md p-2",
-                snapshot.isDraggingOver && chrome.dragState
-              )}
-            >
+      <Droppable droppableId={status} isDropDisabled={!canEdit}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            aria-labelledby={laneTitleId}
+            data-kanban-lane-scroll={status}
+            data-kanban-dropzone={status}
+            role="region"
+            tabIndex={0}
+            className={cn(
+              "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain rounded-md px-6 pb-6 pt-2 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+              snapshot.isDraggingOver && chrome.dragState
+            )}
+          >
+            <div className="min-h-[180px] space-y-3 rounded-md p-2">
               {tasks.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border/50 bg-background/70 px-4 py-8 text-center">
                   <p className="text-sm font-medium text-foreground/90">
@@ -333,14 +370,31 @@ function KanbanColumn({
                       <article
                         ref={draggableProvided.innerRef}
                         {...draggableProvided.draggableProps}
-                        {...(canEdit ? draggableProvided.dragHandleProps : {})}
+                        {...(canEdit
+                          ? draggableProvided.dragHandleProps
+                          : {
+                              role: "button",
+                              tabIndex: 0,
+                              onKeyDown: (
+                                event: ReactKeyboardEvent<HTMLElement>
+                              ) => {
+                                if (
+                                  event.key === "Enter" ||
+                                  event.key === " "
+                                ) {
+                                  event.preventDefault();
+                                  onSelectTask(task);
+                                }
+                              },
+                            })}
+                        data-kanban-task-id={task.id}
                         data-kanban-task-card={task.id}
                         style={buildDragStyle(
                           draggableProvided.draggableProps.style,
                           draggableSnapshot.isDragging
                         )}
                         className={cn(
-                          "rounded-xl border border-border/70 bg-card/95 p-3 shadow-sm transition duration-150",
+                          "rounded-xl border border-border/70 bg-card/95 p-3 shadow-sm transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           canEdit
                             ? "cursor-grab active:cursor-grabbing"
                             : "cursor-pointer",
@@ -458,9 +512,9 @@ function KanbanColumn({
               ))}
               {provided.placeholder}
             </div>
-          )}
-        </Droppable>
-      </CardContent>
+          </div>
+        )}
+      </Droppable>
     </Card>
   );
 }

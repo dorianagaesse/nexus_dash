@@ -1,3 +1,24 @@
+# 2026-09-06 - ND-408: PR #483 reconciled with main and Copilot review triaged
+
+- origin/main advanced past the ND-408 fork point with TASK-381 (PR #459,
+  v0.52.0 bounded Kanban lanes), dependabot bumps, and docs merges, leaving
+  PR #483 CONFLICTING. Merged main into the branch and resolved conflicts in
+  `kanban-columns-grid.tsx` (TASK-381 lane scroller structure kept; ND-408
+  archive auto-open, filtered empty copy, and ND-408 data attributes
+  re-applied on it), plus journal/task-brief conflicts. Product version
+  advanced to v0.53.0 since both sides claimed v0.52.0 and ND-421 targets
+  v0.52.1.
+- Copilot review thread on PR #483 addressed: the archive `<details>` only
+  ever auto-opened while filtering found archived Done matches and was never
+  reset on clear. The open state in `kanban-columns-grid.tsx` is now derived
+  from user intent plus a filter-driven auto-open that dismisses on request:
+  `isArchiveOpen` combines the user's own toggle with
+  (filtering && matches && not dismissed), so ending filters automatically
+  returns the group to its pre-filter open/closed state without storing a
+  snapshot. A guarded `onToggle` distinguishes real user toggles from React's
+  own attribute sync. Regression coverage added in the component suite (three
+  cases: auto-open on filter, restore on clear, dismiss respected); thread
+  replied to and resolved on GitHub.
 # Development Journal
 
 This file is a concise execution log.
@@ -55,6 +76,42 @@ Use it for important implementation milestones, blockers, validation runs, and r
   incl. this review iteration, 7 numbered Acceptance Criteria, Definition of
   Done) plus the `feature` label. Note: card descriptions are rich text —
   plain-text angle brackets are parsed as tags and stripped/escaped.
+
+# 2026-09-05 - Nexus Dash task link attachments: agent guidance and edit-gap follow-ups
+
+- The user asked to link follow-up GitHub issue #484 to card ND-421 via the
+  Nexus Dash task link feature (link attachments). Verified the current
+  surface: agents can attach links only at task creation through
+  `attachmentLinks`; PATCH `/tasks/{id}` has no `attachmentLinks`, and the
+  kanban Add-link route (`POST /tasks/{id}/attachments`) requires a user
+  session and rejects agent bearer credentials — so the link had to be added
+  manually in the UI by the user.
+- Filed GitHub issue #486 with Nexus Dash ND-424 (feature), "Allow agents to
+  attach link attachments to existing tasks," created with the issue attached
+  as a link attachment (the canonical pattern); ND-425 (docs), "Audit the
+  Nexus Dash agent API for task-edit gaps vs the kanban UI," created related
+  to ND-424. Issue #486 cross-links both cards.
+- Documented the link-attachment pattern in `agent.md` (task-authoring rules)
+  and `CLAUDE.md` (Task Management section) in this PR, including the note
+  that retro-adding links to existing cards is UI-only until ND-424 ships.
+
+# 2026-09-05 - CLAUDE.md: surface Nexus Dash task management and sync validation baseline
+
+- Per user request (direct, no board card), applied a docs PR to CLAUDE.md.
+  Motivation: CLAUDE.md is autoloaded by Claude Code while agent.md is not,
+  yet both must stay current because Codex reads agent.md and not CLAUDE.md —
+  so the Nexus Dash task-management guidance now lives in both files as
+  compressed stable facts rather than a single volatile copy.
+- Added a "Task Management (Nexus Dash)" section (source-of-truth kanban,
+  credentials/env pointer, startup task selection, pointer to the ND-387
+  task-authoring quality rules in agent.md).
+- Synced the Validation Before Handoff baseline with agent.md section 6:
+  `rls:check`, docs-only exemption, e2e flows, RLS matrix runbook pointer, and
+  `git diff --check` clean.
+- Removed the stale project.md pointer "(TASK-124/126/127/131)" from the
+  context file map — those priorities now live in the Nexus Dash kanban.
+- Prettier-formatted the file map table; validation limited to `prettier
+  --check` and `git diff --check` (docs-only change).
 
 # 2026-09-04 - ND-408: validation and delivery (PR #483)
 
@@ -129,6 +186,65 @@ Use it for important implementation milestones, blockers, validation runs, and r
   with the TASK-342 brief preserved under `## Previous Task Snapshot`.
 - Validation and delivery (lint, RLS check, unit/coverage, build, e2e, push,
   PR superseding #469/#470, board sync) remain as the closing steps.
+# 2026-09-03 - TASK-381 PR #459: Copilot review triage and accessibility fixes
+
+- Copilot completed a review of PR #459 ("Changes recommended") with three
+  threads on the reconciled head; the earlier note about exhausted credits had
+  gone stale. Triaged all three:
+  - The archived Done scroller was keyboard-focusable (`role="region"`,
+    `tabIndex=0`) but lacked the focus-visible ring that TASK-381 gave the lane
+    scrollers and the Archive summary. Applied the same
+    `focus-visible:ring-2 ring-inset` treatment.
+  - Task cards in read-only (viewer) mode were click-only: without the dnd
+    drag-handle props there was no role, tab stop, or keyboard activation.
+    Added a non-drag fallback (`role="button"`, `tabIndex=0`, Enter/Space
+    opens the task) and a visible `focus-visible` ring on the card for both
+    editor and viewer focus, without touching drag-and-drop semantics when
+    editing is enabled.
+  - The version thread referenced the pre-reconciliation description
+    (v0.37.2 -> v0.38.0) and the intermediate v0.50.0 -> v0.51.0 bump; the
+    description, CHANGELOG top entry, and package version were reconciled to
+    v0.52.0 on 2026-09-02, so the thread was closed with rationale and no code
+    change.
+- Added regression coverage: component tests assert the archive scroller focus
+  classes and viewer-card button semantics plus Enter/Space activation, and
+  the TASK-381 Playwright spec now checks the archive scroller's computed
+  focus ring. CHANGELOG v0.52.0 bullet records the keyboard-operable viewer
+  cards and archive focus treatment.
+
+# 2026-09-02 - TASK-381 PR #459: bounded Kanban lanes reconciled onto current main
+
+- Re-reconciled `feature/task-381-bounded-kanban-lanes` with `origin/main`
+  after TASK-342 (PR #451) merged and advanced main to v0.51.0: the earlier
+  reconciliation (merge fd4cba3, release commit 6396468, v0.51.0) went stale
+  because main moved mid-task and PR #459 flipped back to CONFLICTING.
+- Second merge 7293cd6 resolved conflicts without product-code changes
+  (`kanban-columns-grid.tsx` and its tests stay byte-identical to the branch's
+  previously validated state):
+  - CHANGELOG.md: TASK-381 section moved to the top as `v0.52.0 - 2026-09-02`
+    (the original entry had been wedged into main's release history at the
+    stale v0.38.0 position); TASK-342's section stays under `v0.51.0`. Diff vs
+    `origin/main` is exactly the 12 release-metadata lines.
+  - package.json / package-lock.json: advanced to v0.52.0 in all three version
+    spots (feature branch must minor-bump over main's v0.51.0); dependencies
+    identical to main.
+  - tasks/current.md: kept the TASK-381 brief (ours). tasks/backlog.md: took
+    main's post-migration version. journal.md: took main's version in the
+    merge and re-inserts this reconciliation entry on top.
+- Validation on the merged tree is green: lint, rls:check, release:check
+  (v0.51.0 -> v0.52.0), 1,216 tests passed / 2 skipped, coverage 91.52% stmts /
+  81.57% branch / 92.3% funcs / 92.01% lines, and a production build.
+- Windows/dev-env notes: vitest requires `node --env-file=.env` with exported
+  NODE_ENV=test and CI-style AGENT_TOKEN_SIGNING_SECRET/RESEND_API_KEY
+  placeholders; `npx prisma generate` was needed after TASK-342's
+  schema-changing merge (stale client failed the build with "'updatedAt' does
+  not exist in ResourceSelect"); scripts/validate-supabase-project-ref.mjs
+  needed local CRLF->LF normalization; the production build requires localhost
+  DATABASE_URL/DIRECT_URL parity and a GOOGLE_TOKEN_ENCRYPTION_KEY placeholder
+  when Google OAuth env vars are present.
+- Branch pushed; PR #459 re-checked for mergeability. Copilot review remains
+  unavailable (credits exhausted) — the user will run the replacement DeepSeek
+  review after delivery.
 
 # 2026-09-02 - TASK-342 PR #451: provenance chip restyle, main merge, review closeout
 
@@ -234,6 +350,38 @@ Use it for important implementation milestones, blockers, validation runs, and r
   tasks/current.md. Replied on every thread and resolved all three.
 - Full CI green on `0fbca15`: Quality Core, Tenant Isolation, E2E Smoke,
   Container Image, check-name.
+
+# 2026-09-01 - ND-366 Vercel Fluid compute decision and remediation program
+
+- Investigated the Vercel Hobby limit warning against live team telemetry and
+  the deployed application: 4h 15m Fluid Active CPU and 314.2 GB-hours Fluid
+  Provisioned Memory in 30 days, including 2h 3m CPU and 153.6 GB-hours in the
+  latest seven days. Production and Preview both contributed materially.
+- Root cause: the global notification SSE route and project activity SSE route
+  each stay open for 280 seconds, reconnect, and poll PostgreSQL every second
+  per tab. The work repeatedly enters Prisma RLS transactions and runs several
+  queries even when nothing changes; hidden and duplicate tabs extend both CPU
+  and provisioned-memory consumption. The twice-hourly email dispatch and
+  ordinary request volume were minor by comparison.
+- The user upgraded `dorian-agaesses-projects` to Vercel Pro for immediate
+  continuity. Recorded that Pro is a bounded safety net rather than the fix;
+  an assumed 20 CPU-hour month plus the observed seven-day memory pace should
+  remain within the plan's monthly usage credit in the dominant `iad1` region.
+- Created the Nexus Dash epic `Realtime Efficiency and Vercel Cost Control`
+  and tasks ND-366 through ND-375. The sequence covers the architecture record,
+  spend/environment controls, transport kill switch, adaptive polling,
+  multi-tab coordination, observability, secure Supabase Realtime design and
+  implementation, legacy SSE retirement/load testing, and a clean seven-day
+  hosting/plan review.
+- Accepted direction: keep Vercel during remediation; remove one-second
+  DB-polled SSE; use visibility-aware, cross-tab-coordinated adaptive polling
+  as the safe baseline; target private Supabase Realtime Broadcast for true
+  push; do not migrate hosting or move these streams to Lambda merely to mask
+  the workload.
+- Published ready PR #476. Repository quality, RLS, Playwright, container, and
+  branch-name checks passed; Copilot recommended approval with zero comments.
+  Marked ND-366 Done after verifying the epic and all ten tasks through the
+  live agent API.
 
 # 2026-08-30 - TASK-378 bounded bulk task operations
 
@@ -490,7 +638,6 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Validation passed: lint, RLS inventory, 1057 unit/API tests (2 skipped),
   coverage at 91.37% statements / 81.33% branches / 92.2% functions / 91.88%
   lines, production build, release policy `0.39.0` to `0.40.0` (merged `origin/main` at v0.39.0; version re-derived after the 379 merge).
-
 
 - Reproduced the provider failure from the immutable TASK-326 Preview: GitHub
   rejected its per-deployment callback because the Preview OAuth application is
@@ -5277,3 +5424,13 @@ Low-value entries to avoid going forward:
   1,177 runnable tests (2 skipped), coverage at 91.52% statements / 81.57%
   branches / 92.3% functions / 92.01% lines, production build, and the focused
   TASK-356 Playwright stewardship flow.
+
+## 2026-09-02 - ND-387 Nexus Dash task-authoring quality contract
+
+- Corrected ND-376 through ND-386 with the canonical `feature` label, added an
+  explicit rationale where needed, and removed dependency-list prose while
+  preserving the live Related Tasks relationships.
+- Created ND-387 with the `docs` label to track the repository guidance change.
+- Documented the minimum task-authoring contract in `agent.md`: duplicate
+  check, outcome-oriented title, rationale, work-type label, testable acceptance
+  criteria, focused scope, Related Tasks dependencies, and API read-back.
