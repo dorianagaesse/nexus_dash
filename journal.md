@@ -3,6 +3,24 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-06 - ND-376: reconciled with origin/main after ND-379 (PR #491) merged
+
+- `origin/main` advanced past the fork with ND-379 (PR #491, merged 00:32
+  +0200), which took the v0.55.0 minor. Merged `origin/main` into the branch:
+  conflicts were confined to the top-of-file docs
+  collisions — `journal.md` keeps the ND-376 dated entries above the ND-379
+  entry; `tasks/current.md` keeps the ND-376 brief active with the ND-379
+  brief preserved verbatim as the previous snapshot (itself preserving the
+  ND-421 brief); the CHANGELOG's per-side v0.55.0 sections were deduplicated
+  and the release metadata retargeted: `package.json`/`package-lock.json`
+  advance to v0.56.0 (feature minor over main's released v0.55.0) with a
+  dated v0.56.0 entry carrying the ND-376 bullets, while the v0.55.0 entry
+  and the `## Unreleased` placeholder stay exactly as on `origin/main`.
+  Product code auto-merged with no overlap (ND-379's rich-text editor
+  shortcuts are independent of the meeting-todo assignee picker).
+- `release:check` (head v0.56.0 > base v0.55.0), lint, and `git diff
+  --check` pass on the reconciled head.
+
 # 2026-09-06 - ND-376: assignee picker feedback round (uniform list, scrolling, app-wide scrollbar)
 
 - User review of the PR #490 picker asked for three changes: one uniform
@@ -89,6 +107,42 @@ Use it for important implementation milestones, blockers, validation runs, and r
   to and auto-resolved, CI green on the fix. Copilot round 2 did not fire
   automatically within ~20 min of the push (Lite effort); PR #490 is
   MERGEABLE with all checks green.
+
+# 2026-09-06 - ND-379: Codex-style `* `/`- ` list shortcuts delivered via PR #491
+
+- Implemented in worktree `../nexus_dash_nd379_wt` on
+  `feature/nd-379-rich-text-markdown-shortcuts` (from `origin/main` @ 633278e,
+  v0.54.0). Space typed while a line's caret-prefix is exactly `*` or `-`
+  converts the whole paragraph into `<ul><li>` in place (empty-editor root
+  line included), preserving inline formatting and mentions; prefixes like
+  `** `, mid-line markers, and lines inside existing lists/blockquotes/
+  headings/code-token blocks stay literal. One undo step restores the typed
+  marker; native Enter list continuation/exit is untouched; toolbar
+  unchanged. Commits e6387a2 (implementation) and 630c0ca (v0.55.0 bump +
+  CHANGELOG `## Unreleased` entry) pushed; PR #491 open.
+- Validation on the final tree: lint, rls:check, 1294 unit tests passed / 2
+  skipped, coverage 92.93/82.94/93.83/93.25, production build, `git diff
+  --check` clean. Focused Playwright spec 2/2 (`nd-379-rich-text-markdown-
+  shortcuts.spec.ts`) against a real server: `- ` in the empty editor
+  converts + Enter continues the list + save persists `<ul><li>First
+  item</li><li>Second item</li></ul>` + reload re-renders; `* ` before an
+  existing paragraph converts the whole line and persists.
+- Real-browser e2e caught a gap the jsdom component suite missed: after each
+  input pass the editor restores the caret anchored on the editor element
+  (between text nodes) rather than inside the text node, so the bare-root
+  shortcut branch now accepts both caret shapes
+  (`caretContainer === editor || caretContainer === editor.firstChild`).
+  Component test added for the element-anchored shape; suite at 64.
+- Nexus Dash board card ND-379 (feature) moved to Done 2026-09-06 with a
+  Report section appended to the description; `tasks/current.md` brief
+  updated to Delivered with validation evidence.
+- Merged `origin/main` into the branch after the ND-421 merge (PR #487,
+  v0.54.1) landed. Conflicts were confined to release metadata
+  (package.json/package-lock kept at v0.55.0, the feature minor above
+  v0.54.1), the CHANGELOG (v0.55.0 section placed above v0.54.1), and the
+  top-of-file brief/journal collisions: ND-379 brief stays active with the
+  ND-421 brief preserved verbatim under Previous Task Snapshot, and this
+  journal keeps both dated entries. Product code auto-merged with no overlap.
 
 # 2026-09-06 - ND-421 PR #487 reconciled with main and revalidated
 

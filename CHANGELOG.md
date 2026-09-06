@@ -4,7 +4,7 @@ Product releases use SemVer-style pre-1.0 versioning. Keep build identity
 separate from product version: release entries describe `v0.x.y`, while commit
 SHA, deployment URL, and workflow run belong in release evidence.
 
-## v0.55.0 - 2026-09-06
+## v0.56.0 - 2026-09-06
 
 - Meeting todo assignees can now be external participants (ND-376): the
   assignee picker lists the owning meeting note's external participants
@@ -24,6 +24,20 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Added migration, service, component, and browser coverage for external
   participant assignment, member parity, and rejection of unknown or
   non-participant names.
+
+## Unreleased
+
+- Define each release entry before the product-impacting PR is merged.
+
+## v0.55.0 - 2026-09-06
+
+- Added Codex-style Markdown list shortcuts to the task description editor
+  (ND-379): typing `* ` or `- ` at the start of a paragraph converts the whole
+  line into a bulleted list item on the spot, preserving inline formatting and
+  mentions, while the space stays literal text when the marker is not at the
+  line start or the line already lives inside a list, quote, code block, or
+  heading. Native list editing continues unchanged after the conversion, and
+  the undo stack restores the typed marker as a single step.
 
 ## v0.54.1 - 2026-09-06
 
