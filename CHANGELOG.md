@@ -8,7 +8,24 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.54.0 - 2026-09-06
+
+- Added unified Kanban task search and filters (ND-408): a single search bar
+  queries the server (title, description, reference, status, labels, epic,
+  assignee, comments, attachments, and related tasks) with debounced loading
+  and a failure-retry state, while one Filter popover groups label chips
+  (AND semantics) and epic options (OR semantics, including "No epic").
+  Archived Done tasks that match the active filters surface in an open
+  Archive group, and the active filter count lives on the Filter button only.
+- Kanban drag-and-drop stays precise while filtering: drops map against
+  visible cards only, hidden tasks keep their relative order, and reorder
+  persistence behaves identically with or without filters.
+- Covered the search and filter surfaces with unit, component, and browser
+  tests, including filtered drag ordering, viewer read-only affordances, and
+  375px/landscape/dark-mode popover containment.
+
 ## v0.53.0 - 2026-09-05
+
 - Preview deployment keeps the shared staging schema forward-only, applies
   checked-in migrations, and rejects runtime-incompatible schemas before
   publishing the stable alias. Feature migrations must use expand/contract for

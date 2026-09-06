@@ -96,6 +96,7 @@ async function renderGrid(
   root: Root,
   options: {
     canEdit?: boolean;
+    isFiltering?: boolean;
     onSelectTask?: (task: KanbanTask) => void;
   } = {}
 ) {
@@ -116,6 +117,7 @@ async function renderGrid(
         archivedDoneTasks={[archivedTask]}
         mentionUsers={[]}
         highlightedTaskIds={new Set()}
+        isFiltering={options.isFiltering ?? false}
         onDragEnd={vi.fn()}
         onSelectTask={options.onSelectTask ?? vi.fn()}
         onEditTask={vi.fn()}
@@ -123,6 +125,12 @@ async function renderGrid(
       />
     );
   });
+}
+
+function archiveDetails(container: HTMLElement) {
+  return container.querySelector<HTMLDetailsElement>(
+    'details:has(> summary)'
+  );
 }
 
 afterEach(() => {
@@ -296,6 +304,70 @@ describe("KanbanColumnsGrid bounded lanes", () => {
       );
     });
     expect(onSelectTask).not.toHaveBeenCalled();
+
+    await act(async () => root.unmount());
+  });
+});
+
+describe("KanbanColumnsGrid filtered archive auto-open", () => {
+  function openArchive(container: HTMLElement) {
+    const details = archiveDetails(container);
+    expect(details).not.toBeNull();
+    return act(async () => {
+      if (!details) {
+        return;
+      }
+      details.open = true;
+      details.dispatchEvent(new Event("toggle", { bubbles: true }));
+    });
+  }
+
+  test("auto-opens the Archive group while filtering and closes it again on clear", async () => {
+    const { container, root } = createRenderer();
+    await renderGrid(root, { isFiltering: true });
+
+    expect(archiveDetails(container)?.open).toBe(true);
+
+    await renderGrid(root, { isFiltering: false });
+    expect(archiveDetails(container)?.open).toBe(false);
+
+    await act(async () => root.unmount());
+  });
+
+  test("restores a manually opened Archive group instead of collapsing it on clear", async () => {
+    const { container, root } = createRenderer();
+    await renderGrid(root);
+
+    const details = archiveDetails(container);
+    expect(details?.open).toBe(false);
+    await openArchive(container);
+    expect(archiveDetails(container)?.open).toBe(true);
+
+    await renderGrid(root, { isFiltering: true });
+    expect(archiveDetails(container)?.open).toBe(true);
+
+    await renderGrid(root, { isFiltering: false });
+    expect(archiveDetails(container)?.open).toBe(true);
+
+    await act(async () => root.unmount());
+  });
+
+  test("stays collapsed while filtering when the user closed an auto-opened Archive", async () => {
+    const { container, root } = createRenderer();
+    await renderGrid(root, { isFiltering: true });
+    expect(archiveDetails(container)?.open).toBe(true);
+
+    await act(async () => {
+      const details = archiveDetails(container);
+      if (details) {
+        details.open = false;
+        details.dispatchEvent(new Event("toggle", { bubbles: true }));
+      }
+    });
+    expect(archiveDetails(container)?.open).toBe(false);
+
+    await renderGrid(root, { isFiltering: false });
+    expect(archiveDetails(container)?.open).toBe(false);
 
     await act(async () => root.unmount());
   });

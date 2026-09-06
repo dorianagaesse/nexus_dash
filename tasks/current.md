@@ -1,117 +1,159 @@
 # Current Task
 
-## ND-397: Constrain long task comments with expand/collapse
+## ND-408: Unified Kanban task search and filter bar
 
 ## Status
 
-Implemented and validated on `feature/nd-397-comment-expand-collapse`
-(worktree `../nexus_dash_task397`, branched from `origin/main` at 1daffc0).
-The Nexus Dash board card ND-397 (feature label) is the source of truth and
-moved to In Progress on 2026-09-05. No GitHub issue exists for this task; the
-PR carries the ND-397 reference. Validation is green: lint, `rls:check`,
-`release:check`, unit tests (1225 passed / 2 skipped), coverage thresholds,
-production build, and the focused Playwright spec. Ready for review.
+Delivered: PR #483 (https://github.com/dorianagaesse/nexus_dash/pull/483) is
+open from `feature/nd-408-kanban-search-filter`, superseding PR #469 (TASK-382
+server-backed task search + label filters) and #470 (TASK-384 epic filter),
+which were both commented with pointers and closed. The Nexus Dash board card
+(ND-408) reflects In Progress.
+
+Local validation passed against a dockerized PostgreSQL with env overrides
+(runbook `docs/runbooks/local-validation.md`): production build green, ND-408
+Playwright spec 6/6, focused vitest 50/50 with scoped coverage above
+thresholds, lint/rls:check/diff checks clean. Full `npm test` /
+`npm run test:coverage` remain red only on a pre-existing main breakage
+(`prisma.$transaction is not a function`, reproduced on a pristine tree) that
+predates this branch; see the PR body.
+
+Review iteration (2026-09-05): popover anchored directly below the Filter
+trigger (flip-above only when under 240px of room below, capped at 520px so it
+never stretches to the viewport top), Labels/Epics rendered as compact wrap
+chips in the card-label visual language, an in-popover search field that
+filters options live, and groups beyond 12 chips collapsing behind a
+"Show all N" toggle (auto-expanded while searching). New component tests
+added; ND-408 e2e spec stays green. Nexus Dash card ND-408 description
+rewritten with a precise Rationale/Scope/Acceptance Criteria/Definition of
+Done brief and the `feature` label per the authoring contract in `agent.md`.
+
+Mobile review iteration (2026-09-05, second round): on viewports under 640px
+the popover sizes to the Filter trigger's own rect (the button is centered
+beneath the search row and narrower than it), so it is pixel-aligned with the
+button; the popover footer is now always rendered with an explicit **Done**
+button (Check icon) that closes the panel and restores focus to the trigger,
+alongside the conditional Clear all filters. Component suite at 15 tests and
+the 375px e2e assertion (popover box matches the trigger within 1px, Done
+visible) cover both. Committed 49a9227; PR #483 remains open.
+
+Reconciliation + Copilot round (2026-09-06): `origin/main` advanced past the
+fork point with TASK-381 (v0.52.0), docs/dependabot merges, and then ND-397
+(PR #488, v0.53.0), so main was merged into the branch twice. The
+kanban-columns-grid conflict was resolved by keeping the TASK-381
+lane-scroller structure and re-applying the ND-408 archive auto-open,
+filtered empty copy, and data attributes on it; ND-397's comment
+expand/collapse files merged cleanly. Product version advanced to v0.54.0
+(both sides claimed v0.53.0 after main released it via ND-397; ND-421
+targets v0.52.1), and the CHANGELOG Unreleased keeps only the ND-408
+entries. The Copilot review thread on PR #483 was triaged: the Archive
+open state is now derived from user intent plus a dismissible filter-driven
+auto-open, so clearing filters returns the group to its pre-filter
+open/closed state instead of leaving a filter auto-open behind, with three
+component regression tests. Thread replied to and resolved on GitHub;
+revalidation green.
 
 ## Context
 
-Long comments can dominate the task detail modal and make adjacent discussion
-difficult to scan. Every task-comment surface should show comment bodies at a
-consistent default maximum visible height, clip overflow without breaking
-words or horizontal layout, and offer an explicit accessible expand/collapse
-control only when a comment actually overflows. Short comments must stay fully
-visible with no extra control.
+PR #469 and PR #470 both add task-filter UI to the same Kanban board area and
+share the same merge base; `main` has not touched Kanban files since, so their
+changes apply cleanly onto current main except version/docs conflicts. Rather
+than merging two visually heavy, overlapping surfaces (stacked toolbar cards
+with helper text and result-count pills), this task delivers one united,
+self-evident surface: search and filter live on a single compact row.
 
 ## Scope
 
-- Add a reusable comment-body presentation component
-  (`components/kanban/task-comment-body.tsx`) that renders the mention-aware
-  body with a consistent collapsed cap, a measured overflow decision, and an
-  accessible expand/collapse toggle.
-- Use that component in the task detail modal comment thread
-  (`components/kanban/task-detail-modal.tsx`), the only surface that renders
-  full comment bodies today, so any future comment surface inherits the same
-  treatment.
-- Add focused component coverage for short, long, expanded, and collapsed
-  comments and a focused Playwright spec for real-browser overflow behavior.
-
-## Product Decisions
-
-- The collapsed cap is a fixed height derived from the comment body's own
-  line height (six lines of `text-sm`/`leading-5` at the app font baseline:
-  `7.5rem`), so the same cap applies on every layout and breakpoint.
-- Overflow is measured against the rendered body (scroll height vs. cap)
-  rather than estimated from text length, so mention chips and wrapping never
-  misclassify a comment.
-- The toggle is a text button with clear state copy (`Show more` / `Show
-  less`), `aria-expanded`, and `aria-controls` pointing at the body it
-  reveals; it appears only for overflowing comments.
-- Clipping uses `max-height` + `overflow-hidden` with the existing
-  `whitespace-pre-wrap break-words` body classes: lines wrap at word
-  boundaries, and an unbroken string wider than the line still wraps instead
-  of spilling, so no horizontal layout appears.
+- Port the server-backed search foundation unchanged: `searchProjectTaskIds`
+  service, `/api/projects/{projectId}/tasks/search` route, and the
+  `useKanbanTaskSearch` hook (200ms debounce, abort, error + retry).
+- Unified filter core in `components/kanban/kanban-filter-utils.ts`:
+  search IDs AND labels (all selected) AND epics (any selected, "No epic"
+  matches tasks without an epic), with an identity short-circuit when nothing
+  is active, and filtered drag-drop mapping that keeps hidden tasks in place.
+- `KanbanFilterBar`: search input (clear button, loading spinner, error + retry
+  only) and one Filter trigger (active count badge) opening a portal popover
+  grouping Labels and Epics as multi-select wrap chips (`aria-pressed`, color
+  dot when idle, pastel fill + check when selected). A small search field at
+  the top of the popover filters label/epic options live, groups larger than
+  12 chips collapse behind a "Show all N labels/epics" toggle (auto-expanded
+  while searching), and a footer with an always-present **Done** button (closes
+  the panel, restores focus to the trigger) plus a "Clear all filters" action
+  that appears only while anything is active. The popover opens directly under
+  the trigger and only flips above when there is under 240px of room below; on
+  narrow viewports it sizes to the trigger so it stays aligned with it.
+- Filtered board: empty columns say `No matching <status> tasks`, archived
+  Done matches auto-open the Archive group, and the mobile status navigation
+  keeps working.
+- Viewers keep the filter surface but never get create or drag affordances.
 
 ## Out Of Scope
 
-- Comment authoring, editing, mention input, reactions, or agent-identity
-  surfaces.
-- Rich-text comment authoring/rendering (ND-398) and comment attachments
-  (ND-399), which will build on the plain-text body presentation later.
-- Constraining any non-comment text surface (task descriptions, meeting
-  notes, context cards, roadmap notes).
-- Board semantics, modal chrome, or lane behavior.
+- Reintroducing the superseded stacked toolbar UI, helper/explanation copy, or
+  "X / Y tasks" result-count pills (superseding #469/#470 changes them).
+- Clickable label chips on task cards as a second filter surface (the popover
+  is the only filter surface).
+- Server-side filtering/pagination of the board beyond the existing search
+  route; label/epic filtering stays client-side over loaded tasks.
+- Changing Kanban drag behavior, persistence semantics, or board data loading.
 
 ## Acceptance Criteria
 
-1. Comment bodies have a consistent default maximum visible height in every
-   task-comment surface, including responsive layouts.
-2. Comments that exceed the limit are initially clipped without breaking
-   words or horizontal layout.
-3. An explicit, accessible expand/collapse control is shown only when a
-   comment overflows; it reveals the complete comment and can restore the
-   collapsed state.
-4. The control has clear state text and is keyboard-operable with appropriate
-   accessible semantics.
-5. Short comments remain fully visible and do not show an unnecessary
-   control.
-6. The behavior is covered by automated UI tests for short, long, expanded,
-   and collapsed comments.
+1. One search row sits above the board: typing searches server-side across
+   titles, descriptions, references, statuses, labels, epics, assignees,
+   comments, attachments, and related tasks, with debounced loading feedback,
+   a clear button, and an error state offering retry.
+2. One Filter button opens a popover directly under it (flipping above only
+   when there is under 240px of room below, and never stretching to the top of
+   the viewport) grouping Labels and Epics (plus "No epic") as wrap chips with
+   `aria-pressed` and check marks. The trigger shows an active-selection count
+   (labels + epics only); an in-popover search field narrows label/epic
+   options and groups beyond 12 chips hide behind a "Show all N" toggle;
+   "Clear all filters" appears only while search or selections are active and
+   resets everything.
+3. Search, labels (AND), and epics (OR, including "No epic") combine; tasks
+   from other projects never appear, and a task detail modal is not required
+   to understand any state.
+4. Dragging a visible task while filters are active lands relative to visible
+   cards only; tasks hidden by the filter keep their relative order after
+   persistence and reload.
+5. Archived Done tasks matching the active filters surface in an open Archive
+   group; clearing filters restores the un-filtered board exactly.
+6. The filter surface contains no helper text and no result-count pill; at
+   375px, in landscape, and in dark mode the popover stays fully on-screen
+   without horizontal page scroll.
 
 ## Definition Of Done
 
-- The comment body presentation with measured expand/collapse is implemented
-  in the task detail modal thread through a shared component.
-- Focused component tests cover short (no control), long collapsed (control
-  shown, body capped), expanded (full height, `Show less`), and re-collapsed
-  states plus `aria-expanded`/`aria-controls` wiring; a focused Playwright
-  spec covers real-browser overflow behavior for short and long comments.
-- `npm run lint`, `npm run rls:check`, `npm run release:check`, `npm test`,
-  `npm run test:coverage`, `npm run build`, and the focused Playwright run are
-  green on the final tree.
-- `package.json`/`package-lock.json` advance minor to v0.53.0 and the
-  CHANGELOG `## Unreleased` entry documents the feature.
-- The Nexus Dash board card ND-397 is updated (Done on delivery) and
-  `tasks/current.md` + `journal.md` reflect the execution.
-- Branch is pushed with an open ready-for-review PR referencing ND-397.
+- Kanban search route/service, filter utilities, filter bar, board wiring, and
+  columns grid are covered by focused unit, component, and Playwright specs
+  (combined filter semantics, filtered drag with interleaved hidden tasks,
+  viewer read-only affordances, clear-all, popover containment).
+- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
+  `npm run build`, and `npm run test:e2e` pass; `git diff --check` is clean.
+- `package.json`/`package-lock.json` advance to v0.54.0, `CHANGELOG.md`
+  carries the `## Unreleased` entry, and `journal.md` logs the execution.
+- The branch is pushed and a ready-for-review PR superseding #469 and #470 is
+  open; both superseded PRs are commented and closed; the Nexus Dash board
+  card reflects the final status.
 
 ## Runtime Assumptions
 
-- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged;
-  this task introduces no schema, service, or route changes.
-- Comments are plain text with `@mention` highlighting; real-browser overflow
-  behavior is validated by the focused Playwright run against a local
-  database, and preview deployment is not an acceptance requirement for this
-  presentational change.
+- Local database-backed validation uses the repository `.env` contract and a
+  reachable PostgreSQL instance when migration or E2E execution requires it.
+- The Nexus Dash task card exists (ND-408, created via the agent API) and
+  drives the branch/PR identity; no secrets leave `.env`/`.config` files.
 
 ## Previous Task Snapshot
 
-The previous `tasks/current.md` brief (TASK-381, released in v0.52.0) is
+The previous `tasks/current.md` brief (TASK-342, released in v0.51.0) is
 preserved verbatim below for history.
 
 ---
 
 # Current Task
 
-## TASK-381: Bounded Kanban Height With Independently Scrollable Lanes
+## TASK-342: Context Knowledge Stewardship and Attachment Provenance
 
 ## Status
 

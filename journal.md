@@ -3,6 +3,90 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-06 - ND-408: PR #483 reconciled with main and Copilot review triaged
+
+- origin/main advanced past the ND-408 fork point with TASK-381 (PR #459,
+  v0.52.0 bounded Kanban lanes), dependabot bumps, and docs merges, leaving
+  PR #483 CONFLICTING. Merged main into the branch and resolved conflicts in
+  `kanban-columns-grid.tsx` (TASK-381 lane scroller structure kept; ND-408
+  archive auto-open, filtered empty copy, and ND-408 data attributes
+  re-applied on it), plus journal/task-brief conflicts. Product version
+  advanced to v0.53.0 since both sides claimed v0.52.0 and ND-421 targets
+  v0.52.1.
+- Copilot review thread on PR #483 addressed: the archive `<details>` only
+  ever auto-opened while filtering found archived Done matches and was never
+  reset on clear. The open state in `kanban-columns-grid.tsx` is now derived
+  from user intent plus a filter-driven auto-open that dismisses on request:
+  `isArchiveOpen` combines the user's own toggle with
+  (filtering && matches && not dismissed), so ending filters automatically
+  returns the group to its pre-filter open/closed state without storing a
+  snapshot. A guarded `onToggle` distinguishes real user toggles from React's
+  own attribute sync. Regression coverage added in the component suite (three
+  cases: auto-open on filter, restore on clear, dismiss respected); thread
+  replied to and resolved on GitHub. Copilot re-reviewed the reconciled head
+  (2026-09-06): no new threads, and CI gates (Quality Core incl. version
+  policy, E2E Smoke, Tenant Isolation) are green; PR #483 is MERGEABLE with a
+  clean merge state.
+- origin/main advanced again with ND-397 (PR #488, v0.53.0 released
+  2026-09-05), so main was merged a second time; ND-408 now targets v0.54.0
+  with a dated v0.54.0 changelog section holding only the ND-408 entries
+  (shared schema/calendar items moved into main's dated v0.53.0 section;
+  `release:check` requires the bumped version as a dated heading). ND-397's
+  brief and journal entry were preserved; journal re-ordered newest-first.
+
+# 2026-09-05 - ND-408: mobile review iteration (popover alignment + Done button)
+
+- Second review round on the united filter bar (mobile): (1) the popover was
+  not aligned with the Filter trigger at narrow widths — empirically the
+  button is centered beneath the search row and is narrower than it
+  (x45/w285 vs bar x32/w311 at 375px), so a full-width panel could never line
+  up; (2) unclear that selecting options was complete without clicking the
+  trigger again — user asked for an ok/close button beside the clear action.
+- `kanban-filter-bar.tsx`: on viewports < 640px the popover now sizes to the
+  trigger's own rect (no 360px desktop minimum), keeping it pixel-aligned
+  under the button; the panel footer is now always rendered with an explicit
+  **Done** button (default variant, Check icon) that closes the panel and
+  restores focus to the trigger, alongside the conditional Clear all filters.
+- Component suite extended to 15 tests (Done present with and without active
+  filters; closes + restores focus); e2e responsive spec asserts the 375px
+  popover matches the trigger box (x and width within 1px) and shows Done.
+- Validation: lint clean, targeted component suites 27/27, ND-408 Playwright
+  spec 6/6 green against the dockerized PostgreSQL (port 55432). One
+  pointer-drag run failed mid-suite (persisted-order poll timeout) but passed
+  in isolation and again in the full rerun — flake, not regression; the drag
+  code path is untouched by this round.
+- Committed 49a9227 and pushed; PR #483 remains open.
+
+# 2026-09-05 - ND-408: popover review iteration + card brief made precise
+
+- Review feedback on the united filter bar: (1) with several labels/epics the
+  popover opened "way above" the Filter trigger — the old flip rule estimated
+  up to 480px of content and switched to above whenever that did not fit
+  below, stretching the panel to the top of the viewport; (2) a single-column
+  row list would not scale to tens of labels/epics. User direction: anchor
+  below the button, compact layout, plus an in-popover search field and
+  expandable groups; inspiration from facet-filter panels (Zalando-style).
+- Popover rework in `kanban-filter-bar.tsx`: open-below preference with a
+  240px minimum below-space (flip only when genuinely no room, never stretched
+  above), height capped at 520px; Labels/Epics now render as wrap chips in the
+  card-label visual language (color dot idle, pastel fill + check selected;
+  epics use their palette soft/border/accent tones); small search field inside
+  the popover filters options live with a clear button; groups above 12 chips
+  collapse behind "Show all N labels/epics" / "Show fewer" toggles that are
+  bypassed while searching; "No matching options" empty state; option search
+  and group expansion reset when the panel closes. Panel is now a flex column
+  (fixed header + footer, scrolling middle) so long lists cannot clip the
+  Clear all footer.
+- Component suite extended to 14 tests (option search + clear, no-matches
+  state, Show all/Show fewer with reset on reopen); all ND-408 vitest files
+  53/53 green, lint clean, production build green, ND-408 Playwright spec 6/6
+  green against the dockerized PostgreSQL (port 55432, runbook overrides).
+- Nexus Dash card ND-408 was title-only; rewritten per the task-authoring
+  contract in `agent.md` with an HTML rich-text description (Rationale, Scope
+  incl. this review iteration, 7 numbered Acceptance Criteria, Definition of
+  Done) plus the `feature` label. Note: card descriptions are rich text —
+  plain-text angle brackets are parsed as tags and stripped/escaped.
+
 # 2026-09-05 - Nexus Dash task link attachments: agent guidance and edit-gap follow-ups
 
 - The user asked to link follow-up GitHub issue #484 to card ND-421 via the
@@ -39,6 +123,112 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Prettier-formatted the file map table; validation limited to `prettier
   --check` and `git diff --check` (docs-only change).
 
+
+# 2026-09-05 - ND-397: Constrain long task comments with expand/collapse
+
+- Onboarded: read agent.md/project.md/README.md/tasks briefs; verified ND-397
+  on the Nexus Dash board (feature label, Backlog), the user-assigned task for
+  this session. Multi-agent rule applied: created worktree
+  `../nexus_dash_task397` from `origin/main` (1daffc0) on
+  `feature/nd-397-comment-expand-collapse`; the root checkout's uncommitted
+  ND-421 work was left untouched (that agent subsequently committed and pushed
+  it from the root checkout).
+- Root-caused local quirk: `.config/.nd-nexus-dash.env` is UTF-16LE; decoded
+  with iconv before sourcing. Moved board card ND-397 to In Progress via
+  `POST /api/projects/{id}/tasks/{id}/status` `{"status":"In Progress"}`.
+- Implemented `components/kanban/task-comment-body.tsx` (reusable comment body
+  presentation: consistent 7.5rem collapsed cap, measured overflow via
+  `lib/comment-body-overflow.ts`, accessible `Show more`/`Show less` toggle
+  with `aria-expanded`/`aria-controls`, shown only when the rendered body
+  overflows) and wired it into the task detail modal thread in
+  `components/kanban/task-detail-modal.tsx`, the only surface rendering full
+  comment bodies today.
+- Added component coverage (short/no control, long collapsed, expand,
+  re-collapse, generic vs authored aria labels), a unit test for the overflow
+  measure, and `tests/e2e/nd-397-comment-expand-collapse.spec.ts` for
+  real-browser collapsed/expanded behavior with keyboard activation.
+- Validation so far on the worktree (local Postgres on 127.0.0.1:5433
+  container `nexus_dash_task397-postgres-1`, migrations applied): lint clean;
+  full vitest suite 1,225 passed / 2 skipped; coverage and production build
+  re-run after the 0.53.0 bump (first coverage/build pass raced the version
+  bump and failed on an empty package.json read, transient). Release advanced
+  0.52.0 -> 0.53.0 (`release:version -- feature`) with a CHANGELOG Unreleased
+  entry. rls:check/release:check pending; focused Playwright run pending.
+- Commit `ee3feae` pushed; PR to be opened referencing ND-397.
+
+# 2026-09-04 - ND-408: validation and delivery (PR #483)
+
+- Local validation ran against a dockerized PostgreSQL (per
+  `docs/runbooks/local-validation.md`): fresh `nexus_dash-postgres-1` container
+  on POSTGRES_PORT 55432 (5432 was held by a prior-task container, left
+  running), DATABASE_URL/DIRECT_URL overridden to 127.0.0.1, placeholder
+  secrets, and NODE_ENV=test for the e2e phase (skips the prod-only
+  GOOGLE_TOKEN_ENCRYPTION_KEY guard). A throwaway dev key was injected only
+  for the production build, matching the TASK-342 precedent recorded here.
+  Port 3000 was busy (a `nexus_dash_task381` worktree `next start`), so e2e
+  ran with PORT=3100 against the same container.
+- Production build green (exit 0); ND-408 Playwright spec 6/6 green; focused
+  vitest run 50/50 green with scoped coverage at Statements 95.89%, Branches
+  84.92%, Functions 96.61%, Lines 95.85%; `npm run lint`, `npm run rls:check`,
+  and `git diff --check` clean.
+- Two popover close-semantics fixes surfaced by e2e: closing on focus-outside
+  must not steal focus (it broke typing in the search box mid-filter and
+  keyboard drag), so the bar now keeps the panel open for focus inside the bar
+  and closes quietly (no focus hijack) for outside focus/pointerdown; ESC and
+  "Clear all filters" still restore focus to the trigger. Covered by an added
+  unit test.
+- Full `npm test` (137 failures, `prisma.$transaction is not a function`) and
+  full `npm run test:coverage` remain red only because of a pre-existing main
+  breakage (reproduced identically on a pristine tree via stash, twice) and
+  are disclosed in the PR body; this branch introduces no unit-test failure.
+- Delivery: pushed `feature/nd-408-kanban-search-filter` (commits 3e151ad,
+  45b812d, d90d21d) and opened PR #483
+  (https://github.com/dorianagaesse/nexus_dash/pull/483) superseding both open
+  PRs; #469 (TASK-382) and #470 (TASK-384) each received a pointing comment and
+  were closed.
+- Nexus Dash board card (cmtm2qo5w000704kyykbu2s9i) synced to In Progress via
+  the agent API: the PATCH contract exposes no status, so the move used
+  POST /api/projects/{projectId}/tasks/reorder with the full target-lane id
+  list, matching this repo's reorderProjectTasks semantics (only listed task
+  ids are updated; omitted lanes are untouched).
+
+# 2026-09-03 - ND-408: unified Kanban search + label/epic filter bar (unites PRs #469/#470)
+
+- User direction: PR #469 (TASK-382 search + label filters) and PR #470
+  (TASK-384 epic filter) both change the same Kanban area from the shared base
+  `77686d6`; `main` (tip `e151620`) has not touched Kanban files since. Close
+  both as superseded and deliver one united PR with a minimal, self-evident
+  UI: a single search row plus one Filter popover grouping Labels and Epics
+  (incl. "No epic"). No helper text, no result-count pills (consistent with
+  the standing no-explanation-copy preference).
+- Created the Nexus Dash card ND-408 via the agent API (title only, auto-ID),
+  moved it to In Progress, and cut `feature/nd-408-kanban-search-filter` from
+  `origin/main` at `e151620`.
+- Ported the search foundation unchanged from PR A tip `5c9fbce` (service,
+  route, `useKanbanTaskSearch` hook + their tests). Superseded UI from both
+  PRs (toolbar, epic filter, their e2e specs) was replaced by:
+  - `kanban-filter-utils.ts`: search-AND-labels-AND-epics semantics with a
+    "No epic" sentinel, identity short-circuit, and `applyFilteredTaskDrop`
+    mapping visible indices onto full persisted columns (hidden tasks never
+    act as drag anchors).
+  - `kanban-filter-bar.tsx`: search (clear/loading/error+retry) + Filter
+    trigger with active-count badge; hand-rolled portal popover (per
+    `epic-select.tsx` pattern) with `aria-pressed` option rows, ESC/outside/
+    focusin close, and focus return to the trigger.
+  - Board wiring: combined `visibleColumns`/archived filtering, one drag path,
+    stale-epic prune, case-insensitive label Map; grid gets `isFiltering`
+    empty copy and controlled Archive auto-open.
+- Coverage rewrite complete: merged utils semantics matrix + drop mapping,
+  filter-bar component suite (10 tests), consolidated
+  `tests/e2e/nd-408-kanban-search-filter.spec.ts` (combined filters + foreign
+  isolation + archive auto-open, filtered pointer and keyboard drags with
+  interleaved hidden tasks, viewer read-only affordances, 375px/landscape/
+  dark popover containment).
+- Release metadata advanced to v0.52.0 (feature bump from 0.51.0) with a
+  CHANGELOG `## Unreleased` entry; `tasks/current.md` carries the ND-408 brief
+  with the TASK-342 brief preserved under `## Previous Task Snapshot`.
+- Validation and delivery (lint, RLS check, unit/coverage, build, e2e, push,
+  PR superseding #469/#470, board sync) remain as the closing steps.
 # 2026-09-03 - TASK-381 PR #459: Copilot review triage and accessibility fixes
 
 - Copilot completed a review of PR #459 ("Changes recommended") with three
@@ -5287,34 +5477,3 @@ Low-value entries to avoid going forward:
 - Documented the minimum task-authoring contract in `agent.md`: duplicate
   check, outcome-oriented title, rationale, work-type label, testable acceptance
   criteria, focused scope, Related Tasks dependencies, and API read-back.
-# 2026-09-05 - ND-397: Constrain long task comments with expand/collapse
-
-- Onboarded: read agent.md/project.md/README.md/tasks briefs; verified ND-397
-  on the Nexus Dash board (feature label, Backlog), the user-assigned task for
-  this session. Multi-agent rule applied: created worktree
-  `../nexus_dash_task397` from `origin/main` (1daffc0) on
-  `feature/nd-397-comment-expand-collapse`; the root checkout's uncommitted
-  ND-421 work was left untouched (that agent subsequently committed and pushed
-  it from the root checkout).
-- Root-caused local quirk: `.config/.nd-nexus-dash.env` is UTF-16LE; decoded
-  with iconv before sourcing. Moved board card ND-397 to In Progress via
-  `POST /api/projects/{id}/tasks/{id}/status` `{"status":"In Progress"}`.
-- Implemented `components/kanban/task-comment-body.tsx` (reusable comment body
-  presentation: consistent 7.5rem collapsed cap, measured overflow via
-  `lib/comment-body-overflow.ts`, accessible `Show more`/`Show less` toggle
-  with `aria-expanded`/`aria-controls`, shown only when the rendered body
-  overflows) and wired it into the task detail modal thread in
-  `components/kanban/task-detail-modal.tsx`, the only surface rendering full
-  comment bodies today.
-- Added component coverage (short/no control, long collapsed, expand,
-  re-collapse, generic vs authored aria labels), a unit test for the overflow
-  measure, and `tests/e2e/nd-397-comment-expand-collapse.spec.ts` for
-  real-browser collapsed/expanded behavior with keyboard activation.
-- Validation so far on the worktree (local Postgres on 127.0.0.1:5433
-  container `nexus_dash_task397-postgres-1`, migrations applied): lint clean;
-  full vitest suite 1,225 passed / 2 skipped; coverage and production build
-  re-run after the 0.53.0 bump (first coverage/build pass raced the version
-  bump and failed on an empty package.json read, transient). Release advanced
-  0.52.0 -> 0.53.0 (`release:version -- feature`) with a CHANGELOG Unreleased
-  entry. rls:check/release:check pending; focused Playwright run pending.
-- Commit `ee3feae` pushed; PR to be opened referencing ND-397.
