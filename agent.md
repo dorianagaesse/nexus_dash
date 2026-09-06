@@ -61,11 +61,19 @@ a duplicate. A new task must be independently understandable and executable:
 - Keep one implementation outcome per task. Split work when parts can be
   delivered or reviewed independently, then connect the resulting tasks with
   Related Tasks.
+- When a task tracks a GitHub issue or other external resource, attach it to the
+  card at creation as a link attachment (`attachmentLinks` as `{ name, url }`
+  objects, e.g. `"GitHub issue #NNN"`), which the kanban renders as an openable
+  link row on the card. Do not rely on description prose for external URLs.
 
 After creation, read the task back through the agent API and verify its lane,
-description, labels, and Related Tasks. Task creation is not complete until the
-stored task matches the intended contract and no credential, token, or other
-secret appears in its content.
+description, labels, attachments, and Related Tasks. Task creation is not
+complete until the stored task matches the intended contract and no credential,
+token, or other secret appears in its content.
+
+Adding or editing link attachments on an existing task is currently a kanban-UI
+capability (user session only); the agent-side gap is tracked on the Nexus Dash
+board (ND-424, with ND-425 auditing the wider agent API for similar edit gaps).
 
 ## 2. Implementation Quality
 
