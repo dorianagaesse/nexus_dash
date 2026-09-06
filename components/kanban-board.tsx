@@ -27,6 +27,15 @@ import {
 import { CreateTaskDialog } from "@/components/create-task-dialog";
 import { KanbanBoardHeader } from "@/components/kanban/kanban-board-header";
 import { KanbanColumnsGrid } from "@/components/kanban/kanban-columns-grid";
+import { KanbanFilterBar } from "@/components/kanban/kanban-filter-bar";
+import {
+  NO_EPIC_FILTER_VALUE,
+  applyFilteredTaskDrop,
+  buildKanbanSearchRevision,
+  filterKanbanColumns,
+  taskMatchesKanbanFilters,
+} from "@/components/kanban/kanban-filter-utils";
+import { useKanbanTaskSearch } from "@/components/kanban/use-kanban-task-search";
 import { TaskDetailModal } from "@/components/kanban/task-detail-modal";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -266,6 +275,13 @@ export function KanbanBoard({
   const [archivedDoneTasks, setArchivedDoneTasks] = useState<KanbanTask[]>(
     initialArchivedDoneTasks
   );
+  const [taskSearchQuery, setTaskSearchQuery] = useState("");
+  const [selectedLabels, setSelectedLabels] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [selectedEpicFilters, setSelectedEpicFilters] = useState<Set<string>>(
+    () => new Set()
+  );
   const [isSaving, startTransition] = useTransition();
   const [persistError, setPersistError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
@@ -490,19 +506,28 @@ export function KanbanBoard({
   ]);
 
   const allKnownLabels = useMemo(() => {
-    const labels = new Set<string>();
+    const labels = new Map<string, string>();
+
+    const collectLabel = (label: string) => {
+      const key = label.toLocaleLowerCase();
+      if (!labels.has(key)) {
+        labels.set(key, label);
+      }
+    };
 
     TASK_STATUSES.forEach((status) => {
       columns[status].forEach((task) => {
-        task.labels.forEach((label) => labels.add(label));
+        task.labels.forEach(collectLabel);
       });
     });
 
     archivedDoneTasks.forEach((task) => {
-      task.labels.forEach((label) => labels.add(label));
+      task.labels.forEach(collectLabel);
     });
 
-    return Array.from(labels);
+    return Array.from(labels.values()).sort((left, right) =>
+      left.localeCompare(right)
+    );
   }, [archivedDoneTasks, columns]);
 
   const editLabelSuggestions = useMemo(() => {
@@ -530,6 +555,83 @@ export function KanbanBoard({
     () => [...TASK_STATUSES.flatMap((status) => columns[status]), ...archivedDoneTasks],
     [archivedDoneTasks, columns]
   );
+
+  const searchableTaskRevision = useMemo(
+    () => buildKanbanSearchRevision(allTasks),
+    [allTasks]
+  );
+  const {
+    normalizedQuery: normalizedTaskSearchQuery,
+    searchTaskIds: effectiveSearchTaskIds,
+    isLoading: isTaskSearchLoading,
+    error: taskSearchError,
+    retry: retryTaskSearch,
+  } = useKanbanTaskSearch({
+    projectId,
+    query: taskSearchQuery,
+    searchableTaskRevision,
+  });
+  const visibleColumns = useMemo(
+    () =>
+      filterKanbanColumns(
+        columns,
+        effectiveSearchTaskIds,
+        selectedLabels,
+        selectedEpicFilters
+      ),
+    [columns, effectiveSearchTaskIds, selectedEpicFilters, selectedLabels]
+  );
+  const visibleArchivedDoneTasks = useMemo(
+    () =>
+      archivedDoneTasks.filter((task) =>
+        taskMatchesKanbanFilters(
+          task,
+          effectiveSearchTaskIds,
+          selectedLabels,
+          selectedEpicFilters
+        )
+      ),
+    [
+      archivedDoneTasks,
+      effectiveSearchTaskIds,
+      selectedEpicFilters,
+      selectedLabels,
+    ]
+  );
+  const hasActiveFilters =
+    normalizedTaskSearchQuery.length > 0 ||
+    selectedLabels.size > 0 ||
+    selectedEpicFilters.size > 0;
+
+  const toggleLabelFilter = useCallback((label: string) => {
+    setSelectedLabels((previousLabels) => {
+      const nextLabels = new Set(previousLabels);
+      if (nextLabels.has(label)) {
+        nextLabels.delete(label);
+      } else {
+        nextLabels.add(label);
+      }
+      return nextLabels;
+    });
+  }, []);
+
+  const toggleEpicFilter = useCallback((value: string) => {
+    setSelectedEpicFilters((currentFilters) => {
+      const nextFilters = new Set(currentFilters);
+      if (nextFilters.has(value)) {
+        nextFilters.delete(value);
+      } else {
+        nextFilters.add(value);
+      }
+      return nextFilters;
+    });
+  }, []);
+
+  const clearKanbanFilters = useCallback(() => {
+    setTaskSearchQuery("");
+    setSelectedLabels(new Set());
+    setSelectedEpicFilters(new Set());
+  }, []);
 
   const taskById = useMemo(
     () => new Map(allTasks.map((task) => [task.id, task])),
@@ -602,6 +704,27 @@ export function KanbanBoard({
     () => [...epics].sort((left, right) => left.name.localeCompare(right.name)),
     [epics]
   );
+
+  useEffect(() => {
+    const availableEpicIds = new Set(epics.map((epic) => epic.id));
+    setSelectedEpicFilters((currentFilters) => {
+      const nextFilters = new Set(
+        Array.from(currentFilters).filter(
+          (value) =>
+            value === NO_EPIC_FILTER_VALUE || availableEpicIds.has(value)
+        )
+      );
+
+      if (
+        nextFilters.size === currentFilters.size &&
+        Array.from(nextFilters).every((value) => currentFilters.has(value))
+      ) {
+        return currentFilters;
+      }
+
+      return nextFilters;
+    });
+  }, [epics]);
 
   const availableAssignees = useMemo<ProjectTaskCollaborator[]>(
     () =>
@@ -841,25 +964,32 @@ export function KanbanBoard({
       }
 
       const previousColumns = cloneColumns(columns);
-      const nextColumns = cloneColumns(columns);
+      const appliedDrop = applyFilteredTaskDrop({
+        columns,
+        visibleColumns,
+        source: {
+          status: sourceStatus,
+          index: source.index,
+        },
+        destination: {
+          status: destinationStatus,
+          index: destination.index,
+        },
+        mapMovedTask: (task, nextStatus) =>
+          stampTaskActivity(
+            {
+              ...task,
+              status: nextStatus,
+            },
+            currentActorSummary
+          ),
+      });
 
-      const [movedTask] = nextColumns[sourceStatus].splice(source.index, 1);
-
-      if (!movedTask) {
+      if (!appliedDrop) {
         return;
       }
 
-      nextColumns[destinationStatus].splice(
-        destination.index,
-        0,
-        stampTaskActivity(
-          {
-            ...movedTask,
-            status: destinationStatus,
-          },
-          currentActorSummary
-        )
-      );
+      const { columns: nextColumns, movedTask } = appliedDrop;
 
       setColumns(nextColumns);
       syncRelatedTaskSummary(movedTask.id, {
@@ -873,7 +1003,14 @@ export function KanbanBoard({
         void persistColumns(nextColumns, previousColumns);
       });
     },
-    [canEdit, columns, currentActorSummary, persistColumns, syncRelatedTaskSummary]
+    [
+      canEdit,
+      columns,
+      currentActorSummary,
+      persistColumns,
+      syncRelatedTaskSummary,
+      visibleColumns,
+    ]
   );
 
   const closeTaskModal = useCallback(() => {
@@ -2455,17 +2592,34 @@ export function KanbanBoard({
       ) : null}
 
       {isExpanded ? (
-        <KanbanColumnsGrid
-          canEdit={canEdit}
-          columns={columns}
-          archivedDoneTasks={archivedDoneTasks}
-          mentionUsers={availableAssignees}
-          highlightedTaskIds={highlightedTaskIds}
-          onDragEnd={onDragEnd}
-          onSelectTask={handleSelectTask}
-          onEditTask={openTaskInEditMode}
-          onTaskHoverChange={setHoveredTaskId}
-        />
+        <>
+          <KanbanFilterBar
+            query={taskSearchQuery}
+            availableLabels={allKnownLabels}
+            availableEpics={availableEpicOptions}
+            selectedLabels={selectedLabels}
+            selectedEpicFilters={selectedEpicFilters}
+            isSearchLoading={isTaskSearchLoading}
+            searchError={taskSearchError}
+            onQueryChange={setTaskSearchQuery}
+            onToggleLabel={toggleLabelFilter}
+            onToggleEpic={toggleEpicFilter}
+            onClearAll={clearKanbanFilters}
+            onRetrySearch={retryTaskSearch}
+          />
+          <KanbanColumnsGrid
+            canEdit={canEdit}
+            columns={visibleColumns}
+            archivedDoneTasks={visibleArchivedDoneTasks}
+            isFiltering={hasActiveFilters}
+            mentionUsers={availableAssignees}
+            highlightedTaskIds={highlightedTaskIds}
+            onDragEnd={onDragEnd}
+            onSelectTask={handleSelectTask}
+            onEditTask={openTaskInEditMode}
+            onTaskHoverChange={setHoveredTaskId}
+          />
+        </>
       ) : null}
 
       <TaskDetailModal
