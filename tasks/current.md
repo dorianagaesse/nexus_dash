@@ -46,8 +46,9 @@ visible with no extra control.
   less`), `aria-expanded`, and `aria-controls` pointing at the body it
   reveals; it appears only for overflowing comments.
 - Clipping uses `max-height` + `overflow-hidden` with the existing
-  `whitespace-pre-wrap break-words` body classes so words never break and no
-  horizontal layout appears.
+  `whitespace-pre-wrap break-words` body classes: lines wrap at word
+  boundaries, and an unbroken string wider than the line still wraps instead
+  of spilling, so no horizontal layout appears.
 
 ## Out Of Scope
 
