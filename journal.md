@@ -5585,3 +5585,6 @@ Low-value entries to avoid going forward:
   test`/build commands remain unsuitable with this machine's remote `.env`
   because it omits test DB loading and violates the production remote-URL
   split guard; no repository behavior was changed for that local setup.
+- Release reconciliation after current `main` advanced to v0.54.1: ND-178 now
+  advances the product version to v0.55.0 with its own changelog entry, rather
+  than sharing ND-408's v0.54.0 release.
