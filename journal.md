@@ -3,6 +3,43 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-06 - ND-376: external participants as meeting todo assignees implemented
+
+- Implemented on `feature/nd-376-meeting-todo-external-assignees` (worktree
+  `../nexus_dash_nd376_wt`, branched from origin/main at 633278e). Design
+  aligned with the user via AskUserQuestion: a new `participant` value of the
+  shared `MeetingTodoActorKind` enum (additive DB migration
+  `20260906120000_nd376_external_participant_assignees`, no new columns, both
+  FKs null keeps existing CHECK constraints valid), assignable from the
+  meeting-notes panel and the project-wide todos page.
+- Identity is name-keyed: the participant reference id is the trimmed
+  display name, resolved case/whitespace-insensitively against the external
+  participants (`userId: null`) of the *same* meeting note at write time;
+  `assigneeDisplayNameSnapshot` preserves the canonical spelling after later
+  renames/removal. Notes rewrite participants wholesale on save
+  (`deleteMany` + `create`), so no FK is possible — the snapshot pattern is
+  reused. Once the name leaves the note the assignee renders inactive with
+  the needs-reassignment affordance (member-left semantics).
+- Service surface: `buildExternalParticipantMeetingTodoActor` +
+  `getMeetingTodoParticipantNameKey` in `lib/meeting-todo-actor.ts`;
+  `resolveExternalParticipantMeetingTodoActor` in
+  `project-meeting-todo-actor-service.ts`; per-meeting
+  `participantOptions` threaded from the todos page serializer and the notes
+  panel through the assignee chip (new "Meeting participants" group with
+  muted `external` hint mirroring agents; identity rows suffix " (external)").
+  Members/agents stay canonical options even when a member attends the
+  meeting; the `participant` kind is assignee-only — creators, completers,
+  stewards remain human/agent.
+- Coverage: lib suites (actor domain, actor-service mapping/resolution,
+  note-service assignment + create/update draft validation, todo-service
+  options/inactive semantics), component suites (chip group/select, readonly
+  external tag), and a new Playwright e2e test in
+  `project-meeting-todos.spec.ts` assigning a todo to an external participant
+  of the note with persistence read-back.
+- Release metadata: `npm run release:version -- feature` advanced
+  package.json/package-lock to v0.55.0; CHANGELOG gained a dated v0.55.0
+  section (2026-09-06) describing the feature.
+
 # 2026-09-06 - ND-408: PR #483 reconciled with main and Copilot review triaged
 
 - origin/main advanced past the ND-408 fork point with TASK-381 (PR #459,

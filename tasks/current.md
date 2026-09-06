@@ -1,152 +1,134 @@
 # Current Task
 
-## ND-408: Unified Kanban task search and filter bar
+## ND-376: Allow meeting todo assignees who are external participants
 
 ## Status
 
-Delivered: PR #483 (https://github.com/dorianagaesse/nexus_dash/pull/483) is
-open from `feature/nd-408-kanban-search-filter`, superseding PR #469 (TASK-382
-server-backed task search + label filters) and #470 (TASK-384 epic filter),
-which were both commented with pointers and closed. The Nexus Dash board card
-(ND-408) reflects In Progress.
-
-Local validation passed against a dockerized PostgreSQL with env overrides
-(runbook `docs/runbooks/local-validation.md`): production build green, ND-408
-Playwright spec 6/6, focused vitest 50/50 with scoped coverage above
-thresholds, lint/rls:check/diff checks clean. Full `npm test` /
-`npm run test:coverage` remain red only on a pre-existing main breakage
-(`prisma.$transaction is not a function`, reproduced on a pristine tree) that
-predates this branch; see the PR body.
-
-Review iteration (2026-09-05): popover anchored directly below the Filter
-trigger (flip-above only when under 240px of room below, capped at 520px so it
-never stretches to the viewport top), Labels/Epics rendered as compact wrap
-chips in the card-label visual language, an in-popover search field that
-filters options live, and groups beyond 12 chips collapsing behind a
-"Show all N" toggle (auto-expanded while searching). New component tests
-added; ND-408 e2e spec stays green. Nexus Dash card ND-408 description
-rewritten with a precise Rationale/Scope/Acceptance Criteria/Definition of
-Done brief and the `feature` label per the authoring contract in `agent.md`.
-
-Mobile review iteration (2026-09-05, second round): on viewports under 640px
-the popover sizes to the Filter trigger's own rect (the button is centered
-beneath the search row and narrower than it), so it is pixel-aligned with the
-button; the popover footer is now always rendered with an explicit **Done**
-button (Check icon) that closes the panel and restores focus to the trigger,
-alongside the conditional Clear all filters. Component suite at 15 tests and
-the 375px e2e assertion (popover box matches the trigger within 1px, Done
-visible) cover both. Committed 49a9227; PR #483 remains open.
-
-Reconciliation + Copilot round (2026-09-06): `origin/main` advanced past the
-fork point with TASK-381 (v0.52.0), docs/dependabot merges, and then ND-397
-(PR #488, v0.53.0), so main was merged into the branch twice. The
-kanban-columns-grid conflict was resolved by keeping the TASK-381
-lane-scroller structure and re-applying the ND-408 archive auto-open,
-filtered empty copy, and data attributes on it; ND-397's comment
-expand/collapse files merged cleanly. Product version advanced to v0.54.0
-(both sides claimed v0.53.0 after main released it via ND-397; ND-421
-targets v0.52.1), and the CHANGELOG Unreleased keeps only the ND-408
-entries. The Copilot review thread on PR #483 was triaged: the Archive
-open state is now derived from user intent plus a dismissible filter-driven
-auto-open, so clearing filters returns the group to its pre-filter
-open/closed state instead of leaving a filter auto-open behind, with three
-component regression tests. Thread replied to and resolved on GitHub;
-revalidation green.
+In progress on `feature/nd-376-meeting-todo-external-assignees` (worktree
+`../nexus_dash_nd376_wt`, branched from `origin/main` at 633278e). The Nexus
+Dash board card ND-376 (feature label) is the source of truth and moved to In
+Progress on 2026-09-06. No GitHub issue exists for this task; the PR carries
+the ND-376 reference. Design aligned with the user: an external assignee is a
+new `participant` actor kind, assignable from the meeting-notes panel and the
+project-wide todos page.
 
 ## Context
 
-PR #469 and PR #470 both add task-filter UI to the same Kanban board area and
-share the same merge base; `main` has not touched Kanban files since, so their
-changes apply cleanly onto current main except version/docs conflicts. Rather
-than merging two visually heavy, overlapping surfaces (stacked toolbar cards
-with helper text and result-count pills), this task delivers one united,
-self-evident surface: search and filter live on a single compact row.
+Meeting-note todos (`ProjectMeetingNoteAction`) carry an assignee that is
+today restricted to Nexus Dash project members (`human`) or project API
+credentials (`agent`); assignee resolution validates references against the
+project member/credential registry. Meeting participants already support
+external people (no Nexus Dash user, `userId: null` + `displayName`), but a
+todo assignee cannot be one of them. Meeting participants are rewritten on
+every note save (`deleteMany` + `create`), so participant rows have no stable
+id to reference — an assignee representation must be name-based with the
+existing accountability snapshot pattern.
+
+## Product Decisions
+
+- External assignees become a third `participant` value of the shared
+  `MeetingTodoActorKind` enum (TS + DB), persisted through the existing
+  `assigneeKind`/`assigneeDisplayNameSnapshot` columns with no user or
+  credential FK and no new columns. The additive enum migration keeps the
+  existing DB CHECK constraints valid (`participant` rows carry both FKs
+  null).
+- A participant assignee reference is name-keyed: its id is the trimmed
+  participant display name, resolved case/whitespace-insensitively against
+  the external participants of the *same* meeting note at write time
+  (create/update drafts and the dedicated action-assignee endpoint). The
+  persisted snapshot keeps the canonical spelling, so the assignee remains
+  identifiable after later participant renames or removal.
+- A participant assignee renders active/assignable while that name is still
+  an external participant of the note; once removed from the note it renders
+  inactive with the name preserved and the existing needs-reassignment
+  affordance (same semantics as a member who left the project).
+- The assignee picker gains a "Meeting participants" group listing only the
+  note's external participants. Members and agents remain the canonical
+  "Project members"/"Project agents" options even when a member also attends
+  the meeting. The group is available in the meeting-notes panel and on the
+  project-wide todos page (options derived per meeting note).
+- Assignee presentation (chips, identity rows, quick dialog) shows the name
+  with a muted `external` hint for participants, mirroring the existing
+  `agent` hint, so same-name humans and externals stay distinguishable in
+  todo views and outputs.
+- The `participant` kind is valid only in the assignee position; creators,
+  completers, and stewards remain human/agent.
 
 ## Scope
 
-- Port the server-backed search foundation unchanged: `searchProjectTaskIds`
-  service, `/api/projects/{projectId}/tasks/search` route, and the
-  `useKanbanTaskSearch` hook (200ms debounce, abort, error + retry).
-- Unified filter core in `components/kanban/kanban-filter-utils.ts`:
-  search IDs AND labels (all selected) AND epics (any selected, "No epic"
-  matches tasks without an epic), with an identity short-circuit when nothing
-  is active, and filtered drag-drop mapping that keeps hidden tasks in place.
-- `KanbanFilterBar`: search input (clear button, loading spinner, error + retry
-  only) and one Filter trigger (active count badge) opening a portal popover
-  grouping Labels and Epics as multi-select wrap chips (`aria-pressed`, color
-  dot when idle, pastel fill + check when selected). A small search field at
-  the top of the popover filters label/epic options live, groups larger than
-  12 chips collapse behind a "Show all N labels/epics" toggle (auto-expanded
-  while searching), and a footer with an always-present **Done** button (closes
-  the panel, restores focus to the trigger) plus a "Clear all filters" action
-  that appears only while anything is active. The popover opens directly under
-  the trigger and only flips above when there is under 240px of room below; on
-  narrow viewports it sizes to the trigger so it stays aligned with it.
-- Filtered board: empty columns say `No matching <status> tasks`, archived
-  Done matches auto-open the Archive group, and the mobile status navigation
-  keeps working.
-- Viewers keep the filter surface but never get create or drag affordances.
+- Additive `MeetingTodoActorKind` migration (`participant` value) plus TS
+  domain types, reference guards, mapping, and avatar/summary handling.
+- Service-layer resolution for participant references against note-scoped
+  external participants in `createProjectMeetingNote` /
+  `updateProjectMeetingNote` draft assignment and
+  `setProjectMeetingNoteActionAssignee`.
+- Mapping of stored participant assignees to active/inactive summaries in
+  the meeting-note panel reads and the project-wide todo list.
+- Assignee chip group, external hints, and per-note option sets in the
+  meeting-notes panel and project-wide todos page; read-only surfaces
+  unchanged in layout.
+- Focused service, component, and Playwright coverage, including member
+  parity and rejection of unknown/non-participant names.
 
 ## Out Of Scope
 
-- Reintroducing the superseded stacked toolbar UI, helper/explanation copy, or
-  "X / Y tasks" result-count pills (superseding #469/#470 changes them).
-- Clickable label chips on task cards as a second filter surface (the popover
-  is the only filter surface).
-- Server-side filtering/pagination of the board beyond the existing search
-  route; label/epic filtering stays client-side over loaded tasks.
-- Changing Kanban drag behavior, persistence semantics, or board data loading.
+- Converting existing assignee rows or adding participant ids/columns.
+- External stewards, creators, or completers; the participant kind stays
+  assignee-only.
+- Changing participant authoring UX, reminder email recipients (external
+  participants have no account), or notification behavior.
+- Task (kanban) assignees: this touches meeting-note todos only.
 
 ## Acceptance Criteria
 
-1. One search row sits above the board: typing searches server-side across
-   titles, descriptions, references, statuses, labels, epics, assignees,
-   comments, attachments, and related tasks, with debounced loading feedback,
-   a clear button, and an error state offering retry.
-2. One Filter button opens a popover directly under it (flipping above only
-   when there is under 240px of room below, and never stretching to the top of
-   the viewport) grouping Labels and Epics (plus "No epic") as wrap chips with
-   `aria-pressed` and check marks. The trigger shows an active-selection count
-   (labels + epics only); an in-popover search field narrows label/epic
-   options and groups beyond 12 chips hide behind a "Show all N" toggle;
-   "Clear all filters" appears only while search or selections are active and
-   resets everything.
-3. Search, labels (AND), and epics (OR, including "No epic") combine; tasks
-   from other projects never appear, and a task detail modal is not required
-   to understand any state.
-4. Dragging a visible task while filters are active lands relative to visible
-   cards only; tasks hidden by the filter keep their relative order after
-   persistence and reload.
-5. Archived Done tasks matching the active filters surface in an open Archive
-   group; clearing filters restores the un-filtered board exactly.
-6. The filter surface contains no helper text and no result-count pill; at
-   375px, in landscape, and in dark mode the popover stays fully on-screen
-   without horizontal page scroll.
+1. External meeting participants can be selected as todo assignees: the
+   assignee picker on a meeting-note todo offers the note's external
+   participants (a "Meeting participants" group), and picking one persists
+   the assignment with the participant's display name.
+2. Existing Nexus Dash user/member assignment continues to work: member and
+   agent options, resolution, display, and `mine`/responsibility filters
+   behave exactly as before; member participants are not duplicated in the
+   picker.
+3. The assignee remains identifiable in meeting-note todo views and outputs:
+   the stored name renders in the note panel, the project-wide todos page,
+   the todo quick dialog, and assignee identity rows, with an `external`
+   hint; unknown or non-participant names are rejected with
+   `meeting-note-action-assignee-invalid`.
 
 ## Definition Of Done
 
-- Kanban search route/service, filter utilities, filter bar, board wiring, and
-  columns grid are covered by focused unit, component, and Playwright specs
-  (combined filter semantics, filtered drag with interleaved hidden tasks,
-  viewer read-only affordances, clear-all, popover containment).
-- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
-  `npm run build`, and `npm run test:e2e` pass; `git diff --check` is clean.
-- `package.json`/`package-lock.json` advance to v0.54.0, `CHANGELOG.md`
-  carries the `## Unreleased` entry, and `journal.md` logs the execution.
-- The branch is pushed and a ready-for-review PR superseding #469 and #470 is
-  open; both superseded PRs are commented and closed; the Nexus Dash board
-  card reflects the final status.
+- The `participant` actor kind is implemented end to end with an additive
+  migration, service validation scoped to the note's external participants,
+  name-keyed summaries, and picker/read-only presentation on the meeting
+  panel and todos page.
+- Focused service tests cover participant assignment through drafts and the
+  dedicated endpoint (valid external participant, member as participant,
+  renamed/removed participant, unknown name rejection); component tests
+  cover the chip group, external hint, and selection for panel and todos
+  rows; the relevant Playwright spec covers a real-browser external
+  assignee flow.
+- `git diff --check`, `npm run lint`, `npm run rls:check`, `npm run
+  release:check`, `npm test`, `npm run test:coverage`, `npm run build`, and
+  the focused Playwright run are green; the meeting-notes/todos e2e specs
+  stay green.
+- `package.json`/`package-lock.json` advance minor to v0.55.0 and the
+  CHANGELOG release entry documents the feature under a dated v0.55.0
+  section.
+- The Nexus Dash board card ND-376 is updated (In Progress, then Done on
+  delivery) and `tasks/current.md` + `journal.md` reflect the execution.
+- Branch is pushed with an open ready-for-review PR referencing ND-376.
 
 ## Runtime Assumptions
 
-- Local database-backed validation uses the repository `.env` contract and a
-  reachable PostgreSQL instance when migration or E2E execution requires it.
-- The Nexus Dash task card exists (ND-408, created via the agent API) and
-  drives the branch/PR identity; no secrets leave `.env`/`.config` files.
+- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged;
+  the schema change is an additive enum value with no table/column changes.
+- Local validation uses the dockerized PostgreSQL setup from
+  `docs/runbooks/local-validation.md`; preview deployment is not an
+  acceptance requirement for this task.
 
 ## Previous Task Snapshot
 
-The previous `tasks/current.md` brief (TASK-342, released in v0.51.0) is
+The previous `tasks/current.md` brief (ND-408, released in v0.54.0) is
 preserved verbatim below for history.
 
 ---

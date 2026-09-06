@@ -182,6 +182,7 @@ enum ProjectMembershipRole {
 enum MeetingTodoActorKind {
   human
   agent
+  participant
 }
 
 enum ContextCardActorKind {

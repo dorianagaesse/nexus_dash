@@ -5,7 +5,10 @@ import {
   requireAuthenticatedApiUser,
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
-import { isMeetingTodoActorReference } from "@/lib/meeting-todo-actor";
+import {
+  isMeetingTodoActorReference,
+  type MeetingTodoActorReference,
+} from "@/lib/meeting-todo-actor";
 import { logServerWarning } from "@/lib/observability/logger";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
@@ -130,7 +133,7 @@ export async function PATCH(
         assignee:
           payload.assignee === null
             ? null
-            : (payload.assignee as { kind: "human" | "agent"; id: string }),
+            : (payload.assignee as MeetingTodoActorReference),
       });
 
   if (!result.ok) {

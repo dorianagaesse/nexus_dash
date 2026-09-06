@@ -136,6 +136,10 @@ function AssigneeChipBase({
           <span className="ml-1 text-[10px] font-normal text-muted-foreground">
             agent
           </span>
+        ) : actor.kind === "participant" ? (
+          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+            external
+          </span>
         ) : null}
       </span>
       {needsReassignment ? (
@@ -283,6 +287,10 @@ export function MeetingTodoAssigneeChip({
     () => options.filter((actor) => actor.kind === "agent"),
     [options]
   );
+  const participants = useMemo(
+    () => options.filter((actor) => actor.kind === "participant"),
+    [options]
+  );
 
   useEffect(() => {
     if (!isOpen) {
@@ -299,7 +307,7 @@ export function MeetingTodoAssigneeChip({
       setPopoverPosition(
         resolvePopoverPlacement({
           triggerRect: rect,
-          optionCount: humans.length + agents.length + 1,
+          optionCount: humans.length + agents.length + participants.length + 1,
         })
       );
     };
@@ -336,7 +344,7 @@ export function MeetingTodoAssigneeChip({
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, humans.length, agents.length]);
+  }, [isOpen, humans.length, agents.length, participants.length]);
 
   const selectOption = (option: MeetingTodoActorReference | null) => {
     onChange(option);
@@ -530,6 +538,50 @@ export function MeetingTodoAssigneeChip({
                         </span>
                         <span className="block truncate text-xs text-muted-foreground">
                           Active credential
+                        </span>
+                      </span>
+                      {isSelected ? (
+                        <Check className="h-4 w-4 shrink-0 text-foreground" aria-hidden />
+                      ) : null}
+                    </button>
+                  );
+                })}
+
+                {participants.length > 0 ? (
+                  <div
+                    role="presentation"
+                    className="px-2.5 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+                  >
+                    External participants
+                  </div>
+                ) : null}
+                {participants.map((actor) => {
+                  const key = getMeetingTodoActorKey(actor);
+                  const isSelected = key === currentKey;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      className="flex min-h-12 w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+                      onClick={() => selectOption({ kind: actor.kind, id: actor.id })}
+                    >
+                      <span
+                        aria-hidden
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-border/60 bg-primary/10 text-xs font-semibold text-primary"
+                      >
+                        {actor.displayName.trim().charAt(0).toUpperCase() || "?"}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-foreground">
+                          {actor.displayName}
+                          <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                            external
+                          </span>
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          External participant
                         </span>
                       </span>
                       {isSelected ? (

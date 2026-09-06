@@ -1,7 +1,11 @@
 import { ProjectMembershipRole } from "@prisma/client";
 
 import { isMeetingTodoOverdueAt } from "@/lib/meeting-todo";
-import type { MeetingTodoActorSummary } from "@/lib/meeting-todo-actor";
+import {
+  buildExternalParticipantMeetingTodoActor,
+  getMeetingTodoParticipantNameKey,
+  type MeetingTodoActorSummary,
+} from "@/lib/meeting-todo-actor";
 import {
   buildProjectPrincipalWhere,
   hasRequiredRole,
@@ -24,6 +28,7 @@ export interface ProjectMeetingTodoSummary {
   creator: MeetingTodoActorSummary | null;
   assignee: MeetingTodoActorSummary | null;
   completedBy: MeetingTodoActorSummary | null;
+  participantOptions: MeetingTodoActorSummary[];
   meeting: {
     id: string;
     title: string;
@@ -97,6 +102,12 @@ export async function listProjectMeetingTodos(input: {
             scheduledAt: true,
             status: true,
             createdAt: true,
+            participants: {
+              select: {
+                userId: true,
+                displayName: true,
+              },
+            },
             actions: {
               orderBy: [{ position: "asc" }, { createdAt: "asc" }],
               select: {
@@ -147,8 +158,24 @@ export async function listProjectMeetingTodos(input: {
         : (project.memberships[0]?.role ?? ProjectMembershipRole.viewer);
     const canEdit = hasRequiredRole(role, ProjectMembershipRole.editor);
     const referenceNowMs = input.referenceNowMs ?? Date.now();
-    const todos = project.meetingNotes.flatMap((meeting) =>
-      meeting.actions.map((action) => ({
+    const todos = project.meetingNotes.flatMap((meeting) => {
+      const participantOptions: MeetingTodoActorSummary[] = [];
+      const noteExternalParticipantNameKeys = new Set<string>();
+      for (const participant of meeting.participants) {
+        if (participant.userId !== null) {
+          continue;
+        }
+        const option = buildExternalParticipantMeetingTodoActor({
+          displayName: participant.displayName,
+          isCurrentParticipant: true,
+        });
+        participantOptions.push(option);
+        noteExternalParticipantNameKeys.add(
+          getMeetingTodoParticipantNameKey(option.displayName)
+        );
+      }
+
+      return meeting.actions.map((action) => ({
         id: action.id,
         content: action.content,
         completedAt: action.completedAt,
@@ -188,6 +215,7 @@ export async function listProjectMeetingTodos(input: {
                 action.assigneeUserId &&
                   actorRegistry?.activeHumanIds.has(action.assigneeUserId)
               ),
+              noteExternalParticipantNameKeys,
             })
           : null,
         completedBy: action.completedByKind
@@ -206,14 +234,15 @@ export async function listProjectMeetingTodos(input: {
               ),
             })
           : null,
+        participantOptions,
         meeting: {
           id: meeting.id,
           title: meeting.title,
           scheduledAt: meeting.scheduledAt,
           status: meeting.status,
         },
-      }))
-    );
+      }));
+    });
     const open = todos
       .filter((todo) => todo.completedAt === null)
       .sort((left, right) => {

@@ -79,6 +79,7 @@ import {
   type ProjectMeetingTodo,
 } from "@/lib/meeting-todo";
 import {
+  buildExternalParticipantMeetingTodoActor,
   getMeetingTodoActorKey,
   type MeetingTodoActorReference,
   type MeetingTodoActorSummary,
@@ -107,6 +108,27 @@ interface ProjectMeetingNotesPanelProps {
 }
 
 export type StewardFilterValue = "all" | "mine" | "unassigned";
+
+function mergeAssigneeOptions(
+  base: MeetingTodoActorSummary[],
+  participants: Array<{ userId: string | null; displayName: string }>
+): MeetingTodoActorSummary[] {
+  const external = participants.filter(
+    (participant) => participant.userId === null
+  );
+  if (external.length === 0) {
+    return base;
+  }
+  return [
+    ...base,
+    ...external.map((participant) =>
+      buildExternalParticipantMeetingTodoActor({
+        displayName: participant.displayName,
+        isCurrentParticipant: true,
+      })
+    ),
+  ];
+}
 
 function normalizeStewardFilter(
   value: string | null | undefined
@@ -1393,10 +1415,11 @@ export function ProjectMeetingNotesPanel({
 
   const updateDraftActionAssignee = (
     actionId: string,
-    assignee: MeetingTodoActorReference | null
+    assignee: MeetingTodoActorReference | null,
+    participants: Array<{ userId: string | null; displayName: string }>
   ) => {
     const selectedActor = assignee
-      ? (todoActors.find(
+      ? (mergeAssigneeOptions(todoActors, participants).find(
           (actor) =>
             getMeetingTodoActorKey(actor) === getMeetingTodoActorKey(assignee)
         ) ?? null)
@@ -2529,11 +2552,15 @@ export function ProjectMeetingNotesPanel({
                                 <MeetingTodoAssigneeChip
                                   id={`meeting-todo-assignee-${action.id}`}
                                   value={action.assignee ?? null}
-                                  options={todoActors}
+                                  options={mergeAssigneeOptions(
+                                    todoActors,
+                                    selectedNote.participants
+                                  )}
                                   onChange={(assignee) =>
                                     updateDraftActionAssignee(
                                       action.id,
-                                      assignee
+                                      assignee,
+                                      selectedNote.participants
                                     )
                                   }
                                   disabled={isSaving}

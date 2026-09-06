@@ -140,6 +140,45 @@ async function createProjectTodoFixture(userId: string) {
 }
 
 test.describe("project meeting todos", () => {
+  test("assigns a todo to an external meeting participant", async ({ page }) => {
+    const userId = await signInAsVerifiedUser(page);
+    const fixture = await createProjectTodoFixture(userId);
+
+    await page.goto(`/projects/${fixture.ownerProjectId}/todos`);
+
+    const accountableTodo = page.locator("li", {
+      hasText: "Complete the mobile navigation audit",
+    });
+    const assigneeChip = accountableTodo.locator(
+      "[data-meeting-todo-assignee-chip='true']"
+    );
+    const assignmentResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        /\/meeting-notes\/[^/]+\/actions\/[^/]+$/.test(response.url()) &&
+        response.ok()
+    );
+    await assigneeChip.click();
+    await expect(
+      page.getByRole("option", { name: /External participant/ }).first()
+    ).toBeVisible();
+    await page
+      .getByRole("option", { name: /External participant/ })
+      .filter({ hasText: "Dorian" })
+      .click();
+    await assignmentResponse;
+    await expect(
+      page.locator("[aria-live='polite']").getByText("Assigned to Dorian.")
+    ).toBeVisible();
+
+    await page.reload();
+    const persistedChip = page.locator("li", {
+      hasText: "Complete the mobile navigation audit",
+    }).locator("[data-meeting-todo-assignee-chip='true']");
+    await expect(persistedChip).toContainText("Dorian");
+    await expect(persistedChip).toContainText("external");
+  });
+
   test("uses a project-scoped route and grouped mobile navigation", async ({
     page,
   }) => {

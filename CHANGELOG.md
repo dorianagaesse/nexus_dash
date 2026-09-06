@@ -4,9 +4,23 @@ Product releases use SemVer-style pre-1.0 versioning. Keep build identity
 separate from product version: release entries describe `v0.x.y`, while commit
 SHA, deployment URL, and workflow run belong in release evidence.
 
-## Unreleased
+## v0.55.0 - 2026-09-06
 
-- Define each release entry before the product-impacting PR is merged.
+- Meeting todo assignees can now be external participants (ND-376): the
+  assignee picker offers an "External participants" group listing the owning
+  meeting note's external participants on the meeting-notes panel and the
+  project-wide todos page, and picking one persists the assignment under the
+  participant's display name.
+- External participant assignees render with a muted `external` hint wherever
+  assignees appear, stay assignable while their name is still a participant
+  of the note, and keep their stored name with the needs-reassignment
+  treatment when removed or renamed.
+- Members and agents remain the canonical project assignee options (member
+  participants are not duplicated in the picker), and creators, completers,
+  and stewards stay restricted to humans and agents.
+- Added migration, service, component, and browser coverage for external
+  participant assignment, member parity, and rejection of unknown or
+  non-participant names.
 
 ## v0.54.0 - 2026-09-06
 

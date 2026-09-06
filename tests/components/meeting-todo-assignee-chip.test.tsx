@@ -58,6 +58,16 @@ const AGENT: MeetingTodoActorSummary = {
   isAssignable: true,
 };
 
+const PARTICIPANT: MeetingTodoActorSummary = {
+  kind: "participant",
+  id: "Ada Lovelace",
+  displayName: "Ada Lovelace",
+  usernameTag: null,
+  avatarSeed: null,
+  status: "active",
+  isAssignable: true,
+};
+
 interface HarnessProps {
   initialValue?: MeetingTodoActorReference | null;
   options?: MeetingTodoActorSummary[];
@@ -210,6 +220,53 @@ describe("meeting-todo-assignee-chip", () => {
 
     expect(container.textContent).toContain("owner");
     expect(document.querySelector('[role="listbox"]')).toBeNull();
+  });
+
+  test("lists external participants in their own group and selects one", async () => {
+    act(() => {
+      root.render(<Harness options={[...HUMANS, AGENT, PARTICIPANT]} />);
+    });
+
+    const chip = container.querySelector(
+      "[data-meeting-todo-assignee-chip='true']"
+    ) as HTMLButtonElement;
+    await act(async () => {
+      chip.click();
+      await Promise.resolve();
+    });
+
+    const listbox = document.querySelector('[role="listbox"]');
+    expect(listbox?.textContent).toContain("External participants");
+    expect(listbox?.textContent).toContain("Ada Lovelace");
+
+    const participantOption = Array.from(
+      listbox?.querySelectorAll('[role="option"]') ?? []
+    ).find((option) => option.textContent?.includes("External participant")) as
+      | HTMLButtonElement
+      | undefined;
+    expect(participantOption).toBeDefined();
+    await act(async () => {
+      participantOption?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("Ada Lovelace");
+    expect(container.textContent).toContain("external");
+    expect(document.querySelector('[role="listbox"]')).toBeNull();
+  });
+
+  test("readonly chip marks an external participant assignee", () => {
+    act(() => {
+      root.render(
+        <MeetingTodoAssigneeChipReadonly actor={PARTICIPANT} />
+      );
+    });
+
+    expect(
+      container.querySelector("[data-meeting-todo-assignee-chip='true']")
+    ).toBeNull();
+    expect(container.textContent).toContain("Ada Lovelace");
+    expect(container.textContent).toContain("external");
   });
 
   test("readonly chip renders the display name without an interactive trigger", () => {
