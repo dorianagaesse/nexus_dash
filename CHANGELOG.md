@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.55.0 - 2026-09-06
+## v0.56.0 - 2026-09-07
 
 - Task changes made through the agent API now carry first-class actor
   identity: every create and edit is attributed to the acting agent
@@ -20,6 +20,18 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Consolidated project actor vocabulary, resolution, and registry building
   behind one canonical contract shared by meeting-note and context-card
   stewardship, with prior behavior and error codes preserved.
+- Task-detail attribution now gives agent creators and editors the same
+  dedicated robot avatar used for agent-authored comments.
+
+## v0.55.0 - 2026-09-06
+
+- Added Codex-style Markdown list shortcuts to the task description editor
+  (ND-379): typing `* ` or `- ` at the start of a paragraph converts the whole
+  line into a bulleted list item on the spot, preserving inline formatting and
+  mentions, while the space stays literal text when the marker is not at the
+  line start or the line already lives inside a list, quote, code block, or
+  heading. Native list editing continues unchanged after the conversion, and
+  the undo stack restores the typed marker as a single step.
 
 ## v0.54.1 - 2026-09-06
 
