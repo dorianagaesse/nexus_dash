@@ -7,10 +7,13 @@ SHA, deployment URL, and workflow run belong in release evidence.
 ## v0.55.0 - 2026-09-06
 
 - Meeting todo assignees can now be external participants (ND-376): the
-  assignee picker offers an "External participants" group listing the owning
-  meeting note's external participants on the meeting-notes panel and the
-  project-wide todos page, and picking one persists the assignment under the
-  participant's display name.
+  assignee picker lists the owning meeting note's external participants
+  alongside members and agents in one uniform list — no group headers or
+  subtitles, with the avatar already distinguishing actor kinds — on the
+  meeting-notes panel and the project-wide todos page, and picking one
+  persists the assignment under the participant's display name. The option
+  list scrolls when it exceeds the viewport, styled with the app-wide slim
+  scrollbar.
 - External participant assignees render with a muted `external` hint wherever
   assignees appear, stay assignable while their name is still a participant
   of the note, and keep their stored name with the needs-reassignment

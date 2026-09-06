@@ -6,20 +6,27 @@
 
 Delivered: PR #490 (https://github.com/dorianagaesse/nexus_dash/pull/490) is
 open from `feature/nd-376-meeting-todo-external-assignees` (worktree
-`../nexus_dash_nd376_wt`, branched from `origin/main` at 633278e; commit
-9cfe48f). The Nexus Dash board card ND-376 (feature label) is the source of
-truth and moved to In Progress on 2026-09-06; flipped to Done when the PR
-merges. No GitHub issue exists for this task; the PR carries the ND-376
-reference. Design aligned with the user: an external assignee is a new
-`participant` actor kind, assignable from the meeting-notes panel and the
-project-wide todos page.
+`../nexus_dash_nd376_wt`, branched from `origin/main` at 633278e). The Nexus
+Dash board card ND-376 (feature label) is the source of truth; flipped to
+Done on delivery, awaiting the merge. No GitHub issue exists for this task;
+the PR carries the ND-376 reference. Design aligned with the user: an
+external assignee is a new `participant` actor kind, assignable from the
+meeting-notes panel and the project-wide todos page.
+
+A user feedback round on the picker (2026-09-06) was incorporated after a
+merge of `origin/main` (380ee21, ND-421 #487 / v0.54.1): the assignee
+popover now lists members, agents, and external participants in one uniform
+list with no group headers or subtitles; the option list is a single
+scrollable element that actually scrolls with the app-wide slim scrollbar
+styling. Regression coverage updated in the component suite and the e2e
+spec selectors.
 
 Local validation passed (2026-09-06) against a dockerized PostgreSQL on port
 55432 with app env merged from the main checkout's `.env` and local DB
 overrides: lint, `rls:check`, `release:check`, and `git diff --check` clean;
-full Vitest 178 files / 1304 tests passed; coverage above thresholds
-(statements 92.93%); production build green; full Playwright suite 47 passed
-/ 1 skipped including the new external-assignee spec.
+full Vitest 178 files / 1305 tests passed; coverage above thresholds
+(statements 92.93%); production build green; full Playwright suite green
+including the external-assignee and mobile-navigation specs.
 
 ## Context
 
@@ -51,11 +58,13 @@ existing accountability snapshot pattern.
   an external participant of the note; once removed from the note it renders
   inactive with the name preserved and the existing needs-reassignment
   affordance (same semantics as a member who left the project).
-- The assignee picker gains a "Meeting participants" group listing only the
-  note's external participants. Members and agents remain the canonical
-  "Project members"/"Project agents" options even when a member also attends
-  the meeting. The group is available in the meeting-notes panel and on the
-  project-wide todos page (options derived per meeting note).
+- The assignee picker presents every candidate in one uniform list: the
+  note's external participants alongside project members and agents with no
+  group headers or subtitles (avatar style already distinguishes actor
+  kinds), and member participants are not duplicated. The list is available
+  in the meeting-notes panel and on the project-wide todos page (options
+  derived per meeting note), scrolls when options exceed the viewport, and
+  uses the app-wide slim scrollbar styling.
 - Assignee presentation (chips, identity rows, quick dialog) shows the name
   with a muted `external` hint for participants, mirroring the existing
   `agent` hint, so same-name humans and externals stay distinguishable in
@@ -73,8 +82,8 @@ existing accountability snapshot pattern.
   `setProjectMeetingNoteActionAssignee`.
 - Mapping of stored participant assignees to active/inactive summaries in
   the meeting-note panel reads and the project-wide todo list.
-- Assignee chip group, external hints, and per-note option sets in the
-  meeting-notes panel and project-wide todos page; read-only surfaces
+- Uniform assignee picker list, external hints, and per-note option sets in
+  the meeting-notes panel and project-wide todos page; read-only surfaces
   unchanged in layout.
 - Focused service, component, and Playwright coverage, including member
   parity and rejection of unknown/non-participant names.
@@ -92,8 +101,8 @@ existing accountability snapshot pattern.
 
 1. External meeting participants can be selected as todo assignees: the
    assignee picker on a meeting-note todo offers the note's external
-   participants (a "Meeting participants" group), and picking one persists
-   the assignment with the participant's display name.
+   participants in one uniform list alongside members and agents, and
+   picking one persists the assignment with the participant's display name.
 2. Existing Nexus Dash user/member assignment continues to work: member and
    agent options, resolution, display, and `mine`/responsibility filters
    behave exactly as before; member participants are not duplicated in the
@@ -113,9 +122,10 @@ existing accountability snapshot pattern.
 - Focused service tests cover participant assignment through drafts and the
   dedicated endpoint (valid external participant, member as participant,
   renamed/removed participant, unknown name rejection); component tests
-  cover the chip group, external hint, and selection for panel and todos
-  rows; the relevant Playwright spec covers a real-browser external
-  assignee flow.
+  cover the uniform option list (no headers/subtitles, scrollable with the
+  app-wide scrollbar styling), the external hint, and selection for panel
+  and todos rows; the relevant Playwright spec covers a real-browser
+  external assignee flow.
 - `git diff --check`, `npm run lint`, `npm run rls:check`, `npm run
   release:check`, `npm test`, `npm run test:coverage`, `npm run build`, and
   the focused Playwright run are green; the meeting-notes/todos e2e specs

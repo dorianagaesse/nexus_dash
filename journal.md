@@ -3,6 +3,38 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-06 - ND-376: assignee picker feedback round (uniform list, scrolling, app-wide scrollbar)
+
+- User review of the PR #490 picker asked for three changes: one uniform
+  option list with no distinction between project members, agents, and
+  external participants (no subtitles — the avatar already distinguishes
+  kinds); the popover list did not actually scroll; and its scrollbar did
+  not match the app-wide slim styling. Reworked
+  `components/meeting-todos/meeting-todo-assignee-chip.tsx`: the three
+  group memos/headers (Project members / Project agents / External
+  participants), per-kind subtitles, and kind tags were dropped for a single
+  `options.map` over the actor registry; the nested outer
+  `overflow-hidden`/inner `overflow-y-auto` scrollers collapsed into one
+  fixed, scrollable popover element; the listbox now carries the same
+  seven-token slim scrollbar class array (joined, per-file copy of the
+  ND-421 pattern) used by the Kanban lane and task modal scrollers. Row
+  height estimate lowered to 48 px for the single-line rows.
+- Coverage updated: component suite gained a regression test asserting one
+  option per actor plus Unassigned, absence of every former header/subtitle
+  string, and that the listbox element is the scroll container with the
+  slim scrollbar tokens; existing popover tests now assert the uniform list.
+  The e2e spec's option locators were rewritten for the flat list — the
+  external participant option is matched by its own name (`/^Dorian$/`) and
+  the fixture member by its username tag (`/#\d+/` filter), because
+  `mapTaskPersonSummary` prefers `username` over `name` as displayName, so
+  the "E2E Smoke User" name never renders in the list.
+- Branch was reconciled with `origin/main` first (merge 380ee21 pulling in
+  ND-421 #487 / v0.54.1); conflicts were confined to release metadata
+  (kept v0.55.0), `journal.md`, and the `tasks/current.md` brief chain
+  (rebuilt ND-376 → ND-421 → ND-408 → TASK-342). CHANGELOG v0.55.0 and the
+  task brief's Product Decisions/Scope/AC/DoD wording now describe the
+  uniform list and scrolling behavior.
+
 # 2026-09-06 - ND-376: external participants as meeting todo assignees implemented
 
 - Implemented on `feature/nd-376-meeting-todo-external-assignees` (worktree

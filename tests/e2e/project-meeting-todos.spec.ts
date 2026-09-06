@@ -159,13 +159,9 @@ test.describe("project meeting todos", () => {
         response.ok()
     );
     await assigneeChip.click();
-    await expect(
-      page.getByRole("option", { name: /External participant/ }).first()
-    ).toBeVisible();
-    await page
-      .getByRole("option", { name: /External participant/ })
-      .filter({ hasText: "Dorian" })
-      .click();
+    const dorianOption = page.getByRole("option", { name: /^Dorian$/ });
+    await expect(dorianOption).toBeVisible();
+    await dorianOption.click();
     await assignmentResponse;
     await expect(
       page.locator("[aria-live='polite']").getByText("Assigned to Dorian.")
@@ -238,10 +234,8 @@ test.describe("project meeting todos", () => {
       expect(verticalOverlap).toBeGreaterThan(0);
     }
     await assigneeChip.click();
-    await page
-      .getByRole("option", { name: /Project member/ })
-      .first()
-      .click();
+    // the fixture member renders as its username tag (displayName prefers username over name)
+    await page.getByRole("option").filter({ hasText: /#\d+/ }).click();
     await assignmentResponse;
     await expect(
       page.locator("[aria-live='polite']").getByText(/^Assigned to .+\.$/)
