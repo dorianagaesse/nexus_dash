@@ -2177,6 +2177,78 @@ describe("rich-text-editor", () => {
       });
     });
 
+    test("does not convert inside a code block", async () => {
+      const initialValue =
+        createRichTextCodeBlock("npm run lint") ??
+        '<pre data-rich-block="code"><code>npm run lint</code></pre>';
+      const { container, root } = createTestRenderer();
+
+      await renderWithRoot(
+        root,
+        React.createElement(EditorHarness, { initialValue })
+      );
+
+      const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+      const codeText = editor?.querySelector(
+        'pre[data-rich-block="code"] code'
+      )?.firstChild;
+
+      expect(codeText?.nodeType).toBe(Node.TEXT_NODE);
+
+      await typeCharacter(editor, codeText, "*", 0);
+
+      const notCancelled = await pressSpace(editor);
+
+      const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+      expect(notCancelled).toBe(true);
+      expect(editor?.querySelector("ul")).toBeNull();
+      expect(persistedValue).toContain(
+        '<pre data-rich-block="code"><code>*npm run lint</code></pre>'
+      );
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("does not convert inside a token block", async () => {
+      const initialValue = createRichTextTokenBlock("secret-token") ?? "";
+      const { container, root } = createTestRenderer();
+
+      await renderWithRoot(
+        root,
+        React.createElement(EditorHarness, { initialValue })
+      );
+
+      const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+      const tokenInput = container.querySelector(
+        'input[data-editor-token-input="true"]'
+      ) as HTMLInputElement | null;
+
+      expect(editor).not.toBeNull();
+      expect(tokenInput).not.toBeNull();
+
+      let notCancelled = true;
+      await act(async () => {
+        tokenInput?.focus();
+        tokenInput?.setSelectionRange(0, 0);
+        ({ notCancelled } = dispatchKeyDown(tokenInput, { key: " " }));
+      });
+
+      const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+      expect(notCancelled).toBe(true);
+      expect(editor?.querySelector("ul")).toBeNull();
+      expect(persistedValue).toContain(
+        '<div data-rich-block="token"><code>secret-token</code></div>'
+      );
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
     test("converting a formatted line preserves its inline formatting", async () => {
       const { container, root } = createTestRenderer();
 
