@@ -40,6 +40,7 @@ import {
   RelatedTaskSelector,
   type RelatedTaskOption,
 } from "@/components/kanban/related-task-field";
+import { TaskCommentBody } from "@/components/kanban/task-comment-body";
 import { TaskDeadlineField } from "@/components/kanban/task-deadline-field";
 import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
 import { RichTextContent } from "@/components/rich-text-content";
@@ -1473,9 +1474,12 @@ function TaskReadOnlyContent({
                           {formatTaskCommentTimestamp(comment.createdAt)}
                         </p>
                       </div>
-                      <p className="mt-1 whitespace-pre-wrap break-words text-sm text-foreground">
-                        {renderContentWithMentions(comment.content, { mentionUsers })}
-                      </p>
+                      <TaskCommentBody
+                        commentId={comment.id}
+                        authorDisplayName={comment.author.displayName}
+                        content={comment.content}
+                        mentionUsers={mentionUsers}
+                      />
                       {canEdit ? (
                         <div className="mt-1.5 flex flex-wrap items-center gap-1">
                           {(taskCommentReactions.get(comment.id) ?? []).map((reaction) => (
