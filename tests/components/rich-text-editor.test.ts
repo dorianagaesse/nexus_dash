@@ -1861,4 +1861,388 @@ describe("rich-text-editor", () => {
       root.unmount();
     });
   });
+
+  describe("list shortcuts", () => {
+    async function typeCharacter(
+      editor: HTMLDivElement | null,
+      textNode: Node | null,
+      character: string,
+      offset: number
+    ) {
+      expect(editor).not.toBeNull();
+      expect(textNode).not.toBeNull();
+
+      selectTextPosition(textNode, offset);
+
+      await act(async () => {
+        (textNode as Text).insertData(offset, character);
+      });
+
+      selectTextPosition(textNode, offset + character.length);
+
+      await act(async () => {
+        dispatchBeforeInput(editor);
+        editor?.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    }
+
+    async function pressSpace(editor: HTMLDivElement | null) {
+      let notCancelled = true;
+      await act(async () => {
+        ({ notCancelled } = dispatchKeyDown(editor, { key: " " }));
+      });
+      return notCancelled;
+    }
+
+    test("converts a whole line after '* ' is typed at its start", async () => {
+      const { container, root } = createTestRenderer();
+
+      await renderWithRoot(
+        root,
+        React.createElement(EditorHarness, { initialValue: "<p>existing text</p>" })
+      );
+
+      const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+      const paragraph = editor?.querySelector("p");
+      const textNode = paragraph?.firstChild;
+
+      await typeCharacter(editor, textNode, "*", 0);
+
+      const notCancelled = await pressSpace(editor);
+
+      const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+      expect(notCancelled).toBe(false);
+      expect(persistedValue).toBe("<ul><li>existing text</li></ul>");
+      expect(editor?.querySelector("ul li")).not.toBeNull();
+      expect(editor?.querySelector("p")).toBeNull();
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("converts a whole line after '- ' is typed at its start", async () => {
+      const { container, root } = createTestRenderer();
+
+      await renderWithRoot(
+        root,
+        React.createElement(EditorHarness, { initialValue: "<p>existing text</p>" })
+      );
+
+      const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+      const paragraph = editor?.querySelector("p");
+      const textNode = paragraph?.firstChild;
+
+      await typeCharacter(editor, textNode, "-", 0);
+
+      const notCancelled = await pressSpace(editor);
+
+      const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+      expect(notCancelled).toBe(false);
+      expect(persistedValue).toBe("<ul><li>existing text</li></ul>");
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("converts a bare root text node into a bullet item", async () => {
+      const { container, root } = createTestRenderer();
+
+      await renderWithRoot(
+        root,
+        React.createElement(EditorHarness, { initialValue: "" })
+      );
+
+      const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+
+      await act(async () => {
+        if (editor) {
+          editor.innerHTML = "*";
+        }
+      });
+
+      const textNode = editor?.firstChild;
+
+      expect(textNode?.nodeType).toBe(Node.TEXT_NODE);
+
+      selectTextPosition(textNode, 1);
+
+      const notCancelled = await pressSpace(editor);
+
+      const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+      expect(notCancelled).toBe(false);
+      expect(persistedValue).toBe("<ul><li></li></ul>");
+      expect(editor?.querySelector("ul li")).not.toBeNull();
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("converts a bare root text node when the caret sits on the editor element", async () => {
+      const { container, root } = createTestRenderer();
+
+      await renderWithRoot(
+        root,
+        React.createElement(EditorHarness, { initialValue: "" })
+      );
+
+      const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+
+      await act(async () => {
+        if (editor) {
+          editor.innerHTML = "*";
+        }
+      });
+
+      expect(editor?.firstChild?.nodeType).toBe(Node.TEXT_NODE);
+
+      // Chromium restores the caret onto the editor element between text
+      // nodes after each input pass, so the caret container is not a text
+      // node even though the whole line is one.
+      selectNodeOffset(editor, 1);
+
+      const notCancelled = await pressSpace(editor);
+
+      const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+      expect(notCancelled).toBe(false);
+      expect(persistedValue).toBe("<ul><li></li></ul>");
+      expect(editor?.querySelector("ul li")).not.toBeNull();
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("keeps the caret inside the new list item for continued typing", async () => {
+      const { container, root } = createTestRenderer();
+
+      await renderWithRoot(
+        root,
+        React.createElement(EditorHarness, { initialValue: "<p>text</p>" })
+      );
+
+      const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+      const textNode = editor?.querySelector("p")?.firstChild;
+
+      await typeCharacter(editor, textNode, "*", 0);
+      await pressSpace(editor);
+
+      const selection = window.getSelection();
+      const listItem = editor?.querySelector("ul li");
+
+      expect(listItem).not.toBeNull();
+      expect(listItem?.contains(selection?.anchorNode ?? null)).toBe(true);
+      expect(selection?.anchorNode).toBe(listItem);
+      expect(listItem?.childNodes[selection?.anchorOffset ?? -1]?.textContent).toBe("text");
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("leaves the space as plain text when the marker is not at the line start", async () => {
+      const { container, root } = createTestRenderer();
+
+      await renderWithRoot(
+        root,
+        React.createElement(EditorHarness, { initialValue: "<p>abc</p>" })
+      );
+
+      const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+      const textNode = editor?.querySelector("p")?.firstChild;
+
+      await typeCharacter(editor, textNode, "*", 3);
+
+      const notCancelled = await pressSpace(editor);
+
+      const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+      expect(notCancelled).toBe(true);
+      expect(persistedValue).toBe("<p>abc*</p>");
+      expect(editor?.querySelector("ul")).toBeNull();
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("leaves '** ' as plain text instead of converting", async () => {
+      const { container, root } = createTestRenderer();
+
+      await renderWithRoot(
+        root,
+        React.createElement(EditorHarness, { initialValue: "<p>text</p>" })
+      );
+
+      const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+      const textNode = editor?.querySelector("p")?.firstChild;
+
+      await typeCharacter(editor, textNode, "*", 0);
+      await typeCharacter(editor, textNode, "*", 1);
+
+      const notCancelled = await pressSpace(editor);
+
+      const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+      expect(notCancelled).toBe(true);
+      expect(persistedValue).toBe("<p>**text</p>");
+      expect(editor?.querySelector("ul")).toBeNull();
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("does not convert inside an existing list item", async () => {
+      const { container, root } = createTestRenderer();
+
+      await renderWithRoot(
+        root,
+        React.createElement(EditorHarness, { initialValue: "<ul><li>item</li></ul>" })
+      );
+
+      const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+      const textNode = editor?.querySelector("ul li")?.firstChild;
+
+      await typeCharacter(editor, textNode, "-", 0);
+
+      const notCancelled = await pressSpace(editor);
+
+      const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+      expect(notCancelled).toBe(true);
+      expect(persistedValue).toBe("<ul><li>-item</li></ul>");
+      expect(editor?.querySelectorAll("ul li")).toHaveLength(1);
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("does not convert inside a blockquote", async () => {
+      const { container, root } = createTestRenderer();
+
+      await renderWithRoot(
+        root,
+        React.createElement(EditorHarness, { initialValue: "<blockquote><p>quote</p></blockquote>" })
+      );
+
+      const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+      const textNode = editor?.querySelector("blockquote p")?.firstChild;
+
+      await typeCharacter(editor, textNode, "*", 0);
+
+      const notCancelled = await pressSpace(editor);
+
+      const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+      expect(notCancelled).toBe(true);
+      expect(persistedValue).toBe("<blockquote><p>*quote</p></blockquote>");
+      expect(editor?.querySelector("ul")).toBeNull();
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("does not convert inside a heading", async () => {
+      const { container, root } = createTestRenderer();
+
+      await renderWithRoot(
+        root,
+        React.createElement(EditorHarness, { initialValue: "<h1>Title</h1>" })
+      );
+
+      const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+      const textNode = editor?.querySelector("h1")?.firstChild;
+
+      await typeCharacter(editor, textNode, "*", 0);
+
+      const notCancelled = await pressSpace(editor);
+
+      const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+      expect(notCancelled).toBe(true);
+      expect(persistedValue).toBe("<h1>*Title</h1>");
+      expect(editor?.querySelector("ul")).toBeNull();
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("converting a formatted line preserves its inline formatting", async () => {
+      const { container, root } = createTestRenderer();
+
+      await renderWithRoot(
+        root,
+        React.createElement(EditorHarness, {
+          initialValue: "<p>plain <strong>bold text</strong> tail</p>",
+        })
+      );
+
+      const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+      const textNode = editor?.querySelector("p")?.firstChild;
+
+      await typeCharacter(editor, textNode, "*", 0);
+
+      const notCancelled = await pressSpace(editor);
+
+      const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+      expect(notCancelled).toBe(false);
+      expect(persistedValue).toBe(
+        "<ul><li>plain <strong>bold text</strong> tail</li></ul>"
+      );
+      expect(editor?.querySelector("ul li strong")).not.toBeNull();
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("undoes the list shortcut conversion with Ctrl+Z", async () => {
+      const { container, root } = createTestRenderer();
+
+      await renderWithRoot(
+        root,
+        React.createElement(EditorHarness, { initialValue: "<p>text</p>" })
+      );
+
+      const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+      const textNode = editor?.querySelector("p")?.firstChild;
+
+      await typeCharacter(editor, textNode, "*", 0);
+      await pressSpace(editor);
+
+      expect(container.querySelector("output[data-testid='value']")?.textContent).toBe(
+        "<ul><li>text</li></ul>"
+      );
+
+      await act(async () => {
+        dispatchKeyDown(editor, { key: "z", ctrlKey: true });
+      });
+
+      const undoneValue = container.querySelector("output[data-testid='value']")?.textContent;
+      expect(undoneValue).toBe("<p>*text</p>");
+      expect(editor?.querySelector("ul")).toBeNull();
+
+      await act(async () => {
+        dispatchKeyDown(editor, { key: "y", ctrlKey: true });
+      });
+
+      const redoneValue = container.querySelector("output[data-testid='value']")?.textContent;
+      expect(redoneValue).toBe("<ul><li>text</li></ul>");
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+  });
 });
