@@ -1,3 +1,8 @@
+# Development Journal
+
+This file is a concise execution log.
+Use it for important implementation milestones, blockers, validation runs, and release evidence.
+
 # 2026-09-06 - ND-408: PR #483 reconciled with main and Copilot review triaged
 
 - origin/main advanced past the ND-408 fork point with TASK-381 (PR #459,
@@ -19,10 +24,11 @@
   own attribute sync. Regression coverage added in the component suite (three
   cases: auto-open on filter, restore on clear, dismiss respected); thread
   replied to and resolved on GitHub.
-# Development Journal
-
-This file is a concise execution log.
-Use it for important implementation milestones, blockers, validation runs, and release evidence.
+- origin/main advanced again with ND-397 (PR #488, v0.53.0 released
+  2026-09-05), so main was merged a second time; ND-408 now targets v0.54.0
+  and its CHANGELOG Unreleased keeps only the ND-408 entries (shared
+  schema/calendar items moved into main's dated v0.53.0 section). ND-397's
+  brief and journal entry were preserved; journal re-ordered newest-first.
 
 # 2026-09-05 - ND-408: mobile review iteration (popover alignment + Done button)
 
@@ -112,6 +118,39 @@ Use it for important implementation milestones, blockers, validation runs, and r
   context file map — those priorities now live in the Nexus Dash kanban.
 - Prettier-formatted the file map table; validation limited to `prettier
   --check` and `git diff --check` (docs-only change).
+
+
+# 2026-09-05 - ND-397: Constrain long task comments with expand/collapse
+
+- Onboarded: read agent.md/project.md/README.md/tasks briefs; verified ND-397
+  on the Nexus Dash board (feature label, Backlog), the user-assigned task for
+  this session. Multi-agent rule applied: created worktree
+  `../nexus_dash_task397` from `origin/main` (1daffc0) on
+  `feature/nd-397-comment-expand-collapse`; the root checkout's uncommitted
+  ND-421 work was left untouched (that agent subsequently committed and pushed
+  it from the root checkout).
+- Root-caused local quirk: `.config/.nd-nexus-dash.env` is UTF-16LE; decoded
+  with iconv before sourcing. Moved board card ND-397 to In Progress via
+  `POST /api/projects/{id}/tasks/{id}/status` `{"status":"In Progress"}`.
+- Implemented `components/kanban/task-comment-body.tsx` (reusable comment body
+  presentation: consistent 7.5rem collapsed cap, measured overflow via
+  `lib/comment-body-overflow.ts`, accessible `Show more`/`Show less` toggle
+  with `aria-expanded`/`aria-controls`, shown only when the rendered body
+  overflows) and wired it into the task detail modal thread in
+  `components/kanban/task-detail-modal.tsx`, the only surface rendering full
+  comment bodies today.
+- Added component coverage (short/no control, long collapsed, expand,
+  re-collapse, generic vs authored aria labels), a unit test for the overflow
+  measure, and `tests/e2e/nd-397-comment-expand-collapse.spec.ts` for
+  real-browser collapsed/expanded behavior with keyboard activation.
+- Validation so far on the worktree (local Postgres on 127.0.0.1:5433
+  container `nexus_dash_task397-postgres-1`, migrations applied): lint clean;
+  full vitest suite 1,225 passed / 2 skipped; coverage and production build
+  re-run after the 0.53.0 bump (first coverage/build pass raced the version
+  bump and failed on an empty package.json read, transient). Release advanced
+  0.52.0 -> 0.53.0 (`release:version -- feature`) with a CHANGELOG Unreleased
+  entry. rls:check/release:check pending; focused Playwright run pending.
+- Commit `ee3feae` pushed; PR to be opened referencing ND-397.
 
 # 2026-09-04 - ND-408: validation and delivery (PR #483)
 

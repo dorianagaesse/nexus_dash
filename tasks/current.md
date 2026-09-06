@@ -38,12 +38,15 @@ the 375px e2e assertion (popover box matches the trigger within 1px, Done
 visible) cover both. Committed 49a9227; PR #483 remains open.
 
 Reconciliation + Copilot round (2026-09-06): `origin/main` advanced past the
-fork point with TASK-381 (v0.52.0) and docs/dependabot merges, so main was
-merged into the branch and the kanban-columns-grid conflict was resolved by
-keeping the TASK-381 lane-scroller structure and re-applying the ND-408
-archive auto-open, filtered empty copy, and data attributes on it. Product
-version advanced to v0.53.0 (both sides claimed v0.52.0; ND-421 targets
-v0.52.1). The Copilot review thread on PR #483 was triaged: the Archive
+fork point with TASK-381 (v0.52.0), docs/dependabot merges, and then ND-397
+(PR #488, v0.53.0), so main was merged into the branch twice. The
+kanban-columns-grid conflict was resolved by keeping the TASK-381
+lane-scroller structure and re-applying the ND-408 archive auto-open,
+filtered empty copy, and data attributes on it; ND-397's comment
+expand/collapse files merged cleanly. Product version advanced to v0.54.0
+(both sides claimed v0.53.0 after main released it via ND-397; ND-421
+targets v0.52.1), and the CHANGELOG Unreleased keeps only the ND-408
+entries. The Copilot review thread on PR #483 was triaged: the Archive
 open state is now derived from user intent plus a dismissible filter-driven
 auto-open, so clearing filters returns the group to its pre-filter
 open/closed state instead of leaving a filter auto-open behind, with three
@@ -128,7 +131,7 @@ self-evident surface: search and filter live on a single compact row.
   viewer read-only affordances, clear-all, popover containment).
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
   `npm run build`, and `npm run test:e2e` pass; `git diff --check` is clean.
-- `package.json`/`package-lock.json` advance to v0.53.0, `CHANGELOG.md`
+- `package.json`/`package-lock.json` advance to v0.54.0, `CHANGELOG.md`
   carries the `## Unreleased` entry, and `journal.md` logs the execution.
 - The branch is pushed and a ready-for-review PR superseding #469 and #470 is
   open; both superseded PRs are commented and closed; the Nexus Dash board

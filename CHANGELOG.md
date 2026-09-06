@@ -7,15 +7,6 @@ SHA, deployment URL, and workflow run belong in release evidence.
 ## Unreleased
 
 - Define each release entry before the product-impacting PR is merged.
-- Preview deployment keeps the shared staging schema forward-only, applies
-  checked-in migrations, and rejects runtime-incompatible schemas before
-  publishing the stable alias. Feature migrations must use expand/contract for
-  destructive changes so concurrently testable branches remain compatible.
-- Made least-privilege runtime schema/table grants explicit in migrations and
-  made readiness verify access to an application table instead of only `SELECT 1`.
-- Made the single-connection Calendar service select and mutate one stable
-  credential row by ID instead of depending on a permanent `userId` uniqueness
-  constraint, preparing a backward-compatible TASK-327 expansion.
 - Added unified Kanban task search and filters (ND-408): a single search bar
   queries the server (title, description, reference, status, labels, epic,
   assignee, comments, attachments, and related tasks) with debounced loading
@@ -29,6 +20,22 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Covered the search and filter surfaces with unit, component, and browser
   tests, including filtered drag ordering, viewer read-only affordances, and
   375px/landscape/dark-mode popover containment.
+
+## v0.53.0 - 2026-09-05
+
+- Preview deployment keeps the shared staging schema forward-only, applies
+  checked-in migrations, and rejects runtime-incompatible schemas before
+  publishing the stable alias. Feature migrations must use expand/contract for
+  destructive changes so concurrently testable branches remain compatible.
+- Made least-privilege runtime schema/table grants explicit in migrations and
+  made readiness verify access to an application table instead of only `SELECT 1`.
+- Constrained long task comments to a consistent collapsed height with an
+  explicit `Show more` / `Show less` toggle that appears only when a rendered
+  comment overflows; the control is keyboard-operable with clear state text,
+  and short comments stay fully visible without an unnecessary control.
+- Made the single-connection Calendar service select and mutate one stable
+  credential row by ID instead of depending on a permanent `userId` uniqueness
+  constraint, preparing a backward-compatible TASK-327 expansion.
 
 ## v0.52.0 - 2026-09-02
 
