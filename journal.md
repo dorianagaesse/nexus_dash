@@ -39,6 +39,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Release metadata: `npm run release:version -- feature` advanced
   package.json/package-lock to v0.55.0; CHANGELOG gained a dated v0.55.0
   section (2026-09-06) describing the feature.
+- Validation (2026-09-06): full local baseline green against the dockerized
+  PostgreSQL (host port 55432) with app env merged from the main checkout's
+  `.env` and local DB/placeholder overrides — lint, rls:check, release:check,
+  `git diff --check` clean; Vitest 178 files / 1304 tests passed; coverage
+  statements 92.93%; production build green; full Playwright suite 47 passed /
+  1 skipped, including the new external-assignee spec. Unit tests need the
+  exported DATABASE_URL etc. (worktree carries no `.env`); bare `npm test`
+  without them fails only on env-import test files.
+- Delivered as commit 9cfe48f; PR #490 opened 2026-09-06 referencing ND-376
+  with the board card flipped Done on merge; tag v0.55.0 follows the merge.
 
 # 2026-09-06 - ND-408: PR #483 reconciled with main and Copilot review triaged
 

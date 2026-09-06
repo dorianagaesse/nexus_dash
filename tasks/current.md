@@ -4,13 +4,22 @@
 
 ## Status
 
-In progress on `feature/nd-376-meeting-todo-external-assignees` (worktree
-`../nexus_dash_nd376_wt`, branched from `origin/main` at 633278e). The Nexus
-Dash board card ND-376 (feature label) is the source of truth and moved to In
-Progress on 2026-09-06. No GitHub issue exists for this task; the PR carries
-the ND-376 reference. Design aligned with the user: an external assignee is a
-new `participant` actor kind, assignable from the meeting-notes panel and the
+Delivered: PR #490 (https://github.com/dorianagaesse/nexus_dash/pull/490) is
+open from `feature/nd-376-meeting-todo-external-assignees` (worktree
+`../nexus_dash_nd376_wt`, branched from `origin/main` at 633278e; commit
+9cfe48f). The Nexus Dash board card ND-376 (feature label) is the source of
+truth and moved to In Progress on 2026-09-06; flipped to Done when the PR
+merges. No GitHub issue exists for this task; the PR carries the ND-376
+reference. Design aligned with the user: an external assignee is a new
+`participant` actor kind, assignable from the meeting-notes panel and the
 project-wide todos page.
+
+Local validation passed (2026-09-06) against a dockerized PostgreSQL on port
+55432 with app env merged from the main checkout's `.env` and local DB
+overrides: lint, `rls:check`, `release:check`, and `git diff --check` clean;
+full Vitest 178 files / 1304 tests passed; coverage above thresholds
+(statements 92.93%); production build green; full Playwright suite 47 passed
+/ 1 skipped including the new external-assignee spec.
 
 ## Context
 
