@@ -1,5 +1,164 @@
 # Current Task
 
+## ND-379: Simplify task-description rich text with Codex-style Markdown shortcuts
+
+## Status
+
+Delivered (2026-09-06): PR #491
+(https://github.com/dorianagaesse/nexus_dash/pull/491) is open from
+`feature/nd-379-rich-text-markdown-shortcuts` (worktree
+`../nexus_dash_nd379_wt`, created from `origin/main` at 633278e, v0.54.0).
+Commits e6387a2 (implementation) and 630c0ca (v0.55.0 + CHANGELOG
+`## Unreleased` entry) are pushed. The Nexus Dash board card ND-379 (feature
+label) is Done with a Report section appended on 2026-09-06; no GitHub issue
+exists for this task. Related rollout cards ND-380 (project card
+descriptions) and ND-381 (meeting note input/output) stay Backlog. Scope and
+product semantics were confirmed with the user on 2026-09-06 (whole-line
+conversion; shortcuts only, toolbar unchanged).
+
+Reconciled with `origin/main` on 2026-09-06 after the ND-421 merge (PR #487,
+v0.54.1): release metadata kept v0.55.0 (feature minor above v0.54.1),
+CHANGELOG ordered `## v0.55.0` above `## v0.54.1`, and this brief stays
+active with the ND-421 brief preserved verbatim as the previous snapshot
+below. Product code (editor, Kanban grid) auto-merged with no overlap.
+
+Validation on the final tree (2026-09-06): lint, rls:check, 1294 unit tests
+passed / 2 skipped, coverage 92.93/82.94/93.83/93.25, production build, and
+`git diff --check` are green. The focused Playwright spec
+`nd-379-rich-text-markdown-shortcuts.spec.ts` passes 2/2 against a real
+server: typing `- ` into the empty editor converts, Enter continues the list,
+and the saved `<ul><li>` value persists and re-renders; typing `* ` before an
+existing paragraph converts the whole line and persists. Real-browser e2e
+caught one gap the component suite missed: the editor's post-input caret
+restore anchors the caret on the editor element rather than the text node, so
+the bare-root conversion now accepts both caret shapes (component test added;
+`rich-text-editor.test.ts` suite at 64).
+
+## Context
+
+Task descriptions are edited with the shared `RichTextEditor`
+(`components/rich-text-editor.tsx`), a contentEditable surface where
+formatting is reachable only through toolbar buttons: typing `* ` or `- ` at
+the start of a line stays literal text, so composing a bullet list means
+writing plain text first and converting afterwards with the mouse. Codex and
+similar text-first composers turn the typed marker into the formatting. This
+task makes list entry Codex-style: typing `* ` or `- ` at the start of a line
+creates a bullet-list item on the spot, while every existing formatting
+capability, content contract, and saved-content rendering stays unchanged.
+
+## Product Decisions
+
+(Confirmed with the user 2026-09-06.)
+
+- **Whole-line conversion.** The shortcut fires at the start of any paragraph,
+  empty or not: `- fix typo` converts the entire current paragraph into the
+  first item of a new unordered list, preserving content and inline
+  formatting, matching the semantics of the existing toolbar Bullet List
+  button applied to the current paragraph.
+- **Keydown trigger, space consumed.** Conversion happens when Space is typed
+  while the current line's text before the caret is exactly `*` or `-`: the
+  marker character and the space are consumed and never appear in the saved
+  value. No conversion when the prefix is anything else (`** `, `*a`, mid-line
+  `x-`), when the caret is inside an existing list, a code/token block, a
+  blockquote, or while a mention autocomplete is active. Text after the caret
+  stays where it was; typing continues at the same position inside the new
+  item.
+- **Native list editing afterwards.** Enter inside the new item continues the
+  list and Enter on an empty item exits it through the browser's native
+  contentEditable list semantics (no new interception code); existing
+  paragraph-level Enter/Backspace handling is untouched. The caret anchor is
+  the same invisible zero-width character the editor already uses, so
+  serialization stays clean.
+- **Toolbar unchanged.** The Bullet List toolbar button remains as an explicit
+  affordance; no button is removed or relabeled. The editor is shared with the
+  context-card surfaces, so the shortcut applies there too without extra
+  work — rolling rich text out to further surfaces remains ND-380/ND-381.
+
+## Scope
+
+- Add line-start list-marker handling to `components/rich-text-editor.tsx` for
+  `* ` and `- ` (unordered list items), covering both the empty-editor/root
+  caret and the paragraph caret cases, with history (undo/redo) integration
+  and emitted `onChange` values in canonical serialized rich-text HTML.
+- Add focused component coverage in `tests/components/rich-text-editor.test.ts`
+  for conversions, non-triggers, undo/redo, and emitted values.
+- Add a focused Playwright spec for real-browser typing in the
+  task-description editor (bullet creation, Enter continuation, exit,
+  save/reopen render).
+- Keep content compatibility: serialized `<ul>/<li>` values round-trip
+  through `sanitizeRichText`/`RichTextContent` exactly like toolbar-created
+  lists.
+
+## Out Of Scope
+
+- Other Markdown shortcuts (numbered `1. ` lists, headings, quotes, task
+  checkboxes) — future candidates, not part of this card.
+- Toolbar simplification or button removal; reducing or redesigning the
+  editor shell.
+- Rich text rollout to meeting notes (ND-381), project card descriptions
+  (ND-380), comments (ND-398), or any other surface.
+- Server/API/schema changes; preview deployment is not an acceptance
+  requirement for this presentational change.
+
+## Acceptance Criteria
+
+1. Typing `* ` or `- ` at the start of an empty line — including the first
+   line of an empty editor — creates an unordered list item and places the
+   caret inside it, ready for text; the marker characters and their space are
+   not part of the saved value.
+2. Typing `* ` or `- ` at the start of a line that already contains text
+   converts that whole line into a list item, preserving the existing content
+   and its inline formatting, with the caret remaining at the start of the
+   item content.
+3. The conversion is a single undo step (Ctrl/Cmd+Z restores the typed
+   marker) and is redoable; every emitted value is canonical serialized
+   rich-text HTML containing `<ul><li>…</li></ul>`.
+4. Non-trigger inputs stay literal: `*`/`-` without a following space,
+   doubled markers (`** `), markers typed mid-line or after other content, and
+   markers typed inside an existing list, code/token block, or blockquote do
+   not convert.
+5. Typing works like toolbar-created lists in a real browser: Enter inside an
+   item adds the next item, Enter on an empty item exits the list, and a
+   saved description with a list reopens and renders identically in edit and
+   read-only presentation, with no empty `<ul>` artifacts.
+6. Existing editor capabilities do not regress: toolbar formatting (bold,
+   headings, italic, underline, numbered lists, code/token blocks), mentions,
+   emoji, undo/redo, and the Kanban board/modal behavior covered by the
+   TASK-381 and ND-408 specs.
+
+## Definition Of Done
+
+- `components/rich-text-editor.tsx` implements the line-start `* `/`- ` list
+  conversion with caret, history, and serialization correctness.
+- Component tests cover empty-line and existing-text conversion, both marker
+  characters, non-trigger cases, undo/redo, and emitted serialized values; a
+  focused Playwright spec covers real-browser typing flows in the
+  task-description editor (create and edit surfaces).
+- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
+  `npm run build`, and the focused Playwright run are green; `git diff
+  --check` is clean.
+- `package.json`/`package-lock.json` advance minor to v0.55.0 over the current
+  `origin/main` (v0.54.1 after the ND-421 merge) and the CHANGELOG dated
+  `## v0.55.0` entry documents the feature.
+- The Nexus Dash board card ND-379 is updated (In Progress, then Done on
+  delivery) and `tasks/current.md` + `journal.md` reflect the execution.
+- Branch is pushed with an open ready-for-review PR referencing ND-379; the
+  Copilot review outcome is triaged and threads resolved before handoff.
+
+## Runtime Assumptions
+
+- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged;
+  this task introduces no schema, service, or route changes.
+- Playwright validates the shortcut against a local database (edit/create
+  flows in the task detail modal and create-task dialog); preview deployment
+  is not an acceptance requirement.
+
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` brief (ND-421, merged in v0.54.1 via PR #487) is
+preserved verbatim below for history, itself preserving the ND-408 brief.
+
 ## ND-421: Match Kanban lane scrollbars to the app-wide smooth scrollbar styling
 
 ## Status

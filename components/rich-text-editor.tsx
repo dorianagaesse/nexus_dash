@@ -299,6 +299,10 @@ function isEnterKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
   return event.key === "Enter" || event.code === "NumpadEnter";
 }
 
+function isSpaceKey(event: Pick<KeyboardEvent, "key">): boolean {
+  return event.key === " ";
+}
+
 function isBackspaceKey(event: Pick<KeyboardEvent, "key" | "code">): boolean {
   return event.key === "Backspace";
 }
@@ -1184,6 +1188,140 @@ function insertParagraphBreakAtRange(
   editor.replaceChildren(previousParagraph, nextParagraph);
   moveCaretToStart(nextParagraph);
   return true;
+}
+
+const LIST_CONVERSION_EXCLUDED_ANCESTOR_SELECTOR =
+  "ul, ol, li, blockquote, pre, code, [data-rich-block]";
+
+/**
+ * Detects a `* ` / `- ` shortcut typed at the very start of a plain paragraph.
+ * The caret must sit directly after the marker character, the marker must be
+ * the first visible text of the paragraph, and the paragraph must not already
+ * live inside a list/quote/code structure (those keep native list editing).
+ * Returns the paragraph to convert together with the raw marker text that
+ * precedes the caret (including any zero-width caret anchors), or null when
+ * the key should fall through to normal text insertion.
+ */
+function findListShortcutConversionTarget(
+  editor: HTMLDivElement,
+  range: Range
+): { lineElement: HTMLElement; prefixText: string } | null {
+  if (!range.collapsed) {
+    return null;
+  }
+
+  const caretContainer = range.startContainer;
+  const baseElement =
+    caretContainer instanceof Element
+      ? caretContainer
+      : caretContainer.parentElement;
+  if (!baseElement || !editor.contains(baseElement)) {
+    return null;
+  }
+
+  // The caret can sit in a text node or directly on a block element (the
+  // editor restores carets between text nodes after its input handling), so
+  // resolve the editable line from the base element rather than the container.
+  let lineElement: HTMLElement | null = null;
+  const paragraph = findCurrentParagraph(editor, range);
+  if (paragraph) {
+    if (paragraph.closest(LIST_CONVERSION_EXCLUDED_ANCESTOR_SELECTOR)) {
+      return null;
+    }
+    lineElement = paragraph;
+  } else if (
+    editor.childNodes.length === 1 &&
+    editor.firstChild instanceof Text &&
+    (caretContainer === editor || caretContainer === editor.firstChild)
+  ) {
+    // Typing into an empty editor creates one bare text node whose caret can
+    // be anchored either inside the text node or on the editor element itself
+    // (the mention/formatting pass restores carets between text nodes).
+    lineElement = editor;
+  } else if (
+    baseElement !== editor &&
+    baseElement.parentElement === editor &&
+    (baseElement instanceof HTMLParagraphElement ||
+      baseElement instanceof HTMLDivElement) &&
+    !baseElement.closest(LIST_CONVERSION_EXCLUDED_ANCESTOR_SELECTOR)
+  ) {
+    lineElement = baseElement;
+  }
+
+  if (!lineElement) {
+    return null;
+  }
+
+  const prefixRange = editor.ownerDocument.createRange();
+  prefixRange.selectNodeContents(lineElement);
+  prefixRange.setEnd(range.startContainer, range.startOffset);
+  const prefixText = prefixRange.toString();
+
+  const markerCandidate = stripMentionFormatCharacters(prefixText).replaceAll(
+    EDITOR_MENTION_SEPARATOR,
+    " "
+  );
+  if (markerCandidate !== "*" && markerCandidate !== "-") {
+    return null;
+  }
+
+  return { lineElement, prefixText };
+}
+
+/**
+ * Converts the whole paragraph line into a `<ul><li>` item, preserving all
+ * inline formatting and mentions of the original line. The leading marker
+ * characters (and any zero-width anchors merged into them) are removed; the
+ * caret ends up at the start of the item content so typing continues inside
+ * the bullet.
+ */
+function convertLineToBulletListItem(
+  editor: HTMLDivElement,
+  range: Range,
+  lineElement: HTMLElement,
+  prefixText: string
+) {
+  const documentRef = editor.ownerDocument;
+  const caretMarker = documentRef.createElement("span");
+  caretMarker.dataset.editorCaretMarker = "true";
+  caretMarker.textContent = EDITOR_CARET_ANCHOR;
+  range.insertNode(caretMarker);
+
+  let remainingPrefixCharacters = prefixText.length;
+  const prefixWalker = documentRef.createTreeWalker(
+    lineElement,
+    NodeFilter.SHOW_TEXT
+  );
+  while (remainingPrefixCharacters > 0) {
+    const textNode = prefixWalker.nextNode()
+      ? (prefixWalker.currentNode as Text)
+      : null;
+    if (!textNode) {
+      break;
+    }
+    const deleteCount = Math.min(
+      remainingPrefixCharacters,
+      textNode.data.length
+    );
+    textNode.deleteData(0, deleteCount);
+    remainingPrefixCharacters -= deleteCount;
+  }
+
+  const listItem = documentRef.createElement("li");
+  while (lineElement.firstChild) {
+    listItem.append(lineElement.firstChild);
+  }
+
+  const listElement = documentRef.createElement("ul");
+  listElement.append(listItem);
+
+  if (lineElement === editor) {
+    editor.replaceChildren(listElement);
+  } else {
+    lineElement.replaceWith(listElement);
+  }
+
+  restoreEditorSelectionFromMarker(editor, caretMarker);
 }
 
 function createParagraphHtmlFromText(value: string): string {
@@ -2782,6 +2920,27 @@ export function RichTextEditor({
       if (isEnterKey(event)) {
         event.preventDefault();
         moveCaretBelowBlock(tokenShell, editor);
+      }
+    }
+
+    if (
+      isSpaceKey(event) &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      const listShortcut = findListShortcutConversionTarget(editor, range);
+      if (listShortcut) {
+        event.preventDefault();
+        const beforeSnapshot = createEditorHistorySnapshot(editor);
+        convertLineToBulletListItem(
+          editor,
+          range,
+          listShortcut.lineElement,
+          listShortcut.prefixText
+        );
+        recordHistoryFromSnapshot(beforeSnapshot);
+        emitCurrentValue();
       }
     }
   };
