@@ -5359,5 +5359,24 @@ Low-value entries to avoid going forward:
   `NODE_ENV=test node --env-file=.env ./node_modules/vitest/vitest.mjs run`.
 - Release advanced 0.53.0 -> 0.54.0 (`release:version -- feature`) with the
   `## v0.54.0 - 2026-09-06` CHANGELOG entry; ADR entry recorded in
-  `adr/decisions.md`. Full validation baseline, real-Postgres RLS matrix
-  (schema change), push, PR opening, and Copilot review pending.
+  `adr/decisions.md`.
+- Validation baseline green on the final tree: lint, rls:check,
+  release:check, unit tests 1235 passed / 2 skipped, coverage thresholds,
+  production build, `git diff --check`, and the real-PostgreSQL RLS matrix
+  after applying migration `20260906100000_task337_project_actor_identity`
+  to the local container (port 55432). Local build quirk: root `.env`
+  targets Supabase with equal DATABASE_URL/DIRECT_URL (rejected by the
+  production host rule) and lacks the Google token encryption key, so the
+  build was validated against the local Postgres with a transient
+  `.env.production.local` that was removed afterward.
+- Committed in five logical commits (`872d65c` schema+migration, `bb681d3`
+  canonical actor contract, `95c82a4` attribution + author mapping, `417db51`
+  coverage, `dadeea4` version+docs) plus `e8b9136` task-brief status; pushed
+  and opened PR <https://github.com/dorianagaesse/nexus_dash/pull/489>
+  referencing ND-178. Board card ND-178 description updated with the PR
+  link; card remains In Progress until merge.
+- Copilot review round handled: initial review completed (20/21 files) with
+  zero inline comments and a "Needs a closer look" meta verdict driven by
+  migration/scope breadth, so there were no threads to triage or resolve;
+  CI checks all green (Quality Core, E2E Smoke, Tenant Isolation RLS,
+  Container Image). Clean review state; awaiting merge.
