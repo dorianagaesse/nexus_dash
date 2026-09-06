@@ -23,6 +23,16 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Covered the search and filter surfaces with unit, component, and browser
   tests, including filtered drag ordering, viewer read-only affordances, and
   375px/landscape/dark-mode popover containment.
+- Task changes made through the agent API now carry first-class actor
+  identity: every create and edit is attributed to the acting agent
+  credential with a durable label snapshot, so authorship stays readable
+  after later credential renames or revocations.
+- Task author records now surface who acted on a task as a real actor —
+  human or agent with credential label — consistent with how comment
+  identity is rendered.
+- Consolidated project actor vocabulary, resolution, and registry building
+  behind one canonical contract shared by meeting-note and context-card
+  stewardship, with prior behavior and error codes preserved.
 
 ## v0.53.0 - 2026-09-05
 
