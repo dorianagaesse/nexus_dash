@@ -27,6 +27,7 @@ import {
   type PendingAttachmentUpload,
   type ProjectEpicOption,
   type ProjectTaskCollaborator,
+  type TaskAuthor,
   type TaskPersonSummary,
   type TaskAttachment,
 } from "@/components/kanban-board-types";
@@ -724,7 +725,7 @@ function TaskActivityInline({
   timestamp,
 }: {
   label: string;
-  person: TaskPersonSummary | null;
+  person: TaskAuthor | null;
   fallback: string;
   timestamp: string;
 }) {
@@ -748,12 +749,20 @@ function TaskActivityInline({
         {label}
       </p>
       <div className="flex min-w-0 items-center gap-1.5">
-        <UserAvatar
-          avatarSeed={person.avatarSeed}
-          displayName={person.displayName}
-          className="h-5 w-5 border-border/70"
-          decorative
-        />
+        {person.kind === "agent" ? (
+          <AgentAvatar
+            displayName={person.displayName}
+            className="h-5 w-5 border-border/70"
+            decorative
+          />
+        ) : (
+          <UserAvatar
+            avatarSeed={person.avatarSeed}
+            displayName={person.displayName}
+            className="h-5 w-5 border-border/70"
+            decorative
+          />
+        )}
         <span className="max-w-[96px] truncate text-xs font-medium text-foreground">
           {person.displayName}
         </span>

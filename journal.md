@@ -5686,3 +5686,8 @@ Low-value entries to avoid going forward:
 - Release reconciliation after current `main` advanced to v0.54.1: ND-178 now
   advances the product version to v0.55.0 with its own changelog entry, rather
   than sharing ND-408's v0.54.0 release.
+- UI review follow-up: task-detail `Created by` and `Last updated by` cards now
+  render agent authors through the same shared `AgentAvatar` robot treatment as
+  agent-authored comments instead of generating a human avatar from the agent
+  snapshot seed. Regression coverage asserts both attribution cards use the
+  dedicated agent avatar; focused task-author/UI tests (11 tests) and lint pass.
