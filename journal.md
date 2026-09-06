@@ -26,8 +26,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   replied to and resolved on GitHub.
 - origin/main advanced again with ND-397 (PR #488, v0.53.0 released
   2026-09-05), so main was merged a second time; ND-408 now targets v0.54.0
-  and its CHANGELOG Unreleased keeps only the ND-408 entries (shared
-  schema/calendar items moved into main's dated v0.53.0 section). ND-397's
+  with a dated v0.54.0 changelog section holding only the ND-408 entries
+  (shared schema/calendar items moved into main's dated v0.53.0 section;
+  `release:check` requires the bumped version as a dated heading). ND-397's
   brief and journal entry were preserved; journal re-ordered newest-first.
 
 # 2026-09-05 - ND-408: mobile review iteration (popover alignment + Done button)
