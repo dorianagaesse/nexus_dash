@@ -48,7 +48,15 @@ Use it for important implementation milestones, blockers, validation runs, and r
   exported DATABASE_URL etc. (worktree carries no `.env`); bare `npm test`
   without them fails only on env-import test files.
 - Delivered as commit 9cfe48f; PR #490 opened 2026-09-06 referencing ND-376
-  with the board card flipped Done on merge; tag v0.55.0 follows the merge.
+  with the board card flipped Done on delivery; tag v0.55.0 follows the merge.
+- Copilot review round 1 (2026-09-06, one thread): external participant
+  options were selected without an explicit `orderBy` in
+  `listProjectMeetingTodos`. Fixed in 47644b4 by ordering the participants
+  include `[{ position: "asc" }, { createdAt: "asc" }]`, matching the
+  canonical note reads in `project-meeting-note-service.ts`; thread replied
+  to and auto-resolved, CI green on the fix. Copilot round 2 did not fire
+  automatically within ~20 min of the push (Lite effort); PR #490 is
+  MERGEABLE with all checks green.
 
 # 2026-09-06 - ND-408: PR #483 reconciled with main and Copilot review triaged
 
