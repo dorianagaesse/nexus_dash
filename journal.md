@@ -23,7 +23,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   snapshot. A guarded `onToggle` distinguishes real user toggles from React's
   own attribute sync. Regression coverage added in the component suite (three
   cases: auto-open on filter, restore on clear, dismiss respected); thread
-  replied to and resolved on GitHub.
+  replied to and resolved on GitHub. Copilot re-reviewed the reconciled head
+  (2026-09-06): no new threads, and CI gates (Quality Core incl. version
+  policy, E2E Smoke, Tenant Isolation) are green; PR #483 is MERGEABLE with a
+  clean merge state.
 - origin/main advanced again with ND-397 (PR #488, v0.53.0 released
   2026-09-05), so main was merged a second time; ND-408 now targets v0.54.0
   with a dated v0.54.0 changelog section holding only the ND-408 entries
