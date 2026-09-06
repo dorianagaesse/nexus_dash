@@ -6,7 +6,13 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 ## Unreleased
 
-- Define each release entry before the product-impacting PR is merged.
+- Added Codex-style Markdown list shortcuts to the task description editor
+  (ND-379): typing `* ` or `- ` at the start of a paragraph converts the whole
+  line into a bulleted list item on the spot, preserving inline formatting and
+  mentions, while the space stays literal text when the marker is not at the
+  line start or the line already lives inside a list, quote, code block, or
+  heading. Native list editing continues unchanged after the conversion, and
+  the undo stack restores the typed marker as a single step.
 
 ## v0.54.0 - 2026-09-06
 
