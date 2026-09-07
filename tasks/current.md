@@ -4,9 +4,11 @@
 
 ## Status
 
-Delivered (2026-09-07): implementation is complete on
-`feature/nd-424-agent-link-attachments` in worktree `../nexus_dash_task424`
-(branched from `origin/main`, version base v0.56.0). The Nexus Dash board card
+Delivered (2026-09-07): PR #492
+(https://github.com/dorianagaesse/nexus_dash/pull/492) is open from
+`feature/nd-424-agent-link-attachments` (worktree `../nexus_dash_task424`,
+branched from `origin/main`, version base v0.56.0; commits 8deb753 and
+464abea pushed) and closes issue #486. The Nexus Dash board card
 ND-424 (feature label) tracks GitHub issue #486, which was attached to the
 card at creation as a link attachment; the card is flipped to In Progress and
 then Done with a Report section appended. This PR delivers the agent-side gap

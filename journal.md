@@ -42,8 +42,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   93.06/83.13/94.52/93.38; production build green.
 - No schema/RLS/UI/auth/upload changes, so the real-PostgreSQL RLS matrix
   and Playwright were not required by the runbook criteria.
-- PR opened with "closes #486"; Copilot review triaged and threads resolved
-  before handoff.
+- PR #492 opened with "closes #486"; Copilot review triaged and threads
+  resolved before handoff.
 
 # 2026-09-06 - ND-376: reconciled with origin/main after ND-379 (PR #491) merged
 
