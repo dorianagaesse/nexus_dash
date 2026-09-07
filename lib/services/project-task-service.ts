@@ -81,6 +81,7 @@ export interface UpdateTaskPayload {
   relatedTaskIds?: string[];
   epicId?: string | null;
   assigneeUserId?: string | null;
+  attachmentLinks?: unknown;
 }
 
 export interface CreateTaskForProjectInput {
@@ -149,6 +150,16 @@ function normalizeText(value: unknown): string {
     return "";
   }
   return value.trim();
+}
+
+function serializeJsonFieldValue(value: unknown): string {
+  if (value == null) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value.trim();
+  }
+  return JSON.stringify(value);
 }
 
 function parseDeadlineInput(
@@ -1275,6 +1286,16 @@ export async function updateTaskForProject(
   const assigneeUserId = assigneeProvided
     ? normalizeText(payload.assigneeUserId)
     : null;
+  const attachmentLinksProvided = Object.prototype.hasOwnProperty.call(
+    payload,
+    "attachmentLinks"
+  );
+  const parsedAttachmentLinks = attachmentLinksProvided
+    ? parseAttachmentLinksJson(serializeJsonFieldValue(payload.attachmentLinks))
+    : null;
+  if (parsedAttachmentLinks?.error) {
+    return createError(400, parsedAttachmentLinks.error);
+  }
   const agentScopeAccess = requireAgentProjectScopes({
     agentAccess,
     projectId,
@@ -1402,6 +1423,17 @@ export async function updateTaskForProject(
               : {}),
           },
         });
+
+        if (parsedAttachmentLinks && parsedAttachmentLinks.links.length > 0) {
+          await createTaskAttachmentsFromDraft({
+            actorUserId: normalizedActorUserId,
+            projectId,
+            taskId,
+            links: parsedAttachmentLinks.links,
+            files: [],
+            db: tx,
+          });
+        }
 
         if (blockedFollowUpEntry.length > 0 && existingTask.status === "Blocked") {
           await tx.taskBlockedFollowUp.create({

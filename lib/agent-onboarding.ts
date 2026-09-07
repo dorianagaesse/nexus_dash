@@ -658,6 +658,12 @@ export function buildAgentTaskUpdateExample(): string {
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
     '  -d \'{"title":"Draft release notes","description":"<p>Add release highlights.</p>","deadlineDate":"2026-04-25","epicId":"epic_456","assigneeUserId":"user_456","labels":["release","ready"],"relatedTaskIds":["task_456"]}\'',
+    "",
+    "# Append a link attachment; existing attachments are preserved",
+    'curl -X PATCH "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"attachmentLinks":[{"name":"NexusDash board","url":"https://nexus-dash.app"}]}\'',
   ].join("\n");
 }
 
@@ -1700,6 +1706,12 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               items: { type: "string" },
               description:
                 "Replace the related-task set. Omit to preserve; an empty array removes all relations.",
+            },
+            attachmentLinks: {
+              type: "array",
+              items: { $ref: "#/components/schemas/AttachmentLinkInput" },
+              description:
+                "Append link attachments to the task. Each entry creates a new link attachment and existing attachments are preserved; an empty array appends nothing. Remove attachments with DELETE /api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}.",
             },
           },
         },
