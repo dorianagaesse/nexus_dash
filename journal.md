@@ -40,6 +40,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   and meeting-steward smoke specs.
 - Version advanced to v0.57.0 (2026-09-07 CHANGELOG entry) over origin/main
   v0.56.0.
+- Branch pushed as PR #493 (ready for review); the Nexus Dash board card
+  ND-381 was flipped to Done via the task status endpoint.
 
 # 2026-09-06 - ND-376: reconciled with origin/main after ND-379 (PR #491) merged
 

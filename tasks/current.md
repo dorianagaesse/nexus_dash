@@ -4,11 +4,12 @@
 
 ## Status
 
-Delivered (2026-09-07). Worktree `../nexus_dash_nd381_wt` on
-`feature/nd-381-meeting-note-rich-text`, branched from `origin/main` at 2fbc228
-(ND-376 merged, v0.56.0). The Nexus Dash board card ND-381 (feature label,
-related to ND-379) is the source of truth; flipped to Done on delivery,
-awaiting the merge. Scope confirmed with the user on 2026-09-07: the
+Delivered (2026-09-07). PR #493
+(https://github.com/dorianagaesse/nexus_dash/pull/493) is open from
+`feature/nd-381-meeting-note-rich-text` (worktree `../nexus_dash_nd381_wt`,
+branched from `origin/main` at 2fbc228, ND-376 merged / v0.56.0). The Nexus
+Dash board card ND-381 (feature label, related to ND-379) is the source of
+truth; flipped to Done on delivery, awaiting the merge. Scope confirmed with the user on 2026-09-07: the
 meeting-note editors include @mention autocomplete for project members
 (`mentionProjectId`), and read-only surfaces resolve mention hover cards from
 the project collaborator list.
