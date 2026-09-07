@@ -76,6 +76,7 @@ describe("project meeting todo service", () => {
           scheduledAt: new Date("2026-07-10T09:00:00.000Z"),
           status: "actions_in_progress",
           createdAt: new Date("2026-07-10T08:00:00.000Z"),
+          participants: [],
           actions: [
             {
               id: "todo-current",
@@ -186,6 +187,7 @@ describe("project meeting todo service", () => {
           scheduledAt: new Date(referenceNowMs - 6 * 24 * 60 * 60 * 1000),
           status: "actions_in_progress",
           createdAt: new Date(referenceNowMs - 6 * 24 * 60 * 60 * 1000),
+          participants: [],
           actions: [
             {
               id: "todo-fresh",
@@ -205,6 +207,145 @@ describe("project meeting todo service", () => {
     });
 
     expect(result?.open.map((todo) => todo.isOverdue)).toEqual([false]);
+  });
+
+  test("surfaces current external participant assignees and per-meeting options", async () => {
+    dbMock.project.findFirst.mockResolvedValueOnce({
+      id: "project-owned",
+      name: "Alpha",
+      ownerId: "user-1",
+      memberships: [],
+      meetingNotes: [
+        {
+          id: "meeting-participants",
+          title: "Sprint retro",
+          scheduledAt: new Date("2026-07-15T09:00:00.000Z"),
+          status: "actions_in_progress",
+          createdAt: new Date("2026-07-15T08:00:00.000Z"),
+          participants: [
+            { userId: null, displayName: "Ada Lovelace" },
+            { userId: "user-1", displayName: "Owner" },
+          ],
+          actions: [
+            {
+              id: "todo-participant",
+              content: "Share the retro notes",
+              completedAt: null,
+              updatedAt: new Date("2026-07-16T10:00:00.000Z"),
+              assigneeKind: "participant",
+              assigneeUserId: null,
+              assigneeCredentialId: null,
+              assigneeDisplayNameSnapshot: "Ada Lovelace",
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await listProjectMeetingTodos({
+      actorUserId: "user-1",
+      projectId: "project-owned",
+      referenceNowMs,
+    });
+
+    const todo = result?.open[0];
+    expect(todo?.assignee).toMatchObject({
+      kind: "participant",
+      id: "Ada Lovelace",
+      displayName: "Ada Lovelace",
+      status: "active",
+      isAssignable: true,
+    });
+    expect(todo?.participantOptions.map((option) => option.displayName)).toEqual([
+      "Ada Lovelace",
+    ]);
+  });
+
+  test("treats a participant assignee whose name is no longer on the note as inactive", async () => {
+    dbMock.project.findFirst.mockResolvedValueOnce({
+      id: "project-owned",
+      name: "Alpha",
+      ownerId: "user-1",
+      memberships: [],
+      meetingNotes: [
+        {
+          id: "meeting-participants",
+          title: "Sprint retro",
+          scheduledAt: new Date("2026-07-15T09:00:00.000Z"),
+          status: "actions_in_progress",
+          createdAt: new Date("2026-07-15T08:00:00.000Z"),
+          participants: [
+            { userId: null, displayName: "ada lovelace" },
+          ],
+          actions: [
+            {
+              id: "todo-participant",
+              content: "Share the retro notes",
+              completedAt: null,
+              updatedAt: new Date("2026-07-16T10:00:00.000Z"),
+              assigneeKind: "participant",
+              assigneeUserId: null,
+              assigneeCredentialId: null,
+              assigneeDisplayNameSnapshot: "Ada Lovelace",
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await listProjectMeetingTodos({
+      actorUserId: "user-1",
+      projectId: "project-owned",
+      referenceNowMs,
+    });
+
+    expect(result?.open[0].assignee).toMatchObject({
+      kind: "participant",
+      status: "active",
+      isAssignable: true,
+    });
+
+    dbMock.project.findFirst.mockResolvedValueOnce({
+      id: "project-owned",
+      name: "Alpha",
+      ownerId: "user-1",
+      memberships: [],
+      meetingNotes: [
+        {
+          id: "meeting-participants",
+          title: "Sprint retro",
+          scheduledAt: new Date("2026-07-15T09:00:00.000Z"),
+          status: "actions_in_progress",
+          createdAt: new Date("2026-07-15T08:00:00.000Z"),
+          participants: [],
+          actions: [
+            {
+              id: "todo-participant",
+              content: "Share the retro notes",
+              completedAt: null,
+              updatedAt: new Date("2026-07-16T10:00:00.000Z"),
+              assigneeKind: "participant",
+              assigneeUserId: null,
+              assigneeCredentialId: null,
+              assigneeDisplayNameSnapshot: "Ada Lovelace",
+            },
+          ],
+        },
+      ],
+    });
+
+    const removedResult = await listProjectMeetingTodos({
+      actorUserId: "user-1",
+      projectId: "project-owned",
+      referenceNowMs,
+    });
+
+    expect(removedResult?.open[0].assignee).toMatchObject({
+      kind: "participant",
+      status: "inactive",
+      isAssignable: false,
+    });
+    expect(removedResult?.open[0].participantOptions).toEqual([]);
   });
 
   test("summarizes active and overdue todos from filtered database counts", async () => {

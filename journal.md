@@ -3,6 +3,111 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-06 - ND-376: reconciled with origin/main after ND-379 (PR #491) merged
+
+- `origin/main` advanced past the fork with ND-379 (PR #491, merged 00:32
+  +0200), which took the v0.55.0 minor. Merged `origin/main` into the branch:
+  conflicts were confined to the top-of-file docs
+  collisions — `journal.md` keeps the ND-376 dated entries above the ND-379
+  entry; `tasks/current.md` keeps the ND-376 brief active with the ND-379
+  brief preserved verbatim as the previous snapshot (itself preserving the
+  ND-421 brief); the CHANGELOG's per-side v0.55.0 sections were deduplicated
+  and the release metadata retargeted: `package.json`/`package-lock.json`
+  advance to v0.56.0 (feature minor over main's released v0.55.0) with a
+  dated v0.56.0 entry carrying the ND-376 bullets, while the v0.55.0 entry
+  and the `## Unreleased` placeholder stay exactly as on `origin/main`.
+  Product code auto-merged with no overlap (ND-379's rich-text editor
+  shortcuts are independent of the meeting-todo assignee picker).
+- `release:check` (head v0.56.0 > base v0.55.0), lint, and `git diff
+  --check` pass on the reconciled head.
+
+# 2026-09-06 - ND-376: assignee picker feedback round (uniform list, scrolling, app-wide scrollbar)
+
+- User review of the PR #490 picker asked for three changes: one uniform
+  option list with no distinction between project members, agents, and
+  external participants (no subtitles — the avatar already distinguishes
+  kinds); the popover list did not actually scroll; and its scrollbar did
+  not match the app-wide slim styling. Reworked
+  `components/meeting-todos/meeting-todo-assignee-chip.tsx`: the three
+  group memos/headers (Project members / Project agents / External
+  participants), per-kind subtitles, and kind tags were dropped for a single
+  `options.map` over the actor registry; the nested outer
+  `overflow-hidden`/inner `overflow-y-auto` scrollers collapsed into one
+  fixed, scrollable popover element; the listbox now carries the same
+  seven-token slim scrollbar class array (joined, per-file copy of the
+  ND-421 pattern) used by the Kanban lane and task modal scrollers. Row
+  height estimate lowered to 48 px for the single-line rows.
+- Coverage updated: component suite gained a regression test asserting one
+  option per actor plus Unassigned, absence of every former header/subtitle
+  string, and that the listbox element is the scroll container with the
+  slim scrollbar tokens; existing popover tests now assert the uniform list.
+  The e2e spec's option locators were rewritten for the flat list — the
+  external participant option is matched by its own name (`/^Dorian$/`) and
+  the fixture member by its username tag (`/#\d+/` filter), because
+  `mapTaskPersonSummary` prefers `username` over `name` as displayName, so
+  the "E2E Smoke User" name never renders in the list.
+- Branch was reconciled with `origin/main` first (merge 380ee21 pulling in
+  ND-421 #487 / v0.54.1); conflicts were confined to release metadata
+  (kept v0.55.0), `journal.md`, and the `tasks/current.md` brief chain
+  (rebuilt ND-376 → ND-421 → ND-408 → TASK-342). CHANGELOG v0.55.0 and the
+  task brief's Product Decisions/Scope/AC/DoD wording now describe the
+  uniform list and scrolling behavior.
+
+# 2026-09-06 - ND-376: external participants as meeting todo assignees implemented
+
+- Implemented on `feature/nd-376-meeting-todo-external-assignees` (worktree
+  `../nexus_dash_nd376_wt`, branched from origin/main at 633278e). Design
+  aligned with the user via AskUserQuestion: a new `participant` value of the
+  shared `MeetingTodoActorKind` enum (additive DB migration
+  `20260906120000_nd376_external_participant_assignees`, no new columns, both
+  FKs null keeps existing CHECK constraints valid), assignable from the
+  meeting-notes panel and the project-wide todos page.
+- Identity is name-keyed: the participant reference id is the trimmed
+  display name, resolved case/whitespace-insensitively against the external
+  participants (`userId: null`) of the *same* meeting note at write time;
+  `assigneeDisplayNameSnapshot` preserves the canonical spelling after later
+  renames/removal. Notes rewrite participants wholesale on save
+  (`deleteMany` + `create`), so no FK is possible — the snapshot pattern is
+  reused. Once the name leaves the note the assignee renders inactive with
+  the needs-reassignment affordance (member-left semantics).
+- Service surface: `buildExternalParticipantMeetingTodoActor` +
+  `getMeetingTodoParticipantNameKey` in `lib/meeting-todo-actor.ts`;
+  `resolveExternalParticipantMeetingTodoActor` in
+  `project-meeting-todo-actor-service.ts`; per-meeting
+  `participantOptions` threaded from the todos page serializer and the notes
+  panel through the assignee chip (new "Meeting participants" group with
+  muted `external` hint mirroring agents; identity rows suffix " (external)").
+  Members/agents stay canonical options even when a member attends the
+  meeting; the `participant` kind is assignee-only — creators, completers,
+  stewards remain human/agent.
+- Coverage: lib suites (actor domain, actor-service mapping/resolution,
+  note-service assignment + create/update draft validation, todo-service
+  options/inactive semantics), component suites (chip group/select, readonly
+  external tag), and a new Playwright e2e test in
+  `project-meeting-todos.spec.ts` assigning a todo to an external participant
+  of the note with persistence read-back.
+- Release metadata: `npm run release:version -- feature` advanced
+  package.json/package-lock to v0.55.0; CHANGELOG gained a dated v0.55.0
+  section (2026-09-06) describing the feature.
+- Validation (2026-09-06): full local baseline green against the dockerized
+  PostgreSQL (host port 55432) with app env merged from the main checkout's
+  `.env` and local DB/placeholder overrides — lint, rls:check, release:check,
+  `git diff --check` clean; Vitest 178 files / 1304 tests passed; coverage
+  statements 92.93%; production build green; full Playwright suite 47 passed /
+  1 skipped, including the new external-assignee spec. Unit tests need the
+  exported DATABASE_URL etc. (worktree carries no `.env`); bare `npm test`
+  without them fails only on env-import test files.
+- Delivered as commit 9cfe48f; PR #490 opened 2026-09-06 referencing ND-376
+  with the board card flipped Done on delivery; tag v0.55.0 follows the merge.
+- Copilot review round 1 (2026-09-06, one thread): external participant
+  options were selected without an explicit `orderBy` in
+  `listProjectMeetingTodos`. Fixed in 47644b4 by ordering the participants
+  include `[{ position: "asc" }, { createdAt: "asc" }]`, matching the
+  canonical note reads in `project-meeting-note-service.ts`; thread replied
+  to and auto-resolved, CI green on the fix. Copilot round 2 did not fire
+  automatically within ~20 min of the push (Lite effort); PR #490 is
+  MERGEABLE with all checks green.
+
 # 2026-09-06 - ND-379: Codex-style `* `/`- ` list shortcuts delivered via PR #491
 
 - Implemented in worktree `../nexus_dash_nd379_wt` on

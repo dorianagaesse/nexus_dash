@@ -29,6 +29,7 @@ function serializeTodo(
     creator: todo.creator,
     assignee: todo.assignee,
     completedBy: todo.completedBy,
+    participantOptions: todo.participantOptions,
     meeting: {
       ...todo.meeting,
       scheduledAt: todo.meeting.scheduledAt?.toISOString() ?? null,

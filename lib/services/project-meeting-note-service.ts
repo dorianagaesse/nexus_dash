@@ -7,7 +7,9 @@ import {
   type ProjectMeetingParticipantInput,
 } from "@/lib/meeting-participant";
 import {
+  getMeetingTodoParticipantNameKey,
   isMeetingTodoActorReference,
+  type MeetingTodoActorKind,
   type MeetingTodoActorReference,
   type MeetingTodoActorSummary,
 } from "@/lib/meeting-todo-actor";
@@ -23,9 +25,11 @@ import {
   meetingTodoActorCredentialSelect,
   meetingTodoActorUserSelect,
   resolveAssignableMeetingTodoActorFromRegistry,
+  resolveExternalParticipantMeetingTodoActor,
   resolveMeetingTodoMutationActor,
   type MeetingTodoActorCredentialRecord,
   type MeetingTodoActorRegistry,
+  type MeetingTodoActorResolution,
   type ResolvedMeetingTodoActorPersistence,
 } from "@/lib/services/project-meeting-todo-actor-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
@@ -156,19 +160,19 @@ export interface MeetingNoteActionAssigneeInput {
 type MeetingTodoStoredActorFields = {
   createdByUserId: string | null;
   createdByCredentialId: string | null;
-  creatorKind: "human" | "agent";
+  creatorKind: MeetingTodoActorKind;
   creatorDisplayNameSnapshot: string;
   createdByUser: TaskPersonRecord | null;
   createdByCredential: MeetingTodoActorCredentialRecord | null;
   assigneeUserId: string | null;
   assigneeCredentialId: string | null;
-  assigneeKind: "human" | "agent" | null;
+  assigneeKind: MeetingTodoActorKind | null;
   assigneeDisplayNameSnapshot: string | null;
   assigneeUser: TaskPersonRecord | null;
   assigneeCredential: MeetingTodoActorCredentialRecord | null;
   completedByUserId: string | null;
   completedByCredentialId: string | null;
-  completedByKind: "human" | "agent" | null;
+  completedByKind: MeetingTodoActorKind | null;
   completedByDisplayNameSnapshot: string | null;
   completedByUser: TaskPersonRecord | null;
   completedByCredential: MeetingTodoActorCredentialRecord | null;
@@ -194,7 +198,7 @@ type MeetingNoteRecord = {
   updatedAt: Date;
   stewardUserId: string | null;
   stewardCredentialId: string | null;
-  stewardKind: "human" | "agent" | null;
+  stewardKind: MeetingTodoActorKind | null;
   stewardDisplayNameSnapshot: string | null;
   stewardUser: TaskPersonRecord | null;
   stewardCredential: MeetingTodoActorCredentialRecord | null;
@@ -450,7 +454,7 @@ async function loadMeetingNoteActorRegistry(input: {
         },
         isCurrentProjectHuman: true,
       });
-      if (actor) {
+      if (actor?.kind === "human") {
         activeHumanIds.add(row.actorId);
         humanById.set(row.actorId, actor);
       }
@@ -469,7 +473,7 @@ async function loadMeetingNoteActorRegistry(input: {
         expiresAt: row.expiresAt,
       },
     });
-    if (actor) {
+    if (actor?.kind === "agent") {
       credentialById.set(row.actorId, actor);
     }
   }
@@ -485,23 +489,25 @@ async function loadMeetingNoteActorRegistry(input: {
 }
 
 function mapActionActor(input: {
-  kind: "human" | "agent" | null;
+  kind: MeetingTodoActorKind | null;
   userId: string | null;
   credentialId: string | null;
   snapshot: string | null;
   user: TaskPersonRecord | null;
   credential: MeetingTodoActorCredentialRecord | null;
   registry: MeetingTodoActorRegistry | null;
+  noteExternalParticipantNameKeys?: Set<string> | null;
 }): MeetingTodoActorSummary | null {
   if (!input.kind) {
     return null;
   }
   const actorId = input.kind === "human" ? input.userId : input.credentialId;
-  const projectedActor = actorId
-    ? input.kind === "human"
-      ? input.registry?.humanById.get(actorId)
-      : input.registry?.credentialById.get(actorId)
-    : null;
+  const projectedActor =
+    actorId && (input.kind === "human" || input.kind === "agent")
+      ? input.kind === "human"
+        ? input.registry?.humanById.get(actorId)
+        : input.registry?.credentialById.get(actorId)
+      : null;
   if (projectedActor) {
     return projectedActor;
   }
@@ -514,11 +520,12 @@ function mapActionActor(input: {
     isCurrentProjectHuman:
       input.kind === "human" && Boolean(input.userId) &&
       Boolean(input.registry?.activeHumanIds.has(input.userId ?? "")),
+    noteExternalParticipantNameKeys: input.noteExternalParticipantNameKeys,
   });
 }
 
 function mapNoteActor(input: {
-  kind: "human" | "agent" | null;
+  kind: MeetingTodoActorKind | null;
   userId: string | null;
   credentialId: string | null;
   snapshot: string | null;
@@ -545,6 +552,13 @@ function mapMeetingNote(
   note: MeetingNoteRecord,
   registry: MeetingTodoActorRegistry | null
 ): ProjectMeetingNoteSummary {
+  const noteExternalParticipantNameKeys = new Set(
+    note.participants
+      .filter((participant) => participant.userId === null)
+      .map((participant) =>
+        getMeetingTodoParticipantNameKey(participant.displayName)
+      )
+  );
   return {
     id: note.id,
     projectId: note.projectId,
@@ -599,6 +613,7 @@ function mapMeetingNote(
           user: action.assigneeUser,
           credential: action.assigneeCredential,
           registry,
+          noteExternalParticipantNameKeys,
         }),
         completedBy: mapActionActor({
           kind: action.completedByKind,
@@ -744,11 +759,12 @@ type NormalizedMeetingAction = ReturnType<typeof normalizeActionInputs>[number];
 function resolveDraftActionAssignees(input: {
   actions: NormalizedMeetingAction[];
   registry: MeetingTodoActorRegistry | null;
+  participants: NormalizedMeetingParticipantInput[];
 }):
   | {
       ok: true;
       assignments: Array<{
-        assigneeKind: "human" | "agent" | null;
+        assigneeKind: MeetingTodoActorKind | null;
         assigneeUserId: string | null;
         assigneeCredentialId: string | null;
         assigneeDisplayNameSnapshot: string | null;
@@ -756,7 +772,7 @@ function resolveDraftActionAssignees(input: {
     }
   | ServiceErrorResult {
   const assignments: Array<{
-    assigneeKind: "human" | "agent" | null;
+    assigneeKind: MeetingTodoActorKind | null;
     assigneeUserId: string | null;
     assigneeCredentialId: string | null;
     assigneeDisplayNameSnapshot: string | null;
@@ -777,10 +793,16 @@ function resolveDraftActionAssignees(input: {
       continue;
     }
 
-    const resolution = resolveAssignableMeetingTodoActorFromRegistry({
-      registry: input.registry,
-      reference: action.assignee,
-    });
+    const resolution =
+      action.assignee.kind === "participant"
+        ? resolveExternalParticipantMeetingTodoActor({
+            reference: action.assignee,
+            participants: input.participants,
+          })
+        : resolveAssignableMeetingTodoActorFromRegistry({
+            registry: input.registry,
+            reference: action.assignee,
+          });
     if (!resolution.ok) {
       return createError(resolution.status, resolution.error);
     }
@@ -1037,6 +1059,7 @@ export async function createProjectMeetingNote(
       const assignmentResolution = resolveDraftActionAssignees({
         actions: draft.actions,
         registry: actorRegistry,
+        participants: draft.participants,
       });
       if (!assignmentResolution.ok) {
         return assignmentResolution;
@@ -1192,6 +1215,7 @@ export async function updateProjectMeetingNote(
       const assignmentResolution = resolveDraftActionAssignees({
         actions: draft.actions,
         registry: actorRegistry,
+        participants: draft.participants,
       });
       if (!assignmentResolution.ok) {
         return assignmentResolution;
@@ -1466,18 +1490,38 @@ export async function setProjectMeetingNoteActionAssignee(
       return createError(404, "meeting-note-action-not-found");
     }
 
-    const assignment = input.assignee
-      ? await (async () => {
-          const registry = await loadMeetingNoteActorRegistry({
-            db,
+    let assignment: MeetingTodoActorResolution | null = null;
+    if (input.assignee) {
+      if (input.assignee.kind === "participant") {
+        const storedNote = await db.projectMeetingNote.findFirst({
+          where: {
+            id: noteId,
             projectId: input.projectId,
-          });
-          return resolveAssignableMeetingTodoActorFromRegistry({
-            registry,
-            reference: input.assignee as MeetingTodoActorReference,
-          });
-        })()
-      : null;
+          },
+          select: {
+            participants: {
+              select: {
+                userId: true,
+                displayName: true,
+              },
+            },
+          },
+        });
+        assignment = resolveExternalParticipantMeetingTodoActor({
+          reference: input.assignee,
+          participants: storedNote?.participants ?? [],
+        });
+      } else {
+        const registry = await loadMeetingNoteActorRegistry({
+          db,
+          projectId: input.projectId,
+        });
+        assignment = resolveAssignableMeetingTodoActorFromRegistry({
+          registry,
+          reference: input.assignee as MeetingTodoActorReference,
+        });
+      }
+    }
     if (assignment && !assignment.ok) {
       return createError(assignment.status, assignment.error);
     }

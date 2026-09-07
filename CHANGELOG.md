@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.56.0 - 2026-09-07
+## v0.57.0 - 2026-09-07
 
 - Task changes made through the agent API now carry first-class actor
   identity: every create and edit is attributed to the acting agent
@@ -22,6 +22,27 @@ SHA, deployment URL, and workflow run belong in release evidence.
   stewardship, with prior behavior and error codes preserved.
 - Task-detail attribution now gives agent creators and editors the same
   dedicated robot avatar used for agent-authored comments.
+
+## v0.56.0 - 2026-09-06
+
+- Meeting todo assignees can now be external participants (ND-376): the
+  assignee picker lists the owning meeting note's external participants
+  alongside members and agents in one uniform list — no group headers or
+  subtitles, with the avatar already distinguishing actor kinds — on the
+  meeting-notes panel and the project-wide todos page, and picking one
+  persists the assignment under the participant's display name. The option
+  list scrolls when it exceeds the viewport, styled with the app-wide slim
+  scrollbar.
+- External participant assignees render with a muted `external` hint wherever
+  assignees appear, stay assignable while their name is still a participant
+  of the note, and keep their stored name with the needs-reassignment
+  treatment when removed or renamed.
+- Members and agents remain the canonical project assignee options (member
+  participants are not duplicated in the picker), and creators, completers,
+  and stewards stay restricted to humans and agents.
+- Added migration, service, component, and browser coverage for external
+  participant assignment, member parity, and rejection of unknown or
+  non-participant names.
 
 ## v0.55.0 - 2026-09-06
 
