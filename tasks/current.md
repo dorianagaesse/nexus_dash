@@ -1,5 +1,143 @@
 # Current Task
 
+## ND-381: Support rich text in meeting note input and output
+
+## Status
+
+In progress (2026-09-07). Worktree `../nexus_dash_nd381_wt` on
+`feature/nd-381-meeting-note-rich-text`, branched from `origin/main` at 2fbc228
+(ND-376 merged, v0.56.0). The Nexus Dash board card ND-381 (feature label,
+related to ND-379) is the source of truth; Backlog until the branch is pushed
+with the brief, then In Progress. Scope confirmed with the user on 2026-09-07:
+the meeting-note editors include @mention autocomplete for project members
+(`mentionProjectId`), and read-only surfaces resolve mention hover cards from
+the project collaborator list.
+
+## Context
+
+Meeting-note inputs and outputs (`inputNotes`, `outputNotes` on
+`ProjectMeetingNote`) are plain-text surfaces today: the Prepare meeting /
+Edit preparation dialog and the note dialog's Outputs area edit them through
+`EmojiTextareaField`, the note dialog renders the Inputs section with
+`whitespace-pre-wrap`, and the meeting-note cards preview raw text. Task
+descriptions and context-card content already share the `RichTextEditor` /
+`RichTextContent` pair with canonical sanitized rich-text HTML storage; ND-379
+added Codex-style `* ` / `- ` list shortcuts to that editor. This task rolls
+the same enriched-text behavior out to the meeting-note input and output
+areas so meeting notes stop being the remaining plain-text island.
+
+## Product Decisions
+
+- **Storage contract.** `inputNotes` and `outputNotes` become canonical
+  sanitized rich-text HTML, coerced on write exactly like context-card
+  content: `coerceRichTextHtml` accepts both legacy plain text (paragraphs
+  for blank-line-separated blocks, `<br />` for single line breaks) and
+  editor HTML (sanitized). No schema change; the existing
+  `MAX_SECTION_LENGTH` (10000) limit keeps counting plain text via
+  `richTextToPlainText`, so HTML markup never counts against the section
+  budget.
+- **Legacy notes stay readable and searchable.** Rows written before this
+  task keep their plain text in the database. Read-only rendering passes
+  stored content through `RichTextContent` (which coerces legacy text at
+  render time), editing dialogs coerce stored content to canonical HTML when
+  the draft is built, and search haystacks convert sections to plain text.
+  Re-saving a legacy note upgrades its stored value to canonical HTML.
+- **Editors.** The Prepare/Edit-preparation dialog Inputs field and the note
+  dialog Outputs field swap `EmojiTextareaField` for the shared
+  `RichTextEditor` (same ids, placeholders, and labels; formatting toolbar,
+  emoji, list shortcuts, links, and code/token blocks included). The editors
+  pass `mentionProjectId` so @mentions of project members autocomplete like
+  task descriptions. Viewers never see a disabled editor: the note dialog's
+  Outputs area renders read-only with `RichTextContent`.
+- **Read-only rendering.** The note dialog Inputs section and the Outputs
+  area render through `RichTextContent` with `mentionUsers` resolved from the
+  project collaborator list (hover cards); the same empty-state copy is kept.
+  Meeting-note cards preview `inputNotes` as plain text (tags stripped) with
+  the existing fallback copy, matching how kanban cards preview task
+  descriptions.
+- **Search stays text-based.** Meeting-note search (client panel filter and
+  server-side query filter) indexes plain-text conversions of the sections,
+  so queries behave identically for legacy plain and new rich content instead
+  of matching raw tag noise. The client converts each note once per notes
+  change (memoized), not per keystroke.
+
+## Scope
+
+- Coerce `inputNotes`/`outputNotes` to canonical rich-text HTML in the
+  meeting-note service draft build, validate section length on the plain-text
+  length, and index plain text in the server query filter.
+- Swap the meeting-panel Inputs/Outputs edit fields to `RichTextEditor`
+  (mention autocomplete included) and render read-only sections via
+  `RichTextContent` with collaborator-derived `mentionUsers`; plain-text card
+  previews and memoized client search haystacks.
+- Focused service tests (plain→HTML coercion on create/update, sanitization,
+  plain-length enforcement with markup, HTML search matching), component
+  coverage for the panel surfaces, and a dedicated Playwright spec for a
+  real-browser rich-text input/output round trip plus a legacy-note read.
+- Version metadata: advance minor to v0.57.0 over origin/main v0.56.0 and add
+  a dated CHANGELOG entry.
+
+## Out Of Scope
+
+- `decisions` (not surfaced in the meeting UI), meeting-todo content, titles,
+  and participant names stay plain text.
+- Mention hover/autocomplete for external participants (they have no Nexus
+  Dash account); mentions resolve against project collaborators only.
+- Rich text in email/notification content, agent API documentation changes,
+  or the project-wide todos page (no note content there).
+- Converting stored legacy rows by migration; upgrades happen lazily on
+  re-save.
+
+## Acceptance Criteria
+
+1. Meeting-note input uses the shared rich-text behavior: the Inputs field in
+   Prepare/Edit-preparation and the Outputs field in the note dialog are the
+   shared rich-text editor with formatting, list shortcuts, emoji, and
+   project-member @mention autocomplete, and saving persists canonical
+   sanitized rich-text HTML.
+2. Meeting-note output renders the same supported rich content consistently:
+   the note dialog Inputs section and Outputs read-only view render stored
+   rich content (formatting, lists, links, code/token blocks, member
+   mentions with hover cards) through the shared read-only renderer, and
+   meeting-note card previews stay readable plain text.
+3. Existing meeting notes remain compatible and readable: legacy plain-text
+   notes (single and multi-paragraph) render correctly in the panel, open in
+   the editors without content loss, re-save as canonical HTML, and search
+   over their content keeps matching.
+
+## Definition Of Done
+
+- Service, panel, and rendering changes above are implemented with focused
+  service/component coverage and a dedicated Playwright spec covering a real
+  rich-text prepare → output round trip, @mention entry, and legacy plain
+  note readability.
+- `git diff --check`, `npm run lint`, `npm run rls:check`, `npm run
+  release:check`, `npm test`, `npm run test:coverage`, `npm run build`, and
+  the focused Playwright run are green; the meeting-note/calendar smoke e2e
+  specs stay green.
+- `package.json`/`package-lock.json` advance minor to v0.57.0 over origin/main
+  (v0.56.0) and the CHANGELOG dated `## v0.57.0` entry documents the feature.
+- The Nexus Dash board card ND-381 is updated (In Progress, then Done on
+  delivery) and `tasks/current.md` + `journal.md` reflect the execution.
+- Branch is pushed with an open ready-for-review PR referencing ND-381; the
+  Copilot review outcome is triaged and threads resolved before handoff.
+
+## Runtime Assumptions
+
+- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged;
+  no schema change is required.
+- Validation runs locally against the dockerized PostgreSQL setup
+  (`docs/runbooks/local-validation.md`) with real-browser Playwright
+  coverage; preview deployment is not an acceptance requirement for this
+  presentational rollout.
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` brief (ND-376, merged into main via PR #490 at
+2fbc228) is preserved verbatim below for history, itself preserving the
+ND-379 brief.
+# Current Task
+
 ## ND-376: Allow meeting todo assignees who are external participants
 
 ## Status
