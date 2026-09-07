@@ -42,8 +42,12 @@ Use it for important implementation milestones, blockers, validation runs, and r
   93.06/83.13/94.52/93.38; production build green.
 - No schema/RLS/UI/auth/upload changes, so the real-PostgreSQL RLS matrix
   and Playwright were not required by the runbook criteria.
-- PR #492 opened with "closes #486"; Copilot review triaged and threads
-  resolved before handoff.
+- PR #492 opened with "closes #486". Copilot review round: one thread on
+  agent.md flagged the guidance calling attachment removal kanban-UI-only —
+  stale, since the dedicated attachment DELETE route already serves agents.
+  The text now points agents at the DELETE route and scopes the UI-only
+  claim to in-place link editing (ND-425); fixed in 2464a84 with a reply on
+  the thread, re-review pending on the GitHub UI side.
 
 # 2026-09-06 - ND-376: reconciled with origin/main after ND-379 (PR #491) merged
 

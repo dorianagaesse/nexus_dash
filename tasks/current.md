@@ -7,8 +7,14 @@
 Delivered (2026-09-07): PR #492
 (https://github.com/dorianagaesse/nexus_dash/pull/492) is open from
 `feature/nd-424-agent-link-attachments` (worktree `../nexus_dash_task424`,
-branched from `origin/main`, version base v0.56.0; commits 8deb753 and
-464abea pushed) and closes issue #486. The Nexus Dash board card
+branched from `origin/main`, version base v0.56.0; commits 8deb753, 464abea,
+8f5e528, 2464a84 pushed) and closes issue #486. Copilot review round
+(2026-09-07/08): one thread on agent.md flagged that the guidance called
+attachment removal kanban-UI-only; the claim was stale — the dedicated
+attachment DELETE route already serves agents — so the text now scopes the
+UI-only claim to in-place link editing (ND-425) and points agents at the
+DELETE route. Fixed in 2464a84 with a reply on the thread; re-review is
+pending on the GitHub UI side. The Nexus Dash board card
 ND-424 (feature label) tracks GitHub issue #486, which was attached to the
 card at creation as a link attachment; the card is flipped to In Progress and
 then Done with a Report section appended. This PR delivers the agent-side gap
