@@ -77,8 +77,12 @@ complete until the stored task matches the intended contract and no credential,
 token, or other secret appears in its content.
 
 Adding link attachments to an existing task works through the agent API (see
-the PATCH task-update example above). Removing an existing link attachment
-remains a kanban-UI capability (user session only); the agent-side gap is
+the PATCH task-update example above), and removing an attachment — link or
+file — works through
+`DELETE /api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}`
+under the same agent authorization as the other attachment routes. Editing a
+link attachment in place (changing its name or URL without delete + re-add)
+remains a kanban-UI capability; that and the wider agent API edit gaps are
 tracked on the Nexus Dash board (ND-425).
 
 ## 2. Implementation Quality
