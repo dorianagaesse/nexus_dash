@@ -1,9 +1,11 @@
 import { resolveAgentCredentialStatus } from "@/lib/agent-access";
-import type {
-  MeetingTodoActorReference,
-  MeetingTodoActorSummary,
+import {
+  buildExternalParticipantMeetingTodoActor,
+  getHistoricalMeetingTodoActorId,
+  getMeetingTodoParticipantNameKey,
+  type MeetingTodoActorReference,
+  type MeetingTodoActorSummary,
 } from "@/lib/meeting-todo-actor";
-import { getHistoricalMeetingTodoActorId } from "@/lib/meeting-todo-actor";
 import {
   buildProjectPrincipalWhere,
   requireProjectRole,
@@ -109,18 +111,32 @@ function mapCredential(
 }
 
 export function mapStoredMeetingTodoActor(input: {
-  kind: "human" | "agent";
+  kind: "human" | "agent" | "participant";
   id: string | null;
   displayNameSnapshot: string | null;
   user?: TaskPersonRecord | null;
   credential?: MeetingTodoActorCredentialRecord | null;
   isCurrentProjectHuman?: boolean;
+  noteExternalParticipantNameKeys?: Set<string> | null;
   now?: Date;
 }): MeetingTodoActorSummary | null {
   const id = normalizeIdentifier(input.id);
   const snapshot = normalizeIdentifier(input.displayNameSnapshot);
   if (!id && !snapshot) {
     return null;
+  }
+
+  if (input.kind === "participant") {
+    return buildExternalParticipantMeetingTodoActor({
+      displayName: snapshot,
+      isCurrentParticipant:
+        Boolean(snapshot) &&
+        Boolean(
+          input.noteExternalParticipantNameKeys?.has(
+            getMeetingTodoParticipantNameKey(snapshot)
+          )
+        ),
+    });
   }
 
   if (input.kind === "human") {
@@ -276,6 +292,47 @@ export function resolveAssignableMeetingTodoActorFromRegistry(input: {
       credentialId: actor.kind === "agent" ? actor.id : null,
       displayNameSnapshot: actor.displayName,
       summary: actor,
+    },
+  };
+}
+
+export function resolveExternalParticipantMeetingTodoActor(input: {
+  reference: MeetingTodoActorReference;
+  participants: Array<{ userId: string | null; displayName: string }>;
+}): MeetingTodoActorResolution {
+  if (input.reference.kind !== "participant") {
+    return {
+      ok: false,
+      status: 400,
+      error: "meeting-note-action-assignee-invalid",
+    };
+  }
+
+  const requestedKey = getMeetingTodoParticipantNameKey(input.reference.id);
+  const participant = input.participants.find(
+    (entry) =>
+      entry.userId === null &&
+      getMeetingTodoParticipantNameKey(entry.displayName) === requestedKey
+  );
+  if (!participant) {
+    return {
+      ok: false,
+      status: 400,
+      error: "meeting-note-action-assignee-invalid",
+    };
+  }
+
+  const summary = buildExternalParticipantMeetingTodoActor({
+    displayName: participant.displayName,
+    isCurrentParticipant: true,
+  });
+  return {
+    ok: true,
+    actor: {
+      userId: null,
+      credentialId: null,
+      displayNameSnapshot: participant.displayName,
+      summary,
     },
   };
 }

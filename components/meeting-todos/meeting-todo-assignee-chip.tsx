@@ -21,7 +21,17 @@ import { cn } from "@/lib/utils";
 
 const POPOVER_VIEWPORT_PADDING = 12;
 const POPOVER_MAX_HEIGHT = 320;
-const POPOVER_OPTION_HEIGHT = 56;
+const POPOVER_OPTION_HEIGHT = 48;
+
+const SLIM_SCROLLBAR_CLASSES = [
+  "[scrollbar-color:rgba(148,163,184,0.52)_transparent]",
+  "[scrollbar-width:thin]",
+  "[&::-webkit-scrollbar]:w-2",
+  "[&::-webkit-scrollbar-track]:rounded-full",
+  "[&::-webkit-scrollbar-track]:bg-transparent",
+  "[&::-webkit-scrollbar-thumb]:rounded-full",
+  "[&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]",
+].join(" ");
 
 interface AssigneeChipBaseProps {
   actor: MeetingTodoActorSummary | null;
@@ -135,6 +145,10 @@ function AssigneeChipBase({
         {actor.kind === "agent" ? (
           <span className="ml-1 text-[10px] font-normal text-muted-foreground">
             agent
+          </span>
+        ) : actor.kind === "participant" ? (
+          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+            external
           </span>
         ) : null}
       </span>
@@ -275,15 +289,6 @@ export function MeetingTodoAssigneeChip({
   const roleLabel =
     identityRole === "steward" ? "steward / facilitator" : "meeting todo assignee";
 
-  const humans = useMemo(
-    () => options.filter((actor) => actor.kind === "human"),
-    [options]
-  );
-  const agents = useMemo(
-    () => options.filter((actor) => actor.kind === "agent"),
-    [options]
-  );
-
   useEffect(() => {
     if (!isOpen) {
       setPopoverPosition(null);
@@ -299,7 +304,7 @@ export function MeetingTodoAssigneeChip({
       setPopoverPosition(
         resolvePopoverPlacement({
           triggerRect: rect,
-          optionCount: humans.length + agents.length + 1,
+          optionCount: options.length + 1,
         })
       );
     };
@@ -336,7 +341,7 @@ export function MeetingTodoAssigneeChip({
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, humans.length, agents.length]);
+  }, [isOpen, options.length]);
 
   const selectOption = (option: MeetingTodoActorReference | null) => {
     onChange(option);
@@ -403,7 +408,10 @@ export function MeetingTodoAssigneeChip({
               role="listbox"
               aria-label={`Assign ${roleLabel}`}
               data-overlay-popover="true"
-              className="pointer-events-auto fixed z-[140] overflow-hidden rounded-xl border border-border/70 bg-popover p-1 shadow-lg"
+              className={cn(
+                "pointer-events-auto fixed z-[140] space-y-0.5 overflow-y-auto overscroll-y-contain rounded-xl border border-border/70 bg-popover p-1 shadow-lg",
+                SLIM_SCROLLBAR_CLASSES
+              )}
               style={{
                 top: popoverPosition.top,
                 left: popoverPosition.left,
@@ -411,10 +419,6 @@ export function MeetingTodoAssigneeChip({
                 maxHeight: popoverPosition.maxHeight,
               }}
             >
-              <div
-                className="space-y-0.5 overflow-y-auto"
-                style={{ maxHeight: popoverPosition.maxHeight - 8 }}
-              >
                 <button
                   type="button"
                   role="option"
@@ -428,28 +432,15 @@ export function MeetingTodoAssigneeChip({
                   >
                     <UserRound className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-foreground">
-                      {identityRole === "steward" ? "No facilitator" : "Unassigned"}
-                    </span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      Leave without {identityRole === "steward" ? "a facilitator" : "an assignee"}
-                    </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                    {identityRole === "steward" ? "No facilitator" : "Unassigned"}
                   </span>
                   {!currentActor ? (
                     <Check className="h-4 w-4 shrink-0 text-foreground" aria-hidden />
                   ) : null}
                 </button>
 
-                {humans.length > 0 ? (
-                  <div
-                    role="presentation"
-                    className="px-2.5 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
-                  >
-                    Project members
-                  </div>
-                ) : null}
-                {humans.map((actor) => {
+                {options.map((actor) => {
                   const key = getMeetingTodoActorKey(actor);
                   const isSelected = key === currentKey;
                   return (
@@ -461,7 +452,13 @@ export function MeetingTodoAssigneeChip({
                       className="flex min-h-12 w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
                       onClick={() => selectOption({ kind: actor.kind, id: actor.id })}
                     >
-                      {actor.avatarSeed ? (
+                      {actor.kind === "agent" ? (
+                        <AgentAvatar
+                          displayName={actor.displayName}
+                          decorative
+                          className="h-8 w-8 text-xs"
+                        />
+                      ) : actor.avatarSeed ? (
                         <UserAvatar
                           avatarSeed={actor.avatarSeed}
                           displayName={actor.displayName}
@@ -476,61 +473,13 @@ export function MeetingTodoAssigneeChip({
                           {actor.displayName.trim().charAt(0).toUpperCase() || "?"}
                         </span>
                       )}
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-foreground">
-                          {actor.displayName}
-                          {actor.usernameTag ? (
-                            <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                              {actor.usernameTag}
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          Project member
-                        </span>
-                      </span>
-                      {isSelected ? (
-                        <Check className="h-4 w-4 shrink-0 text-foreground" aria-hidden />
-                      ) : null}
-                    </button>
-                  );
-                })}
-
-                {agents.length > 0 ? (
-                  <div
-                    role="presentation"
-                    className="px-2.5 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
-                  >
-                    Project agents
-                  </div>
-                ) : null}
-                {agents.map((actor) => {
-                  const key = getMeetingTodoActorKey(actor);
-                  const isSelected = key === currentKey;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      className="flex min-h-12 w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
-                      onClick={() => selectOption({ kind: actor.kind, id: actor.id })}
-                    >
-                      <AgentAvatar
-                        displayName={actor.displayName}
-                        decorative
-                        className="h-8 w-8 text-xs"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-foreground">
-                          {actor.displayName}
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                        {actor.displayName}
+                        {actor.usernameTag ? (
                           <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                            agent
+                            {actor.usernameTag}
                           </span>
-                        </span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          Active credential
-                        </span>
+                        ) : null}
                       </span>
                       {isSelected ? (
                         <Check className="h-4 w-4 shrink-0 text-foreground" aria-hidden />
@@ -538,7 +487,6 @@ export function MeetingTodoAssigneeChip({
                     </button>
                   );
                 })}
-              </div>
             </div>,
             document.body
           )

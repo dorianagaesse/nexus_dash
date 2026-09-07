@@ -818,6 +818,190 @@ describe("project-meeting-note-service", () => {
     expect(dbMock.projectMeetingNoteAction.update).not.toHaveBeenCalled();
   });
 
+  test("assigns a current external participant of the note", async () => {
+    dbMock.projectMeetingNoteAction.findFirst.mockResolvedValueOnce({
+      id: "action-1",
+    });
+    dbMock.projectMeetingNote.findFirst
+      .mockResolvedValueOnce({
+        participants: [
+          { userId: null, displayName: "Dorian" },
+          { userId: "user-1", displayName: "Owner" },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ...baseMeetingNoteRecord,
+        actions: [
+          {
+            ...baseMeetingNoteRecord.actions[0],
+            assigneeKind: "participant",
+            assigneeUserId: null,
+            assigneeCredentialId: null,
+            assigneeDisplayNameSnapshot: "Dorian",
+            assigneeUser: null,
+            assigneeCredential: null,
+          },
+        ],
+      });
+    dbMock.projectMeetingNoteAction.update.mockResolvedValueOnce({
+      id: "action-1",
+    });
+    dbMock.projectMeetingNote.update.mockResolvedValueOnce({ id: "note-1" });
+
+    const result = await setProjectMeetingNoteActionAssignee({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      noteId: "note-1",
+      actionId: "action-1",
+      assignee: { kind: "participant", id: "dorian" },
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        note: {
+          actions: [
+            {
+              assignee: {
+                kind: "participant",
+                id: "Dorian",
+                displayName: "Dorian",
+                status: "active",
+                isAssignable: true,
+              },
+            },
+          ],
+        },
+      },
+    });
+    expect(dbMock.projectMeetingNoteAction.update).toHaveBeenCalledWith({
+      where: { id: "action-1" },
+      data: {
+        assigneeKind: "participant",
+        assigneeUserId: null,
+        assigneeCredentialId: null,
+        assigneeDisplayNameSnapshot: "Dorian",
+      },
+    });
+  });
+
+  test("rejects participant assignments to names absent from the note", async () => {
+    dbMock.projectMeetingNoteAction.findFirst.mockResolvedValueOnce({
+      id: "action-1",
+    });
+    dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+      participants: [{ userId: "user-1", displayName: "Owner" }],
+    });
+
+    await expect(
+      setProjectMeetingNoteActionAssignee({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        noteId: "note-1",
+        actionId: "action-1",
+        assignee: { kind: "participant", id: "Dorian" },
+      })
+    ).resolves.toEqual({
+      ok: false,
+      status: 400,
+      error: "meeting-note-action-assignee-invalid",
+    });
+    expect(dbMock.projectMeetingNoteAction.update).not.toHaveBeenCalled();
+  });
+
+  test("creates a note action assigned to an external participant", async () => {
+    dbMock.projectMeetingNote.create.mockResolvedValueOnce({ id: "note-1" });
+    dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+      ...baseMeetingNoteRecord,
+      participants: [externalParticipant("Dorian", 0)],
+      actions: [
+        {
+          ...baseMeetingNoteRecord.actions[0],
+          assigneeKind: "participant",
+          assigneeUserId: null,
+          assigneeCredentialId: null,
+          assigneeDisplayNameSnapshot: "Dorian",
+          assigneeUser: null,
+          assigneeCredential: null,
+        },
+      ],
+    });
+
+    const result = await createProjectMeetingNote({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      title: "Dorian retro",
+      scheduledAt: "2026-06-08T14:00:00.000Z",
+      participants: [" Dorian "],
+      actions: [
+        {
+          content: "Send recap",
+          assignee: { kind: "participant", id: "  dorian " },
+        },
+      ],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(dbMock.projectMeetingNote.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        participants: {
+          create: [{ userId: null, displayName: "Dorian", position: 0 }],
+        },
+        actions: {
+          create: [
+            expect.objectContaining({
+              content: "Send recap",
+              position: 0,
+              assigneeKind: "participant",
+              assigneeUserId: null,
+              assigneeCredentialId: null,
+              assigneeDisplayNameSnapshot: "Dorian",
+            }),
+          ],
+        },
+      }),
+      select: { id: true },
+    });
+    if (result.ok) {
+      expect(result.data.note.actions[0].assignee).toMatchObject({
+        kind: "participant",
+        id: "Dorian",
+        displayName: "Dorian",
+        status: "active",
+        isAssignable: true,
+      });
+    }
+  });
+
+  test("rejects updating a note whose new action names a missing external participant", async () => {
+    dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+      id: "note-1",
+      actions: [{ id: "action-1" }],
+    });
+
+    const result = await updateProjectMeetingNote({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      noteId: "note-1",
+      title: "Dorian retro",
+      participants: ["Dorian"],
+      actions: [
+        { id: "action-1", content: "Send recap" },
+        {
+          content: "Chase input",
+          assignee: { kind: "participant", id: "Grace Hopper" },
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "meeting-note-action-assignee-invalid",
+    });
+    expect(dbMock.projectMeetingNote.update).not.toHaveBeenCalled();
+  });
+
   test("records the credential when an authorized agent completes a todo", async () => {
     projectAccessServiceMock.requireAgentProjectScopes.mockReturnValueOnce({ ok: true });
     dbMock.apiCredential.findFirst.mockResolvedValueOnce({

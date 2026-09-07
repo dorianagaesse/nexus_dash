@@ -58,6 +58,16 @@ const AGENT: MeetingTodoActorSummary = {
   isAssignable: true,
 };
 
+const PARTICIPANT: MeetingTodoActorSummary = {
+  kind: "participant",
+  id: "Ada Lovelace",
+  displayName: "Ada Lovelace",
+  usernameTag: null,
+  avatarSeed: null,
+  status: "active",
+  isAssignable: true,
+};
+
 interface HarnessProps {
   initialValue?: MeetingTodoActorReference | null;
   options?: MeetingTodoActorSummary[];
@@ -176,7 +186,7 @@ describe("meeting-todo-assignee-chip", () => {
     expect(container.textContent).toContain("former collaborator");
   });
 
-  test("opens the popover, lists project members and agents, and selects one", async () => {
+  test("opens the popover, lists every kind in one uniform list, and selects one", async () => {
     act(() => {
       root.render(<Harness options={[...HUMANS, AGENT]} />);
     });
@@ -192,10 +202,11 @@ describe("meeting-todo-assignee-chip", () => {
 
     const listbox = document.querySelector('[role="listbox"]');
     expect(listbox).not.toBeNull();
-    expect(listbox?.textContent).toContain("Project members");
-    expect(listbox?.textContent).toContain("Project agents");
     expect(listbox?.textContent).toContain("owner");
     expect(listbox?.textContent).toContain("Release:bot");
+    expect(listbox?.textContent).not.toContain("Project members");
+    expect(listbox?.textContent).not.toContain("Project agents");
+    expect(listbox?.textContent).not.toContain("External participants");
 
     const ownerOption = Array.from(
       listbox?.querySelectorAll('[role="option"]') ?? []
@@ -210,6 +221,54 @@ describe("meeting-todo-assignee-chip", () => {
 
     expect(container.textContent).toContain("owner");
     expect(document.querySelector('[role="listbox"]')).toBeNull();
+  });
+
+  test("lists external participants in the uniform list and selects one", async () => {
+    act(() => {
+      root.render(<Harness options={[...HUMANS, AGENT, PARTICIPANT]} />);
+    });
+
+    const chip = container.querySelector(
+      "[data-meeting-todo-assignee-chip='true']"
+    ) as HTMLButtonElement;
+    await act(async () => {
+      chip.click();
+      await Promise.resolve();
+    });
+
+    const listbox = document.querySelector('[role="listbox"]');
+    expect(listbox?.textContent).toContain("Ada Lovelace");
+    expect(listbox?.textContent).not.toContain("External participants");
+    expect(listbox?.textContent).not.toContain("External participant");
+
+    const participantOption = Array.from(
+      listbox?.querySelectorAll('[role="option"]') ?? []
+    ).find((option) => option.textContent?.includes("Ada Lovelace")) as
+      | HTMLButtonElement
+      | undefined;
+    expect(participantOption).toBeDefined();
+    await act(async () => {
+      participantOption?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("Ada Lovelace");
+    expect(container.textContent).toContain("external");
+    expect(document.querySelector('[role="listbox"]')).toBeNull();
+  });
+
+  test("readonly chip marks an external participant assignee", () => {
+    act(() => {
+      root.render(
+        <MeetingTodoAssigneeChipReadonly actor={PARTICIPANT} />
+      );
+    });
+
+    expect(
+      container.querySelector("[data-meeting-todo-assignee-chip='true']")
+    ).toBeNull();
+    expect(container.textContent).toContain("Ada Lovelace");
+    expect(container.textContent).toContain("external");
   });
 
   test("readonly chip renders the display name without an interactive trigger", () => {
@@ -252,5 +311,41 @@ describe("meeting-todo-assignee-chip", () => {
     expect(trigger).not.toBeNull();
     expect(trigger?.className).not.toMatch(/\bborder\b/);
     expect(container.textContent).toContain("camille");
+  });
+
+  test("lists every kind in one uniform scrollable list with no headers or subtitles", async () => {
+    act(() => {
+      root.render(<Harness options={[...HUMANS, AGENT, PARTICIPANT]} />);
+    });
+
+    const chip = container.querySelector(
+      "[data-meeting-todo-assignee-chip='true']"
+    ) as HTMLButtonElement;
+    await act(async () => {
+      chip.click();
+      await Promise.resolve();
+    });
+
+    const listbox = document.querySelector('[role="listbox"]');
+    expect(listbox).not.toBeNull();
+    const options = listbox?.querySelectorAll('[role="option"]') ?? [];
+    expect(options.length).toBe(1 + HUMANS.length + 2);
+
+    const text = listbox?.textContent ?? "";
+    for (const removed of [
+      "Project member",
+      "Project agents",
+      "External participant",
+      "Active credential",
+      "Leave without",
+    ]) {
+      expect(text).not.toContain(removed);
+    }
+
+    const className = listbox?.className ?? "";
+    expect(className).toContain("overflow-y-auto");
+    expect(className).toContain("[scrollbar-width:thin]");
+    expect(className).toContain("[&::-webkit-scrollbar]:w-2");
+    expect(className).toContain("[&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]");
   });
 });

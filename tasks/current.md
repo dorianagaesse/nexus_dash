@@ -1,5 +1,170 @@
 # Current Task
 
+## ND-376: Allow meeting todo assignees who are external participants
+
+## Status
+
+Delivered: PR #490 (https://github.com/dorianagaesse/nexus_dash/pull/490) is
+open from `feature/nd-376-meeting-todo-external-assignees` (worktree
+`../nexus_dash_nd376_wt`, branched from `origin/main` at 633278e). The Nexus
+Dash board card ND-376 (feature label) is the source of truth; flipped to
+Done on delivery, awaiting the merge. No GitHub issue exists for this task;
+the PR carries the ND-376 reference. Design aligned with the user: an
+external assignee is a new `participant` actor kind, assignable from the
+meeting-notes panel and the project-wide todos page.
+
+A user feedback round on the picker (2026-09-06) was incorporated after a
+merge of `origin/main` (380ee21, ND-421 #487 / v0.54.1): the assignee
+popover now lists members, agents, and external participants in one uniform
+list with no group headers or subtitles; the option list is a single
+scrollable element that actually scrolls with the app-wide slim scrollbar
+styling. Regression coverage updated in the component suite and the e2e
+spec selectors.
+
+Local validation passed (2026-09-06) against a dockerized PostgreSQL on port
+55432 with app env merged from the main checkout's `.env` and local DB
+overrides: lint, `rls:check`, `release:check`, and `git diff --check` clean;
+full Vitest 178 files / 1305 tests passed; coverage above thresholds
+(statements 92.93%); production build green; full Playwright suite green
+including the external-assignee and mobile-navigation specs.
+
+Reconciled with `origin/main` again on 2026-09-06 after ND-379 (PR #491)
+merged and took the v0.55.0 minor: the only conflicts were top-of-file docs
+collisions — `journal.md` keeps both dated entry sets (ND-376 above ND-379),
+and `tasks/current.md` keeps this ND-376 brief active with the ND-379 brief
+preserved verbatim as the previous snapshot below. Product code auto-merged
+with no overlap. Release metadata was retargeted because main now carries
+v0.55.0: `package.json`/`package-lock.json` advance to v0.56.0 and the
+CHANGELOG gains a dated v0.56.0 section with the ND-376 entries, while the
+v0.55.0 entry stays ND-379's (matching `origin/main`); `release:check` and
+lint pass on the reconciled head.
+
+## Context
+
+Meeting-note todos (`ProjectMeetingNoteAction`) carry an assignee that is
+today restricted to Nexus Dash project members (`human`) or project API
+credentials (`agent`); assignee resolution validates references against the
+project member/credential registry. Meeting participants already support
+external people (no Nexus Dash user, `userId: null` + `displayName`), but a
+todo assignee cannot be one of them. Meeting participants are rewritten on
+every note save (`deleteMany` + `create`), so participant rows have no stable
+id to reference — an assignee representation must be name-based with the
+existing accountability snapshot pattern.
+
+## Product Decisions
+
+- External assignees become a third `participant` value of the shared
+  `MeetingTodoActorKind` enum (TS + DB), persisted through the existing
+  `assigneeKind`/`assigneeDisplayNameSnapshot` columns with no user or
+  credential FK and no new columns. The additive enum migration keeps the
+  existing DB CHECK constraints valid (`participant` rows carry both FKs
+  null).
+- A participant assignee reference is name-keyed: its id is the trimmed
+  participant display name, resolved case/whitespace-insensitively against
+  the external participants of the *same* meeting note at write time
+  (create/update drafts and the dedicated action-assignee endpoint). The
+  persisted snapshot keeps the canonical spelling, so the assignee remains
+  identifiable after later participant renames or removal.
+- A participant assignee renders active/assignable while that name is still
+  an external participant of the note; once removed from the note it renders
+  inactive with the name preserved and the existing needs-reassignment
+  affordance (same semantics as a member who left the project).
+- The assignee picker presents every candidate in one uniform list: the
+  note's external participants alongside project members and agents with no
+  group headers or subtitles (avatar style already distinguishes actor
+  kinds), and member participants are not duplicated. The list is available
+  in the meeting-notes panel and on the project-wide todos page (options
+  derived per meeting note), scrolls when options exceed the viewport, and
+  uses the app-wide slim scrollbar styling.
+- Assignee presentation (chips, identity rows, quick dialog) shows the name
+  with a muted `external` hint for participants, mirroring the existing
+  `agent` hint, so same-name humans and externals stay distinguishable in
+  todo views and outputs.
+- The `participant` kind is valid only in the assignee position; creators,
+  completers, and stewards remain human/agent.
+
+## Scope
+
+- Additive `MeetingTodoActorKind` migration (`participant` value) plus TS
+  domain types, reference guards, mapping, and avatar/summary handling.
+- Service-layer resolution for participant references against note-scoped
+  external participants in `createProjectMeetingNote` /
+  `updateProjectMeetingNote` draft assignment and
+  `setProjectMeetingNoteActionAssignee`.
+- Mapping of stored participant assignees to active/inactive summaries in
+  the meeting-note panel reads and the project-wide todo list.
+- Uniform assignee picker list, external hints, and per-note option sets in
+  the meeting-notes panel and project-wide todos page; read-only surfaces
+  unchanged in layout.
+- Focused service, component, and Playwright coverage, including member
+  parity and rejection of unknown/non-participant names.
+
+## Out Of Scope
+
+- Converting existing assignee rows or adding participant ids/columns.
+- External stewards, creators, or completers; the participant kind stays
+  assignee-only.
+- Changing participant authoring UX, reminder email recipients (external
+  participants have no account), or notification behavior.
+- Task (kanban) assignees: this touches meeting-note todos only.
+
+## Acceptance Criteria
+
+1. External meeting participants can be selected as todo assignees: the
+   assignee picker on a meeting-note todo offers the note's external
+   participants in one uniform list alongside members and agents, and
+   picking one persists the assignment with the participant's display name.
+2. Existing Nexus Dash user/member assignment continues to work: member and
+   agent options, resolution, display, and `mine`/responsibility filters
+   behave exactly as before; member participants are not duplicated in the
+   picker.
+3. The assignee remains identifiable in meeting-note todo views and outputs:
+   the stored name renders in the note panel, the project-wide todos page,
+   the todo quick dialog, and assignee identity rows, with an `external`
+   hint; unknown or non-participant names are rejected with
+   `meeting-note-action-assignee-invalid`.
+
+## Definition Of Done
+
+- The `participant` actor kind is implemented end to end with an additive
+  migration, service validation scoped to the note's external participants,
+  name-keyed summaries, and picker/read-only presentation on the meeting
+  panel and todos page.
+- Focused service tests cover participant assignment through drafts and the
+  dedicated endpoint (valid external participant, member as participant,
+  renamed/removed participant, unknown name rejection); component tests
+  cover the uniform option list (no headers/subtitles, scrollable with the
+  app-wide scrollbar styling), the external hint, and selection for panel
+  and todos rows; the relevant Playwright spec covers a real-browser
+  external assignee flow.
+- `git diff --check`, `npm run lint`, `npm run rls:check`, `npm run
+  release:check`, `npm test`, `npm run test:coverage`, `npm run build`, and
+  the focused Playwright run are green; the meeting-notes/todos e2e specs
+  stay green.
+- `package.json`/`package-lock.json` advance minor to v0.56.0 over `origin/main`
+  (v0.55.0 released via ND-379 PR #491) and the CHANGELOG release entry
+  documents the feature under a dated v0.56.0 section.
+- The Nexus Dash board card ND-376 is updated (In Progress, then Done on
+  delivery) and `tasks/current.md` + `journal.md` reflect the execution.
+- Branch is pushed with an open ready-for-review PR referencing ND-376.
+
+## Runtime Assumptions
+
+- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged;
+  the schema change is an additive enum value with no table/column changes.
+- Local validation uses the dockerized PostgreSQL setup from
+  `docs/runbooks/local-validation.md`; preview deployment is not an
+  acceptance requirement for this task.
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` brief (ND-379, merged into main via PR #491) is
+preserved verbatim below for history, itself preserving the ND-421 brief.
+
+---
+
+# Current Task
+
 ## ND-379: Simplify task-description rich text with Codex-style Markdown shortcuts
 
 ## Status

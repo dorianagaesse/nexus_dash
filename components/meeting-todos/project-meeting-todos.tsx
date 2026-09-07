@@ -37,12 +37,23 @@ export interface ProjectMeetingTodoItem {
   creator?: MeetingTodoActorSummary | null;
   assignee?: MeetingTodoActorSummary | null;
   completedBy?: MeetingTodoActorSummary | null;
+  participantOptions?: MeetingTodoActorSummary[];
   meeting: {
     id: string;
     title: string;
     scheduledAt: string | null;
     status: string;
   };
+}
+
+function resolveTodoAssigneeOptions(
+  actors: MeetingTodoActorSummary[],
+  todo: ProjectMeetingTodoItem
+): MeetingTodoActorSummary[] {
+  if (!todo.participantOptions?.length) {
+    return actors;
+  }
+  return [...actors, ...todo.participantOptions];
 }
 
 interface ProjectMeetingTodosProps {
@@ -208,7 +219,7 @@ function TodoRow({
             <MeetingTodoAssigneeChip
               id={`project-todo-assignee-${todo.id}`}
               value={todo.assignee ?? null}
-              options={actors}
+              options={resolveTodoAssigneeOptions(actors, todo)}
               onChange={(assignee) => onSetAssignee(todo, assignee)}
               disabled={isPending}
               pending={isPending}
@@ -421,7 +432,7 @@ export function ProjectMeetingTodos({
       }
 
       const selected = assignee
-        ? actors.find(
+        ? resolveTodoAssigneeOptions(actors, todo).find(
             (actor) =>
               actor.kind === assignee.kind && actor.id === assignee.id
           ) ?? null

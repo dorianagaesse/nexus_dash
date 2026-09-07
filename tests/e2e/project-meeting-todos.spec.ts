@@ -140,6 +140,41 @@ async function createProjectTodoFixture(userId: string) {
 }
 
 test.describe("project meeting todos", () => {
+  test("assigns a todo to an external meeting participant", async ({ page }) => {
+    const userId = await signInAsVerifiedUser(page);
+    const fixture = await createProjectTodoFixture(userId);
+
+    await page.goto(`/projects/${fixture.ownerProjectId}/todos`);
+
+    const accountableTodo = page.locator("li", {
+      hasText: "Complete the mobile navigation audit",
+    });
+    const assigneeChip = accountableTodo.locator(
+      "[data-meeting-todo-assignee-chip='true']"
+    );
+    const assignmentResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        /\/meeting-notes\/[^/]+\/actions\/[^/]+$/.test(response.url()) &&
+        response.ok()
+    );
+    await assigneeChip.click();
+    const dorianOption = page.getByRole("option", { name: /^Dorian$/ });
+    await expect(dorianOption).toBeVisible();
+    await dorianOption.click();
+    await assignmentResponse;
+    await expect(
+      page.locator("[aria-live='polite']").getByText("Assigned to Dorian.")
+    ).toBeVisible();
+
+    await page.reload();
+    const persistedChip = page.locator("li", {
+      hasText: "Complete the mobile navigation audit",
+    }).locator("[data-meeting-todo-assignee-chip='true']");
+    await expect(persistedChip).toContainText("Dorian");
+    await expect(persistedChip).toContainText("external");
+  });
+
   test("uses a project-scoped route and grouped mobile navigation", async ({
     page,
   }) => {
@@ -199,10 +234,8 @@ test.describe("project meeting todos", () => {
       expect(verticalOverlap).toBeGreaterThan(0);
     }
     await assigneeChip.click();
-    await page
-      .getByRole("option", { name: /Project member/ })
-      .first()
-      .click();
+    // the fixture member renders as its username tag (displayName prefers username over name)
+    await page.getByRole("option").filter({ hasText: /#\d+/ }).click();
     await assignmentResponse;
     await expect(
       page.locator("[aria-live='polite']").getByText(/^Assigned to .+\.$/)
