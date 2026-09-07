@@ -1,5 +1,153 @@
 # Current Task
 
+## ND-424: Allow agents to attach link attachments to existing tasks
+
+## Status
+
+Delivered (2026-09-07): implementation is complete on
+`feature/nd-424-agent-link-attachments` in worktree `../nexus_dash_task424`
+(branched from `origin/main`, version base v0.56.0). The Nexus Dash board card
+ND-424 (feature label) tracks GitHub issue #486, which was attached to the
+card at creation as a link attachment; the card is flipped to In Progress and
+then Done with a Report section appended. This PR delivers the agent-side gap
+left after creation-time `attachmentLinks` shipped: adding link attachments to
+an already-existing task through the agent API. API shape was confirmed with
+the user on 2026-09-07: the task-update route gains `attachmentLinks` on
+`PATCH /api/projects/{projectId}/tasks/{taskId}` (pure JSON, append-only,
+read-back via the existing `attachments` list in the task response) rather
+than agent scopes on the UI composer route. Removing attachments was already
+agent-capable (ND-418-era attachment work) and stays on
+`DELETE /tasks/{taskId}/attachments/{attachmentId}`.
+
+Version metadata advances minor to v0.57.0 (`release:version -- feature`);
+the CHANGELOG gains a dated `## v0.57.0 - 2026-09-07` section. The OpenAPI
+document (`/api/docs/agent/v1/openapi.json`) and the hosted agent guide
+(`/docs/agent/v1`) surface the field through the shared `TaskUpdateRequest`
+schema and a dedicated curl example; the authoring guidance in `agent.md` /
+`CLAUDE.md` no longer claims link-add is kanban-UI-only.
+
+## Context
+
+Nexus Dash agents manage cards through the project-scoped agent API. When a
+task tracks a GitHub issue or other external resource, the canonical practice
+is to attach it as a link attachment (`attachmentLinks` as `{ name, url }`
+objects) at creation time — the create route accepts the field and the
+kanban renders openable link rows. Adding links to a task created earlier
+required the kanban UI (user session only): the agent composer is not in
+scope of the project-scoped bearer tokens, and the task-update route had no
+`attachmentLinks` input. The gap was tracked as ND-424 (GitHub issue #486)
+on the Nexus Dash board, with ND-425 auditing the wider agent API for
+similar edit gaps. Link attachments are stored on the shared `TaskAttachment`
+kind=`link` rows (no file bytes, no storage keys), so adding them needs no
+upload flow, MIME/size validation, or storage access.
+
+## Product Decisions
+
+- **`attachmentLinks` on the task-update route (confirmed with the user).**
+  `PATCH /api/projects/{projectId}/tasks/{taskId}` accepts an optional
+  `attachmentLinks` array of `{ name, url }` objects that mirrors the
+  create-task contract: each entry creates a new kind=`link` attachment,
+  existing attachments are preserved, and an empty array appends nothing.
+  Removal stays on the dedicated attachment DELETE route (already
+  agent-capable), so update never destructively replaces attachments.
+- **Pure JSON partial update.** The field follows the route's existing
+  presence-check (`hasOwnProperty`) partial-update semantics; unknown or
+  malformed entries return 400 `attachment-link-invalid` exactly like the
+  create route. Names default to the URL hostname and URLs are normalized
+  through the shared `parseAttachmentLinksJson` parser, so create and update
+  accept the same shapes.
+- **Same authorization as any task update.** The field needs no new scope:
+  human editors and agents holding `task:write` for the project can append
+  links, and the RLS tenant isolation path is unchanged because the write
+  happens inside the same actor-scoped transaction as the task update.
+- **Read-back in the same response.** The update response already carries
+  the full task record; the mapped `attachments` list includes the new link
+  rows, so an agent can attach and verify in one round trip (no extra GET).
+- **Documentation surfaces stay in sync.** The OpenAPI `TaskUpdateRequest`
+  schema (shared by single and bulk task updates) documents the field, the
+  agent guide's update example demonstrates a links-only PATCH, and
+  `agent.md` / `CLAUDE.md` guidance is updated.
+
+## Scope
+
+- Parse and append `attachmentLinks` in `updateTaskForProject`
+  (`lib/services/project-task-service.ts`) through the existing
+  `parseAttachmentLinksJson` + `createTaskAttachmentsFromDraft` helpers,
+  inside the update transaction and after the task row update.
+- `TaskUpdateRequest.attachmentLinks` in the agent OpenAPI document
+  (`lib/agent-onboarding.ts`) plus a links-only PATCH block in
+  `buildAgentTaskUpdateExample` for the hosted guide.
+- Guidance updates in `agent.md` and `CLAUDE.md` (drop the "UI-only today"
+  claim, point to the PATCH contract).
+- Route-level tests in `tests/api/task-update.route.test.ts` (agent append +
+  read-back with `task:write`, agent denial without the scope, human append,
+  invalid URL and non-array 400s, empty-array no-op) and schema assertions in
+  `tests/api/agent-openapi.route.test.ts`.
+- Version bump to v0.57.0 with a dated CHANGELOG section; board card,
+  `tasks/current.md`, and `journal.md` updates.
+
+## Out Of Scope
+
+- Editing or removing existing link attachments through task update: removal
+  stays on `DELETE /tasks/{taskId}/attachments/{attachmentId}` (agent-capable
+  today), and in-place link editing has no API surface (delete + re-add).
+- Link attachments on context cards through update flows (context-card
+  attachment upload is agent-capable; link-add on context-card update is not
+  part of this card).
+- File attachments through task update (still require the upload-url / direct
+  finalize flow); the UI composer, comments, status transitions, and create
+  route are untouched.
+- ND-425 (wider audit of agent API edit gaps) — separate board card.
+
+## Acceptance Criteria
+
+1. An agent credential can attach a `{ name, url }` link to an existing task
+   via the agent API (`PATCH` with `attachmentLinks`) and reads it back in
+   the task's attachments list of the same response.
+2. Existing flows are unchanged: create-with-attachmentLinks, the kanban
+   composer, file uploads, comments, and status transitions behave exactly as
+   before; existing attachments are preserved when a task update appends
+   links.
+3. Tenant isolation and RLS semantics are preserved (the append runs inside
+   the task-update actor transaction and honors the same role/scope checks),
+   and the agent OpenAPI document exposes the capability on task updates.
+
+## Definition Of Done
+
+- `updateTaskForProject` appends validated link attachments and returns 400
+  `attachment-link-invalid` for malformed entries; route tests cover the
+  agent and human paths, scope denial, validation errors, and read-back.
+- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
+  `npm run build`, and `git diff --check` are green.
+- `package.json`/`package-lock.json` advance minor to v0.57.0 over
+  `origin/main` (v0.56.0) and the CHANGELOG dated `## v0.57.0` entry
+  documents the capability.
+- The agent OpenAPI document and hosted agent guide show the field; the
+  agent.md / CLAUDE.md guidance no longer calls link-add UI-only.
+- The Nexus Dash board card ND-424 is updated (In Progress, then Done on
+  delivery with a Report section) and issue #486 is closed by the PR;
+  `tasks/current.md` + `journal.md` reflect the execution.
+- Branch is pushed with an open ready-for-review PR closing #486; the
+  Copilot review outcome is triaged and threads resolved before handoff.
+
+## Runtime Assumptions
+
+- Existing PostgreSQL, authentication, `.env`, and agent-token contracts
+  remain unchanged; no schema or RLS migration is needed (link rows reuse the
+  existing `TaskAttachment` model).
+- Local validation follows `docs/runbooks/local-validation.md`; preview
+  deployment is not an acceptance requirement for this API-only change.
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` brief (ND-376, released in v0.56.0 via PR
+#490) is preserved verbatim below for history, itself preserving the ND-379
+brief.
+
+---
+
+# Current Task
+
 ## ND-376: Allow meeting todo assignees who are external participants
 
 ## Status

@@ -4,6 +4,24 @@ Product releases use SemVer-style pre-1.0 versioning. Keep build identity
 separate from product version: release entries describe `v0.x.y`, while commit
 SHA, deployment URL, and workflow run belong in release evidence.
 
+## v0.57.0 - 2026-09-07
+
+- Agents can now attach link attachments to existing tasks (ND-424):
+  `PATCH /api/projects/{projectId}/tasks/{taskId}` accepts an optional
+  `attachmentLinks` array of `{ name, url }` objects that appends new link
+  attachments and preserves existing ones, mirroring the create-task
+  contract; the response task includes the updated attachments list for
+  immediate read-back, and bulk update operations inherit the field through
+  the shared task-update schema.
+- Link attachments require no new scope (the existing `task:write` update
+  scope applies), invalid entries return 400 `attachment-link-invalid`,
+  empty arrays append nothing, and removal stays on the dedicated
+  `DELETE /tasks/{taskId}/attachments/{attachmentId}` route. Human-session
+  updates use the same contract.
+- The agent OpenAPI document, the hosted agent guide example, and the
+  NexusDash agent guidance (`agent.md` / `CLAUDE.md`) now surface the
+  add-links-to-existing-tasks capability.
+
 ## v0.56.0 - 2026-09-06
 
 - Meeting todo assignees can now be external participants (ND-376): the

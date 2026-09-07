@@ -3,6 +3,48 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-07 - ND-424: agents can attach link attachments to existing tasks
+
+- Executed in worktree `../nexus_dash_task424` on
+  `feature/nd-424-agent-link-attachments` (forked from `origin/main`,
+  version base v0.56.0). Board card ND-424 (feature label, GitHub issue #486
+  attached at creation as a link attachment) flipped to In Progress, then
+  Done with a Report section on delivery.
+- Gap confirmed: creation-time `attachmentLinks` and agent-capable
+  attachment removal existed, but adding link attachments to an existing
+  task was a kanban-UI capability only (user session). API shape confirmed
+  with the user (2026-09-07): `attachmentLinks` on the task-update route
+  (`PATCH /api/projects/{projectId}/tasks/{taskId}`) rather than agent
+  scopes on the UI composer.
+- `updateTaskForProject` now parses an optional `attachmentLinks` array
+  through the shared `parseAttachmentLinksJson` parser (name defaults to the
+  URL hostname, URLs normalized, 400 `attachment-link-invalid` for malformed
+  entries, empty array appends nothing) and appends kind=`link` rows via
+  `createTaskAttachmentsFromDraft` inside the existing update transaction;
+  existing attachments are preserved, authorization/RLS semantics are
+  unchanged (editor role for humans, `task:write` for agents), and removal
+  stays on the dedicated attachment DELETE route.
+- The agent OpenAPI `TaskUpdateRequest` schema (shared by single and bulk
+  updates) documents the field, the hosted agent guide's update example
+  gained a links-only PATCH block, and `agent.md` / `CLAUDE.md` guidance no
+  longer calls link-add UI-only.
+- Route coverage in `tests/api/task-update.route.test.ts`: agent append with
+  `task:write` and read-back in the response attachments list, agent denial
+  without the scope (403), human append, invalid-URL and non-array 400s, and
+  empty-array no-op. Schema assertions added to
+  `tests/api/agent-openapi.route.test.ts`.
+- Validation on the final tree (2026-09-07, dockerized PostgreSQL on 5432
+  with the runbook env): lint, `rls:check`, and `git diff --check` clean;
+  version policy passed (v0.57.0 minor over v0.56.0 base with a dated
+  `## v0.57.0` CHANGELOG section, added via `release:version -- feature`
+  and a manual lockfile re-bump after `npm install` rewrote the lock
+  versions); full Vitest 178 files / 1325 passed / 2 skipped; coverage
+  93.06/83.13/94.52/93.38; production build green.
+- No schema/RLS/UI/auth/upload changes, so the real-PostgreSQL RLS matrix
+  and Playwright were not required by the runbook criteria.
+- PR opened with "closes #486"; Copilot review triaged and threads resolved
+  before handoff.
+
 # 2026-09-06 - ND-376: reconciled with origin/main after ND-379 (PR #491) merged
 
 - `origin/main` advanced past the fork with ND-379 (PR #491, merged 00:32
