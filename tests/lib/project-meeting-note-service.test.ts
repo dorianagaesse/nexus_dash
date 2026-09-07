@@ -359,8 +359,8 @@ describe("project-meeting-note-service", () => {
         },
         labelsJson: JSON.stringify(["Planning", "sync"]),
         status: "actions_in_progress",
-        inputNotes: "Review roadmap risks.",
-        outputNotes: "Scope was clarified.",
+        inputNotes: "<p>Review roadmap risks.</p>",
+        outputNotes: "<p>Scope was clarified.</p>",
         decisions: "Keep TASK-098 focused.",
         createdByUserId: "user-1",
         updatedByUserId: "user-1",
@@ -409,6 +409,112 @@ describe("project-meeting-note-service", () => {
       db: dbMock,
       projectId: "project-1",
     });
+  });
+
+  test("coerces plain-text and markup sections into canonical sanitized rich-text HTML", async () => {
+    dbMock.projectMeetingNote.create.mockResolvedValueOnce({ id: "note-1" });
+    dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce(
+      baseMeetingNoteRecord
+    );
+
+    const result = await createProjectMeetingNote({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      title: "Rich sections",
+      inputNotes:
+        "<p>Cost model <strong>v2</strong></p><script>alert(1)</script>",
+      outputNotes: "Line one.\n\nLine two.",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(dbMock.projectMeetingNote.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        inputNotes: "<p>Cost model <strong>v2</strong></p>",
+        outputNotes: "<p>Line one.</p><p>Line two.</p>",
+        decisions: "",
+      }),
+      select: { id: true },
+    });
+  });
+
+  test("rejects sections whose visible plain text exceeds the section budget", async () => {
+    const result = await createProjectMeetingNote({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      title: "Overlong sections",
+      inputNotes: "x".repeat(10001),
+      outputNotes: "y".repeat(10001),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "meeting-note-section-too-long",
+    });
+    expect(dbMock.projectMeetingNote.create).not.toHaveBeenCalled();
+  });
+
+  test("counts only visible text toward the section budget, not markup", async () => {
+    dbMock.projectMeetingNote.create.mockResolvedValueOnce({ id: "note-1" });
+    dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce(
+      baseMeetingNoteRecord
+    );
+    const visible = "a".repeat(9998);
+
+    const result = await createProjectMeetingNote({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      title: "Markup-heavy sections",
+      inputNotes: `<strong>${visible}</strong>`,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(dbMock.projectMeetingNote.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        inputNotes: `<strong>${visible}</strong>`,
+      }),
+      select: { id: true },
+    });
+  });
+
+  test("lists notes and filters search across rich-text section HTML", async () => {
+    const noteRows = [
+      {
+        ...baseMeetingNoteRecord,
+        inputNotes: "<p>Review <strong>roadmap</strong> risks.</p>",
+        outputNotes: "<p>Scope was clarified.</p>",
+      },
+      {
+        ...baseMeetingNoteRecord,
+        id: "note-2",
+        title: "Budget review",
+        participants: [externalParticipant("Morgan", 0)],
+        labelsJson: JSON.stringify(["finance"]),
+        status: "prepared",
+        inputNotes: "<p>Cost model.</p>",
+        outputNotes: "<p>No schedule change.</p>",
+        decisions: "",
+        actions: [],
+      },
+    ];
+    dbMock.projectMeetingNote.findMany.mockResolvedValueOnce(noteRows);
+    dbMock.projectMeetingNote.findMany.mockResolvedValueOnce(noteRows);
+
+    const inputsResult = await listProjectMeetingNotes({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      query: "roadmap",
+    });
+    expect(inputsResult).toHaveLength(1);
+    expect(inputsResult[0]?.id).toBe("note-1");
+
+    const outputsResult = await listProjectMeetingNotes({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      query: "schedule",
+    });
+    expect(outputsResult).toHaveLength(1);
+    expect(outputsResult[0]?.id).toBe("note-2");
   });
 
   test("links current collaborators and resolves their live avatar identity", async () => {

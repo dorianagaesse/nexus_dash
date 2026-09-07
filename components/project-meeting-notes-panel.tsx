@@ -47,6 +47,8 @@ import {
   PROJECT_SECTION_CONTENT_CLASS,
   PROJECT_SECTION_HEADER_CLASS,
 } from "@/components/project-dashboard/project-section-chrome";
+import { RichTextContent } from "@/components/rich-text-content";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { useToast } from "@/components/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,10 +60,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  EmojiInputField,
-  EmojiTextareaField,
-} from "@/components/ui/emoji-field";
+import { EmojiInputField } from "@/components/ui/emoji-field";
 import { TokenInput } from "@/components/ui/token-input";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
@@ -69,6 +68,10 @@ import {
   type ProjectMeetingParticipantCollaborator,
   type ProjectMeetingParticipantIdentity,
 } from "@/lib/meeting-participant";
+import {
+  meetingNoteInputPreviewText,
+  meetingNoteSectionsSearchText,
+} from "@/lib/meeting-note-content";
 import {
   fetchProjectActivityMutation,
   PROJECT_ACTIVITY_REMOTE_EVENT,
@@ -84,6 +87,7 @@ import {
   type MeetingTodoActorReference,
   type MeetingTodoActorSummary,
 } from "@/lib/meeting-todo-actor";
+import { coerceRichTextHtml } from "@/lib/rich-text";
 import {
   getTaskLabelColor,
   MAX_TASK_LABELS,
@@ -343,30 +347,6 @@ function sortNotes(
   });
 }
 
-function noteMatchesQuery(
-  note: ProjectMeetingNotePanelNote,
-  query: string
-): boolean {
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  if (!normalizedQuery) {
-    return true;
-  }
-
-  const searchable = [
-    note.title,
-    ...note.participants.map((participant) => participant.displayName),
-    ...note.labels,
-    STATUS_LABELS[note.status],
-    note.inputNotes,
-    note.outputNotes,
-    ...note.actions.map((action) => action.content),
-  ]
-    .join(" ")
-    .toLocaleLowerCase();
-
-  return searchable.includes(normalizedQuery);
-}
-
 function noteMatchesLabelFilters(
   note: ProjectMeetingNotePanelNote,
   labelFilters: string[]
@@ -393,7 +373,7 @@ function buildPrepareDraftFromNote(
     participantInput: "",
     labels: note.labels,
     labelInput: "",
-    inputNotes: note.inputNotes,
+    inputNotes: coerceRichTextHtml(note.inputNotes) ?? "",
   };
 }
 
@@ -401,7 +381,7 @@ function buildNotesDraftFromNote(
   note: ProjectMeetingNotePanelNote
 ): NotesDraft {
   return {
-    outputNotes: note.outputNotes,
+    outputNotes: coerceRichTextHtml(note.outputNotes) ?? "",
     status: note.status === "prepared" ? "actions_in_progress" : note.status,
     actions: note.actions.map((action) => ({
       id: action.id,
@@ -1008,14 +988,51 @@ export function ProjectMeetingNotesPanel({
     },
     [activeStewardFilter, currentActorUserId]
   );
-  const filteredNotes = useMemo(
-    () =>
-      visibleSourceNotes
-        .filter((note) => noteMatchesQuery(note, query))
-        .filter((note) => noteMatchesLabelFilters(note, selectedLabelFilters))
-        .filter(noteMatchesStewardFilter),
-    [visibleSourceNotes, query, selectedLabelFilters, noteMatchesStewardFilter]
-  );
+  // Plain-text haystacks and previews are memoized per note so searching and
+  // card rendering do not re-parse section HTML on every keystroke.
+  const noteSearchTextById = useMemo(() => {
+    const searchable = new Map<string, string>();
+    for (const note of localNotes) {
+      searchable.set(
+        note.id,
+        [
+          note.title,
+          ...note.participants.map((participant) => participant.displayName),
+          ...note.labels,
+          STATUS_LABELS[note.status],
+          meetingNoteSectionsSearchText(note.inputNotes, note.outputNotes),
+          ...note.actions.map((action) => action.content),
+        ]
+          .join(" ")
+          .toLocaleLowerCase()
+      );
+    }
+    return searchable;
+  }, [localNotes]);
+  const notePreviewById = useMemo(() => {
+    const previews = new Map<string, string>();
+    for (const note of localNotes) {
+      previews.set(note.id, meetingNoteInputPreviewText(note.inputNotes));
+    }
+    return previews;
+  }, [localNotes]);
+  const filteredNotes = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    return visibleSourceNotes
+      .filter(
+        (note) =>
+          !normalizedQuery ||
+          (noteSearchTextById.get(note.id) ?? "").includes(normalizedQuery)
+      )
+      .filter((note) => noteMatchesLabelFilters(note, selectedLabelFilters))
+      .filter(noteMatchesStewardFilter);
+  }, [
+    visibleSourceNotes,
+    noteSearchTextById,
+    query,
+    selectedLabelFilters,
+    noteMatchesStewardFilter,
+  ]);
 
   const selectedNote = useMemo(
     () => localNotes.find((note) => note.id === selectedNoteId) ?? null,
@@ -1896,7 +1913,8 @@ export function ProjectMeetingNotesPanel({
                     ) : null}
 
                     <p className="mt-3 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                      {note.inputNotes || "No preparation inputs captured."}
+                      {notePreviewById.get(note.id) ||
+                        "No preparation inputs captured."}
                     </p>
 
                     <div className="mt-3">
@@ -2147,17 +2165,18 @@ export function ProjectMeetingNotesPanel({
               <label htmlFor="meeting-inputs" className="text-sm font-medium">
                 Inputs
               </label>
-              <EmojiTextareaField
+              <RichTextEditor
                 id="meeting-inputs"
                 value={prepareDraft.inputNotes}
-                onChange={(event) =>
+                onChange={(value) =>
                   setPrepareDraft((current) => ({
                     ...current,
-                    inputNotes: event.target.value,
+                    inputNotes: value,
                   }))
                 }
-                className="min-h-40 rounded-md border border-input bg-background px-3 py-2 text-sm"
                 placeholder="Agenda, questions, links, context to bring in."
+                mentionProjectId={projectId}
+                editorClassName="min-h-40"
               />
             </div>
 
@@ -2409,9 +2428,12 @@ export function ProjectMeetingNotesPanel({
             </div>
 
             <SectionBlock title="Inputs">
-              <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
-                {selectedNote.inputNotes || "No inputs captured."}
-              </p>
+              <RichTextContent
+                html={selectedNote.inputNotes}
+                emptyContentHtml="<p>No inputs captured.</p>"
+                mentionUsers={collaborators}
+                className="text-sm leading-6 text-foreground"
+              />
             </SectionBlock>
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),320px]">
@@ -2422,19 +2444,28 @@ export function ProjectMeetingNotesPanel({
                 >
                   Outputs
                 </label>
-                <EmojiTextareaField
-                  id="meeting-outputs"
-                  value={notesDraft.outputNotes}
-                  onChange={(event) =>
-                    setNotesDraft((current) => ({
-                      ...current,
-                      outputNotes: event.target.value,
-                    }))
-                  }
-                  className="min-h-56 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  placeholder="What changed, what was clarified, what needs to happen next."
-                  disabled={!canEdit || isSaving}
-                />
+                {canEdit ? (
+                  <RichTextEditor
+                    id="meeting-outputs"
+                    value={notesDraft.outputNotes}
+                    onChange={(value) =>
+                      setNotesDraft((current) => ({
+                        ...current,
+                        outputNotes: value,
+                      }))
+                    }
+                    placeholder="What changed, what was clarified, what needs to happen next."
+                    mentionProjectId={projectId}
+                    editorClassName="min-h-56"
+                  />
+                ) : (
+                  <RichTextContent
+                    html={selectedNote.outputNotes}
+                    emptyContentHtml="<p>No outputs captured.</p>"
+                    mentionUsers={collaborators}
+                    className="text-sm leading-6 text-foreground"
+                  />
+                )}
               </div>
 
               <div className="grid gap-4">
