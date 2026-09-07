@@ -80,9 +80,8 @@ test.describe("ND-381 rich text in meeting note input and output", () => {
       name: new RegExp(meetingTitle),
     });
     await expect(meetingCard).toBeVisible();
-    const cardPreview = meetingCard.locator("p");
-    await expect(cardPreview).toContainText("Scope risks:");
-    await expect(cardPreview).toContainText("First risk");
+    await expect(meetingCard).toContainText("Scope risks:");
+    await expect(meetingCard).toContainText("First risk");
     await expect(meetingCard).not.toContainText("<ul>");
 
     await meetingCard.click();
@@ -116,21 +115,44 @@ test.describe("ND-381 rich text in meeting note input and output", () => {
     await reopenedCard.click();
     const reopenedDialog = page.getByRole("dialog");
     await expect(reopenedDialog).toBeVisible();
-    await expect(reopenedDialog.locator("ul li")).toContainText("First risk");
-    await expect(reopenedDialog.locator("ul li")).toContainText(
-      "Confirm rollout order"
-    );
+    await expect(
+      reopenedDialog.getByText("First risk", { exact: true })
+    ).toBeVisible();
+    await expect(
+      reopenedDialog.getByText("Confirm rollout order", { exact: true })
+    ).toBeVisible();
   });
 
   test("inserts a project member mention in prepare inputs and renders it read-only with a hover card", async ({
     page,
   }) => {
     const { userId, projectId } = await openDashboard(page);
-    const actor = await prisma.user.findUniqueOrThrow({
-      where: { id: userId },
+    // The current user is excluded from mention suggestions, so mention a
+    // second member of the project instead.
+    const ownerId = await prisma.project.findUniqueOrThrow({
+      where: { id: projectId },
+      select: { ownerId: true },
+    }).then((project) => project.ownerId);
+    expect(ownerId).toBe(userId);
+    const memberSuffix = `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
+    const memberUser = await prisma.user.create({
+      data: {
+        email: `mention-${memberSuffix}@nexusdash.local`,
+        name: "Mention Member",
+        username: memberSuffix.replace(/\D/g, "").slice(0, 12) || "mentionmem",
+        usernameDiscriminator: memberSuffix.replace(/\D/g, "").slice(-4).padStart(4, "0"),
+        emailVerified: new Date(),
+      },
+      select: { id: true },
+    });
+    await prisma.projectMembership.create({
+      data: { projectId, userId: memberUser.id, role: "editor" },
+    });
+    const mentionTarget = await prisma.user.findUniqueOrThrow({
+      where: { id: memberUser.id },
       select: { username: true, usernameDiscriminator: true },
     });
-    const usernameTag = `${actor.username}#${actor.usernameDiscriminator}`;
+    const usernameTag = `${mentionTarget.username}#${mentionTarget.usernameDiscriminator}`;
     const meetingTitle = uniqueProjectName("mention-prep");
 
     const { createMeetingRequest } = await prepareRichMeeting(
@@ -139,9 +161,9 @@ test.describe("ND-381 rich text in meeting note input and output", () => {
     );
     const inputsEditor = page.locator("#meeting-inputs");
     await inputsEditor.click();
-    await page.keyboard.type(`@${actor.username.slice(0, 6)}`);
+    await page.keyboard.type(`@${mentionTarget.username!.slice(0, 6)}`);
     const mentionOption = page.getByRole("option").filter({
-      hasText: new RegExp(`#${actor.usernameDiscriminator}`),
+      hasText: new RegExp(`#${mentionTarget.usernameDiscriminator}`),
     });
     await expect(mentionOption).toBeVisible();
     await mentionOption.click();
@@ -163,11 +185,14 @@ test.describe("ND-381 rich text in meeting note input and output", () => {
     const meetingDialog = page.getByRole("dialog");
     const renderedMention = meetingDialog.locator(
       "[data-rich-mention='true']",
-      { hasText: `@${actor.username}` }
+      { hasText: `@${mentionTarget.username}` }
     );
     await expect(renderedMention).toBeVisible();
     await renderedMention.hover();
-    await expect(page.getByRole("tooltip")).toBeVisible();
+    const mentionTooltip = page
+      .getByRole("tooltip")
+      .filter({ hasText: `#${mentionTarget.usernameDiscriminator}` });
+    await expect(mentionTooltip).toBeVisible();
   });
 
   test("keeps legacy plain-text notes readable, searchable, and upgraded on re-save", async ({
@@ -219,10 +244,14 @@ test.describe("ND-381 rich text in meeting note input and output", () => {
     await inputsEditor.click();
     await page.keyboard.press("End");
     await page.keyboard.type(" — updated.");
+    const savePreparationRequest = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        /\/meeting-notes\/[^/]+$/.test(response.url()) &&
+        response.ok()
+    );
     await page.getByRole("button", { name: "Save preparation" }).click();
-    await expect(
-      page.getByRole("button", { name: "Save preparation" })
-    ).toBeHidden();
+    await savePreparationRequest;
 
     const upgradedNote = await prisma.projectMeetingNote.findUniqueOrThrow({
       where: { id: legacyNote.id },

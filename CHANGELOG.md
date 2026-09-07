@@ -4,6 +4,23 @@ Product releases use SemVer-style pre-1.0 versioning. Keep build identity
 separate from product version: release entries describe `v0.x.y`, while commit
 SHA, deployment URL, and workflow run belong in release evidence.
 
+## v0.57.0 - 2026-09-07
+
+- Meeting note inputs and outputs now support rich text (ND-381): the
+  Prepare/edit-prep Inputs field and the note dialog Outputs field are now the
+  shared rich-text editor with formatting, emoji, links, Codex-style `*`/`-`
+  list shortcuts, and project-member @mention autocomplete, and read-only
+  views render the sections with full formatting and mention hover cards.
+- Meeting note cards keep plain-text previews, and the in-panel search indexes
+  memoized plain-text haystacks covering both note sections, so rich markup
+  never leaks and searching stays fast while typing.
+- Legacy plain-text notes remain readable and searchable unchanged, and are
+  upgraded to rich-text HTML in place the next time their inputs or outputs
+  are saved.
+- Added service, helper, component, and browser coverage for round-tripping
+  rich formatting, member mention rendering, and legacy note search and
+  upgrade.
+
 ## v0.56.0 - 2026-09-06
 
 - Meeting todo assignees can now be external participants (ND-376): the

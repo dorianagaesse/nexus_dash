@@ -4,14 +4,27 @@
 
 ## Status
 
-In progress (2026-09-07). Worktree `../nexus_dash_nd381_wt` on
+Delivered (2026-09-07). Worktree `../nexus_dash_nd381_wt` on
 `feature/nd-381-meeting-note-rich-text`, branched from `origin/main` at 2fbc228
 (ND-376 merged, v0.56.0). The Nexus Dash board card ND-381 (feature label,
-related to ND-379) is the source of truth; Backlog until the branch is pushed
-with the brief, then In Progress. Scope confirmed with the user on 2026-09-07:
-the meeting-note editors include @mention autocomplete for project members
+related to ND-379) is the source of truth; flipped to Done on delivery,
+awaiting the merge. Scope confirmed with the user on 2026-09-07: the
+meeting-note editors include @mention autocomplete for project members
 (`mentionProjectId`), and read-only surfaces resolve mention hover cards from
 the project collaborator list.
+
+Local validation passed (2026-09-07): lint, `rls:check`, `release:check`,
+`git diff --check` clean; full Vitest 180 files / 1343 tests passed; coverage
+above thresholds (statements 93.21%, rich-text module 92.52%); production
+build green; the ND-381 Playwright spec (rich round trip, member mention with
+hover card, legacy upgrade) green together with the meeting-todos and
+meeting-steward smoke specs. One product fix surfaced during e2e validation:
+browser contentEditable keeps text typed before the first Enter as a bare
+root text node, so `coerceRichTextHtml` now wraps root-level bare text runs in
+paragraphs (jsdom-safe div container), and the meeting-panel save payloads
+coerce editor HTML so stored sections stay canonical; the same run uncovered
+a preview-helper bug that doubled the list bullet separator (`par. • • item`)
+which is fixed with regression coverage.
 
 ## Context
 

@@ -1327,7 +1327,7 @@ export function ProjectMeetingNotesPanel({
       participants: buildParticipantPayload(prepareDraft.participants),
       labels: prepareDraft.labels,
       status: prepareNote?.status ?? "prepared",
-      inputNotes: prepareDraft.inputNotes.trim(),
+      inputNotes: coerceRichTextHtml(prepareDraft.inputNotes) ?? "",
       outputNotes: prepareNote?.outputNotes ?? "",
       decisions: prepareNote?.decisions ?? "",
       actions: prepareNote?.actions ?? [],
@@ -1470,7 +1470,7 @@ export function ProjectMeetingNotesPanel({
 
     const payload = {
       ...buildBasePayload(selectedNote),
-      outputNotes: notesDraft.outputNotes.trim(),
+      outputNotes: coerceRichTextHtml(notesDraft.outputNotes) ?? "",
       status: notesDraft.status,
       actions: notesDraft.actions
         .map((action) => ({

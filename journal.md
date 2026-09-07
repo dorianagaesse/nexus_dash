@@ -3,6 +3,44 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-07 - ND-381: rich text for meeting note inputs and outputs delivered
+
+- Implemented on `feature/nd-381-meeting-note-rich-text` (worktree
+  `../nexus_dash_nd381_wt`, branched from `origin/main` at 2fbc228 / v0.56.0):
+  the meeting-panel Inputs and Outputs edit fields swapped
+  `EmojiTextareaField` for the shared `RichTextEditor` (member @mention
+  autocomplete included), read-only sections render through
+  `RichTextContent` with collaborator-resolved mention hover cards,
+  `inputNotes`/`outputNotes` write through `coerceRichTextHtml` so storage
+  stays canonical sanitized HTML, legacy plain-text notes render unchanged
+  and upgrade on re-save, and search/preview stay plain-text.
+- E2E validation (ND-381 spec, Chromium) surfaced three real findings, all
+  fixed with regression coverage:
+  - Browsers keep text typed before the first Enter as a bare root text
+    node, so a stored section could open with unwrapped text
+    (`Scope risks:<ul>…`). `coerceRichTextHtml` now wraps root-level bare
+    text runs in paragraphs via a DOM container (a `div` rather than a
+    `<template>` fragment — jsdom does not implement `innerHTML` on
+    `DocumentFragment`, which initially returned `undefined` and blanked
+    read-only sections in the jsdom component suite). The meeting-panel save
+    payloads coerce editor HTML client-side so canonicality holds on write
+    (server-side Node has no DOM for the wrap).
+  - The mention e2e initially targeted the signed-in actor, who is excluded
+    from mention suggestions by design; the spec now seeds a second project
+    member and mentions them (membership role `editor`).
+  - The preview helper joined sections with ` • ` while list segments carry
+    their own leading bullet, doubling to `par. • • item`; the join now
+    drops the separator before bullet-led segments, with regression unit
+    coverage for single and multi-item lists.
+- Full validation passed (2026-09-07): lint, `rls:check`, `release:check`,
+  `git diff --check` clean; Vitest 180 files / 1343 tests green; coverage
+  above thresholds (statements 93.21%; `lib/rich-text.ts` 92.52%);
+  production build green; the ND-381 e2e spec (rich round trip, member
+  mention hover card, legacy search + upgrade) green with the meeting-todos
+  and meeting-steward smoke specs.
+- Version advanced to v0.57.0 (2026-09-07 CHANGELOG entry) over origin/main
+  v0.56.0.
+
 # 2026-09-06 - ND-376: reconciled with origin/main after ND-379 (PR #491) merged
 
 - `origin/main` advanced past the fork with ND-379 (PR #491, merged 00:32
