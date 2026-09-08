@@ -53,6 +53,15 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Version advanced to v0.59.0 (2026-09-08 CHANGELOG entry) over origin/main
   v0.58.0; branch pushed as PR #495 (ready for review); Nexus Dash board
   card ND-407 flipped to Done with the PR link in its description.
+- Copilot review round handled (PR #495): one finding — the create dialog's
+  too-short/too-long client guards returned after `setIsSubmitting(true)`,
+  so a trimmed-invalid title (e.g. "a " passes native `minLength` but trims
+  to one character) left the dialog stuck disabled on "Creating...". Fixed
+  in `3664600`: the form title is read and length-checked before the
+  submitting flag is set, and the ND-407 e2e spec now asserts the inline
+  error plus a re-enabled Create button for that case; kanban inline edit
+  was already safe (guards precede `setIsUpdatingTask`). Reply posted on the
+  review thread; follow-up Copilot review requested after the fix push.
 
 # 2026-09-07 - ND-381: rich text for meeting note inputs and outputs delivered
 
