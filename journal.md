@@ -5981,3 +5981,77 @@ Low-value entries to avoid going forward:
   agent-authored comments instead of generating a human avatar from the agent
   snapshot seed. Regression coverage asserts both attribution cards use the
   dedicated agent avatar; focused task-author/UI tests (11 tests) and lint pass.
+
+# 2026-09-08 - ND-438: Task-by-id fetch endpoint and deep-link fetch fallback
+
+- Onboarded: read agent.md/project.md/README.md and the board card ND-438
+  (feature label) on `feature/nd-438-task-by-id-fetch-deep-link` in worktree
+  `../nexus_dash_nd438_wt`, branched from `origin/main` at 446637f (v0.58.0).
+  The root checkout holds a separate agent's ND-407 branch; worktree layout
+  keeps sessions isolated. No GitHub issue exists; the PR carries the ND-438
+  reference.
+- Implemented the shared service read `getProjectKanbanTaskById` in
+  `lib/services/project-service.ts` behind the existing route path
+  `GET /api/projects/{projectId}/tasks/{taskId}`: authorizes human sessions
+  through the same `buildProjectPrincipalWhere` predicate as the task-list
+  surface (no role minimum), checks agent `task:read` scope with
+  `requireAgentProjectScopes` (cross-project credential -> 404 so task
+  existence is never leaked), and never archives or writes. The board-list
+  include clause became the exported `projectKanbanTaskInclude` const so the
+  by-id read and the list share one typed Prisma include.
+- Killed the duplicated wire-shape mappings: extracted the list route's
+  inline serializer into `lib/services/project-task-response.ts`
+  (`mapProjectKanbanTaskToTaskResponse`), now used by both the task-list GET
+  and the new by-id GET, so the two surfaces cannot drift.
+- Added GET to the task route with the same session/agent bearer handling,
+  timing headers, and error passthrough as the sibling task endpoints; reads
+  never write.
+- Exposed the read in the agent OpenAPI contract: catalog entry ("Read task",
+  `task:read`), `get` operation on
+  `/api/projects/{projectId}/tasks/{taskId}`, and a `TaskReadResponse` schema
+  referencing the canonical `TaskRecord`, so the hosted agent docs pick it up
+  automatically.
+- Board deep-link fallback in `components/kanban-board.tsx`: when `?taskId=`
+  (or the `/tasks/{taskId}` page redirect) points at an id absent from the
+  loaded board, KanbanBoard fetches
+  `/api/projects/{projectId}/tasks/{taskId}`, upserts the mapped task through
+  the existing `upsertRemoteTask` (columns reconciliation before
+  `setSelectedTask` so the modal-sync effect cannot null it), and opens the
+  detail modal. Failures keep the board unchanged; open-once semantics and
+  the already-loaded fast path are preserved.
+- Coverage pivot (documented decision): a jsdom component test mounting the
+  full KanbanBoard spins into unbounded allocation (vitest worker OOM at a
+  768 MB heap cap) even for a plain mount with no deep link and with every
+  leaf child stubbed. Bisection against the committed pre-ND-438 baseline
+  reproduced the identical OOM, proving it is a pre-existing full-board
+  jsdom limitation, not an ND-438 regression; no existing test mounts the
+  full board, which matches the repo convention of covering board behavior
+  at the Playwright layer. The component jsdom test was dropped and replaced
+  by `tests/e2e/nd-438-task-deep-link.spec.ts`, which exercises the three
+  deep-link behaviors in a real browser: already-loaded id opens locally
+  with zero by-id fetches; an id absent from the loaded list is fetched by
+  id (route interception answers with the canonical payload of a real task)
+  and opens; an unresolvable id performs exactly one by-id fetch and leaves
+  the board unchanged.
+- Coverage added: `getProjectKanbanTaskById` service tests (unauthorized,
+  agent 403/404 scope branches, success for session and agent including the
+  exact findFirst where/include contract, not-found, no-write assertion) in
+  `tests/lib/project-service.test.ts`; route tests in
+  `tests/api/task-read.route.test.ts` (auth failure passthrough, missing
+  params 400, canonical payload wrapper with reference/attachment mapping,
+  agent access-context forwarding, error passthroughs).
+- Rebased onto `origin/main` at c676716 after ND-407 (PR #495, v0.59.0) and
+  ND-427 (PR #494, v0.60.0) merged: stashed the uncommitted work, reset the
+  branch tip, and popped with a three-way merge. All code files merged
+  cleanly (ND-407's title-cap and ND-427's mobile-arrow board changes coexist
+  with the deep-link effect); only `tasks/current.md` conflicted and was
+  resolved by composing the ND-438 brief on top of origin/main's ND-427
+  snapshot chain. Release target retargeted from v0.59.0 to v0.61.0 over
+  origin/main v0.60.0.
+- Version advanced 0.60.0 -> 0.61.0 (`package.json` + `package-lock.json`)
+  with a dated `## v0.61.0` CHANGELOG entry; `npm run release:check` passes.
+- Validation so far on the merged tree: full Vitest suite 1,379 passed /
+  2 skipped (185 files) with the repository's local PostgreSQL env URLs
+  exported, eslint clean on every touched file, `release:check` green.
+  Coverage, production build, `rls:check`, `git diff --check`, and the
+  focused Playwright spec run are pending before PR.
