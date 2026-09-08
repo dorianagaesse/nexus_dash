@@ -1,5 +1,120 @@
 # Current Task
 
+## ND-427: Replace the mobile Kanban status dock with lane arrows
+
+## Status
+
+Delivered (2026-09-08). Ready-for-review PR #494
+(https://github.com/dorianagaesse/nexus_dash/pull/494) is open from
+`feature/nd-427-kanban-mobile-list-arrows` in dedicated worktree
+`../nexus_dash_nd427_wt`, branched from `origin/main` at 446637f (ND-381
+merged / v0.58.0) and updated from `origin/main` at 049d346 after ND-407
+merged as v0.59.0. The Nexus Dash board card ND-427 (feature label) is the
+source of truth and was moved through In Progress to Done via the agent API.
+No GitHub issue exists for this task; PR #494 carries the ND-427 reference.
+
+Post-merge validation passed against the Dockerized PostgreSQL contract on
+port 5432: lint, `rls:check`, `release:check`, `git diff --check`, 1,368
+Vitest tests passed (2 skipped), coverage above thresholds (93.21% statements
+/ 83.58% branches / 94.59% functions / 93.52% lines), production build, and
+12 focused Chromium tests across the authenticated-shell, bounded-Kanban, and
+ND-407 title-cap specs.
+
+## Context
+
+Below the four-column desktop breakpoint, the Kanban board shows one status
+lane at a time and currently relies on a second sticky bottom navigation dock
+to switch among Backlog, In Progress, Blocked, and Done. That dock competes
+with the authenticated shell's persistent mobile navigation and separates the
+lane-switching action from the lane it controls. Product feedback requests a
+simpler sequential model: previous and next arrows attached directly to the
+visible list.
+
+## Product Decisions
+
+- Each mobile/single-column lane header owns a previous and next arrow button.
+  The buttons step through the canonical `TASK_STATUSES` order and name their
+  destination (for example, `Next list: In Progress`) for assistive technology.
+- Backlog's previous button and Done's next button remain visible but disabled,
+  preserving header balance and making the ends of the sequence legible.
+- Arrow targets are at least 44 by 44 px with the shared focus-ring treatment.
+  After a switch, keyboard focus moves to the reciprocal arrow on the newly
+  visible lane so the user can immediately reverse or continue the sequence.
+- All four lanes stay mounted and only mobile visibility changes, preserving
+  each lane's independent scroll position. The four-column desktop board,
+  drag-and-drop behavior, task counts, filtering, and archive behavior remain
+  unchanged.
+
+## Scope
+
+- Remove the sticky mobile Kanban status navigation from
+  `KanbanColumnsGrid`.
+- Add responsive previous/next controls to Kanban lane headers with disabled
+  boundary states, destination-aware accessible names, and focus continuity.
+- Update the authenticated-shell UI contract and focused component/browser
+  coverage for the new interaction.
+- Advance the feature release metadata over v0.59.0.
+
+## Out Of Scope
+
+- Swipe gestures, wrapping from Done back to Backlog, or direct arbitrary lane
+  selection on mobile.
+- Changing the desktop four-column layout, lane order, task drag-and-drop,
+  lane heights, filters, or the authenticated shell's global bottom navigation.
+- Persisting the selected mobile lane across reloads or routes.
+
+## Acceptance Criteria
+
+1. At viewports below `xl`, exactly one Kanban lane is visible and its header
+   provides previous/next arrow controls that traverse Backlog → In Progress →
+   Blocked → Done in both directions without wrapping.
+2. Backlog's previous control and Done's next control are visibly disabled;
+   enabled controls expose destination-specific accessible names, visible focus
+   treatment, and a minimum 44 px touch target.
+3. The old sticky `Kanban status navigation` dock is absent, so Kanban no
+   longer adds a second bottom navigation above the authenticated app shell.
+4. Switching lanes preserves each lane's native scroll position, maintains
+   keyboard focus on the reciprocal lane control, and causes no horizontal
+   overflow at 375 px portrait or phone landscape sizes.
+5. At `xl` and wider, all four columns remain visible and the new mobile arrow
+   controls are hidden; drag-and-drop and existing lane behavior are unchanged.
+
+## Definition Of Done
+
+- Focused component tests cover sequential traversal, disabled boundaries,
+  accessible names, touch-target classes, focus continuity, dock removal, and
+  independent lane scroll preservation.
+- Playwright coverage exercises the real mobile flow in both directions,
+  verifies boundary states and viewport containment, and confirms desktop
+  arrows are hidden while all lanes are visible.
+- `git diff --check`, `npm run lint`, `npm run rls:check`, `npm run
+  release:check`, `npm test`, `npm run test:coverage`, `npm run build`, and the
+  focused Kanban Playwright specs are green.
+- `package.json`/`package-lock.json` advance minor to v0.60.0 over
+  `origin/main` v0.59.0, and the dated CHANGELOG entry documents ND-427.
+- The Nexus Dash card is moved to Done on delivery; `tasks/current.md`,
+  `journal.md`, and `docs/ui/authenticated-app-shell.md` reflect the outcome.
+- The branch is pushed with an open ready-for-review PR referencing ND-427;
+  the initial Copilot review outcome is triaged and all addressed threads are
+  resolved before handoff.
+
+## Runtime Assumptions
+
+- Existing database, authentication, and environment contracts are unchanged;
+  this is a responsive client presentation change with no schema or service
+  mutation.
+- Local browser validation uses the repository Playwright database/bootstrap
+  contract. Preview deployment is not required by this task.
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` brief (ND-407, merged into main through PR #495
+at 049d346 / v0.59.0) is preserved verbatim below for history.
+
+---
+
+# Current Task
+
 ## ND-407: Cap task titles at 120 characters and ellipsize overlong titles in the UI
 
 ## Status

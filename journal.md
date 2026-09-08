@@ -3,6 +3,55 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-08 - ND-427 synchronized with ND-407 mainline
+
+- Merged `origin/main` at 049d346 after ND-407 landed through PR #495. Resolved
+  the overlapping release/history files by retaining both task records and
+  advancing ND-427 to v0.60.0 over main's v0.59.0. The source merge preserved
+  ND-407's 120-character title enforcement and two-line Kanban title clamp
+  alongside ND-427's mobile lane arrows.
+- Post-merge validation passed: lint, RLS inventory, release policy, and
+  `git diff --check`; 1,368 Vitest tests passed with 2 skipped; coverage stayed
+  at 93.21% statements, 83.58% branches, 94.59% functions, and 93.52% lines;
+  the production build passed; and all 12 focused Chromium tests passed across
+  the authenticated-shell, bounded-Kanban, and ND-407 title-cap specs. The
+  first browser attempt found the isolated local PostgreSQL container empty;
+  applying the repository's 57 migrations restored the test baseline, after
+  which the unchanged browser suite passed.
+
+# 2026-09-08 - ND-427 mobile Kanban lane-arrow navigation started
+
+- Read the live Nexus Dash card and moved ND-427 from Backlog to In Progress
+  through the project-scoped agent API. Created
+  `feature/nd-427-kanban-mobile-list-arrows` from `origin/main` at 446637f
+  (ND-381 merged / v0.58.0) and isolated it in `../nexus_dash_nd427_wt` after
+  detecting concurrent ND-407 edits in the root checkout.
+- Scoped the mobile interaction to previous/next buttons in each visible lane
+  header, canonical status-order traversal, disabled sequence boundaries,
+  destination-specific accessible names, 44 px targets, reciprocal focus
+  continuity, and retained per-lane scroll state. The sticky Kanban status dock
+  is removed; the desktop four-column board is unchanged.
+- The requested UI UX Pro Max skill was not present in the available Codex
+  skill catalog or local skill directories. Applied the repository's UI
+  contracts and existing accessibility/responsive guidance as the documented
+  fallback.
+- Replaced the status dock with lane-header chevrons driven by the canonical
+  `TASK_STATUSES` order. All lanes remain mounted, an `aria-live` status names
+  the newly visible lane and count, and focus moves to the reciprocal arrow
+  after each transition. Updated the shell contract, component coverage, and
+  authenticated-shell/bounded-lane browser specs.
+- Validation passed against the Dockerized PostgreSQL database on port 5432:
+  lint; RLS inventory; version policy (v0.58.0 → v0.59.0); `git diff --check`;
+  1,360 Vitest tests with 2 skipped; coverage at 93.21% statements, 83.58%
+  branches, 94.59% functions, and 93.52% lines; production build; and all 9
+  focused Chromium tests. The first browser attempt reached an unrelated Open
+  WebUI service already using port 3000, so the valid run used isolated port
+  3107 and exercised this worktree's production build.
+- Pushed implementation commit `a665e73` and opened ready-for-review PR #494
+  (https://github.com/dorianagaesse/nexus_dash/pull/494). Moved the live
+  ND-427 card from In Progress to Done after the PR opened; CI and Copilot
+  review monitoring continued from the same branch.
+
 # 2026-09-08 - ND-407: task title 120-char cap and ellipsized condensed surfaces started
 
 - Started on `feature/nd-407-task-title-cap-and-ellipsis` from `origin/main`
