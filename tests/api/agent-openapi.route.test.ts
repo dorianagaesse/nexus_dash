@@ -29,6 +29,7 @@ describe("GET /api/docs/agent/v1/openapi.json", () => {
     const components = payload.components as
       | {
           securitySchemes?: Record<string, unknown>;
+          schemas?: Record<string, { properties?: Record<string, unknown> }>;
         }
       | undefined;
     const tokenExchangePath = (
@@ -67,6 +68,17 @@ describe("GET /api/docs/agent/v1/openapi.json", () => {
       { ApiKeyAuthorization: [] },
       { AgentApiKeyHeader: [] },
     ]);
+    expect(components?.schemas).toHaveProperty("AttachmentLinkInput");
+    const taskUpdateAttachmentLinks = (
+      components?.schemas?.TaskUpdateRequest?.properties?.attachmentLinks as
+        | {
+            items?: { $ref?: string };
+          }
+        | undefined
+    )?.items?.$ref;
+    expect(taskUpdateAttachmentLinks).toBe(
+      "#/components/schemas/AttachmentLinkInput"
+    );
     expect(JSON.stringify(payload)).toContain("deadlineDate");
     expect(JSON.stringify(payload)).toContain("epicId");
     expect(JSON.stringify(payload)).toContain("progressPercent");

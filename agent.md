@@ -69,15 +69,25 @@ a duplicate. A new task must be independently understandable and executable:
   card at creation as a link attachment (`attachmentLinks` as `{ name, url }`
   objects, e.g. `"GitHub issue #NNN"`), which the kanban renders as an openable
   link row on the card. Do not rely on description prose for external URLs.
+- Link attachments can also be added to an existing card with a task update:
+  `PATCH /api/projects/{projectId}/tasks/{taskId}` with an `attachmentLinks`
+  array appends new link attachments and preserves existing ones. The OpenAPI
+  document at `/api/docs/agent/v1/openapi.json` and the guide at
+  `/docs/agent/v1` show the full task-update payload.
 
 After creation, read the task back through the agent API and verify its lane,
 description, labels, attachments, and Related Tasks. Task creation is not
 complete until the stored task matches the intended contract and no credential,
 token, or other secret appears in its content.
 
-Adding or editing link attachments on an existing task is currently a kanban-UI
-capability (user session only); the agent-side gap is tracked on the Nexus Dash
-board (ND-424, with ND-425 auditing the wider agent API for similar edit gaps).
+Adding link attachments to an existing task works through the agent API (see
+the PATCH task-update example above), and removing an attachment — link or
+file — works through
+`DELETE /api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}`
+under the same agent authorization as the other attachment routes. Editing a
+link attachment in place (changing its name or URL without delete + re-add)
+remains a kanban-UI capability; that and the wider agent API edit gaps are
+tracked on the Nexus Dash board (ND-425).
 
 ## 2. Implementation Quality
 
