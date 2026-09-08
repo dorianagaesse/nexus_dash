@@ -3,6 +3,85 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-08 - ND-424 reconciled with origin/main after ND-427 (PR #494) merged
+
+- Merged `origin/main` at c676716 after ND-427 landed through PR #494
+  (v0.60.0). Conflicts were confined to the top-of-file docs and release
+  collisions: CHANGELOG, journal, package.json / package-lock.json, and
+  `tasks/current.md`. Product code merged cleanly — ND-424's task-update
+  `attachmentLinks` append is independent of the ND-178 / ND-376 / ND-381 /
+  ND-407 / ND-427 mainline changes.
+- `tasks/current.md` keeps the ND-424 brief active, with main's ND-427 brief
+  preserved verbatim below as the previous snapshot; journal entries from
+  both sides are retained; the CHANGELOG release metadata was retargeted:
+  `package.json`/`package-lock.json` advance to v0.61.0 (feature minor over
+  main's released v0.60.0) via `release:version -- feature`, with a dated
+  `## v0.61.0 - 2026-09-08` entry carrying the ND-424 bullets while the
+  v0.60.0 entry and the `## Unreleased` placeholder stay exactly as on
+  `origin/main`.
+- Preview acceptance ran against the PR #492 head deployed to
+  nexus-dash-5aifahhbx-dorian-agaesses-projects.vercel.app
+  (`deploy-vercel.yml` `deploy-preview` run 34234352574,
+  `git_ref=feature/nd-424-agent-link-attachments`): 14/14 checks passed —
+  token exchange, health, OpenAPI documenting
+  `TaskUpdateRequest.attachmentLinks`, PATCH append with read-back in the
+  same response, persistence in the task list, append-only preservation of
+  existing attachments, hostname-derived default names, 400
+  `attachment-link-invalid` with nothing written, and creation-time
+  `attachmentLinks` unchanged — plus a status-transition spot check via POST
+  (the status route is POST-only; unchanged from main).
+- Local validation on the reconciled tree (dockerized PostgreSQL on 5432
+  with the runbook env): lint, `rls:check`, `release:check` (v0.60.0 →
+  v0.61.0), and `git diff --check` clean; 1,374 Vitest tests passed (2
+  skipped) across 184 files; coverage 93.33% statements / 83.76% branches /
+  95.27% functions / 93.64% lines; production build green. The ND-424
+  Copilot thread from the 09-07 round is outdated after this merge; a fresh
+  review round runs against the reconciled head.
+# 2026-09-07 - ND-424: agents can attach link attachments to existing tasks
+
+- Executed in worktree `../nexus_dash_task424` on
+  `feature/nd-424-agent-link-attachments` (forked from `origin/main`,
+  version base v0.56.0). Board card ND-424 (feature label, GitHub issue #486
+  attached at creation as a link attachment) flipped to In Progress, then
+  Done with a Report section on delivery.
+- Gap confirmed: creation-time `attachmentLinks` and agent-capable
+  attachment removal existed, but adding link attachments to an existing
+  task was a kanban-UI capability only (user session). API shape confirmed
+  with the user (2026-09-07): `attachmentLinks` on the task-update route
+  (`PATCH /api/projects/{projectId}/tasks/{taskId}`) rather than agent
+  scopes on the UI composer.
+- `updateTaskForProject` now parses an optional `attachmentLinks` array
+  through the shared `parseAttachmentLinksJson` parser (name defaults to the
+  URL hostname, URLs normalized, 400 `attachment-link-invalid` for malformed
+  entries, empty array appends nothing) and appends kind=`link` rows via
+  `createTaskAttachmentsFromDraft` inside the existing update transaction;
+  existing attachments are preserved, authorization/RLS semantics are
+  unchanged (editor role for humans, `task:write` for agents), and removal
+  stays on the dedicated attachment DELETE route.
+- The agent OpenAPI `TaskUpdateRequest` schema (shared by single and bulk
+  updates) documents the field, the hosted agent guide's update example
+  gained a links-only PATCH block, and `agent.md` / `CLAUDE.md` guidance no
+  longer calls link-add UI-only.
+- Route coverage in `tests/api/task-update.route.test.ts`: agent append with
+  `task:write` and read-back in the response attachments list, agent denial
+  without the scope (403), human append, invalid-URL and non-array 400s, and
+  empty-array no-op. Schema assertions added to
+  `tests/api/agent-openapi.route.test.ts`.
+- Validation on the final tree (2026-09-07, dockerized PostgreSQL on 5432
+  with the runbook env): lint, `rls:check`, and `git diff --check` clean;
+  version policy passed (v0.57.0 minor over v0.56.0 base with a dated
+  `## v0.57.0` CHANGELOG section, added via `release:version -- feature`
+  and a manual lockfile re-bump after `npm install` rewrote the lock
+  versions); full Vitest 178 files / 1325 passed / 2 skipped; coverage
+  93.06/83.13/94.52/93.38; production build green.
+- No schema/RLS/UI/auth/upload changes, so the real-PostgreSQL RLS matrix
+  and Playwright were not required by the runbook criteria.
+- PR #492 opened with "closes #486". Copilot review round: one thread on
+  agent.md flagged the guidance calling attachment removal kanban-UI-only —
+  stale, since the dedicated attachment DELETE route already serves agents.
+  The text now points agents at the DELETE route and scopes the UI-only
+  claim to in-place link editing (ND-425); fixed in 2464a84 with a reply on
+  the thread, re-review pending on the GitHub UI side.
 # 2026-09-08 - ND-427 synchronized with ND-407 mainline
 
 - Merged `origin/main` at 049d346 after ND-407 landed through PR #495. Resolved
