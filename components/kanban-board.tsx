@@ -74,6 +74,7 @@ import {
 } from "@/lib/task-label";
 import { createRelatedTaskMap } from "@/lib/task-related";
 import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
+import { MAX_TASK_TITLE_LENGTH } from "@/lib/task-title";
 
 export type { KanbanTask } from "@/components/kanban-board-types";
 
@@ -110,6 +111,8 @@ function stampTaskActivity(
 
 function getTaskMutationErrorMessage(errorCode?: string): string {
   switch (errorCode) {
+    case "title-too-long":
+      return `Task title must be ${MAX_TASK_TITLE_LENGTH} characters or fewer.`;
     case "related-tasks-invalid":
       return "Related tasks must stay active and belong to this project.";
     case "epic-invalid":
@@ -1556,6 +1559,12 @@ export function KanbanBoard({
 
       if (normalizedTitle.length < 2) {
         setTaskModalError("Task title must be at least 2 characters.");
+        return false;
+      }
+      if (normalizedTitle.length > MAX_TASK_TITLE_LENGTH) {
+        setTaskModalError(
+          `Task title must be ${MAX_TASK_TITLE_LENGTH} characters or fewer.`
+        );
         return false;
       }
 

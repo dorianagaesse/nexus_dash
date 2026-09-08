@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.59.0 - 2026-09-08
+## v0.60.0 - 2026-09-08
 
 - Replaced the Kanban board's secondary sticky mobile status dock with compact
   previous/next arrows attached directly to each visible lane header (ND-427),
@@ -20,6 +20,20 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - The desktop four-column Kanban layout and drag-and-drop behavior remain
   unchanged; responsive browser coverage locks portrait/landscape containment
   and hides the mobile controls at the desktop breakpoint.
+
+## v0.59.0 - 2026-09-08
+
+- Task titles are capped at 120 characters everywhere they are authored: the
+  create and update APIs reject longer titles with a clear validation error
+  and write nothing, the task forms enforce the limit with a character count
+  shown near the limit, and titles exactly at the limit keep working (ND-407).
+- Condensed task surfaces — kanban cards, epic linked-task lists, and
+  related-task summaries — ellipsize overlong titles instead of wrapping,
+  overflowing, or clipping mid-glyph, keeping at most two rendered lines on
+  narrow viewports while the full title remains readable when the task is
+  opened.
+- Added service-level, route-level, component, and browser coverage for the
+  title cap and the two-line ellipsized rendering.
 
 ## v0.58.0 - 2026-09-08
 

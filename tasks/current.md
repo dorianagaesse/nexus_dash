@@ -8,15 +8,17 @@ Delivered (2026-09-08). Ready-for-review PR #494
 (https://github.com/dorianagaesse/nexus_dash/pull/494) is open from
 `feature/nd-427-kanban-mobile-list-arrows` in dedicated worktree
 `../nexus_dash_nd427_wt`, branched from `origin/main` at 446637f (ND-381
-merged / v0.58.0). The Nexus Dash board card ND-427 (feature label) is the
+merged / v0.58.0) and updated from `origin/main` at 049d346 after ND-407
+merged as v0.59.0. The Nexus Dash board card ND-427 (feature label) is the
 source of truth and was moved through In Progress to Done via the agent API.
 No GitHub issue exists for this task; PR #494 carries the ND-427 reference.
 
-Local validation passed against the Dockerized PostgreSQL contract on port
-5432: lint, `rls:check`, `release:check`, `git diff --check`, 1,360 Vitest
-tests (2 skipped), coverage above thresholds (93.21% statements / 83.58%
-branches / 94.59% functions / 93.52% lines), production build, and 9 focused
-Chromium tests across the authenticated-shell and bounded-Kanban specs.
+Post-merge validation passed against the Dockerized PostgreSQL contract on
+port 5432: lint, `rls:check`, `release:check`, `git diff --check`, 1,368
+Vitest tests passed (2 skipped), coverage above thresholds (93.21% statements
+/ 83.58% branches / 94.59% functions / 93.52% lines), production build, and
+12 focused Chromium tests across the authenticated-shell, bounded-Kanban, and
+ND-407 title-cap specs.
 
 ## Context
 
@@ -51,7 +53,7 @@ visible list.
   boundary states, destination-aware accessible names, and focus continuity.
 - Update the authenticated-shell UI contract and focused component/browser
   coverage for the new interaction.
-- Advance the feature release metadata over v0.58.0.
+- Advance the feature release metadata over v0.59.0.
 
 ## Out Of Scope
 
@@ -88,8 +90,8 @@ visible list.
 - `git diff --check`, `npm run lint`, `npm run rls:check`, `npm run
   release:check`, `npm test`, `npm run test:coverage`, `npm run build`, and the
   focused Kanban Playwright specs are green.
-- `package.json`/`package-lock.json` advance minor to v0.59.0 over
-  `origin/main` v0.58.0, and the dated CHANGELOG entry documents ND-427.
+- `package.json`/`package-lock.json` advance minor to v0.60.0 over
+  `origin/main` v0.59.0, and the dated CHANGELOG entry documents ND-427.
 - The Nexus Dash card is moved to Done on delivery; `tasks/current.md`,
   `journal.md`, and `docs/ui/authenticated-app-shell.md` reflect the outcome.
 - The branch is pushed with an open ready-for-review PR referencing ND-427;
@@ -106,8 +108,115 @@ visible list.
 
 ## Previous Task Snapshot
 
-The previous `tasks/current.md` brief (ND-381, merged into main through PR #493
-at 446637f / v0.58.0) is preserved verbatim below for history.
+The previous `tasks/current.md` brief (ND-407, merged into main through PR #495
+at 049d346 / v0.59.0) is preserved verbatim below for history.
+
+---
+
+# Current Task
+
+## ND-407: Cap task titles at 120 characters and ellipsize overlong titles in the UI
+
+## Status
+
+Delivered (2026-09-08). PR #495
+(https://github.com/dorianagaesse/nexus_dash/pull/495) is open
+ready-for-review from `feature/nd-407-task-title-cap-and-ellipsis`, branched
+from `origin/main` at 446637f (ND-381 merged / v0.58.0). The Nexus Dash
+board card ND-407 (feature label, related to ND-387) is the source of truth;
+flipped to In Progress on 2026-09-08 and to Done on delivery via the agent
+API. No GitHub issue exists for this task; the PR carries the ND-407
+reference.
+
+User expectation confirmed on 2026-09-08: on mobile, long titles must be cut
+off (ellipsized) so no task title ever wraps to three or more lines in task
+surfaces; condensed surfaces keep at most two lines on narrow viewports.
+
+Local validation passed (2026-09-08): lint, `rls:check`, release version
+check clean; full Vitest 184 files / 1367 tests passed (2 skipped); coverage
+above thresholds (statements 93.21%, branches 83.58%, functions 94.59%,
+lines 93.52%); production build green; the ND-407 Playwright spec
+(create-dialog cap with live counter, legacy 170-char title clamped to two
+lines at 375 px with the full title in the modal, inline-edit overlong-save
+rejection) green together with the project-task-calendar smoke suite
+(6/6).
+
+## Context
+
+Task titles are stored in an unbounded text column and nothing prevents
+arbitrarily long titles. A ZZ-TEST preview fixture with a ~170-character
+title rendered unwieldy in condensed surfaces (kanban cards, epic
+linked-task lists, related-task summaries), and even titles within any
+reasonable cap exceed narrow card widths. Long titles must therefore be
+bounded at authoring time and rendered defensively: truncated with an
+ellipsis in condensed surfaces, with the full title readable when the task is
+opened.
+
+## Scope
+
+- Enforce a 120-character maximum on task titles on every authoring path:
+  interactive create/edit forms and API routes.
+- Truncate overlong titles with an ellipsis (…) in condensed rendering
+  surfaces instead of wrapping or overflowing, keeping at most two rendered
+  lines on mobile so titles never take three or more lines.
+- Keep the full untruncated title readable in the task detail surface opened
+  from a card.
+- Epic names are already capped at 80 characters by the database; they are
+  out of scope.
+
+## Out Of Scope
+
+- Epic name capping or other artifact title limits.
+- Schema changes; the existing text column stays unbounded and the cap is
+  enforced at the service/API/form boundary.
+- Redesigning task cards, the task detail dialog, or dashboard layout.
+
+## Acceptance Criteria
+
+1. Task create and update APIs reject titles longer than 120 characters with
+   a clear validation error and write nothing.
+2. Titles of exactly 120 characters and below remain accepted everywhere they
+   are today.
+3. Task authoring and editing UI enforces the cap: input max length, live
+   character feedback near the limit, and an inline validation message on
+   submit.
+4. Condensed title surfaces (kanban cards, epic registry linked-task lists,
+   related-task summaries) truncate overlong titles with an ellipsis instead
+   of wrapping, overflowing, or clipping mid-glyph; on mobile viewports a
+   title never wraps to three or more lines.
+5. Opening a task shows its full untruncated title in the detail modal.
+6. The task-authoring quality contract in agent.md is updated to state the
+   enforced cap and the truncation behavior.
+
+## Definition Of Done
+
+- Service-level validation with unit coverage for create, update, and bulk
+  paths.
+- Component coverage for ellipsized titles across condensed surfaces,
+  including narrow-width and long-word cases.
+- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
+  and `npm run build` pass; kanban Playwright coverage when board flows are
+  touched, including a mobile-width title-length check.
+- `package.json`/`package-lock.json` advance minor to v0.59.0 over origin/main
+  (v0.58.0) and the CHANGELOG dated `## v0.59.0` entry documents the feature.
+- agent.md title guidance updated in the same PR.
+- The Nexus Dash board card ND-407 is updated (In Progress, then Done on
+  delivery) and `tasks/current.md` + `journal.md` reflect the execution.
+- Branch is pushed with an open ready-for-review PR referencing ND-407; the
+  Copilot review outcome is triaged and threads resolved before handoff.
+
+## Runtime Assumptions
+
+- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged;
+  this task introduces no schema change.
+- Validation runs locally against the repository `.env` contract and a
+  reachable PostgreSQL instance when E2E execution requires it; preview
+  deployment is not an acceptance requirement.
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` brief (ND-381, merged into main via PR #493 at
+446637f / v0.58.0) is preserved verbatim below for history.
 
 ---
 

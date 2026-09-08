@@ -114,7 +114,7 @@ function EpicTaskChip({ task }: { task: ProjectEpicPanelTask }) {
       )}
       title={task.title}
     >
-      <span className="min-w-0 flex-1 break-words leading-5 [overflow-wrap:anywhere]">
+      <span className="min-w-0 flex-1 break-words leading-5 [overflow-wrap:anywhere] line-clamp-2">
         {task.title}
       </span>
       <span className="shrink-0 opacity-75">

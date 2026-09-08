@@ -44,7 +44,11 @@ Before creating a task, search the live Nexus Dash project for the same outcome
 or overlapping work. Prefer refining or relating an existing task over creating
 a duplicate. A new task must be independently understandable and executable:
 
-- Use a concise, outcome-oriented title.
+- Use a concise, outcome-oriented title capped at 120 characters (the Nexus
+  Dash create/update APIs and task forms reject longer titles with a clear
+  validation error). Condensed task surfaces (kanban cards, epic
+  linked-task lists, related-task summaries) ellipsize overlong titles after
+  two lines; the full title stays readable when the task is opened.
 - Start the description with a clear `Rationale:` that explains the user or
   engineering problem and why the work matters.
 - State the intended scope and add testable `Acceptance Criteria:`. Add an
