@@ -9,11 +9,49 @@ import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
+import { getProjectKanbanTaskById } from "@/lib/services/project-service";
 import {
   deleteTaskForProject,
   type UpdateTaskPayload,
   updateTaskForProject,
 } from "@/lib/services/project-task-service";
+import { mapProjectKanbanTaskToTaskResponse } from "@/lib/services/project-task-response";
+
+export async function GET(
+  request: NextRequest,
+  props: { params: Promise<{ projectId: string; taskId: string }> }
+) {
+  const timing = startServerTiming("task.read");
+  const params = await props.params;
+  const principalResult = await requireApiPrincipal(request);
+  if (!principalResult.ok) {
+    return principalResult.response;
+  }
+  const actorUserId = principalResult.principal.actorUserId;
+  const agentAccess = getAgentProjectAccessContext(principalResult.principal);
+  const { projectId, taskId } = params;
+
+  if (!projectId || !taskId) {
+    return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
+  }
+
+  const result = await getProjectKanbanTaskById(
+    projectId,
+    taskId,
+    actorUserId,
+    agentAccess
+  );
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status, headers: timing.headers() }
+    );
+  }
+
+  const task = mapProjectKanbanTaskToTaskResponse(result.data.task, projectId);
+
+  return NextResponse.json({ task }, { headers: timing.headers() });
+}
 
 export async function PATCH(
   request: NextRequest,

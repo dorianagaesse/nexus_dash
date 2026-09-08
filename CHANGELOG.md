@@ -8,6 +8,24 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.62.0 - 2026-09-08
+
+- Added a project-scoped single-task read endpoint,
+  `GET /api/projects/{projectId}/tasks/{taskId}`, returning the same complete
+  task shape the board-list surface exposes for session users and project
+  agents with `task:read`; unknown or cross-project task ids resolve to 404
+  so a task's existence is never leaked (ND-438).
+- Board deep links (`?taskId=` targets and the `/tasks/{taskId}` page
+  redirect) now open the task detail modal even when the target is missing
+  from the initially loaded board list, by fetching the task by id through
+  the new endpoint; already-loaded targets keep opening locally without a
+  fetch and unresolvable ids keep the board unchanged.
+- The project-agent OpenAPI contract and hosted agent docs now list the read
+  operation on the task path with response typing shared with the task-list
+  surface.
+- Added service-level, route-level, and browser coverage for the read
+  endpoint's authorization matrix and for the three deep-link behaviors.
+
 ## v0.61.0 - 2026-09-08
 
 - Agents can now attach link attachments to existing tasks (ND-424):

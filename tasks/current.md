@@ -1,5 +1,139 @@
 # Current Task
 
+## ND-438: Add a task-by-id fetch endpoint (GET task/:id) and open deep-linked tasks missing from the board list
+
+## Status
+
+Delivered (2026-09-08). PR #496
+(https://github.com/dorianagaesse/nexus_dash/pull/496) is open
+ready-for-review from `feature/nd-438-task-by-id-fetch-deep-link`, branched
+from `origin/main` at c676716 and merged forward to `origin/main` at 37f5cd9
+(ND-424 landed as v0.61.0 via PR #492 while ND-438 was in flight; the
+product code merged cleanly and the overlapping release/doc files were
+reconciled). The Nexus Dash board card ND-438 (feature label) is the source
+of truth; flipped to In Progress on 2026-09-08 and to Done on delivery via
+the agent API. No GitHub issue exists for this task; the PR carries the
+ND-438 reference. Release advanced to v0.62.0 over origin/main v0.61.0
+(CHANGELOG dated entry).
+
+Local validation passed (2026-09-08): lint, `rls:check`, release version
+check, and `git diff --check` clean; full Vitest 185 files / 1,379 tests
+passed (2 skipped); coverage above thresholds (statements 93.33%, branches
+83.82%, functions 94.63%, lines 93.63%); production build green; the ND-438
+Playwright spec (3/3: already-loaded deep link opens with zero by-id
+fetches, absent id triggers exactly one by-id fetch and opens, unresolvable
+id leaves the board unchanged) and the full e2e suite (58 passed / 1
+skipped) green against local Postgres; CI on the head commit green (Quality
+Core, E2E Smoke, Tenant Isolation, Container Image).
+
+Copilot review round 1 flagged one issue on PR #496 — the remote-fetch
+deep-link path did not clear `shouldOpenTaskInEditModeRef` before opening
+the fetched task, unlike the already-loaded path — fixed in a8070f5 with a
+reply on the review thread explaining why no dedicated regression test was
+added (the stale-ref sequence needs client-side search-param navigation the
+app does not expose, and full-board jsdom mounts are a documented OOM dead
+end). The round-1 thread was then resolved on the PR (required review-thread
+resolution); PR #496 merge state is clean on head a8070f5 with all CI checks
+green.
+
+## Context
+
+No Nexus Dash API surface can return a single task by its id today. The
+kanban UI holds tasks in memory from the board-list fetch
+(`GET /api/projects/{projectId}/tasks`), and the task-scoped route
+`app/api/projects/[projectId]/tasks/[taskId]/route.ts` implements only
+PATCH/DELETE, so the client board session is the only place that maps a task
+id to its data. Two gaps follow:
+
+- A deep link such as `/projects/{projectId}/tasks/{taskId}` (or `?taskId=`
+  on the board) silently does nothing when the target task is not among the
+  initially loaded board tasks: KanbanBoard's initial-task effect returns
+  early when the id is missing from the loaded `taskById` map.
+- A project agent that knows only a task id must pull the entire project task
+  list to read one card.
+
+A project-scoped task-by-id GET closes both gaps using the existing route,
+service, and authorization conventions, purely additively.
+
+## Scope
+
+- Add GET to the existing project-scoped task route
+  `app/api/projects/[projectId]/tasks/[taskId]/route.ts`, backed by a
+  service-level read in `lib/services/**` that authorizes the requester
+  against the project and returns the same task shape the task-list surface
+  exposes (title, description, labels, epic, related tasks, assignee,
+  attachments).
+- Accept both user-session and project-agent bearer credentials exactly like
+  the sibling task endpoints; reads never write.
+- Expose the GET operation in the agent OpenAPI contract and hosted docs
+  alongside the existing PATCH/DELETE operations for the same path, with
+  response typing shared with the task-list surface.
+- Wire the board deep-link flow so a `?taskId=` target (or the
+  `/projects/[projectId]/tasks/[taskId]` page redirect) that is absent from
+  the initially loaded list is fetched by id through the new endpoint and
+  opened in the detail modal.
+
+## Out Of Scope
+
+- Changing task-list endpoints, counts, board data loading, or archive
+  semantics.
+- Batch/multi-task reads, search, or any new write capability.
+- New task detail UI beyond the deep-link fetch fallback described above.
+
+## Acceptance Criteria
+
+1. `GET /api/projects/{projectId}/tasks/{taskId}` returns the complete single
+   task for any requester who can see the project (owner/editor/viewer
+   sessions and project agents) and matches the response shape of the task
+   list items.
+2. Unknown, deleted, or other-project task ids behave exactly like the
+   neighboring task endpoints (404/403/401 per existing session and
+   credential rules) and never leak a task's existence across projects.
+3. The agent OpenAPI document and hosted docs list the GET operation on
+   `/api/projects/{projectId}/tasks/{taskId}` with response typing shared
+   with the task-list surface.
+4. Opening the board with `?taskId=` (including via the
+   `tasks/[taskId]` page redirect) opens the detail modal when the task is
+   absent from the loaded list by fetching it by id; behavior is unchanged
+   when the task is already loaded, and a nonexistent id preserves today's
+   no-open behavior with no error regression.
+5. Purely additive: task list reads, writes, RLS, and existing board/e2e
+   coverage do not regress.
+
+## Definition Of Done
+
+- Route GET handler plus a project-scoped service read with unit and
+  route-level coverage for session and agent credential paths (success,
+  cross-project 404, non-member denial).
+- Component and Playwright coverage for the deep-link fallback
+  (missing-from-list task opens after by-id fetch; already-loaded and
+  nonexistent ids unchanged) and the focused Kanban e2e specs stay green.
+- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
+  and `npm run build` pass; `npm run test:e2e` green for the board flows
+  touched.
+- `package.json`/`package-lock.json` advance minor over the current
+  origin/main release and the CHANGELOG carries a dated entry documenting the
+  endpoint; the version number is resolved at implementation time against
+  origin/main.
+- The Nexus Dash board card ND-438 is updated (In Progress, then Done on
+  delivery) and `tasks/current.md` + `journal.md` reflect the execution.
+- Branch is pushed with an open ready-for-review PR referencing ND-438; the
+  Copilot review outcome is triaged and threads resolved before handoff.
+
+## Runtime Assumptions
+
+- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged;
+  this task introduces no schema change.
+- Validation runs locally against the repository `.env` contract and a
+  reachable PostgreSQL instance when E2E execution requires it; preview
+  deployment is not an acceptance requirement.
+
+
+## Previous Task Snapshot
+
+
+# Current Task
+
 ## ND-424: Allow agents to attach link attachments to existing tasks
 
 ## Status

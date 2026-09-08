@@ -249,6 +249,18 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
   },
   {
     tag: "Tasks",
+    method: "GET",
+    path: "/api/projects/{projectId}/tasks/{taskId}",
+    title: "Read task",
+    description: "Read one project task by id.",
+    requiredScopes: ["task:read"],
+    notes: [
+      "Returns the same task shape as the list surface, wrapped in a task object.",
+      "A task id from another project or one the credential cannot access resolves to 404 so task existence is not leaked.",
+    ],
+  },
+  {
+    tag: "Tasks",
     method: "POST",
     path: "/api/projects/{projectId}/tasks",
     title: "Create task",
@@ -1724,6 +1736,15 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
+        TaskReadResponse: {
+          type: "object",
+          required: ["task"],
+          properties: {
+            task: {
+              $ref: "#/components/schemas/TaskRecord",
+            },
+          },
+        },
         TaskCommentAuthor: {
           type: "object",
           required: ["id", "displayName", "usernameTag", "avatarSeed"],
@@ -2948,6 +2969,27 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
       },
       "/api/projects/{projectId}/tasks/{taskId}": {
+        get: {
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/tasks/{taskId}"),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/TaskId" },
+          ],
+          responses: {
+            200: {
+              description: "Task read",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/TaskReadResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
         patch: {
           ...buildOperationMetadata("PATCH", "/api/projects/{projectId}/tasks/{taskId}"),
           security: [{ BearerAuth: [] }],

@@ -18,77 +18,100 @@ import {
 const ARCHIVE_AFTER_DAYS = 7;
 const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000;
 
-type ProjectKanbanTaskRecord = Prisma.TaskGetPayload<{
-  include: {
-    _count: {
-      select: {
-        comments: true;
-      };
-    };
-    attachments: true;
-    blockedFollowUps: true;
-    outgoingRelations: {
-      select: {
-        rightTask: {
-          select: {
-            id: true;
-            title: true;
-            status: true;
-            archivedAt: true;
-          };
-        };
-      };
-    };
-    incomingRelations: {
-      select: {
-        leftTask: {
-          select: {
-            id: true;
-            title: true;
-            status: true;
-            archivedAt: true;
-          };
-        };
-      };
-    };
-    createdByUser: {
-      select: {
-        id: true;
-        name: true;
-        email: true;
-        username: true;
-        usernameDiscriminator: true;
-        avatarSeed: true;
-      };
-    };
-    updatedByUser: {
-      select: {
-        id: true;
-        name: true;
-        email: true;
-        username: true;
-        usernameDiscriminator: true;
-        avatarSeed: true;
-      };
-    };
-    assigneeUser: {
-      select: {
-        id: true;
-        name: true;
-        email: true;
-        username: true;
-        usernameDiscriminator: true;
-        avatarSeed: true;
-      };
-    };
-    epic: {
-      select: {
-        id: true;
-        name: true;
-      };
-    };
-  };
+export const projectKanbanTaskInclude = {
+  _count: {
+    select: {
+      comments: true,
+    },
+  },
+  attachments: {
+    orderBy: [{ createdAt: "desc" }],
+  },
+  blockedFollowUps: {
+    orderBy: [{ createdAt: "desc" }],
+  },
+  outgoingRelations: {
+    select: {
+      rightTask: {
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          archivedAt: true,
+        },
+      },
+    },
+  },
+  incomingRelations: {
+    select: {
+      leftTask: {
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          archivedAt: true,
+        },
+      },
+    },
+  },
+  createdByUser: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      username: true,
+      usernameDiscriminator: true,
+      avatarSeed: true,
+    },
+  },
+  updatedByUser: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      username: true,
+      usernameDiscriminator: true,
+      avatarSeed: true,
+    },
+  },
+  assigneeUser: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      username: true,
+      usernameDiscriminator: true,
+      avatarSeed: true,
+    },
+  },
+  epic: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+} satisfies Prisma.TaskInclude;
+
+export type ProjectKanbanTaskRecord = Prisma.TaskGetPayload<{
+  include: typeof projectKanbanTaskInclude;
 }>;
+
+interface ServiceErrorResult {
+  ok: false;
+  status: number;
+  error: string;
+}
+
+interface ServiceSuccessResult<T> {
+  ok: true;
+  data: T;
+}
+
+type ServiceResult<T> = ServiceSuccessResult<T> | ServiceErrorResult;
+
+function createError(status: number, error: string): ServiceErrorResult {
+  return { ok: false, status, error };
+}
 
 type ProjectContextResourceRecord = Prisma.ResourceGetPayload<{
   include: {
@@ -685,80 +708,46 @@ export async function listProjectKanbanTasks(
         project: buildProjectPrincipalWhere(normalizedActorUserId),
       },
       orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
-      include: {
-        _count: {
-          select: {
-            comments: true,
-          },
-        },
-        attachments: {
-          orderBy: [{ createdAt: "desc" }],
-        },
-        blockedFollowUps: {
-          orderBy: [{ createdAt: "desc" }],
-        },
-        outgoingRelations: {
-          select: {
-            rightTask: {
-              select: {
-                id: true,
-                title: true,
-                status: true,
-                archivedAt: true,
-              },
-            },
-          },
-        },
-        incomingRelations: {
-          select: {
-            leftTask: {
-              select: {
-                id: true,
-                title: true,
-                status: true,
-                archivedAt: true,
-              },
-            },
-          },
-        },
-        createdByUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            username: true,
-            usernameDiscriminator: true,
-            avatarSeed: true,
-          },
-        },
-        updatedByUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            username: true,
-            usernameDiscriminator: true,
-            avatarSeed: true,
-          },
-        },
-        assigneeUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            username: true,
-            usernameDiscriminator: true,
-            avatarSeed: true,
-          },
-        },
-        epic: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
+      include: projectKanbanTaskInclude,
     });
+  });
+}
+
+export async function getProjectKanbanTaskById(
+  projectId: string,
+  taskId: string,
+  actorUserId: string,
+  agentAccess?: AgentProjectAccessContext
+): Promise<ServiceResult<{ task: ProjectKanbanTaskRecord }>> {
+  const normalizedActorUserId = normalizeActorUserId(actorUserId);
+  if (!normalizedActorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess,
+    projectId,
+    requiredScopes: ["task:read"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
+  }
+
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const task = await db.task.findFirst({
+      where: {
+        id: taskId,
+        projectId,
+        project: buildProjectPrincipalWhere(normalizedActorUserId),
+      },
+      include: projectKanbanTaskInclude,
+    });
+
+    if (!task) {
+      return createError(404, "Task not found");
+    }
+
+    return { ok: true, data: { task } };
   });
 }
 
