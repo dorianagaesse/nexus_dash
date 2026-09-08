@@ -129,6 +129,24 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
   });
 
+  test("returns 400 for title longer than 120 characters", async () => {
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "a".repeat(121),
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "title-too-long",
+    });
+    expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
+  });
+
   test("returns 400 for invalid deadline value", async () => {
     const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
       method: "PATCH",
@@ -273,15 +291,23 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         },
         createdBy: {
           id: "user-1",
+          kind: "user",
           displayName: "alice",
           usernameTag: "alice#1234",
           avatarSeed: "user-1",
+          agentCredentialId: null,
+          agentCredentialLabel: null,
+          owner: null,
         },
         updatedBy: {
           id: "test-user",
+          kind: "user",
           displayName: "reviewer",
           usernameTag: "reviewer#0007",
           avatarSeed: "seed-reviewer",
+          agentCredentialId: null,
+          agentCredentialLabel: null,
+          owner: null,
         },
         createdAt: "2026-04-20T08:00:00.000Z",
         updatedAt: "2026-04-21T09:00:00.000Z",
@@ -493,15 +519,23 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         assignee: null,
         createdBy: {
           id: "user-1",
+          kind: "user",
           displayName: "alice",
           usernameTag: "alice#1234",
           avatarSeed: "user-1",
+          agentCredentialId: null,
+          agentCredentialLabel: null,
+          owner: null,
         },
         updatedBy: {
           id: "test-user",
+          kind: "user",
           displayName: "reviewer",
           usernameTag: "reviewer#0007",
           avatarSeed: "test-user",
+          agentCredentialId: null,
+          agentCredentialLabel: null,
+          owner: null,
         },
         createdAt: "2026-04-18T08:00:00.000Z",
         updatedAt: "2026-04-18T09:00:00.000Z",
@@ -911,6 +945,11 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       memberships: [],
     });
     prismaMock.apiCredential.findFirst.mockResolvedValueOnce({
+      id: "credential-1",
+      label: "Build bot",
+    });
+    prismaMock.apiCredential.findFirst.mockResolvedValueOnce({
+      id: "credential-1",
       label: "Build bot",
     });
     prismaMock.task.findUnique.mockResolvedValueOnce({
@@ -1007,6 +1046,14 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(200);
+    expect(prismaMock.task.update).toHaveBeenCalledWith({
+      where: { id: "t1" },
+      data: expect.objectContaining({
+        updatedByUserId: "owner-1",
+        updatedByCredentialId: "credential-1",
+        updatedByCredentialLabel: "Build bot",
+      }),
+    });
     expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({
@@ -1240,15 +1287,23 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         assignee: null,
         createdBy: {
           id: "user-1",
+          kind: "user",
           displayName: "alice",
           usernameTag: "alice#1234",
           avatarSeed: "user-1",
+          agentCredentialId: null,
+          agentCredentialLabel: null,
+          owner: null,
         },
         updatedBy: {
           id: "test-user",
+          kind: "user",
           displayName: "reviewer",
           usernameTag: "reviewer#0007",
           avatarSeed: "test-user",
+          agentCredentialId: null,
+          agentCredentialLabel: null,
+          owner: null,
         },
         createdAt: "2026-04-10T08:00:00.000Z",
         updatedAt: "2026-04-18T09:00:00.000Z",
@@ -1797,6 +1852,8 @@ describe("POST /api/projects/:projectId/tasks/:taskId/archive", () => {
       data: {
         archivedAt: expect.any(Date),
         updatedByUserId: "test-user",
+        updatedByCredentialId: null,
+        updatedByCredentialLabel: null,
       },
       select: {
         archivedAt: true,
@@ -1892,6 +1949,8 @@ describe("DELETE /api/projects/:projectId/tasks/:taskId/archive", () => {
       data: {
         archivedAt: null,
         updatedByUserId: "test-user",
+        updatedByCredentialId: null,
+        updatedByCredentialLabel: null,
       },
       select: {
         id: true,

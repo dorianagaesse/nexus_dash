@@ -313,3 +313,83 @@ describe("project-epic-panel", () => {
     });
   });
 });
+
+describe("project-epic-panel overlong linked-task titles", () => {
+  function buildEpicWithLongTitle(title: string) {
+    return {
+      ...epicWithDenseLinkedTasks,
+      id: "epic-long-title",
+      name: "Launch workspace sharing",
+      taskCount: 1,
+      completedTaskCount: 0,
+      progressPercent: 0,
+      linkedTasks: [
+        {
+          id: "task-long",
+          title,
+          status: "Backlog" as const,
+          archivedAt: null,
+        },
+      ],
+    };
+  }
+
+  function renderExpandedEpic(
+    container: HTMLElement,
+    root: Root,
+    title: string
+  ) {
+    projectSectionExpandedMock.isExpanded = true;
+
+    return renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [buildEpicWithLongTitle(title)],
+      })
+    ).then(async () => {
+      const disclosure = container.querySelector<HTMLElement>(
+        'button[aria-label="Show details for Launch workspace sharing"]'
+      );
+      await act(async () => {
+        disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      });
+    });
+  }
+
+  test("clamps a long spaced linked-task title to two lines inside the epic chip", async () => {
+    const longTitle =
+      "Validate a deliberately long linked task title without truncating meaningful context";
+    const { container, root } = createTestRenderer();
+    await renderExpandedEpic(container, root, longTitle);
+
+    const chip = container.querySelector<HTMLElement>(
+      `li[title="${longTitle}"]`
+    );
+    expect(chip).not.toBeNull();
+    const titleSpan = chip?.firstElementChild as HTMLElement | null;
+    expect(titleSpan?.textContent).toBe(longTitle);
+    expect(titleSpan?.className).toContain("line-clamp-2");
+    expect(titleSpan?.className).toContain("[overflow-wrap:anywhere]");
+    expect(chip?.textContent).toContain("Backlog");
+
+    await act(async () => root.unmount());
+  });
+
+  test("keeps the full unbroken-word title in the chip DOM with wrap and clamp styling", async () => {
+    const longWord =
+      "Supercalifragilisticanticonstitutionallyambivalentlinkedtasktitle";
+    const { container, root } = createTestRenderer();
+    await renderExpandedEpic(container, root, longWord);
+
+    const chip = container.querySelector<HTMLElement>(`li[title="${longWord}"]`);
+    expect(chip).not.toBeNull();
+    const titleSpan = chip?.firstElementChild as HTMLElement | null;
+    expect(titleSpan?.textContent).toBe(longWord);
+    expect(titleSpan?.className).toContain("line-clamp-2");
+    expect(titleSpan?.className).toContain("[overflow-wrap:anywhere]");
+
+    await act(async () => root.unmount());
+  });
+});

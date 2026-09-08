@@ -284,15 +284,23 @@ describe("agent project routes", () => {
           epic: null,
           createdBy: {
             id: "user-1",
+            kind: "user",
             displayName: "alice",
             usernameTag: "alice#1234",
             avatarSeed: "user-1",
+            agentCredentialId: null,
+            agentCredentialLabel: null,
+            owner: null,
           },
           updatedBy: {
             id: "user-2",
+            kind: "user",
             displayName: "bob",
             usernameTag: "bob#4321",
             avatarSeed: "seed-bob",
+            agentCredentialId: null,
+            agentCredentialLabel: null,
+            owner: null,
           },
           assignee: {
             id: "user-3",

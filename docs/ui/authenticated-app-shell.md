@@ -34,13 +34,17 @@ project navigation.
 ## Mobile Kanban Navigation
 
 The project Kanban board owns its own mobile status navigation. At narrow
-viewports the board shows one lane at a time and exposes a compact, floating
-status dock for Backlog, Doing, Blocked, and Done above the app bottom
-navigation. The active lane uses both color and a position indicator. Desktop
-keeps the four-column board.
+viewports the board shows one lane at a time and places previous/next arrow
+buttons directly in that lane's header. The arrows traverse Backlog, In
+Progress, Blocked, and Done in order; the outer controls remain visible but
+disabled at the start and end of the sequence. Each arrow names its destination,
+meets the 44 px target contract, and hands keyboard focus to the reciprocal
+control on the newly visible lane. Desktop keeps the four-column board and hides
+the lane arrows.
 
 This keeps global navigation focused on destinations while letting daily task
-scanning avoid scrolling through every status lane.
+scanning avoid scrolling through every status lane. Keeping all lanes mounted
+also preserves their independent scroll positions when users step between them.
 
 ## Layer map
 

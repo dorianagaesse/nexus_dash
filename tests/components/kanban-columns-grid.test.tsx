@@ -98,10 +98,17 @@ async function renderGrid(
     canEdit?: boolean;
     isFiltering?: boolean;
     onSelectTask?: (task: KanbanTask) => void;
+    titleOverride?: string;
   } = {}
 ) {
   const columns = createEmptyColumns<KanbanTask>();
   columns.Backlog = [createTask("1", "Backlog"), createTask("2", "Backlog")];
+  if (options.titleOverride) {
+    columns.Backlog[0] = {
+      ...columns.Backlog[0],
+      title: options.titleOverride,
+    };
+  }
   columns["In Progress"] = [createTask("3", "In Progress")];
   columns.Done = [createTask("4", "Done")];
   const archivedTask = {
@@ -213,10 +220,10 @@ describe("KanbanColumnsGrid bounded lanes", () => {
     backlogScroller.scrollTop = 96;
     progressScroller.scrollTop = 24;
 
-    const progressButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label^="In Progress,"]'
+    const backlogNextButton = container.querySelector<HTMLButtonElement>(
+      '[data-kanban-lane="Backlog"] button[aria-label="Next list: In Progress"]'
     );
-    await act(async () => progressButton?.click());
+    await act(async () => backlogNextButton?.click());
 
     const backlogLane = container.querySelector<HTMLElement>(
       '[data-kanban-lane="Backlog"]'
@@ -227,16 +234,83 @@ describe("KanbanColumnsGrid bounded lanes", () => {
     expect(backlogLane?.classList.contains("hidden")).toBe(true);
     expect(progressLane?.classList.contains("hidden")).toBe(false);
 
-    const backlogButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label^="Backlog,"]'
+    const progressPreviousButton = container.querySelector<HTMLButtonElement>(
+      '[data-kanban-lane="In Progress"] button[aria-label="Previous list: Backlog"]'
     );
-    await act(async () => backlogButton?.click());
+    await act(async () => progressPreviousButton?.click());
 
     expect(container.querySelector('[data-kanban-lane-scroll="Backlog"]')).toBe(
       backlogScroller
     );
     expect(backlogScroller.scrollTop).toBe(96);
     expect(progressScroller.scrollTop).toBe(24);
+
+    await act(async () => root.unmount());
+  });
+
+  test("steps through mobile lanes with accessible 44px arrows and reciprocal focus", async () => {
+    const { container, root } = createRenderer();
+    await renderGrid(root);
+
+    expect(
+      container.querySelector('[aria-label="Kanban status navigation"]')
+    ).toBeNull();
+
+    const backlogLane = container.querySelector<HTMLElement>(
+      '[data-kanban-lane="Backlog"]'
+    );
+    const backlogPrevious = backlogLane?.querySelector<HTMLButtonElement>(
+      'button[aria-label="No previous list"]'
+    );
+    const backlogNext = backlogLane?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Next list: In Progress"]'
+    );
+
+    expect(backlogPrevious?.disabled).toBe(true);
+    expect(backlogNext?.disabled).toBe(false);
+    expect(backlogNext?.className).toContain("h-11");
+    expect(backlogNext?.className).toContain("w-11");
+    expect(backlogNext?.className).toContain("xl:hidden");
+
+    await act(async () => backlogNext?.click());
+
+    const progressLane = container.querySelector<HTMLElement>(
+      '[data-kanban-lane="In Progress"]'
+    );
+    const progressPrevious = progressLane?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Previous list: Backlog"]'
+    );
+    const progressNext = progressLane?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Next list: Blocked"]'
+    );
+    expect(progressLane?.classList.contains("hidden")).toBe(false);
+    expect(document.activeElement).toBe(progressPrevious);
+
+    await act(async () => progressNext?.click());
+    const blockedNext = container.querySelector<HTMLButtonElement>(
+      '[data-kanban-lane="Blocked"] button[aria-label="Next list: Done"]'
+    );
+    await act(async () => blockedNext?.click());
+
+    const doneLane = container.querySelector<HTMLElement>(
+      '[data-kanban-lane="Done"]'
+    );
+    const donePrevious = doneLane?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Previous list: Blocked"]'
+    );
+    const doneNext = doneLane?.querySelector<HTMLButtonElement>(
+      'button[aria-label="No next list"]'
+    );
+    expect(doneLane?.classList.contains("hidden")).toBe(false);
+    expect(doneNext?.disabled).toBe(true);
+    expect(document.activeElement).toBe(donePrevious);
+
+    await act(async () => donePrevious?.click());
+    const blockedReciprocal = container.querySelector<HTMLButtonElement>(
+      '[data-kanban-lane="Blocked"] button[aria-label="Next list: Done"]'
+    );
+    expect(document.activeElement).toBe(blockedReciprocal);
+    expect(container.textContent).toContain("Showing Blocked list, 0 tasks");
 
     await act(async () => root.unmount());
   });
@@ -382,6 +456,43 @@ describe("KanbanColumnsGrid filtered archive auto-open", () => {
 
     await renderGrid(root, { isFiltering: false });
     expect(archiveDetails(container)?.open).toBe(false);
+
+    await act(async () => root.unmount());
+  });
+});
+
+describe("KanbanColumnsGrid overlong task titles", () => {
+  test("clamps a long spaced title to two lines with the full text intact in the DOM", async () => {
+    const longTitle =
+      "Investigate and document why the cross-project attachment sync keeps losing provenance metadata on deep-link reshare";
+    const { container, root } = createRenderer();
+    await renderGrid(root, { titleOverride: longTitle });
+
+    const heading = container.querySelector<HTMLElement>(
+      '[data-kanban-task-card="1"] h3'
+    );
+
+    expect(heading).not.toBeNull();
+    expect(heading?.textContent).toBe(longTitle);
+    expect(heading?.className).toContain("line-clamp-2");
+    expect(heading?.className).toContain("[overflow-wrap:anywhere]");
+
+    await act(async () => root.unmount());
+  });
+
+  test("clamps a long unbroken word so it can wrap and never overflows the card", async () => {
+    const longWord = "Supercalifragilisticanticonstitutionallyambivalenttasktitle";
+    const { container, root } = createRenderer();
+    await renderGrid(root, { titleOverride: longWord });
+
+    const heading = container.querySelector<HTMLElement>(
+      '[data-kanban-task-card="1"] h3'
+    );
+
+    expect(heading).not.toBeNull();
+    expect(heading?.textContent).toBe(longWord);
+    expect(heading?.className).toContain("line-clamp-2");
+    expect(heading?.className).toContain("[overflow-wrap:anywhere]");
 
     await act(async () => root.unmount());
   });

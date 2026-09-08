@@ -43,7 +43,9 @@ import {
   taskPersonSummarySelect,
   type TaskPersonSummary,
 } from "@/lib/task-person";
+import { mapTaskAuthorRecord, type TaskAuthorSummary } from "@/lib/task-author";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
+import { MAX_TASK_TITLE_LENGTH } from "@/lib/task-title";
 
 const MIN_TITLE_LENGTH = 2;
 
@@ -116,8 +118,8 @@ export interface UpdatedTaskPayload {
   archivedAt: Date | null;
   epic: TaskEpicSummary | null;
   assignee: TaskPersonSummary | null;
-  createdBy: TaskPersonSummary;
-  updatedBy: TaskPersonSummary;
+  createdBy: TaskAuthorSummary;
+  updatedBy: TaskAuthorSummary;
   createdAt: Date;
   updatedAt: Date;
   relatedTasks: RelatedTaskSummary[];
@@ -322,6 +324,10 @@ async function loadTaskMutationPayload(
           name: true,
         },
       },
+      createdByCredentialId: true,
+      createdByCredentialLabel: true,
+      updatedByCredentialId: true,
+      updatedByCredentialLabel: true,
       createdByUser: {
         select: taskPersonSummarySelect,
       },
@@ -377,8 +383,16 @@ async function loadTaskMutationPayload(
     archivedAt: task.archivedAt,
     epic: mapTaskEpicSummary(task.epic),
     assignee: task.assigneeUser ? mapTaskPersonSummary(task.assigneeUser) : null,
-    createdBy: mapTaskPersonSummary(task.createdByUser)!,
-    updatedBy: mapTaskPersonSummary(task.updatedByUser)!,
+    createdBy: mapTaskAuthorRecord({
+      author: task.createdByUser,
+      agentCredentialId: task.createdByCredentialId,
+      agentCredentialLabel: task.createdByCredentialLabel,
+    }),
+    updatedBy: mapTaskAuthorRecord({
+      author: task.updatedByUser,
+      agentCredentialId: task.updatedByCredentialId,
+      agentCredentialLabel: task.updatedByCredentialLabel,
+    }),
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
     relatedTasks: mergeRelatedTaskSummaries(task),
@@ -507,6 +521,65 @@ async function resolveAgentCredentialLabel(input: {
   });
 
   return normalizeText(credential?.label) || null;
+}
+
+interface TaskAgentAttribution {
+  credentialId: string | null;
+  credentialLabel: string | null;
+}
+
+// Persists the acting credential id with a durable label snapshot taken at
+// write time; later credential renames or revocations never rewrite past
+// task attribution. Human-executed mutations keep human-only attribution.
+async function resolveTaskAgentAttribution(input: {
+  db: DbClient;
+  agentAccess?: AgentProjectAccessContext;
+}): Promise<TaskAgentAttribution> {
+  if (!input.agentAccess) {
+    return { credentialId: null, credentialLabel: null };
+  }
+
+  const credential = await input.db.apiCredential.findFirst({
+    where: {
+      id: input.agentAccess.credentialId,
+      projectId: input.agentAccess.projectId,
+    },
+    select: {
+      id: true,
+      label: true,
+    },
+  });
+  if (!credential) {
+    return { credentialId: null, credentialLabel: null };
+  }
+
+  return {
+    credentialId: credential.id,
+    credentialLabel: normalizeText(credential.label) || null,
+  };
+}
+
+function taskAgentAuthorWriteData(
+  attribution: TaskAgentAttribution,
+  field: "createdBy" | "updatedBy"
+):
+  | {
+      createdByCredentialId: string | null;
+      createdByCredentialLabel: string | null;
+    }
+  | {
+      updatedByCredentialId: string | null;
+      updatedByCredentialLabel: string | null;
+    } {
+  return field === "createdBy"
+    ? {
+        createdByCredentialId: attribution.credentialId,
+        createdByCredentialLabel: attribution.credentialLabel,
+      }
+    : {
+        updatedByCredentialId: attribution.credentialId,
+        updatedByCredentialLabel: attribution.credentialLabel,
+      };
 }
 
 function shouldNotifyAssignee(input: {
@@ -734,6 +807,9 @@ export async function createTaskForProject(
   if (title.length < MIN_TITLE_LENGTH) {
     return createError(400, "title-too-short");
   }
+  if (title.length > MAX_TASK_TITLE_LENGTH) {
+    return createError(400, "title-too-long");
+  }
 
   const parsedLinks = parseAttachmentLinksJson(input.attachmentLinksJsonRaw);
   if (parsedLinks.error) {
@@ -824,6 +900,11 @@ export async function createTaskForProject(
 
       const nextPosition = (maxPosition._max.position ?? -1) + 1;
 
+      const agentAttribution = await resolveTaskAgentAttribution({
+        db,
+        agentAccess: input.agentAccess,
+      });
+
       const createdTask = await db.task.create({
         data: {
           projectId: input.projectId,
@@ -837,6 +918,8 @@ export async function createTaskForProject(
           position: nextPosition,
           createdByUserId: actorUserId,
           updatedByUserId: actorUserId,
+          ...taskAgentAuthorWriteData(agentAttribution, "createdBy"),
+          ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
           assigneeUserId: assigneeValidation.data.assigneeUserId,
         },
         select: { id: true },
@@ -986,6 +1069,15 @@ export async function reorderProjectTasks(
 
       const taskById = new Map(tasks.map((task) => [task.id, task]));
 
+      const agentAttribution = await resolveTaskAgentAttribution({
+        db,
+        agentAccess,
+      });
+      const agentAuthorData = taskAgentAuthorWriteData(
+        agentAttribution,
+        "updatedBy"
+      );
+
       const now = new Date();
       const updateOperations = normalizedColumns.flatMap(
         (column: { status: TaskStatus; taskIds: string[] }) =>
@@ -1019,6 +1111,7 @@ export async function reorderProjectTasks(
                   position: index,
                   archivedAt: null,
                   updatedByUserId: normalizedActorUserId,
+                  ...agentAuthorData,
                   completedAt: nextCompletedAt,
                 },
               }),
@@ -1203,6 +1296,11 @@ export async function moveTaskStatusForProject(
         });
       }
 
+      const agentAttribution = await resolveTaskAgentAttribution({
+        db,
+        agentAccess,
+      });
+
       await db.task.update({
         where: { id: taskId },
         data: {
@@ -1210,6 +1308,7 @@ export async function moveTaskStatusForProject(
           position: finalPosition,
           archivedAt: null,
           updatedByUserId: normalizedActorUserId,
+          ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
           completedAt: nextCompletedAt,
         },
       });
@@ -1308,6 +1407,9 @@ export async function updateTaskForProject(
   if (titleProvided && title.length < MIN_TITLE_LENGTH) {
     return createError(400, "Task title must be at least 2 characters");
   }
+  if (titleProvided && title.length > MAX_TASK_TITLE_LENGTH) {
+    return createError(400, "title-too-long");
+  }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
     const access = await requireProjectRole({
@@ -1404,10 +1506,16 @@ export async function updateTaskForProject(
       }
 
       const updateWithClient = async (tx: typeof db) => {
+        const agentAttribution = await resolveTaskAgentAttribution({
+          db: tx,
+          agentAccess,
+        });
+
         await tx.task.update({
           where: { id: taskId },
           data: {
             updatedByUserId: normalizedActorUserId,
+            ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
             epicId: epicValidation.data.epicId,
             assigneeUserId: assigneeValidation.data.assigneeUserId,
             ...(titleProvided ? { title } : {}),
@@ -1572,11 +1680,17 @@ export async function archiveTaskForProject(
         };
       }
 
+      const agentAttribution = await resolveTaskAgentAttribution({
+        db,
+        agentAccess,
+      });
+
       const archivedTask = await db.task.update({
         where: { id: taskId },
         data: {
           archivedAt: new Date(),
           updatedByUserId: normalizedActorUserId,
+          ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
         },
         select: {
           archivedAt: true,
@@ -1667,11 +1781,17 @@ export async function unarchiveTaskForProject(
         };
       }
 
+      const agentAttribution = await resolveTaskAgentAttribution({
+        db,
+        agentAccess,
+      });
+
       await db.task.update({
         where: { id: taskId },
         data: {
           archivedAt: null,
           updatedByUserId: normalizedActorUserId,
+          ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
         },
         select: {
           id: true,

@@ -4,35 +4,48 @@
 
 ## Status
 
-Delivered (2026-09-07): PR #492
+Delivered (2026-09-08): PR #492
 (https://github.com/dorianagaesse/nexus_dash/pull/492) is open from
 `feature/nd-424-agent-link-attachments` (worktree `../nexus_dash_task424`,
-branched from `origin/main`, version base v0.56.0; commits 8deb753, 464abea,
-8f5e528, 2464a84 pushed) and closes issue #486. Copilot review round
-(2026-09-07/08): one thread on agent.md flagged that the guidance called
-attachment removal kanban-UI-only; the claim was stale — the dedicated
-attachment DELETE route already serves agents — so the text now scopes the
-UI-only claim to in-place link editing (ND-425) and points agents at the
-DELETE route. Fixed in 2464a84 with a reply on the thread; re-review is
-pending on the GitHub UI side. The Nexus Dash board card
-ND-424 (feature label) tracks GitHub issue #486, which was attached to the
-card at creation as a link attachment; the card is flipped to In Progress and
-then Done with a Report section appended. This PR delivers the agent-side gap
-left after creation-time `attachmentLinks` shipped: adding link attachments to
-an already-existing task through the agent API. API shape was confirmed with
-the user on 2026-09-07: the task-update route gains `attachmentLinks` on
+branched from `origin/main`, version base v0.56.0) and closes issue #486.
+On 2026-09-08 `origin/main` (c676716, v0.60.0 after ND-427 merged via PR
+#494) was merged into the branch: the product code merged cleanly, and the
+five overlapping files (CHANGELOG, journal, package metadata,
+`tasks/current.md`) were reconciled by hand with the release metadata
+retargeted from v0.57.0 to v0.61.0 (`release:version -- feature` over the
+merged v0.60.0 base; dated `## v0.61.0 - 2026-09-08` CHANGELOG entry). The
+Nexus Dash board card ND-424 (feature label) tracks GitHub issue #486 —
+attached to the card at creation as a link attachment — and sits in Done with
+a Report section appended. The API shape was confirmed with the user on
+2026-09-07: the task-update route gains `attachmentLinks` on
 `PATCH /api/projects/{projectId}/tasks/{taskId}` (pure JSON, append-only,
 read-back via the existing `attachments` list in the task response) rather
 than agent scopes on the UI composer route. Removing attachments was already
-agent-capable (ND-418-era attachment work) and stays on
+agent-capable and stays on
 `DELETE /tasks/{taskId}/attachments/{attachmentId}`.
 
-Version metadata advances minor to v0.57.0 (`release:version -- feature`);
-the CHANGELOG gains a dated `## v0.57.0 - 2026-09-07` section. The OpenAPI
-document (`/api/docs/agent/v1/openapi.json`) and the hosted agent guide
-(`/docs/agent/v1`) surface the field through the shared `TaskUpdateRequest`
-schema and a dedicated curl example; the authoring guidance in `agent.md` /
-`CLAUDE.md` no longer claims link-add is kanban-UI-only.
+Preview acceptance (2026-09-08) passed 14/14 against the PR #492 head
+deployed to nexus-dash-5aifahhbx-dorian-agaesses-projects.vercel.app
+(`deploy-vercel.yml` `deploy-preview` run 34234352574 with
+`git_ref=feature/nd-424-agent-link-attachments`), plus a status-transition
+spot check via POST: token exchange, health, OpenAPI documenting
+`TaskUpdateRequest.attachmentLinks`, PATCH append with read-back in the same
+response, persistence in the task list, append-only preservation of existing
+attachments, hostname-derived default names for unnamed links, 400
+`attachment-link-invalid` with nothing written, and creation-time
+`attachmentLinks` unchanged. Local validation on the reconciled tree is also
+green: lint, `rls:check`, `release:check`, `git diff --check`, 1,374 Vitest
+tests passed (2 skipped) across 184 files, coverage above thresholds (93.33%
+statements / 83.76% branches / 95.27% functions / 93.64% lines), and a clean
+production build.
+
+Copilot review round (2026-09-07/08): one thread on agent.md flagged that the
+guidance called attachment removal kanban-UI-only; the claim was stale — the
+dedicated attachment DELETE route already serves agents — so the text now
+scopes the UI-only claim to in-place link editing (ND-425) and points agents
+at the DELETE route. Fixed in 2464a84 with a reply on the thread; the thread
+is outdated after the origin/main merge, and a fresh Copilot review round runs
+against the reconciled head before handoff.
 
 ## Context
 
@@ -148,12 +161,385 @@ upload flow, MIME/size validation, or storage access.
 
 ## Previous Task Snapshot
 
-The previous `tasks/current.md` brief (ND-376, released in v0.56.0 via PR
-#490) is preserved verbatim below for history, itself preserving the ND-379
-brief.
+The previous `tasks/current.md` brief (ND-427, merged into main via PR #494 at
+c676716 / v0.60.0) is preserved verbatim below for history.
 
 ---
 
+# Current Task
+
+## ND-427: Replace the mobile Kanban status dock with lane arrows
+
+## Status
+
+Delivered (2026-09-08). Ready-for-review PR #494
+(https://github.com/dorianagaesse/nexus_dash/pull/494) is open from
+`feature/nd-427-kanban-mobile-list-arrows` in dedicated worktree
+`../nexus_dash_nd427_wt`, branched from `origin/main` at 446637f (ND-381
+merged / v0.58.0) and updated from `origin/main` at 049d346 after ND-407
+merged as v0.59.0. The Nexus Dash board card ND-427 (feature label) is the
+source of truth and was moved through In Progress to Done via the agent API.
+No GitHub issue exists for this task; PR #494 carries the ND-427 reference.
+
+Post-merge validation passed against the Dockerized PostgreSQL contract on
+port 5432: lint, `rls:check`, `release:check`, `git diff --check`, 1,368
+Vitest tests passed (2 skipped), coverage above thresholds (93.21% statements
+/ 83.58% branches / 94.59% functions / 93.52% lines), production build, and
+12 focused Chromium tests across the authenticated-shell, bounded-Kanban, and
+ND-407 title-cap specs.
+
+## Context
+
+Below the four-column desktop breakpoint, the Kanban board shows one status
+lane at a time and currently relies on a second sticky bottom navigation dock
+to switch among Backlog, In Progress, Blocked, and Done. That dock competes
+with the authenticated shell's persistent mobile navigation and separates the
+lane-switching action from the lane it controls. Product feedback requests a
+simpler sequential model: previous and next arrows attached directly to the
+visible list.
+
+## Product Decisions
+
+- Each mobile/single-column lane header owns a previous and next arrow button.
+  The buttons step through the canonical `TASK_STATUSES` order and name their
+  destination (for example, `Next list: In Progress`) for assistive technology.
+- Backlog's previous button and Done's next button remain visible but disabled,
+  preserving header balance and making the ends of the sequence legible.
+- Arrow targets are at least 44 by 44 px with the shared focus-ring treatment.
+  After a switch, keyboard focus moves to the reciprocal arrow on the newly
+  visible lane so the user can immediately reverse or continue the sequence.
+- All four lanes stay mounted and only mobile visibility changes, preserving
+  each lane's independent scroll position. The four-column desktop board,
+  drag-and-drop behavior, task counts, filtering, and archive behavior remain
+  unchanged.
+
+## Scope
+
+- Remove the sticky mobile Kanban status navigation from
+  `KanbanColumnsGrid`.
+- Add responsive previous/next controls to Kanban lane headers with disabled
+  boundary states, destination-aware accessible names, and focus continuity.
+- Update the authenticated-shell UI contract and focused component/browser
+  coverage for the new interaction.
+- Advance the feature release metadata over v0.59.0.
+
+## Out Of Scope
+
+- Swipe gestures, wrapping from Done back to Backlog, or direct arbitrary lane
+  selection on mobile.
+- Changing the desktop four-column layout, lane order, task drag-and-drop,
+  lane heights, filters, or the authenticated shell's global bottom navigation.
+- Persisting the selected mobile lane across reloads or routes.
+
+## Acceptance Criteria
+
+1. At viewports below `xl`, exactly one Kanban lane is visible and its header
+   provides previous/next arrow controls that traverse Backlog → In Progress →
+   Blocked → Done in both directions without wrapping.
+2. Backlog's previous control and Done's next control are visibly disabled;
+   enabled controls expose destination-specific accessible names, visible focus
+   treatment, and a minimum 44 px touch target.
+3. The old sticky `Kanban status navigation` dock is absent, so Kanban no
+   longer adds a second bottom navigation above the authenticated app shell.
+4. Switching lanes preserves each lane's native scroll position, maintains
+   keyboard focus on the reciprocal lane control, and causes no horizontal
+   overflow at 375 px portrait or phone landscape sizes.
+5. At `xl` and wider, all four columns remain visible and the new mobile arrow
+   controls are hidden; drag-and-drop and existing lane behavior are unchanged.
+
+## Definition Of Done
+
+- Focused component tests cover sequential traversal, disabled boundaries,
+  accessible names, touch-target classes, focus continuity, dock removal, and
+  independent lane scroll preservation.
+- Playwright coverage exercises the real mobile flow in both directions,
+  verifies boundary states and viewport containment, and confirms desktop
+  arrows are hidden while all lanes are visible.
+- `git diff --check`, `npm run lint`, `npm run rls:check`, `npm run
+  release:check`, `npm test`, `npm run test:coverage`, `npm run build`, and the
+  focused Kanban Playwright specs are green.
+- `package.json`/`package-lock.json` advance minor to v0.60.0 over
+  `origin/main` v0.59.0, and the dated CHANGELOG entry documents ND-427.
+- The Nexus Dash card is moved to Done on delivery; `tasks/current.md`,
+  `journal.md`, and `docs/ui/authenticated-app-shell.md` reflect the outcome.
+- The branch is pushed with an open ready-for-review PR referencing ND-427;
+  the initial Copilot review outcome is triaged and all addressed threads are
+  resolved before handoff.
+
+## Runtime Assumptions
+
+- Existing database, authentication, and environment contracts are unchanged;
+  this is a responsive client presentation change with no schema or service
+  mutation.
+- Local browser validation uses the repository Playwright database/bootstrap
+  contract. Preview deployment is not required by this task.
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` brief (ND-407, merged into main through PR #495
+at 049d346 / v0.59.0) is preserved verbatim below for history.
+
+---
+
+# Current Task
+
+## ND-407: Cap task titles at 120 characters and ellipsize overlong titles in the UI
+
+## Status
+
+Delivered (2026-09-08). PR #495
+(https://github.com/dorianagaesse/nexus_dash/pull/495) is open
+ready-for-review from `feature/nd-407-task-title-cap-and-ellipsis`, branched
+from `origin/main` at 446637f (ND-381 merged / v0.58.0). The Nexus Dash
+board card ND-407 (feature label, related to ND-387) is the source of truth;
+flipped to In Progress on 2026-09-08 and to Done on delivery via the agent
+API. No GitHub issue exists for this task; the PR carries the ND-407
+reference.
+
+User expectation confirmed on 2026-09-08: on mobile, long titles must be cut
+off (ellipsized) so no task title ever wraps to three or more lines in task
+surfaces; condensed surfaces keep at most two lines on narrow viewports.
+
+Local validation passed (2026-09-08): lint, `rls:check`, release version
+check clean; full Vitest 184 files / 1367 tests passed (2 skipped); coverage
+above thresholds (statements 93.21%, branches 83.58%, functions 94.59%,
+lines 93.52%); production build green; the ND-407 Playwright spec
+(create-dialog cap with live counter, legacy 170-char title clamped to two
+lines at 375 px with the full title in the modal, inline-edit overlong-save
+rejection) green together with the project-task-calendar smoke suite
+(6/6).
+
+## Context
+
+Task titles are stored in an unbounded text column and nothing prevents
+arbitrarily long titles. A ZZ-TEST preview fixture with a ~170-character
+title rendered unwieldy in condensed surfaces (kanban cards, epic
+linked-task lists, related-task summaries), and even titles within any
+reasonable cap exceed narrow card widths. Long titles must therefore be
+bounded at authoring time and rendered defensively: truncated with an
+ellipsis in condensed surfaces, with the full title readable when the task is
+opened.
+
+## Scope
+
+- Enforce a 120-character maximum on task titles on every authoring path:
+  interactive create/edit forms and API routes.
+- Truncate overlong titles with an ellipsis (…) in condensed rendering
+  surfaces instead of wrapping or overflowing, keeping at most two rendered
+  lines on mobile so titles never take three or more lines.
+- Keep the full untruncated title readable in the task detail surface opened
+  from a card.
+- Epic names are already capped at 80 characters by the database; they are
+  out of scope.
+
+## Out Of Scope
+
+- Epic name capping or other artifact title limits.
+- Schema changes; the existing text column stays unbounded and the cap is
+  enforced at the service/API/form boundary.
+- Redesigning task cards, the task detail dialog, or dashboard layout.
+
+## Acceptance Criteria
+
+1. Task create and update APIs reject titles longer than 120 characters with
+   a clear validation error and write nothing.
+2. Titles of exactly 120 characters and below remain accepted everywhere they
+   are today.
+3. Task authoring and editing UI enforces the cap: input max length, live
+   character feedback near the limit, and an inline validation message on
+   submit.
+4. Condensed title surfaces (kanban cards, epic registry linked-task lists,
+   related-task summaries) truncate overlong titles with an ellipsis instead
+   of wrapping, overflowing, or clipping mid-glyph; on mobile viewports a
+   title never wraps to three or more lines.
+5. Opening a task shows its full untruncated title in the detail modal.
+6. The task-authoring quality contract in agent.md is updated to state the
+   enforced cap and the truncation behavior.
+
+## Definition Of Done
+
+- Service-level validation with unit coverage for create, update, and bulk
+  paths.
+- Component coverage for ellipsized titles across condensed surfaces,
+  including narrow-width and long-word cases.
+- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
+  and `npm run build` pass; kanban Playwright coverage when board flows are
+  touched, including a mobile-width title-length check.
+- `package.json`/`package-lock.json` advance minor to v0.59.0 over origin/main
+  (v0.58.0) and the CHANGELOG dated `## v0.59.0` entry documents the feature.
+- agent.md title guidance updated in the same PR.
+- The Nexus Dash board card ND-407 is updated (In Progress, then Done on
+  delivery) and `tasks/current.md` + `journal.md` reflect the execution.
+- Branch is pushed with an open ready-for-review PR referencing ND-407; the
+  Copilot review outcome is triaged and threads resolved before handoff.
+
+## Runtime Assumptions
+
+- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged;
+  this task introduces no schema change.
+- Validation runs locally against the repository `.env` contract and a
+  reachable PostgreSQL instance when E2E execution requires it; preview
+  deployment is not an acceptance requirement.
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` brief (ND-381, merged into main via PR #493 at
+446637f / v0.58.0) is preserved verbatim below for history.
+
+---
+
+# Current Task
+
+## ND-381: Support rich text in meeting note input and output
+
+## Status
+
+Delivered (2026-09-07). PR #493
+(https://github.com/dorianagaesse/nexus_dash/pull/493) is open from
+`feature/nd-381-meeting-note-rich-text` (worktree `../nexus_dash_nd381_wt`,
+branched from `origin/main` at 2fbc228, ND-376 merged / v0.56.0). The Nexus
+Dash board card ND-381 (feature label, related to ND-379) is the source of
+truth; flipped to Done on delivery, awaiting the merge. Scope confirmed with the user on 2026-09-07: the
+meeting-note editors include @mention autocomplete for project members
+(`mentionProjectId`), and read-only surfaces resolve mention hover cards from
+the project collaborator list.
+
+Local validation passed (2026-09-07): lint, `rls:check`, `release:check`,
+`git diff --check` clean; full Vitest 180 files / 1343 tests passed; coverage
+above thresholds (statements 93.21%, rich-text module 92.52%); production
+build green; the ND-381 Playwright spec (rich round trip, member mention with
+hover card, legacy upgrade) green together with the meeting-todos and
+meeting-steward smoke specs. One product fix surfaced during e2e validation:
+browser contentEditable keeps text typed before the first Enter as a bare
+root text node, so `coerceRichTextHtml` now wraps root-level bare text runs in
+paragraphs (jsdom-safe div container), and the meeting-panel save payloads
+coerce editor HTML so stored sections stay canonical; the same run uncovered
+a preview-helper bug that doubled the list bullet separator (`par. • • item`)
+which is fixed with regression coverage.
+
+## Context
+
+Meeting-note inputs and outputs (`inputNotes`, `outputNotes` on
+`ProjectMeetingNote`) are plain-text surfaces today: the Prepare meeting /
+Edit preparation dialog and the note dialog's Outputs area edit them through
+`EmojiTextareaField`, the note dialog renders the Inputs section with
+`whitespace-pre-wrap`, and the meeting-note cards preview raw text. Task
+descriptions and context-card content already share the `RichTextEditor` /
+`RichTextContent` pair with canonical sanitized rich-text HTML storage; ND-379
+added Codex-style `* ` / `- ` list shortcuts to that editor. This task rolls
+the same enriched-text behavior out to the meeting-note input and output
+areas so meeting notes stop being the remaining plain-text island.
+
+## Product Decisions
+
+- **Storage contract.** `inputNotes` and `outputNotes` become canonical
+  sanitized rich-text HTML, coerced on write exactly like context-card
+  content: `coerceRichTextHtml` accepts both legacy plain text (paragraphs
+  for blank-line-separated blocks, `<br />` for single line breaks) and
+  editor HTML (sanitized). No schema change; the existing
+  `MAX_SECTION_LENGTH` (10000) limit keeps counting plain text via
+  `richTextToPlainText`, so HTML markup never counts against the section
+  budget.
+- **Legacy notes stay readable and searchable.** Rows written before this
+  task keep their plain text in the database. Read-only rendering passes
+  stored content through `RichTextContent` (which coerces legacy text at
+  render time), editing dialogs coerce stored content to canonical HTML when
+  the draft is built, and search haystacks convert sections to plain text.
+  Re-saving a legacy note upgrades its stored value to canonical HTML.
+- **Editors.** The Prepare/Edit-preparation dialog Inputs field and the note
+  dialog Outputs field swap `EmojiTextareaField` for the shared
+  `RichTextEditor` (same ids, placeholders, and labels; formatting toolbar,
+  emoji, list shortcuts, links, and code/token blocks included). The editors
+  pass `mentionProjectId` so @mentions of project members autocomplete like
+  task descriptions. Viewers never see a disabled editor: the note dialog's
+  Outputs area renders read-only with `RichTextContent`.
+- **Read-only rendering.** The note dialog Inputs section and the Outputs
+  area render through `RichTextContent` with `mentionUsers` resolved from the
+  project collaborator list (hover cards); the same empty-state copy is kept.
+  Meeting-note cards preview `inputNotes` as plain text (tags stripped) with
+  the existing fallback copy, matching how kanban cards preview task
+  descriptions.
+- **Search stays text-based.** Meeting-note search (client panel filter and
+  server-side query filter) indexes plain-text conversions of the sections,
+  so queries behave identically for legacy plain and new rich content instead
+  of matching raw tag noise. The client converts each note once per notes
+  change (memoized), not per keystroke.
+
+## Scope
+
+- Coerce `inputNotes`/`outputNotes` to canonical rich-text HTML in the
+  meeting-note service draft build, validate section length on the plain-text
+  length, and index plain text in the server query filter.
+- Swap the meeting-panel Inputs/Outputs edit fields to `RichTextEditor`
+  (mention autocomplete included) and render read-only sections via
+  `RichTextContent` with collaborator-derived `mentionUsers`; plain-text card
+  previews and memoized client search haystacks.
+- Focused service tests (plain→HTML coercion on create/update, sanitization,
+  plain-length enforcement with markup, HTML search matching), component
+  coverage for the panel surfaces, and a dedicated Playwright spec for a
+  real-browser rich-text input/output round trip plus a legacy-note read.
+- Version metadata: advance minor to v0.57.0 over origin/main v0.56.0 and add
+  a dated CHANGELOG entry.
+
+## Out Of Scope
+
+- `decisions` (not surfaced in the meeting UI), meeting-todo content, titles,
+  and participant names stay plain text.
+- Mention hover/autocomplete for external participants (they have no Nexus
+  Dash account); mentions resolve against project collaborators only.
+- Rich text in email/notification content, agent API documentation changes,
+  or the project-wide todos page (no note content there).
+- Converting stored legacy rows by migration; upgrades happen lazily on
+  re-save.
+
+## Acceptance Criteria
+
+1. Meeting-note input uses the shared rich-text behavior: the Inputs field in
+   Prepare/Edit-preparation and the Outputs field in the note dialog are the
+   shared rich-text editor with formatting, list shortcuts, emoji, and
+   project-member @mention autocomplete, and saving persists canonical
+   sanitized rich-text HTML.
+2. Meeting-note output renders the same supported rich content consistently:
+   the note dialog Inputs section and Outputs read-only view render stored
+   rich content (formatting, lists, links, code/token blocks, member
+   mentions with hover cards) through the shared read-only renderer, and
+   meeting-note card previews stay readable plain text.
+3. Existing meeting notes remain compatible and readable: legacy plain-text
+   notes (single and multi-paragraph) render correctly in the panel, open in
+   the editors without content loss, re-save as canonical HTML, and search
+   over their content keeps matching.
+
+## Definition Of Done
+
+- Service, panel, and rendering changes above are implemented with focused
+  service/component coverage and a dedicated Playwright spec covering a real
+  rich-text prepare → output round trip, @mention entry, and legacy plain
+  note readability.
+- `git diff --check`, `npm run lint`, `npm run rls:check`, `npm run
+  release:check`, `npm test`, `npm run test:coverage`, `npm run build`, and
+  the focused Playwright run are green; the meeting-note/calendar smoke e2e
+  specs stay green.
+- `package.json`/`package-lock.json` advance minor to v0.57.0 over origin/main
+  (v0.56.0) and the CHANGELOG dated `## v0.57.0` entry documents the feature.
+- The Nexus Dash board card ND-381 is updated (In Progress, then Done on
+  delivery) and `tasks/current.md` + `journal.md` reflect the execution.
+- Branch is pushed with an open ready-for-review PR referencing ND-381; the
+  Copilot review outcome is triaged and threads resolved before handoff.
+
+## Runtime Assumptions
+
+- Existing PostgreSQL, authentication, and `.env` contracts remain unchanged;
+  no schema change is required.
+- Validation runs locally against the dockerized PostgreSQL setup
+  (`docs/runbooks/local-validation.md`) with real-browser Playwright
+  coverage; preview deployment is not an acceptance requirement for this
+  presentational rollout.
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` brief (ND-376, merged into main via PR #490 at
+2fbc228) is preserved verbatim below for history, itself preserving the
+ND-379 brief.
 # Current Task
 
 ## ND-376: Allow meeting todo assignees who are external participants

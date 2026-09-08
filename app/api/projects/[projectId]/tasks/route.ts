@@ -16,6 +16,7 @@ import {
 } from "@/lib/services/project-task-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 import { mapTaskEpicSummary } from "@/lib/epic";
+import { mapTaskAuthorRecord } from "@/lib/task-author";
 import { mapTaskPersonSummary } from "@/lib/task-person";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
 import { formatTaskReference } from "@/lib/task-reference";
@@ -129,8 +130,16 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
         updatedAt: task.updatedAt,
         epic: mapTaskEpicSummary(task.epic),
         assignee: mapTaskPersonSummary(task.assigneeUser),
-        createdBy: mapTaskPersonSummary(task.createdByUser),
-        updatedBy: mapTaskPersonSummary(task.updatedByUser),
+        createdBy: mapTaskAuthorRecord({
+          author: task.createdByUser,
+          agentCredentialId: task.createdByCredentialId,
+          agentCredentialLabel: task.createdByCredentialLabel,
+        }),
+        updatedBy: mapTaskAuthorRecord({
+          author: task.updatedByUser,
+          agentCredentialId: task.updatedByCredentialId,
+          agentCredentialLabel: task.updatedByCredentialLabel,
+        }),
         attachments: task.attachments.map((attachment: TaskAttachment) =>
           mapTaskAttachmentResponse(params.projectId, task.id, attachment)
         ),

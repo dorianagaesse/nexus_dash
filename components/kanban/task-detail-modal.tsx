@@ -27,6 +27,7 @@ import {
   type PendingAttachmentUpload,
   type ProjectEpicOption,
   type ProjectTaskCollaborator,
+  type TaskAuthor,
   type TaskPersonSummary,
   type TaskAttachment,
 } from "@/components/kanban-board-types";
@@ -96,6 +97,10 @@ import {
 } from "@/lib/task-deadline";
 import { MAX_TASK_LABELS, getTaskLabelColor } from "@/lib/task-label";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
+import {
+  MAX_TASK_TITLE_LENGTH,
+  TASK_TITLE_LIMIT_HINT_THRESHOLD,
+} from "@/lib/task-title";
 
 interface TaskDetailModalProps {
   projectId: string;
@@ -399,16 +404,27 @@ export function TaskDetailModal({
                     </div>
                   </div>
                 ) : (
-                  <EmojiInputField
-                    aria-label="Task title"
-                    value={editTitle}
-                    onChange={(event) => onEditTitleChange(event.target.value)}
-                    wrapperClassName={cn(
-                      "rounded-md border border-input bg-background",
-                      FORM_FOCUS_BORDER_SHELL_CLASS
-                    )}
-                    className="h-10 w-full rounded-md border-0 bg-transparent px-3 text-sm outline-none"
-                  />
+                  <>
+                    <EmojiInputField
+                      aria-label="Task title"
+                      value={editTitle}
+                      maxLength={MAX_TASK_TITLE_LENGTH}
+                      onChange={(event) => onEditTitleChange(event.target.value)}
+                      wrapperClassName={cn(
+                        "rounded-md border border-input bg-background",
+                        FORM_FOCUS_BORDER_SHELL_CLASS
+                      )}
+                      className="h-10 w-full rounded-md border-0 bg-transparent px-3 text-sm outline-none"
+                    />
+                    {editTitle.length >= TASK_TITLE_LIMIT_HINT_THRESHOLD ? (
+                      <p
+                        aria-live="polite"
+                        className="text-right text-xs text-amber-600"
+                      >
+                        {editTitle.length}/{MAX_TASK_TITLE_LENGTH} characters
+                      </p>
+                    ) : null}
+                  </>
                 )}
               </div>
               <div
@@ -724,7 +740,7 @@ function TaskActivityInline({
   timestamp,
 }: {
   label: string;
-  person: TaskPersonSummary | null;
+  person: TaskAuthor | null;
   fallback: string;
   timestamp: string;
 }) {
@@ -748,12 +764,20 @@ function TaskActivityInline({
         {label}
       </p>
       <div className="flex min-w-0 items-center gap-1.5">
-        <UserAvatar
-          avatarSeed={person.avatarSeed}
-          displayName={person.displayName}
-          className="h-5 w-5 border-border/70"
-          decorative
-        />
+        {person.kind === "agent" ? (
+          <AgentAvatar
+            displayName={person.displayName}
+            className="h-5 w-5 border-border/70"
+            decorative
+          />
+        ) : (
+          <UserAvatar
+            avatarSeed={person.avatarSeed}
+            displayName={person.displayName}
+            className="h-5 w-5 border-border/70"
+            decorative
+          />
+        )}
         <span className="max-w-[96px] truncate text-xs font-medium text-foreground">
           {person.displayName}
         </span>

@@ -4,7 +4,11 @@ Product releases use SemVer-style pre-1.0 versioning. Keep build identity
 separate from product version: release entries describe `v0.x.y`, while commit
 SHA, deployment URL, and workflow run belong in release evidence.
 
-## v0.57.0 - 2026-09-07
+## Unreleased
+
+- Define each release entry before the product-impacting PR is merged.
+
+## v0.61.0 - 2026-09-08
 
 - Agents can now attach link attachments to existing tasks (ND-424):
   `PATCH /api/projects/{projectId}/tasks/{taskId}` accepts an optional
@@ -21,6 +25,65 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - The agent OpenAPI document, the hosted agent guide example, and the
   NexusDash agent guidance (`agent.md` / `CLAUDE.md`) now surface the
   add-links-to-existing-tasks capability.
+
+## v0.60.0 - 2026-09-08
+
+- Replaced the Kanban board's secondary sticky mobile status dock with compact
+  previous/next arrows attached directly to each visible lane header (ND-427),
+  removing the extra navigation layer above the app's persistent mobile nav.
+- Lane arrows follow the canonical Backlog → In Progress → Blocked → Done
+  sequence, expose destination-specific accessible names and disabled boundary
+  states, meet the 44 px touch-target contract, and preserve keyboard focus and
+  each lane's independent scroll position while switching.
+- The desktop four-column Kanban layout and drag-and-drop behavior remain
+  unchanged; responsive browser coverage locks portrait/landscape containment
+  and hides the mobile controls at the desktop breakpoint.
+
+## v0.59.0 - 2026-09-08
+
+- Task titles are capped at 120 characters everywhere they are authored: the
+  create and update APIs reject longer titles with a clear validation error
+  and write nothing, the task forms enforce the limit with a character count
+  shown near the limit, and titles exactly at the limit keep working (ND-407).
+- Condensed task surfaces — kanban cards, epic linked-task lists, and
+  related-task summaries — ellipsize overlong titles instead of wrapping,
+  overflowing, or clipping mid-glyph, keeping at most two rendered lines on
+  narrow viewports while the full title remains readable when the task is
+  opened.
+- Added service-level, route-level, component, and browser coverage for the
+  title cap and the two-line ellipsized rendering.
+
+## v0.58.0 - 2026-09-08
+
+- Meeting note inputs and outputs now support rich text (ND-381): the
+  Prepare/edit-prep Inputs field and the note dialog Outputs field are now the
+  shared rich-text editor with formatting, emoji, links, Codex-style `*`/`-`
+  list shortcuts, and project-member @mention autocomplete, and read-only
+  views render the sections with full formatting and mention hover cards.
+- Meeting note cards keep plain-text previews, and the in-panel search indexes
+  memoized plain-text haystacks covering both note sections, so rich markup
+  never leaks and searching stays fast while typing.
+- Legacy plain-text notes remain readable and searchable unchanged, and are
+  upgraded to rich-text HTML in place the next time their inputs or outputs
+  are saved.
+- Added service, helper, component, and browser coverage for round-tripping
+  rich formatting, member mention rendering, and legacy note search and
+  upgrade.
+
+## v0.57.0 - 2026-09-07
+
+- Task changes made through the agent API now carry first-class actor
+  identity: every create and edit is attributed to the acting agent
+  credential with a durable label snapshot, so authorship stays readable
+  after later credential renames or revocations.
+- Task author records identify human and agent authors consistently with task
+  comments, including preserving the agent identity after an initial Kanban
+  board load or page refresh.
+- Consolidated project actor vocabulary, resolution, and registry building
+  behind one canonical contract shared by meeting-note and context-card
+  stewardship, with prior behavior and error codes preserved.
+- Task-detail attribution now gives agent creators and editors the same
+  dedicated robot avatar used for agent-authored comments.
 
 ## v0.56.0 - 2026-09-06
 
@@ -42,10 +105,6 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Added migration, service, component, and browser coverage for external
   participant assignment, member parity, and rejection of unknown or
   non-participant names.
-
-## Unreleased
-
-- Define each release entry before the product-impacting PR is merged.
 
 ## v0.55.0 - 2026-09-06
 
@@ -79,6 +138,16 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Covered the search and filter surfaces with unit, component, and browser
   tests, including filtered drag ordering, viewer read-only affordances, and
   375px/landscape/dark-mode popover containment.
+- Task changes made through the agent API now carry first-class actor
+  identity: every create and edit is attributed to the acting agent
+  credential with a durable label snapshot, so authorship stays readable
+  after later credential renames or revocations.
+- Task author records now surface who acted on a task as a real actor —
+  human or agent with credential label — consistent with how comment
+  identity is rendered.
+- Consolidated project actor vocabulary, resolution, and registry building
+  behind one canonical contract shared by meeting-note and context-card
+  stewardship, with prior behavior and error codes preserved.
 
 ## v0.53.0 - 2026-09-05
 
