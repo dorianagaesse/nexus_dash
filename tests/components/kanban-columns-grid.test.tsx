@@ -98,10 +98,17 @@ async function renderGrid(
     canEdit?: boolean;
     isFiltering?: boolean;
     onSelectTask?: (task: KanbanTask) => void;
+    titleOverride?: string;
   } = {}
 ) {
   const columns = createEmptyColumns<KanbanTask>();
   columns.Backlog = [createTask("1", "Backlog"), createTask("2", "Backlog")];
+  if (options.titleOverride) {
+    columns.Backlog[0] = {
+      ...columns.Backlog[0],
+      title: options.titleOverride,
+    };
+  }
   columns["In Progress"] = [createTask("3", "In Progress")];
   columns.Done = [createTask("4", "Done")];
   const archivedTask = {
@@ -382,6 +389,43 @@ describe("KanbanColumnsGrid filtered archive auto-open", () => {
 
     await renderGrid(root, { isFiltering: false });
     expect(archiveDetails(container)?.open).toBe(false);
+
+    await act(async () => root.unmount());
+  });
+});
+
+describe("KanbanColumnsGrid overlong task titles", () => {
+  test("clamps a long spaced title to two lines with the full text intact in the DOM", async () => {
+    const longTitle =
+      "Investigate and document why the cross-project attachment sync keeps losing provenance metadata on deep-link reshare";
+    const { container, root } = createRenderer();
+    await renderGrid(root, { titleOverride: longTitle });
+
+    const heading = container.querySelector<HTMLElement>(
+      '[data-kanban-task-card="1"] h3'
+    );
+
+    expect(heading).not.toBeNull();
+    expect(heading?.textContent).toBe(longTitle);
+    expect(heading?.className).toContain("line-clamp-2");
+    expect(heading?.className).toContain("[overflow-wrap:anywhere]");
+
+    await act(async () => root.unmount());
+  });
+
+  test("clamps a long unbroken word so it can wrap and never overflows the card", async () => {
+    const longWord = "Supercalifragilisticanticonstitutionallyambivalenttasktitle";
+    const { container, root } = createRenderer();
+    await renderGrid(root, { titleOverride: longWord });
+
+    const heading = container.querySelector<HTMLElement>(
+      '[data-kanban-task-card="1"] h3'
+    );
+
+    expect(heading).not.toBeNull();
+    expect(heading?.textContent).toBe(longWord);
+    expect(heading?.className).toContain("line-clamp-2");
+    expect(heading?.className).toContain("[overflow-wrap:anywhere]");
 
     await act(async () => root.unmount());
   });

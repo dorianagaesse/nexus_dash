@@ -125,6 +125,24 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
   });
 
+  test("returns 400 for title longer than 120 characters", async () => {
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "a".repeat(121),
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "title-too-long",
+    });
+    expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
+  });
+
   test("returns 400 for invalid deadline value", async () => {
     const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
       method: "PATCH",
