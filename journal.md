@@ -3,6 +3,57 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-08 - ND-407: task title 120-char cap and ellipsized condensed surfaces started
+
+- Started on `feature/nd-407-task-title-cap-and-ellipsis` from `origin/main`
+  at 446637f (ND-381 merged / v0.58.0). The Nexus Dash board card ND-407
+  (feature label, related to ND-387 — the task-authoring quality contract
+  doc) is the source of truth; flipped to In Progress via the agent API
+  (status transition endpoint). Board credentials live in
+  `.config/.nd-access.env` (NEXUSDASH_* contract, same keys as the committed
+  `.nd-nexus-dash.example.env` template; the local file name differs from the
+  agent.md convention but the keys match).
+- User expectation confirmed 2026-09-08: on mobile, long titles must be cut
+  off so task titles never wrap to three or more lines in task surfaces;
+  condensed surfaces ellipsize at two lines on narrow viewports.
+- Brief written to `tasks/current.md` (ND-381 brief preserved verbatim as the
+  previous snapshot, per convention). Release target v0.59.0 over main's
+  v0.58.0.
+
+# 2026-09-08 - ND-407 delivered: 120-char title cap and ellipsized condensed surfaces
+
+- Implemented on `feature/nd-407-task-title-cap-and-ellipsis` in four
+  commits: service/route/API cap with client-side form parity
+  (`lib/task-title.ts` constants; `createTaskForProject`/`updateTaskForProject`
+  reject >120 characters with `title-too-long` before any DB access, so the
+  create/update/bulk routes and agent API all inherit the guard; create
+  dialog and inline kanban edit add `maxLength`, an inline validation
+  message, and a live counter once the title passes 100 characters),
+  two-line clamp on condensed surfaces (kanban card `h3` and epic
+  linked-task chips: `line-clamp-2` + `[overflow-wrap:anywhere]`, keeping
+  the full title in the DOM), test coverage across service/route/component/
+  browser layers, and the v0.59.0 release advance with the agent.md
+  task-authoring contract updated (ND-387 follow-through).
+- Local e2e validation surfaced two environment findings, not code defects:
+  the Docker-proxied Open WebUI on host port 3000 blocks the default
+  Playwright `next start`, so the server ran on port 3100 with
+  `PLAYWRIGHT_BASE_URL` pointed there (the auth helper keys cookie origin
+  off that variable); and `next start` needs `NODE_ENV=test` plus only the
+  runbook vars — adding dummy Google OAuth vars trips the production
+  `GOOGLE_TOKEN_ENCRYPTION_KEY` runtime guard and 500s every page. The
+  ND-407 spec also fixed one strict-mode locator: the dialog carries the
+  full legacy title twice (sr-only accessible `h2` + visible `h3`), so the
+  modal assertion targets the `h3` directly.
+- Full validation passed (2026-09-08): lint, `rls:check` clean; Vitest
+  184 files / 1367 tests green (2 skipped); coverage above thresholds
+  (statements 93.21%, branches 83.58%, functions 94.59%, lines 93.52%);
+  production build green; ND-407 Playwright spec 3/3 green and the
+  project-task-calendar smoke suite 6/6 green against local Postgres
+  (throwaway Homebrew instance on port 5432; migrations up to date).
+- Version advanced to v0.59.0 (2026-09-08 CHANGELOG entry) over origin/main
+  v0.58.0; branch pushed as PR #495 (ready for review); Nexus Dash board
+  card ND-407 flipped to Done with the PR link in its description.
+
 # 2026-09-07 - ND-381: rich text for meeting note inputs and outputs delivered
 
 - Implemented on `feature/nd-381-meeting-note-rich-text` (worktree
