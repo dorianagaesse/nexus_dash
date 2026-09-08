@@ -213,10 +213,10 @@ describe("KanbanColumnsGrid bounded lanes", () => {
     backlogScroller.scrollTop = 96;
     progressScroller.scrollTop = 24;
 
-    const progressButton = container.querySelector<HTMLButtonElement>(
+    const backlogNextButton = container.querySelector<HTMLButtonElement>(
       '[data-kanban-lane="Backlog"] button[aria-label="Next list: In Progress"]'
     );
-    await act(async () => progressButton?.click());
+    await act(async () => backlogNextButton?.click());
 
     const backlogLane = container.querySelector<HTMLElement>(
       '[data-kanban-lane="Backlog"]'
@@ -227,10 +227,10 @@ describe("KanbanColumnsGrid bounded lanes", () => {
     expect(backlogLane?.classList.contains("hidden")).toBe(true);
     expect(progressLane?.classList.contains("hidden")).toBe(false);
 
-    const backlogButton = container.querySelector<HTMLButtonElement>(
+    const progressPreviousButton = container.querySelector<HTMLButtonElement>(
       '[data-kanban-lane="In Progress"] button[aria-label="Previous list: Backlog"]'
     );
-    await act(async () => backlogButton?.click());
+    await act(async () => progressPreviousButton?.click());
 
     expect(container.querySelector('[data-kanban-lane-scroll="Backlog"]')).toBe(
       backlogScroller
