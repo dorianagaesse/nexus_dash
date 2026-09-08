@@ -4,14 +4,34 @@
 
 ## Status
 
-In Progress (2026-09-08). Worktree `../nexus_dash_nd438_wt` on branch
-`feature/nd-438-task-by-id-fetch-deep-link`, branched from `origin/main` at
-446637f (ND-381 merged / v0.58.0) and rebased onto `origin/main` at c676716
-(ND-407 merged as v0.59.0 via PR #495, then ND-427 via PR #494). The Nexus
-Dash board card ND-438 (feature label) is the source of truth; flipped to In
-Progress via the agent API on 2026-09-08. No GitHub issue exists for this
-task; the PR carries the ND-438 reference. Release target v0.61.0 over
-origin/main v0.60.0.
+Delivered (2026-09-08). PR #496
+(https://github.com/dorianagaesse/nexus_dash/pull/496) is open
+ready-for-review from `feature/nd-438-task-by-id-fetch-deep-link` (pushed as
+HEAD a8070f5), based on `origin/main` at c676716. The Nexus Dash board card
+ND-438 (feature label) is the source of truth; flipped to In Progress on
+2026-09-08 and to Done on delivery via the agent API. No GitHub issue exists
+for this task; the PR carries the ND-438 reference. Release advanced to
+v0.61.0 over origin/main v0.60.0 (CHANGELOG dated entry).
+
+Local validation passed (2026-09-08): lint, `rls:check`, release version
+check, and `git diff --check` clean; full Vitest 185 files / 1,379 tests
+passed (2 skipped); coverage above thresholds (statements 93.33%, branches
+83.82%, functions 94.63%, lines 93.63%); production build green; the ND-438
+Playwright spec (3/3: already-loaded deep link opens with zero by-id
+fetches, absent id triggers exactly one by-id fetch and opens, unresolvable
+id leaves the board unchanged) and the full e2e suite (58 passed / 1
+skipped) green against local Postgres; CI on the head commit green (Quality
+Core, E2E Smoke, Tenant Isolation, Container Image).
+
+Copilot review round 1 flagged one issue on PR #496 — the remote-fetch
+deep-link path did not clear `shouldOpenTaskInEditModeRef` before opening
+the fetched task, unlike the already-loaded path — fixed in a8070f5 with a
+reply on the review thread explaining why no dedicated regression test was
+added (the stale-ref sequence needs client-side search-param navigation the
+app does not expose, and full-board jsdom mounts are a documented OOM dead
+end). The round-1 thread was then resolved on the PR (required review-thread
+resolution); PR #496 merge state is clean on head a8070f5 with all CI checks
+green.
 
 ## Context
 

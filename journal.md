@@ -6055,3 +6055,33 @@ Low-value entries to avoid going forward:
   exported, eslint clean on every touched file, `release:check` green.
   Coverage, production build, `rls:check`, `git diff --check`, and the
   focused Playwright spec run are pending before PR.
+
+- Full validation completed on the merged tree (2026-09-08): the earlier
+  pending items all passed — coverage above thresholds (statements 93.33%,
+  branches 83.82%, functions 94.63%, lines 93.63%), production build green,
+  `rls:check` and `git diff --check` clean. The focused ND-438 Playwright
+  spec initially failed 2/3 on a false positive: the request tracker matched
+  every GET under `/api/projects/{id}/tasks/`, which also captured the
+  comment fetches (`/tasks/{id}/comments`) fired after the detail dialog
+  opens. Narrowed the tracker to paths whose final segment is a bare task id
+  (`/\/tasks\/[^/?#]+$/`) — spec 3/3 green, then the full e2e suite passed
+  58/58 with 1 skipped.
+- PR #496 (https://github.com/dorianagaesse/nexus_dash/pull/496) opened
+  ready-for-review from `feature/nd-438-task-by-id-fetch-deep-link` against
+  `origin/main` at c676716, referencing ND-438. Copilot review round 1
+  flagged one issue: the remote-fetch deep-link path did not clear
+  `shouldOpenTaskInEditModeRef` before opening the fetched task, while the
+  already-loaded path does — a stale edit-mode request from a prior
+  same-task interaction could open the deep-linked task in edit mode.
+  Fixed (a8070f5) by clearing the ref before upsert and selection, mirroring
+  the already-loaded path; a dedicated regression test was not added because
+  the stale-ref sequence needs a client-side search-param navigation that
+  preserves the board mount (the app deep-links only through the server-side
+  `/tasks/[taskId]` redirect, a full load that resets the ref) and full-board
+  jsdom mounts are a documented OOM dead end. Reply posted on the review
+  thread. PR #496 was blocked by the repository rulesets because the
+  review thread stayed open (`required_review_thread_resolution` on the
+  Main protection ruleset); resolving the thread cleared the block and the
+  PR merge state is clean on head a8070f5 with all CI checks green — the
+  `copilot_code_review` rule is satisfied by round 1 on the reviewed head,
+  so no further review round is required.
