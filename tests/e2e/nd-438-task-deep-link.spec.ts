@@ -59,14 +59,14 @@ async function createDeepLinkProject(page: Page): Promise<{
   };
 }
 
-function trackTaskByIdFetches(page: Page, projectId: string): string[] {
+function trackTaskByIdFetches(page: Page): string[] {
   const fetches: string[] = [];
   page.on("request", (request) => {
     if (request.method() !== "GET") {
       return;
     }
     const pathname = new URL(request.url()).pathname;
-    if (pathname.startsWith(`/api/projects/${projectId}/tasks/`)) {
+    if (/\/tasks\/[^/?#]+$/.test(pathname)) {
       fetches.push(pathname);
     }
   });
@@ -78,7 +78,7 @@ test.describe("ND-438 deep-linked initial task", () => {
     page,
   }) => {
     const { projectId, taskA } = await createDeepLinkProject(page);
-    const taskByIdFetches = trackTaskByIdFetches(page, projectId);
+    const taskByIdFetches = trackTaskByIdFetches(page);
 
     await page.goto(`/projects/${projectId}?taskId=${taskA.id}#kanban`);
 
@@ -93,7 +93,7 @@ test.describe("ND-438 deep-linked initial task", () => {
   }) => {
     const { projectId, taskA } = await createDeepLinkProject(page);
     const ghostTaskId = `nd438-ghost-${uniqueSuffix()}`;
-    const taskByIdFetches = trackTaskByIdFetches(page, projectId);
+    const taskByIdFetches = trackTaskByIdFetches(page);
 
     // The board list can legitimately miss a target the by-id endpoint can
     // still resolve (stale server payload, out-of-band creation). Intercept
@@ -133,7 +133,7 @@ test.describe("ND-438 deep-linked initial task", () => {
   }) => {
     const { projectId } = await createDeepLinkProject(page);
     const missingTaskId = `nd438-missing-${uniqueSuffix()}`;
-    const taskByIdFetches = trackTaskByIdFetches(page, projectId);
+    const taskByIdFetches = trackTaskByIdFetches(page);
 
     await page.goto(`/projects/${projectId}?taskId=${missingTaskId}#kanban`);
 
