@@ -104,8 +104,9 @@ upload flow, MIME/size validation, or storage access.
   read-back with `task:write`, agent denial without the scope, human append,
   invalid URL and non-array 400s, empty-array no-op) and schema assertions in
   `tests/api/agent-openapi.route.test.ts`.
-- Version bump to v0.57.0 with a dated CHANGELOG section; board card,
-  `tasks/current.md`, and `journal.md` updates.
+- Version bump to v0.61.0 (feature minor over the reconciled v0.60.0 base)
+  with a dated CHANGELOG section; board card, `tasks/current.md`, and
+  `journal.md` updates.
 
 ## Out Of Scope
 
@@ -140,9 +141,9 @@ upload flow, MIME/size validation, or storage access.
   agent and human paths, scope denial, validation errors, and read-back.
 - `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
   `npm run build`, and `git diff --check` are green.
-- `package.json`/`package-lock.json` advance minor to v0.57.0 over
-  `origin/main` (v0.56.0) and the CHANGELOG dated `## v0.57.0` entry
-  documents the capability.
+- `package.json`/`package-lock.json` advance minor to v0.61.0 over
+  `origin/main` (v0.60.0) and the CHANGELOG dated `## v0.61.0 - 2026-09-08`
+  entry documents the capability.
 - The agent OpenAPI document and hosted agent guide show the field; the
   agent.md / CLAUDE.md guidance no longer calls link-add UI-only.
 - The Nexus Dash board card ND-424 is updated (In Progress, then Done on
