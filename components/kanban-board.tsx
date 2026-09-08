@@ -641,28 +641,6 @@ export function KanbanBoard({
     [allTasks]
   );
 
-  const normalizedInitialTaskId =
-    typeof initialTaskId === "string" ? initialTaskId.trim() : "";
-
-  useEffect(() => {
-    if (
-      !normalizedInitialTaskId ||
-      openedInitialTaskIdRef.current === normalizedInitialTaskId
-    ) {
-      return;
-    }
-
-    const initialTask = taskById.get(normalizedInitialTaskId);
-    openedInitialTaskIdRef.current = normalizedInitialTaskId;
-    if (!initialTask) {
-      return;
-    }
-
-    shouldOpenTaskInEditModeRef.current = false;
-    setSelectedTask(initialTask);
-    setIsExpanded(true);
-  }, [normalizedInitialTaskId, setIsExpanded, taskById]);
-
   const relatedTaskGraph = useMemo(() => createRelatedTaskMap(allTasks), [allTasks]);
 
   const highlightedTaskIds = useMemo(() => {
@@ -1236,6 +1214,68 @@ export function KanbanBoard({
     },
     [setIsExpanded]
   );
+
+  const normalizedInitialTaskId =
+    typeof initialTaskId === "string" ? initialTaskId.trim() : "";
+
+  useEffect(() => {
+    if (
+      !normalizedInitialTaskId ||
+      openedInitialTaskIdRef.current === normalizedInitialTaskId
+    ) {
+      return;
+    }
+
+    const initialTask = taskById.get(normalizedInitialTaskId);
+    openedInitialTaskIdRef.current = normalizedInitialTaskId;
+    if (initialTask) {
+      shouldOpenTaskInEditModeRef.current = false;
+      setSelectedTask(initialTask);
+      setIsExpanded(true);
+      return;
+    }
+
+    // The deep-linked task is absent from the loaded board; fetch it by id so
+    // the detail modal can still open. Failures keep the board unchanged.
+    let cancelled = false;
+    const openRemoteInitialTask = async () => {
+      try {
+        const response = await fetch(
+          `/api/projects/${projectId}/tasks/${encodeURIComponent(
+            normalizedInitialTaskId
+          )}`
+        );
+        if (!response.ok) {
+          return;
+        }
+        const payload = (await response.json()) as {
+          task?: TaskMutationResponseTask;
+        };
+        const remoteTask = payload.task;
+        if (cancelled || !remoteTask || !isTaskStatus(remoteTask.status)) {
+          return;
+        }
+        const mappedTask = mapTaskMutationResponseTask(remoteTask);
+        upsertRemoteTask(mappedTask);
+        setSelectedTask(mappedTask);
+        setIsExpanded(true);
+      } catch (error) {
+        console.error("[KanbanBoard.openRemoteInitialTask]", error);
+      }
+    };
+
+    void openRemoteInitialTask();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    normalizedInitialTaskId,
+    projectId,
+    setIsExpanded,
+    taskById,
+    upsertRemoteTask,
+  ]);
 
   const applyRemoteReorder = useCallback(
     (reorderedColumns: Array<{ status: TaskStatus; taskIds: string[] }>) => {
