@@ -3,6 +3,29 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-08 - ND-438 preview acceptance on the merged PR #496 head
+
+- Preview acceptance ran against the PR #496 head deployed to the ND-438
+  preview (stable auth alias
+  nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app,
+  `deploy-vercel.yml` `deploy-preview` run 34245624577,
+  `git_ref=feature/nd-438-task-by-id-fetch-deep-link`, revision 2ec805d):
+  health/readiness ready for the checked-out revision, preview agent token
+  exchange, and `GET /api/projects/{projectId}/tasks/{taskId}` returning 200
+  with the canonical task payload for every listed task; 404 `Task not found`
+  for unknown ids and for a real task id from another project (project
+  scoping preserved); create-then-by-id read-back equality; persistence in
+  the task list; and the agent OpenAPI documenting the route (summary
+  "Read task", responses 200/400/401/403/404/500). Anonymous probing returned
+  401 `unauthorized` for the endpoint and 404 for unknown routes.
+- The deep-link UI behaviors (open without extra fetch when the target is
+  already in the board, fetch-and-open for ids absent from the board, board
+  unchanged when the target cannot be fetched) are covered by the local
+  Playwright spec `tests/e2e/nd-438-task-deep-link.spec.ts`, which passed
+  3/3 against the same revision; the deployed preview does not expose user
+  sessions to the agent token, so those flows are validated at the e2e layer
+  rather than against the preview.
+
 # 2026-09-08 - ND-438: Task-by-id fetch endpoint and deep-link fetch fallback
 
 - Onboarded: read agent.md/project.md/README.md and the board card ND-438
