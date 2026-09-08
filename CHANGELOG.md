@@ -8,20 +8,8 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.57.0 - 2026-09-07
+## v0.58.0 - 2026-09-08
 
-- Task changes made through the agent API now carry first-class actor
-  identity: every create and edit is attributed to the acting agent
-  credential with a durable label snapshot, so authorship stays readable
-  after later credential renames or revocations.
-- Task author records identify human and agent authors consistently with task
-  comments, including preserving the agent identity after an initial Kanban
-  board load or page refresh.
-- Consolidated project actor vocabulary, resolution, and registry building
-  behind one canonical contract shared by meeting-note and context-card
-  stewardship, with prior behavior and error codes preserved.
-- Task-detail attribution now gives agent creators and editors the same
-  dedicated robot avatar used for agent-authored comments.
 - Meeting note inputs and outputs now support rich text (ND-381): the
   Prepare/edit-prep Inputs field and the note dialog Outputs field are now the
   shared rich-text editor with formatting, emoji, links, Codex-style `*`/`-`
@@ -36,6 +24,21 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Added service, helper, component, and browser coverage for round-tripping
   rich formatting, member mention rendering, and legacy note search and
   upgrade.
+
+## v0.57.0 - 2026-09-07
+
+- Task changes made through the agent API now carry first-class actor
+  identity: every create and edit is attributed to the acting agent
+  credential with a durable label snapshot, so authorship stays readable
+  after later credential renames or revocations.
+- Task author records identify human and agent authors consistently with task
+  comments, including preserving the agent identity after an initial Kanban
+  board load or page refresh.
+- Consolidated project actor vocabulary, resolution, and registry building
+  behind one canonical contract shared by meeting-note and context-card
+  stewardship, with prior behavior and error codes preserved.
+- Task-detail attribution now gives agent creators and editors the same
+  dedicated robot avatar used for agent-authored comments.
 
 ## v0.56.0 - 2026-09-06
 
