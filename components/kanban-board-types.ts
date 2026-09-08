@@ -42,6 +42,13 @@ export interface TaskCommentAuthor extends TaskPersonSummary {
   owner?: TaskPersonSummary | null;
 }
 
+export interface TaskAuthor extends TaskPersonSummary {
+  kind?: TaskCommentAuthorKind;
+  agentCredentialId?: string | null;
+  agentCredentialLabel?: string | null;
+  owner?: TaskPersonSummary | null;
+}
+
 export interface TaskCommentReaction {
   emoji: string;
   count: number;
@@ -88,8 +95,8 @@ export interface KanbanTask {
   relatedTasks: TaskRelatedSummary[];
   epic: TaskEpicSummary | null;
   assignee: TaskPersonSummary | null;
-  createdBy: TaskPersonSummary;
-  updatedBy: TaskPersonSummary;
+  createdBy: TaskAuthor;
+  updatedBy: TaskAuthor;
   createdAt: string;
   updatedAt: string;
 }
@@ -110,8 +117,8 @@ export interface TaskMutationResponseTask {
   archivedAt: string | null;
   epic: TaskEpicSummary | null;
   assignee: TaskPersonSummary | null;
-  createdBy: TaskPersonSummary;
-  updatedBy: TaskPersonSummary;
+  createdBy: TaskAuthor;
+  updatedBy: TaskAuthor;
   createdAt: string;
   updatedAt: string;
   relatedTasks: TaskRelatedSummary[];
