@@ -1256,6 +1256,7 @@ export function KanbanBoard({
           return;
         }
         const mappedTask = mapTaskMutationResponseTask(remoteTask);
+        shouldOpenTaskInEditModeRef.current = false;
         upsertRemoteTask(mappedTask);
         setSelectedTask(mappedTask);
         setIsExpanded(true);
