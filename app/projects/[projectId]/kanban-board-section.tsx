@@ -1,9 +1,6 @@
 import { Columns3 } from "lucide-react";
 
-import {
-  KanbanBoard,
-  type KanbanTask,
-} from "@/components/kanban-board";
+import { KanbanBoard, type KanbanTask } from "@/components/kanban-board";
 import type { ProjectEpicOption } from "@/components/kanban-board-types";
 import {
   PROJECT_SECTION_CARD_CLASS,
@@ -16,6 +13,7 @@ import {
 } from "@/lib/services/project-service";
 import { listProjectEpics } from "@/lib/services/project-epic-service";
 import { mapTaskEpicSummary } from "@/lib/epic";
+import { mapTaskAuthorRecord } from "@/lib/task-author";
 import { mapTaskPersonSummary } from "@/lib/task-person";
 import { mergeRelatedTaskSummaries } from "@/lib/task-related";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
@@ -24,10 +22,11 @@ import { formatTaskReference } from "@/lib/task-reference";
 import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { isTaskStatus } from "@/lib/task-status";
 
-type ProjectKanbanTask = Awaited<ReturnType<typeof listProjectKanbanTasks>>[number];
+type ProjectKanbanTask = Awaited<
+  ReturnType<typeof listProjectKanbanTasks>
+>[number];
 type TaskAttachment = ProjectKanbanTask["attachments"][number];
-type TaskBlockedFollowUp =
-  ProjectKanbanTask["blockedFollowUps"][number];
+type TaskBlockedFollowUp = ProjectKanbanTask["blockedFollowUps"][number];
 
 interface KanbanBoardSectionProps {
   projectId: string;
@@ -73,15 +72,25 @@ export async function KanbanBoardSection({
       deadlineDate: formatTaskDeadlineDate(task.deadlineAt),
       commentCount: task._count.comments,
       labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
-      blockedFollowUps: task.blockedFollowUps.map((entry: TaskBlockedFollowUp) => ({
-        id: entry.id,
-        content: entry.content,
-        createdAt: entry.createdAt.toISOString(),
-      })),
+      blockedFollowUps: task.blockedFollowUps.map(
+        (entry: TaskBlockedFollowUp) => ({
+          id: entry.id,
+          content: entry.content,
+          createdAt: entry.createdAt.toISOString(),
+        })
+      ),
       epic: mapTaskEpicSummary(task.epic),
       assignee: mapTaskPersonSummary(task.assigneeUser),
-      createdBy: mapTaskPersonSummary(task.createdByUser)!,
-      updatedBy: mapTaskPersonSummary(task.updatedByUser)!,
+      createdBy: mapTaskAuthorRecord({
+        author: task.createdByUser,
+        agentCredentialId: task.createdByCredentialId,
+        agentCredentialLabel: task.createdByCredentialLabel,
+      }),
+      updatedBy: mapTaskAuthorRecord({
+        author: task.updatedByUser,
+        agentCredentialId: task.updatedByCredentialId,
+        agentCredentialLabel: task.updatedByCredentialLabel,
+      }),
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
       archivedAt: task.archivedAt ? task.archivedAt.toISOString() : null,

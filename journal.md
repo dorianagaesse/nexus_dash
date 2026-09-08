@@ -5716,3 +5716,119 @@ Low-value entries to avoid going forward:
 - Documented the minimum task-authoring contract in `agent.md`: duplicate
   check, outcome-oriented title, rationale, work-type label, testable acceptance
   criteria, focused scope, Related Tasks dependencies, and API read-back.
+# 2026-09-05 - ND-397: Constrain long task comments with expand/collapse
+
+- Onboarded: read agent.md/project.md/README.md/tasks briefs; verified ND-397
+  on the Nexus Dash board (feature label, Backlog), the user-assigned task for
+  this session. Multi-agent rule applied: created worktree
+  `../nexus_dash_task397` from `origin/main` (1daffc0) on
+  `feature/nd-397-comment-expand-collapse`; the root checkout's uncommitted
+  ND-421 work was left untouched (that agent subsequently committed and pushed
+  it from the root checkout).
+- Root-caused local quirk: `.config/.nd-nexus-dash.env` is UTF-16LE; decoded
+  with iconv before sourcing. Moved board card ND-397 to In Progress via
+  `POST /api/projects/{id}/tasks/{id}/status` `{"status":"In Progress"}`.
+- Implemented `components/kanban/task-comment-body.tsx` (reusable comment body
+  presentation: consistent 7.5rem collapsed cap, measured overflow via
+  `lib/comment-body-overflow.ts`, accessible `Show more`/`Show less` toggle
+  with `aria-expanded`/`aria-controls`, shown only when the rendered body
+  overflows) and wired it into the task detail modal thread in
+  `components/kanban/task-detail-modal.tsx`, the only surface rendering full
+  comment bodies today.
+- Added component coverage (short/no control, long collapsed, expand,
+  re-collapse, generic vs authored aria labels), a unit test for the overflow
+  measure, and `tests/e2e/nd-397-comment-expand-collapse.spec.ts` for
+  real-browser collapsed/expanded behavior with keyboard activation.
+- Validation so far on the worktree (local Postgres on 127.0.0.1:5433
+  container `nexus_dash_task397-postgres-1`, migrations applied): lint clean;
+  full vitest suite 1,225 passed / 2 skipped; coverage and production build
+  re-run after the 0.53.0 bump (first coverage/build pass raced the version
+  bump and failed on an empty package.json read, transient). Release advanced
+  0.52.0 -> 0.53.0 (`release:version -- feature`) with a CHANGELOG Unreleased
+  entry. rls:check/release:check pending; focused Playwright run pending.
+- Commit `ee3feae` pushed; PR to be opened referencing ND-397.
+
+# 2026-09-06 - TASK-337 (ND-178): First-class project actor identity
+
+- Onboarded: read agent.md/project.md/README.md and the board card ND-178
+  (cmth7h25c006504jurvwtrlrk, project cmteshp27000004jic3pr6wy4) on
+  `feature/nd-178-project-actor-identity` from `origin/main` (2e1722b,
+  v0.53.0). No GitHub issue exists; the PR carries the ND-178 reference.
+- Confirmed duplication: `lib/meeting-todo-actor.ts` was byte-identical to
+  `lib/context-card-actor.ts` apart from prefixes, and the two actor services
+  shared ~95% logic; agent task mutations persisted only the credential
+  owner's user id, losing the acting agent.
+- Implemented the canonical contract `lib/project-actor.ts` +
+  `lib/services/project-actor-service.ts` (kind/status/reference vocabulary,
+  registry building with first-wins dedupe, assignable resolution,
+  `resolveProjectMutationActor`), then re-based the meeting-todo and
+  context-card actor modules onto it as delegating shims preserving export
+  surface, per-domain registry loaders (Prisma read vs
+  `app.list_project_context_card_actors`), and error codes — consumer files
+  stayed zero-diff and all 29 prior actor tests passed unchanged.
+- Schema + migration `20260906100000_task337_project_actor_identity`: nullable
+  `createdBy/updatedByCredentialId` + `Label` (VarChar 80) on Task with
+  indexed `ON DELETE SET NULL` FKs modeled on the TASK-307 comment pattern.
+- Attribution: all task mutation write sites (create, reorder, status,
+  archive, unarchive, update) resolve the acting credential at write time via
+  `resolveTaskAgentAttribution` and snapshot id + trimmed label; a credential
+  row missing at write time degrades to human-only attribution (FK guard);
+  rename/revocation never rewrites past rows.
+- Author records: `lib/task-author.ts` maps task authors to the TASK-307
+  human/agent vocabulary; task payload mapping and the agent API GET task
+  response now surface `createdBy`/`updatedBy` with `kind`, credential id,
+  label, and owner.
+- Coverage added: `tests/lib/task-author.test.ts` (7 mapping cases) and
+  `tests/lib/project-task-service-attribution.test.ts` (3 service-level
+  create scenarios: human null attribution, agent snapshot with trimming,
+  missing-credential degradation). Full task/actor route+lib set: 114 passed
+  (11 files).
+- Local test quirk resolved: `.env` sets NODE_ENV=development which disables
+  the rls-context test bypass; correct runner is
+  `NODE_ENV=test node --env-file=.env ./node_modules/vitest/vitest.mjs run`.
+- Release advanced 0.53.0 -> 0.54.0 (`release:version -- feature`) with the
+  `## v0.54.0 - 2026-09-06` CHANGELOG entry; ADR entry recorded in
+  `adr/decisions.md`.
+- Validation baseline green on the final tree: lint, rls:check,
+  release:check, unit tests 1235 passed / 2 skipped, coverage thresholds,
+  production build, `git diff --check`, and the real-PostgreSQL RLS matrix
+  after applying migration `20260906100000_task337_project_actor_identity`
+  to the local container (port 55432). Local build quirk: root `.env`
+  targets Supabase with equal DATABASE_URL/DIRECT_URL (rejected by the
+  production host rule) and lacks the Google token encryption key, so the
+  build was validated against the local Postgres with a transient
+  `.env.production.local` that was removed afterward.
+- Committed in five logical commits (`872d65c` schema+migration, `bb681d3`
+  canonical actor contract, `95c82a4` attribution + author mapping, `417db51`
+  coverage, `dadeea4` version+docs) plus `e8b9136` task-brief status; pushed
+  and opened PR <https://github.com/dorianagaesse/nexus_dash/pull/489>
+  referencing ND-178. Board card ND-178 description updated with the PR
+  link; card remains In Progress until merge.
+- Copilot review round handled: initial review completed (20/21 files) with
+  zero inline comments and a "Needs a closer look" meta verdict driven by
+  migration/scope breadth, so there were no threads to triage or resolve;
+  CI checks all green (Quality Core, E2E Smoke, Tenant Isolation RLS,
+  Container Image). Clean review state; awaiting merge.
+- Review follow-up: rebased PR #489 onto `origin/main` at `633278e` (ND-408),
+  reconciling the shared v0.54.0 release notes while preserving the current
+  ND-408 brief. Fixed the initial Kanban load to map task authors through
+  `mapTaskAuthorRecord`, so a page reload retains an agent credential's label,
+  avatar, kind, and owner instead of reverting to its human owner. Added the
+  initial-load regression test and service tests for agent attribution on
+  reorder, status, field update, archive, and unarchive mutations.
+- Follow-up validation: lint, RLS inventory, documented full Vitest command
+  (1,297 passed / 2 skipped), coverage (92.93% statements, 82.94% branches,
+  93.83% functions, 93.25% lines), real PostgreSQL RLS setup/matrix against
+  the local port-55432 container, and a production build with local database
+  plus transient required runtime placeholders all passed. The plain `npm
+  test`/build commands remain unsuitable with this machine's remote `.env`
+  because it omits test DB loading and violates the production remote-URL
+  split guard; no repository behavior was changed for that local setup.
+- Release reconciliation after current `main` advanced to v0.54.1: ND-178 now
+  advances the product version to v0.55.0 with its own changelog entry, rather
+  than sharing ND-408's v0.54.0 release.
+- UI review follow-up: task-detail `Created by` and `Last updated by` cards now
+  render agent authors through the same shared `AgentAvatar` robot treatment as
+  agent-authored comments instead of generating a human avatar from the agent
+  snapshot seed. Regression coverage asserts both attribution cards use the
+  dedicated agent avatar; focused task-author/UI tests (11 tests) and lint pass.

@@ -55,6 +55,8 @@ const baseTask: KanbanTask = {
   updatedAt: "2026-05-31T09:00:00.000Z",
 };
 
+let taskForRender = baseTask;
+
 function createTestRenderer() {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -73,7 +75,7 @@ async function renderWithRoot(root: Root, comments: TaskComment[]) {
         projectId="project-1"
         canEdit={false}
         isOpen
-        selectedTask={{ ...baseTask, commentCount: comments.length }}
+        selectedTask={{ ...taskForRender, commentCount: comments.length }}
         isEditMode={false}
         editTitle=""
         editLabels={[]}
@@ -146,6 +148,7 @@ async function renderWithRoot(root: Root, comments: TaskComment[]) {
 
 describe("TaskDetailModal comments", () => {
   beforeEach(() => {
+    taskForRender = baseTask;
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -188,6 +191,43 @@ describe("TaskDetailModal comments", () => {
       document.body.querySelector("[aria-label='Task reference ND-42']")
     ).not.toBeNull();
     expect(document.body.querySelectorAll("[data-agent-avatar='true']")).toHaveLength(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("renders agent task attribution with the shared agent avatar", async () => {
+    const { root } = createTestRenderer();
+    const agentAuthor = {
+      id: "credential-1",
+      kind: "agent" as const,
+      displayName: "Build bot (agent)",
+      usernameTag: null,
+      avatarSeed: "nexusdash-agent-comment-avatar",
+      agentCredentialId: "credential-1",
+      agentCredentialLabel: "Build bot",
+      owner: ownerSummary,
+    };
+    taskForRender = {
+      ...baseTask,
+      createdBy: agentAuthor,
+      updatedBy: agentAuthor,
+    };
+
+    await renderWithRoot(root, []);
+
+    expect(
+      document.body.querySelector(
+        "[title='Created by: Build bot (agent)'] [data-agent-avatar='true']"
+      )
+    ).not.toBeNull();
+    expect(
+      document.body.querySelector(
+        "[title='Last updated by: Build bot (agent)'] [data-agent-avatar='true']"
+      )
+    ).not.toBeNull();
+    expect(document.body.querySelectorAll("[data-agent-avatar='true']")).toHaveLength(2);
 
     await act(async () => {
       root.unmount();

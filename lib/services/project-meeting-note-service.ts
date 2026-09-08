@@ -454,7 +454,7 @@ async function loadMeetingNoteActorRegistry(input: {
         },
         isCurrentProjectHuman: true,
       });
-      if (actor) {
+      if (actor?.kind === "human") {
         activeHumanIds.add(row.actorId);
         humanById.set(row.actorId, actor);
       }
@@ -473,7 +473,7 @@ async function loadMeetingNoteActorRegistry(input: {
         expiresAt: row.expiresAt,
       },
     });
-    if (actor) {
+    if (actor?.kind === "agent") {
       credentialById.set(row.actorId, actor);
     }
   }
