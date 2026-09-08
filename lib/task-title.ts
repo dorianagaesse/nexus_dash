@@ -1,0 +1,3 @@
+export const MAX_TASK_TITLE_LENGTH = 120;
+
+export const TASK_TITLE_LIMIT_HINT_THRESHOLD = 100;

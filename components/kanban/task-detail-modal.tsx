@@ -97,6 +97,10 @@ import {
 } from "@/lib/task-deadline";
 import { MAX_TASK_LABELS, getTaskLabelColor } from "@/lib/task-label";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
+import {
+  MAX_TASK_TITLE_LENGTH,
+  TASK_TITLE_LIMIT_HINT_THRESHOLD,
+} from "@/lib/task-title";
 
 interface TaskDetailModalProps {
   projectId: string;
@@ -400,16 +404,27 @@ export function TaskDetailModal({
                     </div>
                   </div>
                 ) : (
-                  <EmojiInputField
-                    aria-label="Task title"
-                    value={editTitle}
-                    onChange={(event) => onEditTitleChange(event.target.value)}
-                    wrapperClassName={cn(
-                      "rounded-md border border-input bg-background",
-                      FORM_FOCUS_BORDER_SHELL_CLASS
-                    )}
-                    className="h-10 w-full rounded-md border-0 bg-transparent px-3 text-sm outline-none"
-                  />
+                  <>
+                    <EmojiInputField
+                      aria-label="Task title"
+                      value={editTitle}
+                      maxLength={MAX_TASK_TITLE_LENGTH}
+                      onChange={(event) => onEditTitleChange(event.target.value)}
+                      wrapperClassName={cn(
+                        "rounded-md border border-input bg-background",
+                        FORM_FOCUS_BORDER_SHELL_CLASS
+                      )}
+                      className="h-10 w-full rounded-md border-0 bg-transparent px-3 text-sm outline-none"
+                    />
+                    {editTitle.length >= TASK_TITLE_LIMIT_HINT_THRESHOLD ? (
+                      <p
+                        aria-live="polite"
+                        className="text-right text-xs text-amber-600"
+                      >
+                        {editTitle.length}/{MAX_TASK_TITLE_LENGTH} characters
+                      </p>
+                    ) : null}
+                  </>
                 )}
               </div>
               <div
