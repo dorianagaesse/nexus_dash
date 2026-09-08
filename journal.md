@@ -3,6 +3,35 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-08 - ND-427 mobile Kanban lane-arrow navigation started
+
+- Read the live Nexus Dash card and moved ND-427 from Backlog to In Progress
+  through the project-scoped agent API. Created
+  `feature/nd-427-kanban-mobile-list-arrows` from `origin/main` at 446637f
+  (ND-381 merged / v0.58.0) and isolated it in `../nexus_dash_nd427_wt` after
+  detecting concurrent ND-407 edits in the root checkout.
+- Scoped the mobile interaction to previous/next buttons in each visible lane
+  header, canonical status-order traversal, disabled sequence boundaries,
+  destination-specific accessible names, 44 px targets, reciprocal focus
+  continuity, and retained per-lane scroll state. The sticky Kanban status dock
+  is removed; the desktop four-column board is unchanged.
+- The requested UI UX Pro Max skill was not present in the available Codex
+  skill catalog or local skill directories. Applied the repository's UI
+  contracts and existing accessibility/responsive guidance as the documented
+  fallback.
+- Replaced the status dock with lane-header chevrons driven by the canonical
+  `TASK_STATUSES` order. All lanes remain mounted, an `aria-live` status names
+  the newly visible lane and count, and focus moves to the reciprocal arrow
+  after each transition. Updated the shell contract, component coverage, and
+  authenticated-shell/bounded-lane browser specs.
+- Validation passed against the Dockerized PostgreSQL database on port 5432:
+  lint; RLS inventory; version policy (v0.58.0 → v0.59.0); `git diff --check`;
+  1,360 Vitest tests with 2 skipped; coverage at 93.21% statements, 83.58%
+  branches, 94.59% functions, and 93.52% lines; production build; and all 9
+  focused Chromium tests. The first browser attempt reached an unrelated Open
+  WebUI service already using port 3000, so the valid run used isolated port
+  3107 and exercised this worktree's production build.
+
 # 2026-09-07 - ND-381: rich text for meeting note inputs and outputs delivered
 
 - Implemented on `feature/nd-381-meeting-note-rich-text` (worktree

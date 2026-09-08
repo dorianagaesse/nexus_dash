@@ -214,7 +214,7 @@ describe("KanbanColumnsGrid bounded lanes", () => {
     progressScroller.scrollTop = 24;
 
     const progressButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label^="In Progress,"]'
+      '[data-kanban-lane="Backlog"] button[aria-label="Next list: In Progress"]'
     );
     await act(async () => progressButton?.click());
 
@@ -228,7 +228,7 @@ describe("KanbanColumnsGrid bounded lanes", () => {
     expect(progressLane?.classList.contains("hidden")).toBe(false);
 
     const backlogButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label^="Backlog,"]'
+      '[data-kanban-lane="In Progress"] button[aria-label="Previous list: Backlog"]'
     );
     await act(async () => backlogButton?.click());
 
@@ -237,6 +237,73 @@ describe("KanbanColumnsGrid bounded lanes", () => {
     );
     expect(backlogScroller.scrollTop).toBe(96);
     expect(progressScroller.scrollTop).toBe(24);
+
+    await act(async () => root.unmount());
+  });
+
+  test("steps through mobile lanes with accessible 44px arrows and reciprocal focus", async () => {
+    const { container, root } = createRenderer();
+    await renderGrid(root);
+
+    expect(
+      container.querySelector('[aria-label="Kanban status navigation"]')
+    ).toBeNull();
+
+    const backlogLane = container.querySelector<HTMLElement>(
+      '[data-kanban-lane="Backlog"]'
+    );
+    const backlogPrevious = backlogLane?.querySelector<HTMLButtonElement>(
+      'button[aria-label="No previous list"]'
+    );
+    const backlogNext = backlogLane?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Next list: In Progress"]'
+    );
+
+    expect(backlogPrevious?.disabled).toBe(true);
+    expect(backlogNext?.disabled).toBe(false);
+    expect(backlogNext?.className).toContain("h-11");
+    expect(backlogNext?.className).toContain("w-11");
+    expect(backlogNext?.className).toContain("xl:hidden");
+
+    await act(async () => backlogNext?.click());
+
+    const progressLane = container.querySelector<HTMLElement>(
+      '[data-kanban-lane="In Progress"]'
+    );
+    const progressPrevious = progressLane?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Previous list: Backlog"]'
+    );
+    const progressNext = progressLane?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Next list: Blocked"]'
+    );
+    expect(progressLane?.classList.contains("hidden")).toBe(false);
+    expect(document.activeElement).toBe(progressPrevious);
+
+    await act(async () => progressNext?.click());
+    const blockedNext = container.querySelector<HTMLButtonElement>(
+      '[data-kanban-lane="Blocked"] button[aria-label="Next list: Done"]'
+    );
+    await act(async () => blockedNext?.click());
+
+    const doneLane = container.querySelector<HTMLElement>(
+      '[data-kanban-lane="Done"]'
+    );
+    const donePrevious = doneLane?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Previous list: Blocked"]'
+    );
+    const doneNext = doneLane?.querySelector<HTMLButtonElement>(
+      'button[aria-label="No next list"]'
+    );
+    expect(doneLane?.classList.contains("hidden")).toBe(false);
+    expect(doneNext?.disabled).toBe(true);
+    expect(document.activeElement).toBe(donePrevious);
+
+    await act(async () => donePrevious?.click());
+    const blockedReciprocal = container.querySelector<HTMLButtonElement>(
+      '[data-kanban-lane="Blocked"] button[aria-label="Next list: Done"]'
+    );
+    expect(document.activeElement).toBe(blockedReciprocal);
+    expect(container.textContent).toContain("Showing Blocked list, 0 tasks");
 
     await act(async () => root.unmount());
   });

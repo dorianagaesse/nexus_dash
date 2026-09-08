@@ -85,6 +85,9 @@ test.describe("TASK-381 bounded Kanban lanes", () => {
     const progressScroller = page.getByRole("region", { name: "In Progress" });
     await expect(backlogScroller).toBeVisible();
     await expect(progressScroller).toBeVisible();
+    await expect(
+      backlogLane.getByRole("button", { name: "Next list: In Progress" })
+    ).toBeHidden();
 
     const metrics = await backlogScroller.evaluate((element) => ({
       clientHeight: element.clientHeight,
@@ -219,19 +222,33 @@ test.describe("TASK-381 bounded Kanban lanes", () => {
     );
     expect(backlogScrollTop).toBeGreaterThan(0);
 
-    const statusNavigation = page.getByRole("navigation", {
-      name: "Kanban status navigation",
+    await expect(
+      page.getByRole("navigation", { name: "Kanban status navigation" })
+    ).toHaveCount(0);
+    const backlogLane = page.locator('[data-kanban-lane="Backlog"]');
+    const backlogPrevious = backlogLane.getByRole("button", {
+      name: "No previous list",
     });
-    await statusNavigation
-      .getByRole("button", { name: /In Progress, 12 tasks/ })
-      .click();
+    const backlogNext = backlogLane.getByRole("button", {
+      name: "Next list: In Progress",
+    });
+    await expect(backlogPrevious).toBeDisabled();
+    await expect(backlogNext).toBeEnabled();
+    const arrowBounds = await backlogNext.boundingBox();
+    expect(arrowBounds?.width).toBeGreaterThanOrEqual(44);
+    expect(arrowBounds?.height).toBeGreaterThanOrEqual(44);
+
+    await backlogNext.click();
     await expect(
       page.getByRole("region", { name: "In Progress" })
     ).toBeVisible();
-    await statusNavigation
-      .getByRole("button", { name: /Backlog, 14 tasks/ })
-      .click();
+    const progressPrevious = page
+      .locator('[data-kanban-lane="In Progress"]')
+      .getByRole("button", { name: "Previous list: Backlog" });
+    await expect(progressPrevious).toBeFocused();
+    await progressPrevious.click();
     await expect(backlogScroller).toBeVisible();
+    await expect(backlogNext).toBeFocused();
     expect(await backlogScroller.evaluate((element) => element.scrollTop)).toBe(
       backlogScrollTop
     );
@@ -241,11 +258,42 @@ test.describe("TASK-381 bounded Kanban lanes", () => {
       )
     ).toBe(true);
 
+    await backlogNext.click();
+    await page
+      .locator('[data-kanban-lane="In Progress"]')
+      .getByRole("button", { name: "Next list: Blocked" })
+      .click();
+    await page
+      .locator('[data-kanban-lane="Blocked"]')
+      .getByRole("button", { name: "Next list: Done" })
+      .click();
+    const doneLane = page.locator('[data-kanban-lane="Done"]');
+    await expect(doneLane).toBeVisible();
+    await expect(
+      doneLane.getByRole("button", { name: "No next list" })
+    ).toBeDisabled();
+    await doneLane
+      .getByRole("button", { name: "Previous list: Blocked" })
+      .click();
+    await page
+      .locator('[data-kanban-lane="Blocked"]')
+      .getByRole("button", { name: "Previous list: In Progress" })
+      .click();
+    await page
+      .locator('[data-kanban-lane="In Progress"]')
+      .getByRole("button", { name: "Previous list: Backlog" })
+      .click();
+    await expect(backlogLane).toBeVisible();
+    await expect(backlogNext).toBeFocused();
+
     await page.setViewportSize({ width: 667, height: 375 });
-    const landscapeLaneHeight = await page
-      .locator('[data-kanban-lane="Backlog"]')
-      .evaluate((element) => element.getBoundingClientRect().height);
-    expect(landscapeLaneHeight).toBe(320);
+    await expect
+      .poll(() =>
+        page
+          .locator('[data-kanban-lane="Backlog"]')
+          .evaluate((element) => element.getBoundingClientRect().height)
+      )
+      .toBe(320);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth

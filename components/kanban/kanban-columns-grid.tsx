@@ -6,21 +6,20 @@ import {
 } from "@hello-pangea/dnd";
 import {
   useEffect,
+  useId,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import {
   Archive,
-  CheckCircle2,
-  CircleDashed,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Flag,
   GripVertical,
   Link2,
   MessageSquare,
-  OctagonAlert,
   Paperclip,
-  PlayCircle,
   TriangleAlert,
 } from "lucide-react";
 
@@ -29,6 +28,7 @@ import type {
   ProjectTaskCollaborator,
 } from "@/components/kanban-board-types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getEpicColorFromName } from "@/lib/epic";
@@ -87,13 +87,6 @@ const COLUMN_CHROME: Record<
   },
 };
 
-const STATUS_ICONS: Record<TaskStatus, typeof CircleDashed> = {
-  Backlog: CircleDashed,
-  "In Progress": PlayCircle,
-  Blocked: OctagonAlert,
-  Done: CheckCircle2,
-};
-
 const SLIM_SCROLLBAR_CLASSES = [
   "[scrollbar-color:rgba(148,163,184,0.52)_transparent]",
   "[scrollbar-width:thin]",
@@ -117,6 +110,16 @@ interface KanbanColumnsGridProps {
   onTaskHoverChange: (taskId: string | null) => void;
 }
 
+type MobileLaneNavigationDirection = "previous" | "next";
+
+function getMobileLaneNavigationButtonId(
+  gridId: string,
+  status: TaskStatus,
+  direction: MobileLaneNavigationDirection
+) {
+  return `${gridId}-kanban-${status.toLowerCase().replaceAll(" ", "-")}-${direction}`;
+}
+
 export function KanbanColumnsGrid({
   canEdit,
   columns,
@@ -129,73 +132,74 @@ export function KanbanColumnsGrid({
   onEditTask,
   onTaskHoverChange,
 }: KanbanColumnsGridProps) {
-  const [activeMobileStatus, setActiveMobileStatus] =
-    useState<TaskStatus>("Backlog");
+  const gridId = useId();
+  const [mobileLaneState, setMobileLaneState] = useState<{
+    activeStatus: TaskStatus;
+    focusDirection: MobileLaneNavigationDirection | null;
+  }>({ activeStatus: "Backlog", focusDirection: null });
+  const activeMobileStatus = mobileLaneState.activeStatus;
+
+  useEffect(() => {
+    const direction = mobileLaneState.focusDirection;
+    if (!direction) {
+      return;
+    }
+
+    document
+      .getElementById(
+        getMobileLaneNavigationButtonId(
+          gridId,
+          mobileLaneState.activeStatus,
+          direction
+        )
+      )
+      ?.focus();
+  }, [gridId, mobileLaneState]);
+
+  function navigateMobileLane(
+    status: TaskStatus,
+    focusDirection: MobileLaneNavigationDirection
+  ) {
+    setMobileLaneState({ activeStatus: status, focusDirection });
+  }
+
+  const activeMobileTaskCount =
+    columns[activeMobileStatus].length +
+    (activeMobileStatus === "Done" ? archivedDoneTasks.length : 0);
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
+      <p className="sr-only xl:hidden" aria-live="polite" aria-atomic="true">
+        Showing {activeMobileStatus} list, {activeMobileTaskCount}{" "}
+        {activeMobileTaskCount === 1 ? "task" : "tasks"}
+      </p>
       <div className="grid gap-4 xl:grid-cols-4">
-        {TASK_STATUSES.map((status) => (
-          <KanbanColumn
-            canEdit={canEdit}
-            key={status}
-            status={status}
-            tasks={columns[status]}
-            archivedDoneTasks={status === "Done" ? archivedDoneTasks : []}
-            mentionUsers={mentionUsers}
-            highlightedTaskIds={highlightedTaskIds}
-            isFiltering={isFiltering}
-            onSelectTask={onSelectTask}
-            onEditTask={onEditTask}
-            onTaskHoverChange={onTaskHoverChange}
-            className={cn(status !== activeMobileStatus && "hidden xl:flex")}
-          />
-        ))}
-      </div>
-      <nav
-        className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-[var(--layer-floating)] mx-auto mt-4 w-full max-w-lg rounded-2xl border border-border/70 bg-background/95 p-1.5 shadow-[0_12px_36px_-12px_rgba(15,23,42,0.32)] backdrop-blur supports-[backdrop-filter]:bg-background/90 xl:hidden"
-        aria-label="Kanban status navigation"
-      >
-        <div className="grid grid-cols-4 gap-1">
-          {TASK_STATUSES.map((status) => {
-            const Icon = STATUS_ICONS[status];
-            const isActive = status === activeMobileStatus;
-            const taskCount =
-              columns[status].length +
-              (status === "Done" ? archivedDoneTasks.length : 0);
+        {TASK_STATUSES.map((status, index) => {
+          const previousStatus = TASK_STATUSES[index - 1] ?? null;
+          const nextStatus = TASK_STATUSES[index + 1] ?? null;
 
-            return (
-              <button
-                key={status}
-                type="button"
-                aria-pressed={isActive}
-                aria-label={`${status}, ${taskCount} task${taskCount === 1 ? "" : "s"}`}
-                className={cn(
-                  "relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold text-muted-foreground transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                  isActive
-                    ? "bg-primary/10 text-primary dark:bg-primary/15"
-                    : "hover:bg-accent hover:text-foreground"
-                )}
-                onClick={() => setActiveMobileStatus(status)}
-              >
-                <span className="flex items-center gap-1">
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                  <span className="tabular-nums">{taskCount}</span>
-                </span>
-                <span className="max-w-full truncate">
-                  {status === "In Progress" ? "Doing" : status}
-                </span>
-                {isActive ? (
-                  <span
-                    className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-primary"
-                    aria-hidden="true"
-                  />
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+          return (
+            <KanbanColumn
+              canEdit={canEdit}
+              key={status}
+              status={status}
+              tasks={columns[status]}
+              archivedDoneTasks={status === "Done" ? archivedDoneTasks : []}
+              mentionUsers={mentionUsers}
+              highlightedTaskIds={highlightedTaskIds}
+              isFiltering={isFiltering}
+              previousStatus={previousStatus}
+              nextStatus={nextStatus}
+              mobileNavigationIdPrefix={gridId}
+              onMobileNavigate={navigateMobileLane}
+              onSelectTask={onSelectTask}
+              onEditTask={onEditTask}
+              onTaskHoverChange={onTaskHoverChange}
+              className={cn(status !== activeMobileStatus && "hidden xl:flex")}
+            />
+          );
+        })}
+      </div>
     </DragDropContext>
   );
 }
@@ -208,6 +212,13 @@ interface KanbanColumnProps {
   mentionUsers: ProjectTaskCollaborator[];
   highlightedTaskIds: Set<string>;
   isFiltering: boolean;
+  previousStatus: TaskStatus | null;
+  nextStatus: TaskStatus | null;
+  mobileNavigationIdPrefix: string;
+  onMobileNavigate: (
+    status: TaskStatus,
+    focusDirection: MobileLaneNavigationDirection
+  ) => void;
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
   onTaskHoverChange: (taskId: string | null) => void;
@@ -222,6 +233,10 @@ function KanbanColumn({
   mentionUsers,
   highlightedTaskIds,
   isFiltering,
+  previousStatus,
+  nextStatus,
+  mobileNavigationIdPrefix,
+  onMobileNavigate,
   onSelectTask,
   onEditTask,
   onTaskHoverChange,
@@ -253,15 +268,63 @@ function KanbanColumn({
       )}
     >
       <div className={cn("h-1.5 w-full shrink-0", chrome.accent)} />
-      <CardHeader className="shrink-0 pb-3">
-        <CardTitle className="flex items-center justify-between text-base">
-          <span id={laneTitleId}>{status}</span>
-          <Badge
-            variant="outline"
-            className={TASK_STATUS_BADGE_CLASS_NAMES[status]}
+      <CardHeader className="shrink-0 px-4 pb-3 xl:px-6">
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <Button
+            id={getMobileLaneNavigationButtonId(
+              mobileNavigationIdPrefix,
+              status,
+              "previous"
+            )}
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 shrink-0 rounded-full border border-border/60 bg-background/70 xl:hidden"
+            aria-label={
+              previousStatus
+                ? `Previous list: ${previousStatus}`
+                : "No previous list"
+            }
+            disabled={!previousStatus}
+            onClick={() => {
+              if (previousStatus) {
+                onMobileNavigate(previousStatus, "next");
+              }
+            }}
           >
-            {tasks.length}
-          </Badge>
+            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+          </Button>
+          <span className="flex min-w-0 flex-1 items-center justify-center gap-2 xl:justify-between">
+            <span id={laneTitleId} className="truncate">
+              {status}
+            </span>
+            <Badge
+              variant="outline"
+              className={TASK_STATUS_BADGE_CLASS_NAMES[status]}
+            >
+              {tasks.length}
+            </Badge>
+          </span>
+          <Button
+            id={getMobileLaneNavigationButtonId(
+              mobileNavigationIdPrefix,
+              status,
+              "next"
+            )}
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 shrink-0 rounded-full border border-border/60 bg-background/70 xl:hidden"
+            aria-label={nextStatus ? `Next list: ${nextStatus}` : "No next list"}
+            disabled={!nextStatus}
+            onClick={() => {
+              if (nextStatus) {
+                onMobileNavigate(nextStatus, "previous");
+              }
+            }}
+          >
+            <ChevronRight className="h-5 w-5" aria-hidden="true" />
+          </Button>
         </CardTitle>
       </CardHeader>
       {status === "Done" && archivedDoneTasks.length > 0 ? (

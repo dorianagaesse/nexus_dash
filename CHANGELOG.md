@@ -8,6 +8,19 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.59.0 - 2026-09-08
+
+- Replaced the Kanban board's secondary sticky mobile status dock with compact
+  previous/next arrows attached directly to each visible lane header (ND-427),
+  removing the extra navigation layer above the app's persistent mobile nav.
+- Lane arrows follow the canonical Backlog → In Progress → Blocked → Done
+  sequence, expose destination-specific accessible names and disabled boundary
+  states, meet the 44 px touch-target contract, and preserve keyboard focus and
+  each lane's independent scroll position while switching.
+- The desktop four-column Kanban layout and drag-and-drop behavior remain
+  unchanged; responsive browser coverage locks portrait/landscape containment
+  and hides the mobile controls at the desktop breakpoint.
+
 ## v0.58.0 - 2026-09-08
 
 - Meeting note inputs and outputs now support rich text (ND-381): the
