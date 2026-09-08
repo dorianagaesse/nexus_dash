@@ -31,6 +31,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   focused Chromium tests. The first browser attempt reached an unrelated Open
   WebUI service already using port 3000, so the valid run used isolated port
   3107 and exercised this worktree's production build.
+- Pushed implementation commit `a665e73` and opened ready-for-review PR #494
+  (https://github.com/dorianagaesse/nexus_dash/pull/494). Moved the live
+  ND-427 card from In Progress to Done after the PR opened; CI and Copilot
+  review monitoring continued from the same branch.
 
 # 2026-09-07 - ND-381: rich text for meeting note inputs and outputs delivered
 

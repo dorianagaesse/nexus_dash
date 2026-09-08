@@ -4,12 +4,13 @@
 
 ## Status
 
-Implementation complete (2026-09-08); ready to open the required PR. Work is on
+Delivered (2026-09-08). Ready-for-review PR #494
+(https://github.com/dorianagaesse/nexus_dash/pull/494) is open from
 `feature/nd-427-kanban-mobile-list-arrows` in dedicated worktree
 `../nexus_dash_nd427_wt`, branched from `origin/main` at 446637f (ND-381
 merged / v0.58.0). The Nexus Dash board card ND-427 (feature label) is the
-source of truth and was moved to In Progress through the agent API. No GitHub
-issue exists for this task; the PR will carry the ND-427 reference.
+source of truth and was moved through In Progress to Done via the agent API.
+No GitHub issue exists for this task; PR #494 carries the ND-427 reference.
 
 Local validation passed against the Dockerized PostgreSQL contract on port
 5432: lint, `rls:check`, `release:check`, `git diff --check`, 1,360 Vitest
