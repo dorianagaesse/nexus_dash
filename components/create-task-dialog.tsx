@@ -186,9 +186,6 @@ export function CreateTaskDialog({
       return;
     }
 
-    setIsSubmitting(true);
-    setSubmitError(null);
-
     const formData = new FormData(event.currentTarget);
     const title = formData.get("title")?.toString().trim() ?? "";
     if (title.length < 2) {
@@ -201,6 +198,10 @@ export function CreateTaskDialog({
       );
       return;
     }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
     const filesForBackgroundUpload =
       storageProvider === "r2" ? [...selectedFiles] : [];
 

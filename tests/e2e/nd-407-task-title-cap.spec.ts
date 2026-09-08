@@ -91,6 +91,17 @@ test.describe("ND-407 task title cap", () => {
     await expect(
       page.getByText("100/120 characters", { exact: true })
     ).toBeVisible();
+
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.press("Backspace");
+    await page.keyboard.type("a ");
+    const createButton = page.getByRole("button", { name: "Create task" });
+    await createButton.click();
+    await expect(
+      page.getByText("Task title must be at least 2 characters long.")
+    ).toBeVisible();
+    await expect(createButton).toBeEnabled();
+    await expect(createButton).toHaveText("Create task");
   });
 
   test("clamps a legacy overlong card title to two lines on mobile while the modal keeps the full title", async ({
