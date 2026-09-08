@@ -45,6 +45,7 @@ import {
 } from "@/lib/task-person";
 import { mapTaskAuthorRecord, type TaskAuthorSummary } from "@/lib/task-author";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
+import { MAX_TASK_TITLE_LENGTH } from "@/lib/task-title";
 
 const MIN_TITLE_LENGTH = 2;
 
@@ -795,6 +796,9 @@ export async function createTaskForProject(
   if (title.length < MIN_TITLE_LENGTH) {
     return createError(400, "title-too-short");
   }
+  if (title.length > MAX_TASK_TITLE_LENGTH) {
+    return createError(400, "title-too-long");
+  }
 
   const parsedLinks = parseAttachmentLinksJson(input.attachmentLinksJsonRaw);
   if (parsedLinks.error) {
@@ -1381,6 +1385,9 @@ export async function updateTaskForProject(
 
   if (titleProvided && title.length < MIN_TITLE_LENGTH) {
     return createError(400, "Task title must be at least 2 characters");
+  }
+  if (titleProvided && title.length > MAX_TASK_TITLE_LENGTH) {
+    return createError(400, "title-too-long");
   }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {

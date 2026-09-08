@@ -39,6 +39,10 @@ import {
 } from "@/lib/task-attachment";
 import { uploadFilesDirectInBackground } from "@/lib/direct-upload-client";
 import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
+import {
+  MAX_TASK_TITLE_LENGTH,
+  TASK_TITLE_LIMIT_HINT_THRESHOLD,
+} from "@/lib/task-title";
 
 interface CreateTaskDialogProps {
   projectId: string;
@@ -94,6 +98,7 @@ export function CreateTaskDialog({
   const [fileInputKey, setFileInputKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [titleCharCount, setTitleCharCount] = useState(0);
 
   const maxAttachmentFileSizeBytes =
     storageProvider === "r2"
@@ -127,6 +132,7 @@ export function CreateTaskDialog({
     setAttachmentLinks([]);
     setSelectedFiles([]);
     setFileInputKey((previous) => previous + 1);
+    setTitleCharCount(0);
   };
 
   const openDialog = () => {
@@ -144,6 +150,8 @@ export function CreateTaskDialog({
     switch (errorCode) {
       case "title-too-short":
         return "Task title must be at least 2 characters long.";
+      case "title-too-long":
+        return `Task title must be ${MAX_TASK_TITLE_LENGTH} characters or fewer.`;
       case "project-not-found":
         return "Project not found.";
       case "attachment-link-invalid":
@@ -183,6 +191,16 @@ export function CreateTaskDialog({
 
     const formData = new FormData(event.currentTarget);
     const title = formData.get("title")?.toString().trim() ?? "";
+    if (title.length < 2) {
+      setSubmitError("Task title must be at least 2 characters long.");
+      return;
+    }
+    if (title.length > MAX_TASK_TITLE_LENGTH) {
+      setSubmitError(
+        `Task title must be ${MAX_TASK_TITLE_LENGTH} characters or fewer.`
+      );
+      return;
+    }
     const filesForBackgroundUpload =
       storageProvider === "r2" ? [...selectedFiles] : [];
 
@@ -439,13 +457,24 @@ export function CreateTaskDialog({
                           name="title"
                           required
                           minLength={2}
-                          maxLength={120}
+                          maxLength={MAX_TASK_TITLE_LENGTH}
+                          onChange={(event) =>
+                            setTitleCharCount(event.target.value.length)
+                          }
                           wrapperClassName={`rounded-md border border-input bg-background ${
                             FORM_FOCUS_BORDER_SHELL_CLASS
                           }`}
                           className="h-10 rounded-md border-0 bg-transparent px-3 text-sm outline-none"
                           placeholder="Implement drag sorting"
                         />
+                        {titleCharCount >= TASK_TITLE_LIMIT_HINT_THRESHOLD ? (
+                          <p
+                            aria-live="polite"
+                            className="text-right text-xs text-amber-600"
+                          >
+                            {titleCharCount}/{MAX_TASK_TITLE_LENGTH} characters
+                          </p>
+                        ) : null}
                       </div>
 
                       <div className="grid gap-2">
