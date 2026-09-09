@@ -31,6 +31,11 @@ import {
   MeetingParticipantStewardAffordance,
 } from "@/components/meeting-participants/meeting-participant-avatar";
 import { MeetingParticipantPicker } from "@/components/meeting-participants/meeting-participant-picker";
+import {
+  getMeetingNoteZoomTextStyle,
+  MEETING_NOTE_ZOOM_DEFAULT,
+  MeetingNoteZoomControl,
+} from "@/components/meeting-notes/meeting-note-zoom-control";
 import type {
   MeetingNoteStatus,
   ProjectMeetingNotePanelAction,
@@ -493,16 +498,21 @@ function LabelPill({ label }: { label: string }) {
 
 function SectionBlock({
   title,
+  action,
   children,
 }: {
   title: string;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="space-y-2 rounded-xl border border-border/60 bg-background/70 p-4">
-      <h4 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        {title}
-      </h4>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          {title}
+        </h4>
+        {action}
+      </div>
       {children}
     </section>
   );
@@ -843,6 +853,12 @@ export function ProjectMeetingNotesPanel({
     initialSelectedNote
       ? buildNotesDraftFromNote(initialSelectedNote)
       : EMPTY_NOTES_DRAFT
+  );
+  const [inputNotesZoom, setInputNotesZoom] = useState(
+    MEETING_NOTE_ZOOM_DEFAULT
+  );
+  const [outputNotesZoom, setOutputNotesZoom] = useState(
+    MEETING_NOTE_ZOOM_DEFAULT
   );
   const [draftError, setDraftError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -2144,9 +2160,16 @@ export function ProjectMeetingNotesPanel({
             </div>
 
             <div className="grid gap-2">
-              <label htmlFor="meeting-inputs" className="text-sm font-medium">
-                Inputs
-              </label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label htmlFor="meeting-inputs" className="text-sm font-medium">
+                  Inputs
+                </label>
+                <MeetingNoteZoomControl
+                  label="Inputs"
+                  value={inputNotesZoom}
+                  onChange={setInputNotesZoom}
+                />
+              </div>
               <EmojiTextareaField
                 id="meeting-inputs"
                 value={prepareDraft.inputNotes}
@@ -2157,6 +2180,7 @@ export function ProjectMeetingNotesPanel({
                   }))
                 }
                 className="min-h-40 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                style={getMeetingNoteZoomTextStyle(inputNotesZoom)}
                 placeholder="Agenda, questions, links, context to bring in."
               />
             </div>
@@ -2408,20 +2432,40 @@ export function ProjectMeetingNotesPanel({
               ) : null}
             </div>
 
-            <SectionBlock title="Inputs">
-              <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+            <SectionBlock
+              title="Inputs"
+              action={
+                <MeetingNoteZoomControl
+                  label="Inputs"
+                  value={inputNotesZoom}
+                  onChange={setInputNotesZoom}
+                />
+              }
+            >
+              <p
+                data-meeting-note-content="inputs"
+                className="break-words whitespace-pre-wrap text-sm text-foreground"
+                style={getMeetingNoteZoomTextStyle(inputNotesZoom)}
+              >
                 {selectedNote.inputNotes || "No inputs captured."}
               </p>
             </SectionBlock>
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),320px]">
               <div className="grid gap-2">
-                <label
-                  htmlFor="meeting-outputs"
-                  className="text-sm font-medium"
-                >
-                  Outputs
-                </label>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label
+                    htmlFor="meeting-outputs"
+                    className="text-sm font-medium"
+                  >
+                    Outputs
+                  </label>
+                  <MeetingNoteZoomControl
+                    label="Outputs"
+                    value={outputNotesZoom}
+                    onChange={setOutputNotesZoom}
+                  />
+                </div>
                 <EmojiTextareaField
                   id="meeting-outputs"
                   value={notesDraft.outputNotes}
@@ -2432,6 +2476,8 @@ export function ProjectMeetingNotesPanel({
                     }))
                   }
                   className="min-h-56 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  data-meeting-note-content="outputs"
+                  style={getMeetingNoteZoomTextStyle(outputNotesZoom)}
                   placeholder="What changed, what was clarified, what needs to happen next."
                   disabled={!canEdit || isSaving}
                 />
