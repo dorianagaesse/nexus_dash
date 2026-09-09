@@ -1,3 +1,5 @@
+import type { ProjectMembershipRole } from "@prisma/client";
+
 import { resolveAgentCredentialStatus } from "@/lib/agent-access";
 import type {
   ProjectActorReference,
@@ -56,7 +58,6 @@ type ProjectActorSearchResponse =
   | { ok: false; status: number; error: string };
 
 const PROJECT_ACTOR_SEARCH_LIMIT = 12;
-
 export interface ResolvedProjectActorPersistence {
   userId: string | null;
   credentialId: string | null;
@@ -368,7 +369,6 @@ export async function searchProjectActors(input: {
     return { ok: true as const, status: 200 as const, data: { actors } };
   });
 }
-
 export async function listProjectActors(input: {
   actorUserId: string;
   projectId: string;

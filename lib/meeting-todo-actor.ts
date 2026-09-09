@@ -5,19 +5,24 @@ import {
   isProjectActorReference,
   type ProjectActorKind,
   type ProjectActorReference,
-  type ProjectActorStatus,
   type ProjectActorSummary,
+  type ProjectActorStatus,
 } from "@/lib/project-actor";
 
 export type MeetingTodoActorKind = ProjectActorKind | "participant";
 export type MeetingTodoActorStatus = ProjectActorStatus;
 
-export interface MeetingTodoActorReference {
-  kind: MeetingTodoActorKind;
+interface ExternalParticipantMeetingTodoActorReference {
+  kind: "participant";
   id: string;
 }
 
-export interface MeetingTodoActorSummary extends MeetingTodoActorReference {
+export type MeetingTodoActorReference =
+  | ProjectActorReference
+  | ExternalParticipantMeetingTodoActorReference;
+
+interface ExternalParticipantMeetingTodoActorSummary
+  extends ExternalParticipantMeetingTodoActorReference {
   displayName: string;
   usernameTag: string | null;
   avatarSeed: string | null;
@@ -25,12 +30,16 @@ export interface MeetingTodoActorSummary extends MeetingTodoActorReference {
   isAssignable: boolean;
 }
 
+export type MeetingTodoActorSummary =
+  | ProjectActorSummary
+  | ExternalParticipantMeetingTodoActorSummary;
+
 export function getMeetingTodoActorKey(
   actor: Pick<MeetingTodoActorReference, "kind" | "id">
 ): string {
   return actor.kind === "participant"
     ? `${actor.kind}:${actor.id}`
-    : getProjectActorKey(actor as ProjectActorReference);
+    : getProjectActorKey({ kind: actor.kind, id: actor.id });
 }
 
 export function getHistoricalMeetingTodoActorId(input: {

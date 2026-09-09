@@ -249,6 +249,18 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
   },
   {
     tag: "Tasks",
+    method: "GET",
+    path: "/api/projects/{projectId}/tasks/{taskId}",
+    title: "Read task",
+    description: "Read one project task by id.",
+    requiredScopes: ["task:read"],
+    notes: [
+      "Returns the same task shape as the list surface, wrapped in a task object.",
+      "A task id from another project or one the credential cannot access resolves to 404 so task existence is not leaked.",
+    ],
+  },
+  {
+    tag: "Tasks",
     method: "POST",
     path: "/api/projects/{projectId}/tasks",
     title: "Create task",
@@ -658,6 +670,12 @@ export function buildAgentTaskUpdateExample(): string {
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
     '  -d \'{"title":"Draft release notes","description":"<p>Add release highlights.</p>","deadlineDate":"2026-04-25","epicId":"epic_456","assigneeUserId":"user_456","labels":["release","ready"],"relatedTaskIds":["task_456"]}\'',
+    "",
+    "# Append a link attachment; existing attachments are preserved",
+    'curl -X PATCH "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
+    '  -H "Content-Type: application/json" \\',
+    '  -d \'{"attachmentLinks":[{"name":"NexusDash board","url":"https://nexus-dash.app"}]}\'',
   ].join("\n");
 }
 
@@ -1701,9 +1719,24 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               description:
                 "Replace the related-task set. Omit to preserve; an empty array removes all relations.",
             },
+            attachmentLinks: {
+              type: "array",
+              items: { $ref: "#/components/schemas/AttachmentLinkInput" },
+              description:
+                "Append link attachments to the task. Each entry creates a new link attachment and existing attachments are preserved; an empty array appends nothing. Remove attachments with DELETE /api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}.",
+            },
           },
         },
         TaskUpdateResponse: {
+          type: "object",
+          required: ["task"],
+          properties: {
+            task: {
+              $ref: "#/components/schemas/TaskRecord",
+            },
+          },
+        },
+        TaskReadResponse: {
           type: "object",
           required: ["task"],
           properties: {
@@ -2936,6 +2969,27 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
       },
       "/api/projects/{projectId}/tasks/{taskId}": {
+        get: {
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/tasks/{taskId}"),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/TaskId" },
+          ],
+          responses: {
+            200: {
+              description: "Task read",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/TaskReadResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
         patch: {
           ...buildOperationMetadata("PATCH", "/api/projects/{projectId}/tasks/{taskId}"),
           security: [{ BearerAuth: [] }],

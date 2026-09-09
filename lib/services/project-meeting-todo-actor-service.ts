@@ -16,8 +16,8 @@ import {
   resolveProjectMutationActor,
   type ProjectActorCredentialRecord,
   type ProjectActorRegistry,
-  type ResolvedProjectActorPersistence,
 } from "@/lib/services/project-actor-service";
+import type { AgentProjectAccessContext } from "@/lib/services/project-access-service";
 import type { DbClient } from "@/lib/services/rls-context";
 import type { TaskPersonRecord } from "@/lib/task-person";
 
@@ -33,14 +33,27 @@ export type MeetingTodoActorCredentialRecord = ProjectActorCredentialRecord;
 
 export type MeetingTodoActorRegistry = ProjectActorRegistry;
 
-export interface ResolvedMeetingTodoActorPersistence
-  extends Omit<ResolvedProjectActorPersistence, "summary"> {
+export interface ResolvedMeetingTodoActorPersistence {
+  userId: string | null;
+  credentialId: string | null;
+  displayNameSnapshot: string;
   summary: MeetingTodoActorSummary;
 }
 
+interface MeetingTodoActorResolutionError {
+  ok: false;
+  status: number;
+  error: string;
+}
+
+interface MeetingTodoActorResolutionSuccess {
+  ok: true;
+  actor: ResolvedMeetingTodoActorPersistence;
+}
+
 export type MeetingTodoActorResolution =
-  | { ok: false; status: number; error: string }
-  | { ok: true; actor: ResolvedMeetingTodoActorPersistence };
+  | MeetingTodoActorResolutionError
+  | MeetingTodoActorResolutionSuccess;
 
 export function mapStoredMeetingTodoActor(input: {
   kind: "human" | "agent" | "participant";
@@ -54,7 +67,7 @@ export function mapStoredMeetingTodoActor(input: {
 }): MeetingTodoActorSummary | null {
   if (input.kind === "participant") {
     const snapshot = input.displayNameSnapshot?.trim() ?? "";
-    if (!input.id?.trim() && !snapshot) {
+    if (!snapshot) {
       return null;
     }
     return buildExternalParticipantMeetingTodoActor({
@@ -68,7 +81,19 @@ export function mapStoredMeetingTodoActor(input: {
         ),
     });
   }
-  return mapStoredProjectActor(input, MEETING_TODO_HUMAN_IDENTITY_INVALID);
+
+  return mapStoredProjectActor(
+    {
+      kind: input.kind,
+      id: input.id,
+      displayNameSnapshot: input.displayNameSnapshot,
+      user: input.user,
+      credential: input.credential,
+      isCurrentProjectHuman: input.isCurrentProjectHuman,
+      now: input.now,
+    },
+    MEETING_TODO_HUMAN_IDENTITY_INVALID
+  );
 }
 
 export async function loadMeetingTodoActorRegistry(input: {
@@ -129,7 +154,10 @@ export async function resolveAssignableMeetingTodoActor(input: {
     {
       db: input.db,
       projectId: input.projectId,
-      reference: input.reference,
+      reference: {
+        kind: input.reference.kind,
+        id: input.reference.id,
+      },
       now: input.now,
       loadRegistry: ({ db, projectId, now }) =>
         loadMeetingTodoActorRegistry({ db, projectId, now }),
@@ -147,7 +175,10 @@ export function resolveAssignableMeetingTodoActorFromRegistry(input: {
   }
   return resolveAssignableProjectActorFromRegistry({
     registry: input.registry,
-    reference: input.reference,
+    reference: {
+      kind: input.reference.kind,
+      id: input.reference.id,
+    },
     assigneeInvalidError: MEETING_TODO_ASSIGNEE_INVALID,
   });
 }

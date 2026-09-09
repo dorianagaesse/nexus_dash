@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { describe, expect, test } from "vitest";
 
 import {
@@ -80,5 +82,59 @@ describe("rich-text", () => {
     expect(createRichTextTokenBlock("line one\nline two\n\nline three")).toBe(
       '<div data-rich-block="token"><code>line one line two line three</code></div>'
     );
+  });
+
+  describe("root-level bare text wrapping", () => {
+    test("wraps bare first-line text before a list in a paragraph", () => {
+      expect(
+        coerceRichTextHtml(
+          "Scope risks:<ul><li>First risk</li><li>Second risk</li></ul>"
+        )
+      ).toBe(
+        "<p>Scope risks:</p><ul><li>First risk</li><li>Second risk</li></ul>"
+      );
+    });
+
+    test("wraps trailing bare text after a block", () => {
+      expect(coerceRichTextHtml("<ul><li>Item</li></ul>Wrap-up note.")).toBe(
+        "<ul><li>Item</li></ul><p>Wrap-up note.</p>"
+      );
+    });
+
+    test("keeps canonical paragraph content unchanged", () => {
+      const canonical = "<p>Agenda <strong>bolded</strong>.</p><ul><li>Alpha</li></ul>";
+      expect(coerceRichTextHtml(canonical)).toBe(canonical);
+    });
+
+    test("preserves mention characters when wrapping leading text", () => {
+      expect(
+        coerceRichTextHtml("Assign @owner#0001 to review.<ul><li>Do it</li></ul>")
+      ).toBe("<p>Assign @owner#0001 to review.</p><ul><li>Do it</li></ul>");
+    });
+
+    test("leaves whitespace-only root nodes between blocks untouched", () => {
+      expect(
+        coerceRichTextHtml("<p>First</p>\n\n<ul><li>Item</li></ul>")
+      ).toBe("<p>First</p>\n\n<ul><li>Item</li></ul>");
+    });
+  });
+
+  test("wrapped output still reads as plain text in search and preview helpers", () => {
+    const html = coerceRichTextHtml(
+      "Scope risks:<ul><li>First risk</li></ul>"
+    )!;
+    expect(richTextToPlainText(html)).toBe("Scope risks: • First risk");
+    expect(richTextToPreviewText(html)).toBe("Scope risks: • First risk");
+  });
+
+  test("preview joins list items without doubling bullets", () => {
+    expect(
+      richTextToPreviewText("<ul><li>Alpha</li><li>Beta</li></ul>")
+    ).toBe("• Alpha • Beta");
+    expect(
+      richTextToPreviewText(
+        "<p>Scope risks:</p><ul><li>Alpha</li><li>Beta</li></ul>"
+      )
+    ).toBe("Scope risks: • Alpha • Beta");
   });
 });

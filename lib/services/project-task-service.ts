@@ -45,6 +45,7 @@ import {
 } from "@/lib/task-person";
 import { mapTaskAuthorRecord, type TaskAuthorSummary } from "@/lib/task-author";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
+import { MAX_TASK_TITLE_LENGTH } from "@/lib/task-title";
 
 const MIN_TITLE_LENGTH = 2;
 
@@ -82,6 +83,7 @@ export interface UpdateTaskPayload {
   relatedTaskIds?: string[];
   epicId?: string | null;
   assigneeUserId?: string | null;
+  attachmentLinks?: unknown;
 }
 
 export interface CreateTaskForProjectInput {
@@ -150,6 +152,16 @@ function normalizeText(value: unknown): string {
     return "";
   }
   return value.trim();
+}
+
+function serializeJsonFieldValue(value: unknown): string {
+  if (value == null) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value.trim();
+  }
+  return JSON.stringify(value);
 }
 
 function parseDeadlineInput(
@@ -795,6 +807,9 @@ export async function createTaskForProject(
   if (title.length < MIN_TITLE_LENGTH) {
     return createError(400, "title-too-short");
   }
+  if (title.length > MAX_TASK_TITLE_LENGTH) {
+    return createError(400, "title-too-long");
+  }
 
   const parsedLinks = parseAttachmentLinksJson(input.attachmentLinksJsonRaw);
   if (parsedLinks.error) {
@@ -1370,6 +1385,16 @@ export async function updateTaskForProject(
   const assigneeUserId = assigneeProvided
     ? normalizeText(payload.assigneeUserId)
     : null;
+  const attachmentLinksProvided = Object.prototype.hasOwnProperty.call(
+    payload,
+    "attachmentLinks"
+  );
+  const parsedAttachmentLinks = attachmentLinksProvided
+    ? parseAttachmentLinksJson(serializeJsonFieldValue(payload.attachmentLinks))
+    : null;
+  if (parsedAttachmentLinks?.error) {
+    return createError(400, parsedAttachmentLinks.error);
+  }
   const agentScopeAccess = requireAgentProjectScopes({
     agentAccess,
     projectId,
@@ -1381,6 +1406,9 @@ export async function updateTaskForProject(
 
   if (titleProvided && title.length < MIN_TITLE_LENGTH) {
     return createError(400, "Task title must be at least 2 characters");
+  }
+  if (titleProvided && title.length > MAX_TASK_TITLE_LENGTH) {
+    return createError(400, "title-too-long");
   }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
@@ -1503,6 +1531,17 @@ export async function updateTaskForProject(
               : {}),
           },
         });
+
+        if (parsedAttachmentLinks && parsedAttachmentLinks.links.length > 0) {
+          await createTaskAttachmentsFromDraft({
+            actorUserId: normalizedActorUserId,
+            projectId,
+            taskId,
+            links: parsedAttachmentLinks.links,
+            files: [],
+            db: tx,
+          });
+        }
 
         if (blockedFollowUpEntry.length > 0 && existingTask.status === "Blocked") {
           await tx.taskBlockedFollowUp.create({

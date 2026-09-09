@@ -45,6 +45,7 @@ vi.mock("@/lib/prisma", () => ({
 import {
   createProject,
   getProjectDashboardById,
+  getProjectKanbanTaskById,
   getProjectSummaryById,
   listProjectCollaborators,
   listProjectsWithCounts,
@@ -828,5 +829,210 @@ describe("project-service", () => {
     ).rejects.toThrow("project-name-required");
 
     expect(prismaMock.project.create).not.toHaveBeenCalled();
+  });
+
+  describe("getProjectKanbanTaskById", () => {
+    const taskRecord = {
+      id: "task-9",
+      title: "Task 9",
+      status: "Backlog",
+      position: 0,
+    };
+
+    test("rejects an empty actor id without querying the database", async () => {
+      const result = await getProjectKanbanTaskById(
+        "project-1",
+        "task-9",
+        "   "
+      );
+
+      expect(result).toEqual({
+        ok: false,
+        status: 401,
+        error: "unauthorized",
+      });
+      expect(prismaMock.task.findFirst).not.toHaveBeenCalled();
+    });
+
+    test("rejects an agent whose scopes lack task:read", async () => {
+      const result = await getProjectKanbanTaskById(
+        "project-1",
+        "task-9",
+        actorUserId,
+        {
+          credentialId: "credential-1",
+          projectId: "project-1",
+          scopes: [],
+        }
+      );
+
+      expect(result).toEqual({
+        ok: false,
+        status: 403,
+        error: "forbidden",
+      });
+      expect(prismaMock.task.findFirst).not.toHaveBeenCalled();
+    });
+
+    test("hides tasks from an agent scoped to another project", async () => {
+      const result = await getProjectKanbanTaskById(
+        "project-1",
+        "task-9",
+        actorUserId,
+        {
+          credentialId: "credential-1",
+          projectId: "project-other",
+          scopes: ["task:read"],
+        }
+      );
+
+      expect(result).toEqual({
+        ok: false,
+        status: 404,
+        error: "project-not-found",
+      });
+      expect(prismaMock.task.findFirst).not.toHaveBeenCalled();
+    });
+
+    test("loads an authorized project task without archiving anything", async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce(taskRecord);
+
+      const result = await getProjectKanbanTaskById(
+        "project-1",
+        "task-9",
+        actorUserId
+      );
+
+      expect(result).toEqual({
+        ok: true,
+        data: { task: taskRecord },
+      });
+      expect(prismaMock.task.findFirst).toHaveBeenCalledTimes(1);
+      expect(prismaMock.task.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: "task-9",
+          projectId: "project-1",
+          project: {
+            OR: [
+              { ownerId: actorUserId },
+              { memberships: { some: { userId: actorUserId } } },
+            ],
+          },
+        },
+        include: {
+          _count: {
+            select: {
+              comments: true,
+            },
+          },
+          attachments: {
+            orderBy: [{ createdAt: "desc" }],
+          },
+          blockedFollowUps: {
+            orderBy: [{ createdAt: "desc" }],
+          },
+          outgoingRelations: {
+            select: {
+              rightTask: {
+                select: {
+                  id: true,
+                  title: true,
+                  status: true,
+                  archivedAt: true,
+                },
+              },
+            },
+          },
+          incomingRelations: {
+            select: {
+              leftTask: {
+                select: {
+                  id: true,
+                  title: true,
+                  status: true,
+                  archivedAt: true,
+                },
+              },
+            },
+          },
+          createdByUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              username: true,
+              usernameDiscriminator: true,
+              avatarSeed: true,
+            },
+          },
+          updatedByUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              username: true,
+              usernameDiscriminator: true,
+              avatarSeed: true,
+            },
+          },
+          assigneeUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              username: true,
+              usernameDiscriminator: true,
+              avatarSeed: true,
+            },
+          },
+          epic: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+      expect(prismaMock.task.updateMany).not.toHaveBeenCalled();
+    });
+
+    test("loads a project task for an agent scoped to task:read", async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce(taskRecord);
+
+      const result = await getProjectKanbanTaskById(
+        "project-1",
+        "task-9",
+        actorUserId,
+        {
+          credentialId: "credential-1",
+          projectId: "project-1",
+          scopes: ["task:read"],
+        }
+      );
+
+      expect(result).toEqual({
+        ok: true,
+        data: { task: taskRecord },
+      });
+      expect(prismaMock.task.findFirst).toHaveBeenCalledTimes(1);
+    });
+
+    test("resolves a task the actor cannot access to not found", async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce(null);
+
+      const result = await getProjectKanbanTaskById(
+        "project-1",
+        "task-9",
+        actorUserId
+      );
+
+      expect(result).toEqual({
+        ok: false,
+        status: 404,
+        error: "Task not found",
+      });
+      expect(prismaMock.task.findFirst).toHaveBeenCalledTimes(1);
+      expect(prismaMock.task.updateMany).not.toHaveBeenCalled();
+    });
   });
 });

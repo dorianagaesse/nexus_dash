@@ -201,6 +201,51 @@ export function sanitizeRichText(input: string): string | null {
   return sanitized;
 }
 
+// Browsers keep text typed before the first Enter as a bare root text node;
+// wrap such stray text runs in paragraphs so stored sections stay canonical.
+// (A div container rather than a <template> fragment: jsdom does not
+// implement innerHTML on DocumentFragment.)
+function wrapRootLevelTextNodes(html: string): string {
+  if (!html || typeof document === "undefined") {
+    return html;
+  }
+
+  const root = document.createElement("div");
+  root.innerHTML = html;
+  let cursor = 0;
+  while (cursor < root.childNodes.length) {
+    const first = root.childNodes[cursor];
+    if (!first || first.nodeType !== Node.TEXT_NODE) {
+      cursor++;
+      continue;
+    }
+
+    let end = cursor + 1;
+    let text = first.textContent ?? "";
+    while (
+      end < root.childNodes.length &&
+      root.childNodes[end]!.nodeType === Node.TEXT_NODE
+    ) {
+      text += root.childNodes[end]!.textContent ?? "";
+      end++;
+    }
+
+    const trimmedText = text.trim();
+    if (trimmedText) {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = trimmedText;
+      const textNodes = Array.from(root.childNodes).slice(cursor, end);
+      root.insertBefore(paragraph, first);
+      for (const textNode of textNodes) {
+        textNode.remove();
+      }
+    }
+    cursor = end;
+  }
+
+  return root.innerHTML;
+}
+
 export function coerceRichTextHtml(input: string): string | null {
   const trimmed = input.trim();
 
@@ -212,7 +257,12 @@ export function coerceRichTextHtml(input: string): string | null {
     return plainTextToRichText(trimmed);
   }
 
-  return sanitizeRichText(trimmed) ?? plainTextToRichText(trimmed);
+  const sanitized = sanitizeRichText(trimmed);
+  if (sanitized) {
+    return wrapRootLevelTextNodes(sanitized);
+  }
+
+  return plainTextToRichText(trimmed);
 }
 
 export function richTextToPlainText(input: string): string {
@@ -229,12 +279,22 @@ export function richTextToPlainText(input: string): string {
 export function richTextToPreviewText(input: string): string {
   const normalizedHtml = getNormalizedRichTextHtml(input);
 
-  return convertRichTextHtmlToText(normalizedHtml, {
+  const segments = convertRichTextHtmlToText(normalizedHtml, {
     code: (value) => `Code: ${value}`,
     token: ({ label, value }) => (value ? `${label}: hidden value` : label),
   })
     .split(/\n+/)
     .map((segment) => normalizeInlineText(segment))
-    .filter(Boolean)
-    .join(" • ");
+    .filter(Boolean);
+
+  return segments.reduce((text, segment, index) => {
+    if (index === 0) {
+      return segment;
+    }
+    // List segments already carry their own leading bullet; a plain space
+    // avoids doubling the " • " separator into "• •".
+    return segment.startsWith("• ")
+      ? `${text} ${segment}`
+      : `${text} • ${segment}`;
+  }, "");
 }
