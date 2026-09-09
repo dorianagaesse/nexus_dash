@@ -1,6 +1,12 @@
 # Current Task
 
-## ND-438: Add a task-by-id fetch endpoint (GET task/:id) and open deep-linked tasks missing from the board list
+## ND-179: Project ownership continuity and collaborator offboarding
+
+The active implementation brief follows the preserved ND-438 snapshot below.
+
+## Previous Task Snapshot — ND-438
+
+### Add a task-by-id fetch endpoint (GET task/:id) and open deep-linked tasks missing from the board list
 
 ## Status
 
@@ -298,6 +304,122 @@ upload flow, MIME/size validation, or storage access.
 
 The previous `tasks/current.md` brief (ND-427, merged into main via PR #494 at
 c676716 / v0.60.0) is preserved verbatim below for history.
+## ND-179: Project ownership continuity and collaborator offboarding
+
+## Status
+
+In progress on `feature/nd-179-ownership-offboarding`, based on and reconciled
+with `origin/main` at 6426c1a. The Nexus Dash board card ND-179 is the source
+of truth; its ND-178 project-actor foundation has landed on `main`.
+
+## Context
+
+Project owners can currently remove collaborators and revoke agent
+credentials with a generic browser confirmation. Those actions do not show
+the active tasks, context cards, meeting notes, or meeting todos for which the
+departing actor remains accountable. Project ownership also cannot be
+transferred, so the only owner cannot safely leave without deleting the
+project. ND-179 makes ownership handoff and offboarding explicit,
+responsibility-aware, and atomic while keeping creator/editor/completer
+identity history readable.
+
+## Product Decisions
+
+- Active responsibility means a non-Done, non-archived task assignment; any
+  context-card stewardship; a non-Done meeting-note stewardship; or an open
+  meeting-todo assignment. Completed work keeps its historical actor.
+- Before a member is removed or an agent credential is revoked, the owner sees
+  a categorized inventory and must choose one outcome for active
+  responsibilities: reassign them to an eligible remaining human collaborator
+  or leave them visibly unassigned. The server recomputes the inventory inside
+  the mutation transaction so stale UI cannot silently orphan work.
+- Ownership transfers only to an existing project collaborator. The new owner
+  receives the sole owner role atomically. The previous owner either remains
+  an editor or leaves in the same handoff; leaving requires the same explicit
+  responsibility resolution.
+- Historical creator, last-editor, completer, comment-author, attachment-uploader,
+  and audit snapshots are never rewritten by offboarding. Only active
+  assignment/stewardship fields are reassigned or cleared.
+
+## Scope
+
+- Add an owner-only responsibility-inventory service/API for human members and
+  project agent credentials.
+- Make collaborator removal and credential revocation require an explicit
+  active-responsibility resolution whenever the inventory is non-empty.
+- Add atomic project ownership transfer, with keep-access and leave-project
+  outcomes and last-owner protection.
+- Replace generic browser confirmations with accessible, responsive dialogs
+  that show responsibility counts, resolution choices, pending/error states,
+  and clear destructive consequences.
+- Add service, route, component, and browser coverage, including cross-project
+  denial, stale-inventory recomputation, mobile containment, keyboard access,
+  and historical-record preservation.
+
+## Out Of Scope
+
+- Workspace-wide responsibility queues, notifications, conflict-safe editing,
+  or new ownership fields for roadmap/epic artifacts.
+- Transferring ownership to an invited-but-not-yet-accepted user or directly to
+  an agent credential.
+- Rewriting historical creator/editor/completer provenance during offboarding.
+
+## Acceptance Criteria
+
+1. Before member removal or active agent revocation, owners see current counts
+   for active task assignments, context-card stewardship, meeting-note
+   stewardship, and open meeting-todo assignments; non-owners and
+   cross-project actor identifiers are rejected.
+2. An offboarding mutation with active responsibilities cannot proceed without
+   an explicit `reassign` or `unassign` resolution. Reassignment accepts only a
+   current human owner/member other than the departing actor; unassignment
+   clears every active responsibility in scope.
+3. Responsibility resolution and member removal / credential revocation are
+   one transaction and use a server-side recomputed inventory. Completed and
+   archived work plus historical actor/provenance snapshots remain unchanged.
+4. Ownership can transfer only from the current owner to an accepted project
+   collaborator. The new owner becomes the sole owner atomically; the previous
+   owner either remains an editor or leaves after resolving active
+   responsibilities. A project can never be left ownerless.
+5. The owner UI uses keyboard-accessible dialogs with visible labels, focus
+   management, inline announced errors, loading/disabled feedback, semantic
+   danger treatment, 44px primary targets, light/dark parity, and no horizontal
+   overflow at 375px.
+6. Successful removal, revocation, transfer, and transfer-and-leave flows give
+   confirmation feedback and refresh/redirect to a state the acting user may
+   still access; failed mutations preserve the dialog state for recovery.
+
+## Definition Of Done
+
+- Services, routes, the owner Contributors/Agent access surfaces, the transfer
+  SQL function and migration, and relevant contracts are implemented together.
+- Focused tests cover inventories, authorization, replacement validation,
+  unassign/reassign behavior, atomic ownership role changes, last-owner
+  protection, UI semantics, and the owner-leave redirect.
+- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
+  `npm run build`, the real PostgreSQL RLS matrix, and relevant Playwright
+  coverage pass; `git diff --check` is clean.
+- Product version/release notes, `journal.md`, this brief, and the live ND-179
+  board card are consistent. The branch is pushed, a ready-for-review PR is
+  open, required checks pass, and initial Copilot review is triaged with every
+  addressed thread resolved.
+- The active branch is deployed through the manual Preview workflow with an
+  explicit `git_ref`; the resulting URL is validated with preview credentials
+  from the user-specified `.tmp` env contract and recorded in the handoff.
+
+## Runtime Assumptions
+
+- Local PostgreSQL must be reachable for migration, RLS, and browser
+  validation. No new runtime secret is introduced.
+- Production Nexus Dash board access uses the documented gitignored
+  `.config/.nd-nexus-dash.env`; preview access uses the gitignored `.tmp`
+  preview env supplied outside the task worktree.
+- ND-178 is the related, merged foundation. ND-179 uses its canonical project
+  actor fields and helpers from `main`.
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` briefs are preserved verbatim below.
 
 ---
 

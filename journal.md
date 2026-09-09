@@ -3,6 +3,32 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-09 - ND-179: Ownership continuity and collaborator offboarding
+
+- Onboarded from the live ND-179 card, tightened its rationale, scope,
+  acceptance criteria, and definition of done, moved it to In Progress, and
+  implemented in the dedicated `../nexus_dash_task179` worktree on
+  `feature/nd-179-ownership-offboarding` from `origin/main` at 6426c1a.
+- Added one owner-authorized service for active task assignments, context-card
+  and meeting-note stewardship, and open meeting-todo assignments. Member
+  removal and agent revocation recompute and resolve that inventory in their
+  RLS transaction; only active fields change, never historical provenance.
+- Added ownership transfer backed by a locked, narrowly granted
+  security-definer PostgreSQL function. Only a current membership can become
+  owner; the former owner atomically remains editor or resolves work and leaves.
+- Used UI UX Pro Max for confirmation semantics, focus, announced errors,
+  loading feedback, touch targets, responsive containment, and stacking.
+  Chromium testing found stacked dialogs could strand Cancel; Settings now
+  yields to the handoff dialog and returns on cancel or non-transfer completion.
+- Validation: lint, RLS inventory, full unit suite (1,400 passed, 2 skipped),
+  coverage (93.45% statements / 84% branches / 95.3% functions / 93.75%
+  lines), production build, real least-privilege PostgreSQL matrix, and the
+  full Chromium suite (59 passed, 1 preview-only skipped). The ND-179 375px
+  journey also confirms no overflow, 44px actions, active-field clearing, and
+  historical provenance retention. Coverage used a 15s Vitest timeout because
+  Windows/Node 24 git-spawning version-policy fixtures exceeded their fixed 5s
+  under instrumentation; all tests and thresholds passed unchanged.
+
 # 2026-09-08 - ND-438 preview acceptance on the merged PR #496 head
 
 - Preview acceptance ran against the PR #496 head deployed to the ND-438

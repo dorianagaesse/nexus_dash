@@ -6,6 +6,7 @@ import {
   removeProjectMember,
   updateProjectMemberRole,
 } from "@/lib/services/project-collaboration-service";
+import { parseResponsibilityResolution } from "@/lib/services/project-offboarding-service";
 
 interface UpdateMemberRoleRequestBody {
   role?: unknown;
@@ -61,14 +62,24 @@ export async function DELETE(
     return authenticatedUser.response;
   }
 
+  const payload = (await request.json().catch(() => null)) as
+    | { responsibilityResolution?: unknown }
+    | null;
+
   const result = await removeProjectMember({
     actorUserId: authenticatedUser.userId,
     projectId: params.projectId,
     membershipId: params.membershipId,
+    responsibilityResolution: parseResponsibilityResolution(
+      payload?.responsibilityResolution
+    ),
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error, inventory: result.inventory },
+      { status: result.status }
+    );
   }
 
   return NextResponse.json(result.data);

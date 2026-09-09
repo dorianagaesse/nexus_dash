@@ -16,6 +16,7 @@ import { ProjectDashboardOwnerAgentAccessPanel } from "@/components/project-dash
 import { ProjectDashboardOwnerAccessPanel } from "@/components/project-dashboard/project-dashboard-owner-access-panel";
 import { ProjectDashboardOwnerGeneralPanel } from "@/components/project-dashboard/project-dashboard-owner-general-panel";
 import { ProjectDashboardOwnerSharingPanel } from "@/components/project-dashboard/project-dashboard-owner-sharing-panel";
+import { ProjectOffboardingDialog } from "@/components/project-dashboard/project-offboarding-dialog";
 import {
   type GeneratedProjectInvitationLink,
   formatInvitationEmailDelivery,
@@ -31,7 +32,9 @@ import {
   type ProjectDashboardSettingsTab,
   type ProjectInvitationSummary,
   type ProjectMemberSummary,
+  type ProjectResponsibilityInventory,
   type ProjectSharingSummary,
+  type ResponsibilityResolution,
 } from "@/components/project-dashboard/project-dashboard-owner-actions.shared";
 
 function normalizeInviteEmailCandidate(value: string): string | null {
@@ -56,6 +59,29 @@ interface ProjectDashboardOwnerActionsProps {
 interface LatestAgentCredentialSecret extends ProjectAgentCredentialIssuedSecret {
   mode: "created" | "rotated";
 }
+
+type OffboardingDialogState =
+  | {
+      variant: "remove-member";
+      actorKind: "human";
+      actorId: string;
+      actorLabel: string;
+      member: ProjectMemberSummary;
+    }
+  | {
+      variant: "revoke-agent";
+      actorKind: "agent";
+      actorId: string;
+      actorLabel: string;
+      credential: ProjectAgentCredentialSummary;
+    }
+  | {
+      variant: "transfer-owner";
+      actorKind: "human";
+      actorId: string;
+      actorLabel: string;
+      transferTarget: ProjectMemberSummary;
+    };
 
 export function ProjectDashboardOwnerActions({
   projectId,
@@ -101,6 +127,13 @@ export function ProjectDashboardOwnerActions({
   const [searchMessage, setSearchMessage] = useState<string | null>(null);
   const [generatedInvitationLink, setGeneratedInvitationLink] =
     useState<GeneratedProjectInvitationLink | null>(null);
+  const [offboardingDialog, setOffboardingDialog] =
+    useState<OffboardingDialogState | null>(null);
+  const [responsibilityInventory, setResponsibilityInventory] =
+    useState<ProjectResponsibilityInventory | null>(null);
+  const [isLoadingResponsibilities, setIsLoadingResponsibilities] = useState(false);
+  const [isSubmittingOffboarding, setIsSubmittingOffboarding] = useState(false);
+  const [offboardingError, setOffboardingError] = useState<string | null>(null);
   const inviteEmailCandidate = useMemo(
     () => normalizeInviteEmailCandidate(inviteQuery),
     [inviteQuery]
@@ -131,7 +164,8 @@ export function ProjectDashboardOwnerActions({
       isDeletingProject ||
       isCreatingAgentCredential ||
       mutatingAgentCredentialId ||
-      sendingInvitationEmailId
+      sendingInvitationEmailId ||
+      isSubmittingOffboarding
     ) {
       return;
     }
@@ -139,6 +173,49 @@ export function ProjectDashboardOwnerActions({
     setGeneratedInvitationLink(null);
     setLatestAgentCredentialSecret(null);
     setIsOpen(false);
+  };
+
+  const openOffboardingDialog = async (dialog: OffboardingDialogState) => {
+    setIsOpen(false);
+    setOffboardingDialog(dialog);
+    setResponsibilityInventory(null);
+    setOffboardingError(null);
+    setIsLoadingResponsibilities(true);
+
+    try {
+      const query = new URLSearchParams({
+        actorKind: dialog.actorKind,
+        actorId: dialog.actorId,
+      });
+      const response = await fetch(
+        `/api/projects/${projectId}/offboarding?${query.toString()}`
+      );
+      const payload = (await response.json().catch(() => null)) as
+        | { inventory?: ProjectResponsibilityInventory; error?: string }
+        | null;
+      if (!response.ok || !payload?.inventory) {
+        throw new Error(mapSharingError(payload?.error ?? "responsibility-load-failed"));
+      }
+      setResponsibilityInventory(payload.inventory);
+    } catch (error) {
+      setOffboardingError(
+        error instanceof Error
+          ? error.message
+          : "Could not load active responsibilities. Please retry."
+      );
+    } finally {
+      setIsLoadingResponsibilities(false);
+    }
+  };
+
+  const closeOffboardingDialog = () => {
+    if (isSubmittingOffboarding) {
+      return;
+    }
+    setOffboardingDialog(null);
+    setResponsibilityInventory(null);
+    setOffboardingError(null);
+    setIsOpen(true);
   };
 
   const openModal = (nextTab: ProjectDashboardSettingsTab) => {
@@ -207,7 +284,10 @@ export function ProjectDashboardOwnerActions({
   }, [projectId]);
 
   useEffect(() => {
-    if (!isOpen || (activeTab !== "sharing" && activeTab !== "access")) {
+    if (
+      !isOpen ||
+      (activeTab !== "sharing" && activeTab !== "access" && activeTab !== "agents")
+    ) {
       return;
     }
 
@@ -628,58 +708,31 @@ export function ProjectDashboardOwnerActions({
     }
   };
 
-  const handleRemoveMember = async (member: ProjectMemberSummary) => {
+  const handleRemoveMember = (member: ProjectMemberSummary) => {
     if (member.isOwner || isMutatingMemberId) {
       return;
     }
+    void openOffboardingDialog({
+      variant: "remove-member",
+      actorKind: "human",
+      actorId: member.id,
+      actorLabel: member.displayName,
+      member,
+    });
+  };
 
-    if (!window.confirm(`Remove ${member.displayName} from ${projectName}?`)) {
+  const handleTransferOwnership = (member: ProjectMemberSummary) => {
+    const owner = sharingSummary?.members.find((entry) => entry.isOwner);
+    if (!owner || member.isOwner || isSubmittingOffboarding) {
       return;
     }
-
-    setIsMutatingMemberId(member.membershipId);
-
-    try {
-      const response = await fetch(
-        `/api/projects/${projectId}/sharing/members/${member.membershipId}`,
-        {
-          method: "DELETE",
-        }
-      );
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string }
-        | null;
-
-      if (!response.ok) {
-        throw new Error(mapSharingError(payload?.error ?? "member-remove-failed"));
-      }
-
-      setSharingSummary((previous) =>
-        previous
-          ? {
-              ...previous,
-              members: previous.members.filter(
-                (entry) => entry.membershipId !== member.membershipId
-              ),
-            }
-          : previous
-      );
-      pushToast({
-        variant: "success",
-        message: `${member.displayName} removed from the project.`,
-      });
-    } catch (error) {
-      pushToast({
-        variant: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Could not remove collaborator. Please retry.",
-      });
-      await loadSharingSummary();
-    } finally {
-      setIsMutatingMemberId(null);
-    }
+    void openOffboardingDialog({
+      variant: "transfer-owner",
+      actorKind: "human",
+      actorId: owner.id,
+      actorLabel: owner.displayName,
+      transferTarget: member,
+    });
   };
 
   const handleRevokeInvitation = async (invitation: ProjectInvitationSummary) => {
@@ -852,59 +905,150 @@ export function ProjectDashboardOwnerActions({
     }
   };
 
-  const handleRevokeAgentCredential = async (
+  const handleRevokeAgentCredential = (
     credential: ProjectAgentCredentialSummary
   ) => {
     if (mutatingAgentCredentialId) {
       return;
     }
+    void openOffboardingDialog({
+      variant: "revoke-agent",
+      actorKind: "agent",
+      actorId: credential.id,
+      actorLabel: credential.label,
+      credential,
+    });
+  };
 
-    if (
-      !window.confirm(
-        `Revoke ${credential.label}? Existing bearer tokens will expire naturally, and future exchanges will be denied.`
-      )
-    ) {
+  const submitOffboarding = async (input: {
+    previousOwnerLeaves: boolean;
+    responsibilityResolution: ResponsibilityResolution | null;
+  }) => {
+    const dialog = offboardingDialog;
+    if (!dialog || isSubmittingOffboarding) {
       return;
     }
 
-    setMutatingAgentCredentialId(credential.id);
-    setAgentAccessError(null);
-
+    setIsSubmittingOffboarding(true);
+    setOffboardingError(null);
     try {
-      const response = await fetch(`/api/projects/${projectId}/agent-access/${credential.id}`, {
-        method: "DELETE",
-      });
-      const payload = (await response.json().catch(() => null)) as
-        | {
-            credential?: ProjectAgentCredentialSummary;
-            error?: string;
+      if (dialog.variant === "remove-member") {
+        setIsMutatingMemberId(dialog.member.membershipId);
+        const response = await fetch(
+          `/api/projects/${projectId}/sharing/members/${dialog.member.membershipId}`,
+          {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              responsibilityResolution: input.responsibilityResolution,
+            }),
           }
-        | null;
-
-      if (!response.ok || !payload) {
-        throw new Error(mapAgentAccessError(payload?.error ?? "credential-revoke-failed"));
+        );
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; inventory?: ProjectResponsibilityInventory }
+          | null;
+        if (!response.ok) {
+          if (payload?.inventory) {
+            setResponsibilityInventory(payload.inventory);
+          }
+          throw new Error(mapSharingError(payload?.error ?? "member-remove-failed"));
+        }
+        setSharingSummary((previous) =>
+          previous
+            ? {
+                ...previous,
+                members: previous.members.filter(
+                  (entry) => entry.membershipId !== dialog.member.membershipId
+                ),
+              }
+            : previous
+        );
+        pushToast({
+          variant: "success",
+          message: `${dialog.member.displayName} removed from the project.`,
+        });
+      } else if (dialog.variant === "revoke-agent") {
+        setMutatingAgentCredentialId(dialog.credential.id);
+        const response = await fetch(
+          `/api/projects/${projectId}/agent-access/${dialog.credential.id}`,
+          {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              responsibilityResolution: input.responsibilityResolution,
+            }),
+          }
+        );
+        const payload = (await response.json().catch(() => null)) as
+          | {
+              credential?: ProjectAgentCredentialSummary;
+              error?: string;
+              inventory?: ProjectResponsibilityInventory;
+            }
+          | null;
+        if (!response.ok || !payload) {
+          if (payload?.inventory) {
+            setResponsibilityInventory(payload.inventory);
+          }
+          throw new Error(mapSharingError(payload?.error ?? "credential-revoke-failed"));
+        }
+        setLatestAgentCredentialSecret((currentSecret) =>
+          currentSecret?.credential.id === dialog.credential.id
+            ? null
+            : currentSecret
+        );
+        await loadAgentAccessSummary();
+        pushToast({
+          variant: "success",
+          message: `Credential ${dialog.credential.label} revoked.`,
+        });
+      } else {
+        const response = await fetch(`/api/projects/${projectId}/ownership/transfer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            newOwnerMembershipId: dialog.transferTarget.membershipId,
+            previousOwnerLeaves: input.previousOwnerLeaves,
+            responsibilityResolution: input.responsibilityResolution,
+          }),
+        });
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; inventory?: ProjectResponsibilityInventory }
+          | null;
+        if (!response.ok) {
+          if (payload?.inventory) {
+            setResponsibilityInventory(payload.inventory);
+          }
+          throw new Error(mapSharingError(payload?.error ?? "ownership-transfer-failed"));
+        }
+        pushToast({
+          variant: "success",
+          message: input.previousOwnerLeaves
+            ? `Ownership transferred to ${dialog.transferTarget.displayName}. You left ${projectName}.`
+            : `Ownership transferred to ${dialog.transferTarget.displayName}.`,
+        });
+        setOffboardingDialog(null);
+        setIsOpen(false);
+        if (input.previousOwnerLeaves) {
+          router.push("/projects");
+        }
+        router.refresh();
+        return;
       }
 
-      setLatestAgentCredentialSecret((currentSecret) =>
-        currentSecret?.credential.id === credential.id ? null : currentSecret
-      );
-      pushToast({
-        variant: "success",
-        message: `Credential ${credential.label} revoked.`,
-      });
-      await loadAgentAccessSummary();
+      setOffboardingDialog(null);
+      setResponsibilityInventory(null);
+      setIsOpen(true);
     } catch (error) {
-      const message =
+      setOffboardingError(
         error instanceof Error
           ? error.message
-          : "Could not revoke the credential. Please retry.";
-      setAgentAccessError(message);
-      pushToast({
-        variant: "error",
-        message,
-      });
+          : "Could not complete the handoff. Please retry."
+      );
     } finally {
+      setIsMutatingMemberId(null);
       setMutatingAgentCredentialId(null);
+      setIsSubmittingOffboarding(false);
     }
   };
 
@@ -1099,6 +1243,9 @@ export function ProjectDashboardOwnerActions({
                         void handleRoleChange(member, nextRole)
                       }
                       onRemoveMember={(member) => void handleRemoveMember(member)}
+                      onTransferOwnership={(member) =>
+                        void handleTransferOwnership(member)
+                      }
                       onCopyInvitationLink={handleCopyInvitationLink}
                       onSendInvitationEmail={(invitation) =>
                         void handleSendInvitationEmail(invitation)
@@ -1129,6 +1276,33 @@ export function ProjectDashboardOwnerActions({
                 </CardContent>
         </DialogContent>
       </Dialog>
+
+      {offboardingDialog ? (
+        <ProjectOffboardingDialog
+          isOpen
+          variant={offboardingDialog.variant}
+          actorLabel={offboardingDialog.actorLabel}
+          transferTargetLabel={
+            offboardingDialog.variant === "transfer-owner"
+              ? offboardingDialog.transferTarget.displayName
+              : undefined
+          }
+          inventory={responsibilityInventory}
+          replacementCandidates={(sharingSummary?.members ?? []).filter(
+            (member) => member.id !== offboardingDialog.actorId
+          )}
+          suggestedReplacementUserId={
+            offboardingDialog.variant === "transfer-owner"
+              ? offboardingDialog.transferTarget.id
+              : sharingSummary?.members.find((member) => member.isOwner)?.id
+          }
+          isLoading={isLoadingResponsibilities}
+          isSubmitting={isSubmittingOffboarding}
+          error={offboardingError}
+          onCancel={closeOffboardingDialog}
+          onConfirm={submitOffboarding}
+        />
+      ) : null}
 
       <ConfirmDialog
         isOpen={isDeleteDialogOpen}

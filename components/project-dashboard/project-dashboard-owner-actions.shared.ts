@@ -64,6 +64,18 @@ export interface ProjectSharingSummary {
   pendingInvitations: ProjectInvitationSummary[];
 }
 
+export interface ProjectResponsibilityInventory {
+  taskAssignments: number;
+  contextCardStewardships: number;
+  meetingNoteStewardships: number;
+  meetingTodoAssignments: number;
+  total: number;
+}
+
+export type ResponsibilityResolution =
+  | { mode: "reassign"; replacementUserId: string }
+  | { mode: "unassign" };
+
 export interface ProjectAgentCredentialSummary {
   id: string;
   label: string;
@@ -149,6 +161,16 @@ export function mapSharingError(errorCode: string): string {
       return "The owner role cannot be changed in v1.";
     case "cannot-remove-owner":
       return "The owner cannot be removed from the project.";
+    case "responsibility-resolution-required":
+      return "Choose how to resolve active responsibilities before continuing.";
+    case "invalid-responsibility-replacement":
+      return "Choose a current project collaborator for reassignment.";
+    case "new-owner-not-member":
+      return "Choose an accepted project collaborator as the new owner.";
+    case "same-owner":
+      return "Choose another collaborator as the new owner.";
+    case "ownership-transfer-failed":
+      return "Ownership could not be transferred. Refresh and retry.";
     case "invitation-not-found":
       return "Invitation not found.";
     case "invitation-not-active":

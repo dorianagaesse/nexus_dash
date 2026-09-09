@@ -16,6 +16,21 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-09-09 - ND-179: Resolve active responsibility before atomic ownership and access handoff
+- Status: Accepted.
+- Context: Access removal could leave active work assigned to a departed actor,
+  and project owners had no safe control-transfer and leave path.
+- Decision: Inventory and resolve active task, context-card, meeting-note, and
+  meeting-todo responsibility inside the access-removal transaction. Rotate
+  ownership through a project-row-locking security-definer function that
+  validates the current owner and target membership, installs one new owner,
+  and demotes or removes the former owner.
+- Consequences: Offboarding no longer silently strands active work; historical
+  attribution stays durable. Concurrent transfers serialize on the project
+  row, and the privileged function is covered by the least-privilege matrix.
+- Links: `tasks/current.md` (ND-179),
+  `adr/task-338-project-ownership-continuity.md`.
+
 ## 2026-09-06 - TASK-337: Canonical project-actor contract and durable agent task attribution
 - Status: Accepted; groundwork for the ND-382/383/384/385 consumers and the
   TASK-340 history model; supersedes the duplicated actor vocabularies built

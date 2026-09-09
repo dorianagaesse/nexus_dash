@@ -65,6 +65,21 @@ async function runtimeTransaction(actorUserId, operation) {
   }
 }
 
+async function adminTransaction(actorUserId, operation) {
+  await admin.query("BEGIN");
+  try {
+    await admin.query("SELECT set_config('app.user_id', $1, true)", [
+      actorUserId,
+    ]);
+    const result = await operation();
+    await admin.query("ROLLBACK");
+    return result;
+  } catch (error) {
+    await admin.query("ROLLBACK");
+    throw error;
+  }
+}
+
 async function expectRlsViolation(operation, label) {
   await assert.rejects(operation, (error) => {
     assert.equal(error?.code, "42501", `${label} should fail with RLS denial`);
@@ -549,6 +564,66 @@ try {
   );
   assert.equal(crossCredentialUpdate.rowCount, 0);
 
+  const forbiddenOwnershipTransfer = await runtimeTransaction(ids.ownerA, () =>
+    runtime.query(
+      `SELECT app.transfer_project_ownership($1, $2, $3, false) AS result`,
+      [ids.ownerA, ids.projectB, ids.editorB]
+    )
+  );
+  assert.equal(forbiddenOwnershipTransfer.rows[0].result, "forbidden");
+
+  const ownershipTransfer = await runtimeTransaction(ids.ownerB, async () => {
+    const transfer = await runtime.query(
+      `SELECT app.transfer_project_ownership($1, $2, $3, false) AS result`,
+      [ids.ownerB, ids.projectB, ids.editorB]
+    );
+    const project = await runtime.query(
+      `SELECT "ownerId" FROM "Project" WHERE "id" = $1`,
+      [ids.projectB]
+    );
+    return { transfer, project };
+  });
+  assert.equal(ownershipTransfer.transfer.rows[0].result, "ok");
+  assert.equal(ownershipTransfer.project.rows[0].ownerId, ids.editorB);
+
+  const ownershipState = await adminTransaction(ids.ownerB, async () => {
+    const transfer = await admin.query(
+      `SELECT app.transfer_project_ownership($1, $2, $3, false) AS result`,
+      [ids.ownerB, ids.projectB, ids.editorB]
+    );
+    const memberships = await admin.query(
+      `SELECT "userId", role FROM "ProjectMembership"
+       WHERE "projectId" = $1 AND role = 'owner'`,
+      [ids.projectB]
+    );
+    const previousOwner = await admin.query(
+      `SELECT role FROM "ProjectMembership"
+       WHERE "projectId" = $1 AND "userId" = $2`,
+      [ids.projectB, ids.ownerB]
+    );
+    return { transfer, memberships, previousOwner };
+  });
+  assert.equal(ownershipState.transfer.rows[0].result, "ok");
+  assert.deepEqual(ownershipState.memberships.rows, [
+    { userId: ids.editorB, role: "owner" },
+  ]);
+  assert.equal(ownershipState.previousOwner.rows[0].role, "editor");
+
+  const ownershipTransferAndLeave = await adminTransaction(ids.ownerB, async () => {
+    const transfer = await admin.query(
+      `SELECT app.transfer_project_ownership($1, $2, $3, true) AS result`,
+      [ids.ownerB, ids.projectB, ids.editorB]
+    );
+    const previousOwner = await admin.query(
+      `SELECT role FROM "ProjectMembership"
+       WHERE "projectId" = $1 AND "userId" = $2`,
+      [ids.projectB, ids.ownerB]
+    );
+    return { transfer, previousOwner };
+  });
+  assert.equal(ownershipTransferAndLeave.transfer.rows[0].result, "ok");
+  assert.equal(ownershipTransferAndLeave.previousOwner.rowCount, 0);
+
   const exchangeLookup = await runtimeTransaction(undefined, () =>
     runtime.query(
       `SELECT "id", "project_id", "created_by_user_id", "scopes"
@@ -570,7 +645,7 @@ try {
   assert.equal(missingLookup.rowCount, 0);
 
   console.log(
-    "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, revoked membership, Calendar connections/sources/preferences, and agent credentials."
+    "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, revoked membership, ownership transfer, Calendar connections/sources/preferences, and agent credentials."
   );
 } finally {
   await cleanup().catch(() => undefined);
