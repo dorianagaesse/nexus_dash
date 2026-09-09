@@ -9,7 +9,6 @@ import { getHistoricalProjectActorId } from "@/lib/project-actor";
 import {
   buildProjectPrincipalWhere,
   requireProjectRole,
-  requireAgentProjectScopes,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
@@ -217,6 +216,51 @@ export function buildProjectActorRegistry(input: {
   return { activeHumanIds, humanById, credentialById, assignable };
 }
 
+export async function loadProjectActorRegistry(input: {
+  db: DbClient;
+  projectId: string;
+  now?: Date;
+}): Promise<ProjectActorRegistry | null> {
+  const project = await input.db.project.findUnique({
+    where: { id: input.projectId },
+    select: {
+      owner: { select: projectActorUserSelect },
+      memberships: {
+        orderBy: [{ createdAt: "asc" }],
+        select: { user: { select: projectActorUserSelect } },
+      },
+      apiCredentials: {
+        orderBy: [{ label: "asc" }, { createdAt: "asc" }],
+        select: projectActorCredentialSelect,
+      },
+    },
+  });
+  if (!project) {
+    return null;
+  }
+
+  return buildProjectActorRegistry({
+    humans: [
+      project.owner,
+      ...project.memberships.map((membership) => membership.user),
+    ],
+    credentials: project.apiCredentials,
+    now: input.now,
+  });
+}
+
+export async function listAssignableProjectActors(input: {
+  actorUserId: string;
+  projectId: string;
+}): Promise<ProjectActorSummary[]> {
+  return listProjectActors({
+    actorUserId: input.actorUserId,
+    projectId: input.projectId,
+    loadRegistry: ({ db, projectId }) =>
+      loadProjectActorRegistry({ db, projectId }),
+  });
+}
+
 function projectActorSearchScore(
   actor: ProjectActorSearchResult,
   normalizedQuery: string
@@ -256,19 +300,15 @@ export async function searchProjectActors(input: {
   }
 
   if (input.agentAccess) {
-    const scopeAccess = ["project:read", "task:read", "task:write"]
-      .map((scope) =>
-        requireAgentProjectScopes({
-          agentAccess: input.agentAccess,
-          projectId,
-          requiredScopes: [scope as "project:read" | "task:read" | "task:write"],
-        })
+    if (input.agentAccess.projectId !== projectId) {
+      return { ok: false, status: 404, error: "project-not-found" };
+    }
+    if (
+      !input.agentAccess.scopes.some((scope) =>
+        ["project:read", "task:read", "task:write"].includes(scope)
       )
-      .find((result) => result.ok);
-    if (!scopeAccess) {
-      return input.agentAccess.projectId === projectId
-        ? { ok: false, status: 403, error: "forbidden" }
-        : { ok: false, status: 404, error: "project-not-found" };
+    ) {
+      return { ok: false, status: 403, error: "forbidden" };
     }
   }
 

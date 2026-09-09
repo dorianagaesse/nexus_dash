@@ -65,6 +65,7 @@ export function isMeetingTodoActorReference(
   if (!value || typeof value !== "object") {
     return false;
   }
+
   const record = value as Record<string, unknown>;
   return (
     record.kind === "participant" &&
@@ -81,8 +82,11 @@ export function buildExternalParticipantMeetingTodoActor(input: {
   displayName: string;
   isCurrentParticipant?: boolean;
 }): MeetingTodoActorSummary {
-  const normalizedDisplayName = normalizeMeetingParticipantName(input.displayName);
-  const displayName = normalizedDisplayName || "Former meeting participant";
+  const normalizedDisplayName = normalizeMeetingParticipantName(
+    input.displayName
+  );
+  const displayName =
+    normalizedDisplayName || "Former meeting participant";
   const isCurrentParticipant =
     Boolean(normalizedDisplayName) && Boolean(input.isCurrentParticipant);
   return {
@@ -94,10 +98,4 @@ export function buildExternalParticipantMeetingTodoActor(input: {
     status: isCurrentParticipant ? "active" : "inactive",
     isAssignable: isCurrentParticipant,
   };
-}
-
-export function isProjectMeetingTodoActor(
-  actor: MeetingTodoActorSummary
-): actor is ProjectActorSummary {
-  return actor.kind === "human" || actor.kind === "agent";
 }

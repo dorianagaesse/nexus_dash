@@ -272,7 +272,7 @@ export function MentionAutocomplete({
     <div
       ref={panelRef}
       role="listbox"
-        aria-label="Project people and agents"
+      aria-label="Project people and agents"
       data-overlay-popover="true"
       className={cn(
         "pointer-events-auto fixed z-[120] overflow-hidden rounded-xl border border-border/70 bg-background/95 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)] backdrop-blur-sm",
@@ -356,7 +356,7 @@ export function MentionAutocomplete({
                   </p>
                   {member.kind === "agent" ? (
                     <p className="truncate text-xs leading-tight text-muted-foreground">
-                      Agent · Mention support coming soon
+                      Agent — mention support coming soon
                     </p>
                   ) : member.usernameTag ? (
                     <p className="truncate text-xs text-muted-foreground leading-tight">

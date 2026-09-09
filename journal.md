@@ -3,6 +3,32 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-09 - ND-382: Active project agents in collaboration pickers
+
+- Read the live production ND-382 card through the documented agent API,
+  moved it from Backlog to In Progress, and implemented the work in the
+  dedicated `../nexus_dash_nd382_wt` worktree on
+  `feature/nd-382-active-project-agent-pickers`.
+- Added a bounded, project-authorized actor search that maps humans and active
+  agent credentials through the canonical ND-178 registry, searches agents by
+  credential label, and selects only non-secret credential metadata. Revoked
+  and expired credentials are excluded from new choices.
+- Wired active agent rows into mention autocomplete and task assignee pickers
+  with explicit Agent identity and accessible disabled treatment pending the
+  ND-383/ND-384 persistence work. Meeting-todo actor loading now delegates to
+  the same registry and retains its existing agent assignment support.
+- UI treatment followed the UI UX Pro Max accessibility guidance for listbox
+  semantics, recognizable non-color-only agent identity, touch sizing,
+  responsive containment, and theme-token styling.
+- Local validation is green: lint; RLS inventory; release policy; focused
+  ND-382 Vitest (6 files / 12 tests); full Vitest (189 files / 1,393 tests,
+  2 skipped); coverage above thresholds (93.45% statements, 84% branches,
+  95.3% functions, 93.75% lines); production build; focused Chromium browser
+  acceptance at 375px; and the full Playwright suite (59 passed, 1 skipped).
+  The coverage run used a 15-second Vitest timeout because three existing
+  version-policy subprocess tests exceeded their default 5 seconds only under
+  coverage instrumentation.
+
 # 2026-09-08 - ND-438 preview acceptance on the merged PR #496 head
 
 - Preview acceptance ran against the PR #496 head deployed to the ND-438

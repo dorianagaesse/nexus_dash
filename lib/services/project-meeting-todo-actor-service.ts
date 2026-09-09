@@ -4,10 +4,9 @@ import {
   type MeetingTodoActorReference,
   type MeetingTodoActorSummary,
 } from "@/lib/meeting-todo-actor";
-import type { AgentProjectAccessContext } from "@/lib/services/project-access-service";
 import {
-  buildProjectActorRegistry,
   listProjectActors,
+  loadProjectActorRegistry,
   mapStoredProjectActor,
   projectActorCredentialSelect,
   projectActorUserSelect,
@@ -101,32 +100,7 @@ export async function loadMeetingTodoActorRegistry(input: {
   projectId: string;
   now?: Date;
 }): Promise<MeetingTodoActorRegistry | null> {
-  const project = await input.db.project.findUnique({
-    where: { id: input.projectId },
-    select: {
-      owner: { select: meetingTodoActorUserSelect },
-      memberships: {
-        orderBy: [{ createdAt: "asc" }],
-        select: { user: { select: meetingTodoActorUserSelect } },
-      },
-      apiCredentials: {
-        orderBy: [{ label: "asc" }, { createdAt: "asc" }],
-        select: meetingTodoActorCredentialSelect,
-      },
-    },
-  });
-  if (!project) {
-    return null;
-  }
-
-  return buildProjectActorRegistry({
-    humans: [
-      project.owner,
-      ...project.memberships.map((item) => item.user),
-    ],
-    credentials: project.apiCredentials,
-    now: input.now,
-  });
+  return loadProjectActorRegistry(input);
 }
 
 export async function listProjectMeetingTodoActors(input: {

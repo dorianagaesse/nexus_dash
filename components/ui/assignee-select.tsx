@@ -281,7 +281,7 @@ export function AssigneeSelect({
                           {agent.displayName}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
-                          Agent · Assignment support coming soon
+                          Agent — assignment support coming soon
                         </p>
                       </div>
                     </div>

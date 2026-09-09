@@ -75,6 +75,7 @@ import {
 import { createRelatedTaskMap } from "@/lib/task-related";
 import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 import { MAX_TASK_TITLE_LENGTH } from "@/lib/task-title";
+import type { ProjectActorSummary } from "@/lib/project-actor";
 
 export type { KanbanTask } from "@/components/kanban-board-types";
 
@@ -87,6 +88,7 @@ interface KanbanBoardProps {
   archivedDoneTasks?: KanbanTask[];
   epics: ProjectEpicOption[];
   collaborators: ProjectTaskCollaborator[];
+  projectActors?: ProjectActorSummary[];
   initialTaskId?: string | null;
 }
 
@@ -267,6 +269,7 @@ export function KanbanBoard({
   archivedDoneTasks: initialArchivedDoneTasks = [],
   epics,
   collaborators,
+  projectActors = [],
   initialTaskId,
 }: KanbanBoardProps) {
   const initialColumns = useMemo(
@@ -713,6 +716,13 @@ export function KanbanBoard({
         left.displayName.localeCompare(right.displayName)
       ),
     [collaborators]
+  );
+  const availableAgentOptions = useMemo<ProjectActorSummary[]>(
+    () =>
+      projectActors
+        .filter((actor) => actor.kind === "agent" && actor.isAssignable)
+        .sort((left, right) => left.displayName.localeCompare(right.displayName)),
+    [projectActors]
   );
 
   const addEditLabel = useCallback(
@@ -2612,6 +2622,7 @@ export function KanbanBoard({
             availableTasks={createDialogAvailableTasks}
             availableEpics={availableEpicOptions}
             availableAssignees={availableAssignees}
+            availableAgentOptions={availableAgentOptions}
             onTaskCreateStarted={insertOptimisticTask}
             onOptimisticTaskDiscard={(optimisticTaskId) => {
               if (optimisticTaskId) {
@@ -2722,6 +2733,7 @@ export function KanbanBoard({
         onRemoveRelatedTask={removeRelatedTask}
         availableEpicOptions={availableEpicOptions}
         availableAssignees={availableAssignees}
+        availableAgentOptions={availableAgentOptions}
         mentionUsers={availableAssignees}
         availableRelatedTaskOptions={availableRelatedTaskOptions}
         onOpenRelatedTask={openRelatedTask}

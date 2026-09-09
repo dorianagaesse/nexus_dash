@@ -77,6 +77,7 @@ import {
   MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
 } from "@/lib/content-with-mentions";
 import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
+import type { ProjectActorSummary } from "@/lib/project-actor";
 import {
   parseMentions,
   removeMentionBeforeCursor,
@@ -152,6 +153,7 @@ interface TaskDetailModalProps {
   onRemoveRelatedTask: (taskId: string) => void;
   availableEpicOptions: ProjectEpicOption[];
   availableAssignees: ProjectTaskCollaborator[];
+  availableAgentOptions?: ProjectActorSummary[];
   mentionUsers: MentionDisplayUser[];
   availableRelatedTaskOptions: RelatedTaskOption[];
   onOpenRelatedTask: (taskId: string) => void;
@@ -226,6 +228,7 @@ export function TaskDetailModal({
   onRemoveRelatedTask,
   availableEpicOptions,
   availableAssignees,
+  availableAgentOptions = [],
   mentionUsers,
   availableRelatedTaskOptions,
   onOpenRelatedTask,
@@ -440,6 +443,7 @@ export function TaskDetailModal({
                     epicOptions={availableEpicOptions}
                     currentAssignee={selectedTask.assignee}
                     assigneeOptions={availableAssignees}
+                    agentOptions={availableAgentOptions}
                     isArchived={isArchivedTask}
                     isMutating={isArchivingTask || isUpdatingTask}
                     onStartEdit={() => onToggleEditMode(true)}
@@ -521,6 +525,7 @@ export function TaskDetailModal({
                   onRemoveRelatedTask={onRemoveRelatedTask}
                   availableEpicOptions={availableEpicOptions}
                   availableAssignees={availableAssignees}
+                  availableAgentOptions={availableAgentOptions}
                   availableRelatedTaskOptions={availableRelatedTaskOptions}
                   onNewBlockedFollowUpEntryChange={onNewBlockedFollowUpEntryChange}
                   onAddBlockedFollowUpEntry={onAddBlockedFollowUpEntry}
@@ -795,6 +800,7 @@ interface TaskOptionsMenuProps {
   epicOptions: ProjectEpicOption[];
   currentAssignee: TaskPersonSummary | null;
   assigneeOptions: ProjectTaskCollaborator[];
+  agentOptions: ProjectActorSummary[];
   isArchived: boolean;
   isMutating: boolean;
   onStartEdit: () => void;
@@ -812,6 +818,7 @@ function TaskOptionsMenu({
   epicOptions,
   currentAssignee,
   assigneeOptions,
+  agentOptions,
   isArchived,
   isMutating,
   onStartEdit,
@@ -1116,6 +1123,36 @@ function TaskOptionsMenu({
                     </Button>
                   );
                 })}
+                {agentOptions.map((agent) => (
+                  <Button
+                    key={`agent:${agent.id}`}
+                    type="button"
+                    variant="ghost"
+                    className="h-auto min-h-12 w-full cursor-not-allowed justify-between py-2 opacity-70"
+                    disabled
+                    aria-disabled="true"
+                    title="Agent task assignment is not available yet"
+                  >
+                    <span className="inline-flex min-w-0 items-center gap-2">
+                      <AgentAvatar
+                        displayName={agent.displayName}
+                        className="h-7 w-7"
+                        decorative
+                      />
+                      <span className="min-w-0 text-left">
+                        <span className="block truncate text-sm font-medium">
+                          {agent.displayName}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          Agent — assignment support coming soon
+                        </span>
+                      </span>
+                    </span>
+                    <Badge variant="outline" className="text-[10px]">
+                      Agent
+                    </Badge>
+                  </Button>
+                ))}
               </div>
             </div>
           </div>
@@ -1749,6 +1786,7 @@ interface TaskEditContentProps {
   onRemoveRelatedTask: (taskId: string) => void;
   availableEpicOptions: ProjectEpicOption[];
   availableAssignees: ProjectTaskCollaborator[];
+  availableAgentOptions: ProjectActorSummary[];
   availableRelatedTaskOptions: RelatedTaskOption[];
   onNewBlockedFollowUpEntryChange: (value: string) => void;
   onAddBlockedFollowUpEntry: () => void | Promise<void>;
@@ -1795,6 +1833,7 @@ function TaskEditContent({
   onRemoveRelatedTask,
   availableEpicOptions,
   availableAssignees,
+  availableAgentOptions,
   availableRelatedTaskOptions,
   onNewBlockedFollowUpEntryChange,
   onAddBlockedFollowUpEntry,
@@ -1921,6 +1960,7 @@ function TaskEditContent({
             onChange={onEditAssigneeUserIdChange}
             disabled={isUpdatingTask}
             options={availableAssignees}
+            agentOptions={availableAgentOptions}
             className={FORM_FOCUS_BORDER_CLASS}
           />
         </div>

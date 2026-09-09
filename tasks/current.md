@@ -4,12 +4,11 @@
 
 ## Status
 
-In Progress (2026-09-07). Branch
+In Progress (2026-09-09). Branch
 `feature/nd-382-active-project-agent-pickers` uses the dedicated worktree
-`../nexus_dash_nd382_wt`, created from `origin/main` at 2fbc228. ND-382 is
-stacked on the canonical project-actor foundation in ND-178 / PR #489; that
-dependency is green and Copilot-clean but not yet merged. The Nexus Dash board
-card is In Progress.
+`../nexus_dash_nd382_wt`. The branch has been merged forward to `origin/main`
+at 6426c1a (v0.62.0), which includes the canonical project-actor foundation
+from ND-178 / PR #489. The Nexus Dash board card is In Progress.
 
 ## Context
 
@@ -84,8 +83,8 @@ agent rows the same recognizable, accessible treatment everywhere they appear.
   `.config/.nd-nexus-dash.env` agent credential contract. Preview UI validation
   uses the gitignored `.tmp/.nd-preview.env` access bundle from the main
   checkout if a deployed preview is required.
-- No new database model or RLS policy is introduced by ND-382. The branch
-  temporarily carries ND-178's migration until PR #489 merges.
+- No new database model or RLS policy is introduced by ND-382; ND-178's actor
+  schema and project-scoped registry are already present on `main`.
 
 ## Previous Task Snapshot
 
