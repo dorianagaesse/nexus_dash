@@ -16,6 +16,38 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-09-06 - TASK-337: Canonical project-actor contract and durable agent task attribution
+- Status: Accepted; groundwork for the ND-382/383/384/385 consumers and the
+  TASK-340 history model; supersedes the duplicated actor vocabularies built
+  by TASK-330/TASK-342.
+- Context: The collaboration audit (TASK-336) made first-class actor identity
+  its P0. Meeting todos and context cards each carried near-identical actor
+  kinds/statuses, mapping, registry loading, and resolution logic in separate
+  modules, and agent-executed task mutations persisted only the credential
+  owner's user id on the task row, losing the acting agent from provenance.
+- Decision: Introduced one project-scoped actor contract
+  (`lib/project-actor.ts` + `lib/services/project-actor-service.ts`) —
+  shared kind/status/reference vocabulary, registry building, resolution, and
+  a mutation-actor resolver — and re-based the meeting-todo and context-card
+  actor modules onto it as delegating shims that keep their export surface,
+  domain-specific registry loaders (Prisma read vs. the
+  `list_project_context_card_actors` SQL projection), and error codes
+  unchanged. Task rows gained nullable `createdBy/updatedByCredentialId` +
+  durable `Label` snapshot columns (FK `ON DELETE SET NULL`); all task
+  mutation write sites resolve the acting credential at write time and
+  snapshot its label, so later credential renames/revocations never rewrite
+  history, and a credential row missing at write time degrades to
+  human-only attribution. Author records surfaced through task payloads now
+  use the same human/agent vocabulary as task comments (TASK-307).
+- Consequences: Consumer modules shrank to delegating shims with zero
+  behavioral change (all prior actor tests green unchanged); task author
+  records are a superset for UI clients; attribution columns grant no
+  permission and RLS authorization still executes under the credential owner
+  principal.
+- Links: `tasks/current.md` (ND-178 brief), migration
+  `prisma/migrations/20260906100000_task337_project_actor_identity`,
+  TASK-330/TASK-342 ADR entries and task files, TASK-307 comment identity.
+
 ## 2026-09-01 - Replace database-polled SSE and keep Vercel Pro as a bounded safety net
 - Status: Accepted; supersedes the transport portions of the 2026-06-03
   project-activity SSE decision and the 2026-06-04 notification SSE decision.

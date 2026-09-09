@@ -74,6 +74,7 @@ import {
 } from "@/lib/task-label";
 import { createRelatedTaskMap } from "@/lib/task-related";
 import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
+import { MAX_TASK_TITLE_LENGTH } from "@/lib/task-title";
 
 export type { KanbanTask } from "@/components/kanban-board-types";
 
@@ -110,6 +111,8 @@ function stampTaskActivity(
 
 function getTaskMutationErrorMessage(errorCode?: string): string {
   switch (errorCode) {
+    case "title-too-long":
+      return `Task title must be ${MAX_TASK_TITLE_LENGTH} characters or fewer.`;
     case "related-tasks-invalid":
       return "Related tasks must stay active and belong to this project.";
     case "epic-invalid":
@@ -637,28 +640,6 @@ export function KanbanBoard({
     () => new Map(allTasks.map((task) => [task.id, task])),
     [allTasks]
   );
-
-  const normalizedInitialTaskId =
-    typeof initialTaskId === "string" ? initialTaskId.trim() : "";
-
-  useEffect(() => {
-    if (
-      !normalizedInitialTaskId ||
-      openedInitialTaskIdRef.current === normalizedInitialTaskId
-    ) {
-      return;
-    }
-
-    const initialTask = taskById.get(normalizedInitialTaskId);
-    openedInitialTaskIdRef.current = normalizedInitialTaskId;
-    if (!initialTask) {
-      return;
-    }
-
-    shouldOpenTaskInEditModeRef.current = false;
-    setSelectedTask(initialTask);
-    setIsExpanded(true);
-  }, [normalizedInitialTaskId, setIsExpanded, taskById]);
 
   const relatedTaskGraph = useMemo(() => createRelatedTaskMap(allTasks), [allTasks]);
 
@@ -1234,6 +1215,69 @@ export function KanbanBoard({
     [setIsExpanded]
   );
 
+  const normalizedInitialTaskId =
+    typeof initialTaskId === "string" ? initialTaskId.trim() : "";
+
+  useEffect(() => {
+    if (
+      !normalizedInitialTaskId ||
+      openedInitialTaskIdRef.current === normalizedInitialTaskId
+    ) {
+      return;
+    }
+
+    const initialTask = taskById.get(normalizedInitialTaskId);
+    openedInitialTaskIdRef.current = normalizedInitialTaskId;
+    if (initialTask) {
+      shouldOpenTaskInEditModeRef.current = false;
+      setSelectedTask(initialTask);
+      setIsExpanded(true);
+      return;
+    }
+
+    // The deep-linked task is absent from the loaded board; fetch it by id so
+    // the detail modal can still open. Failures keep the board unchanged.
+    let cancelled = false;
+    const openRemoteInitialTask = async () => {
+      try {
+        const response = await fetch(
+          `/api/projects/${projectId}/tasks/${encodeURIComponent(
+            normalizedInitialTaskId
+          )}`
+        );
+        if (!response.ok) {
+          return;
+        }
+        const payload = (await response.json()) as {
+          task?: TaskMutationResponseTask;
+        };
+        const remoteTask = payload.task;
+        if (cancelled || !remoteTask || !isTaskStatus(remoteTask.status)) {
+          return;
+        }
+        const mappedTask = mapTaskMutationResponseTask(remoteTask);
+        shouldOpenTaskInEditModeRef.current = false;
+        upsertRemoteTask(mappedTask);
+        setSelectedTask(mappedTask);
+        setIsExpanded(true);
+      } catch (error) {
+        console.error("[KanbanBoard.openRemoteInitialTask]", error);
+      }
+    };
+
+    void openRemoteInitialTask();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    normalizedInitialTaskId,
+    projectId,
+    setIsExpanded,
+    taskById,
+    upsertRemoteTask,
+  ]);
+
   const applyRemoteReorder = useCallback(
     (reorderedColumns: Array<{ status: TaskStatus; taskIds: string[] }>) => {
       setColumns((previousColumns) => {
@@ -1556,6 +1600,12 @@ export function KanbanBoard({
 
       if (normalizedTitle.length < 2) {
         setTaskModalError("Task title must be at least 2 characters.");
+        return false;
+      }
+      if (normalizedTitle.length > MAX_TASK_TITLE_LENGTH) {
+        setTaskModalError(
+          `Task title must be ${MAX_TASK_TITLE_LENGTH} characters or fewer.`
+        );
         return false;
       }
 

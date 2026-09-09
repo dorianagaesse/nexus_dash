@@ -17,6 +17,9 @@ const prismaMock = vi.hoisted(() => ({
     deleteMany: vi.fn(),
     createMany: vi.fn(),
   },
+  taskAttachment: {
+    createMany: vi.fn(),
+  },
   taskBlockedFollowUp: {
     create: vi.fn(),
   },
@@ -76,6 +79,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     prismaMock.task.findMany.mockResolvedValue([]);
     prismaMock.taskRelation.deleteMany.mockResolvedValue({ count: 0 });
     prismaMock.taskRelation.createMany.mockResolvedValue({ count: 0 });
+    prismaMock.taskAttachment.createMany.mockResolvedValue({ count: 1 });
     prismaMock.notification.findMany.mockResolvedValue([]);
     prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
     prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
@@ -121,6 +125,24 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
       error: "Task title must be at least 2 characters",
+    });
+    expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
+  });
+
+  test("returns 400 for title longer than 120 characters", async () => {
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "a".repeat(121),
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "title-too-long",
     });
     expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
   });
@@ -269,15 +291,23 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         },
         createdBy: {
           id: "user-1",
+          kind: "user",
           displayName: "alice",
           usernameTag: "alice#1234",
           avatarSeed: "user-1",
+          agentCredentialId: null,
+          agentCredentialLabel: null,
+          owner: null,
         },
         updatedBy: {
           id: "test-user",
+          kind: "user",
           displayName: "reviewer",
           usernameTag: "reviewer#0007",
           avatarSeed: "seed-reviewer",
+          agentCredentialId: null,
+          agentCredentialLabel: null,
+          owner: null,
         },
         createdAt: "2026-04-20T08:00:00.000Z",
         updatedAt: "2026-04-21T09:00:00.000Z",
@@ -489,15 +519,23 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         assignee: null,
         createdBy: {
           id: "user-1",
+          kind: "user",
           displayName: "alice",
           usernameTag: "alice#1234",
           avatarSeed: "user-1",
+          agentCredentialId: null,
+          agentCredentialLabel: null,
+          owner: null,
         },
         updatedBy: {
           id: "test-user",
+          kind: "user",
           displayName: "reviewer",
           usernameTag: "reviewer#0007",
           avatarSeed: "test-user",
+          agentCredentialId: null,
+          agentCredentialLabel: null,
+          owner: null,
         },
         createdAt: "2026-04-18T08:00:00.000Z",
         updatedAt: "2026-04-18T09:00:00.000Z",
@@ -907,6 +945,11 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       memberships: [],
     });
     prismaMock.apiCredential.findFirst.mockResolvedValueOnce({
+      id: "credential-1",
+      label: "Build bot",
+    });
+    prismaMock.apiCredential.findFirst.mockResolvedValueOnce({
+      id: "credential-1",
       label: "Build bot",
     });
     prismaMock.task.findUnique.mockResolvedValueOnce({
@@ -1003,6 +1046,14 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
 
     expect(response.status).toBe(200);
+    expect(prismaMock.task.update).toHaveBeenCalledWith({
+      where: { id: "t1" },
+      data: expect.objectContaining({
+        updatedByUserId: "owner-1",
+        updatedByCredentialId: "credential-1",
+        updatedByCredentialLabel: "Build bot",
+      }),
+    });
     expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({
@@ -1236,15 +1287,23 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         assignee: null,
         createdBy: {
           id: "user-1",
+          kind: "user",
           displayName: "alice",
           usernameTag: "alice#1234",
           avatarSeed: "user-1",
+          agentCredentialId: null,
+          agentCredentialLabel: null,
+          owner: null,
         },
         updatedBy: {
           id: "test-user",
+          kind: "user",
           displayName: "reviewer",
           usernameTag: "reviewer#0007",
           avatarSeed: "test-user",
+          agentCredentialId: null,
+          agentCredentialLabel: null,
+          owner: null,
         },
         createdAt: "2026-04-10T08:00:00.000Z",
         updatedAt: "2026-04-18T09:00:00.000Z",
@@ -1259,6 +1318,372 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         blockedFollowUps: [],
       },
     });
+  });
+
+  test("agent appends link attachment and reads it back in the task response", async () => {
+    apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
+      ok: true,
+      principal: {
+        kind: "agent",
+        actorUserId: "owner-1",
+        ownerUserId: "owner-1",
+        credentialId: "credential-1",
+        projectId: "p1",
+        scopes: ["task:write"],
+        tokenId: "token-1",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValueOnce({
+      credentialId: "credential-1",
+      projectId: "p1",
+      scopes: ["task:write"],
+    });
+    prismaMock.project.findFirst.mockResolvedValueOnce({
+      ownerId: "owner-1",
+      memberships: [],
+    });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "In Progress",
+      position: 2,
+      completedAt: null,
+      archivedAt: null,
+      epicId: null,
+      assigneeUserId: null,
+      outgoingRelations: [],
+      incomingRelations: [],
+    });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      title: "Valid title",
+      label: null,
+      labelsJson: null,
+      description: null,
+      deadlineAt: null,
+      _count: {
+        comments: 0,
+      },
+      blockedNote: null,
+      status: "In Progress",
+      position: 2,
+      completedAt: null,
+      archivedAt: null,
+      epic: null,
+      attachments: [
+        {
+          id: "att-1",
+          kind: "link",
+          name: "NexusDash board",
+          url: "https://nexus-dash.app/",
+          mimeType: null,
+          sizeBytes: null,
+        },
+      ],
+      createdAt: new Date("2026-04-18T08:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T09:00:00.000Z"),
+      createdByUser: {
+        id: "owner-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "owner-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: null,
+      },
+      assigneeUser: null,
+      outgoingRelations: [],
+      incomingRelations: [],
+      blockedFollowUps: [],
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Valid title",
+        attachmentLinks: [
+          {
+            name: "NexusDash board",
+            url: "  https://nexus-dash.app  ",
+          },
+        ],
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(200);
+    const payload = await readJson(response);
+    const task = payload.task as Record<string, unknown>;
+    expect(task.title).toBe("Valid title");
+    expect(task.attachments).toEqual([
+      {
+        id: "att-1",
+        kind: "link",
+        name: "NexusDash board",
+        url: "https://nexus-dash.app/",
+        mimeType: null,
+        sizeBytes: null,
+        downloadUrl: null,
+      },
+    ]);
+    expect(prismaMock.taskAttachment.createMany).toHaveBeenCalledTimes(1);
+    expect(prismaMock.taskAttachment.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          taskId: "t1",
+          uploadedByUserId: "owner-1",
+          kind: "link",
+          name: "NexusDash board",
+          url: "https://nexus-dash.app/",
+        },
+      ],
+    });
+  });
+
+  test("human session appends link attachments through the same update contract", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "In Progress",
+      position: 2,
+      completedAt: null,
+      archivedAt: null,
+      epicId: null,
+      assigneeUserId: null,
+      outgoingRelations: [],
+      incomingRelations: [],
+    });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      title: "Valid title",
+      label: null,
+      labelsJson: null,
+      description: null,
+      deadlineAt: null,
+      _count: {
+        comments: 0,
+      },
+      blockedNote: null,
+      status: "In Progress",
+      position: 2,
+      completedAt: null,
+      archivedAt: null,
+      epic: null,
+      createdAt: new Date("2026-04-18T08:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T09:00:00.000Z"),
+      createdByUser: {
+        id: "user-1",
+        name: "Alice Example",
+        email: "alice@example.com",
+        username: "alice",
+        usernameDiscriminator: "1234",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+      assigneeUser: null,
+      outgoingRelations: [],
+      incomingRelations: [],
+      blockedFollowUps: [],
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Valid title",
+        attachmentLinks: [
+          {
+            url: "https://tracker.example.com/issues/486",
+          },
+        ],
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.taskAttachment.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          taskId: "t1",
+          uploadedByUserId: "test-user",
+          kind: "link",
+          name: "tracker.example.com",
+          url: "https://tracker.example.com/issues/486",
+        },
+      ],
+    });
+  });
+
+  test("returns 403 when agent lacks task:write scope", async () => {
+    apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
+      ok: true,
+      principal: {
+        kind: "agent",
+        actorUserId: "owner-1",
+        ownerUserId: "owner-1",
+        credentialId: "credential-1",
+        projectId: "p1",
+        scopes: ["task:read"],
+        tokenId: "token-1",
+        requestId: "request-1",
+      },
+    });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValueOnce({
+      credentialId: "credential-1",
+      projectId: "p1",
+      scopes: ["task:read"],
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        attachmentLinks: [
+          {
+            name: "NexusDash board",
+            url: "https://nexus-dash.app",
+          },
+        ],
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toEqual({ error: "forbidden" });
+    expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.taskAttachment.createMany).not.toHaveBeenCalled();
+  });
+
+  test("returns 400 when a link attachment has an invalid url", async () => {
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        attachmentLinks: [
+          {
+            name: "Broken tracker",
+            url: "ftp://example.com",
+          },
+        ],
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "attachment-link-invalid",
+    });
+    expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.taskAttachment.createMany).not.toHaveBeenCalled();
+  });
+
+  test("returns 400 when attachmentLinks is not an array", async () => {
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        attachmentLinks: {
+          name: "Tracker",
+          url: "https://tracker.example.com/issues/1",
+        },
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "attachment-link-invalid",
+    });
+    expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
+  });
+
+  test("appends nothing when attachmentLinks is an empty array", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      projectId: "p1",
+      status: "In Progress",
+      position: 2,
+      completedAt: null,
+      archivedAt: null,
+      epicId: null,
+      assigneeUserId: null,
+      outgoingRelations: [],
+      incomingRelations: [],
+    });
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "t1",
+      title: "Updated",
+      label: null,
+      labelsJson: null,
+      description: null,
+      deadlineAt: null,
+      _count: {
+        comments: 0,
+      },
+      blockedNote: null,
+      status: "In Progress",
+      position: 2,
+      completedAt: null,
+      archivedAt: null,
+      epic: null,
+      createdAt: new Date("2026-04-18T08:00:00.000Z"),
+      updatedAt: new Date("2026-04-18T09:00:00.000Z"),
+      createdByUser: {
+        id: "user-1",
+        name: "Alice Example",
+        email: "alice@example.com",
+        username: "alice",
+        usernameDiscriminator: "1234",
+        avatarSeed: null,
+      },
+      updatedByUser: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+      assigneeUser: null,
+      outgoingRelations: [],
+      incomingRelations: [],
+      blockedFollowUps: [],
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks/t1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Updated",
+        attachmentLinks: [],
+      }),
+    });
+
+    const response = await PATCH(request as never, taskRouteParams("p1", "t1"));
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.taskAttachment.createMany).not.toHaveBeenCalled();
   });
 
   test("returns 500 when database operations fail", async () => {
@@ -1427,6 +1852,8 @@ describe("POST /api/projects/:projectId/tasks/:taskId/archive", () => {
       data: {
         archivedAt: expect.any(Date),
         updatedByUserId: "test-user",
+        updatedByCredentialId: null,
+        updatedByCredentialLabel: null,
       },
       select: {
         archivedAt: true,
@@ -1522,6 +1949,8 @@ describe("DELETE /api/projects/:projectId/tasks/:taskId/archive", () => {
       data: {
         archivedAt: null,
         updatedByUserId: "test-user",
+        updatedByCredentialId: null,
+        updatedByCredentialLabel: null,
       },
       select: {
         id: true,

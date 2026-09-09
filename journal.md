@@ -3,6 +3,378 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-08 - ND-438 preview acceptance on the merged PR #496 head
+
+- Preview acceptance ran against the PR #496 head deployed to the ND-438
+  preview (stable auth alias
+  nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app,
+  `deploy-vercel.yml` `deploy-preview` run 34245624577,
+  `git_ref=feature/nd-438-task-by-id-fetch-deep-link`, revision 2ec805d):
+  health/readiness ready for the checked-out revision, preview agent token
+  exchange, and `GET /api/projects/{projectId}/tasks/{taskId}` returning 200
+  with the canonical task payload for every listed task; 404 `Task not found`
+  for unknown ids and for a real task id from another project (project
+  scoping preserved); create-then-by-id read-back equality; persistence in
+  the task list; and the agent OpenAPI documenting the route (summary
+  "Read task", responses 200/400/401/403/404/500). Anonymous probing returned
+  401 `unauthorized` for the endpoint and 404 for unknown routes.
+- The deep-link UI behaviors (open without extra fetch when the target is
+  already in the board, fetch-and-open for ids absent from the board, board
+  unchanged when the target cannot be fetched) are covered by the local
+  Playwright spec `tests/e2e/nd-438-task-deep-link.spec.ts`, which passed
+  3/3 against the same revision; the deployed preview does not expose user
+  sessions to the agent token, so those flows are validated at the e2e layer
+  rather than against the preview.
+
+# 2026-09-08 - ND-438: Task-by-id fetch endpoint and deep-link fetch fallback
+
+- Onboarded: read agent.md/project.md/README.md and the board card ND-438
+  (feature label) on `feature/nd-438-task-by-id-fetch-deep-link` in worktree
+  `../nexus_dash_nd438_wt`, branched from `origin/main` at 446637f (v0.58.0).
+  The root checkout holds a separate agent's ND-407 branch; worktree layout
+  keeps sessions isolated. No GitHub issue exists; the PR carries the ND-438
+  reference.
+- Implemented the shared service read `getProjectKanbanTaskById` in
+  `lib/services/project-service.ts` behind the existing route path
+  `GET /api/projects/{projectId}/tasks/{taskId}`: authorizes human sessions
+  through the same `buildProjectPrincipalWhere` predicate as the task-list
+  surface (no role minimum), checks agent `task:read` scope with
+  `requireAgentProjectScopes` (cross-project credential -> 404 so task
+  existence is never leaked), and never archives or writes. The board-list
+  include clause became the exported `projectKanbanTaskInclude` const so the
+  by-id read and the list share one typed Prisma include.
+- Killed the duplicated wire-shape mappings: extracted the list route's
+  inline serializer into `lib/services/project-task-response.ts`
+  (`mapProjectKanbanTaskToTaskResponse`), now used by both the task-list GET
+  and the new by-id GET, so the two surfaces cannot drift.
+- Added GET to the task route with the same session/agent bearer handling,
+  timing headers, and error passthrough as the sibling task endpoints; reads
+  never write.
+- Exposed the read in the agent OpenAPI contract: catalog entry ("Read task",
+  `task:read`), `get` operation on
+  `/api/projects/{projectId}/tasks/{taskId}`, and a `TaskReadResponse` schema
+  referencing the canonical `TaskRecord`, so the hosted agent docs pick it up
+  automatically.
+- Board deep-link fallback in `components/kanban-board.tsx`: when `?taskId=`
+  (or the `/tasks/{taskId}` page redirect) points at an id absent from the
+  loaded board, KanbanBoard fetches
+  `/api/projects/{projectId}/tasks/{taskId}`, upserts the mapped task through
+  the existing `upsertRemoteTask` (columns reconciliation before
+  `setSelectedTask` so the modal-sync effect cannot null it), and opens the
+  detail modal. Failures keep the board unchanged; open-once semantics and
+  the already-loaded fast path are preserved.
+- Coverage pivot (documented decision): a jsdom component test mounting the
+  full KanbanBoard spins into unbounded allocation (vitest worker OOM at a
+  768 MB heap cap) even for a plain mount with no deep link and with every
+  leaf child stubbed. Bisection against the committed pre-ND-438 baseline
+  reproduced the identical OOM, proving it is a pre-existing full-board
+  jsdom limitation, not an ND-438 regression; no existing test mounts the
+  full board, which matches the repo convention of covering board behavior
+  at the Playwright layer. The component jsdom test was dropped and replaced
+  by `tests/e2e/nd-438-task-deep-link.spec.ts`, which exercises the three
+  deep-link behaviors in a real browser: already-loaded id opens locally
+  with zero by-id fetches; an id absent from the loaded list is fetched by
+  id (route interception answers with the canonical payload of a real task)
+  and opens; an unresolvable id performs exactly one by-id fetch and leaves
+  the board unchanged.
+- Coverage added: `getProjectKanbanTaskById` service tests (unauthorized,
+  agent 403/404 scope branches, success for session and agent including the
+  exact findFirst where/include contract, not-found, no-write assertion) in
+  `tests/lib/project-service.test.ts`; route tests in
+  `tests/api/task-read.route.test.ts` (auth failure passthrough, missing
+  params 400, canonical payload wrapper with reference/attachment mapping,
+  agent access-context forwarding, error passthroughs).
+- Rebased onto `origin/main` at c676716 after ND-407 (PR #495, v0.59.0) and
+  ND-427 (PR #494, v0.60.0) merged: stashed the uncommitted work, reset the
+  branch tip, and popped with a three-way merge. All code files merged
+  cleanly (ND-407's title-cap and ND-427's mobile-arrow board changes coexist
+  with the deep-link effect); only `tasks/current.md` conflicted and was
+  resolved by composing the ND-438 brief on top of origin/main's ND-427
+  snapshot chain. Release target retargeted from v0.59.0 to v0.61.0 over
+  origin/main v0.60.0.
+- Version advanced 0.60.0 -> 0.61.0 (`package.json` + `package-lock.json`)
+  with a dated `## v0.61.0` CHANGELOG entry; `npm run release:check` passes.
+- Validation so far on the merged tree: full Vitest suite 1,379 passed /
+  2 skipped (185 files) with the repository's local PostgreSQL env URLs
+  exported, eslint clean on every touched file, `release:check` green.
+  Coverage, production build, `rls:check`, `git diff --check`, and the
+  focused Playwright spec run are pending before PR.
+
+- Full validation completed on the merged tree (2026-09-08): the earlier
+  pending items all passed — coverage above thresholds (statements 93.33%,
+  branches 83.82%, functions 94.63%, lines 93.63%), production build green,
+  `rls:check` and `git diff --check` clean. The focused ND-438 Playwright
+  spec initially failed 2/3 on a false positive: the request tracker matched
+  every GET under `/api/projects/{id}/tasks/`, which also captured the
+  comment fetches (`/tasks/{id}/comments`) fired after the detail dialog
+  opens. Narrowed the tracker to paths whose final segment is a bare task id
+  (`/\/tasks\/[^/?#]+$/`) — spec 3/3 green, then the full e2e suite passed
+  58/58 with 1 skipped.
+- PR #496 (https://github.com/dorianagaesse/nexus_dash/pull/496) opened
+  ready-for-review from `feature/nd-438-task-by-id-fetch-deep-link` against
+  `origin/main` at c676716, referencing ND-438. Copilot review round 1
+  flagged one issue: the remote-fetch deep-link path did not clear
+  `shouldOpenTaskInEditModeRef` before opening the fetched task, while the
+  already-loaded path does — a stale edit-mode request from a prior
+  same-task interaction could open the deep-linked task in edit mode.
+  Fixed (a8070f5) by clearing the ref before upsert and selection, mirroring
+  the already-loaded path; a dedicated regression test was not added because
+  the stale-ref sequence needs a client-side search-param navigation that
+  preserves the board mount (the app deep-links only through the server-side
+  `/tasks/[taskId]` redirect, a full load that resets the ref) and full-board
+  jsdom mounts are a documented OOM dead end. Reply posted on the review
+  thread. PR #496 was blocked by the repository rulesets because the
+  review thread stayed open (`required_review_thread_resolution` on the
+  Main protection ruleset); resolving the thread cleared the block and the
+  PR merge state is clean on head a8070f5 with all CI checks green — the
+  `copilot_code_review` rule is satisfied by round 1 on the reviewed head,
+  so no further review round is required.
+
+- Mainline merge (2026-09-08): while ND-438 was in review, ND-424 landed on
+  `origin/main` as 37f5cd9 via PR #492 (v0.61.0 — the version ND-438 had
+  claimed), making PR #496 CONFLICTING. Merged `origin/main` into the branch
+  (no history rewrite): product code auto-merged (`lib/agent-onboarding.ts`
+  catalog regions, `lib/services/project-task-service.ts`, agent tests),
+  and the overlapping release/doc files were reconciled by hand —
+  `tasks/current.md` composed as the ND-438 delivered brief on top of
+  origin/main's ND-424 brief and snapshot chain, CHANGELOG renumbered
+  ND-438's entry from v0.61.0 to v0.62.0 above ND-424's v0.61.0 entry, and
+  package metadata advanced 0.61.0 -> 0.62.0. The board card ND-438 was
+  already flipped to Done.
+
+# Development Journal
+
+This file is a concise execution log.
+Use it for important implementation milestones, blockers, validation runs, and release evidence.
+
+# 2026-09-08 - ND-424 reconciled with origin/main after ND-427 (PR #494) merged
+
+- Merged `origin/main` at c676716 after ND-427 landed through PR #494
+  (v0.60.0). Conflicts were confined to the top-of-file docs and release
+  collisions: CHANGELOG, journal, package.json / package-lock.json, and
+  `tasks/current.md`. Product code merged cleanly — ND-424's task-update
+  `attachmentLinks` append is independent of the ND-178 / ND-376 / ND-381 /
+  ND-407 / ND-427 mainline changes.
+- `tasks/current.md` keeps the ND-424 brief active, with main's ND-427 brief
+  preserved verbatim below as the previous snapshot; journal entries from
+  both sides are retained; the CHANGELOG release metadata was retargeted:
+  `package.json`/`package-lock.json` advance to v0.61.0 (feature minor over
+  main's released v0.60.0) via `release:version -- feature`, with a dated
+  `## v0.61.0 - 2026-09-08` entry carrying the ND-424 bullets while the
+  v0.60.0 entry and the `## Unreleased` placeholder stay exactly as on
+  `origin/main`.
+- Preview acceptance ran against the PR #492 head deployed to
+  nexus-dash-5aifahhbx-dorian-agaesses-projects.vercel.app
+  (`deploy-vercel.yml` `deploy-preview` run 34234352574,
+  `git_ref=feature/nd-424-agent-link-attachments`): 14/14 checks passed —
+  token exchange, health, OpenAPI documenting
+  `TaskUpdateRequest.attachmentLinks`, PATCH append with read-back in the
+  same response, persistence in the task list, append-only preservation of
+  existing attachments, hostname-derived default names, 400
+  `attachment-link-invalid` with nothing written, and creation-time
+  `attachmentLinks` unchanged — plus a status-transition spot check via POST
+  (the status route is POST-only; unchanged from main).
+- Local validation on the reconciled tree (dockerized PostgreSQL on 5432
+  with the runbook env): lint, `rls:check`, `release:check` (v0.60.0 →
+  v0.61.0), and `git diff --check` clean; 1,374 Vitest tests passed (2
+  skipped) across 184 files; coverage 93.33% statements / 83.76% branches /
+  95.27% functions / 93.64% lines; production build green. The ND-424
+  Copilot thread from the 09-07 round is outdated after this merge; a fresh
+  review round runs against the reconciled head.
+# 2026-09-07 - ND-424: agents can attach link attachments to existing tasks
+
+- Executed in worktree `../nexus_dash_task424` on
+  `feature/nd-424-agent-link-attachments` (forked from `origin/main`,
+  version base v0.56.0). Board card ND-424 (feature label, GitHub issue #486
+  attached at creation as a link attachment) flipped to In Progress, then
+  Done with a Report section on delivery.
+- Gap confirmed: creation-time `attachmentLinks` and agent-capable
+  attachment removal existed, but adding link attachments to an existing
+  task was a kanban-UI capability only (user session). API shape confirmed
+  with the user (2026-09-07): `attachmentLinks` on the task-update route
+  (`PATCH /api/projects/{projectId}/tasks/{taskId}`) rather than agent
+  scopes on the UI composer.
+- `updateTaskForProject` now parses an optional `attachmentLinks` array
+  through the shared `parseAttachmentLinksJson` parser (name defaults to the
+  URL hostname, URLs normalized, 400 `attachment-link-invalid` for malformed
+  entries, empty array appends nothing) and appends kind=`link` rows via
+  `createTaskAttachmentsFromDraft` inside the existing update transaction;
+  existing attachments are preserved, authorization/RLS semantics are
+  unchanged (editor role for humans, `task:write` for agents), and removal
+  stays on the dedicated attachment DELETE route.
+- The agent OpenAPI `TaskUpdateRequest` schema (shared by single and bulk
+  updates) documents the field, the hosted agent guide's update example
+  gained a links-only PATCH block, and `agent.md` / `CLAUDE.md` guidance no
+  longer calls link-add UI-only.
+- Route coverage in `tests/api/task-update.route.test.ts`: agent append with
+  `task:write` and read-back in the response attachments list, agent denial
+  without the scope (403), human append, invalid-URL and non-array 400s, and
+  empty-array no-op. Schema assertions added to
+  `tests/api/agent-openapi.route.test.ts`.
+- Validation on the final tree (2026-09-07, dockerized PostgreSQL on 5432
+  with the runbook env): lint, `rls:check`, and `git diff --check` clean;
+  version policy passed (v0.57.0 minor over v0.56.0 base with a dated
+  `## v0.57.0` CHANGELOG section, added via `release:version -- feature`
+  and a manual lockfile re-bump after `npm install` rewrote the lock
+  versions); full Vitest 178 files / 1325 passed / 2 skipped; coverage
+  93.06/83.13/94.52/93.38; production build green.
+- No schema/RLS/UI/auth/upload changes, so the real-PostgreSQL RLS matrix
+  and Playwright were not required by the runbook criteria.
+- PR #492 opened with "closes #486". Copilot review round: one thread on
+  agent.md flagged the guidance calling attachment removal kanban-UI-only —
+  stale, since the dedicated attachment DELETE route already serves agents.
+  The text now points agents at the DELETE route and scopes the UI-only
+  claim to in-place link editing (ND-425); fixed in 2464a84 with a reply on
+  the thread, re-review pending on the GitHub UI side.
+# 2026-09-08 - ND-427 synchronized with ND-407 mainline
+
+- Merged `origin/main` at 049d346 after ND-407 landed through PR #495. Resolved
+  the overlapping release/history files by retaining both task records and
+  advancing ND-427 to v0.60.0 over main's v0.59.0. The source merge preserved
+  ND-407's 120-character title enforcement and two-line Kanban title clamp
+  alongside ND-427's mobile lane arrows.
+- Post-merge validation passed: lint, RLS inventory, release policy, and
+  `git diff --check`; 1,368 Vitest tests passed with 2 skipped; coverage stayed
+  at 93.21% statements, 83.58% branches, 94.59% functions, and 93.52% lines;
+  the production build passed; and all 12 focused Chromium tests passed across
+  the authenticated-shell, bounded-Kanban, and ND-407 title-cap specs. The
+  first browser attempt found the isolated local PostgreSQL container empty;
+  applying the repository's 57 migrations restored the test baseline, after
+  which the unchanged browser suite passed.
+
+# 2026-09-08 - ND-427 mobile Kanban lane-arrow navigation started
+
+- Read the live Nexus Dash card and moved ND-427 from Backlog to In Progress
+  through the project-scoped agent API. Created
+  `feature/nd-427-kanban-mobile-list-arrows` from `origin/main` at 446637f
+  (ND-381 merged / v0.58.0) and isolated it in `../nexus_dash_nd427_wt` after
+  detecting concurrent ND-407 edits in the root checkout.
+- Scoped the mobile interaction to previous/next buttons in each visible lane
+  header, canonical status-order traversal, disabled sequence boundaries,
+  destination-specific accessible names, 44 px targets, reciprocal focus
+  continuity, and retained per-lane scroll state. The sticky Kanban status dock
+  is removed; the desktop four-column board is unchanged.
+- The requested UI UX Pro Max skill was not present in the available Codex
+  skill catalog or local skill directories. Applied the repository's UI
+  contracts and existing accessibility/responsive guidance as the documented
+  fallback.
+- Replaced the status dock with lane-header chevrons driven by the canonical
+  `TASK_STATUSES` order. All lanes remain mounted, an `aria-live` status names
+  the newly visible lane and count, and focus moves to the reciprocal arrow
+  after each transition. Updated the shell contract, component coverage, and
+  authenticated-shell/bounded-lane browser specs.
+- Validation passed against the Dockerized PostgreSQL database on port 5432:
+  lint; RLS inventory; version policy (v0.58.0 → v0.59.0); `git diff --check`;
+  1,360 Vitest tests with 2 skipped; coverage at 93.21% statements, 83.58%
+  branches, 94.59% functions, and 93.52% lines; production build; and all 9
+  focused Chromium tests. The first browser attempt reached an unrelated Open
+  WebUI service already using port 3000, so the valid run used isolated port
+  3107 and exercised this worktree's production build.
+- Pushed implementation commit `a665e73` and opened ready-for-review PR #494
+  (https://github.com/dorianagaesse/nexus_dash/pull/494). Moved the live
+  ND-427 card from In Progress to Done after the PR opened; CI and Copilot
+  review monitoring continued from the same branch.
+
+# 2026-09-08 - ND-407: task title 120-char cap and ellipsized condensed surfaces started
+
+- Started on `feature/nd-407-task-title-cap-and-ellipsis` from `origin/main`
+  at 446637f (ND-381 merged / v0.58.0). The Nexus Dash board card ND-407
+  (feature label, related to ND-387 — the task-authoring quality contract
+  doc) is the source of truth; flipped to In Progress via the agent API
+  (status transition endpoint). Board credentials live in
+  `.config/.nd-access.env` (NEXUSDASH_* contract, same keys as the committed
+  `.nd-nexus-dash.example.env` template; the local file name differs from the
+  agent.md convention but the keys match).
+- User expectation confirmed 2026-09-08: on mobile, long titles must be cut
+  off so task titles never wrap to three or more lines in task surfaces;
+  condensed surfaces ellipsize at two lines on narrow viewports.
+- Brief written to `tasks/current.md` (ND-381 brief preserved verbatim as the
+  previous snapshot, per convention). Release target v0.59.0 over main's
+  v0.58.0.
+
+# 2026-09-08 - ND-407 delivered: 120-char title cap and ellipsized condensed surfaces
+
+- Implemented on `feature/nd-407-task-title-cap-and-ellipsis` in four
+  commits: service/route/API cap with client-side form parity
+  (`lib/task-title.ts` constants; `createTaskForProject`/`updateTaskForProject`
+  reject >120 characters with `title-too-long` before any DB access, so the
+  create/update/bulk routes and agent API all inherit the guard; create
+  dialog and inline kanban edit add `maxLength`, an inline validation
+  message, and a live counter once the title passes 100 characters),
+  two-line clamp on condensed surfaces (kanban card `h3` and epic
+  linked-task chips: `line-clamp-2` + `[overflow-wrap:anywhere]`, keeping
+  the full title in the DOM), test coverage across service/route/component/
+  browser layers, and the v0.59.0 release advance with the agent.md
+  task-authoring contract updated (ND-387 follow-through).
+- Local e2e validation surfaced two environment findings, not code defects:
+  the Docker-proxied Open WebUI on host port 3000 blocks the default
+  Playwright `next start`, so the server ran on port 3100 with
+  `PLAYWRIGHT_BASE_URL` pointed there (the auth helper keys cookie origin
+  off that variable); and `next start` needs `NODE_ENV=test` plus only the
+  runbook vars — adding dummy Google OAuth vars trips the production
+  `GOOGLE_TOKEN_ENCRYPTION_KEY` runtime guard and 500s every page. The
+  ND-407 spec also fixed one strict-mode locator: the dialog carries the
+  full legacy title twice (sr-only accessible `h2` + visible `h3`), so the
+  modal assertion targets the `h3` directly.
+- Full validation passed (2026-09-08): lint, `rls:check` clean; Vitest
+  184 files / 1367 tests green (2 skipped); coverage above thresholds
+  (statements 93.21%, branches 83.58%, functions 94.59%, lines 93.52%);
+  production build green; ND-407 Playwright spec 3/3 green and the
+  project-task-calendar smoke suite 6/6 green against local Postgres
+  (throwaway Homebrew instance on port 5432; migrations up to date).
+- Version advanced to v0.59.0 (2026-09-08 CHANGELOG entry) over origin/main
+  v0.58.0; branch pushed as PR #495 (ready for review); Nexus Dash board
+  card ND-407 flipped to Done with the PR link in its description.
+- Copilot review round handled (PR #495): one finding — the create dialog's
+  too-short/too-long client guards returned after `setIsSubmitting(true)`,
+  so a trimmed-invalid title (e.g. "a " passes native `minLength` but trims
+  to one character) left the dialog stuck disabled on "Creating...". Fixed
+  in `3664600`: the form title is read and length-checked before the
+  submitting flag is set, and the ND-407 e2e spec now asserts the inline
+  error plus a re-enabled Create button for that case; kanban inline edit
+  was already safe (guards precede `setIsUpdatingTask`). Reply posted on the
+  review thread; follow-up Copilot review requested after the fix push.
+
+# 2026-09-07 - ND-381: rich text for meeting note inputs and outputs delivered
+
+- Implemented on `feature/nd-381-meeting-note-rich-text` (worktree
+  `../nexus_dash_nd381_wt`, branched from `origin/main` at 2fbc228 / v0.56.0):
+  the meeting-panel Inputs and Outputs edit fields swapped
+  `EmojiTextareaField` for the shared `RichTextEditor` (member @mention
+  autocomplete included), read-only sections render through
+  `RichTextContent` with collaborator-resolved mention hover cards,
+  `inputNotes`/`outputNotes` write through `coerceRichTextHtml` so storage
+  stays canonical sanitized HTML, legacy plain-text notes render unchanged
+  and upgrade on re-save, and search/preview stay plain-text.
+- E2E validation (ND-381 spec, Chromium) surfaced three real findings, all
+  fixed with regression coverage:
+  - Browsers keep text typed before the first Enter as a bare root text
+    node, so a stored section could open with unwrapped text
+    (`Scope risks:<ul>…`). `coerceRichTextHtml` now wraps root-level bare
+    text runs in paragraphs via a DOM container (a `div` rather than a
+    `<template>` fragment — jsdom does not implement `innerHTML` on
+    `DocumentFragment`, which initially returned `undefined` and blanked
+    read-only sections in the jsdom component suite). The meeting-panel save
+    payloads coerce editor HTML client-side so canonicality holds on write
+    (server-side Node has no DOM for the wrap).
+  - The mention e2e initially targeted the signed-in actor, who is excluded
+    from mention suggestions by design; the spec now seeds a second project
+    member and mentions them (membership role `editor`).
+  - The preview helper joined sections with ` • ` while list segments carry
+    their own leading bullet, doubling to `par. • • item`; the join now
+    drops the separator before bullet-led segments, with regression unit
+    coverage for single and multi-item lists.
+- Full validation passed (2026-09-07): lint, `rls:check`, `release:check`,
+  `git diff --check` clean; Vitest 180 files / 1343 tests green; coverage
+  above thresholds (statements 93.21%; `lib/rich-text.ts` 92.52%);
+  production build green; the ND-381 e2e spec (rich round trip, member
+  mention hover card, legacy search + upgrade) green with the meeting-todos
+  and meeting-steward smoke specs.
+- Version advanced to v0.57.0 (2026-09-07 CHANGELOG entry) over origin/main
+  v0.56.0.
+- Branch pushed as PR #493 (ready for review); the Nexus Dash board card
+  ND-381 was flipped to Done via the task status endpoint.
+
 # 2026-09-06 - ND-376: reconciled with origin/main after ND-379 (PR #491) merged
 
 - `origin/main` advanced past the fork with ND-379 (PR #491, merged 00:32
@@ -5716,3 +6088,119 @@ Low-value entries to avoid going forward:
 - Documented the minimum task-authoring contract in `agent.md`: duplicate
   check, outcome-oriented title, rationale, work-type label, testable acceptance
   criteria, focused scope, Related Tasks dependencies, and API read-back.
+# 2026-09-05 - ND-397: Constrain long task comments with expand/collapse
+
+- Onboarded: read agent.md/project.md/README.md/tasks briefs; verified ND-397
+  on the Nexus Dash board (feature label, Backlog), the user-assigned task for
+  this session. Multi-agent rule applied: created worktree
+  `../nexus_dash_task397` from `origin/main` (1daffc0) on
+  `feature/nd-397-comment-expand-collapse`; the root checkout's uncommitted
+  ND-421 work was left untouched (that agent subsequently committed and pushed
+  it from the root checkout).
+- Root-caused local quirk: `.config/.nd-nexus-dash.env` is UTF-16LE; decoded
+  with iconv before sourcing. Moved board card ND-397 to In Progress via
+  `POST /api/projects/{id}/tasks/{id}/status` `{"status":"In Progress"}`.
+- Implemented `components/kanban/task-comment-body.tsx` (reusable comment body
+  presentation: consistent 7.5rem collapsed cap, measured overflow via
+  `lib/comment-body-overflow.ts`, accessible `Show more`/`Show less` toggle
+  with `aria-expanded`/`aria-controls`, shown only when the rendered body
+  overflows) and wired it into the task detail modal thread in
+  `components/kanban/task-detail-modal.tsx`, the only surface rendering full
+  comment bodies today.
+- Added component coverage (short/no control, long collapsed, expand,
+  re-collapse, generic vs authored aria labels), a unit test for the overflow
+  measure, and `tests/e2e/nd-397-comment-expand-collapse.spec.ts` for
+  real-browser collapsed/expanded behavior with keyboard activation.
+- Validation so far on the worktree (local Postgres on 127.0.0.1:5433
+  container `nexus_dash_task397-postgres-1`, migrations applied): lint clean;
+  full vitest suite 1,225 passed / 2 skipped; coverage and production build
+  re-run after the 0.53.0 bump (first coverage/build pass raced the version
+  bump and failed on an empty package.json read, transient). Release advanced
+  0.52.0 -> 0.53.0 (`release:version -- feature`) with a CHANGELOG Unreleased
+  entry. rls:check/release:check pending; focused Playwright run pending.
+- Commit `ee3feae` pushed; PR to be opened referencing ND-397.
+
+# 2026-09-06 - TASK-337 (ND-178): First-class project actor identity
+
+- Onboarded: read agent.md/project.md/README.md and the board card ND-178
+  (cmth7h25c006504jurvwtrlrk, project cmteshp27000004jic3pr6wy4) on
+  `feature/nd-178-project-actor-identity` from `origin/main` (2e1722b,
+  v0.53.0). No GitHub issue exists; the PR carries the ND-178 reference.
+- Confirmed duplication: `lib/meeting-todo-actor.ts` was byte-identical to
+  `lib/context-card-actor.ts` apart from prefixes, and the two actor services
+  shared ~95% logic; agent task mutations persisted only the credential
+  owner's user id, losing the acting agent.
+- Implemented the canonical contract `lib/project-actor.ts` +
+  `lib/services/project-actor-service.ts` (kind/status/reference vocabulary,
+  registry building with first-wins dedupe, assignable resolution,
+  `resolveProjectMutationActor`), then re-based the meeting-todo and
+  context-card actor modules onto it as delegating shims preserving export
+  surface, per-domain registry loaders (Prisma read vs
+  `app.list_project_context_card_actors`), and error codes — consumer files
+  stayed zero-diff and all 29 prior actor tests passed unchanged.
+- Schema + migration `20260906100000_task337_project_actor_identity`: nullable
+  `createdBy/updatedByCredentialId` + `Label` (VarChar 80) on Task with
+  indexed `ON DELETE SET NULL` FKs modeled on the TASK-307 comment pattern.
+- Attribution: all task mutation write sites (create, reorder, status,
+  archive, unarchive, update) resolve the acting credential at write time via
+  `resolveTaskAgentAttribution` and snapshot id + trimmed label; a credential
+  row missing at write time degrades to human-only attribution (FK guard);
+  rename/revocation never rewrites past rows.
+- Author records: `lib/task-author.ts` maps task authors to the TASK-307
+  human/agent vocabulary; task payload mapping and the agent API GET task
+  response now surface `createdBy`/`updatedBy` with `kind`, credential id,
+  label, and owner.
+- Coverage added: `tests/lib/task-author.test.ts` (7 mapping cases) and
+  `tests/lib/project-task-service-attribution.test.ts` (3 service-level
+  create scenarios: human null attribution, agent snapshot with trimming,
+  missing-credential degradation). Full task/actor route+lib set: 114 passed
+  (11 files).
+- Local test quirk resolved: `.env` sets NODE_ENV=development which disables
+  the rls-context test bypass; correct runner is
+  `NODE_ENV=test node --env-file=.env ./node_modules/vitest/vitest.mjs run`.
+- Release advanced 0.53.0 -> 0.54.0 (`release:version -- feature`) with the
+  `## v0.54.0 - 2026-09-06` CHANGELOG entry; ADR entry recorded in
+  `adr/decisions.md`.
+- Validation baseline green on the final tree: lint, rls:check,
+  release:check, unit tests 1235 passed / 2 skipped, coverage thresholds,
+  production build, `git diff --check`, and the real-PostgreSQL RLS matrix
+  after applying migration `20260906100000_task337_project_actor_identity`
+  to the local container (port 55432). Local build quirk: root `.env`
+  targets Supabase with equal DATABASE_URL/DIRECT_URL (rejected by the
+  production host rule) and lacks the Google token encryption key, so the
+  build was validated against the local Postgres with a transient
+  `.env.production.local` that was removed afterward.
+- Committed in five logical commits (`872d65c` schema+migration, `bb681d3`
+  canonical actor contract, `95c82a4` attribution + author mapping, `417db51`
+  coverage, `dadeea4` version+docs) plus `e8b9136` task-brief status; pushed
+  and opened PR <https://github.com/dorianagaesse/nexus_dash/pull/489>
+  referencing ND-178. Board card ND-178 description updated with the PR
+  link; card remains In Progress until merge.
+- Copilot review round handled: initial review completed (20/21 files) with
+  zero inline comments and a "Needs a closer look" meta verdict driven by
+  migration/scope breadth, so there were no threads to triage or resolve;
+  CI checks all green (Quality Core, E2E Smoke, Tenant Isolation RLS,
+  Container Image). Clean review state; awaiting merge.
+- Review follow-up: rebased PR #489 onto `origin/main` at `633278e` (ND-408),
+  reconciling the shared v0.54.0 release notes while preserving the current
+  ND-408 brief. Fixed the initial Kanban load to map task authors through
+  `mapTaskAuthorRecord`, so a page reload retains an agent credential's label,
+  avatar, kind, and owner instead of reverting to its human owner. Added the
+  initial-load regression test and service tests for agent attribution on
+  reorder, status, field update, archive, and unarchive mutations.
+- Follow-up validation: lint, RLS inventory, documented full Vitest command
+  (1,297 passed / 2 skipped), coverage (92.93% statements, 82.94% branches,
+  93.83% functions, 93.25% lines), real PostgreSQL RLS setup/matrix against
+  the local port-55432 container, and a production build with local database
+  plus transient required runtime placeholders all passed. The plain `npm
+  test`/build commands remain unsuitable with this machine's remote `.env`
+  because it omits test DB loading and violates the production remote-URL
+  split guard; no repository behavior was changed for that local setup.
+- Release reconciliation after current `main` advanced to v0.54.1: ND-178 now
+  advances the product version to v0.55.0 with its own changelog entry, rather
+  than sharing ND-408's v0.54.0 release.
+- UI review follow-up: task-detail `Created by` and `Last updated by` cards now
+  render agent authors through the same shared `AgentAvatar` robot treatment as
+  agent-authored comments instead of generating a human avatar from the agent
+  snapshot seed. Regression coverage asserts both attribution cards use the
+  dedicated agent avatar; focused task-author/UI tests (11 tests) and lint pass.

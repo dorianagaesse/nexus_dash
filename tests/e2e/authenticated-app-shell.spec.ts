@@ -513,7 +513,7 @@ test.describe("responsive authenticated app shell", () => {
     }
   });
 
-  test("switches Kanban lanes from the mobile status dock", async ({
+  test("switches Kanban lanes from arrows attached to the mobile list", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -525,18 +525,23 @@ test.describe("responsive authenticated app shell", () => {
       page.getByRole("heading", { name: "Kanban board" })
     ).toBeVisible();
 
-    const statusNavigation = page.getByRole("navigation", {
-      name: "Kanban status navigation",
-    });
-    await expect(statusNavigation).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "Kanban status navigation" })
+    ).toHaveCount(0);
     await expect(page.getByText("Plan the mobile board")).toBeVisible();
     await expect(page.getByText("Review the active lane")).not.toBeVisible();
 
-    await statusNavigation
-      .getByRole("button", { name: "In Progress, 1 task" })
+    await page
+      .locator('[data-kanban-lane="Backlog"]')
+      .getByRole("button", { name: "Next list: In Progress" })
       .click();
 
     await expect(page.getByText("Review the active lane")).toBeVisible();
     await expect(page.getByText("Plan the mobile board")).not.toBeVisible();
+    await expect(
+      page
+        .locator('[data-kanban-lane="In Progress"]')
+        .getByRole("button", { name: "Previous list: Backlog" })
+    ).toBeFocused();
   });
 });

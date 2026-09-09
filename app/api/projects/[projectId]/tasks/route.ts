@@ -15,15 +15,9 @@ import {
   validateTaskCreateFieldTypes,
 } from "@/lib/services/project-task-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
-import { mapTaskEpicSummary } from "@/lib/epic";
-import { mapTaskPersonSummary } from "@/lib/task-person";
-import { formatTaskDeadlineDate } from "@/lib/task-deadline";
-import { formatTaskReference } from "@/lib/task-reference";
-import { getTaskLabelsFromStorage } from "@/lib/task-label";
-import { mergeRelatedTaskSummaries } from "@/lib/task-related";
+import { mapProjectKanbanTaskToTaskResponse } from "@/lib/services/project-task-response";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
-type TaskAttachment = Awaited<ReturnType<typeof listProjectKanbanTasks>>[number]["attachments"][number];
 
 interface TaskCreateJsonRequestBody {
   title?: unknown;
@@ -110,33 +104,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
         epicId: epicIdFilter,
         label: labelFilter,
       },
-      tasks: tasks.map((task) => ({
-        id: task.id,
-        reference: formatTaskReference(task.referenceNumber),
-        title: task.title,
-        description: task.description,
-        blockedNote: task.blockedNote,
-        deadlineDate: formatTaskDeadlineDate(task.deadlineAt),
-        commentCount: task._count.comments,
-        completedAt: task.completedAt,
-        archivedAt: task.archivedAt,
-        status: task.status,
-        position: task.position,
-        label: task.label,
-        labelsJson: task.labelsJson,
-        labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
-        createdAt: task.createdAt,
-        updatedAt: task.updatedAt,
-        epic: mapTaskEpicSummary(task.epic),
-        assignee: mapTaskPersonSummary(task.assigneeUser),
-        createdBy: mapTaskPersonSummary(task.createdByUser),
-        updatedBy: mapTaskPersonSummary(task.updatedByUser),
-        attachments: task.attachments.map((attachment: TaskAttachment) =>
-          mapTaskAttachmentResponse(params.projectId, task.id, attachment)
-        ),
-        relatedTasks: mergeRelatedTaskSummaries(task),
-        blockedFollowUps: task.blockedFollowUps,
-      })),
+      tasks: tasks.map((task) =>
+        mapProjectKanbanTaskToTaskResponse(task, params.projectId)
+      ),
     },
     { headers: timing.headers() }
   );

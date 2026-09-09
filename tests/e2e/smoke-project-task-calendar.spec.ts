@@ -435,7 +435,7 @@ test.describe("critical UI smoke flows", () => {
     await inputZoomControls.getByRole("button", { name: "Zoom in Inputs" }).click();
     await expect(inputZoomControls).toContainText("125%");
     await expect(preparationInput).toHaveCSS("font-size", "17.5px");
-    await expect(preparationInput).toHaveValue("Review TASK-098 scope and risks.");
+    await expect(preparationInput).toContainText("Review TASK-098 scope and risks.");
     const savePreparationRequest = page.waitForResponse(
       (response) =>
         response.request().method() === "PATCH" &&

@@ -36,8 +36,9 @@ quality rules in `agent.md` (duplicate check, outcome-oriented title,
 `refactor`/`chore`, testable `Acceptance Criteria:`, and Related Tasks for
 dependencies) — never raw `Dependencies:` prose in descriptions. Cards with a
 counterpart GitHub issue or external resource attach it at creation as a link
-attachment (`attachmentLinks` with `{ name, url }`); adding links to existing
-cards is UI-only today — details in `agent.md`.
+attachment (`attachmentLinks` with `{ name, url }`); links can also be added to
+existing cards with a task update (`PATCH` with an `attachmentLinks` array) —
+details in `agent.md`.
 
 ## Workflow Rules
 

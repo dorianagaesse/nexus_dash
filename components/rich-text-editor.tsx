@@ -47,6 +47,7 @@ interface RichTextEditorProps {
   placeholder?: string;
   className?: string;
   editorClassName?: string;
+  editorStyle?: React.CSSProperties;
   ariaLabel?: string;
   ariaLabelledBy?: string;
   mentionProjectId?: string;
@@ -2253,6 +2254,7 @@ export function RichTextEditor({
   placeholder,
   className,
   editorClassName,
+  editorStyle,
   ariaLabel,
   ariaLabelledBy,
   mentionProjectId,
@@ -3108,6 +3110,7 @@ export function RichTextEditor({
           aria-label={ariaLabel}
           aria-labelledby={ariaLabelledBy}
           data-placeholder={placeholder ?? "Write here..."}
+          style={editorStyle}
           className={cn(
             "min-h-[140px] w-full max-w-full overflow-x-hidden rounded-md border border-input bg-background px-3 py-2 pr-14 text-sm text-foreground transition-colors",
             "focus-visible:outline-none focus-visible:border-ring/60",

@@ -13,6 +13,7 @@ import {
   type MeetingTodoActorReference,
   type MeetingTodoActorSummary,
 } from "@/lib/meeting-todo-actor";
+import { coerceRichTextHtml, richTextToPlainText } from "@/lib/rich-text";
 import { touchProjectActivity } from "@/lib/services/project-activity-service";
 import {
   requireProjectRole,
@@ -384,8 +385,8 @@ function validateMeetingNoteDraft(input: {
   }
 
   if (
-    input.inputNotes.length > MAX_SECTION_LENGTH ||
-    input.outputNotes.length > MAX_SECTION_LENGTH ||
+    richTextToPlainText(input.inputNotes).length > MAX_SECTION_LENGTH ||
+    richTextToPlainText(input.outputNotes).length > MAX_SECTION_LENGTH ||
     input.decisions.length > MAX_SECTION_LENGTH
   ) {
     return createError(400, "meeting-note-section-too-long");
@@ -454,7 +455,7 @@ async function loadMeetingNoteActorRegistry(input: {
         },
         isCurrentProjectHuman: true,
       });
-      if (actor) {
+      if (actor?.kind === "human") {
         activeHumanIds.add(row.actorId);
         humanById.set(row.actorId, actor);
       }
@@ -473,7 +474,7 @@ async function loadMeetingNoteActorRegistry(input: {
         expiresAt: row.expiresAt,
       },
     });
-    if (actor) {
+    if (actor?.kind === "agent") {
       credentialById.set(row.actorId, actor);
     }
   }
@@ -667,8 +668,8 @@ function noteMatchesSearch(note: ProjectMeetingNoteSummary, query: string): bool
     ...note.participants.map((participant) => participant.displayName),
     ...note.labels,
     note.status,
-    note.inputNotes,
-    note.outputNotes,
+    richTextToPlainText(note.inputNotes),
+    richTextToPlainText(note.outputNotes),
     note.steward?.displayName ?? "",
     ...note.actions.map((action) => action.content),
   ]
@@ -736,8 +737,10 @@ function buildDraft(input: MeetingNoteMutationInput) {
   const participants = normalizeParticipants(input.participants);
   const labels = normalizeTaskLabels(input.labels ?? []);
   const status = normalizeStatus(input.status);
-  const inputNotes = normalizeLongText(input.inputNotes);
-  const outputNotes = normalizeLongText(input.outputNotes);
+  const inputNotes =
+    coerceRichTextHtml(normalizeLongText(input.inputNotes)) ?? "";
+  const outputNotes =
+    coerceRichTextHtml(normalizeLongText(input.outputNotes)) ?? "";
   const decisions = normalizeLongText(input.decisions);
   const actions = normalizeActionInputs(input.actions);
 
