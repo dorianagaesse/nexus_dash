@@ -1,5 +1,96 @@
 # Current Task
 
+## ND-382: Expose active project agents in mention and assignment pickers
+
+## Status
+
+In Progress (2026-09-07). Branch
+`feature/nd-382-active-project-agent-pickers` uses the dedicated worktree
+`../nexus_dash_nd382_wt`, created from `origin/main` at 2fbc228. ND-382 is
+stacked on the canonical project-actor foundation in ND-178 / PR #489; that
+dependency is green and Copilot-clean but not yet merged. The Nexus Dash board
+card is In Progress.
+
+## Context
+
+Project collaboration controls do not expose one consistent actor set. Meeting
+todo and context stewardship already resolve active human members and active
+agent credentials, while task-assignee controls and @mention autocomplete use
+human-only collaborator/member contracts. This task makes active credential
+identities discoverable through one project-scoped actor contract and gives
+agent rows the same recognizable, accessible treatment everywhere they appear.
+
+## Scope
+
+- Add an authorized project-actor discovery/search service and route backed by
+  the ND-178 actor registry; match humans by username/name/email and agents by
+  credential label without returning credential secrets or token material.
+- Use the shared actor result contract in supported @mention autocomplete and
+  assignment-picker presentation instead of maintaining human-only query and
+  rendering paths.
+- Present agents with the shared Lucide bot avatar and an explicit `Agent`
+  text label, preserving keyboard/listbox behavior, visible focus, compact
+  mobile layout, and light/dark token styling.
+- Exclude revoked or expired credentials from new-selection results while
+  preserving already-stored historical agent identity snapshots.
+
+## Out Of Scope
+
+- Persisting agent-tag events or changing comment notification behavior; that
+  is ND-383.
+- Adding task/meeting-todo agent assignment persistence, assignment history, or
+  assignment audit events; that is ND-384. Existing meeting-todo agent
+  assignment behavior remains supported.
+- Agent attention/work-queue APIs (ND-385), credential lifecycle changes, or
+  new agent permissions.
+
+## Acceptance Criteria
+
+1. Typing `@` in supported comment and rich-text composers queries a
+   project-scoped actor endpoint that returns eligible human members and every
+   active agent credential matching the query.
+2. Assignment-picker option contracts can render the same active project-agent
+   identities alongside eligible humans; existing meeting-todo agent choices
+   remain selectable and task controls do not silently submit an unsupported
+   credential as a human user.
+3. Agent rows use the credential label as display identity plus a visible
+   `Agent` treatment and shared agent avatar; listbox semantics, arrow-key/
+   Enter/Escape interaction, focus visibility, 375px layout, and both themes
+   remain coherent.
+4. Revoked and expired credentials are omitted from discovery/new-selection
+   results, while stored inactive-agent summaries continue to render with their
+   durable snapshot and reassignment state.
+5. Discovery enforces project access for human and agent callers, applies a
+   bounded result limit, and exposes no API-key, token, hash, or credential
+   owner secret material.
+6. Mention and assignment surfaces consume shared actor mapping/presentation
+   helpers rather than implementing incompatible agent identity shapes.
+
+## Definition Of Done
+
+- Shared actor search, route mapping, picker row treatment, and affected
+  consumers are implemented with focused service, route, and component tests.
+- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
+  `npm run build`, focused/full Playwright UI coverage, and `git diff --check`
+  are green.
+- The product minor version and CHANGELOG are advanced per release policy;
+  `tasks/current.md`, `journal.md`, and the live ND-382 card reflect delivery.
+- The branch is pushed and a ready-for-review PR is open; Copilot's initial
+  review outcome is triaged and all addressed conversations are resolved.
+
+## Runtime Assumptions
+
+- Production board access uses the gitignored
+  `.config/.nd-nexus-dash.env` agent credential contract. Preview UI validation
+  uses the gitignored `.tmp/.nd-preview.env` access bundle from the main
+  checkout if a deployed preview is required.
+- No new database model or RLS policy is introduced by ND-382. The branch
+  temporarily carries ND-178's migration until PR #489 merges.
+
+## Previous Task Snapshot
+
+# Current Task
+
 ## ND-376: Allow meeting todo assignees who are external participants
 
 ## Status
