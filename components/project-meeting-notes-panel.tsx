@@ -2471,8 +2471,8 @@ export function ProjectMeetingNotesPanel({
               />
             </SectionBlock>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),320px]">
-              <div className="grid gap-2">
+            <div className="grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr),320px]">
+              <div className="grid w-full min-w-0 max-w-full gap-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <label
                     htmlFor="meeting-outputs"
@@ -2498,6 +2498,7 @@ export function ProjectMeetingNotesPanel({
                     }
                     placeholder="What changed, what was clarified, what needs to happen next."
                     mentionProjectId={projectId}
+                    className="min-w-0 max-w-full"
                     editorClassName="min-h-56"
                     editorStyle={getMeetingNoteZoomTextStyle(outputNotesZoom)}
                   />

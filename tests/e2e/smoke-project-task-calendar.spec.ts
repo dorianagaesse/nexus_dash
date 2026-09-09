@@ -482,23 +482,38 @@ test.describe("critical UI smoke flows", () => {
     await expect(outputZoomControls).toContainText("100%");
 
     const desktopViewport = page.viewportSize();
-    await page.setViewportSize({ width: 375, height: 667 });
-    for (const controls of [
-      meetingDialog.getByRole("group", { name: "Inputs zoom controls" }),
-      outputZoomControls,
+    for (const viewport of [
+      { width: 375, height: 667 },
+      { width: 667, height: 375 },
     ]) {
-      const box = await controls.boundingBox();
-      expect(box).not.toBeNull();
-      expect(box!.x).toBeGreaterThanOrEqual(0);
-      expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+      await page.setViewportSize(viewport);
+      for (const theme of ["light", "dark"]) {
+        await page.evaluate((activeTheme) => {
+          document.documentElement.classList.toggle(
+            "dark",
+            activeTheme === "dark"
+          );
+        }, theme);
+        for (const controls of [
+          meetingDialog.getByRole("group", { name: "Inputs zoom controls" }),
+          outputZoomControls,
+        ]) {
+          await expect(controls).toBeVisible();
+          const box = await controls.boundingBox();
+          expect(box).not.toBeNull();
+          expect(box!.x).toBeGreaterThanOrEqual(0);
+          expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+        }
+        const viewportMetrics = await page.evaluate(() => ({
+          clientWidth: document.documentElement.clientWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+        }));
+        expect(viewportMetrics.scrollWidth).toBeLessThanOrEqual(
+          viewportMetrics.clientWidth
+        );
+      }
     }
-    const viewportMetrics = await page.evaluate(() => ({
-      clientWidth: document.documentElement.clientWidth,
-      scrollWidth: document.documentElement.scrollWidth,
-    }));
-    expect(viewportMetrics.scrollWidth).toBeLessThanOrEqual(
-      viewportMetrics.clientWidth
-    );
+    await page.evaluate(() => document.documentElement.classList.remove("dark"));
     if (desktopViewport) {
       await page.setViewportSize(desktopViewport);
     }
