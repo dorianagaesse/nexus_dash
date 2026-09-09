@@ -13,6 +13,7 @@ export async function GET(
   const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
+    principalResult.response.headers.set("Cache-Control", "no-store");
     return principalResult.response;
   }
 
@@ -23,7 +24,13 @@ export async function GET(
     query: request.nextUrl.searchParams.get("query") ?? "",
   });
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      {
+        status: result.status,
+        headers: { "Cache-Control": "no-store" },
+      }
+    );
   }
   return NextResponse.json(result.data, {
     headers: { "Cache-Control": "no-store" },

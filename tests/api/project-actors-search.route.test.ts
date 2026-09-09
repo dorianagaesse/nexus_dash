@@ -43,7 +43,24 @@ describe("project actor search route", () => {
     );
 
     expect(response.status).toBe(401);
+    expect(response.headers.get("cache-control")).toBe("no-store");
     expect(actorServiceMock.searchProjectActors).not.toHaveBeenCalled();
+  });
+
+  test("prevents service authorization errors from being cached", async () => {
+    actorServiceMock.searchProjectActors.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      error: "forbidden",
+    });
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/projects/project-1/actors/search"),
+      { params: Promise.resolve({ projectId: "project-1" }) }
+    );
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
   test("passes the query and project-scoped agent context to the service", async () => {

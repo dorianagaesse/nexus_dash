@@ -3,6 +3,13 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-10 - ND-382 preview gap: agents absent from mention and assignee pickers
+
+- Preview validation of the PR #497 head (`feature/nd-382-active-project-agent-pickers`, e79e202) reported no agents in @mention autocomplete or task-assignee pickers. Root cause: `loadProjectActorRegistry`/`searchProjectActors` read `ApiCredential` through a direct Prisma include, while `api_credential_select_policy` (task318) grants SELECT only to the project owner under forced RLS. Every non-owner member session therefore resolved zero credential rows and agents vanished from every ND-382 surface (mention autocomplete, task pickers, meeting todos, context cards). Local suites could not catch it: `withActorRlsContext` skips the identity under `NODE_ENV=test` and the local/e2e DB connection bypasses RLS.
+- Fix: the registry now loads through a new `app.list_project_actors(projectId)` SECURITY DEFINER projection function migration (`20260909212500_nd382_project_actor_safe_read`) that returns owner + members + non-secret credential metadata to any current project member, mirroring the established `app.list_project_context_card_actors` pattern (which the context-card service previously used and now delegates to the shared registry). `searchProjectActors` keeps its role/isOwner mapping and reads humans via the same registry; the actor-search route adds `Cache-Control: no-store` to auth/error responses.
+- Coverage: the real-PostgreSQL RLS isolation matrix gained assertions that members see zero `ApiCredential` rows directly but see their own project's agents through `app.list_project_actors`, that cross-project and revoked-membership callers see nothing, and that an absent identity sees nothing; the ND-382 e2e spec gained a viewer read assertion; service tests in the meeting-note and meeting-todo suites migrated their registry fixtures from `project.findUnique` to `$queryRaw` rows.
+- Validation green on the fix tree: lint; `rls:check`; `release:check`; full Vitest (189 files / 1,394 tests passed, 2 skipped); coverage above thresholds (statements 93.45%, branches 84%, functions 95.3%, lines 93.75%); production build; `git diff --check`; and the real-PostgreSQL RLS setup + isolation matrix against a disposable database with the least-privilege `NOBYPASSRLS` runtime role. Local Playwright was not rerun for this service-layer fix; CI E2E Smoke and Tenant Isolation run on the PR head.
+
 # 2026-09-09 - ND-382: Active project agents in collaboration pickers
 
 - Read the live production ND-382 card through the documented agent API,

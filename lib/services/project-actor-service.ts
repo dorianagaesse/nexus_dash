@@ -1,4 +1,4 @@
-import type { ProjectMembershipRole } from "@prisma/client";
+import { Prisma, type ProjectMembershipRole } from "@prisma/client";
 
 import { resolveAgentCredentialStatus } from "@/lib/agent-access";
 import type {
@@ -32,6 +32,19 @@ export interface ProjectActorCredentialRecord {
   id: string;
   label: string;
   projectId: string;
+  revokedAt: Date | null;
+  expiresAt: Date | null;
+}
+
+interface RlsSafeProjectActorRow {
+  kind: "human" | "agent";
+  actorId: string;
+  name: string | null;
+  email: string | null;
+  username: string | null;
+  usernameDiscriminator: string | null;
+  avatarSeed: string | null;
+  label: string | null;
   revokedAt: Date | null;
   expiresAt: Date | null;
 }
@@ -221,30 +234,40 @@ export async function loadProjectActorRegistry(input: {
   projectId: string;
   now?: Date;
 }): Promise<ProjectActorRegistry | null> {
-  const project = await input.db.project.findUnique({
-    where: { id: input.projectId },
-    select: {
-      owner: { select: projectActorUserSelect },
-      memberships: {
-        orderBy: [{ createdAt: "asc" }],
-        select: { user: { select: projectActorUserSelect } },
-      },
-      apiCredentials: {
-        orderBy: [{ label: "asc" }, { createdAt: "asc" }],
-        select: projectActorCredentialSelect,
-      },
-    },
-  });
-  if (!project) {
+  const rows = await input.db.$queryRaw<RlsSafeProjectActorRow[]>(Prisma.sql`
+    SELECT *
+    FROM app.list_project_actors(${input.projectId})
+  `);
+  if (rows.length === 0) {
     return null;
   }
 
+  const humans: TaskPersonRecord[] = [];
+  const credentials: ProjectActorCredentialRecord[] = [];
+  for (const row of rows) {
+    if (row.kind === "human") {
+      humans.push({
+        id: row.actorId,
+        name: row.name,
+        email: row.email,
+        username: row.username,
+        usernameDiscriminator: row.usernameDiscriminator,
+        avatarSeed: row.avatarSeed,
+      });
+      continue;
+    }
+    credentials.push({
+      id: row.actorId,
+      label: row.label ?? "Project agent",
+      projectId: input.projectId,
+      revokedAt: row.revokedAt,
+      expiresAt: row.expiresAt,
+    });
+  }
+
   return buildProjectActorRegistry({
-    humans: [
-      project.owner,
-      ...project.memberships.map((membership) => membership.user),
-    ],
-    credentials: project.apiCredentials,
+    humans,
+    credentials,
     now: input.now,
   });
 }
@@ -340,10 +363,6 @@ export async function searchProjectActors(input: {
             user: { select: projectActorUserSelect },
           },
         },
-        apiCredentials: {
-          orderBy: [{ label: "asc" }, { createdAt: "asc" }],
-          select: projectActorCredentialSelect,
-        },
       },
     });
     if (!project) {
@@ -365,11 +384,14 @@ export async function searchProjectActors(input: {
     const emailByHumanId = new Map(
       humans.map((human) => [human.id, human.email?.toLowerCase() ?? ""])
     );
-    const registry = buildProjectActorRegistry({
-      humans,
-      credentials: project.apiCredentials,
+    const registry = await loadProjectActorRegistry({
+      db,
+      projectId,
       now: input.now,
     });
+    if (!registry) {
+      return { ok: false as const, status: 404, error: "project-not-found" };
+    }
 
     const actors: ProjectActorSearchResult[] = registry.assignable
       .filter((actor) => {

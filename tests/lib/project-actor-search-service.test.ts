@@ -5,6 +5,7 @@ const accessMock = vi.hoisted(() => ({
 }));
 
 const dbMock = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
   project: {
     findUnique: vi.fn(),
   },
@@ -49,30 +50,61 @@ describe("searchProjectActors", () => {
     dbMock.project.findUnique.mockResolvedValue({
       owner,
       memberships: [{ role: "editor", user: collaborator }],
-      apiCredentials: [
+    });
+    dbMock.$queryRaw.mockResolvedValue([
+      {
+        kind: "human",
+        actorId: owner.id,
+        name: owner.name,
+        email: owner.email,
+        username: owner.username,
+        usernameDiscriminator: owner.usernameDiscriminator,
+        avatarSeed: owner.avatarSeed,
+        label: null,
+        revokedAt: null,
+        expiresAt: null,
+      },
+      {
+        kind: "human",
+        actorId: collaborator.id,
+        name: collaborator.name,
+        email: collaborator.email,
+        username: collaborator.username,
+        usernameDiscriminator: collaborator.usernameDiscriminator,
+        avatarSeed: collaborator.avatarSeed,
+        label: null,
+        revokedAt: null,
+        expiresAt: null,
+      },
+      ...[
         {
-          id: "credential-active",
+          actorId: "credential-active",
           label: "Release bot",
-          projectId: "project-1",
           revokedAt: null,
           expiresAt: null,
         },
         {
-          id: "credential-revoked",
+          actorId: "credential-revoked",
           label: "Old bot",
-          projectId: "project-1",
           revokedAt: new Date("2026-09-01T00:00:00.000Z"),
           expiresAt: null,
         },
         {
-          id: "credential-expired",
+          actorId: "credential-expired",
           label: "Expired bot",
-          projectId: "project-1",
           revokedAt: null,
           expiresAt: new Date("2026-09-08T00:00:00.000Z"),
         },
-      ],
-    });
+      ].map((credential) => ({
+        kind: "agent",
+        name: null,
+        email: null,
+        username: null,
+        usernameDiscriminator: null,
+        avatarSeed: null,
+        ...credential,
+      })),
+    ]);
   });
 
   test("returns matching humans and active agents without credential secrets", async () => {
@@ -106,6 +138,7 @@ describe("searchProjectActors", () => {
     expect(JSON.stringify(result)).not.toContain("credential-revoked");
     expect(JSON.stringify(result)).not.toContain("credential-expired");
     expect(JSON.stringify(result)).not.toContain("secret");
+    expect(dbMock.$queryRaw).toHaveBeenCalledTimes(1);
   });
 
   test("filters agents by credential label", async () => {
@@ -135,5 +168,6 @@ describe("searchProjectActors", () => {
       })
     ).resolves.toEqual({ ok: false, status: 404, error: "project-not-found" });
     expect(dbMock.project.findUnique).not.toHaveBeenCalled();
+    expect(dbMock.$queryRaw).not.toHaveBeenCalled();
   });
 });

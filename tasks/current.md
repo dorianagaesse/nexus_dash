@@ -4,11 +4,24 @@
 
 ## Status
 
-In Progress (2026-09-09). Branch
+In Progress (2026-09-09; RLS-safe-read fix 2026-09-10). Branch
 `feature/nd-382-active-project-agent-pickers` uses the dedicated worktree
 `../nexus_dash_nd382_wt`. The branch has been merged forward to `origin/main`
 at 6426c1a (v0.62.0), which includes the canonical project-actor foundation
 from ND-178 / PR #489. The Nexus Dash board card is In Progress.
+
+Preview validation of the PR #497 head (2026-09-10) found no agents in
+@mention autocomplete or task-assignee pickers. Root cause: the ND-382 actor
+registry loaders read `ApiCredential` through a direct Prisma include, but
+`api_credential_select_policy` exposes credential rows to the project owner
+only under forced RLS — so editor/viewer members got zero agent rows in real
+least-privilege environments. Local tests masked the gap because the test DB
+connection bypasses RLS. Fix on the branch: the registry now loads through a
+new `app.list_project_actors(projectId)` SECURITY DEFINER projection (the
+established context-card stewardship pattern), the RLS isolation matrix pins
+the direct-read-hidden / function-visible contract, actor-search error
+responses carry `no-store`, and the ND-382 e2e spec adds a viewer read
+assertion. See the 2026-09-10 journal entry for validation evidence.
 
 ## Context
 
@@ -83,8 +96,10 @@ agent rows the same recognizable, accessible treatment everywhere they appear.
   `.config/.nd-nexus-dash.env` agent credential contract. Preview UI validation
   uses the gitignored `.tmp/.nd-preview.env` access bundle from the main
   checkout if a deployed preview is required.
-- No new database model or RLS policy is introduced by ND-382; ND-178's actor
-  schema and project-scoped registry are already present on `main`.
+- No new database table, model, or RLS policy is introduced by ND-382; the
+  2026-09-10 fix adds one SECURITY DEFINER projection function migration
+  (`app.list_project_actors`) alongside ND-178's actor schema already present
+  on `main`.
 
 ## Previous Task Snapshot
 

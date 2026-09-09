@@ -1,13 +1,11 @@
-import { Prisma } from "@prisma/client";
-
 import type {
   ContextCardActorReference,
   ContextCardActorSummary,
 } from "@/lib/context-card-actor";
 import type { AgentProjectAccessContext } from "@/lib/services/project-access-service";
 import {
-  buildProjectActorRegistry,
   listProjectActors,
+  loadProjectActorRegistry,
   mapStoredProjectActor,
   projectActorCredentialSelect,
   projectActorUserSelect,
@@ -39,19 +37,6 @@ export type ResolvedContextCardActorPersistence =
 
 export type ContextCardActorResolution = ProjectActorResolution;
 
-interface RlsSafeContextCardActorRow {
-  kind: "human" | "agent";
-  actorId: string;
-  name: string | null;
-  email: string | null;
-  username: string | null;
-  usernameDiscriminator: string | null;
-  avatarSeed: string | null;
-  label: string | null;
-  revokedAt: Date | null;
-  expiresAt: Date | null;
-}
-
 export function mapStoredContextCardActor(input: {
   kind: "human" | "agent";
   id: string | null;
@@ -69,42 +54,7 @@ export async function loadContextCardActorRegistry(input: {
   projectId: string;
   now?: Date;
 }): Promise<ContextCardActorRegistry | null> {
-  const rows = await input.db.$queryRaw<RlsSafeContextCardActorRow[]>(Prisma.sql`
-    SELECT *
-    FROM app.list_project_context_card_actors(${input.projectId})
-  `);
-  if (rows.length === 0) {
-    return null;
-  }
-
-  const humans: TaskPersonRecord[] = [];
-  const credentials: ProjectActorCredentialRecord[] = [];
-  for (const row of rows) {
-    if (row.kind === "human") {
-      humans.push({
-        id: row.actorId,
-        name: row.name,
-        email: row.email,
-        username: row.username,
-        usernameDiscriminator: row.usernameDiscriminator,
-        avatarSeed: row.avatarSeed,
-      });
-      continue;
-    }
-    credentials.push({
-      id: row.actorId,
-      label: row.label ?? "Project agent",
-      projectId: input.projectId,
-      revokedAt: row.revokedAt,
-      expiresAt: row.expiresAt,
-    });
-  }
-
-  return buildProjectActorRegistry({
-    humans,
-    credentials,
-    now: input.now,
-  });
+  return loadProjectActorRegistry(input);
 }
 
 export async function listProjectContextCardActors(input: {

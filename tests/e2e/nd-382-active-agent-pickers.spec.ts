@@ -93,4 +93,20 @@ test("active credential labels appear safely in mention and task-assignee picker
   await expect(agentMention).toBeVisible();
   await expect(agentMention).toHaveAttribute("aria-disabled", "true");
   await expect(agentMention).toContainText("Agent");
+
+  const viewerId = await signInAsVerifiedUser(page);
+  await prisma.projectMembership.create({
+    data: {
+      projectId: projectId as string,
+      userId: viewerId,
+      role: "viewer",
+    },
+  });
+  const viewerActorResponse = await page.request.get(
+    `/api/projects/${projectId}/actors/search?query=${encodeURIComponent(activeLabel)}`
+  );
+  expect(viewerActorResponse.ok()).toBeTruthy();
+  await expect(viewerActorResponse.json()).resolves.toEqual({
+    actors: [expect.objectContaining({ kind: "agent", displayName: activeLabel })],
+  });
 });
