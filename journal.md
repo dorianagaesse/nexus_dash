@@ -3,6 +3,23 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-10 - Epic descriptions now open with a `Recommended order:` path
+
+- Board: rewrote the descriptions of the five legacy-format epic cards
+  (TASK-021, TASK-022, TASK-110, TASK-114, TASK-385) through the agent API.
+  Removed the legacy `ID:`/`Title:`/`Status:`/`Dependencies:`/`Section:`
+  boilerplate and replaced it with a `Recommended order:` path that lists
+  every linked task key explicitly in suggested execution order, followed by
+  the original rationale paragraph. Pre-rewrite descriptions are backed up in
+  `tmp/nd-epic-order-backup.json` (gitignored) and every update was
+  readback-verified through `GET /epics`.
+- Convention: `agent.md` gains a "Creating and refining epics" subsection —
+  dependency and membership information lives in the epic's linked tasks and
+  their Related Tasks relationships, never as description prose; the
+  description opens with the `Recommended order:` path plus a short rationale.
+  `CLAUDE.md` carries the same rule in its task-management section.
+- PR: <https://github.com/dorianagaesse/nexus_dash/pull/500>.
+
 # 2026-09-08 - ND-438 preview acceptance on the merged PR #496 head
 
 - Preview acceptance ran against the PR #496 head deployed to the ND-438
