@@ -19,6 +19,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   their Related Tasks relationships, never as description prose; the
   description opens with the `Recommended order:` path plus a short rationale.
   `CLAUDE.md` carries the same rule in its task-management section.
+- PR: <https://github.com/dorianagaesse/nexus_dash/pull/500>.
 
 # 2026-09-08 - ND-438 preview acceptance on the merged PR #496 head
 
