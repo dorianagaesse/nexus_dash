@@ -8,11 +8,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Board: rewrote the descriptions of the five legacy-format epic cards
   (TASK-021, TASK-022, TASK-110, TASK-114, TASK-385) through the agent API.
   Removed the legacy `ID:`/`Title:`/`Status:`/`Dependencies:`/`Section:`
-  boilerplate and replaced it with a `Recommended order:` path of the epic's
-  linked task keys in suggested execution order (TASK-386 through TASK-405,
-  in order), followed by the original rationale paragraph. Pre-rewrite
-  descriptions are backed up in `tmp/nd-epic-order-backup.json` (gitignored)
-  and every update was readback-verified through `GET /epics`.
+  boilerplate and replaced it with a `Recommended order:` path that lists
+  every linked task key explicitly in suggested execution order, followed by
+  the original rationale paragraph. Pre-rewrite descriptions are backed up in
+  `tmp/nd-epic-order-backup.json` (gitignored) and every update was
+  readback-verified through `GET /epics`.
 - Convention: `agent.md` gains a "Creating and refining epics" subsection —
   dependency and membership information lives in the epic's linked tasks and
   their Related Tasks relationships, never as description prose; the
