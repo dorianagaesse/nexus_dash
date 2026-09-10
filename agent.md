@@ -97,9 +97,10 @@ dependency lists, split manifests, and staging notes out of the epic
 description. Compose the description as:
 
 - A `Recommended order:` path — the epic's linked task keys in suggested
-  execution order, joined with `->` and covering every linked task, for
-  example `Recommended order: TASK-386 -> TASK-387 -> ... -> TASK-405`.
-  Refresh the path when linked tasks are added, split, or resequenced.
+  execution order, joined with `->`, covering every linked task in full (never
+  abbreviate with an ellipsis), for example
+  `Recommended order: TASK-386 -> TASK-387 -> TASK-388`. Refresh the path when
+  linked tasks are added, split, or resequenced.
 - A short rationale paragraph explaining the program's purpose and intended
   outcome.
 
