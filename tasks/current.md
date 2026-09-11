@@ -23,6 +23,17 @@ the direct-read-hidden / function-visible contract, actor-search error
 responses carry `no-store`, and the ND-382 e2e spec adds a viewer read
 assertion. See the 2026-09-10 journal entry for validation evidence.
 
+Retest on 2026-09-11 traced the remaining "no agent in the pickers" report to
+preview routing, not the branch: every `deploy-preview` run reassigns the one
+stable preview auth alias (the `.tmp/.nd-preview.env` base URL), and a later
+run for another branch left it serving that branch's build (revision
+`33c8f95`), where the ND-382 routes do not exist at all. The branch was merged
+forward to `origin/main` at d64dbb3 (only `journal.md` conflicted), and the
+ND-382 preview was redeployed so the alias resolves to the branch head; live
+alias verification passed (readiness revision `8e339cd`, agent token
+exchange, and `GET /actors/search` returning the active project agent next to
+the humans). See the 2026-09-11 journal entry.
+
 ## Context
 
 Project collaboration controls do not expose one consistent actor set. Meeting
@@ -96,6 +107,10 @@ agent rows the same recognizable, accessible treatment everywhere they appear.
   `.config/.nd-nexus-dash.env` agent credential contract. Preview UI validation
   uses the gitignored `.tmp/.nd-preview.env` access bundle from the main
   checkout if a deployed preview is required.
+- The stable preview auth alias is shared by every branch preview: each
+  `deploy-preview` run re-points it to the newest validated deployment.
+  Before a preview retest handoff, re-run `deploy-preview` for this branch
+  and verify `GET /api/health/ready` reports the expected revision.
 - No new database table, model, or RLS policy is introduced by ND-382; the
   2026-09-10 fix adds one SECURITY DEFINER projection function migration
   (`app.list_project_actors`) alongside ND-178's actor schema already present
