@@ -39,6 +39,7 @@ import {
 } from "@/lib/task-attachment";
 import { uploadFilesDirectInBackground } from "@/lib/direct-upload-client";
 import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
+import type { ProjectActorSummary } from "@/lib/project-actor";
 import {
   MAX_TASK_TITLE_LENGTH,
   TASK_TITLE_LIMIT_HINT_THRESHOLD,
@@ -51,6 +52,7 @@ interface CreateTaskDialogProps {
   availableTasks: RelatedTaskOption[];
   availableEpics: ProjectEpicOption[];
   availableAssignees: ProjectTaskCollaborator[];
+  availableAgentOptions?: ProjectActorSummary[];
   onTaskCreateStarted?: (draft: TaskCreateOptimisticDraft) => string | null;
   onTaskCreated?: (
     task: TaskMutationResponseTask,
@@ -75,6 +77,7 @@ export function CreateTaskDialog({
   availableTasks,
   availableEpics,
   availableAssignees,
+  availableAgentOptions = [],
   onTaskCreateStarted,
   onTaskCreated,
   onOptimisticTaskDiscard,
@@ -598,6 +601,7 @@ export function CreateTaskDialog({
                           value={assigneeUserId}
                           onChange={setAssigneeUserId}
                           options={availableAssignees}
+                          agentOptions={availableAgentOptions}
                           className={FORM_FOCUS_BORDER_CLASS}
                         />
                         <p className="text-xs text-muted-foreground">

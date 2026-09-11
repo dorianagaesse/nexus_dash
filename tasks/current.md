@@ -1,5 +1,147 @@
 # Current Task
 
+## ND-382: Expose active project agents in mention and assignment pickers
+
+## Status
+
+In Progress (2026-09-09; RLS-safe-read fix 2026-09-10). Branch
+`feature/nd-382-active-project-agent-pickers` uses the dedicated worktree
+`../nexus_dash_nd382_wt`. The branch has been merged forward to `origin/main`
+at 6426c1a (v0.62.0), which includes the canonical project-actor foundation
+from ND-178 / PR #489. The Nexus Dash board card is In Progress.
+
+Preview validation of the PR #497 head (2026-09-10) found no agents in
+@mention autocomplete or task-assignee pickers. Root cause: the ND-382 actor
+registry loaders read `ApiCredential` through a direct Prisma include, but
+`api_credential_select_policy` exposes credential rows to the project owner
+only under forced RLS — so editor/viewer members got zero agent rows in real
+least-privilege environments. Local tests masked the gap because the test DB
+connection bypasses RLS. Fix on the branch: the registry now loads through a
+new `app.list_project_actors(projectId)` SECURITY DEFINER projection (the
+established context-card stewardship pattern), the RLS isolation matrix pins
+the direct-read-hidden / function-visible contract, actor-search error
+responses carry `no-store`, and the ND-382 e2e spec adds a viewer read
+assertion. See the 2026-09-10 journal entry for validation evidence.
+
+Retest on 2026-09-11 traced the remaining "no agent in the pickers" report to
+preview routing, not the branch: every `deploy-preview` run reassigns the one
+stable preview auth alias (the `.tmp/.nd-preview.env` base URL), and a later
+run for another branch left it serving that branch's build (revision
+`33c8f95`), where the ND-382 routes do not exist at all. The branch was merged
+forward to `origin/main` at d64dbb3 (only `journal.md` conflicted), and the
+ND-382 preview was redeployed so the alias resolves to the branch head; live
+alias verification passed (readiness revision `8e339cd`, agent token
+exchange, and `GET /actors/search` returning the active project agent next to
+the humans). See the 2026-09-11 journal entry.
+
+Retest on 2026-09-12 narrowed the remaining task-assignee gap (mention
+autocomplete showed the agent, the assignee picker did not) to a stale server
+payload: task pickers are rendered from the route's actor list, which only
+refreshes on navigation/reload, while the mention autocomplete fetches
+`/actors/search` live — so an agent credential created from the project's
+"Agent access" panel appeared in mentions but not in assignee pickers until a
+manual reload. The owner actions now call `router.refresh()` after credential
+create/revoke so pickers update in place, and the ND-382 e2e spec covers the
+create-then-open-picker flow with no reload in between. The mention-row and
+task-assignee disabled treatments remain by design (ND-383/ND-384 own
+persistence). Validation on the fix commit `eb7edb0` is green (lint,
+`rls:check`, 1,394 Vitest tests, coverage, production build, focused
+Playwright spec including the regression flow); the preview was redeployed
+(run 34655417001) and the alias serves `eb7edb0` with a live
+`GET /actors/search` returning the active agent. See the 2026-09-12 journal
+entry.
+
+## Context
+
+Project collaboration controls do not expose one consistent actor set. Meeting
+todo and context stewardship already resolve active human members and active
+agent credentials, while task-assignee controls and @mention autocomplete use
+human-only collaborator/member contracts. This task makes active credential
+identities discoverable through one project-scoped actor contract and gives
+agent rows the same recognizable, accessible treatment everywhere they appear.
+
+## Scope
+
+- Add an authorized project-actor discovery/search service and route backed by
+  the ND-178 actor registry; match humans by username/name/email and agents by
+  credential label without returning credential secrets or token material.
+- Use the shared actor result contract in supported @mention autocomplete and
+  assignment-picker presentation instead of maintaining human-only query and
+  rendering paths.
+- Present agents with the shared Lucide bot avatar and an explicit `Agent`
+  text label, preserving keyboard/listbox behavior, visible focus, compact
+  mobile layout, and light/dark token styling.
+- Exclude revoked or expired credentials from new-selection results while
+  preserving already-stored historical agent identity snapshots.
+
+## Out Of Scope
+
+- Persisting agent-tag events or changing comment notification behavior; that
+  is ND-383.
+- Adding task/meeting-todo agent assignment persistence, assignment history, or
+  assignment audit events; that is ND-384. Existing meeting-todo agent
+  assignment behavior remains supported.
+- Agent attention/work-queue APIs (ND-385), credential lifecycle changes, or
+  new agent permissions.
+
+## Acceptance Criteria
+
+1. Typing `@` in supported comment and rich-text composers queries a
+   project-scoped actor endpoint that returns eligible human members and every
+   active agent credential matching the query.
+2. Assignment-picker option contracts can render the same active project-agent
+   identities alongside eligible humans; existing meeting-todo agent choices
+   remain selectable and task controls do not silently submit an unsupported
+   credential as a human user.
+3. Agent rows use the credential label as display identity plus a visible
+   `Agent` treatment and shared agent avatar; listbox semantics, arrow-key/
+   Enter/Escape interaction, focus visibility, 375px layout, and both themes
+   remain coherent.
+4. Revoked and expired credentials are omitted from discovery/new-selection
+   results, while stored inactive-agent summaries continue to render with their
+   durable snapshot and reassignment state.
+5. Discovery enforces project access for human and agent callers, applies a
+   bounded result limit, and exposes no API-key, token, hash, or credential
+   owner secret material.
+6. Mention and assignment surfaces consume shared actor mapping/presentation
+   helpers rather than implementing incompatible agent identity shapes.
+
+## Definition Of Done
+
+- Shared actor search, route mapping, picker row treatment, and affected
+  consumers are implemented with focused service, route, and component tests.
+- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
+  `npm run build`, focused/full Playwright UI coverage, and `git diff --check`
+  are green.
+- The product minor version and CHANGELOG are advanced per release policy;
+  `tasks/current.md`, `journal.md`, and the live ND-382 card reflect delivery.
+- The branch is pushed and a ready-for-review PR is open; Copilot's initial
+  review outcome is triaged and all addressed conversations are resolved.
+
+## Runtime Assumptions
+
+- Production board access uses the gitignored
+  `.config/.nd-nexus-dash.env` agent credential contract. Preview UI validation
+  uses the gitignored `.tmp/.nd-preview.env` access bundle from the main
+  checkout if a deployed preview is required.
+- The stable preview auth alias is shared by every branch preview: each
+  `deploy-preview` run re-points it to the newest validated deployment.
+  Before a preview retest handoff, re-run `deploy-preview` for this branch
+  and verify `GET /api/health/ready` reports the expected revision.
+- No new database table, model, or RLS policy is introduced by ND-382; the
+  2026-09-10 fix adds one SECURITY DEFINER projection function migration
+  (`app.list_project_actors`) alongside ND-178's actor schema already present
+  on `main`.
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` brief (ND-438, merged into main through PR
+#496 at 6426c1a / v0.62.0) is preserved verbatim below for history.
+
+---
+
+# Current Task
+
 ## ND-438: Add a task-by-id fetch endpoint (GET task/:id) and open deep-linked tasks missing from the board list
 
 ## Status
@@ -675,6 +817,9 @@ areas so meeting notes stop being the remaining plain-text island.
 The previous `tasks/current.md` brief (ND-376, merged into main via PR #490 at
 2fbc228) is preserved verbatim below for history, itself preserving the
 ND-379 brief.
+
+---
+
 # Current Task
 
 ## ND-376: Allow meeting todo assignees who are external participants

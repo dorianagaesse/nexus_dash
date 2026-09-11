@@ -780,6 +780,8 @@ export function ProjectDashboardOwnerActions({
         message: `Credential ${payload.credential.label} created.`,
       });
       await loadAgentAccessSummary();
+      // Task pickers are server-rendered from this route's data; refetch so the new agent appears without a manual reload.
+      router.refresh();
     } catch (error) {
       const message =
         error instanceof Error
@@ -893,6 +895,8 @@ export function ProjectDashboardOwnerActions({
         message: `Credential ${credential.label} revoked.`,
       });
       await loadAgentAccessSummary();
+      // Task pickers are server-rendered from this route's data; refetch so the revoked agent disappears without a manual reload.
+      router.refresh();
     } catch (error) {
       const message =
         error instanceof Error

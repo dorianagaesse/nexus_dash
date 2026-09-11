@@ -10,35 +10,38 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getActiveMentionTrigger } from "@/lib/mention";
 import { cn } from "@/lib/utils";
 
 export interface MentionAutocompleteMember {
+  kind: "human" | "agent";
   id: string;
   displayName: string;
   usernameTag: string | null;
-  avatarSeed: string;
-  role: string;
+  avatarSeed: string | null;
+  projectRole: "owner" | "editor" | "viewer" | null;
   isOwner: boolean;
 }
 
 export function buildMentionAutocompleteValue(
   member: MentionAutocompleteMember
 ): string {
-  if (member.usernameTag) {
+  if (member.kind === "human" && member.usernameTag) {
     return `@${member.usernameTag}`;
   }
 
-  // Only offer mention if user has a resolvable username; without one,
-  // the mention cannot be parsed/highlighted on render or trigger notifications.
+  // Agent mention persistence is owned by ND-383. Discovery can show an
+  // active credential now, but must not serialize it as a human mention.
   return "";
 }
 
 export function buildMentionAutocompleteDisplayValue(
   member: MentionAutocompleteMember
 ): string {
-  const username = member.usernameTag?.split("#", 1)[0] ?? "";
+  const username =
+    member.kind === "human" ? member.usernameTag?.split("#", 1)[0] ?? "" : "";
   return username ? `@${username}` : "";
 }
 
@@ -105,7 +108,7 @@ export function MentionAutocomplete({
 
       try {
         const response = await fetch(
-          `/api/projects/${encodeURIComponent(projectId)}/members/search?query=${encodeURIComponent(query)}`,
+          `/api/projects/${encodeURIComponent(projectId)}/actors/search?query=${encodeURIComponent(query)}`,
           { signal: abortControllerRef.current.signal }
         );
 
@@ -114,7 +117,7 @@ export function MentionAutocomplete({
         }
 
         const data = await response.json();
-        setMembers(data.members ?? []);
+        setMembers(data.actors ?? []);
         setActiveIndex(0);
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {
@@ -223,7 +226,7 @@ export function MentionAutocomplete({
           if (!members.length) return;
           event.preventDefault();
           event.stopPropagation();
-          if (members[activeIndex]) {
+          if (members[activeIndex]?.kind === "human") {
             onSelect(members[activeIndex]);
           }
           break;
@@ -269,7 +272,7 @@ export function MentionAutocomplete({
     <div
       ref={panelRef}
       role="listbox"
-      aria-label="Project members"
+      aria-label="Project people and agents"
       data-overlay-popover="true"
       className={cn(
         "pointer-events-auto fixed z-[120] overflow-hidden rounded-xl border border-border/70 bg-background/95 shadow-[0_10px_24px_-22px_rgba(15,23,42,0.45)] backdrop-blur-sm",
@@ -303,7 +306,7 @@ export function MentionAutocomplete({
 
         {!isLoading && !error && members.length === 0 && (
           <div className="flex items-center justify-center px-3 py-4 text-sm text-muted-foreground">
-            No members found
+            No people or agents found
           </div>
         )}
 
@@ -311,40 +314,65 @@ export function MentionAutocomplete({
           <div role="presentation" className="space-y-0.5">
             {members.map((member, index) => (
               <div
-                key={member.id}
+                key={`${member.kind}:${member.id}`}
                 role="option"
                 aria-selected={index === activeIndex}
+                aria-disabled={member.kind === "agent"}
+                title={
+                  member.kind === "agent"
+                    ? "Agent mentions are not available yet"
+                    : undefined
+                }
                 className={cn(
-                  "flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors",
+                  "flex min-h-12 items-center gap-3 rounded-lg px-2 py-2 transition-colors",
+                  member.kind === "human" ? "cursor-pointer" : "cursor-not-allowed",
                   index === activeIndex ? "bg-muted/70" : "hover:bg-muted/40"
                 )}
                 onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => handleMouseEnter(index)}
                 onClick={(e: MouseEvent) => {
                   e.preventDefault();
-                  handleItemClick(member);
+                  if (member.kind === "human") {
+                    handleItemClick(member);
+                  }
                 }}
               >
-                <UserAvatar
-                  avatarSeed={member.avatarSeed}
-                  displayName={member.displayName}
-                  className="h-8 w-8 shrink-0 border border-border/50"
-                />
+                {member.kind === "agent" ? (
+                  <AgentAvatar
+                    displayName={member.displayName}
+                    decorative
+                    className="h-8 w-8 shrink-0"
+                  />
+                ) : (
+                  <UserAvatar
+                    avatarSeed={member.avatarSeed ?? member.id}
+                    displayName={member.displayName}
+                    className="h-8 w-8 shrink-0 border border-border/50"
+                  />
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium leading-tight">
                     {member.displayName}
                   </p>
-                  {member.usernameTag && (
+                  {member.kind === "agent" ? (
+                    <p className="truncate text-xs leading-tight text-muted-foreground">
+                      Agent — mention support coming soon
+                    </p>
+                  ) : member.usernameTag ? (
                     <p className="truncate text-xs text-muted-foreground leading-tight">
                       {member.usernameTag}
                     </p>
-                  )}
+                  ) : null}
                 </div>
-                {member.isOwner && (
+                {member.kind === "agent" ? (
+                  <span className="shrink-0 rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                    Agent
+                  </span>
+                ) : member.isOwner ? (
                   <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                     Owner
                   </span>
-                )}
+                ) : null}
               </div>
             ))}
           </div>
