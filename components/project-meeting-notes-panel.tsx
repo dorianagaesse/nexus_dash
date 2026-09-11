@@ -2474,18 +2474,22 @@ export function ProjectMeetingNotesPanel({
 
             <div className="grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr),320px]">
               <div className="grid w-full min-w-0 max-w-full gap-2">
-                <SectionBlock
-                  title="Outputs"
-                  action={
-                    canEdit ? null : (
+                <div className="grid gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label
+                      htmlFor="meeting-outputs"
+                      className="text-sm font-medium"
+                    >
+                      Outputs
+                    </label>
+                    {!canEdit ? (
                       <MeetingNoteZoomControl
                         label="Outputs"
                         value={outputNotesZoom}
                         onChange={setOutputNotesZoom}
                       />
-                    )
-                  }
-                >
+                    ) : null}
+                  </div>
                   {canEdit ? (
                     <RichTextEditor
                       id="meeting-outputs"
@@ -2520,7 +2524,7 @@ export function ProjectMeetingNotesPanel({
                       style={getMeetingNoteZoomTextStyle(outputNotesZoom)}
                     />
                   )}
-                </SectionBlock>
+                </div>
               </div>
 
               <div className="grid gap-4">

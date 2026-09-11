@@ -3140,7 +3140,7 @@ export function RichTextEditor({
         {editorControls ? (
           <div
             data-rich-text-editor-controls="true"
-            className="absolute bottom-2 right-2 z-10"
+            className="absolute bottom-2 right-3 z-10"
           >
             {editorControls}
           </div>
