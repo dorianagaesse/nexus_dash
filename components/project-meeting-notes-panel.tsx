@@ -2177,16 +2177,7 @@ export function ProjectMeetingNotesPanel({
               ) : null}
             </div>
 
-            <SectionBlock
-              title="Inputs"
-              action={
-                <MeetingNoteZoomControl
-                  label="Inputs"
-                  value={inputNotesZoom}
-                  onChange={setInputNotesZoom}
-                />
-              }
-            >
+            <SectionBlock title="Inputs">
               <RichTextEditor
                 id="meeting-inputs"
                 value={prepareDraft.inputNotes}
@@ -2201,6 +2192,13 @@ export function ProjectMeetingNotesPanel({
                 ariaLabel="Inputs"
                 editorClassName="min-h-40"
                 editorStyle={getMeetingNoteZoomTextStyle(inputNotesZoom)}
+                editorControls={
+                  <MeetingNoteZoomControl
+                    label="Inputs"
+                    value={inputNotesZoom}
+                    onChange={setInputNotesZoom}
+                  />
+                }
               />
             </SectionBlock>
 
@@ -2476,11 +2474,13 @@ export function ProjectMeetingNotesPanel({
                 <SectionBlock
                   title="Outputs"
                   action={
-                    <MeetingNoteZoomControl
-                      label="Outputs"
-                      value={outputNotesZoom}
-                      onChange={setOutputNotesZoom}
-                    />
+                    canEdit ? null : (
+                      <MeetingNoteZoomControl
+                        label="Outputs"
+                        value={outputNotesZoom}
+                        onChange={setOutputNotesZoom}
+                      />
+                    )
                   }
                 >
                   {canEdit ? (
@@ -2499,6 +2499,13 @@ export function ProjectMeetingNotesPanel({
                       className="w-full min-w-0 max-w-full"
                       editorClassName="min-h-56"
                       editorStyle={getMeetingNoteZoomTextStyle(outputNotesZoom)}
+                      editorControls={
+                        <MeetingNoteZoomControl
+                          label="Outputs"
+                          value={outputNotesZoom}
+                          onChange={setOutputNotesZoom}
+                        />
+                      }
                     />
                   ) : (
                     <RichTextContent

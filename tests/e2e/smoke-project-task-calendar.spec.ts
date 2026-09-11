@@ -432,6 +432,20 @@ test.describe("critical UI smoke flows", () => {
       name: "Inputs zoom controls",
     });
     await expect(inputZoomControls).toContainText("100%");
+    const preparationInputBox = await preparationInput.boundingBox();
+    const inputZoomBox = await inputZoomControls.boundingBox();
+    expect(preparationInputBox).not.toBeNull();
+    expect(inputZoomBox).not.toBeNull();
+    expect(inputZoomBox!.x).toBeGreaterThanOrEqual(preparationInputBox!.x);
+    expect(inputZoomBox!.x + inputZoomBox!.width).toBeLessThanOrEqual(
+      preparationInputBox!.x + preparationInputBox!.width
+    );
+    const inputZoomBottomInset =
+      preparationInputBox!.y +
+      preparationInputBox!.height -
+      (inputZoomBox!.y + inputZoomBox!.height);
+    expect(inputZoomBottomInset).toBeGreaterThanOrEqual(0);
+    expect(inputZoomBottomInset).toBeLessThanOrEqual(12);
     await inputZoomControls.getByRole("button", { name: "Zoom in Inputs" }).click();
     await expect(inputZoomControls).toContainText("125%");
     await expect(preparationInput).toHaveCSS("font-size", "17.5px");
@@ -466,6 +480,20 @@ test.describe("critical UI smoke flows", () => {
     const outputZoomControls = meetingDialog.getByRole("group", {
       name: "Outputs zoom controls",
     });
+    const outputEditorBox = await outputNoteContent.boundingBox();
+    const outputZoomBox = await outputZoomControls.boundingBox();
+    expect(outputEditorBox).not.toBeNull();
+    expect(outputZoomBox).not.toBeNull();
+    expect(outputZoomBox!.x).toBeGreaterThanOrEqual(outputEditorBox!.x);
+    expect(outputZoomBox!.x + outputZoomBox!.width).toBeLessThanOrEqual(
+      outputEditorBox!.x + outputEditorBox!.width
+    );
+    const outputZoomBottomInset =
+      outputEditorBox!.y +
+      outputEditorBox!.height -
+      (outputZoomBox!.y + outputZoomBox!.height);
+    expect(outputZoomBottomInset).toBeGreaterThanOrEqual(0);
+    expect(outputZoomBottomInset).toBeLessThanOrEqual(12);
     await expect(inputNoteContent).toHaveText("Review TASK-098 scope and risks.");
     await expect(inputNoteContent).toHaveCSS("font-size", "17.5px");
     await expect(outputNoteContent).toHaveCSS("font-size", "14px");
