@@ -2177,7 +2177,10 @@ export function ProjectMeetingNotesPanel({
               ) : null}
             </div>
 
-            <SectionBlock title="Inputs">
+            <div className="grid gap-2">
+              <label htmlFor="meeting-inputs" className="text-sm font-medium">
+                Inputs
+              </label>
               <RichTextEditor
                 id="meeting-inputs"
                 value={prepareDraft.inputNotes}
@@ -2200,7 +2203,7 @@ export function ProjectMeetingNotesPanel({
                   />
                 }
               />
-            </SectionBlock>
+            </div>
 
             {draftError ? (
               <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
