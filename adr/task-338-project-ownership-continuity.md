@@ -22,6 +22,14 @@ assignments. An access-removal transaction recomputes the inventory and, when
 non-empty, requires either reassignment to an accepted remaining human
 collaborator or explicit unassignment before removing access.
 
+Responsibility changes run through
+`app.resolve_project_actor_responsibilities`. This narrowly granted
+security-definer function revalidates the current project owner, departing
+actor, mode, and optional replacement, then changes only active responsibility
+fields. This is required because ordinary write policies intentionally bind
+last-editor provenance to the session actor, while offboarding must preserve
+the departing actor's historical editor attribution.
+
 Ownership transfer is a separate owner-only service operation. It validates the
 target membership under the actor's RLS context, resolves the current owner's
 active responsibility when they elect to leave, and calls

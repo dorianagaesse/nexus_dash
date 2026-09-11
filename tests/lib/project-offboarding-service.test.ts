@@ -46,6 +46,7 @@ describe("project-offboarding-service", () => {
     dbMock.resource.count.mockResolvedValue(0);
     dbMock.projectMeetingNote.count.mockResolvedValue(0);
     dbMock.projectMeetingNoteAction.count.mockResolvedValue(0);
+    dbMock.$queryRaw.mockResolvedValue([{ result: "ok" }]);
     dbMock.task.updateMany.mockResolvedValue({ count: 0 });
     dbMock.resource.updateMany.mockResolvedValue({ count: 0 });
     dbMock.projectMeetingNote.updateMany.mockResolvedValue({ count: 0 });
@@ -125,7 +126,7 @@ describe("project-offboarding-service", () => {
         total: 1,
       },
     });
-    expect(dbMock.resource.updateMany).not.toHaveBeenCalled();
+    expect(dbMock.$queryRaw).not.toHaveBeenCalled();
   });
 
   test("reassigns only active fields and keeps provenance fields untouched", async () => {
@@ -153,36 +154,17 @@ describe("project-offboarding-service", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(dbMock.task.updateMany).toHaveBeenCalledWith({
-      where: {
-        projectId: "project-1",
-        assigneeUserId: "user-1",
-        archivedAt: null,
-        NOT: { status: "Done" },
-      },
-      data: { assigneeUserId: "owner-1" },
-    });
-    expect(dbMock.projectMeetingNote.updateMany).toHaveBeenCalledWith({
-      where: {
-        projectId: "project-1",
-        stewardKind: "human",
-        NOT: { status: "done" },
-        stewardUserId: "user-1",
-      },
-      data: {
-        stewardKind: "human",
-        stewardUserId: "owner-1",
-        stewardCredentialId: null,
-        stewardDisplayNameSnapshot: "Project Owner",
-      },
-    });
-    expect(dbMock.projectMeetingNoteAction.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.not.objectContaining({
-          completedByUserId: expect.anything(),
-        }),
-      })
-    );
+    expect(dbMock.$queryRaw).toHaveBeenCalledTimes(1);
+    const query = dbMock.$queryRaw.mock.calls[0][0] as { values: unknown[] };
+    expect(query.values).toEqual([
+      "project-1",
+      "human",
+      "user-1",
+      "reassign",
+      "owner-1",
+    ]);
+    expect(dbMock.task.updateMany).not.toHaveBeenCalled();
+    expect(dbMock.projectMeetingNote.updateMany).not.toHaveBeenCalled();
   });
 
   test("rejects actors outside the project", async () => {

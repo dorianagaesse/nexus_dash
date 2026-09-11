@@ -308,9 +308,12 @@ c676716 / v0.60.0) is preserved verbatim below for history.
 
 ## Status
 
-In progress on `feature/nd-179-ownership-offboarding`, based on and reconciled
-with `origin/main` at 6426c1a. The Nexus Dash board card ND-179 is the source
-of truth; its ND-178 project-actor foundation has landed on `main`.
+Delivered on `feature/nd-179-ownership-offboarding`, based on and reconciled
+with `origin/main` at 6426c1a, in PR #498. A preview report exposed an RLS
+conflict while preserving meeting-note editor history; the correction adds a
+narrowly scoped owner-validated responsibility resolver and regression coverage.
+The Nexus Dash board card ND-179 is the source of truth; its ND-178
+project-actor foundation has landed on `main`.
 
 ## Context
 

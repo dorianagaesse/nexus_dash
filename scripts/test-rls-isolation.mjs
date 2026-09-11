@@ -33,6 +33,8 @@ const ids = {
   reactionB: `rls_reaction_b_${suffix}`,
   meetingA: `rls_meeting_a_${suffix}`,
   meetingB: `rls_meeting_b_${suffix}`,
+  meetingActionB: `rls_meeting_action_b_${suffix}`,
+  resourceB: `rls_resource_b_${suffix}`,
   participantA: `rls_participant_a_${suffix}`,
   participantB: `rls_participant_b_${suffix}`,
   credentialA: `rls_credential_a_${suffix}`,
@@ -133,7 +135,7 @@ async function seed() {
      VALUES
        ($1, 'Task A', 'Backlog', 0, $2, $3, $3, NOW(), NOW()),
        ($4, 'Task B', 'Backlog', 0, $5, $6, $6, NOW(), NOW())`,
-    [ids.taskA, ids.projectA, ids.ownerA, ids.taskB, ids.projectB, ids.ownerB]
+    [ids.taskA, ids.projectA, ids.ownerA, ids.taskB, ids.projectB, ids.editorB]
   );
   await admin.query(
     `INSERT INTO "TaskComment" ("id", "taskId", "authorUserId", "content", "createdAt")
@@ -175,8 +177,42 @@ async function seed() {
       ids.ownerA,
       ids.meetingB,
       ids.projectB,
-      ids.ownerB,
+      ids.editorB,
     ]
+  );
+  await admin.query(
+    `UPDATE "Task"
+     SET "assigneeUserId" = $1
+     WHERE "id" = $2`,
+    [ids.editorB, ids.taskB]
+  );
+  await admin.query(
+    `UPDATE "ProjectMeetingNote"
+     SET "stewardUserId" = $1,
+         "stewardKind" = 'human',
+         "stewardDisplayNameSnapshot" = 'Editor B'
+     WHERE "id" = $2`,
+    [ids.editorB, ids.meetingB]
+  );
+  await admin.query(
+    `INSERT INTO "ProjectMeetingNoteAction"
+      ("id", "meetingNoteId", "content", "createdByUserId", "creatorKind",
+       "creatorDisplayNameSnapshot", "assigneeUserId", "assigneeKind",
+       "assigneeDisplayNameSnapshot", "createdAt", "updatedAt")
+     VALUES ($1, $2, 'Responsibility B', $3, 'human', 'Editor B',
+       $3, 'human', 'Editor B', NOW(), NOW())`,
+    [ids.meetingActionB, ids.meetingB, ids.editorB]
+  );
+  await admin.query(
+    `INSERT INTO "Resource"
+      ("id", "type", "name", "content", "projectId", "createdByUserId",
+       "creatorKind", "creatorDisplayNameSnapshot", "lastEditedByUserId",
+       "lastEditorKind", "lastEditorDisplayNameSnapshot", "stewardUserId",
+       "stewardKind", "stewardDisplayNameSnapshot", "createdAt", "updatedAt")
+     VALUES ($1, 'note', 'Resource B', 'Responsibility fixture', $2, $3,
+       'human', 'Editor B', $3, 'human', 'Editor B', $3, 'human', 'Editor B',
+       NOW(), NOW())`,
+    [ids.resourceB, ids.projectB, ids.editorB]
   );
   await admin.query(
     `INSERT INTO "ProjectMeetingNoteParticipant"
@@ -564,6 +600,59 @@ try {
   );
   assert.equal(crossCredentialUpdate.rowCount, 0);
 
+  const forbiddenResponsibilityResolution = await runtimeTransaction(
+    ids.ownerA,
+    () =>
+      runtime.query(
+        `SELECT app.resolve_project_actor_responsibilities($1, 'human', $2, 'reassign', $3) AS result`,
+        [ids.projectB, ids.editorB, ids.ownerB]
+      )
+  );
+  assert.equal(forbiddenResponsibilityResolution.rows[0].result, "forbidden");
+
+  const responsibilityResolution = await runtimeTransaction(
+    ids.ownerB,
+    async () => {
+      const resolution = await runtime.query(
+        `SELECT app.resolve_project_actor_responsibilities($1, 'human', $2, 'reassign', $3) AS result`,
+        [ids.projectB, ids.editorB, ids.ownerB]
+      );
+      const task = await runtime.query(
+        `SELECT "assigneeUserId", "createdByUserId", "updatedByUserId"
+         FROM "Task" WHERE "id" = $1`,
+        [ids.taskB]
+      );
+      const resource = await runtime.query(
+        `SELECT "stewardUserId", "createdByUserId", "lastEditedByUserId"
+         FROM "Resource" WHERE "id" = $1`,
+        [ids.resourceB]
+      );
+      const note = await runtime.query(
+        `SELECT "stewardUserId", "createdByUserId", "updatedByUserId"
+         FROM "ProjectMeetingNote" WHERE "id" = $1`,
+        [ids.meetingB]
+      );
+      const action = await runtime.query(
+        `SELECT "assigneeUserId", "createdByUserId"
+         FROM "ProjectMeetingNoteAction" WHERE "id" = $1`,
+        [ids.meetingActionB]
+      );
+      return { resolution, task, resource, note, action };
+    }
+  );
+  assert.equal(responsibilityResolution.resolution.rows[0].result, "ok");
+  assert.equal(responsibilityResolution.task.rows[0].assigneeUserId, ids.ownerB);
+  assert.equal(responsibilityResolution.task.rows[0].createdByUserId, ids.editorB);
+  assert.equal(responsibilityResolution.task.rows[0].updatedByUserId, ids.editorB);
+  assert.equal(responsibilityResolution.resource.rows[0].stewardUserId, ids.ownerB);
+  assert.equal(responsibilityResolution.resource.rows[0].createdByUserId, ids.editorB);
+  assert.equal(responsibilityResolution.resource.rows[0].lastEditedByUserId, ids.editorB);
+  assert.equal(responsibilityResolution.note.rows[0].stewardUserId, ids.ownerB);
+  assert.equal(responsibilityResolution.note.rows[0].createdByUserId, ids.editorB);
+  assert.equal(responsibilityResolution.note.rows[0].updatedByUserId, ids.editorB);
+  assert.equal(responsibilityResolution.action.rows[0].assigneeUserId, ids.ownerB);
+  assert.equal(responsibilityResolution.action.rows[0].createdByUserId, ids.editorB);
+
   const forbiddenOwnershipTransfer = await runtimeTransaction(ids.ownerA, () =>
     runtime.query(
       `SELECT app.transfer_project_ownership($1, $2, $3, false) AS result`,
@@ -645,7 +734,7 @@ try {
   assert.equal(missingLookup.rowCount, 0);
 
   console.log(
-    "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, revoked membership, ownership transfer, Calendar connections/sources/preferences, and agent credentials."
+    "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, revoked membership, responsibility resolution, ownership transfer, Calendar connections/sources/preferences, and agent credentials."
   );
 } finally {
   await cleanup().catch(() => undefined);

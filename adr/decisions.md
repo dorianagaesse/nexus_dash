@@ -26,8 +26,9 @@ Keep UI-only or task-only notes in `journal.md`.
   validates the current owner and target membership, installs one new owner,
   and demotes or removes the former owner.
 - Consequences: Offboarding no longer silently strands active work; historical
-  attribution stays durable. Concurrent transfers serialize on the project
-  row, and the privileged function is covered by the least-privilege matrix.
+  attribution stays durable. Active responsibility changes and concurrent
+  transfers use separate narrowly scoped privileged functions, both covered by
+  the least-privilege matrix.
 - Links: `tasks/current.md` (ND-179),
   `adr/task-338-project-ownership-continuity.md`.
 

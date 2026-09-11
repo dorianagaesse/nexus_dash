@@ -273,81 +273,29 @@ export async function resolveActiveProjectResponsibilities(input: {
     return createError(400, "invalid-responsibility-replacement", inventory);
   }
 
-  const humanId = input.actor.kind === "human" ? input.actor.id : undefined;
-  const credentialId =
-    input.actor.kind === "agent" ? input.actor.id : undefined;
-  const actorWhere = humanId
-    ? { stewardUserId: humanId }
-    : { stewardCredentialId: credentialId };
-  const assigneeWhere = humanId
-    ? { assigneeUserId: humanId }
-    : { assigneeCredentialId: credentialId };
-  const actorData = replacement
-    ? {
-        stewardKind: "human" as const,
-        stewardUserId: replacement.id,
-        stewardCredentialId: null,
-        stewardDisplayNameSnapshot: replacement.displayName,
-      }
-    : {
-        stewardKind: null,
-        stewardUserId: null,
-        stewardCredentialId: null,
-        stewardDisplayNameSnapshot: null,
-      };
-  const assigneeData = replacement
-    ? {
-        assigneeKind: "human" as const,
-        assigneeUserId: replacement.id,
-        assigneeCredentialId: null,
-        assigneeDisplayNameSnapshot: replacement.displayName,
-      }
-    : {
-        assigneeKind: null,
-        assigneeUserId: null,
-        assigneeCredentialId: null,
-        assigneeDisplayNameSnapshot: null,
-      };
-
-  await Promise.all([
-    humanId
-      ? input.db.task.updateMany({
-          where: {
-            projectId: input.projectId,
-            assigneeUserId: humanId,
-            archivedAt: null,
-            NOT: { status: "Done" },
-          },
-          data: { assigneeUserId: replacement?.id ?? null },
-        })
-      : Promise.resolve(),
-    input.db.resource.updateMany({
-      where: {
-        projectId: input.projectId,
-        stewardKind: input.actor.kind,
-        ...actorWhere,
-      },
-      data: actorData,
-    }),
-    input.db.projectMeetingNote.updateMany({
-      where: {
-        projectId: input.projectId,
-        stewardKind: input.actor.kind,
-        NOT: { status: "done" },
-        ...actorWhere,
-      },
-      data: actorData,
-    }),
-    input.db.projectMeetingNoteAction.updateMany({
-      where: {
-        meetingNote: { projectId: input.projectId },
-        completedAt: null,
-        assigneeKind: input.actor.kind,
-        ...assigneeWhere,
-      },
-      data: assigneeData,
-    }),
-  ]);
+  const rows = await input.db.$queryRaw<Array<{ result: string }>>(Prisma.sql`
+    SELECT app.resolve_project_actor_responsibilities(
+      ${input.projectId}::text,
+      ${input.actor.kind}::text,
+      ${input.actor.id}::text,
+      ${input.resolution.mode}::text,
+      ${replacement?.id ?? null}::text
+    ) AS result
+  `);
+  const result = rows[0]?.result;
+  if (result !== "ok") {
+    const status =
+      result === "forbidden"
+        ? 403
+        : result === "actor-not-found"
+          ? 404
+          : 400;
+    return createError(
+      status,
+      result || "responsibility-resolution-failed",
+      inventory
+    );
+  }
 
   return createSuccess(200, { inventory });
 }

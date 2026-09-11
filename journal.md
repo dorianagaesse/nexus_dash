@@ -3,6 +3,24 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-11 - ND-179: Preview offboarding RLS correction
+
+- Investigated the reported collaborator-removal failure in the Vercel preview.
+  Runtime logs identified PostgreSQL `42501` on `ProjectMeetingNote`: ordinary
+  update RLS requires the current actor to become the last editor, conflicting
+  with ND-179's requirement to preserve the departing collaborator's historical
+  editor attribution while changing only active stewardship.
+- Added `app.resolve_project_actor_responsibilities`, a narrowly granted
+  security-definer function that revalidates the project owner and replacement
+  membership before changing only active assignment/stewardship fields. Public
+  execution is revoked and the runtime role is covered by the RLS matrix.
+- Added production-like actor RLS context to local Playwright server runs and
+  expanded the PostgreSQL matrix to cover cross-project denial, reassignment of
+  tasks/resources/notes/open actions, and preservation of creator/editor data.
+- Validation after the correction: focused unit tests (87 passed), lint,
+  `rls:check`, RLS role setup, real least-privilege PostgreSQL matrix,
+  production build, and the focused ND-179 Playwright journey passed.
+
 # 2026-09-09 - ND-179: Ownership continuity and collaborator offboarding
 
 - Onboarded from the live ND-179 card, tightened its rationale, scope,
