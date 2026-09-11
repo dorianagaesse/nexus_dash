@@ -153,6 +153,22 @@ test("owners review and unassign active responsibility before removing a collabo
       page.getByText(`${memberLabel} removed from the project.`)
     ).toBeVisible();
 
+    await page.getByRole("button", { name: "Close project settings" }).click();
+
+    const meetingNoteCard = page.getByRole("button", {
+      name: /Continuity meeting/,
+    });
+    await expect(meetingNoteCard.getByText("Steward unassigned")).toBeVisible();
+
+    await page.getByRole("button", { name: "Next list: In Progress" }).click();
+    const taskCard = page.locator(`[data-kanban-task-card="${task.id}"]`);
+    await expect(taskCard.getByText(member.name ?? "Morgan Offboarding")).toHaveCount(0);
+    await taskCard.click();
+    await expect(
+      page.locator('[data-task-assignee-badge="true"]').getByText("Unassigned")
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+
     const [
       membership,
       storedTask,

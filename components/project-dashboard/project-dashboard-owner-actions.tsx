@@ -1039,6 +1039,7 @@ export function ProjectDashboardOwnerActions({
       setOffboardingDialog(null);
       setResponsibilityInventory(null);
       setIsOpen(true);
+      router.refresh();
     } catch (error) {
       setOffboardingError(
         error instanceof Error

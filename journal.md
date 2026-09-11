@@ -3,6 +3,19 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-12 - ND-179: Immediate offboarding UI reconciliation
+
+- Followed up on preview acceptance feedback that responsibility changes only
+  became visible after a manual page reload. Member removal and agent revocation
+  updated the database but, unlike ownership transfer, did not invoke the
+  dashboard's existing server-component refresh path.
+- Added the missing automatic refresh after both successful access-removal
+  flows. Extended the 375px Playwright journey to close Settings and verify the
+  task assignee and meeting-note steward display as unassigned without reload.
+- Used UI UX Pro Max to preserve immediate success feedback and avoid a second,
+  user-driven recovery action. Lint, production build, diff checks, and the
+  focused browser journey pass.
+
 # 2026-09-11 - ND-179: Preview offboarding RLS correction
 
 - Investigated the reported collaborator-removal failure in the Vercel preview.

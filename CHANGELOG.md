@@ -25,6 +25,9 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Historical creator, editor, completer, uploader, comment-author, and audit
   attribution remains unchanged; only active assignment and stewardship fields
   are reassigned or cleared.
+- Successful collaborator removal and agent revocation now refresh the open
+  dashboard automatically, so reassigned or cleared active responsibility is
+  visible without a manual page reload.
 
 ## v0.62.0 - 2026-09-08
 
