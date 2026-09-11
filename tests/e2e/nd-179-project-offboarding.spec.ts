@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
+import { RESOURCE_TYPE_CONTEXT_CARD } from "../../lib/resource-type";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 
 function uniqueSuffix(): string {
@@ -57,7 +58,7 @@ test("owners review and unassign active responsibility before removing a collabo
   const contextCard = await prisma.resource.create({
     data: {
       projectId: project.id,
-      type: "note",
+      type: RESOURCE_TYPE_CONTEXT_CARD,
       name: "Continuity context",
       content: "Keep this context after access changes.",
       createdByUserId: member.id,
@@ -160,6 +161,12 @@ test("owners review and unassign active responsibility before removing a collabo
     });
     await expect(meetingNoteCard.getByText("Steward unassigned")).toBeVisible();
 
+    await page.getByRole("button", { name: "Project context 1 card" }).click();
+    const contextCardElement = page
+      .getByRole("heading", { name: "Continuity context" })
+      .locator("xpath=ancestor::article[1]");
+    await expect(contextCardElement.getByText("Steward: Unassigned")).toBeVisible();
+
     await page.getByRole("button", { name: "Next list: In Progress" }).click();
     const taskCard = page.locator(`[data-kanban-task-card="${task.id}"]`);
     await expect(taskCard.getByText(member.name ?? "Morgan Offboarding")).toHaveCount(0);
@@ -167,6 +174,12 @@ test("owners review and unassign active responsibility before removing a collabo
     await expect(
       page.locator('[data-task-assignee-badge="true"]').getByText("Unassigned")
     ).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await meetingNoteCard.click();
+    await expect(
+      page.locator(`#meeting-todo-assignee-${meetingNote.actions[0].id}`)
+    ).toHaveAttribute("aria-label", "Change meeting todo assignee");
     await page.keyboard.press("Escape");
 
     const [

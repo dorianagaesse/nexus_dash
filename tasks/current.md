@@ -314,7 +314,10 @@ conflict while preserving meeting-note editor history; the correction adds a
 narrowly scoped owner-validated responsibility resolver and regression coverage.
 A follow-up preview report found that the server result required a manual page
 reload to appear; member removal and agent revocation now invoke the dashboard
-refresh path, with browser assertions for immediately visible unassigned state.
+refresh path. A second report exposed that context-card projections discarded
+their already-computed steward; grid and preview cards now show that current
+steward while retaining historical provenance. Browser assertions cover the
+immediately visible task, context-card, meeting-note, and meeting-todo state.
 The Nexus Dash board card ND-179 is the source of truth; its ND-178
 project-actor foundation has landed on `main`.
 

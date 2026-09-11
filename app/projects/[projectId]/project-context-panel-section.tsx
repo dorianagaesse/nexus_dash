@@ -98,6 +98,7 @@ export async function ProjectContextPanelSection({
         id: projection.id,
         creator: projection.creator as ProjectContextActorSummary | null,
         lastEditor: projection.lastEditor as ProjectContextActorSummary | null,
+        steward: projection.steward as ProjectContextActorSummary | null,
         attachments: attachmentProjections,
       },
     };

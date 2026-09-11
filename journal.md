@@ -3,6 +3,20 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-12 - ND-179: Complete offboarding surface reconciliation
+
+- Followed up on acceptance feedback that context-card stewardship still
+  appeared stale. The server projection already calculated the steward, but
+  the dashboard mapping and context-card UI discarded it, so a refresh could
+  not make the new assignment visible.
+- Carried the current steward through the context-card projection and displayed
+  it in both the grid and preview while preserving creator and last-editor
+  history. The existing dashboard refresh now reconciles task assignees,
+  context-card stewards, meeting-note stewards, and open meeting-todo assignees.
+- Extended component coverage and the 375px offboarding journey to assert all
+  four surfaces update without a manual page reload. Focused Vitest and
+  Playwright runs pass.
+
 # 2026-09-12 - ND-179: Immediate offboarding UI reconciliation
 
 - Followed up on preview acceptance feedback that responsibility changes only
