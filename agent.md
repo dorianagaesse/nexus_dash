@@ -89,6 +89,21 @@ link attachment in place (changing its name or URL without delete + re-add)
 remains a kanban-UI capability; that and the wider agent API edit gaps are
 tracked on the Nexus Dash board (ND-425).
 
+### Creating and refining epics
+
+An epic is a program grouping of tasks. Membership and sequencing information
+lives in the epic's linked tasks and their Related Tasks relationships, so keep
+dependency lists, split manifests, and staging notes out of the epic
+description. Compose the description as:
+
+- A `Recommended order:` path — the epic's linked task keys in suggested
+  execution order, joined with `->`, covering every linked task in full (never
+  abbreviate with an ellipsis), for example
+  `Recommended order: TASK-386 -> TASK-387 -> TASK-388`. Refresh the path when
+  linked tasks are added, split, or resequenced.
+- A short rationale paragraph explaining the program's purpose and intended
+  outcome.
+
 ## 2. Implementation Quality
 
 - Write clean, maintainable code that follows established best practices and repository patterns.

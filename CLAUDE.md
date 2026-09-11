@@ -34,11 +34,13 @@ update `tasks/current.md`. Follow the "Creating a good Nexus Dash task"
 quality rules in `agent.md` (duplicate check, outcome-oriented title,
 `Rationale:`, one canonical work-type label `feature`/`fix`/`docs`/
 `refactor`/`chore`, testable `Acceptance Criteria:`, and Related Tasks for
-dependencies) — never raw `Dependencies:` prose in descriptions. Cards with a
-counterpart GitHub issue or external resource attach it at creation as a link
-attachment (`attachmentLinks` with `{ name, url }`); links can also be added to
-existing cards with a task update (`PATCH` with an `attachmentLinks` array) —
-details in `agent.md`.
+dependencies) — never raw `Dependencies:` prose in descriptions. Epic
+descriptions follow the same rule: no dependency lists or split manifests —
+they open with a `Recommended order:` path over the epic's linked task keys.
+Cards with a counterpart GitHub issue or external resource attach it at
+creation as a link attachment (`attachmentLinks` with `{ name, url }`); links
+can also be added to existing cards with a task update (`PATCH` with an
+`attachmentLinks` array) — details in `agent.md`.
 
 ## Workflow Rules
 
