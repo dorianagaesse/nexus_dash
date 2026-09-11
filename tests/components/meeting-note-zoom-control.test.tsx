@@ -71,6 +71,8 @@ describe("meeting-note zoom control", () => {
 
     expect(inputsGroup?.textContent).toContain("100%");
     expect(outputsGroup?.textContent).toContain("100%");
+    expect(inputsGroup?.getAttribute("data-meeting-note-zoom")).toBe("inputs");
+    expect(outputsGroup?.getAttribute("data-meeting-note-zoom")).toBe("outputs");
     for (const button of container.querySelectorAll("button")) {
       expect(button.className).toContain("h-11");
       expect(button.className).toContain("w-11");

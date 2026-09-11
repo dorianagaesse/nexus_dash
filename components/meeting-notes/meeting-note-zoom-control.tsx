@@ -48,7 +48,7 @@ export function MeetingNoteZoomControl({
     <div
       role="group"
       aria-label={`${label} zoom controls`}
-      data-meeting-note-zoom={label.toLocaleLowerCase()}
+      data-meeting-note-zoom={label.toLowerCase()}
       className="inline-flex shrink-0 items-center overflow-hidden rounded-xl border border-border/70 bg-background"
     >
       <Button
