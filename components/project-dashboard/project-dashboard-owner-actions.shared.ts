@@ -235,6 +235,10 @@ export function mapAgentAccessError(errorCode: string): string {
       return "Revoked credentials cannot be rotated.";
     case "credential-expired":
       return "Expired credentials must be recreated.";
+    case "responsibility-resolution-required":
+      return "Choose how to resolve active responsibilities before continuing.";
+    case "invalid-responsibility-replacement":
+      return "Choose a current project collaborator for reassignment.";
     case "project-not-found":
       return "Project not found.";
     case "forbidden":

@@ -990,7 +990,7 @@ export function ProjectDashboardOwnerActions({
           if (payload?.inventory) {
             setResponsibilityInventory(payload.inventory);
           }
-          throw new Error(mapSharingError(payload?.error ?? "credential-revoke-failed"));
+          throw new Error(mapAgentAccessError(payload?.error ?? "credential-revoke-failed"));
         }
         setLatestAgentCredentialSecret((currentSecret) =>
           currentSecret?.credential.id === dialog.credential.id
