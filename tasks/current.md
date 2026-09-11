@@ -44,7 +44,12 @@ manual reload. The owner actions now call `router.refresh()` after credential
 create/revoke so pickers update in place, and the ND-382 e2e spec covers the
 create-then-open-picker flow with no reload in between. The mention-row and
 task-assignee disabled treatments remain by design (ND-383/ND-384 own
-persistence). See the 2026-09-12 journal entry.
+persistence). Validation on the fix commit `eb7edb0` is green (lint,
+`rls:check`, 1,394 Vitest tests, coverage, production build, focused
+Playwright spec including the regression flow); the preview was redeployed
+(run 34655417001) and the alias serves `eb7edb0` with a live
+`GET /actors/search` returning the active agent. See the 2026-09-12 journal
+entry.
 
 ## Context
 
