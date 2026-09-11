@@ -23,6 +23,24 @@ test("active credential labels appear safely in mention and task-assignee picker
   const activeLabel = `Release bot ${suffix}`;
   const revokedLabel = `Revoked bot ${suffix}`;
   const expiredLabel = `Expired bot ${suffix}`;
+  const uiLabel = `Picker scout ${suffix}`;
+
+  await page.getByRole("button", { name: "Share project" }).click();
+  await page.getByRole("button", { name: "Agent access" }).click();
+  await page.locator("#project-agent-label").fill(uiLabel);
+  await page.getByRole("button", { name: "Create credential" }).click();
+  await expect(page.getByText("Copy the new API key now")).toBeVisible();
+  await page.getByRole("button", { name: "Close project settings" }).click();
+
+  // Regression: an agent created in this session must reach task pickers without a manual reload.
+  await page.getByRole("button", { name: "New task" }).click();
+  await page.locator("#task-assignee").click();
+  const freshAgentAssignee = page.getByRole("option", {
+    name: new RegExp(uiLabel),
+  });
+  await expect(freshAgentAssignee).toBeVisible();
+  await expect(freshAgentAssignee).toBeDisabled();
+  await page.getByRole("button", { name: "Close task creation" }).click();
 
   await prisma.apiCredential.createMany({
     data: [

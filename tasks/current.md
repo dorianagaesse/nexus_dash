@@ -34,6 +34,18 @@ alias verification passed (readiness revision `8e339cd`, agent token
 exchange, and `GET /actors/search` returning the active project agent next to
 the humans). See the 2026-09-11 journal entry.
 
+Retest on 2026-09-12 narrowed the remaining task-assignee gap (mention
+autocomplete showed the agent, the assignee picker did not) to a stale server
+payload: task pickers are rendered from the route's actor list, which only
+refreshes on navigation/reload, while the mention autocomplete fetches
+`/actors/search` live — so an agent credential created from the project's
+"Agent access" panel appeared in mentions but not in assignee pickers until a
+manual reload. The owner actions now call `router.refresh()` after credential
+create/revoke so pickers update in place, and the ND-382 e2e spec covers the
+create-then-open-picker flow with no reload in between. The mention-row and
+task-assignee disabled treatments remain by design (ND-383/ND-384 own
+persistence). See the 2026-09-12 journal entry.
+
 ## Context
 
 Project collaboration controls do not expose one consistent actor set. Meeting
