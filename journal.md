@@ -42,6 +42,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `AGENT_API_ENDPOINTS`, hosted guide, presets), so this change leaves
   `lib/agent-onboarding.ts` untouched; the new scope auto-surfaces as an
   "Attention Read" checkbox through `AGENT_SCOPE_DEFINITIONS`.
+- Opened PR <https://github.com/dorianagaesse/nexus_dash/pull/510>
+  (commits dbcf928 scope, 3dc6318 API, c030454 tests, f91c05d release);
+  card stays In Progress for the reviewer. E2E not run: no UI, auth,
+  calendar, or upload flow is touched, and the credential-scope checkbox
+  renders through the existing definitions loop.
 
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 
