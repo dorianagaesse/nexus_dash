@@ -8,12 +8,20 @@ const epicServiceMock = vi.hoisted(() => ({
   listProjectEpics: vi.fn(),
 }));
 
+const actorServiceMock = vi.hoisted(() => ({
+  listAssignableProjectActors: vi.fn(),
+}));
+
 vi.mock("@/lib/services/project-service", () => ({
   listProjectKanbanTasks: projectServiceMock.listProjectKanbanTasks,
 }));
 
 vi.mock("@/lib/services/project-epic-service", () => ({
   listProjectEpics: epicServiceMock.listProjectEpics,
+}));
+
+vi.mock("@/lib/services/project-actor-service", () => ({
+  listAssignableProjectActors: actorServiceMock.listAssignableProjectActors,
 }));
 
 import { KanbanBoardSection } from "@/app/projects/[projectId]/kanban-board-section";
@@ -60,6 +68,17 @@ describe("KanbanBoardSection task attribution", () => {
       },
     ]);
     epicServiceMock.listProjectEpics.mockResolvedValueOnce([]);
+    actorServiceMock.listAssignableProjectActors.mockResolvedValueOnce([
+      {
+        kind: "agent",
+        id: "credential-active",
+        displayName: "Release bot",
+        usernameTag: null,
+        avatarSeed: null,
+        status: "active",
+        isAssignable: true,
+      },
+    ]);
 
     const element = await KanbanBoardSection({
       projectId: "project-1",
@@ -68,7 +87,14 @@ describe("KanbanBoardSection task attribution", () => {
       storageProvider: "local",
       collaborators: [],
     });
-    const props = element.props as { initialTasks: KanbanTask[] };
+    const props = element.props as {
+      initialTasks: KanbanTask[];
+      projectActors: Array<{ id: string; kind: string }>;
+    };
+
+    expect(props.projectActors).toEqual([
+      expect.objectContaining({ id: "credential-active", kind: "agent" }),
+    ]);
 
     expect(props.initialTasks[0]?.createdBy).toMatchObject({
       id: "credential-create",

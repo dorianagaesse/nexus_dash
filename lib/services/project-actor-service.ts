@@ -1,3 +1,5 @@
+import { Prisma, type ProjectMembershipRole } from "@prisma/client";
+
 import { resolveAgentCredentialStatus } from "@/lib/agent-access";
 import type {
   ProjectActorReference,
@@ -34,6 +36,19 @@ export interface ProjectActorCredentialRecord {
   expiresAt: Date | null;
 }
 
+interface RlsSafeProjectActorRow {
+  kind: "human" | "agent";
+  actorId: string;
+  name: string | null;
+  email: string | null;
+  username: string | null;
+  usernameDiscriminator: string | null;
+  avatarSeed: string | null;
+  label: string | null;
+  revokedAt: Date | null;
+  expiresAt: Date | null;
+}
+
 export interface ProjectActorRegistry {
   activeHumanIds: Set<string>;
   humanById: Map<string, ProjectActorSummary>;
@@ -41,6 +56,20 @@ export interface ProjectActorRegistry {
   assignable: ProjectActorSummary[];
 }
 
+export interface ProjectActorSearchResult extends ProjectActorSummary {
+  projectRole: ProjectMembershipRole | null;
+  isOwner: boolean;
+}
+
+type ProjectActorSearchResponse =
+  | {
+      ok: true;
+      status: 200;
+      data: { actors: ProjectActorSearchResult[] };
+    }
+  | { ok: false; status: number; error: string };
+
+const PROJECT_ACTOR_SEARCH_LIMIT = 12;
 export interface ResolvedProjectActorPersistence {
   userId: string | null;
   credentialId: string | null;
@@ -200,6 +229,208 @@ export function buildProjectActorRegistry(input: {
   return { activeHumanIds, humanById, credentialById, assignable };
 }
 
+export async function loadProjectActorRegistry(input: {
+  db: DbClient;
+  projectId: string;
+  now?: Date;
+}): Promise<ProjectActorRegistry | null> {
+  const rows = await input.db.$queryRaw<RlsSafeProjectActorRow[]>(Prisma.sql`
+    SELECT *
+    FROM app.list_project_actors(${input.projectId})
+  `);
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const humans: TaskPersonRecord[] = [];
+  const credentials: ProjectActorCredentialRecord[] = [];
+  for (const row of rows) {
+    if (row.kind === "human") {
+      humans.push({
+        id: row.actorId,
+        name: row.name,
+        email: row.email,
+        username: row.username,
+        usernameDiscriminator: row.usernameDiscriminator,
+        avatarSeed: row.avatarSeed,
+      });
+      continue;
+    }
+    credentials.push({
+      id: row.actorId,
+      label: row.label ?? "Project agent",
+      projectId: input.projectId,
+      revokedAt: row.revokedAt,
+      expiresAt: row.expiresAt,
+    });
+  }
+
+  return buildProjectActorRegistry({
+    humans,
+    credentials,
+    now: input.now,
+  });
+}
+
+export async function listAssignableProjectActors(input: {
+  actorUserId: string;
+  projectId: string;
+}): Promise<ProjectActorSummary[]> {
+  return listProjectActors({
+    actorUserId: input.actorUserId,
+    projectId: input.projectId,
+    loadRegistry: ({ db, projectId }) =>
+      loadProjectActorRegistry({ db, projectId }),
+  });
+}
+
+function projectActorSearchScore(
+  actor: ProjectActorSearchResult,
+  normalizedQuery: string
+): number {
+  if (!normalizedQuery) {
+    return 2;
+  }
+
+  const displayName = actor.displayName.toLowerCase();
+  const usernameTag = actor.usernameTag?.toLowerCase() ?? "";
+  if (displayName === normalizedQuery || usernameTag === normalizedQuery) {
+    return 0;
+  }
+  if (
+    displayName.startsWith(normalizedQuery) ||
+    usernameTag.startsWith(normalizedQuery)
+  ) {
+    return 1;
+  }
+  return 2;
+}
+
+export async function searchProjectActors(input: {
+  actorUserId: string;
+  agentAccess?: AgentProjectAccessContext;
+  projectId: string;
+  query: string;
+  now?: Date;
+}): Promise<ProjectActorSearchResponse> {
+  const actorUserId = normalizeIdentifier(input.actorUserId);
+  const projectId = normalizeIdentifier(input.projectId);
+  if (!actorUserId) {
+    return { ok: false, status: 401, error: "unauthorized" };
+  }
+  if (!projectId) {
+    return { ok: false, status: 404, error: "project-not-found" };
+  }
+
+  if (input.agentAccess) {
+    if (input.agentAccess.projectId !== projectId) {
+      return { ok: false, status: 404, error: "project-not-found" };
+    }
+    if (
+      !input.agentAccess.scopes.some((scope) =>
+        ["project:read", "task:read", "task:write"].includes(scope)
+      )
+    ) {
+      return { ok: false, status: 403, error: "forbidden" };
+    }
+  }
+
+  const normalizedQuery = normalizeIdentifier(input.query)
+    .replace(/^@/, "")
+    .toLowerCase();
+  const queryWithoutDiscriminator =
+    normalizedQuery.split("#", 1)[0] ?? normalizedQuery;
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId,
+      minimumRole: "viewer",
+      db,
+    });
+    if (!access.ok) {
+      return access;
+    }
+
+    const project = await db.project.findUnique({
+      where: { id: projectId },
+      select: {
+        owner: { select: projectActorUserSelect },
+        memberships: {
+          orderBy: [{ createdAt: "asc" }],
+          select: {
+            role: true,
+            user: { select: projectActorUserSelect },
+          },
+        },
+      },
+    });
+    if (!project) {
+      return { ok: false as const, status: 404, error: "project-not-found" };
+    }
+
+    const roleByHumanId = new Map<string, ProjectMembershipRole>();
+    roleByHumanId.set(project.owner.id, "owner");
+    for (const membership of project.memberships) {
+      if (!roleByHumanId.has(membership.user.id)) {
+        roleByHumanId.set(membership.user.id, membership.role);
+      }
+    }
+
+    const humans = [
+      project.owner,
+      ...project.memberships.map((membership) => membership.user),
+    ];
+    const emailByHumanId = new Map(
+      humans.map((human) => [human.id, human.email?.toLowerCase() ?? ""])
+    );
+    const registry = await loadProjectActorRegistry({
+      db,
+      projectId,
+      now: input.now,
+    });
+    if (!registry) {
+      return { ok: false as const, status: 404, error: "project-not-found" };
+    }
+
+    const actors: ProjectActorSearchResult[] = registry.assignable
+      .filter((actor) => {
+        if (!input.agentAccess && actor.kind === "human" && actor.id === actorUserId) {
+          return false;
+        }
+        if (!normalizedQuery) {
+          return true;
+        }
+        return (
+          actor.displayName.toLowerCase().includes(normalizedQuery) ||
+          actor.usernameTag?.toLowerCase().startsWith(queryWithoutDiscriminator) ||
+          (actor.kind === "human" &&
+            emailByHumanId.get(actor.id)?.includes(normalizedQuery))
+        );
+      })
+      .map((actor) => ({
+        ...actor,
+        projectRole:
+          actor.kind === "human" ? roleByHumanId.get(actor.id) ?? "viewer" : null,
+        isOwner: actor.kind === "human" && actor.id === project.owner.id,
+      }))
+      .sort((left, right) => {
+        const scoreDifference =
+          projectActorSearchScore(left, normalizedQuery) -
+          projectActorSearchScore(right, normalizedQuery);
+        if (scoreDifference !== 0) {
+          return scoreDifference;
+        }
+        if (left.kind !== right.kind) {
+          return left.kind === "human" ? -1 : 1;
+        }
+        return left.displayName.localeCompare(right.displayName);
+      })
+      .slice(0, PROJECT_ACTOR_SEARCH_LIMIT);
+
+    return { ok: true as const, status: 200 as const, data: { actors } };
+  });
+}
 export async function listProjectActors(input: {
   actorUserId: string;
   projectId: string;

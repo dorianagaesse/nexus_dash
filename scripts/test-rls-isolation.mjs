@@ -464,6 +464,47 @@ try {
     "viewer meeting participant insert"
   );
 
+  for (const memberId of [ids.editorB, ids.viewerB]) {
+    const directCredentialRead = await runtimeTransaction(memberId, () =>
+      runtime.query(`SELECT "id" FROM "ApiCredential" WHERE "projectId" = $1`, [
+        ids.projectB,
+      ])
+    );
+    assert.equal(directCredentialRead.rowCount, 0);
+
+    const safeActorRead = await runtimeTransaction(memberId, () =>
+      runtime.query(
+        `SELECT "kind", "actorId", "label"
+         FROM app.list_project_actors($1)`,
+        [ids.projectB]
+      )
+    );
+    assert.equal(
+      safeActorRead.rows.some(
+        (row) => row.kind === "agent" && row.actorId === ids.credentialB
+      ),
+      true
+    );
+    assert.equal(
+      safeActorRead.rows.some((row) => row.actorId === ids.credentialA),
+      false
+    );
+  }
+
+  const crossProjectActorRead = await runtimeTransaction(ids.ownerA, () =>
+    runtime.query(`SELECT "actorId" FROM app.list_project_actors($1)`, [
+      ids.projectB,
+    ])
+  );
+  assert.equal(crossProjectActorRead.rowCount, 0);
+
+  const absentActorRead = await runtimeTransaction(undefined, () =>
+    runtime.query(`SELECT "actorId" FROM app.list_project_actors($1)`, [
+      ids.projectB,
+    ])
+  );
+  assert.equal(absentActorRead.rowCount, 0);
+
   await admin.query(
     `DELETE FROM "ProjectMembership" WHERE "projectId" = $1 AND "userId" = $2`,
     [ids.projectB, ids.revokedB]
@@ -479,6 +520,12 @@ try {
     )
   );
   assert.equal(revokedParticipantRead.rowCount, 0);
+  const revokedActorRead = await runtimeTransaction(ids.revokedB, () =>
+    runtime.query(`SELECT "actorId" FROM app.list_project_actors($1)`, [
+      ids.projectB,
+    ])
+  );
+  assert.equal(revokedActorRead.rowCount, 0);
 
   const crossReactionRead = await runtimeTransaction(ids.ownerA, () =>
     runtime.query(`SELECT "id" FROM "TaskCommentReaction" WHERE "id" = $1`, [
@@ -734,7 +781,7 @@ try {
   assert.equal(missingLookup.rowCount, 0);
 
   console.log(
-    "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, revoked membership, responsibility resolution, ownership transfer, Calendar connections/sources/preferences, and agent credentials."
+    "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, revoked membership, safe project actor reads, responsibility resolution, ownership transfer, Calendar connections/sources/preferences, and agent credentials."
   );
 } finally {
   await cleanup().catch(() => undefined);

@@ -833,6 +833,8 @@ export function ProjectDashboardOwnerActions({
         message: `Credential ${payload.credential.label} created.`,
       });
       await loadAgentAccessSummary();
+      // Task pickers are server-rendered from this route's data; refetch so the new agent appears without a manual reload.
+      router.refresh();
     } catch (error) {
       const message =
         error instanceof Error
@@ -1039,6 +1041,8 @@ export function ProjectDashboardOwnerActions({
       setOffboardingDialog(null);
       setResponsibilityInventory(null);
       setIsOpen(true);
+      // Responsibility surfaces and actor pickers are server-rendered from this
+      // route's data; refetch so every affected control reconciles immediately.
       router.refresh();
     } catch (error) {
       setOffboardingError(

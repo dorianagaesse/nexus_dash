@@ -73,6 +73,57 @@ Use it for important implementation milestones, blockers, validation runs, and r
   historical provenance retention. Coverage used a 15s Vitest timeout because
   Windows/Node 24 git-spawning version-policy fixtures exceeded their fixed 5s
   under instrumentation; all tests and thresholds passed unchanged.
+
+# 2026-09-12 - ND-382 retest follow-up: freshly created agents stayed out of task pickers until a reload
+
+- The retest ("mention autocomplete shows the agent, but the task assignee list has no agents") surfaced an interactive gap, not a data defect. Task pickers render from the route's server-rendered actor list (`listAssignableProjectActors` → `projectActors` on the board), while the mention autocomplete fetches `/actors/search` per keystroke. Creating a credential from the project's "Agent access" panel refreshed only the panel's client-fetched list; the server payload (and so the assignee pickers) kept the pre-creation list until a manual reload. The agent's credential never having completed a token exchange is irrelevant to both pickers.
+- Live-preview evidence: probing the real preview database directly (project `cmtxj06lf000004kzk8mhqq0s` "test", owner `dorianagaesse`; active credential `test`, `nda_17lZJtcUYXe56U0c`, no expiry) showed the credential present with `app.list_project_actors` installed under `prosecdef`, confirming the deployed search path had the data while the loaded page did not. By-design gates confirmed in code: mention rows stay `aria-disabled` ("mention support coming soon", ND-383) and task-assignee agent rows stay disabled ("Agent task assignment is not available yet", ND-384); revoked/expired credentials stay hidden.
+- Fix: `handleCreateAgentCredential` and `handleRevokeAgentCredential` in `components/project-dashboard/project-dashboard-owner-actions.tsx` now call `router.refresh()` after success so the route re-renders its server components (actor list included) without a manual reload. Rotate intentionally skipped (an active credential stays assignable).
+- Coverage: `tests/e2e/nd-382-active-agent-pickers.spec.ts` gained the regression flow — create a credential through the Agent access UI, then open the create-task assignee picker with no reload and assert the new agent row renders disabled.
+- Copilot review on PR #497: the three initial threads (two about owner-only `ApiCredential` reads under RLS, one about `Cache-Control: no-store` on error responses) had all been addressed by 8e339cd; each thread now has a reply with the fix reference and the conversation is resolved.
+- Validation on the fix commit `eb7edb0` (CI-equivalent env on the local Postgres): lint, `rls:check`, full Vitest 189 files / 1,394 tests passed (2 skipped), coverage above thresholds (statements 93.45%, branches 84%, functions 95.3%, lines 93.75%), production build, focused Playwright `nd-382-active-agent-pickers.spec.ts` (1/1, including the new create-credential → assignee-picker regression flow), and `git diff --check` clean.
+- Preview alias note: during this retest window the shared alias had again drifted to other branches (`f93d36a`, `feature/nd-426-zoomable-meeting-notes`, then `7cf168e`). Re-ran the ND-382 preview deploy after the fix commit (`gh workflow run deploy-vercel.yml -f action=deploy-preview -f git_ref=feature/nd-382-active-project-agent-pickers`, run 34655417001, green including the stable-alias step); `GET /api/health/ready` on the alias now reports revision `eb7edb0`, and a live agent-token exchange plus `GET /api/projects/cmtxj06lf000004kzk8mhqq0s/actors/search` on the alias returned the active agent (`test`, kind `agent`, `isAssignable: true`) beside the owner.
+
+# 2026-09-11 - ND-382 preview retest: the shared preview auth alias had moved to another branch's build
+
+- The follow-up retest ("couldn't mention an agent or assign a task to one") was not a branch defect: the stable preview auth alias `nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app` — the base URL in the gitignored `.tmp/.nd-preview.env` bundle — had been re-pointed after this branch's 2026-09-10 21:53Z `deploy-preview` run by the next `deploy-preview` run for another branch (`feature/nd-426-zoomable-meeting-notes`, run 34541826713, 23:22Z). Live probes at retest time: `/api/health/ready` on the alias reported revision `33c8f95` (that branch's head), and the alias returned the HTML 404 page for `GET /api/projects/{projectId}/actors/search`, because that build predates ND-382 entirely. Every `deploy-preview` run reassigns the single shared alias, so the most recent preview deploy wins.
+- Re-ran the ND-382 preview deploy (`gh workflow run deploy-vercel.yml -f action=deploy-preview -f git_ref=feature/nd-382-active-project-agent-pickers`, run 34586620037, green incl. migrations, readiness, and alias steps) to re-point the alias. Live verification on the alias: readiness revision `8e339cd`, agent token exchange 200 for the bundle credential, and `GET /api/projects/{projectId}/actors/search?query=` returning the active agent credential (kind `agent`, label `test`, `isAssignable: true`, no secret material) alongside the owner and editor humans. The same payloads came from the immutable ND-382 deployment `nexus-dash-p6t2sbdyh-...` before the alias flip, so the RLS-safe read holds in the real preview database.
+- Expected retest surfaces on the fixed build: mention autocomplete shows the agent row `aria-disabled` with "mention support coming soon" (ND-383 owns persistence), task assignee pickers show it disabled ("Agent task assignment is not available yet", ND-384 owns persistence), and meeting-todo assignee chips keep the agent selectable (existing behavior preserved per AC2 / Out Of Scope).
+- Merged `origin/main` forward (now d64dbb3: epic-docs `Recommended order:` convention plus two dependency bumps) — only `journal.md` conflicted (concurrent top-of-file entries; kept both); branch head `42d3d90`, then this docs commit.
+
+# 2026-09-10 - ND-382 preview gap: agents absent from mention and assignee pickers
+
+- Preview validation of the PR #497 head (`feature/nd-382-active-project-agent-pickers`, e79e202) reported no agents in @mention autocomplete or task-assignee pickers. Root cause: `loadProjectActorRegistry`/`searchProjectActors` read `ApiCredential` through a direct Prisma include, while `api_credential_select_policy` (task318) grants SELECT only to the project owner under forced RLS. Every non-owner member session therefore resolved zero credential rows and agents vanished from every ND-382 surface (mention autocomplete, task pickers, meeting todos, context cards). Local suites could not catch it: `withActorRlsContext` skips the identity under `NODE_ENV=test` and the local/e2e DB connection bypasses RLS.
+- Fix: the registry now loads through a new `app.list_project_actors(projectId)` SECURITY DEFINER projection function migration (`20260909212500_nd382_project_actor_safe_read`) that returns owner + members + non-secret credential metadata to any current project member, mirroring the established `app.list_project_context_card_actors` pattern (which the context-card service previously used and now delegates to the shared registry). `searchProjectActors` keeps its role/isOwner mapping and reads humans via the same registry; the actor-search route adds `Cache-Control: no-store` to auth/error responses.
+- Coverage: the real-PostgreSQL RLS isolation matrix gained assertions that members see zero `ApiCredential` rows directly but see their own project's agents through `app.list_project_actors`, that cross-project and revoked-membership callers see nothing, and that an absent identity sees nothing; the ND-382 e2e spec gained a viewer read assertion; service tests in the meeting-note and meeting-todo suites migrated their registry fixtures from `project.findUnique` to `$queryRaw` rows.
+- Validation green on the fix tree: lint; `rls:check`; `release:check`; full Vitest (189 files / 1,394 tests passed, 2 skipped); coverage above thresholds (statements 93.45%, branches 84%, functions 95.3%, lines 93.75%); production build; `git diff --check`; and the real-PostgreSQL RLS setup + isolation matrix against a disposable database with the least-privilege `NOBYPASSRLS` runtime role. Local Playwright was not rerun for this service-layer fix; CI E2E Smoke and Tenant Isolation run on the PR head.
+
+# 2026-09-09 - ND-382: Active project agents in collaboration pickers
+
+- Read the live production ND-382 card through the documented agent API,
+  moved it from Backlog to In Progress, and implemented the work in the
+  dedicated `../nexus_dash_nd382_wt` worktree on
+  `feature/nd-382-active-project-agent-pickers`.
+- Added a bounded, project-authorized actor search that maps humans and active
+  agent credentials through the canonical ND-178 registry, searches agents by
+  credential label, and selects only non-secret credential metadata. Revoked
+  and expired credentials are excluded from new choices.
+- Wired active agent rows into mention autocomplete and task assignee pickers
+  with explicit Agent identity and accessible disabled treatment pending the
+  ND-383/ND-384 persistence work. Meeting-todo actor loading now delegates to
+  the same registry and retains its existing agent assignment support.
+- UI treatment followed the UI UX Pro Max accessibility guidance for listbox
+  semantics, recognizable non-color-only agent identity, touch sizing,
+  responsive containment, and theme-token styling.
+- Local validation is green: lint; RLS inventory; release policy; focused
+  ND-382 Vitest (6 files / 12 tests); full Vitest (189 files / 1,393 tests,
+  2 skipped); coverage above thresholds (93.45% statements, 84% branches,
+  95.3% functions, 93.75% lines); production build; focused Chromium browser
+  acceptance at 375px; and the full Playwright suite (59 passed, 1 skipped).
+  The coverage run used a 15-second Vitest timeout because three existing
+  version-policy subprocess tests exceeded their default 5 seconds only under
+  coverage instrumentation.
+
 # 2026-09-10 - Epic descriptions now open with a `Recommended order:` path
 
 - Board: rewrote the descriptions of the five legacy-format epic cards

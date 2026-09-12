@@ -21,7 +21,6 @@ const dbMock = vi.hoisted(() => ({
   $queryRaw: vi.fn(),
   project: {
     findFirst: vi.fn(),
-    findUnique: vi.fn(),
   },
   user: { findUnique: vi.fn() },
   apiCredential: { findFirst: vi.fn() },
@@ -63,6 +62,48 @@ function linkedParticipant(
     displayName: user.username ?? user.name ?? "Account",
     position,
     user,
+  };
+}
+
+function humanActorRow(user: {
+  id: string;
+  name: string | null;
+  email: string | null;
+  username: string | null;
+  usernameDiscriminator: string | null;
+  avatarSeed: string | null;
+}) {
+  return {
+    kind: "human",
+    actorId: user.id,
+    name: user.name,
+    email: user.email,
+    username: user.username,
+    usernameDiscriminator: user.usernameDiscriminator,
+    avatarSeed: user.avatarSeed,
+    label: null,
+    revokedAt: null,
+    expiresAt: null,
+  };
+}
+
+function agentActorRow(credential: {
+  id: string;
+  label: string;
+  revokedAt?: Date | null;
+  expiresAt?: Date | null;
+}) {
+  return {
+    kind: "agent",
+    actorId: credential.id,
+    name: null,
+    email: null,
+    username: null,
+    usernameDiscriminator: null,
+    avatarSeed: null,
+    label: credential.label,
+    revokedAt: credential.revokedAt ?? null,
+    expiresAt: credential.expiresAt ?? null,
   };
 }
 
@@ -188,12 +229,7 @@ describe("project-meeting-note-service", () => {
       usernameDiscriminator: "0001",
       avatarSeed: "seed-owner",
     };
-    dbMock.project.findUnique.mockResolvedValue({
-      owner,
-      memberships: [],
-      apiCredentials: [],
-    });
-    dbMock.$queryRaw.mockResolvedValue([]);
+    dbMock.$queryRaw.mockResolvedValue([humanActorRow(owner)]);
     dbMock.user.findUnique.mockResolvedValue(owner);
     rlsContextMock.withActorRlsContext.mockImplementation(
       async (_actorUserId: string, operation: (db: typeof dbMock) => unknown) =>
@@ -807,26 +843,22 @@ describe("project-meeting-note-service", () => {
   });
 
   test("assigns an active project agent and preserves its credential identity", async () => {
-    dbMock.project.findUnique.mockResolvedValueOnce({
-      owner: {
+    dbMock.$queryRaw.mockResolvedValueOnce([
+      humanActorRow({
         id: "user-1",
         name: "Owner",
         email: "owner@example.com",
         username: "owner",
         usernameDiscriminator: "0001",
         avatarSeed: "seed-owner",
-      },
-      memberships: [],
-      apiCredentials: [
-        {
-          id: "credential-1",
-          label: "Release agent",
-          projectId: "project-1",
-          revokedAt: null,
-          expiresAt: null,
-        },
-      ],
-    });
+      }),
+      agentActorRow({
+        id: "credential-1",
+        label: "Release agent",
+        revokedAt: null,
+        expiresAt: null,
+      }),
+    ]);
     dbMock.projectMeetingNoteAction.findFirst.mockResolvedValueOnce({ id: "action-1" });
     dbMock.projectMeetingNoteAction.update.mockResolvedValueOnce({ id: "action-1" });
     dbMock.projectMeetingNote.update.mockResolvedValueOnce({ id: "note-1" });
@@ -886,26 +918,22 @@ describe("project-meeting-note-service", () => {
   });
 
   test("rejects assignment to a revoked agent credential", async () => {
-    dbMock.project.findUnique.mockResolvedValueOnce({
-      owner: {
+    dbMock.$queryRaw.mockResolvedValueOnce([
+      humanActorRow({
         id: "user-1",
         name: "Owner",
         email: "owner@example.com",
         username: "owner",
         usernameDiscriminator: "0001",
         avatarSeed: "seed-owner",
-      },
-      memberships: [],
-      apiCredentials: [
-        {
-          id: "credential-revoked",
-          label: "Former agent",
-          projectId: "project-1",
-          revokedAt: new Date("2026-08-01T00:00:00.000Z"),
-          expiresAt: null,
-        },
-      ],
-    });
+      }),
+      agentActorRow({
+        id: "credential-revoked",
+        label: "Former agent",
+        revokedAt: new Date("2026-08-01T00:00:00.000Z"),
+        expiresAt: null,
+      }),
+    ]);
     dbMock.projectMeetingNoteAction.findFirst.mockResolvedValueOnce({ id: "action-1" });
 
     await expect(
@@ -1204,18 +1232,17 @@ describe("project-meeting-note-service", () => {
         usernameDiscriminator: "0002",
         avatarSeed: "seed-editor",
       };
-      dbMock.project.findUnique.mockResolvedValueOnce({
-        owner: {
+      dbMock.$queryRaw.mockResolvedValueOnce([
+        humanActorRow({
           id: "user-1",
           name: "Owner",
           email: "owner@example.com",
           username: "owner",
           usernameDiscriminator: "0001",
           avatarSeed: "seed-owner",
-        },
-        memberships: [{ user: collaborator }],
-        apiCredentials: [],
-      });
+        }),
+        humanActorRow(collaborator),
+      ]);
       dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
         id: "note-1",
       });
@@ -1245,18 +1272,6 @@ describe("project-meeting-note-service", () => {
     });
 
     test("rejects steward assignments for removed human members", async () => {
-      dbMock.project.findUnique.mockResolvedValueOnce({
-        owner: {
-          id: "user-1",
-          name: "Owner",
-          email: "owner@example.com",
-          username: "owner",
-          usernameDiscriminator: "0001",
-          avatarSeed: "seed-owner",
-        },
-        memberships: [],
-        apiCredentials: [],
-      });
       dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
         id: "note-1",
       });
@@ -1330,19 +1345,17 @@ describe("project-meeting-note-service", () => {
     });
 
     test("filters notes stewarded by the current actor", async () => {
-      dbMock.project.findUnique.mockReset();
-      dbMock.project.findUnique.mockResolvedValue({
-        owner: {
+      dbMock.$queryRaw.mockReset();
+      dbMock.$queryRaw.mockResolvedValue([
+        humanActorRow({
           id: "user-2",
           name: "Editor",
           email: "editor@example.com",
           username: "editor",
           usernameDiscriminator: "0002",
           avatarSeed: "seed-editor",
-        },
-        memberships: [],
-        apiCredentials: [],
-      });
+        }),
+      ]);
       dbMock.projectMeetingNote.findMany.mockResolvedValueOnce([
         {
           ...baseMeetingNoteRecord,
@@ -1394,11 +1407,10 @@ describe("project-meeting-note-service", () => {
         revokedAt: null,
         expiresAt: null,
       };
-      dbMock.project.findUnique.mockResolvedValueOnce({
-        owner: baseMeetingNoteRecord.createdByUser,
-        memberships: [],
-        apiCredentials: [credential],
-      });
+      dbMock.$queryRaw.mockResolvedValueOnce([
+        humanActorRow(baseMeetingNoteRecord.createdByUser),
+        agentActorRow(credential),
+      ]);
       dbMock.projectMeetingNote.findMany.mockResolvedValueOnce([
         {
           ...baseMeetingNoteRecord,

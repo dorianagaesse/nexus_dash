@@ -9,11 +9,12 @@ import {
 describe("buildMentionAutocompleteValue", () => {
   test("preserves username discriminators for unique mention resolution", () => {
     const member: MentionAutocompleteMember = {
+      kind: "human",
       id: "user-1",
       displayName: "Alice Example",
       usernameTag: "alice#1234",
       avatarSeed: "user-1",
-      role: "editor",
+      projectRole: "editor",
       isOwner: false,
     };
 
@@ -22,11 +23,12 @@ describe("buildMentionAutocompleteValue", () => {
 
   test("can build a display-only mention value without the discriminator", () => {
     const member: MentionAutocompleteMember = {
+      kind: "human",
       id: "user-1",
       displayName: "Alice Example",
       usernameTag: "alice#1234",
       avatarSeed: "user-1",
-      role: "editor",
+      projectRole: "editor",
       isOwner: false,
     };
 
@@ -35,15 +37,31 @@ describe("buildMentionAutocompleteValue", () => {
 
   test("returns an empty value when no resolvable username tag exists", () => {
     const member: MentionAutocompleteMember = {
+      kind: "human",
       id: "user-2",
       displayName: "No Username",
       usernameTag: null,
       avatarSeed: "user-2",
-      role: "viewer",
+      projectRole: "viewer",
       isOwner: false,
     };
 
     expect(buildMentionAutocompleteValue(member)).toBe("");
     expect(buildMentionAutocompleteDisplayValue(member)).toBe("");
+  });
+
+  test("does not serialize discovered agents as human mentions", () => {
+    const agent: MentionAutocompleteMember = {
+      kind: "agent",
+      id: "credential-1",
+      displayName: "Release bot",
+      usernameTag: null,
+      avatarSeed: null,
+      projectRole: null,
+      isOwner: false,
+    };
+
+    expect(buildMentionAutocompleteValue(agent)).toBe("");
+    expect(buildMentionAutocompleteDisplayValue(agent)).toBe("");
   });
 });

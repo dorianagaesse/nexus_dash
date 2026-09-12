@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.63.0 - 2026-09-09
+## v0.64.0 - 2026-09-12
 
 - Added responsibility-aware collaborator and agent offboarding (ND-179):
   owners now review active task assignments, context-card stewardship,
@@ -30,6 +30,22 @@ SHA, deployment URL, and workflow run belong in release evidence.
   stewards, and open meeting-todo assignees visibly reconcile without a manual
   page reload. Context cards now show their current steward alongside their
   preserved creator and last-editor history.
+
+## v0.63.0 - 2026-09-09
+
+- Added one authorized, project-scoped actor search contract for collaboration
+  controls. It searches eligible humans by identity and active project-agent
+  credentials by label while returning no credential secret material (ND-382).
+- Supported `@` autocomplete and task-assignee controls now show active agent
+  credentials alongside humans with a shared bot avatar, credential-label
+  identity, and explicit Agent treatment. Agent mention and task-assignment
+  actions remain visibly unavailable until ND-383 and ND-384 add their
+  persistence contracts, so credentials are never submitted as human ids.
+- Meeting-todo assignment now loads its selectable humans and agents from the
+  same canonical actor registry. Revoked and expired credentials disappear
+  from new choices while durable historical actor snapshots remain readable.
+- Added service, route, and Kanban integration coverage for project isolation,
+  active-credential filtering, safe response fields, and picker propagation.
 
 ## v0.62.0 - 2026-09-08
 

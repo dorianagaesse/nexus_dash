@@ -4,10 +4,10 @@ import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 
-import type {
-  ProjectTaskCollaborator,
-} from "@/components/kanban-board-types";
+import type { ProjectTaskCollaborator } from "@/components/kanban-board-types";
+import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import type { ProjectActorSummary } from "@/lib/project-actor";
 import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,7 @@ interface AssigneeSelectProps {
   value: string;
   onChange: (value: string) => void;
   options: ProjectTaskCollaborator[];
+  agentOptions?: ProjectActorSummary[];
   disabled?: boolean;
   className?: string;
   unassignedLabel?: string;
@@ -32,6 +33,7 @@ export function AssigneeSelect({
   value,
   onChange,
   options,
+  agentOptions = [],
   disabled = false,
   className,
   unassignedLabel = "Unassigned",
@@ -65,7 +67,10 @@ export function AssigneeSelect({
 
       const rect = trigger.getBoundingClientRect();
       const viewportPadding = 12;
-      const estimatedHeight = Math.min(56 * (options.length + 1), 280);
+      const estimatedHeight = Math.min(
+        56 * (options.length + agentOptions.length + 1),
+        280
+      );
       const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
       const availableAbove = rect.top - viewportPadding;
       const shouldOpenAbove =
@@ -116,7 +121,7 @@ export function AssigneeSelect({
       window.removeEventListener("resize", updateDropdownPosition);
       window.removeEventListener("scroll", updateDropdownPosition, true);
     };
-  }, [isOpen, options.length]);
+  }, [agentOptions.length, isOpen, options.length]);
 
   return (
     <div className="relative">
@@ -253,6 +258,38 @@ export function AssigneeSelect({
                     </button>
                   );
                 })}
+
+                {agentOptions.map((agent) => (
+                  <button
+                    key={`agent:${agent.id}`}
+                    type="button"
+                    role="option"
+                    aria-selected={false}
+                    aria-disabled="true"
+                    disabled
+                    title="Agent task assignment is not available yet"
+                    className="flex min-h-12 w-full cursor-not-allowed items-center justify-between gap-3 rounded-lg px-3 py-2 text-left opacity-70"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <AgentAvatar
+                        displayName={agent.displayName}
+                        decorative
+                        className="h-9 w-9"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {agent.displayName}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          Agent — assignment support coming soon
+                        </p>
+                      </div>
+                    </div>
+                    <span className="shrink-0 rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                      Agent
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>,
             document.body
