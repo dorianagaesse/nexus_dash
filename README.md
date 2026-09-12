@@ -564,7 +564,6 @@ Copilot repair-lane prerequisite:
 
 - `project.md`: current architecture/product blueprint
 - `agent.md`: repository-specific execution contract
-- `tasks/current.md`: active task scope
 - `tasks/backlog.md`: pending/completed task queue
 - `journal.md`: execution log
 - `adr/decisions.md` + `adr/*.md`: architecture decisions

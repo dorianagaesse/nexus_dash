@@ -7,6 +7,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 - User-directed workflow change, documented in `agent.md` (full rules) and `CLAUDE.md` (summary): agents move a card to In Progress when they start its task and never move cards to Done — Done is set by the reviewer/PR merger. Completion comments are optional and only for relevant handoff information (decisions, validation evidence, blockers): plain English, short, one topic. Task descriptions must stay concise — plain English covering the intent plus testable acceptance criteria, with no restated context, exhaustive scope inventories, or file-by-file walkthroughs.
 - Trigger: user feedback that agent-authored cards are unreadable and that Done-lane ownership at handoff was ambiguous. Board follow-up the same day: ND-446..ND-448 rewritten to the short form; ND-449 created for per-project agent capability settings (first capability: a Done-move toggle, UI + backend).
+- `tasks/current.md` retired (user-directed): the active card is the single source of truth for the task brief. The file had grown into a ~1,600-line append-only brief archive that drifted from current rules — this PR's Copilot review flagged its stale "In Progress and then Done on delivery" line. Live references updated in `agent.md`, `CLAUDE.md`, `project.md`, and `README.md`; historical references in journal entries, ADRs, and archived briefs left as records.
 
 # 2026-09-12 - ND-179: Complete offboarding surface reconciliation
 
