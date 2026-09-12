@@ -8,6 +8,29 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.65.0 - 2026-09-12
+
+- Added responsibility-aware collaborator and agent offboarding (ND-179):
+  owners now review active task assignments, context-card stewardship,
+  meeting-note stewardship, and open meeting-todo assignments before access is
+  removed, then explicitly reassign that work to a remaining collaborator or
+  leave it unassigned.
+- Added atomic project ownership transfer to an accepted collaborator. The
+  previous owner can remain as an editor or resolve active responsibility and
+  leave in the same handoff; the database transition locks the project and
+  preserves exactly one owner.
+- Replaced generic removal confirmations with responsive, keyboard-accessible
+  handoff dialogs that expose categorized counts, consequences, loading and
+  error states, mobile-safe layouts, and clear recovery paths.
+- Historical creator, editor, completer, uploader, comment-author, and audit
+  attribution remains unchanged; only active assignment and stewardship fields
+  are reassigned or cleared.
+- Successful collaborator removal and agent revocation now refresh the open
+  dashboard automatically, so task assignees, context-card and meeting-note
+  stewards, and open meeting-todo assignees visibly reconcile without a manual
+  page reload. Context cards now show their current steward alongside their
+  preserved creator and last-editor history.
+
 ## v0.64.0 - 2026-09-12
 
 - Added independent Inputs and Outputs zoom controls to meeting notes (ND-426),

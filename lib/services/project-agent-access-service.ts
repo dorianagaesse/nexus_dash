@@ -31,6 +31,11 @@ import { getAgentAccessTokenTtlSeconds } from "@/lib/env.server";
 import { issueAgentAccessToken } from "@/lib/auth/agent-token-service";
 import { prisma } from "@/lib/prisma";
 import { logServerWarning } from "@/lib/observability/logger";
+import {
+  resolveActiveProjectResponsibilities,
+  type ProjectResponsibilityInventory,
+  type ResponsibilityResolution,
+} from "@/lib/services/project-offboarding-service";
 import { verifySecret, hashSecret } from "@/lib/services/password-service";
 import { requireProjectRole } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
@@ -48,6 +53,7 @@ interface ServiceError {
   ok: false;
   status: number;
   error: string;
+  inventory?: ProjectResponsibilityInventory;
 }
 
 interface ServiceSuccess<T> {
@@ -899,7 +905,13 @@ export async function revokeProjectAgentCredential(input: {
   requestId?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
-}): Promise<ServiceResult<{ credential: ProjectAgentCredentialSummary }>> {
+  responsibilityResolution?: ResponsibilityResolution | null;
+}): Promise<
+  ServiceResult<{
+    credential: ProjectAgentCredentialSummary;
+    resolvedInventory?: ProjectResponsibilityInventory;
+  }>
+> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   const credentialId = normalizeTrimmedString(input.credentialId);
   if (!actorUserId) {
@@ -956,6 +968,16 @@ export async function revokeProjectAgentCredential(input: {
       });
     }
 
+    const resolutionResult = await resolveActiveProjectResponsibilities({
+      db,
+      projectId: input.projectId,
+      actor: { kind: "agent", id: credentialId },
+      resolution: input.responsibilityResolution ?? null,
+    });
+    if (!resolutionResult.ok) {
+      return resolutionResult;
+    }
+
     const revokedCredential = await db.apiCredential.update({
       where: { id: credentialId },
       data: {
@@ -1004,6 +1026,7 @@ export async function revokeProjectAgentCredential(input: {
 
     return createSuccess(200, {
       credential: buildCredentialSummary(revokedCredential),
+      resolvedInventory: resolutionResult.data.inventory,
     });
   });
 }

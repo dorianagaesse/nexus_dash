@@ -574,6 +574,7 @@ export function ProjectContextPanel({
           id: optimisticCardId,
           creator: null,
           lastEditor: null,
+          steward: null,
           attachments: [],
         },
       },
