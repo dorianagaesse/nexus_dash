@@ -47,7 +47,19 @@ Keep UI-only or task-only notes in `journal.md`.
   no agent notifications. New child tables are covered by ENABLE/FORCE RLS,
   the inventory, and the real-PostgreSQL isolation matrix; a dedicated
   history-timeline UI is deferred.
-- Links: `tasks/current.md` (ND-384), board card ND-384.
+- Concurrency and retention (review follow-ups): the offboarding service
+  snapshots task and meeting-todo rows with `FOR UPDATE` locks so the recorded
+  history matches the rows the resolution function actually updates under
+  READ COMMITTED; interactive save flows keep their existing last-write-wins
+  contract (write + history are atomic in the enclosing RLS transaction), with
+  cross-cutting optimistic concurrency out of scope. The append-only history
+  tables cascade on a hard parent delete (removing a task intentionally drops
+  its history) while actor references `SET NULL` and denormalized display
+  snapshots keep surviving rows attributable. Stored provenance renders
+  registry-first so members without ApiCredential read access still see live
+  agent status, and the kanban save path omits the assignee field unless the
+  draft actor key actually changed so revoked assignees are never re-submitted.
+- Links: `tasks/current.md` (ND-384), board card ND-384, PR #505.
 
 ## 2026-09-09 - ND-179: Resolve active responsibility before atomic ownership and access handoff
 - Status: Accepted.

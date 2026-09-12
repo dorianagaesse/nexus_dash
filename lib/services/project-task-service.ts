@@ -279,12 +279,18 @@ export function validateTaskCreateFieldTypes(payload: {
 
 // Create transports may send the structured assignee reference (which wins)
 // or the legacy human shorthand; callers reject malformed shape through
-// validateTaskCreateFieldTypes before calling this.
+// validateTaskCreateFieldTypes before calling this. An explicit structured
+// null means "no assignee" and suppresses the legacy fallback, matching the
+// update transport's precedence.
 export function parseTaskAssigneeInput(payload: {
   assignee?: unknown;
   assigneeUserId?: unknown;
 }): ProjectActorReference | null {
-  if (payload.assignee === undefined || payload.assignee === null) {
+  if (payload.assignee === null) {
+    return null;
+  }
+
+  if (payload.assignee === undefined) {
     if (typeof payload.assigneeUserId === "string") {
       const legacyAssigneeUserId = payload.assigneeUserId.trim();
       return legacyAssigneeUserId

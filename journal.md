@@ -38,6 +38,28 @@ Use it for important implementation milestones, blockers, validation runs, and r
   local database and a `TRUSTED_ORIGINS` value, and sets
   `OUTBOUND_EMAIL_DELIVERY_MODE=disabled` so production-mode local runs mirror
   CI's test-mode email skip for the password-recovery journey.
+- Copilot review on PR #505 raised 13 inline findings; 8 were applied and 3
+  were declined with thread rationale (see below). Applied: the multipart task
+  transport now rejects `assigneeKind` without `assigneeId` (and vice versa),
+  an explicit structured `assignee: null` suppresses the legacy
+  `assigneeUserId` shorthand on create, meeting-todo provenance maps stored
+  actors registry-first so members without ApiCredential read access see live
+  agent status, the kanban save path omits the assignee field when the draft
+  actor key is unchanged so a revoked assignee is never re-submitted, the
+  agent OpenAPI `assignedBy` copy documents unassignment, and the offboarding
+  snapshot queries now hold `FOR UPDATE` row locks. Declined: read→write
+  concurrency on interactive saves (write + history are atomic in the
+  enclosing RLS transaction and last-write-wins matches every existing editor
+  flow), and `Cascade` FKs on the history child tables (a hard parent delete
+  intentionally drops its own history; actor FKs `SET NULL` with denormalized
+  snapshots, matching TaskComment/ProjectActivityEvent precedent). The review
+  fixtures also exposed test-only TypeScript regressions the repo's build gate
+  does not typecheck; those fixtures were fixed and verified with
+  `npx tsc --noEmit` against the recorded main baseline.
+- Review-fix validation: lint, `rls:check`, Vitest 195 files / 1439 tests,
+  coverage, production build, the real-PostgreSQL isolation matrix plus a
+  runtime-role `FOR UPDATE` privilege probe, and the full Playwright suite
+  (61 passed, 1 skipped).
 
 # 2026-09-12 - ND-179: Complete offboarding surface reconciliation
 

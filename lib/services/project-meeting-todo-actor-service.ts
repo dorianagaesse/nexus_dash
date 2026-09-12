@@ -69,6 +69,7 @@ export function mapStoredMeetingTodoActor(input: {
   credential?: MeetingTodoActorCredentialRecord | null;
   isCurrentProjectHuman?: boolean;
   noteExternalParticipantNameKeys?: Set<string> | null;
+  registry?: MeetingTodoActorRegistry | null;
   now?: Date;
 }): MeetingTodoActorSummary | null {
   if (input.kind === "participant") {
@@ -86,6 +87,17 @@ export function mapStoredMeetingTodoActor(input: {
           )
         ),
     });
+  }
+
+  // Registry summaries stay authoritative so members without ApiCredential
+  // read access still see live agent status instead of a revoked fallback.
+  const projectedActor = input.id
+    ? input.kind === "human"
+      ? input.registry?.humanById.get(input.id)
+      : input.registry?.credentialById.get(input.id)
+    : null;
+  if (projectedActor) {
+    return projectedActor;
   }
 
   return mapStoredProjectActor(

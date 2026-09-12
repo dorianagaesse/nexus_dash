@@ -654,6 +654,32 @@ describe("POST /api/projects/:projectId/tasks", () => {
     expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
   });
 
+  test("structured null assignee suppresses the legacy assigneeUserId shorthand", async () => {
+    projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
+      ok: true,
+      data: { task: { id: "task-unassigned", attachments: [] } },
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        title: "Draft API smoke test",
+        assignee: null,
+        assigneeUserId: "user-2",
+      }),
+    });
+
+    const response = await POST(request as never, taskRouteParams("p1"));
+
+    expect(response.status).toBe(201);
+    expect(projectTaskServiceMock.createTaskForProject).toHaveBeenCalledWith(
+      expect.objectContaining({ assignee: null })
+    );
+  });
+
   test("forwards a structured assignee from a multipart form payload", async () => {
     projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
       ok: true,
@@ -682,6 +708,25 @@ describe("POST /api/projects/:projectId/tasks", () => {
     const formData = new FormData();
     formData.set("title", "Agent assigned task");
     formData.set("assigneeKind", "agent");
+
+    const request = new Request("http://localhost/api/projects/p1/tasks", {
+      method: "POST",
+      body: formData,
+    });
+
+    const response = await POST(request as never, taskRouteParams("p1"));
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "assignee-invalid",
+    });
+    expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
+  });
+
+  test("returns 400 when the form assignee id is set without a kind", async () => {
+    const formData = new FormData();
+    formData.set("title", "Agent assigned task");
+    formData.set("assigneeId", "cred-1");
 
     const request = new Request("http://localhost/api/projects/p1/tasks", {
       method: "POST",

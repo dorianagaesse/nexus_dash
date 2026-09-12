@@ -16,8 +16,10 @@ test("agent assignment persists credential identity with audit history and inact
     where: { id: ownerId },
     select: { username: true },
   });
-  expect(owner).toBeTruthy();
-  const ownerUsername = owner!.username;
+  if (!owner?.username) {
+    throw new Error("Signed-in e2e user is missing a username");
+  }
+  const ownerUsername = owner.username;
 
   const projectName = uniqueProjectName("nd384-agent-assignment");
   await createProjectFromProjectsPage(page, projectName);

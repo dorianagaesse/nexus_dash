@@ -190,20 +190,19 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     description = readText(formData, "description");
     deadlineDate = readText(formData, "deadlineDate");
     epicId = readText(formData, "epicId") || null;
+    const assigneeKindField = readText(formData, "assigneeKind");
+    const assigneeIdField = readText(formData, "assigneeId");
     assignee = parseTaskAssigneeInput({
       assignee:
-        readText(formData, "assigneeKind") || readText(formData, "assigneeId")
+        assigneeKindField || assigneeIdField
           ? {
-              kind: readText(formData, "assigneeKind"),
-              id: readText(formData, "assigneeId"),
+              kind: assigneeKindField,
+              id: assigneeIdField,
             }
           : undefined,
       assigneeUserId: readText(formData, "assigneeUserId"),
     });
-    if (
-      readText(formData, "assigneeKind") &&
-      !assignee
-    ) {
+    if ((assigneeKindField || assigneeIdField) && !assignee) {
       return NextResponse.json({ error: "assignee-invalid" }, { status: 400 });
     }
     labelsJsonRaw = readText(formData, "labels");

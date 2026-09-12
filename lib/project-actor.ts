@@ -25,6 +25,16 @@ export function getProjectActorKey(
   return `${actor.kind}:${actor.id}`;
 }
 
+export function hasProjectActorChanged(
+  stored: Pick<ProjectActorReference, "kind" | "id"> | null,
+  draft: Pick<ProjectActorReference, "kind" | "id"> | null
+): boolean {
+  if (!stored || !draft) {
+    return Boolean(stored) !== Boolean(draft);
+  }
+  return getProjectActorKey(stored) !== getProjectActorKey(draft);
+}
+
 export function getHistoricalProjectActorId(input: {
   kind: ProjectActorKind;
   displayNameSnapshot: string;

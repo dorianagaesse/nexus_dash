@@ -208,6 +208,7 @@ export async function listProjectMeetingTodos(input: {
           displayNameSnapshot: action.creatorDisplayNameSnapshot,
           user: action.createdByUser,
           credential: action.createdByCredential,
+          registry: actorRegistry,
           isCurrentProjectHuman: Boolean(
             action.createdByUserId &&
               actorRegistry?.activeHumanIds.has(action.createdByUserId)
@@ -223,6 +224,7 @@ export async function listProjectMeetingTodos(input: {
               displayNameSnapshot: action.assigneeDisplayNameSnapshot,
               user: action.assigneeUser,
               credential: action.assigneeCredential,
+              registry: actorRegistry,
               isCurrentProjectHuman: Boolean(
                 action.assigneeUserId &&
                   actorRegistry?.activeHumanIds.has(action.assigneeUserId)
@@ -240,6 +242,7 @@ export async function listProjectMeetingTodos(input: {
               displayNameSnapshot: action.assignedByDisplayNameSnapshot,
               user: action.assignedByUser,
               credential: action.assignedByCredential,
+              registry: actorRegistry,
               isCurrentProjectHuman: Boolean(
                 action.assignedByUserId &&
                   actorRegistry?.activeHumanIds.has(action.assignedByUserId)
@@ -257,6 +260,7 @@ export async function listProjectMeetingTodos(input: {
               displayNameSnapshot: action.completedByDisplayNameSnapshot,
               user: action.completedByUser,
               credential: action.completedByCredential,
+              registry: actorRegistry,
               isCurrentProjectHuman: Boolean(
                 action.completedByUserId &&
                   actorRegistry?.activeHumanIds.has(action.completedByUserId)

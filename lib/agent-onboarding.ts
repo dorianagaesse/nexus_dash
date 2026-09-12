@@ -1631,7 +1631,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 { type: "null" },
               ],
               description:
-                "Who performed the current assignment, with assignment time in assignedAt. Null when unassigned.",
+                "Who performed the most recent assignment change, including an unassignment, with the change time in assignedAt. Null until an assignment change has been recorded.",
             },
             assignedAt: {
               type: ["string", "null"],

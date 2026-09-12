@@ -84,7 +84,7 @@ async function renderWithRoot(root: Root, comments: TaskComment[]) {
         editDescription=""
         editDeadlineDate=""
         editEpicId=""
-        editAssigneeUserId=""
+        editAssignee={null}
         editRelatedTasks={[]}
         relatedTaskSearch=""
         newBlockedFollowUpEntry=""
@@ -115,7 +115,7 @@ async function renderWithRoot(root: Root, comments: TaskComment[]) {
         onEditDescriptionChange={vi.fn()}
         onEditDeadlineDateChange={vi.fn()}
         onEditEpicIdChange={vi.fn()}
-        onEditAssigneeUserIdChange={vi.fn()}
+        onEditAssigneeChange={vi.fn()}
         onRelatedTaskSearchChange={vi.fn()}
         onAddRelatedTask={vi.fn()}
         onRemoveRelatedTask={vi.fn()}

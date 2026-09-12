@@ -18,7 +18,16 @@ offboarding service to mirror the interactive provenance + history contract.
 Validated by lint, `rls:check`, Vitest 194 files / 1431 tests, coverage
 (93.47 / 84.36 / 95.3 / 93.77), production build, `release:check` (0.66.0 over
 0.65.0), the real-PostgreSQL isolation matrix, and the full Playwright suite
-(61 passed, 1 skipped). The Nexus Dash board card ND-384 (feature label,
+(61 passed, 1 skipped; re-validated after the review fixes). The PR #505
+Copilot review raised 13 inline findings — 8 fixes applied (multipart assignee
+kind/id pairing, explicit-null precedence, registry-first provenance mapping,
+kanban unchanged-assignee save, OpenAPI `assignedBy` copy, offboarding
+`FOR UPDATE` locks, plus test-fixture type regressions) and 3 declined with
+thread rationale (interactive-save last-write-wins matches existing editor
+flows; history child tables cascade on hard parent delete; runtime probe
+confirmed the least-privilege role can run the new locks) — and the final
+validation run covers Vitest 195 files / 1439 tests. The Nexus Dash board card
+ND-384 (feature label,
 epic "Agent mentions, assignment, and attention API") is the source of truth;
 flipped to In Progress on 2026-09-12 via the agent API. No counterpart GitHub
 issue exists; the PR carries the ND-384 reference. ND-382's picker rows are

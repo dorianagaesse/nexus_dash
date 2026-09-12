@@ -387,45 +387,53 @@ export async function resolveActiveProjectResponsibilities(input: {
     return createError(400, "invalid-responsibility-replacement", inventory);
   }
 
-  const humanId = input.actor.kind === "human" ? input.actor.id : undefined;
-  const credentialId =
-    input.actor.kind === "agent" ? input.actor.id : undefined;
+  const humanId = input.actor.kind === "human" ? input.actor.id : null;
+  const credentialId = input.actor.kind === "agent" ? input.actor.id : null;
+  // FOR UPDATE keeps the snapshot rows locked until this transaction commits.
+  // The resolution function re-evaluates its predicates under READ COMMITTED,
+  // so without the locks a concurrent reassignment could make it skip a
+  // snapshotted row while the history below still records it as changed.
   const [affectedTasks, affectedTodoActions, changedByDisplayNameSnapshot] =
     await Promise.all([
-      input.db.task.findMany({
-        where: {
-          projectId: input.projectId,
-          archivedAt: null,
-          NOT: { status: "Done" },
-          ...(humanId
-            ? { assigneeUserId: humanId }
-            : { assigneeKind: "agent", assigneeCredentialId: credentialId }),
-        },
-        select: {
-          id: true,
-          assigneeKind: true,
-          assigneeUserId: true,
-          assigneeCredentialId: true,
-          assigneeDisplayNameSnapshot: true,
-        },
-      }),
-      input.db.projectMeetingNoteAction.findMany({
-        where: {
-          meetingNote: { projectId: input.projectId },
-          completedAt: null,
-          assigneeKind: input.actor.kind,
-          ...(humanId
-            ? { assigneeUserId: humanId }
-            : { assigneeCredentialId: credentialId }),
-        },
-        select: {
-          id: true,
-          assigneeKind: true,
-          assigneeUserId: true,
-          assigneeCredentialId: true,
-          assigneeDisplayNameSnapshot: true,
-        },
-      }),
+      input.db.$queryRaw<Array<StoredAssigneeIdentity<ProjectActorKind>>>(
+        Prisma.sql`
+          SELECT
+            "id",
+            "assigneeKind"::text AS "assigneeKind",
+            "assigneeUserId",
+            "assigneeCredentialId",
+            "assigneeDisplayNameSnapshot"
+          FROM "Task"
+          WHERE "projectId" = ${input.projectId}
+            AND "archivedAt" IS NULL
+            AND status <> 'Done'
+            AND (
+              (${humanId}::text IS NOT NULL AND "assigneeUserId" = ${humanId})
+              OR ("assigneeKind" = 'agent' AND "assigneeCredentialId" = ${credentialId})
+            )
+          FOR UPDATE
+        `
+      ),
+      input.db.$queryRaw<Array<StoredAssigneeIdentity<MeetingTodoActorKind>>>(
+        Prisma.sql`
+          SELECT
+            action."id",
+            action."assigneeKind"::text AS "assigneeKind",
+            action."assigneeUserId",
+            action."assigneeCredentialId",
+            action."assigneeDisplayNameSnapshot"
+          FROM "ProjectMeetingNoteAction" action
+          JOIN "ProjectMeetingNote" note ON note."id" = action."meetingNoteId"
+          WHERE note."projectId" = ${input.projectId}
+            AND action."completedAt" IS NULL
+            AND action."assigneeKind"::text = ${input.actor.kind}
+            AND (
+              (${humanId}::text IS NOT NULL AND action."assigneeUserId" = ${humanId})
+              OR (${credentialId}::text IS NOT NULL AND action."assigneeCredentialId" = ${credentialId})
+            )
+          FOR UPDATE OF action
+        `
+      ),
       loadActingUserDisplayName(input.db, input.actingUserId),
     ]);
 

@@ -75,9 +75,10 @@ import {
 import { createRelatedTaskMap } from "@/lib/task-related";
 import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 import { MAX_TASK_TITLE_LENGTH } from "@/lib/task-title";
-import type {
-  ProjectActorReference,
-  ProjectActorSummary,
+import {
+  hasProjectActorChanged,
+  type ProjectActorReference,
+  type ProjectActorSummary,
 } from "@/lib/project-actor";
 
 export type { KanbanTask } from "@/components/kanban-board-types";
@@ -1666,6 +1667,13 @@ export function KanbanBoard({
       setIsUpdatingTask(true);
 
       try {
+        // An inactive stored assignee cannot be re-submitted as-is, so only
+        // send the assignment when the draft's actor key actually changed.
+        const assigneeChanged = hasProjectActorChanged(
+          selectedTask.assignee,
+          editAssignee
+        );
+
         const response = await fetchProjectActivityMutation(
           projectId,
           `/api/projects/${projectId}/tasks/${selectedTask.id}`,
@@ -1680,7 +1688,7 @@ export function KanbanBoard({
               description: editDescription,
               deadlineDate: editDeadlineDate || null,
               epicId: editEpicId || null,
-              assignee: editAssignee,
+              ...(assigneeChanged ? { assignee: editAssignee } : {}),
               blockedFollowUpEntry: normalizedBlockedEntry,
               relatedTaskIds,
             }),

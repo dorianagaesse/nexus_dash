@@ -516,7 +516,7 @@ describe("task mutation attribution", () => {
     const result = await updateTaskForProject(
       "project-1",
       "task-1",
-      { assignee: { kind: "agent", id: "cred-revoked" } },
+      { title: "Existing title", assignee: { kind: "agent", id: "cred-revoked" } },
       "owner-1"
     );
 

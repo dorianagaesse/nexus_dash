@@ -60,7 +60,7 @@ describe("AssigneeSelect", () => {
     act(() => {
       root.render(
         <AssigneeSelect
-          value=""
+          value={null}
           onChange={onChange}
           options={[humanOption]}
           agentOptions={[agentOption]}
