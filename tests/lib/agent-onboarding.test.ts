@@ -192,6 +192,42 @@ describe("agent-onboarding contract", () => {
     );
   });
 
+  test("documents tagged-agent selections on task comment creation", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+
+    const endpoint = AGENT_API_ENDPOINTS.find(
+      (entry) =>
+        entry.method === "POST" &&
+        entry.path === "/api/projects/{projectId}/tasks/{taskId}/comments"
+    );
+    expect(endpoint).toMatchObject({
+      tag: "Tasks",
+      requiredScopes: ["task:write"],
+      requestContentType: "application/json",
+    });
+    expect(endpoint?.notes?.join(" ")).toContain("agentMentionSelections");
+
+    const requestSchema = document.components.schemas.TaskCommentCreateRequest;
+    expect(requestSchema.required).toEqual(["content"]);
+    expect(requestSchema.properties.agentMentionSelections.maxItems).toBe(50);
+    expect(
+      requestSchema.properties.agentMentionSelections.items.required
+    ).toEqual(["credentialId"]);
+    expect(
+      requestSchema.properties.agentMentionSelections.items.properties
+        .credentialId.type
+    ).toBe("string");
+    expect(
+      requestSchema.properties.agentMentionSelections.description
+    ).toContain("task-comment-agent-mention-invalid");
+
+    const path =
+      document.paths["/api/projects/{projectId}/tasks/{taskId}/comments"];
+    expect(path.post.requestBody.content["application/json"].schema.$ref).toBe(
+      "#/components/schemas/TaskCommentCreateRequest"
+    );
+  });
+
   test("documents the task list epic and label filters", () => {
     const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
 

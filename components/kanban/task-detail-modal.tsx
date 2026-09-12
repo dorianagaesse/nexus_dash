@@ -1663,6 +1663,7 @@ function TaskReadOnlyContent({
                         mentionUsers,
                         hideMentionDiscriminator: true,
                         resolveDisplayUsers: false,
+                        renderAgentMentions: true,
                         mentionHighlightClassName:
                           MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
                       })

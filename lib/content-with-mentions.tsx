@@ -37,10 +37,16 @@ export function renderContentWithMentions(
     hideMentionDiscriminator?: boolean;
     preserveMentionText?: boolean;
     resolveDisplayUsers?: boolean;
+    renderAgentMentions?: boolean;
   }
 ): React.ReactNode {
   const { mentions } = parseMentions(content);
-  const agentMentions = parseAgentMentions(content);
+  // `@{Label}` tokens become chips only on surfaces where agent mentions are
+  // an enabled feature (comment content and the comment composer mirror).
+  // Everywhere else the text stays literal, matching the disabled pickers.
+  const agentMentions = options?.renderAgentMentions
+    ? parseAgentMentions(content)
+    : [];
 
   if (mentions.length === 0 && agentMentions.length === 0) {
     return <>{content}</>;

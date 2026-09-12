@@ -42,7 +42,9 @@ Keep UI-only or task-only notes in `journal.md`.
   revoked-credential history. Comment/task deletion cascades the events.
   RLS on the new table is forced with member select, editor-or-owner insert
   bound to `createdByUserId = app.current_user_id()`, same-actor editor
-  delete, and no UPDATE policy (events are immutable). Policies deliberately
+  delete, and no UPDATE policy (events are immutable). The insert policy also
+  pins `taskId` to the comment's own task so a member cannot pair an
+  accessible comment with another project's task history. Policies deliberately
   do not subquery `ApiCredential` (its owner-only select policy would break
   non-owner editor inserts); credential project-scoping stays a service
   concern through the registry.

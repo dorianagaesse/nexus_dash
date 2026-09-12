@@ -33,6 +33,25 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Branch pushed at 8471d12 and reported on PR #504
   (https://github.com/dorianagaesse/nexus_dash/pull/504), release target
   v0.66.0.
+- Copilot review on PR #504 raised four findings, all addressed in the
+  review-fix commit: the agent-v1 contract now documents
+  `agentMentionSelections` with a contract test; credential labels without an
+  encodable `@{Label}` token render as inert picker rows with an explicit
+  reason instead of inserting nothing; agent-chip parsing is gated behind a
+  comment-surface `renderAgentMentions` option so kanban description previews
+  stay literal (matching the disabled description pickers); and the RLS
+  insert policy pins `taskId` to the comment's own task, with the new matrix
+  case verified against the pre-fix policy (the mismatched insert succeeded
+  without the clause, failed with 42501 after it).
+- Re-validation after the review fixes (2026-09-12): lint, `rls:check`, and
+  `git diff --check` clean; full Vitest 195 files / 1,451 tests passed
+  (2 skipped); coverage above thresholds; production build green;
+  real-PostgreSQL RLS matrix green; full Playwright suite 60 passed /
+  1 skipped / 1 flake (meeting-notes smoke `page.reload` failed with
+  `net::ERR_ABORTED` once, passed twice standalone; ND-383 journey green).
+  Mid-suite the local Docker Desktop engine crashed (environment resource
+  pressure, not code); recovery was relaunching Docker Desktop and the
+  postgres container before the re-runs.
 
 # 2026-09-12 - ND-179: Complete offboarding surface reconciliation
 

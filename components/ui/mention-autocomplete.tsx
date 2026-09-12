@@ -51,6 +51,22 @@ export function buildMentionAutocompleteDisplayValue(
   return username ? `@${username}` : "";
 }
 
+function isMemberSelectable(
+  member: MentionAutocompleteMember,
+  agentMentionsEnabled: boolean
+): boolean {
+  if (member.kind === "human") {
+    return true;
+  }
+
+  // Credential labels that contain braces or line breaks have no encodable
+  // `@{Label}` token, so the picker keeps those rows inert with an explicit
+  // reason instead of inserting nothing.
+  return (
+    agentMentionsEnabled && buildAgentMentionToken(member.displayName) !== ""
+  );
+}
+
 interface MentionAutocompleteProps {
   projectId: string;
   query: string;
@@ -230,17 +246,19 @@ export function MentionAutocomplete({
             (prev) => (prev - 1 + members.length) % members.length
           );
           break;
-        case "Enter":
+        case "Enter": {
           if (!members.length) return;
           event.preventDefault();
           event.stopPropagation();
+          const activeMember = members[activeIndex];
           if (
-            members[activeIndex]?.kind === "human" ||
-            agentMentionsEnabled
+            activeMember &&
+            isMemberSelectable(activeMember, agentMentionsEnabled)
           ) {
-            onSelect(members[activeIndex]);
+            onSelect(activeMember);
           }
           break;
+        }
         case "Escape":
           event.preventDefault();
           event.stopPropagation();
@@ -324,10 +342,16 @@ export function MentionAutocomplete({
         {!isLoading && !error && members.length > 0 && (
           <div role="presentation" className="space-y-0.5">
             {members.map((member, index) => {
-              const isSelectable =
-                member.kind === "human" || agentMentionsEnabled;
+              const isSelectable = isMemberSelectable(
+                member,
+                agentMentionsEnabled
+              );
               const showAgentComingSoon =
                 member.kind === "agent" && !agentMentionsEnabled;
+              const showAgentTokenUnsupported =
+                member.kind === "agent" &&
+                agentMentionsEnabled &&
+                !isSelectable;
 
               return (
                 <div
@@ -338,7 +362,9 @@ export function MentionAutocomplete({
                   title={
                     showAgentComingSoon
                       ? "Agent mentions are not available here yet"
-                      : undefined
+                      : showAgentTokenUnsupported
+                        ? "This credential label cannot be mentioned"
+                        : undefined
                   }
                   className={cn(
                     "flex min-h-12 items-center gap-3 rounded-lg px-2 py-2 transition-colors",
@@ -374,6 +400,10 @@ export function MentionAutocomplete({
                     {showAgentComingSoon ? (
                       <p className="truncate text-xs leading-tight text-muted-foreground">
                         Agent — mention support coming soon
+                      </p>
+                    ) : showAgentTokenUnsupported ? (
+                      <p className="truncate text-xs leading-tight text-muted-foreground">
+                        Agent — label can&apos;t be mentioned
                       </p>
                     ) : member.kind === "human" && member.usernameTag ? (
                       <p className="truncate text-xs text-muted-foreground leading-tight">

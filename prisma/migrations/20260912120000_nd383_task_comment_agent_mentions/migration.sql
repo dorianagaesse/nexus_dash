@@ -49,6 +49,10 @@ ALTER TABLE "TaskCommentAgentMention" FORCE ROW LEVEL SECURITY;
 -- Project members read tagged-agent history, editors record it, and the
 -- recording actor may retract it (deterministic re-sync / future comment
 -- edits). Events are immutable: no UPDATE policy exists.
+--
+-- The insert policy pins "taskId" to the comment's own task: authorizing via
+-- the comment alone would let a member pair an accessible comment with a task
+-- owned by another project, planting a row in that task's mention history.
 CREATE POLICY task_comment_agent_mention_select_policy ON "TaskCommentAgentMention"
 FOR SELECT
 USING (
@@ -80,6 +84,7 @@ WITH CHECK (
     JOIN "Task" task ON task.id = comment."taskId"
     JOIN "Project" project ON project.id = task."projectId"
     WHERE comment.id = "TaskCommentAgentMention"."commentId"
+      AND task.id = "TaskCommentAgentMention"."taskId"
       AND (
         project."ownerId" = app.current_user_id()
         OR EXISTS (

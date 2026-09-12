@@ -604,6 +604,29 @@ try {
     "cross-project agent mention insert"
   );
 
+  // The actor owns commentA's project, so only the comment/task pairing
+  // invariant can reject this row: without it the mention would surface in
+  // project B's task history. credentialB2 avoids the seeded (commentA,
+  // credentialA) unique pair so the pairing clause is the rejecting guard.
+  await expectRlsViolation(
+    () =>
+      runtimeTransaction(ids.ownerA, () =>
+        runtime.query(
+          `INSERT INTO "TaskCommentAgentMention"
+            ("id", "commentId", "taskId", "agentCredentialId", "agentLabel", "createdByUserId", "createdAt")
+           VALUES ($1, $2, $3, $4, 'Mismatched agent', $5, NOW())`,
+          [
+            `rls_mismatched_agent_mention_${suffix}`,
+            ids.commentA,
+            ids.taskB,
+            ids.credentialB2,
+            ids.ownerA,
+          ]
+        )
+      ),
+    "agent mention insert pairing a comment with another project's task"
+  );
+
   await expectRlsViolation(
     () =>
       runtimeTransaction(ids.editorB, () =>

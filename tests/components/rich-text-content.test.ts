@@ -505,6 +505,7 @@ describe("rich-text-content", () => {
                   avatarSeed: "user-alice",
                 },
               ],
+              renderAgentMentions: true,
             }
           )
         )
@@ -523,6 +524,37 @@ describe("rich-text-content", () => {
     });
   });
 
+  test("keeps agent tokens literal on surfaces without agent mention support", () => {
+    const { container, root } = createTestRenderer();
+
+    act(() => {
+      root.render(
+        React.createElement(
+          "div",
+          null,
+          renderContentWithMentions("Hi @alice#1234 and @{Release bot} done", {
+            mentionUsers: [
+              {
+                id: "user-alice",
+                displayName: "Alice Example",
+                usernameTag: "alice#1234",
+                avatarSeed: "user-alice",
+              },
+            ],
+          })
+        )
+      );
+    });
+
+    const spans = Array.from(container.querySelectorAll("span"));
+    expect(spans.map((span) => span.textContent)).toEqual(["@alice"]);
+    expect(container.textContent).toBe("Hi @alice and @{Release bot} done");
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
   test("keeps agent token text exact inside transparent textarea mirrors", () => {
     const { container, root } = createTestRenderer();
 
@@ -534,6 +566,7 @@ describe("rich-text-content", () => {
           renderContentWithMentions("ping @{Release bot} now", {
             mentionHighlightClassName: MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
             resolveDisplayUsers: false,
+            renderAgentMentions: true,
           })
         )
       );
@@ -560,6 +593,7 @@ describe("rich-text-content", () => {
           null,
           renderContentWithMentions("empty @{} and @{unclosed", {
             resolveDisplayUsers: false,
+            renderAgentMentions: true,
           })
         )
       );

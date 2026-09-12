@@ -12,6 +12,16 @@ merged forward to current `origin/main` at 7612347 (v0.65.0, ND-426 #499 and
 ND-179 #498 included). Release metadata advances to v0.66.0. The Nexus Dash
 card ND-383 is the source of truth and carries the `feature` label.
 
+Copilot review on PR #504 raised four findings — stale agent-v1 contract,
+unencodable credential labels in the picker, agent chips leaking into
+description previews, and the missing RLS comment/task pairing invariant. All
+four are fixed in the review-fix commit on the same branch (contract schema +
+tests, inert picker rows with an explicit reason, a comment-surface
+`renderAgentMentions` gate, and a pairing clause in the insert policy with a
+matrix case proven against the pre-fix policy), re-validated across the full
+baseline including the real-PostgreSQL RLS matrix and Playwright, and answered
+on the PR threads.
+
 ## Context
 
 ND-382 made active project agents discoverable in the comment @mention picker,
