@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
   project: {
     findFirst: vi.fn(),
   },
@@ -23,6 +24,9 @@ const prismaMock = vi.hoisted(() => ({
   taskBlockedFollowUp: {
     create: vi.fn(),
   },
+  taskAssigneeChange: {
+    create: vi.fn(),
+  },
   notification: {
     findMany: vi.fn(),
     createMany: vi.fn(),
@@ -30,6 +34,9 @@ const prismaMock = vi.hoisted(() => ({
   },
   apiCredential: {
     findFirst: vi.fn(),
+  },
+  user: {
+    findUnique: vi.fn(),
   },
 }));
 
@@ -69,9 +76,71 @@ function taskRouteParams(projectId: string, taskId: string) {
   return { params: Promise.resolve({ projectId, taskId }) };
 }
 
+function actorRegistryRow(user: {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  username?: string | null;
+  usernameDiscriminator?: string | null;
+  avatarSeed?: string | null;
+}) {
+  return {
+    kind: "human",
+    actorId: user.id,
+    name: user.name ?? null,
+    email: user.email ?? null,
+    username: user.username ?? null,
+    usernameDiscriminator: user.usernameDiscriminator ?? null,
+    avatarSeed: user.avatarSeed ?? null,
+    label: null,
+    revokedAt: null,
+    expiresAt: null,
+  };
+}
+
+const actorRegistryRows = [
+  actorRegistryRow({
+    id: "test-user",
+    name: "Reviewer",
+    email: "reviewer@example.com",
+    username: "reviewer",
+    usernameDiscriminator: "0007",
+  }),
+  actorRegistryRow({
+    id: "user-1",
+    name: "Alice Example",
+    email: "alice@example.com",
+    username: "alice",
+    usernameDiscriminator: "1234",
+  }),
+  actorRegistryRow({
+    id: "user-2",
+    name: "Bob Example",
+    email: "bob@example.com",
+    username: "bob",
+    usernameDiscriminator: "2222",
+  }),
+  actorRegistryRow({
+    id: "owner-1",
+    name: "Owner",
+    email: "owner@example.com",
+    username: "owner",
+    usernameDiscriminator: "0001",
+  }),
+];
+
 describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$queryRaw.mockResolvedValue(actorRegistryRows);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "test-user",
+      name: "Reviewer",
+      email: "reviewer@example.com",
+      username: "reviewer",
+      usernameDiscriminator: "0007",
+      avatarSeed: null,
+    });
     prismaMock.project.findFirst.mockResolvedValue({
       ownerId: "test-user",
       memberships: [],
@@ -192,7 +261,10 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       position: 0,
       completedAt: null,
       archivedAt: null,
+      assigneeKind: "human",
       assigneeUserId: "user-2",
+      assigneeCredentialId: null,
+      assigneeDisplayNameSnapshot: "Bob Example",
       outgoingRelations: [],
       incomingRelations: [],
     });
@@ -229,6 +301,15 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         usernameDiscriminator: "0007",
         avatarSeed: "seed-reviewer",
       },
+      assigneeKind: "human",
+      assigneeUserId: "user-2",
+      assigneeCredentialId: null,
+      assigneeDisplayNameSnapshot: "Bob Example",
+      assigneeAssignedByKind: null,
+      assigneeAssignedByUserId: null,
+      assigneeAssignedByCredentialId: null,
+      assigneeAssignedByDisplayNameSnapshot: null,
+      assigneeAssignedAt: null,
       assigneeUser: {
         id: "user-2",
         name: "Bob Example",
@@ -284,11 +365,16 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         archivedAt: null,
         epic: null,
         assignee: {
+          kind: "human",
           id: "user-2",
           displayName: "Bob Example",
           usernameTag: null,
           avatarSeed: "user-2",
+          status: "active",
+          isAssignable: true,
         },
+        assignedBy: null,
+        assignedAt: null,
         createdBy: {
           id: "user-1",
           kind: "user",
@@ -478,6 +564,15 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         usernameDiscriminator: "0007",
         avatarSeed: null,
       },
+      assigneeKind: null,
+      assigneeUserId: null,
+      assigneeCredentialId: null,
+      assigneeDisplayNameSnapshot: null,
+      assigneeAssignedByKind: null,
+      assigneeAssignedByUserId: null,
+      assigneeAssignedByCredentialId: null,
+      assigneeAssignedByDisplayNameSnapshot: null,
+      assigneeAssignedAt: null,
       assigneeUser: null,
       outgoingRelations: [],
       incomingRelations: [],
@@ -517,6 +612,8 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
           name: "Workspace launch",
         },
         assignee: null,
+        assignedBy: null,
+        assignedAt: null,
         createdBy: {
           id: "user-1",
           kind: "user",
@@ -944,11 +1041,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       ownerId: "owner-1",
       memberships: [],
     });
-    prismaMock.apiCredential.findFirst.mockResolvedValueOnce({
-      id: "credential-1",
-      label: "Build bot",
-    });
-    prismaMock.apiCredential.findFirst.mockResolvedValueOnce({
+    prismaMock.apiCredential.findFirst.mockResolvedValue({
       id: "credential-1",
       label: "Build bot",
     });
@@ -1241,6 +1334,15 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         usernameDiscriminator: "0007",
         avatarSeed: null,
       },
+      assigneeKind: null,
+      assigneeUserId: null,
+      assigneeCredentialId: null,
+      assigneeDisplayNameSnapshot: null,
+      assigneeAssignedByKind: null,
+      assigneeAssignedByUserId: null,
+      assigneeAssignedByCredentialId: null,
+      assigneeAssignedByDisplayNameSnapshot: null,
+      assigneeAssignedAt: null,
       assigneeUser: null,
       outgoingRelations: [
         {
@@ -1285,6 +1387,8 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         archivedAt: null,
         epic: null,
         assignee: null,
+        assignedBy: null,
+        assignedAt: null,
         createdBy: {
           id: "user-1",
           kind: "user",
@@ -1709,6 +1813,15 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
 describe("DELETE /api/projects/:projectId/tasks/:taskId", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$queryRaw.mockResolvedValue(actorRegistryRows);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "test-user",
+      name: "Reviewer",
+      email: "reviewer@example.com",
+      username: "reviewer",
+      usernameDiscriminator: "0007",
+      avatarSeed: null,
+    });
     prismaMock.project.findFirst.mockResolvedValue({
       ownerId: "test-user",
       memberships: [],
@@ -1810,6 +1923,15 @@ describe("DELETE /api/projects/:projectId/tasks/:taskId", () => {
 describe("POST /api/projects/:projectId/tasks/:taskId/archive", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$queryRaw.mockResolvedValue(actorRegistryRows);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "test-user",
+      name: "Reviewer",
+      email: "reviewer@example.com",
+      username: "reviewer",
+      usernameDiscriminator: "0007",
+      avatarSeed: null,
+    });
     prismaMock.project.findFirst.mockResolvedValue({
       ownerId: "test-user",
       memberships: [],
@@ -1908,6 +2030,15 @@ describe("POST /api/projects/:projectId/tasks/:taskId/archive", () => {
 describe("DELETE /api/projects/:projectId/tasks/:taskId/archive", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$queryRaw.mockResolvedValue(actorRegistryRows);
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "test-user",
+      name: "Reviewer",
+      email: "reviewer@example.com",
+      username: "reviewer",
+      usernameDiscriminator: "0007",
+      avatarSeed: null,
+    });
     prismaMock.project.findFirst.mockResolvedValue({
       ownerId: "test-user",
       memberships: [],

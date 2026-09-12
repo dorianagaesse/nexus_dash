@@ -12,10 +12,10 @@ import {
   type ProjectCollaboratorIdentitySummary,
 } from "@/lib/services/project-service";
 import { listProjectEpics } from "@/lib/services/project-epic-service";
-import { listAssignableProjectActors } from "@/lib/services/project-actor-service";
+import { loadProjectActorRegistryForActor } from "@/lib/services/project-actor-service";
+import { mapTaskStoredActor } from "@/lib/services/project-task-response";
 import { mapTaskEpicSummary } from "@/lib/epic";
 import { mapTaskAuthorRecord } from "@/lib/task-author";
-import { mapTaskPersonSummary } from "@/lib/task-person";
 import { mergeRelatedTaskSummaries } from "@/lib/task-related";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
@@ -46,11 +46,12 @@ export async function KanbanBoardSection({
   collaborators,
   initialTaskId,
 }: KanbanBoardSectionProps) {
-  const [tasks, epics, projectActors] = await Promise.all([
+  const [tasks, epics, actorRegistry] = await Promise.all([
     listProjectKanbanTasks(projectId, actorUserId),
     listProjectEpics(projectId, actorUserId),
-    listAssignableProjectActors({ projectId, actorUserId }),
+    loadProjectActorRegistryForActor({ projectId, actorUserId }),
   ]);
+  const projectActors = actorRegistry?.assignable ?? [];
   const kanbanTasks: KanbanTask[] = [];
   const archivedDoneTasks: KanbanTask[] = [];
   const epicOptions: ProjectEpicOption[] = epics.map((epic) => ({
@@ -82,7 +83,14 @@ export async function KanbanBoardSection({
         })
       ),
       epic: mapTaskEpicSummary(task.epic),
-      assignee: mapTaskPersonSummary(task.assigneeUser),
+      assignee: mapTaskStoredActor({
+        kind: task.assigneeKind,
+        userId: task.assigneeUserId,
+        credentialId: task.assigneeCredentialId,
+        displayNameSnapshot: task.assigneeDisplayNameSnapshot,
+        user: task.assigneeUser,
+        registry: actorRegistry,
+      }),
       createdBy: mapTaskAuthorRecord({
         author: task.createdByUser,
         agentCredentialId: task.createdByCredentialId,

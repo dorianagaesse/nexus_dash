@@ -14,6 +14,10 @@ const projectServiceMock = vi.hoisted(() => ({
   listProjectKanbanTasks: vi.fn(),
 }));
 
+const projectActorServiceMock = vi.hoisted(() => ({
+  loadProjectActorRegistryForActor: vi.fn(),
+}));
+
 vi.mock("@/lib/auth/api-guard", () => ({
   getAgentProjectAccessContext: apiGuardMock.getAgentProjectAccessContext,
   requireApiPrincipal: apiGuardMock.requireApiPrincipal,
@@ -41,6 +45,18 @@ vi.mock("@/lib/services/project-service", () => ({
   listProjectKanbanTasks: projectServiceMock.listProjectKanbanTasks,
 }));
 
+vi.mock("@/lib/services/project-actor-service", async (importOriginal) => {
+  const original =
+    await importOriginal<
+      typeof import("@/lib/services/project-actor-service")
+    >();
+  return {
+    ...original,
+    loadProjectActorRegistryForActor:
+      projectActorServiceMock.loadProjectActorRegistryForActor,
+  };
+});
+
 vi.mock("@/lib/services/project-access-service", () => ({
   requireAgentProjectScopes: vi.fn(() => ({ ok: true })),
 }));
@@ -67,6 +83,9 @@ describe("GET /api/projects/:projectId/tasks", () => {
       },
     });
     apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
+    projectActorServiceMock.loadProjectActorRegistryForActor.mockResolvedValue(
+      null
+    );
   });
 
   test("serializes incoming and outgoing relations once in both task directions", async () => {
@@ -306,7 +325,8 @@ describe("POST /api/projects/:projectId/tasks", () => {
     formData.set("description", "  Description  ");
     formData.set("deadlineDate", "2026-04-24");
     formData.set("epicId", "epic-9");
-    formData.set("assigneeUserId", "user-2");
+    formData.set("assigneeKind", "human");
+    formData.set("assigneeId", "user-2");
     formData.set("labels", '["backend"]');
     formData.set("relatedTaskIds", '["task-a","task-b"]');
     formData.set(
@@ -344,7 +364,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
     expect(call.description).toBe("Description");
     expect(call.deadlineDate).toBe("2026-04-24");
     expect(call.epicId).toBe("epic-9");
-    expect(call.assigneeUserId).toBe("user-2");
+    expect(call.assignee).toEqual({ kind: "human", id: "user-2" });
     expect(call.labelsJsonRaw).toBe('["backend"]');
     expect(call.relatedTaskIdsJsonRaw).toBe('["task-a","task-b"]');
     expect(call.attachmentLinksJsonRaw).toBe(
@@ -432,7 +452,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
       description: "<p>Validate the agent route.</p>",
       deadlineDate: "2026-04-25",
       epicId: "epic-7",
-      assigneeUserId: "user-2",
+      assignee: { kind: "human", id: "user-2" },
       labelsJsonRaw: '["agent","qa"]',
       relatedTaskIdsJsonRaw: '["task-a"]',
       attachmentLinksJsonRaw:
@@ -572,6 +592,100 @@ describe("POST /api/projects/:projectId/tasks", () => {
         title: "Draft API smoke test",
         assigneeUserId: 123,
       }),
+    });
+
+    const response = await POST(request as never, taskRouteParams("p1"));
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "assignee-invalid",
+    });
+    expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
+  });
+
+  test("forwards a structured agent assignee from a json payload", async () => {
+    projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
+      ok: true,
+      data: { task: { id: "task-agent", attachments: [] } },
+    });
+
+    const request = new Request("http://localhost/api/projects/p1/tasks", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        title: "Agent assigned task",
+        assignee: { kind: "agent", id: "cred-1" },
+      }),
+    });
+
+    const response = await POST(request as never, taskRouteParams("p1"));
+
+    expect(response.status).toBe(201);
+    expect(projectTaskServiceMock.createTaskForProject).toHaveBeenCalledWith(
+      expect.objectContaining({ assignee: { kind: "agent", id: "cred-1" } })
+    );
+  });
+
+  test("returns 400 when the json assignee is not a project actor reference", async () => {
+    for (const assignee of [
+      { kind: "robot", id: "x" },
+      { kind: "agent", id: "   " },
+    ]) {
+      const request = new Request("http://localhost/api/projects/p1/tasks", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Draft API smoke test",
+          assignee,
+        }),
+      });
+
+      const response = await POST(request as never, taskRouteParams("p1"));
+
+      expect(response.status).toBe(400);
+      await expect(readJson(response)).resolves.toEqual({
+        error: "assignee-invalid",
+      });
+    }
+    expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
+  });
+
+  test("forwards a structured assignee from a multipart form payload", async () => {
+    projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
+      ok: true,
+      data: { task: { id: "task-agent", attachments: [] } },
+    });
+
+    const formData = new FormData();
+    formData.set("title", "Agent assigned task");
+    formData.set("assigneeKind", "agent");
+    formData.set("assigneeId", "cred-1");
+
+    const request = new Request("http://localhost/api/projects/p1/tasks", {
+      method: "POST",
+      body: formData,
+    });
+
+    const response = await POST(request as never, taskRouteParams("p1"));
+
+    expect(response.status).toBe(201);
+    expect(projectTaskServiceMock.createTaskForProject).toHaveBeenCalledWith(
+      expect.objectContaining({ assignee: { kind: "agent", id: "cred-1" } })
+    );
+  });
+
+  test("returns 400 when the form assignee kind is set without an id", async () => {
+    const formData = new FormData();
+    formData.set("title", "Agent assigned task");
+    formData.set("assigneeKind", "agent");
+
+    const request = new Request("http://localhost/api/projects/p1/tasks", {
+      method: "POST",
+      body: formData,
     });
 
     const response = await POST(request as never, taskRouteParams("p1"));

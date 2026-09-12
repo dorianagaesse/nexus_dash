@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
   project: {
     findFirst: vi.fn(),
   },
@@ -87,6 +88,7 @@ function mockExistingTask(overrides: Record<string, unknown> = {}) {
 describe("POST /api/projects/:projectId/tasks/:taskId/status", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$queryRaw.mockResolvedValue([]);
     prismaMock.project.findFirst.mockResolvedValue({
       ownerId: "test-user",
       memberships: [],

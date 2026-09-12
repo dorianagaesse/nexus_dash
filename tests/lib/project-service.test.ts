@@ -393,6 +393,16 @@ describe("project-service", () => {
             avatarSeed: true,
           },
         },
+        assigneeAssignedByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            usernameDiscriminator: true,
+            avatarSeed: true,
+          },
+        },
         epic: {
           select: {
             id: true,
@@ -976,6 +986,16 @@ describe("project-service", () => {
             },
           },
           assigneeUser: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              username: true,
+              usernameDiscriminator: true,
+              avatarSeed: true,
+            },
+          },
+          assigneeAssignedByUser: {
             select: {
               id: true,
               name: true,

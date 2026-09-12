@@ -10,9 +10,18 @@ const projectServiceMock = vi.hoisted(() => ({
   getProjectKanbanTaskById: vi.fn(),
 }));
 
+const projectActorServiceMock = vi.hoisted(() => ({
+  loadProjectActorRegistryForActor: vi.fn(),
+}));
+
 vi.mock("@/lib/auth/api-guard", () => ({
   getAgentProjectAccessContext: apiGuardMock.getAgentProjectAccessContext,
   requireApiPrincipal: apiGuardMock.requireApiPrincipal,
+}));
+
+vi.mock("@/lib/services/project-actor-service", () => ({
+  loadProjectActorRegistryForActor:
+    projectActorServiceMock.loadProjectActorRegistryForActor,
 }));
 
 vi.mock("@/lib/services/project-service", () => ({
@@ -104,6 +113,9 @@ describe("GET /api/projects/:projectId/tasks/:taskId", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHumanPrincipal();
+    projectActorServiceMock.loadProjectActorRegistryForActor.mockResolvedValue(
+      null
+    );
   });
 
   test("rejects the request when authentication fails", async () => {

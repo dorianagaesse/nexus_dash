@@ -38,16 +38,26 @@ import {
   createTaskAssignmentNotification,
   resolveTaskAssignmentNotifications,
 } from "@/lib/services/notification-service";
-import {
-  mapTaskPersonSummary,
-  taskPersonSummarySelect,
-  type TaskPersonSummary,
-} from "@/lib/task-person";
+import { taskPersonSummarySelect } from "@/lib/task-person";
 import { mapTaskAuthorRecord, type TaskAuthorSummary } from "@/lib/task-author";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 import { MAX_TASK_TITLE_LENGTH } from "@/lib/task-title";
+import {
+  isProjectActorReference,
+  type ProjectActorKind,
+  type ProjectActorReference,
+  type ProjectActorSummary,
+} from "@/lib/project-actor";
+import {
+  loadProjectActorRegistry,
+  resolveAssignableProjectActorFromRegistry,
+  resolveProjectMutationActor,
+  type ResolvedProjectActorPersistence,
+} from "@/lib/services/project-actor-service";
+import { mapTaskStoredActor } from "@/lib/services/project-task-response";
 
 const MIN_TITLE_LENGTH = 2;
+const TASK_ASSIGNEE_INVALID = "assignee-invalid";
 
 export { MAX_BULK_TASK_OPERATIONS } from "@/lib/task-bulk";
 
@@ -82,6 +92,7 @@ export interface UpdateTaskPayload {
   blockedFollowUpEntry?: string;
   relatedTaskIds?: string[];
   epicId?: string | null;
+  assignee?: ProjectActorReference | null;
   assigneeUserId?: string | null;
   attachmentLinks?: unknown;
 }
@@ -93,7 +104,7 @@ export interface CreateTaskForProjectInput {
   description: string;
   deadlineDate: string;
   epicId: string | null;
-  assigneeUserId: string | null;
+  assignee: ProjectActorReference | null;
   labelsJsonRaw: string;
   relatedTaskIdsJsonRaw: string;
   attachmentLinksJsonRaw: string;
@@ -117,7 +128,9 @@ export interface UpdatedTaskPayload {
   completedAt: Date | null;
   archivedAt: Date | null;
   epic: TaskEpicSummary | null;
-  assignee: TaskPersonSummary | null;
+  assignee: ProjectActorSummary | null;
+  assignedBy: ProjectActorSummary | null;
+  assignedAt: Date | null;
   createdBy: TaskAuthorSummary;
   updatedBy: TaskAuthorSummary;
   createdAt: Date;
@@ -231,6 +244,7 @@ export function validateTaskCreateFieldTypes(payload: {
   deadlineDate?: unknown;
   epicId?: unknown;
   assigneeUserId?: unknown;
+  assignee?: unknown;
 }): string | null {
   if (
     payload.deadlineDate !== undefined &&
@@ -251,8 +265,42 @@ export function validateTaskCreateFieldTypes(payload: {
     payload.assigneeUserId !== null &&
     typeof payload.assigneeUserId !== "string"
   ) {
-    return "assignee-invalid";
+    return TASK_ASSIGNEE_INVALID;
   }
+  if (
+    payload.assignee !== undefined &&
+    payload.assignee !== null &&
+    !isProjectActorReference(payload.assignee)
+  ) {
+    return TASK_ASSIGNEE_INVALID;
+  }
+  return null;
+}
+
+// Create transports may send the structured assignee reference (which wins)
+// or the legacy human shorthand; callers reject malformed shape through
+// validateTaskCreateFieldTypes before calling this.
+export function parseTaskAssigneeInput(payload: {
+  assignee?: unknown;
+  assigneeUserId?: unknown;
+}): ProjectActorReference | null {
+  if (payload.assignee === undefined || payload.assignee === null) {
+    if (typeof payload.assigneeUserId === "string") {
+      const legacyAssigneeUserId = payload.assigneeUserId.trim();
+      return legacyAssigneeUserId
+        ? { kind: "human", id: legacyAssigneeUserId }
+        : null;
+    }
+    return null;
+  }
+
+  if (isProjectActorReference(payload.assignee)) {
+    return {
+      kind: payload.assignee.kind,
+      id: payload.assignee.id.trim(),
+    };
+  }
+
   return null;
 }
 
@@ -283,6 +331,7 @@ const relatedTaskSummarySelect = {
 
 async function loadTaskMutationPayload(
   db: DbClient,
+  projectId: string,
   taskId: string
 ): Promise<UpdatedTaskPayload | null> {
   const task = await db.task.findUnique({
@@ -334,7 +383,19 @@ async function loadTaskMutationPayload(
       updatedByUser: {
         select: taskPersonSummarySelect,
       },
+      assigneeKind: true,
+      assigneeUserId: true,
+      assigneeCredentialId: true,
+      assigneeDisplayNameSnapshot: true,
+      assigneeAssignedByKind: true,
+      assigneeAssignedByUserId: true,
+      assigneeAssignedByCredentialId: true,
+      assigneeAssignedByDisplayNameSnapshot: true,
+      assigneeAssignedAt: true,
       assigneeUser: {
+        select: taskPersonSummarySelect,
+      },
+      assigneeAssignedByUser: {
         select: taskPersonSummarySelect,
       },
       outgoingRelations: {
@@ -366,6 +427,8 @@ async function loadTaskMutationPayload(
     return null;
   }
 
+  const actorRegistry = await loadProjectActorRegistry({ db, projectId });
+
   return {
     id: task.id,
     reference: formatTaskReference(task.referenceNumber),
@@ -382,7 +445,23 @@ async function loadTaskMutationPayload(
     completedAt: task.completedAt,
     archivedAt: task.archivedAt,
     epic: mapTaskEpicSummary(task.epic),
-    assignee: task.assigneeUser ? mapTaskPersonSummary(task.assigneeUser) : null,
+    assignee: mapTaskStoredActor({
+      kind: task.assigneeKind,
+      userId: task.assigneeUserId,
+      credentialId: task.assigneeCredentialId,
+      displayNameSnapshot: task.assigneeDisplayNameSnapshot,
+      user: task.assigneeUser,
+      registry: actorRegistry,
+    }),
+    assignedBy: mapTaskStoredActor({
+      kind: task.assigneeAssignedByKind,
+      userId: task.assigneeAssignedByUserId,
+      credentialId: task.assigneeAssignedByCredentialId,
+      displayNameSnapshot: task.assigneeAssignedByDisplayNameSnapshot,
+      user: task.assigneeAssignedByUser,
+      registry: actorRegistry,
+    }),
+    assignedAt: task.assigneeAssignedAt,
     createdBy: mapTaskAuthorRecord({
       author: task.createdByUser,
       agentCredentialId: task.createdByCredentialId,
@@ -449,43 +528,123 @@ async function validateRelatedTaskIds(input: {
   };
 }
 
-async function validateAssigneeUserId(input: {
+// Assignment resolves against the project actor registry, so active agent
+// credentials become assignable while revoked/expired ones are rejected with
+// the established assignee-invalid error token.
+async function resolveTaskAssigneeAssignment(input: {
   db: DbClient;
   projectId: string;
-  assigneeUserId: string | null;
-}): Promise<ServiceResult<{ assigneeUserId: string | null }>> {
-  const assigneeUserId = normalizeText(input.assigneeUserId);
-  if (!assigneeUserId) {
-    return {
-      ok: true,
-      data: {
-        assigneeUserId: null,
-      },
-    };
-  }
-
-  const collaborator = await input.db.project.findFirst({
-    where: {
-      id: input.projectId,
-      OR: [
-        { ownerId: assigneeUserId },
-        { memberships: { some: { userId: assigneeUserId } } },
-      ],
-    },
-    select: {
-      id: true,
-    },
+  reference: ProjectActorReference;
+}): Promise<ServiceResult<ResolvedProjectActorPersistence>> {
+  const registry = await loadProjectActorRegistry({
+    db: input.db,
+    projectId: input.projectId,
   });
-
-  if (!collaborator) {
-    return createError(400, "assignee-invalid");
+  const resolution = resolveAssignableProjectActorFromRegistry({
+    registry,
+    reference: input.reference,
+    assigneeInvalidError: TASK_ASSIGNEE_INVALID,
+  });
+  if (!resolution.ok) {
+    return resolution;
   }
 
+  return { ok: true, data: resolution.actor };
+}
+
+async function resolveTaskMutationActorSnapshot(input: {
+  db: DbClient;
+  actorUserId: string;
+  projectId: string;
+  agentAccess?: AgentProjectAccessContext;
+}): Promise<ServiceResult<ResolvedProjectActorPersistence>> {
+  const resolution = await resolveProjectMutationActor(input);
+  if (!resolution.ok) {
+    return resolution;
+  }
+
+  return { ok: true, data: resolution.actor };
+}
+
+interface StoredTaskAssigneeIdentity {
+  assigneeKind: ProjectActorKind | null;
+  assigneeUserId: string | null;
+  assigneeCredentialId: string | null;
+  assigneeDisplayNameSnapshot: string | null;
+}
+
+function isSameStoredTaskAssignee(input: {
+  existing: StoredTaskAssigneeIdentity;
+  next: ResolvedProjectActorPersistence | null;
+}): boolean {
+  const existingKind = input.existing.assigneeKind;
+  if (!existingKind) {
+    return input.next === null;
+  }
+  if (!input.next) {
+    return false;
+  }
+
+  const existingId =
+    existingKind === "human"
+      ? input.existing.assigneeUserId
+      : input.existing.assigneeCredentialId;
+  const nextId =
+    input.next.summary.kind === "human"
+      ? input.next.userId
+      : input.next.credentialId;
+  return existingKind === input.next.summary.kind && existingId === nextId;
+}
+
+interface TaskAssignmentProvenance {
+  kind: ProjectActorKind;
+  userId: string | null;
+  credentialId: string | null;
+  displayNameSnapshot: string;
+  assignedAt: Date;
+}
+
+function buildTaskAssignmentWriteData(
+  assignment: ResolvedProjectActorPersistence | null,
+  provenance: TaskAssignmentProvenance | null
+) {
   return {
-    ok: true,
-    data: {
-      assigneeUserId,
-    },
+    assigneeKind: assignment?.summary.kind ?? null,
+    assigneeUserId: assignment?.userId ?? null,
+    assigneeCredentialId: assignment?.credentialId ?? null,
+    assigneeDisplayNameSnapshot: assignment?.displayNameSnapshot ?? null,
+    assigneeAssignedByKind: provenance?.kind ?? null,
+    assigneeAssignedByUserId: provenance?.userId ?? null,
+    assigneeAssignedByCredentialId: provenance?.credentialId ?? null,
+    assigneeAssignedByDisplayNameSnapshot:
+      provenance?.displayNameSnapshot ?? null,
+    assigneeAssignedAt: provenance?.assignedAt ?? null,
+  };
+}
+
+function buildTaskAssigneeChangeData(input: {
+  taskId: string;
+  previous: StoredTaskAssigneeIdentity;
+  next: ResolvedProjectActorPersistence | null;
+  changedBy: ResolvedProjectActorPersistence;
+  changedAt: Date;
+}) {
+  return {
+    taskId: input.taskId,
+    previousAssigneeKind: input.previous.assigneeKind,
+    previousAssigneeUserId: input.previous.assigneeUserId,
+    previousAssigneeCredentialId: input.previous.assigneeCredentialId,
+    previousAssigneeDisplayNameSnapshot:
+      input.previous.assigneeDisplayNameSnapshot,
+    nextAssigneeKind: input.next?.summary.kind ?? null,
+    nextAssigneeUserId: input.next?.userId ?? null,
+    nextAssigneeCredentialId: input.next?.credentialId ?? null,
+    nextAssigneeDisplayNameSnapshot: input.next?.displayNameSnapshot ?? null,
+    changedByKind: input.changedBy.summary.kind,
+    changedByUserId: input.changedBy.userId,
+    changedByCredentialId: input.changedBy.credentialId,
+    changedByDisplayNameSnapshot: input.changedBy.displayNameSnapshot,
+    createdAt: input.changedAt,
   };
 }
 
@@ -866,13 +1025,37 @@ export async function createTaskForProject(
         return relatedTaskValidation;
       }
 
-      const assigneeValidation = await validateAssigneeUserId({
-        db,
-        projectId: input.projectId,
-        assigneeUserId: input.assigneeUserId,
-      });
-      if (!assigneeValidation.ok) {
-        return assigneeValidation;
+      let resolvedAssignee: ResolvedProjectActorPersistence | null = null;
+      let assignmentActor: ResolvedProjectActorPersistence | null = null;
+      let assignmentProvenance: TaskAssignmentProvenance | null = null;
+      if (input.assignee) {
+        const assigneeResolution = await resolveTaskAssigneeAssignment({
+          db,
+          projectId: input.projectId,
+          reference: input.assignee,
+        });
+        if (!assigneeResolution.ok) {
+          return assigneeResolution;
+        }
+        resolvedAssignee = assigneeResolution.data;
+
+        const mutationActor = await resolveTaskMutationActorSnapshot({
+          db,
+          actorUserId,
+          projectId: input.projectId,
+          agentAccess: input.agentAccess,
+        });
+        if (!mutationActor.ok) {
+          return mutationActor;
+        }
+        assignmentActor = mutationActor.data;
+        assignmentProvenance = {
+          kind: assignmentActor.summary.kind,
+          userId: assignmentActor.userId,
+          credentialId: assignmentActor.credentialId,
+          displayNameSnapshot: assignmentActor.displayNameSnapshot,
+          assignedAt: new Date(),
+        };
       }
 
       const epicValidation = await validateEpicId({
@@ -920,12 +1103,29 @@ export async function createTaskForProject(
           updatedByUserId: actorUserId,
           ...taskAgentAuthorWriteData(agentAttribution, "createdBy"),
           ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
-          assigneeUserId: assigneeValidation.data.assigneeUserId,
+          ...buildTaskAssignmentWriteData(resolvedAssignee, assignmentProvenance),
         },
         select: { id: true },
       });
 
       createdTaskId = createdTask.id;
+
+      if (resolvedAssignee && assignmentActor && assignmentProvenance) {
+        await db.taskAssigneeChange.create({
+          data: buildTaskAssigneeChangeData({
+            taskId: createdTask.id,
+            previous: {
+              assigneeKind: null,
+              assigneeUserId: null,
+              assigneeCredentialId: null,
+              assigneeDisplayNameSnapshot: null,
+            },
+            next: resolvedAssignee,
+            changedBy: assignmentActor,
+            changedAt: assignmentProvenance.assignedAt,
+          }),
+        });
+      }
 
       await replaceTaskRelations({
         db,
@@ -943,7 +1143,8 @@ export async function createTaskForProject(
         db,
       });
 
-      const createdAssigneeUserId = assigneeValidation.data.assigneeUserId;
+      const createdAssigneeUserId =
+        resolvedAssignee?.summary.kind === "human" ? resolvedAssignee.userId : null;
       if (
         createdAssigneeUserId &&
         shouldNotifyAssignee({
@@ -967,7 +1168,7 @@ export async function createTaskForProject(
 
       await touchProjectActivity({ db, projectId: input.projectId });
 
-      const task = await loadTaskMutationPayload(db, createdTask.id);
+      const task = await loadTaskMutationPayload(db, input.projectId, createdTask.id);
       if (!task) {
         return createError(500, "create-failed");
       }
@@ -1254,7 +1455,7 @@ export async function moveTaskStatusForProject(
         existingTask.archivedAt === null &&
         completedAtUnchanged
       ) {
-        const task = await loadTaskMutationPayload(db, taskId);
+        const task = await loadTaskMutationPayload(db, projectId, taskId);
         if (!task) {
           return createError(404, "Task not found");
         }
@@ -1329,7 +1530,7 @@ export async function moveTaskStatusForProject(
 
       await touchProjectActivity({ db, projectId });
 
-      const task = await loadTaskMutationPayload(db, taskId);
+      const task = await loadTaskMutationPayload(db, projectId, taskId);
       if (!task) {
         return createError(500, "Failed to move task");
       }
@@ -1381,10 +1582,32 @@ export async function updateTaskForProject(
     : [];
   const epicProvided = Object.prototype.hasOwnProperty.call(payload, "epicId");
   const epicId = epicProvided ? normalizeText(payload.epicId) : null;
-  const assigneeProvided = Object.prototype.hasOwnProperty.call(payload, "assigneeUserId");
-  const assigneeUserId = assigneeProvided
-    ? normalizeText(payload.assigneeUserId)
-    : null;
+  // Transport precedence: the structured `assignee` reference wins over the
+  // legacy human-only `assigneeUserId` shorthand when both are present.
+  const assigneeReferenceProvided =
+    Object.prototype.hasOwnProperty.call(payload, "assignee") &&
+    payload.assignee !== undefined;
+  let assigneeReference: ProjectActorReference | null = null;
+  if (assigneeReferenceProvided) {
+    if (payload.assignee === null) {
+      assigneeReference = null;
+    } else if (isProjectActorReference(payload.assignee)) {
+      assigneeReference = {
+        kind: payload.assignee.kind,
+        id: payload.assignee.id.trim(),
+      };
+    } else {
+      return createError(400, TASK_ASSIGNEE_INVALID);
+    }
+  } else if (Object.prototype.hasOwnProperty.call(payload, "assigneeUserId")) {
+    const legacyAssigneeUserId = normalizeText(payload.assigneeUserId);
+    assigneeReference = legacyAssigneeUserId
+      ? { kind: "human", id: legacyAssigneeUserId }
+      : null;
+  }
+  const assigneeProvided =
+    assigneeReferenceProvided ||
+    Object.prototype.hasOwnProperty.call(payload, "assigneeUserId");
   const attachmentLinksProvided = Object.prototype.hasOwnProperty.call(
     payload,
     "attachmentLinks"
@@ -1431,7 +1654,10 @@ export async function updateTaskForProject(
           status: true,
           position: true,
           epicId: true,
+          assigneeKind: true,
           assigneeUserId: true,
+          assigneeCredentialId: true,
+          assigneeDisplayNameSnapshot: true,
           outgoingRelations: {
             select: {
               rightTaskId: true,
@@ -1489,20 +1715,58 @@ export async function updateTaskForProject(
         return epicValidation;
       }
 
-      const assigneeValidation = assigneeProvided
-        ? await validateAssigneeUserId({
-            db,
-            projectId,
-            assigneeUserId: assigneeUserId || null,
-          })
-        : {
-            ok: true as const,
-            data: {
-              assigneeUserId: existingTask.assigneeUserId,
-            },
-          };
-      if (!assigneeValidation.ok) {
-        return assigneeValidation;
+      let nextAssignment: ResolvedProjectActorPersistence | null = null;
+      if (assigneeProvided && assigneeReference) {
+        const assigneeResolution = await resolveTaskAssigneeAssignment({
+          db,
+          projectId,
+          reference: assigneeReference,
+        });
+        if (!assigneeResolution.ok) {
+          return assigneeResolution;
+        }
+        nextAssignment = assigneeResolution.data;
+      }
+
+      const assignmentChanged =
+        assigneeProvided &&
+        !isSameStoredTaskAssignee({
+          existing: existingTask,
+          next: nextAssignment,
+        });
+
+      let assignmentWriteData: ReturnType<
+        typeof buildTaskAssignmentWriteData
+      > | null = null;
+      let pendingAssigneeChange: ReturnType<
+        typeof buildTaskAssigneeChangeData
+      > | null = null;
+      if (assignmentChanged) {
+        const mutationActor = await resolveTaskMutationActorSnapshot({
+          db,
+          actorUserId: normalizedActorUserId,
+          projectId,
+          agentAccess,
+        });
+        if (!mutationActor.ok) {
+          return mutationActor;
+        }
+
+        const assignedAt = new Date();
+        assignmentWriteData = buildTaskAssignmentWriteData(nextAssignment, {
+          kind: mutationActor.data.summary.kind,
+          userId: mutationActor.data.userId,
+          credentialId: mutationActor.data.credentialId,
+          displayNameSnapshot: mutationActor.data.displayNameSnapshot,
+          assignedAt,
+        });
+        pendingAssigneeChange = buildTaskAssigneeChangeData({
+          taskId,
+          previous: existingTask,
+          next: nextAssignment,
+          changedBy: mutationActor.data,
+          changedAt: assignedAt,
+        });
       }
 
       const updateWithClient = async (tx: typeof db) => {
@@ -1517,7 +1781,7 @@ export async function updateTaskForProject(
             updatedByUserId: normalizedActorUserId,
             ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
             epicId: epicValidation.data.epicId,
-            assigneeUserId: assigneeValidation.data.assigneeUserId,
+            ...(assignmentWriteData ?? {}),
             ...(titleProvided ? { title } : {}),
             ...(labelsProvided
               ? {
@@ -1561,7 +1825,13 @@ export async function updateTaskForProject(
           });
         }
 
-        return loadTaskMutationPayload(tx, taskId);
+        if (pendingAssigneeChange) {
+          await tx.taskAssigneeChange.create({
+            data: pendingAssigneeChange,
+          });
+        }
+
+        return loadTaskMutationPayload(tx, projectId, taskId);
       };
 
       const updatedTask = await updateWithClient(db);
@@ -1570,22 +1840,25 @@ export async function updateTaskForProject(
         return createError(404, "Task not found");
       }
 
-      const updatedAssigneeUserId = assigneeValidation.data.assigneeUserId;
+      const previousAssigneeUserId =
+        existingTask.assigneeKind === "human" ? existingTask.assigneeUserId : null;
+      const updatedAssigneeUserId =
+        nextAssignment?.summary.kind === "human" ? nextAssignment.userId : null;
       if (
-        assigneeProvided &&
-        existingTask.assigneeUserId &&
-        existingTask.assigneeUserId !== updatedAssigneeUserId
+        assignmentChanged &&
+        previousAssigneeUserId &&
+        previousAssigneeUserId !== updatedAssigneeUserId
       ) {
         await resolveTaskAssignmentNotifications({
           db,
           taskIds: [taskId],
-          recipientUserId: existingTask.assigneeUserId,
+          recipientUserId: previousAssigneeUserId,
         });
       }
 
       if (
-        assigneeProvided &&
-        existingTask.assigneeUserId !== updatedAssigneeUserId &&
+        assignmentChanged &&
+        previousAssigneeUserId !== updatedAssigneeUserId &&
         updatedAssigneeUserId &&
         shouldNotifyAssignee({
           actorUserId: normalizedActorUserId,

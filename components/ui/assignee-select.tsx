@@ -2,20 +2,23 @@
 
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown } from "lucide-react";
 
 import type { ProjectTaskCollaborator } from "@/components/kanban-board-types";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import type { ProjectActorSummary } from "@/lib/project-actor";
+import {
+  getProjectActorKey,
+  type ProjectActorReference,
+  type ProjectActorSummary,
+} from "@/lib/project-actor";
 import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import { cn } from "@/lib/utils";
 
 interface AssigneeSelectProps {
   id?: string;
-  name?: string;
-  value: string;
-  onChange: (value: string) => void;
+  value: ProjectActorSummary | ProjectActorReference | null;
+  onChange: (value: ProjectActorReference | null) => void;
   options: ProjectTaskCollaborator[];
   agentOptions?: ProjectActorSummary[];
   disabled?: boolean;
@@ -23,13 +26,54 @@ interface AssigneeSelectProps {
   unassignedLabel?: string;
 }
 
-function buildAssigneeHoverLabel(assignee: ProjectTaskCollaborator): string {
-  return assignee.usernameTag ?? assignee.displayName;
+interface AssigneeOptionView {
+  key: string;
+  actor: ProjectActorSummary;
+  subtitle: string;
+  agent: boolean;
+}
+
+function buildAssigneeHoverLabel(
+  actor: Pick<ProjectActorSummary, "displayName" | "usernameTag">
+): string {
+  return actor.usernameTag ?? actor.displayName;
+}
+
+function AssigneeAvatar({
+  actor,
+  className,
+}: {
+  actor: ProjectActorSummary;
+  className?: string;
+}) {
+  if (actor.kind === "agent") {
+    return <AgentAvatar displayName={actor.displayName} decorative className={className} />;
+  }
+  if (actor.avatarSeed) {
+    return (
+      <UserAvatar
+        avatarSeed={actor.avatarSeed}
+        displayName={actor.displayName}
+        className={cn(className, "border-border/70")}
+        decorative
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "grid shrink-0 place-items-center rounded-full border border-border/60 bg-primary/10 text-xs font-semibold text-primary",
+        className
+      )}
+    >
+      {actor.displayName.trim().charAt(0).toUpperCase() || "?"}
+    </span>
+  );
 }
 
 export function AssigneeSelect({
   id,
-  name,
   value,
   onChange,
   options,
@@ -48,9 +92,52 @@ export function AssigneeSelect({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  const selectedAssignee = useMemo(
-    () => options.find((option) => option.id === value) ?? null,
-    [options, value]
+  const optionViews = useMemo<AssigneeOptionView[]>(
+    () => [
+      ...options.map((collaborator) => ({
+        key: getProjectActorKey({ kind: "human" as const, id: collaborator.id }),
+        actor: {
+          kind: "human" as const,
+          id: collaborator.id,
+          displayName: collaborator.displayName,
+          usernameTag: collaborator.usernameTag,
+          avatarSeed: collaborator.avatarSeed,
+          status: "active" as const,
+          isAssignable: true,
+        },
+        subtitle: formatProjectCollaboratorRole(collaborator.projectRole),
+        agent: false,
+      })),
+      ...agentOptions.map((agent) => ({
+        key: getProjectActorKey(agent),
+        actor: agent,
+        subtitle: agent.isAssignable ? "Agent credential" : "Agent credential — inactive",
+        agent: true,
+      })),
+    ],
+    [agentOptions, options]
+  );
+
+  const selectedKey = value ? getProjectActorKey(value) : "";
+  const selectedAssignee = useMemo<ProjectActorSummary | null>(() => {
+    if (!value) {
+      return null;
+    }
+
+    const matched = optionViews.find((option) => option.key === selectedKey);
+    if (matched) {
+      return matched.actor;
+    }
+
+    if ("displayName" in value) {
+      return value;
+    }
+
+    return null;
+  }, [optionViews, selectedKey, value]);
+
+  const needsReassignment = Boolean(
+    selectedAssignee && !selectedAssignee.isAssignable
   );
 
   useEffect(() => {
@@ -68,7 +155,7 @@ export function AssigneeSelect({
       const rect = trigger.getBoundingClientRect();
       const viewportPadding = 12;
       const estimatedHeight = Math.min(
-        56 * (options.length + agentOptions.length + 1),
+        56 * (optionViews.length + 1),
         280
       );
       const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
@@ -121,11 +208,10 @@ export function AssigneeSelect({
       window.removeEventListener("resize", updateDropdownPosition);
       window.removeEventListener("scroll", updateDropdownPosition, true);
     };
-  }, [agentOptions.length, isOpen, options.length]);
+  }, [isOpen, optionViews.length]);
 
   return (
     <div className="relative">
-      {name ? <input type="hidden" name={name} value={value} /> : null}
       <button
         ref={triggerRef}
         id={id}
@@ -137,6 +223,7 @@ export function AssigneeSelect({
           "flex min-h-10 w-full items-center justify-between gap-3 rounded-md border border-input bg-background px-3 py-2 text-left transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
           "disabled:cursor-not-allowed disabled:opacity-60",
+          needsReassignment && "border-amber-500/45 bg-amber-500/[0.08]",
           className
         )}
         onClick={() => {
@@ -150,18 +237,27 @@ export function AssigneeSelect({
       >
         {selectedAssignee ? (
           <div className="flex min-w-0 items-center gap-3">
-            <UserAvatar
-              avatarSeed={selectedAssignee.avatarSeed}
-              displayName={selectedAssignee.displayName}
+            <AssigneeAvatar
+              actor={selectedAssignee}
               className="h-8 w-8 border-border/70"
-              decorative
             />
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-foreground">
-                {selectedAssignee.displayName}
+              <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium text-foreground">
+                <span className="truncate">{selectedAssignee.displayName}</span>
+                {selectedAssignee.kind === "agent" ? (
+                  <span className="shrink-0 text-[10px] font-normal text-muted-foreground">
+                    agent
+                  </span>
+                ) : null}
+                {needsReassignment ? (
+                  <AlertTriangle
+                    aria-label="Needs reassignment"
+                    className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-300"
+                  />
+                ) : null}
               </p>
               <p className="truncate text-xs text-muted-foreground">
-                {formatProjectCollaboratorRole(selectedAssignee.projectRole)}
+                {needsReassignment ? "Needs reassignment" : "Current assignee"}
               </p>
             </div>
           </div>
@@ -204,7 +300,7 @@ export function AssigneeSelect({
                   aria-selected={!selectedAssignee}
                   className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-muted"
                   onClick={() => {
-                    onChange("");
+                    onChange(null);
                     setIsOpen(false);
                   }}
                 >
@@ -222,74 +318,42 @@ export function AssigneeSelect({
                   {!selectedAssignee ? <Check className="h-4 w-4 text-foreground" /> : null}
                 </button>
 
-                {options.map((assignee) => {
-                  const isSelected = assignee.id === selectedAssignee?.id;
+                {optionViews.map((option) => {
+                  const isSelected = option.key === selectedKey;
 
                   return (
                     <button
-                      key={assignee.id}
+                      key={option.key}
                       type="button"
                       role="option"
                       aria-selected={isSelected}
-                      title={buildAssigneeHoverLabel(assignee)}
+                      title={buildAssigneeHoverLabel(option.actor)}
                       className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-muted"
                       onClick={() => {
-                        onChange(assignee.id);
+                        onChange({ kind: option.actor.kind, id: option.actor.id });
                         setIsOpen(false);
                       }}
                     >
                       <div className="flex min-w-0 items-center gap-3">
-                        <UserAvatar
-                          avatarSeed={assignee.avatarSeed}
-                          displayName={assignee.displayName}
-                          className="h-9 w-9 border-border/70"
-                          decorative
-                        />
+                        <AssigneeAvatar actor={option.actor} className="h-9 w-9" />
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium text-foreground">
-                            {assignee.displayName}
+                            {option.actor.displayName}
                           </p>
                           <p className="truncate text-xs text-muted-foreground">
-                            {formatProjectCollaboratorRole(assignee.projectRole)}
+                            {option.subtitle}
                           </p>
                         </div>
                       </div>
+                      {option.agent ? (
+                        <span className="shrink-0 rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                          Agent
+                        </span>
+                      ) : null}
                       {isSelected ? <Check className="h-4 w-4 text-foreground" /> : null}
                     </button>
                   );
                 })}
-
-                {agentOptions.map((agent) => (
-                  <button
-                    key={`agent:${agent.id}`}
-                    type="button"
-                    role="option"
-                    aria-selected={false}
-                    aria-disabled="true"
-                    disabled
-                    title="Agent task assignment is not available yet"
-                    className="flex min-h-12 w-full cursor-not-allowed items-center justify-between gap-3 rounded-lg px-3 py-2 text-left opacity-70"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <AgentAvatar
-                        displayName={agent.displayName}
-                        decorative
-                        className="h-9 w-9"
-                      />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">
-                          {agent.displayName}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          Agent — assignment support coming soon
-                        </p>
-                      </div>
-                    </div>
-                    <span className="shrink-0 rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                      Agent
-                    </span>
-                  </button>
-                ))}
               </div>
             </div>,
             document.body

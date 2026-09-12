@@ -1,4 +1,7 @@
+import type { ProjectActorReference, ProjectActorSummary } from "@/lib/project-actor";
 import type { TaskStatus } from "@/lib/task-status";
+
+export type TaskAssigneeSummary = ProjectActorSummary;
 
 export interface TaskPersonSummary {
   id: string;
@@ -94,7 +97,7 @@ export interface KanbanTask {
   attachments: TaskAttachment[];
   relatedTasks: TaskRelatedSummary[];
   epic: TaskEpicSummary | null;
-  assignee: TaskPersonSummary | null;
+  assignee: TaskAssigneeSummary | null;
   createdBy: TaskAuthor;
   updatedBy: TaskAuthor;
   createdAt: string;
@@ -116,7 +119,7 @@ export interface TaskMutationResponseTask {
   position: number;
   archivedAt: string | null;
   epic: TaskEpicSummary | null;
-  assignee: TaskPersonSummary | null;
+  assignee: TaskAssigneeSummary | null;
   createdBy: TaskAuthor;
   updatedBy: TaskAuthor;
   createdAt: string;
@@ -138,7 +141,7 @@ export interface TaskCreateOptimisticDraft {
   description: string | null;
   deadlineDate: string | null;
   epicId: string | null;
-  assigneeUserId: string | null;
+  assignee: ProjectActorReference | null;
   relatedTaskIds: string[];
   attachmentLinks: {
     id: string;

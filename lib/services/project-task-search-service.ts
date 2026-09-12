@@ -2,6 +2,7 @@ import { richTextToPlainText } from "@/lib/rich-text";
 import { formatTaskReference } from "@/lib/task-reference";
 import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { logServerError } from "@/lib/observability/logger";
+import { loadProjectActorRegistry } from "@/lib/services/project-actor-service";
 import { requireProjectRole } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 
@@ -89,6 +90,9 @@ export async function searchProjectTaskIds(input: {
           blockedNote: true,
           comments: { select: { content: true } },
           epic: { select: { name: true } },
+          assigneeKind: true,
+          assigneeCredentialId: true,
+          assigneeDisplayNameSnapshot: true,
           assigneeUser: {
             select: {
               name: true,
@@ -107,6 +111,7 @@ export async function searchProjectTaskIds(input: {
         },
       });
 
+      const actorRegistry = await loadProjectActorRegistry({ db, projectId });
       const normalizedQuery = normalizeSearchValue(query);
       const taskIds = tasks
         .filter((task) => {
@@ -115,6 +120,18 @@ export async function searchProjectTaskIds(input: {
             task.assigneeUser.usernameDiscriminator
               ? `${task.assigneeUser.username}#${task.assigneeUser.usernameDiscriminator}`
               : null;
+          // Agent-assigned tasks stay findable by credential label even after
+          // revocation, so stale work can be discovered and reassigned.
+          const agentAssigneeValues =
+            task.assigneeKind === "agent"
+              ? [
+                  task.assigneeDisplayNameSnapshot,
+                  task.assigneeCredentialId
+                    ? actorRegistry?.credentialById.get(task.assigneeCredentialId)
+                        ?.displayName ?? null
+                    : null,
+                ]
+              : [];
           const searchableValues = [
             task.title,
             task.description ? richTextToPlainText(task.description) : null,
@@ -126,6 +143,7 @@ export async function searchProjectTaskIds(input: {
             task.assigneeUser?.name,
             task.assigneeUser?.username,
             assigneeTag,
+            ...agentAssigneeValues,
             ...task.comments.map((comment) => comment.content),
             ...task.blockedFollowUps.map((entry) => entry.content),
             ...task.attachments.map((attachment) => attachment.name),

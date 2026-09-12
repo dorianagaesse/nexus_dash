@@ -75,7 +75,10 @@ import {
 import { createRelatedTaskMap } from "@/lib/task-related";
 import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 import { MAX_TASK_TITLE_LENGTH } from "@/lib/task-title";
-import type { ProjectActorSummary } from "@/lib/project-actor";
+import type {
+  ProjectActorReference,
+  ProjectActorSummary,
+} from "@/lib/project-actor";
 
 export type { KanbanTask } from "@/components/kanban-board-types";
 
@@ -94,6 +97,39 @@ interface KanbanBoardProps {
 
 function createLocalUploadId(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function resolveOptimisticAssigneeSummary({
+  reference,
+  collaborators,
+  agents,
+}: {
+  reference: ProjectActorReference | null;
+  collaborators: ProjectTaskCollaborator[];
+  agents: ProjectActorSummary[];
+}): ProjectActorSummary | null {
+  if (!reference) {
+    return null;
+  }
+
+  if (reference.kind === "agent") {
+    return agents.find((agent) => agent.id === reference.id) ?? null;
+  }
+
+  const collaborator = collaborators.find((entry) => entry.id === reference.id);
+  if (!collaborator) {
+    return null;
+  }
+
+  return {
+    kind: "human",
+    id: collaborator.id,
+    displayName: collaborator.displayName,
+    usernameTag: collaborator.usernameTag,
+    avatarSeed: collaborator.avatarSeed,
+    status: "active",
+    isAssignable: true,
+  };
 }
 
 function stampTaskActivity(
@@ -120,7 +156,7 @@ function getTaskMutationErrorMessage(errorCode?: string): string {
     case "epic-invalid":
       return "Epic must belong to this project.";
     case "assignee-invalid":
-      return "Assignee must be a current collaborator on this project.";
+      return "Assignee must be an active project member or agent credential.";
     case "deadline-invalid":
       return "Deadline must use a valid date.";
     default:
@@ -313,7 +349,7 @@ export function KanbanBoard({
   const [editDescription, setEditDescription] = useState("");
   const [editDeadlineDate, setEditDeadlineDate] = useState("");
   const [editEpicId, setEditEpicId] = useState("");
-  const [editAssigneeUserId, setEditAssigneeUserId] = useState("");
+  const [editAssignee, setEditAssignee] = useState<ProjectActorReference | null>(null);
   const [editRelatedTasks, setEditRelatedTasks] = useState<TaskRelatedSummary[]>([]);
   const [relatedTaskSearch, setRelatedTaskSearch] = useState("");
   const [newBlockedFollowUpEntry, setNewBlockedFollowUpEntry] = useState("");
@@ -358,7 +394,9 @@ export function KanbanBoard({
     setEditDescription(task.description ?? "");
     setEditDeadlineDate(task.deadlineDate ?? "");
     setEditEpicId(task.epic?.id ?? "");
-    setEditAssigneeUserId(task.assignee?.id ?? "");
+    setEditAssignee(
+      task.assignee ? { kind: task.assignee.kind, id: task.assignee.id } : null
+    );
     setEditRelatedTasks(task.relatedTasks);
     setRelatedTaskSearch("");
     setNewBlockedFollowUpEntry("");
@@ -1012,7 +1050,7 @@ export function KanbanBoard({
     setAttachmentError(null);
     setTaskCommentsError(null);
     setEditRelatedTasks([]);
-    setEditAssigneeUserId("");
+    setEditAssignee(null);
     setRelatedTaskSearch("");
     setPreviewAttachment(null);
     setTaskComments([]);
@@ -1108,7 +1146,11 @@ export function KanbanBoard({
           : previousTask;
       });
       setEditEpicId(updatedTask.epic?.id ?? "");
-      setEditAssigneeUserId(updatedTask.assignee?.id ?? "");
+      setEditAssignee(
+        updatedTask.assignee
+          ? { kind: updatedTask.assignee.kind, id: updatedTask.assignee.id }
+          : null
+      );
     },
     []
   );
@@ -1494,10 +1536,11 @@ export function KanbanBoard({
         relatedTasks,
         epic:
           availableEpicOptions.find((epic) => epic.id === draft.epicId) ?? null,
-        assignee:
-          availableAssignees.find(
-            (assignee) => assignee.id === draft.assigneeUserId
-          ) ?? null,
+        assignee: resolveOptimisticAssigneeSummary({
+          reference: draft.assignee,
+          collaborators: availableAssignees,
+          agents: availableAgentOptions,
+        }),
         createdBy: currentActorSummary,
         updatedBy: currentActorSummary,
         createdAt: now,
@@ -1507,6 +1550,7 @@ export function KanbanBoard({
       return optimisticTaskId;
     },
     [
+      availableAgentOptions,
       availableAssignees,
       availableEpicOptions,
       columns.Backlog,
@@ -1636,7 +1680,7 @@ export function KanbanBoard({
               description: editDescription,
               deadlineDate: editDeadlineDate || null,
               epicId: editEpicId || null,
-              assigneeUserId: editAssigneeUserId || null,
+              assignee: editAssignee,
               blockedFollowUpEntry: normalizedBlockedEntry,
               relatedTaskIds,
             }),
@@ -1678,7 +1722,7 @@ export function KanbanBoard({
     },
     [
       canEdit,
-      editAssigneeUserId,
+      editAssignee,
       editDeadlineDate,
       editDescription,
       editEpicId,
@@ -1711,14 +1755,18 @@ export function KanbanBoard({
   );
 
   const handleQuickAssigneeUpdate = useCallback(
-    async (nextAssigneeUserId: string) => {
-      const nextAssigneeLabel =
-        availableAssignees.find((assignee) => assignee.id === nextAssigneeUserId)
-          ?.displayName ?? null;
+    async (nextAssignee: ProjectActorReference | null) => {
+      const nextAssigneeLabel = nextAssignee
+        ? nextAssignee.kind === "agent"
+          ? availableAgentOptions.find((agent) => agent.id === nextAssignee.id)
+              ?.displayName ?? null
+          : availableAssignees.find((assignee) => assignee.id === nextAssignee.id)
+              ?.displayName ?? null
+        : null;
 
       await patchSelectedTask({
         payload: {
-          assigneeUserId: nextAssigneeUserId || null,
+          assignee: nextAssignee,
         },
         successMessage: nextAssigneeLabel
           ? `Assignee updated to ${nextAssigneeLabel}.`
@@ -1726,7 +1774,7 @@ export function KanbanBoard({
         fallbackErrorMessage: "Could not update assignee.",
       });
     },
-    [availableAssignees, patchSelectedTask]
+    [availableAgentOptions, availableAssignees, patchSelectedTask]
   );
 
   const handleTaskUpdate = useCallback(async () => {
@@ -2696,7 +2744,7 @@ export function KanbanBoard({
         editDescription={editDescription}
         editDeadlineDate={editDeadlineDate}
         editEpicId={editEpicId}
-        editAssigneeUserId={editAssigneeUserId}
+        editAssignee={editAssignee}
         editRelatedTasks={editRelatedTasks}
         relatedTaskSearch={relatedTaskSearch}
         newBlockedFollowUpEntry={newBlockedFollowUpEntry}
@@ -2727,7 +2775,7 @@ export function KanbanBoard({
         onEditDescriptionChange={setEditDescription}
         onEditDeadlineDateChange={setEditDeadlineDate}
         onEditEpicIdChange={setEditEpicId}
-        onEditAssigneeUserIdChange={setEditAssigneeUserId}
+        onEditAssigneeChange={setEditAssignee}
         onRelatedTaskSearchChange={setRelatedTaskSearch}
         onAddRelatedTask={addRelatedTask}
         onRemoveRelatedTask={removeRelatedTask}

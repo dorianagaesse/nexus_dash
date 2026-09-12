@@ -14,6 +14,7 @@ import {
   createTaskForProject,
   isTaskStatusTransitionPayload,
   moveTaskStatusForProject,
+  parseTaskAssigneeInput,
   updateTaskForProject,
   validateTaskCreateFieldTypes,
   type CreateTaskForProjectInput,
@@ -30,6 +31,7 @@ interface BulkCreateOperation {
     description?: unknown;
     deadlineDate?: unknown;
     epicId?: unknown;
+    assignee?: unknown;
     assigneeUserId?: unknown;
     labels?: unknown;
     relatedTaskIds?: unknown;
@@ -150,10 +152,7 @@ function buildCreateInput(
     description: typeof task.description === "string" ? task.description.trim() : "",
     deadlineDate: typeof task.deadlineDate === "string" ? task.deadlineDate.trim() : "",
     epicId: typeof task.epicId === "string" ? task.epicId.trim() || null : null,
-    assigneeUserId:
-      typeof task.assigneeUserId === "string"
-        ? task.assigneeUserId.trim() || null
-        : null,
+    assignee: parseTaskAssigneeInput(task),
     labelsJsonRaw: serializeJsonField(task.labels),
     relatedTaskIdsJsonRaw: serializeJsonField(task.relatedTaskIds),
     attachmentLinksJsonRaw: serializeJsonField(task.attachmentLinks),

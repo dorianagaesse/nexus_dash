@@ -22,11 +22,13 @@ export interface ProjectMeetingTodoSummary {
   id: string;
   content: string;
   completedAt: Date | null;
+  assignedAt: Date | null;
   updatedAt: Date;
   isOverdue: boolean;
   urgencyTimestamp: number;
   creator: MeetingTodoActorSummary | null;
   assignee: MeetingTodoActorSummary | null;
+  assignedBy: MeetingTodoActorSummary | null;
   completedBy: MeetingTodoActorSummary | null;
   participantOptions: MeetingTodoActorSummary[];
   meeting: {
@@ -132,6 +134,15 @@ export async function listProjectMeetingTodos(input: {
                 assigneeCredential: {
                   select: meetingTodoActorCredentialSelect,
                 },
+                assignedByKind: true,
+                assignedByUserId: true,
+                assignedByCredentialId: true,
+                assignedByDisplayNameSnapshot: true,
+                assignedAt: true,
+                assignedByUser: { select: meetingTodoActorUserSelect },
+                assignedByCredential: {
+                  select: meetingTodoActorCredentialSelect,
+                },
                 completedByKind: true,
                 completedByUserId: true,
                 completedByCredentialId: true,
@@ -219,6 +230,23 @@ export async function listProjectMeetingTodos(input: {
               noteExternalParticipantNameKeys,
             })
           : null,
+        assignedBy: action.assignedByKind
+          ? mapStoredMeetingTodoActor({
+              kind: action.assignedByKind,
+              id:
+                action.assignedByKind === "human"
+                  ? action.assignedByUserId
+                  : action.assignedByCredentialId,
+              displayNameSnapshot: action.assignedByDisplayNameSnapshot,
+              user: action.assignedByUser,
+              credential: action.assignedByCredential,
+              isCurrentProjectHuman: Boolean(
+                action.assignedByUserId &&
+                  actorRegistry?.activeHumanIds.has(action.assignedByUserId)
+              ),
+            })
+          : null,
+        assignedAt: action.assignedAt,
         completedBy: action.completedByKind
           ? mapStoredMeetingTodoActor({
               kind: action.completedByKind,

@@ -9,13 +9,16 @@ import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
+import { loadProjectActorRegistryForActor } from "@/lib/services/project-actor-service";
 import { listProjectKanbanTasks } from "@/lib/services/project-service";
 import {
   createTaskForProject,
+  parseTaskAssigneeInput,
   validateTaskCreateFieldTypes,
 } from "@/lib/services/project-task-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 import { mapProjectKanbanTaskToTaskResponse } from "@/lib/services/project-task-response";
+import type { ProjectActorReference } from "@/lib/project-actor";
 
 const ATTACHMENT_FILES_FIELD = "attachmentFiles";
 
@@ -25,6 +28,7 @@ interface TaskCreateJsonRequestBody {
   deadlineDate?: unknown;
   epicId?: unknown;
   assigneeUserId?: unknown;
+  assignee?: unknown;
   labels?: unknown;
   relatedTaskIds?: unknown;
   attachmentLinks?: unknown;
@@ -91,12 +95,18 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
         }
       : undefined;
 
-  const tasks = await listProjectKanbanTasks(
-    params.projectId,
-    principalResult.principal.actorUserId,
-    agentAccess,
-    filters
-  );
+  const [tasks, actorRegistry] = await Promise.all([
+    listProjectKanbanTasks(
+      params.projectId,
+      principalResult.principal.actorUserId,
+      agentAccess,
+      filters
+    ),
+    loadProjectActorRegistryForActor({
+      actorUserId: principalResult.principal.actorUserId,
+      projectId: params.projectId,
+    }),
+  ]);
 
   return NextResponse.json(
     {
@@ -105,7 +115,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
         label: labelFilter,
       },
       tasks: tasks.map((task) =>
-        mapProjectKanbanTaskToTaskResponse(task, params.projectId)
+        mapProjectKanbanTaskToTaskResponse(task, params.projectId, actorRegistry)
       ),
     },
     { headers: timing.headers() }
@@ -130,7 +140,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
   let description = "";
   let deadlineDate = "";
   let epicId: string | null = null;
-  let assigneeUserId: string | null = null;
+  let assignee: ProjectActorReference | null = null;
   let labelsJsonRaw = "";
   let relatedTaskIdsJsonRaw = "";
   let attachmentLinksJsonRaw = "";
@@ -159,10 +169,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     deadlineDate =
       typeof payload.deadlineDate === "string" ? payload.deadlineDate.trim() : "";
     epicId = typeof payload.epicId === "string" ? payload.epicId.trim() || null : null;
-    assigneeUserId =
-      typeof payload.assigneeUserId === "string"
-        ? payload.assigneeUserId.trim() || null
-        : null;
+    assignee = parseTaskAssigneeInput(payload);
     labelsJsonRaw = serializeJsonField(payload.labels);
     relatedTaskIdsJsonRaw = serializeJsonField(payload.relatedTaskIds);
     attachmentLinksJsonRaw = serializeJsonField(payload.attachmentLinks);
@@ -183,7 +190,22 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     description = readText(formData, "description");
     deadlineDate = readText(formData, "deadlineDate");
     epicId = readText(formData, "epicId") || null;
-    assigneeUserId = readText(formData, "assigneeUserId") || null;
+    assignee = parseTaskAssigneeInput({
+      assignee:
+        readText(formData, "assigneeKind") || readText(formData, "assigneeId")
+          ? {
+              kind: readText(formData, "assigneeKind"),
+              id: readText(formData, "assigneeId"),
+            }
+          : undefined,
+      assigneeUserId: readText(formData, "assigneeUserId"),
+    });
+    if (
+      readText(formData, "assigneeKind") &&
+      !assignee
+    ) {
+      return NextResponse.json({ error: "assignee-invalid" }, { status: 400 });
+    }
     labelsJsonRaw = readText(formData, "labels");
     relatedTaskIdsJsonRaw = readText(formData, "relatedTaskIds");
     attachmentLinksJsonRaw = readText(formData, "attachmentLinks");
@@ -204,7 +226,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     description,
     deadlineDate,
     epicId,
-    assigneeUserId,
+    assignee,
     labelsJsonRaw,
     relatedTaskIdsJsonRaw,
     attachmentLinksJsonRaw,

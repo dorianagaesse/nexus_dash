@@ -1,5 +1,157 @@
 # Current Task
 
+## ND-384: Assign active project agents to tasks and meeting todos
+
+## Status
+
+In Progress (2026-09-12). Branch `feature/nd-384-agent-assignment-persistence`
+in dedicated worktree `../nexus_dash_nd384_wt`, on `origin/main` at 70ecd08
+(v0.64.0, carrying the ND-178 canonical project-actor foundation and the
+ND-382 picker exposure). The Nexus Dash board card ND-384 (feature label,
+epic "Agent mentions, assignment, and attention API") is the source of truth;
+flipped to In Progress on 2026-09-12 via the agent API. No counterpart GitHub
+issue exists; the PR carries the ND-384 reference. ND-382's picker rows are
+agent-aware presentation only — it deliberately left task agent rows
+non-submitting until this card lands the persistence, provenance, and audit
+contract.
+
+## Context
+
+Project work can already be owned by agents in meeting notes (ND-129/330
+meeting-todo actor identity, ND-376 external participants), but tasks persist
+a human-only `assigneeUserId`. ND-178 defined the canonical project-actor
+contract, and ND-382 exposed active credentials in mention and assignment
+pickers with agent rows disabled pending persistence. ND-384 closes the gap:
+active agent credentials become assignable to tasks through every create/edit
+flow, assignment records the credential identity (not the credential's human
+owner) plus who assigned it and when, reassignment and unassignment leave an
+auditable trail, and revoked credentials can no longer receive new work while
+existing work clearly shows an inactive-agent state.
+
+## Product Decisions
+
+- **Canonical actor references everywhere.** Task assignment and
+  meeting-todo provenance use the ND-178 actor reference contract
+  (`{ kind, id }`); task assignees accept `human` and `agent` only
+  (`participant` stays meeting-note scoped). A task assigned to an agent
+  persists the credential id, never the credential owner's user id.
+- **Storage.** `Task` gains assignee-provenance columns — `assigneeKind`,
+  `assigneeCredentialId` (FK, ON DELETE SET NULL), a durable
+  `assigneeDisplayNameSnapshot`, plus
+  `assigneeAssignedBy{Kind,UserId,CredentialId,DisplayNameSnapshot}` and
+  `assigneeAssignedAt` — mirroring the meeting-todo actor CHECK pattern so a
+  human assignee (`assigneeUserId`) and an agent assignee are mutually
+  exclusive and each kind's columns are enforced.
+  `ProjectMeetingNoteAction` gains the parallel `assignedBy*` columns and
+  `assignedAt` provenance it currently lacks.
+- **Auditable history.** Two append-only child tables
+  (`TaskAssigneeChange`, `ProjectMeetingNoteActionAssigneeChange`) record one
+  row per assign/reassign/unassign with previous and next actor identity, who
+  performed the change, and when. They are project-scoped for RLS, covered by
+  `rls-inventory.json`, ENABLE/FORCE RLS policies, and the real-PostgreSQL
+  isolation matrix. Live payloads expose the current assignee plus
+  assignedBy/assignedAt; a dedicated history timeline UI is not part of this
+  card.
+- **Revocation semantics.** New assignments validate against the ND-178
+  actor registry and reject non-assignable (revoked/expired) credentials with
+  the existing `assignee-invalid` / `meeting-note-action-assignee-invalid`
+  errors. Stored revoked assignees keep their durable snapshot and render
+  with the established amber "Needs reassignment" treatment (meeting-todo
+  chip parity on task surfaces); the inactive current assignee stays readable
+  and replaceable in edit flows, and unrelated task edits preserve a stored
+  revoked assignee instead of silently dropping it.
+- **Transport.** Task create/update accepts `assignee: { kind, id } | null`;
+  the legacy `assigneeUserId` remains accepted as a human shorthand so
+  existing agent-API callers and current UI flows keep working. The agent
+  OpenAPI document and hosted guide document the new field, and confirmed
+  task payloads expose the richer assignee identity.
+- **No permission or notification change.** Assignment never grants project,
+  API, or scope permissions; assignment notifications stay human-only (agents
+  have no inbox; agent attention is ND-385).
+- **Search and discoverability.** Task search matches agent-assigned tasks by
+  credential label so revoked-agent work stays findable for reassignment.
+
+## Scope
+
+- Additive Prisma migration: task assignee-provenance columns, meeting-todo
+  assignedBy/assignedAt columns, `TaskAssigneeChange` +
+  `ProjectMeetingNoteActionAssigneeChange` tables, plus RLS policies,
+  `rls-inventory.json` entries, and isolation-matrix scenarios.
+- Task service: agent-assignee resolution/validation on create/update,
+  provenance writes, history appends, richer task-response assignee mapping
+  (kind, status, isAssignable), snapshot retention on unrelated edits, and
+  label-aware task search.
+- Meeting-todo service: provenance + history on draft assignment and the
+  dedicated assignee endpoint, with existing human/agent/participant
+  resolution semantics unchanged.
+- Transport: task create/update accept `assignee` references on the web and
+  agent API surfaces with mapped errors; agent OpenAPI/guide docs updated.
+- UI: agent rows enabled in task assignee controls (create dialog, modal
+  edit, quick menu), kind-aware avatars and inactive-agent amber treatment on
+  task surfaces, optimistic/rollback flow updates, and error copy.
+- Focused service/route/component/Playwright coverage and release metadata
+  (minor bump + dated CHANGELOG entry).
+
+## Out Of Scope
+
+- Agent mentions in comments and tagged-agent events (ND-383) and the agent
+  attention API (ND-385).
+- External participants as task assignees (`participant` stays meeting-note
+  scoped) and any change to participant authoring or reminder behavior.
+- New agent permissions, credential lifecycle changes, notifications for
+  agent assignees, or a dedicated assignment-history UI.
+- Changing meeting-todo picker behavior delivered by ND-129/330/376.
+
+## Acceptance Criteria
+
+(Card ND-384, verbatim.)
+
+1. Create and edit flows for tasks and meeting todos accept an active agent
+   actor as assignee.
+2. Assignment persists the credential identity rather than its human owner
+   and records who assigned it and when.
+3. Assignment does not grant additional project or API permissions.
+4. Reassignment and unassignment preserve an auditable history.
+5. Revoked credentials cannot receive new assignments; existing work shows a
+   clear inactive-agent state and remains discoverable for reassignment.
+6. Human and external-participant assignment behavior is not regressed.
+
+## Definition Of Done
+
+- The migration, services, routes, and UI changes above are implemented with
+  focused service, route, component, and Playwright coverage (agent assign on
+  task create/edit, provenance, history rows on reassign/unassign, revoked
+  rejection, inactive-agent rendering, human/participant parity).
+- `git diff --check`, `npm run lint`, `npm run rls:check`, `npm test`,
+  `npm run test:coverage`, `npm run build`, focused/full Playwright, and the
+  real-PostgreSQL RLS matrix are green (schema and RLS change).
+- `package.json`/`package-lock.json` advance minor to v0.65.0 over
+  `origin/main` (v0.64.0) with a dated CHANGELOG entry.
+- `tasks/current.md`, `journal.md`, an ADR note when architecture-impacting
+  decisions land, and the live ND-384 card reflect delivery.
+- The branch is pushed with an open ready-for-review PR referencing ND-384;
+  the Copilot review outcome is triaged and threads resolved before handoff.
+
+## Runtime Assumptions
+
+- The Nexus Dash board contract uses the gitignored
+  `.config/.nd-nexus-dash.env` agent credential; preview validation, when
+  needed, uses the shared alias bundle in `.tmp/.nd-preview.env`.
+- Local validation uses the repository `.env` contract and the dockerized
+  PostgreSQL runbook; the RLS matrix runs `npm run test:rls:setup` then
+  `npm run test:rls`.
+- ND-179 (#498) is in flight and may touch `adr/decisions.md`; conflicts are
+  reconciled on the merge-forward.
+
+## Previous Task Snapshot
+
+The previous `tasks/current.md` brief (ND-426, merged into main via PR #499 at
+70ecd08 / v0.64.0) is preserved verbatim below for history.
+
+---
+
+# Current Task
+
 ## ND-426: Zoomable meeting note input and output
 
 ## Status

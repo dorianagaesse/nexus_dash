@@ -15,6 +15,7 @@ import {
   resolveProjectMutationActor,
   type ProjectActorCredentialRecord,
   type ProjectActorRegistry,
+  type ResolvedProjectActorPersistence,
 } from "@/lib/services/project-actor-service";
 import type { AgentProjectAccessContext } from "@/lib/services/project-access-service";
 import type { DbClient } from "@/lib/services/rls-context";
@@ -53,6 +54,12 @@ interface MeetingTodoActorResolutionSuccess {
 export type MeetingTodoActorResolution =
   | MeetingTodoActorResolutionError
   | MeetingTodoActorResolutionSuccess;
+
+// Mutation actors are the authenticated caller, so they can only be a project
+// human or an agent credential — never an external meeting participant.
+export type MeetingTodoMutationActorResolution =
+  | MeetingTodoActorResolutionError
+  | { ok: true; actor: ResolvedProjectActorPersistence };
 
 export function mapStoredMeetingTodoActor(input: {
   kind: "human" | "agent" | "participant";
@@ -203,6 +210,6 @@ export async function resolveMeetingTodoMutationActor(input: {
   actorUserId: string;
   projectId: string;
   agentAccess?: AgentProjectAccessContext;
-}): Promise<MeetingTodoActorResolution> {
+}): Promise<MeetingTodoMutationActorResolution> {
   return resolveProjectMutationActor(input);
 }
