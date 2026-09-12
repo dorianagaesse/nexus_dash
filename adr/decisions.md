@@ -16,6 +16,39 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-09-12 - ND-384: Persist agent assignment as actor identity with append-only assignment history
+- Status: Accepted.
+- Context: The canonical project-actor contract (TASK-337/ND-178) and the
+  ND-382 pickers made agent identities selectable, but tasks still persisted
+  only a human `assigneeUserId` and meeting todos lacked assigned-by/at
+  provenance. Assigning work to an agent had to record the credential identity
+  (never its human owner) and survive credential rename or revocation without
+  rewriting history.
+- Decision: Model task assignment on the meeting-todo actor CHECK pattern —
+  mutually exclusive `assigneeUserId` vs. `assigneeCredentialId` columns plus
+  `assigneeKind` and a durable `assigneeDisplayNameSnapshot`, with parallel
+  `assignedBy*`/`assignedAt` provenance on both `Task` and
+  `ProjectMeetingNoteAction`. Every assign/reassign/unassign appends one row to
+  an append-only project-scoped child table (`TaskAssigneeChange`,
+  `ProjectMeetingNoteActionAssigneeChange`) capturing the previous actor, the
+  next actor, and the changing actor. Create/update validates new assignees
+  against the live actor registry and rejects non-assignable credentials with
+  the existing `assignee-invalid` errors; stored revoked assignees keep their
+  snapshot, render the needs-reassignment state, and stay resolvable for
+  reassignment. Transport accepts `assignee: { kind, id } | null` while keeping
+  `assigneeUserId` as the human shorthand. Offboarding integration: ND-179's
+  `app.resolve_project_actor_responsibilities` is re-declared with the same
+  signature so it maintains the new task actor columns for human departures and
+  resolves agent-assigned tasks by credential, and the offboarding service
+  writes the same assigned-by provenance and append-only history rows as the
+  interactive flows (the acting owner is the changing actor).
+- Consequences: Agent attribution is durable and auditable across credential
+  rename and revocation; assignment grants no additional permissions and emits
+  no agent notifications. New child tables are covered by ENABLE/FORCE RLS,
+  the inventory, and the real-PostgreSQL isolation matrix; a dedicated
+  history-timeline UI is deferred.
+- Links: `tasks/current.md` (ND-384), board card ND-384.
+
 ## 2026-09-09 - ND-179: Resolve active responsibility before atomic ownership and access handoff
 - Status: Accepted.
 - Context: Access removal could leave active work assigned to a departed actor,

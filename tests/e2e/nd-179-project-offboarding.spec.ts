@@ -52,6 +52,8 @@ test("owners review and unassign active responsibility before removing a collabo
       createdByUserId: member.id,
       updatedByUserId: member.id,
       assigneeUserId: member.id,
+      assigneeKind: "human",
+      assigneeDisplayNameSnapshot: member.name ?? "Morgan Offboarding",
     },
     select: { id: true },
   });
@@ -201,6 +203,9 @@ test("owners review and unassign active responsibility before removing a collabo
     ]);
     expect(membership).toBeNull();
     expect(storedTask?.assigneeUserId).toBeNull();
+    expect(storedTask?.assigneeKind).toBeNull();
+    expect(storedTask?.assigneeCredentialId).toBeNull();
+    expect(storedTask?.assigneeDisplayNameSnapshot).toBeNull();
     expect(storedTask?.createdByUserId).toBe(member.id);
     expect(storedContextCard?.stewardUserId).toBeNull();
     expect(storedContextCard?.createdByUserId).toBe(member.id);
@@ -208,6 +213,8 @@ test("owners review and unassign active responsibility before removing a collabo
     expect(storedMeetingNote?.stewardUserId).toBeNull();
     expect(storedMeetingNote?.createdByUserId).toBe(member.id);
     expect(storedAction?.assigneeUserId).toBeNull();
+    expect(storedAction?.assigneeKind).toBeNull();
+    expect(storedAction?.assigneeDisplayNameSnapshot).toBeNull();
     expect(storedAction?.createdByUserId).toBe(member.id);
   } finally {
     await prisma.project

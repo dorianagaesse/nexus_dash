@@ -4,12 +4,21 @@
 
 ## Status
 
-In Progress (2026-09-12). Branch `feature/nd-384-agent-assignment-persistence`
+Delivered (2026-09-12). Branch `feature/nd-384-agent-assignment-persistence`
 in dedicated worktree `../nexus_dash_nd384_wt`, branched from `origin/main` at
 70ecd08 (v0.64.0, carrying the ND-178 canonical project-actor foundation and
-the ND-382 picker exposure) and merge-forwarded to 7612347 (v0.65.0, ND-179
-project ownership continuity and collaborator offboarding, PR #498). The Nexus
-Dash board card ND-384 (feature label,
+the ND-382 picker exposure) and merge-forwarded to 5773235 (v0.65.0, ND-179
+project ownership continuity and collaborator offboarding, PR #498). The merge
+exposed an ND-179 integration bug — its responsibility-resolution function
+wrote `assigneeUserId` without the new actor columns, agent-assigned tasks were
+invisible to the offboarding inventory, and offboarding appended no assignment
+history — so this branch re-declares that function in migration 20260912130000
+(same signature, agent branch added, actor columns maintained) and extends the
+offboarding service to mirror the interactive provenance + history contract.
+Validated by lint, `rls:check`, Vitest 194 files / 1431 tests, coverage
+(93.47 / 84.36 / 95.3 / 93.77), production build, `release:check` (0.66.0 over
+0.65.0), the real-PostgreSQL isolation matrix, and the full Playwright suite
+(61 passed, 1 skipped). The Nexus Dash board card ND-384 (feature label,
 epic "Agent mentions, assignment, and attention API") is the source of truth;
 flipped to In Progress on 2026-09-12 via the agent API. No counterpart GitHub
 issue exists; the PR carries the ND-384 reference. ND-382's picker rows are

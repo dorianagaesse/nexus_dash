@@ -1,4 +1,8 @@
-import { Prisma } from "@prisma/client";
+import {
+  Prisma,
+  type MeetingTodoActorKind,
+  type ProjectActorKind,
+} from "@prisma/client";
 
 import { requireProjectRole } from "@/lib/services/project-access-service";
 import { withActorRlsContext, type DbClient } from "@/lib/services/rls-context";
@@ -133,16 +137,16 @@ export async function countActiveProjectResponsibilities(
     meetingNoteStewardships,
     meetingTodoAssignments,
   ] = await Promise.all([
-    humanId
-      ? db.task.count({
-          where: {
-            projectId,
-            assigneeUserId: humanId,
-            archivedAt: null,
-            NOT: { status: "Done" },
-          },
-        })
-      : Promise.resolve(0),
+    db.task.count({
+      where: {
+        projectId,
+        archivedAt: null,
+        NOT: { status: "Done" },
+        ...(humanId
+          ? { assigneeUserId: humanId }
+          : { assigneeKind: "agent", assigneeCredentialId: credentialId }),
+      },
+    }),
     db.resource.count({
       where: {
         projectId,
@@ -241,10 +245,120 @@ async function resolveReplacementUser(
   return user ? { id: user.id, displayName: buildDisplayName(user) } : null;
 }
 
+interface StoredAssigneeIdentity<TActorKind extends string> {
+  id: string;
+  assigneeKind: TActorKind | null;
+  assigneeUserId: string | null;
+  assigneeCredentialId: string | null;
+  assigneeDisplayNameSnapshot: string | null;
+}
+
+async function loadActingUserDisplayName(
+  db: DbClient,
+  actorUserId: string
+): Promise<string> {
+  const user = await db.user.findUnique({
+    where: { id: actorUserId },
+    select: {
+      name: true,
+      username: true,
+      usernameDiscriminator: true,
+      email: true,
+    },
+  });
+  return buildDisplayName(
+    user ?? {
+      name: null,
+      username: null,
+      usernameDiscriminator: null,
+      email: null,
+    }
+  );
+}
+
+async function recordResolvedAssignmentChanges(input: {
+  db: DbClient;
+  actingUserId: string;
+  changedByDisplayNameSnapshot: string;
+  replacement: { id: string; displayName: string } | null;
+  tasks: Array<StoredAssigneeIdentity<ProjectActorKind>>;
+  todoActions: Array<StoredAssigneeIdentity<MeetingTodoActorKind>>;
+}): Promise<void> {
+  if (input.tasks.length === 0 && input.todoActions.length === 0) {
+    return;
+  }
+
+  const changedAt = new Date();
+  const changedBy = {
+    changedByUserId: input.actingUserId,
+    changedByCredentialId: null,
+    changedByDisplayNameSnapshot: input.changedByDisplayNameSnapshot,
+    createdAt: changedAt,
+  };
+
+  if (input.tasks.length > 0) {
+    await input.db.task.updateMany({
+      where: { id: { in: input.tasks.map((task) => task.id) } },
+      data: {
+        assigneeAssignedByKind: "human",
+        assigneeAssignedByUserId: input.actingUserId,
+        assigneeAssignedByCredentialId: null,
+        assigneeAssignedByDisplayNameSnapshot:
+          input.changedByDisplayNameSnapshot,
+        assigneeAssignedAt: changedAt,
+      },
+    });
+    await input.db.taskAssigneeChange.createMany({
+      data: input.tasks.map((task) => ({
+        taskId: task.id,
+        previousAssigneeKind: task.assigneeKind,
+        previousAssigneeUserId: task.assigneeUserId,
+        previousAssigneeCredentialId: task.assigneeCredentialId,
+        previousAssigneeDisplayNameSnapshot: task.assigneeDisplayNameSnapshot,
+        nextAssigneeKind: input.replacement ? "human" : null,
+        nextAssigneeUserId: input.replacement?.id ?? null,
+        nextAssigneeCredentialId: null,
+        nextAssigneeDisplayNameSnapshot: input.replacement?.displayName ?? null,
+        changedByKind: "human",
+        ...changedBy,
+      })),
+    });
+  }
+
+  if (input.todoActions.length > 0) {
+    await input.db.projectMeetingNoteAction.updateMany({
+      where: { id: { in: input.todoActions.map((action) => action.id) } },
+      data: {
+        assignedByKind: "human",
+        assignedByUserId: input.actingUserId,
+        assignedByCredentialId: null,
+        assignedByDisplayNameSnapshot: input.changedByDisplayNameSnapshot,
+        assignedAt: changedAt,
+      },
+    });
+    await input.db.projectMeetingNoteActionAssigneeChange.createMany({
+      data: input.todoActions.map((action) => ({
+        actionId: action.id,
+        previousAssigneeKind: action.assigneeKind,
+        previousAssigneeUserId: action.assigneeUserId,
+        previousAssigneeCredentialId: action.assigneeCredentialId,
+        previousAssigneeDisplayNameSnapshot: action.assigneeDisplayNameSnapshot,
+        nextAssigneeKind: input.replacement ? "human" : null,
+        nextAssigneeUserId: input.replacement?.id ?? null,
+        nextAssigneeCredentialId: null,
+        nextAssigneeDisplayNameSnapshot: input.replacement?.displayName ?? null,
+        changedByKind: "human",
+        ...changedBy,
+      })),
+    });
+  }
+}
+
 export async function resolveActiveProjectResponsibilities(input: {
   db: DbClient;
   projectId: string;
   actor: ResponsibilityActor;
+  actingUserId: string;
   resolution: ResponsibilityResolution | null;
 }): Promise<ServiceResult<{ inventory: ProjectResponsibilityInventory }>> {
   const inventory = await countActiveProjectResponsibilities(
@@ -273,6 +387,48 @@ export async function resolveActiveProjectResponsibilities(input: {
     return createError(400, "invalid-responsibility-replacement", inventory);
   }
 
+  const humanId = input.actor.kind === "human" ? input.actor.id : undefined;
+  const credentialId =
+    input.actor.kind === "agent" ? input.actor.id : undefined;
+  const [affectedTasks, affectedTodoActions, changedByDisplayNameSnapshot] =
+    await Promise.all([
+      input.db.task.findMany({
+        where: {
+          projectId: input.projectId,
+          archivedAt: null,
+          NOT: { status: "Done" },
+          ...(humanId
+            ? { assigneeUserId: humanId }
+            : { assigneeKind: "agent", assigneeCredentialId: credentialId }),
+        },
+        select: {
+          id: true,
+          assigneeKind: true,
+          assigneeUserId: true,
+          assigneeCredentialId: true,
+          assigneeDisplayNameSnapshot: true,
+        },
+      }),
+      input.db.projectMeetingNoteAction.findMany({
+        where: {
+          meetingNote: { projectId: input.projectId },
+          completedAt: null,
+          assigneeKind: input.actor.kind,
+          ...(humanId
+            ? { assigneeUserId: humanId }
+            : { assigneeCredentialId: credentialId }),
+        },
+        select: {
+          id: true,
+          assigneeKind: true,
+          assigneeUserId: true,
+          assigneeCredentialId: true,
+          assigneeDisplayNameSnapshot: true,
+        },
+      }),
+      loadActingUserDisplayName(input.db, input.actingUserId),
+    ]);
+
   const rows = await input.db.$queryRaw<Array<{ result: string }>>(Prisma.sql`
     SELECT app.resolve_project_actor_responsibilities(
       ${input.projectId}::text,
@@ -296,6 +452,15 @@ export async function resolveActiveProjectResponsibilities(input: {
       inventory
     );
   }
+
+  await recordResolvedAssignmentChanges({
+    db: input.db,
+    actingUserId: input.actingUserId,
+    changedByDisplayNameSnapshot,
+    replacement,
+    tasks: affectedTasks,
+    todoActions: affectedTodoActions,
+  });
 
   return createSuccess(200, { inventory });
 }
@@ -403,6 +568,7 @@ export async function transferProjectOwnership(input: {
         db,
         projectId: input.projectId,
         actor: { kind: "human", id: actorUserId },
+        actingUserId: actorUserId,
         resolution: input.responsibilityResolution,
       });
       if (!resolutionResult.ok) {
