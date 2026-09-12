@@ -23,12 +23,11 @@ Inputs section remains unchanged; read-only Outputs keeps its zoom action in
 the label row because it has no editable field.
 
 Post-merge validation passed (2026-09-12): lint, `rls:check`, `release:check`,
-and `git diff --check` clean; full Vitest 186 files / 1,389 tests passed (2
-skipped); coverage above thresholds (statements 93.45%, branches 84%,
-functions 95.3%, lines 93.75%); production build green; the focused zoom
-and meeting-note e2e specs (smoke 9/9 including the zoom + mobile
-containment flow, ND-381 rich-text round trip) green, and the full
-Playwright suite green (58 passed / 1 skipped). Copilot's initial review
+and `git diff --check` clean; full Vitest 190 files / 1,398 tests passed (2
+files / 2 tests skipped); coverage above thresholds (statements 93.45%,
+branches 84%, functions 95.3%, lines 93.75%); production build green; the
+meeting-note rich-text and zoom flow green, and the full Playwright suite
+green (59 passed / 1 skipped). Copilot's initial review
 recommended approval and raised one maintainability comment: the zoom data
 attribute used locale-sensitive lowercasing. Commit 4e9da2b switched it to
 stable `toLowerCase()` tokens with regression assertions; the review reply

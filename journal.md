@@ -18,10 +18,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   journal; both the ND-426 history and mainline epic-guidance entry were kept.
 - Reconciled again after ND-382 landed on `origin/main` at a80a33a, preserving
   both task histories and advancing ND-426 to v0.64.0 over main's v0.63.0.
-- Post-merge validation: `git diff --check`, lint, RLS inventory, and release
-  policy clean; Vitest 186 files / 1,389 tests passed (2 skipped); coverage
-  93.45% statements, 84% branches, 95.3% functions, and 93.75% lines;
-  production build green; full Playwright 58 passed / 1 skipped.
+- Final post-merge validation: `git diff --check`, lint, RLS inventory, and
+  release policy clean; Vitest 190 files / 1,398 tests passed (2 files / 2
+  tests skipped); coverage 93.45% statements, 84% branches, 95.3% functions,
+  and 93.75% lines; production build green; full Playwright 59 passed / 1
+  skipped.
 
 # 2026-09-10 - ND-426: zoom controls nested inside the meeting-note sections (layout feedback round)
 
