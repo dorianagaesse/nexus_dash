@@ -3,6 +3,24 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-12 - ND-426 final layout feedback, main reconciliation, and Copilot review
+
+- Restored the pre-ND-426 visual structure for the editable Inputs and Outputs
+  areas by removing the temporary outer bordered section frames while keeping
+  the zoom controls anchored inside each rich-text field at the bottom right.
+  Reserved bottom padding prevents note content from sitting beneath the
+  controls; browser assertions verify each pill stays within its editor bounds.
+- Addressed Copilot's sole review comment in 4e9da2b: replaced
+  locale-sensitive `toLocaleLowerCase()` data-attribute tokens with stable
+  `toLowerCase()` values and added focused assertions for `inputs`/`outputs`.
+  Replied on PR #499 and resolved the review conversation.
+- Merged `origin/main` at d64dbb3 in 2f08cc6. The only conflict was this
+  journal; both the ND-426 history and mainline epic-guidance entry were kept.
+- Post-merge validation: `git diff --check`, lint, RLS inventory, and release
+  policy clean; Vitest 186 files / 1,389 tests passed (2 skipped); coverage
+  93.45% statements, 84% branches, 95.3% functions, and 93.75% lines;
+  production build green; full Playwright 58 passed / 1 skipped.
+
 # 2026-09-10 - ND-426: zoom controls nested inside the meeting-note sections (layout feedback round)
 
 - User feedback on PR #499's implementation: the zoom pills rendered outside

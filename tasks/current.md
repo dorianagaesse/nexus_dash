@@ -8,34 +8,31 @@ Delivered. Ready-for-review PR #499
 (https://github.com/dorianagaesse/nexus_dash/pull/499) is open from
 `feature/nd-426-zoomable-meeting-notes` in dedicated worktree
 `../nexus_dash_task426`, originally branched from `origin/main` at 2fbc228 and
-reconciled with current `origin/main` at 6426c1a (v0.62.0), with release
+reconciled with current `origin/main` at d64dbb3 (v0.62.0), with release
 metadata finalized at v0.63.0. The Nexus Dash card ND-426 is the source of
 truth and carries the `feature` label. No counterpart GitHub issue exists;
 the PR carries the ND-426 reference.
 
-Layout-feedback round (2026-09-10): the user reported that the zoom pills
-rendered outside the text areas for the preparation-dialog Inputs and the
-note-dialog Outputs (edit and read surfaces), while the note-dialog Inputs
-pill was well positioned. The two defective surfaces were reworked in
-bc0236d: each Inputs/Outputs body now lives in the same bordered
-`SectionBlock` framing the note-dialog Inputs reference already used, with
-the zoom pill in the section header row at the top right inside the frame
-and the rich-text editor/read box below it; the editors gained `ariaLabel`
-names as the label rows were absorbed into the section headers. Browser
-geometry probes confirmed the pills sit inside the section frames with the
-same insets as the reference Inputs block for prepare mode, the note-dialog
-Outputs editor, and the viewer read view, and the placement-agnostic zoom
-e2e (group roles, editor ids, CSS font sizes, 375px/landscape/dark
-containment) stayed green unchanged.
+Layout-feedback rounds (2026-09-10 through 2026-09-12): editable Inputs and
+Outputs now keep their zoom pills inside the rich-text field at the bottom
+right, with reserved content padding and browser geometry assertions. The
+temporary outer `SectionBlock` frames introduced during the first feedback
+round were removed from both editable surfaces, restoring their pre-ND-426
+label/editor presentation while preserving zoom. The existing read-only
+Inputs section remains unchanged; read-only Outputs keeps its zoom action in
+the label row because it has no editable field.
 
-Local validation passed (2026-09-10): lint, `rls:check`, `release:check`,
+Post-merge validation passed (2026-09-12): lint, `rls:check`, `release:check`,
 and `git diff --check` clean; full Vitest 186 files / 1,389 tests passed (2
 skipped); coverage above thresholds (statements 93.45%, branches 84%,
 functions 95.3%, lines 93.75%); production build green; the focused zoom
 and meeting-note e2e specs (smoke 9/9 including the zoom + mobile
 containment flow, ND-381 rich-text round trip) green, and the full
-Playwright suite green (58 passed / 1 skipped; the single nd-408 drag
-failure under parallel load passed 6/6 on re-run).
+Playwright suite green (58 passed / 1 skipped). Copilot's initial review
+recommended approval and raised one maintainability comment: the zoom data
+attribute used locale-sensitive lowercasing. Commit 4e9da2b switched it to
+stable `toLowerCase()` tokens with regression assertions; the review reply
+was posted and the sole conversation resolved.
 
 ## Context
 
@@ -48,11 +45,10 @@ surrounding application chrome or changing the stored content.
 
 - Inputs and Outputs receive separate inline zoom controls so readers can
   scale the two bodies independently while the dialog chrome stays stable.
-- Each note body — preparation Inputs and dialog Inputs/Outputs, in edit and
-  read surfaces alike — renders inside a bordered section whose header row
-  hosts the zoom pill at the top right of the frame, so the control stays
-  visually attached to the body it scales (the pill wraps below the title at
-  narrow widths instead of overflowing).
+- Editable Inputs and Outputs retain their pre-ND-426 label/editor styling,
+  with the zoom pill anchored inside the field at the bottom right and enough
+  bottom padding to prevent content overlap. Read-only note bodies retain
+  their established presentation and expose the corresponding zoom action.
 - Each control uses familiar zoom-out/percentage/zoom-in affordances, changes
   in 25% steps from 75% through 200%, exposes section-specific accessible
   names and a live percentage, and disables its boundary action.
