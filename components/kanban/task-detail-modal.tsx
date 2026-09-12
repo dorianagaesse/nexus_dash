@@ -1664,6 +1664,7 @@ function TaskReadOnlyContent({
                         hideMentionDiscriminator: true,
                         resolveDisplayUsers: false,
                         renderAgentMentions: true,
+                        preserveAgentMentionText: true,
                         mentionHighlightClassName:
                           MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
                       })

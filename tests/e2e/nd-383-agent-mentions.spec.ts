@@ -69,6 +69,13 @@ test.describe("ND-383 agent mentions in task comments", () => {
     const token = `@{${label}}`;
     await expect(commentInput).toHaveValue(`${token} `);
 
+    // The mirror chip reads like a human mention; the braces stay in the
+    // layout (invisible) so the caret keeps the textarea's metrics.
+    const composer = commentInput.locator("xpath=../..");
+    const mirror = composer.locator("div[aria-hidden='true']");
+    await expect(mirror.locator("span.invisible")).toHaveCount(2);
+    await expect(mirror.locator("span").first()).toContainText("@");
+
     const commentResponsePromise = page.waitForResponse(
       (response) =>
         response.url().includes("/comments") &&
@@ -86,7 +93,16 @@ test.describe("ND-383 agent mentions in task comments", () => {
 
     const commentBody = page.locator(`#task-comment-body-${comment?.id}`);
     await expect(commentBody).toBeVisible();
-    await expect(commentBody).toContainText(token);
+    await expect(commentBody).toContainText(`@${label}`);
+
+    // Agent chips expose the same hover card as human mentions.
+    const agentChip = commentBody.getByTitle(`${label} (Agent)`);
+    await expect(agentChip).toBeVisible();
+    await agentChip.hover();
+    const tooltip = page.getByRole("tooltip");
+    await expect(tooltip).toContainText(label);
+    await expect(tooltip).toContainText("Agent");
+    await expect(tooltip.locator("[data-agent-avatar='true']")).toBeVisible();
 
     const mentions = await prisma.taskCommentAgentMention.findMany({
       where: { commentId: comment?.id },
@@ -113,7 +129,7 @@ test.describe("ND-383 agent mentions in task comments", () => {
     await expect(reloadedCard).toBeVisible();
     await reloadedCard.click();
     await expect(page.locator(`#task-comment-body-${comment?.id}`)).toContainText(
-      token
+      `@${label}`
     );
     await expect(
       prisma.taskCommentAgentMention.count({

@@ -58,6 +58,18 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Mid-suite the local Docker Desktop engine crashed (environment resource
   pressure, not code); recovery was relaunching Docker Desktop and the
   postgres container before the re-runs.
+- Acceptance feedback (user review of PR #504): agent mentions in comments
+  must read like human mentions, not a bespoke `@{Label}` treatment. The
+  mention hover-card component now exposes one shared `MentionText` chip and
+  tooltip for both kinds — humans resolve a display user, agents build an
+  identity with the agent avatar and an `Agent` subtitle — and agent tokens
+  render brace-free (`@Release bot`) with the same highlight classes, hover
+  tooltip, and keyboard focus as humans. The composer mirror keeps the braced
+  token's text metrics via invisible brace spans so the caret stays aligned
+  with the textarea value; the stored token is unchanged. Re-validated:
+  lint, `rls:check`, full Vitest 195 files / 1,452 tests passed (2 skipped),
+  coverage above thresholds, build green, ND-383 journey green (now asserting
+  the hover tooltip and mirror metrics); full Playwright suite green.
 
 # 2026-09-12 - ND-179: Complete offboarding surface reconciliation
 

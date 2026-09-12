@@ -4,6 +4,9 @@ import React from "react";
 
 import {
   MentionText,
+  buildAgentMentionIdentity,
+  buildUserMentionIdentity,
+  resolveMentionDisplayUser,
   type MentionDisplayUser,
 } from "@/components/ui/mention-hover-card";
 import { parseAgentMentions, parseMentions } from "@/lib/mention";
@@ -38,6 +41,7 @@ export function renderContentWithMentions(
     preserveMentionText?: boolean;
     resolveDisplayUsers?: boolean;
     renderAgentMentions?: boolean;
+    preserveAgentMentionText?: boolean;
   }
 ): React.ReactNode {
   const { mentions } = parseMentions(content);
@@ -56,8 +60,6 @@ export function renderContentWithMentions(
     options?.mentionHighlightClassName ?? MENTION_HIGHLIGHT_CLASS;
   const mentionUsers = options?.resolveDisplayUsers === false ? undefined : options?.mentionUsers;
 
-  // Agent tokens render the raw `@{Label}` text so transparent composer
-  // mirrors keep exact text metrics with the underlying value.
   const items = [
     ...mentions.map((mention) => ({
       startIndex: mention.startIndex,
@@ -68,15 +70,18 @@ export function renderContentWithMentions(
         const mentionContent = options?.preserveMentionText
           ? mention.fullMatch
           : `@${mention.username}`;
+        const user = resolveMentionDisplayUser(
+          {
+            username: mention.username,
+            discriminator: mention.discriminator,
+          },
+          mentionUsers
+        );
 
         return (
           <>
             <MentionText
-              mention={{
-                username: mention.username,
-                discriminator: mention.discriminator,
-              }}
-              users={mentionUsers}
+              identity={user ? buildUserMentionIdentity(user) : null}
               className={highlightClass}
             >
               {mentionContent}
@@ -93,7 +98,36 @@ export function renderContentWithMentions(
     ...agentMentions.map((mention) => ({
       startIndex: mention.startIndex,
       endIndex: mention.endIndex,
-      render: () => <span className={highlightClass}>{mention.fullMatch}</span>,
+      render: () => {
+        const identity =
+          options?.resolveDisplayUsers === false
+            ? null
+            : buildAgentMentionIdentity(mention.label);
+
+        if (options?.preserveAgentMentionText) {
+          // Transparent textarea mirrors keep the braced token's text metrics
+          // with the underlying value; the braces stay invisible so the chip
+          // reads exactly like a human mention.
+          return (
+            <MentionText identity={identity} className={highlightClass}>
+              {"@"}
+              <span aria-hidden="true" className="invisible">
+                {"{"}
+              </span>
+              {mention.label}
+              <span aria-hidden="true" className="invisible">
+                {"}"}
+              </span>
+            </MentionText>
+          );
+        }
+
+        return (
+          <MentionText identity={identity} className={highlightClass}>
+            {`@${mention.label}`}
+          </MentionText>
+        );
+      },
     })),
   ].sort(
     (left, right) =>
