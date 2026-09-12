@@ -72,7 +72,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Onboarded from the live ND-383 card and implemented on
   `feature/nd-383-agent-mentions-tagged-events`, created from `origin/main` at
   a80a33a (v0.63.0, ND-382 agent pickers) and merged forward to 7612347
-  (v0.65.0, including ND-426 #499 and ND-179 #498); release target v0.66.0.
+  (v0.65.0, including ND-426 #499 and ND-179 #498); release target v0.66.0,
+  later moved to v0.67.0 when ND-384 shipped 0.66.0 first.
 - Agent mentions use a braced `@{Credential Label}` token. The comment
   composer's `@` picker (agent rows enabled only there) inserts the token and
   submits `agentMentionSelections`; the server re-derives each label through
@@ -131,8 +132,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Merged forward again to 0d6c9d9 (ND-384 #505), which overlapped in five
   files: the schema now carries ND-384's task actor columns plus the ND-383
   mention relations (prisma-format clean, validated), and the changelog, ADR,
-  and journal keep both entries. Both ND-383 and ND-384 record v0.66.0, so the
-  release entry lists both bullet sets.
+  and journal keep both entries. ND-384 shipped v0.66.0, so the branch bumped
+  to v0.67.0 (`release:version -- feature`) and moved its release notes to a
+  new `## v0.67.0` section.
 
 # 2026-09-12 - ND-179: Complete offboarding surface reconciliation
 

@@ -8,22 +8,8 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.66.0 - 2026-09-12
+## v0.67.0 - 2026-09-12
 
-- Active project agents (API credential identities) are now assignable to
-  tasks and meeting todos from every create and edit flow (ND-384). Assignment
-  persists the credential identity rather than its human owner and records who
-  assigned it and when.
-- Reassignment and unassignment append audit history for both tasks and
-  meeting todos, preserving the previous and next actor plus the assigning
-  actor, while task search matches agent labels so agent-assigned work stays
-  discoverable.
-- Revoked or expired credentials cannot receive new assignments. Existing
-  agent-assigned work keeps its durable identity snapshot and renders with the
-  amber needs-reassignment state until it is reassigned to a human or active
-  agent.
-- Assignment never grants additional project or API permissions, and human and
-  external-participant assignment behavior is unchanged.
 - Added agent mentions to task comments (ND-383). Selecting an agent in the
   comment `@` picker inserts an unambiguous `@{Credential Label}` token;
   human `@username` mention behavior is unchanged.
@@ -45,6 +31,23 @@ SHA, deployment URL, and workflow run belong in release evidence.
   same avatar-and-name hover card — by sharing the mention chip component;
   the stored `@{Label}` token remains the wire format and is hidden in the
   display layer.
+
+## v0.66.0 - 2026-09-12
+
+- Active project agents (API credential identities) are now assignable to
+  tasks and meeting todos from every create and edit flow (ND-384). Assignment
+  persists the credential identity rather than its human owner and records who
+  assigned it and when.
+- Reassignment and unassignment append audit history for both tasks and
+  meeting todos, preserving the previous and next actor plus the assigning
+  actor, while task search matches agent labels so agent-assigned work stays
+  discoverable.
+- Revoked or expired credentials cannot receive new assignments. Existing
+  agent-assigned work keeps its durable identity snapshot and renders with the
+  amber needs-reassignment state until it is reassigned to a human or active
+  agent.
+- Assignment never grants additional project or API permissions, and human and
+  external-participant assignment behavior is unchanged.
 
 ## v0.65.0 - 2026-09-12
 
