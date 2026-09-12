@@ -44,7 +44,9 @@ update `tasks/current.md` before implementation.
   implementation begins (`POST /api/projects/{projectId}/tasks/{taskId}/status`
   with `{"status": "In Progress"}`).
 - Never move a card to Done. Done is set by the reviewer/PR merger when the
-  work is accepted — not by the implementing agent.
+  work is accepted — not by the implementing agent. This rule governs agent
+  work on this repository's board and supersedes conflicting wording elsewhere
+  (e.g. older stored task briefs or the generated agent-onboarding quickstart).
 - When the work is complete, add a card comment only when there is something
   relevant to hand over (decisions, validation evidence, blockers, follow-ups).
   Write plain English, short and straight to the point — one topic per
@@ -68,7 +70,7 @@ a duplicate. A new task must be independently understandable and executable:
 - Start the description with a clear `Rationale:` that explains the user or
   engineering problem and why the work matters.
 - State the intended scope briefly and add testable `Acceptance Criteria:`.
-  Add an explicit `Definition Of Done:` only when the delivery or validation
+  Add an explicit `Definition Of Done:` when the delivery or validation
   contract needs clarification beyond the acceptance criteria.
 - Add at least one canonical work-type label: `feature`, `fix`, `docs`,
   `refactor`, or `chore`. Use any additional priority or program labels only
