@@ -27,6 +27,7 @@ import type {
   KanbanTask,
   ProjectTaskCollaborator,
 } from "@/components/kanban-board-types";
+import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -554,16 +555,52 @@ function KanbanColumn({
                         ) : null}
 
                         {task.assignee ? (
-                          <div className="mt-3 flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-2 py-1 text-xs text-muted-foreground">
-                            <UserAvatar
-                              avatarSeed={task.assignee.avatarSeed}
-                              displayName={task.assignee.displayName}
-                              className="h-5 w-5 border-border/70"
-                              decorative
-                            />
+                          <div
+                            className={cn(
+                              "mt-3 flex items-center gap-2 rounded-full border px-2 py-1 text-xs",
+                              task.assignee.isAssignable
+                                ? "border-border/60 bg-background/70 text-muted-foreground"
+                                : "border-amber-500/45 bg-amber-500/[0.08] text-amber-700 dark:text-amber-300"
+                            )}
+                            title={
+                              task.assignee.usernameTag ?? task.assignee.displayName
+                            }
+                          >
+                            {task.assignee.kind === "agent" ? (
+                              <AgentAvatar
+                                displayName={task.assignee.displayName}
+                                className="h-5 w-5"
+                                decorative
+                              />
+                            ) : task.assignee.avatarSeed ? (
+                              <UserAvatar
+                                avatarSeed={task.assignee.avatarSeed}
+                                displayName={task.assignee.displayName}
+                                className="h-5 w-5 border-border/70"
+                                decorative
+                              />
+                            ) : (
+                              <span
+                                aria-hidden
+                                className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border/60 bg-primary/10 text-[10px] font-semibold text-primary"
+                              >
+                                {task.assignee.displayName.trim().charAt(0).toUpperCase() || "?"}
+                              </span>
+                            )}
                             <span className="truncate">
                               {task.assignee.displayName}
                             </span>
+                            {task.assignee.kind === "agent" ? (
+                              <span className="shrink-0 text-[10px] text-muted-foreground">
+                                agent
+                              </span>
+                            ) : null}
+                            {!task.assignee.isAssignable ? (
+                              <TriangleAlert
+                                aria-label="Needs reassignment"
+                                className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-300"
+                              />
+                            ) : null}
                           </div>
                         ) : null}
 

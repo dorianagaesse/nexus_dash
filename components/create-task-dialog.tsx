@@ -39,7 +39,7 @@ import {
 } from "@/lib/task-attachment";
 import { uploadFilesDirectInBackground } from "@/lib/direct-upload-client";
 import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
-import type { ProjectActorSummary } from "@/lib/project-actor";
+import type { ProjectActorReference, ProjectActorSummary } from "@/lib/project-actor";
 import {
   MAX_TASK_TITLE_LENGTH,
   TASK_TITLE_LIMIT_HINT_THRESHOLD,
@@ -89,7 +89,7 @@ export function CreateTaskDialog({
   const [description, setDescription] = useState("");
   const [deadlineDate, setDeadlineDate] = useState("");
   const [epicId, setEpicId] = useState("");
-  const [assigneeUserId, setAssigneeUserId] = useState("");
+  const [assignee, setAssignee] = useState<ProjectActorReference | null>(null);
   const [labels, setLabels] = useState<string[]>([]);
   const [labelInput, setLabelInput] = useState("");
   const [relatedTaskSearch, setRelatedTaskSearch] = useState("");
@@ -125,7 +125,7 @@ export function CreateTaskDialog({
     setDescription("");
     setDeadlineDate("");
     setEpicId("");
-    setAssigneeUserId("");
+    setAssignee(null);
     setLabels([]);
     setLabelInput("");
     setRelatedTaskSearch("");
@@ -164,7 +164,7 @@ export function CreateTaskDialog({
       case "epic-invalid":
         return "Epic must belong to this project.";
       case "assignee-invalid":
-        return "Assignee must be a current collaborator on this project.";
+        return "Assignee must be an active project member or agent credential.";
       case "attachment-file-too-large":
         return attachmentFileSizeErrorMessage;
       case "attachment-file-type-invalid":
@@ -221,7 +221,7 @@ export function CreateTaskDialog({
         description: description.trim() || null,
         deadlineDate: deadlineDate.trim() || null,
         epicId: epicId.trim() || null,
-        assigneeUserId: assigneeUserId.trim() || null,
+        assignee,
         relatedTaskIds,
         attachmentLinks,
       }) ?? null;
@@ -597,12 +597,21 @@ export function CreateTaskDialog({
                         </label>
                         <AssigneeSelect
                           id="task-assignee"
-                          name="assigneeUserId"
-                          value={assigneeUserId}
-                          onChange={setAssigneeUserId}
+                          value={assignee}
+                          onChange={setAssignee}
                           options={availableAssignees}
                           agentOptions={availableAgentOptions}
                           className={FORM_FOCUS_BORDER_CLASS}
+                        />
+                        <input
+                          type="hidden"
+                          name="assigneeKind"
+                          value={assignee?.kind ?? ""}
+                        />
+                        <input
+                          type="hidden"
+                          name="assigneeId"
+                          value={assignee?.id ?? ""}
                         />
                         <p className="text-xs text-muted-foreground">
                           Optional. Leave unassigned until ownership is clear.

@@ -13,6 +13,7 @@ import {
   type MeetingTodoActorReference,
   type MeetingTodoActorSummary,
 } from "@/lib/meeting-todo-actor";
+import { type ProjectActorKind } from "@/lib/project-actor";
 import { coerceRichTextHtml, richTextToPlainText } from "@/lib/rich-text";
 import { touchProjectActivity } from "@/lib/services/project-activity-service";
 import {
@@ -33,6 +34,7 @@ import {
   type MeetingTodoActorResolution,
   type ResolvedMeetingTodoActorPersistence,
 } from "@/lib/services/project-meeting-todo-actor-service";
+import { type ResolvedProjectActorPersistence } from "@/lib/services/project-actor-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 import {
   normalizeTaskLabels,
@@ -137,6 +139,8 @@ export interface ProjectMeetingNoteActionSummary {
   position: number;
   creator: MeetingTodoActorSummary | null;
   assignee: MeetingTodoActorSummary | null;
+  assignedBy: MeetingTodoActorSummary | null;
+  assignedAt: Date | null;
   completedBy: MeetingTodoActorSummary | null;
 }
 
@@ -171,6 +175,13 @@ type MeetingTodoStoredActorFields = {
   assigneeDisplayNameSnapshot: string | null;
   assigneeUser: TaskPersonRecord | null;
   assigneeCredential: MeetingTodoActorCredentialRecord | null;
+  assignedByKind: ProjectActorKind | null;
+  assignedByUserId: string | null;
+  assignedByCredentialId: string | null;
+  assignedByDisplayNameSnapshot: string | null;
+  assignedAt: Date | null;
+  assignedByUser: TaskPersonRecord | null;
+  assignedByCredential: MeetingTodoActorCredentialRecord | null;
   completedByUserId: string | null;
   completedByCredentialId: string | null;
   completedByKind: MeetingTodoActorKind | null;
@@ -218,6 +229,8 @@ const meetingTodoActionActorInclude = {
   createdByCredential: { select: meetingTodoActorCredentialSelect },
   assigneeUser: { select: meetingTodoActorUserSelect },
   assigneeCredential: { select: meetingTodoActorCredentialSelect },
+  assignedByUser: { select: meetingTodoActorUserSelect },
+  assignedByCredential: { select: meetingTodoActorCredentialSelect },
   completedByUser: { select: meetingTodoActorUserSelect },
   completedByCredential: { select: meetingTodoActorCredentialSelect },
 } as const;
@@ -616,6 +629,16 @@ function mapMeetingNote(
           registry,
           noteExternalParticipantNameKeys,
         }),
+        assignedBy: mapActionActor({
+          kind: action.assignedByKind,
+          userId: action.assignedByUserId,
+          credentialId: action.assignedByCredentialId,
+          snapshot: action.assignedByDisplayNameSnapshot,
+          user: action.assignedByUser,
+          credential: action.assignedByCredential,
+          registry,
+        }),
+        assignedAt: action.assignedAt,
         completedBy: mapActionActor({
           kind: action.completedByKind,
           userId: action.completedByUserId,
@@ -759,6 +782,129 @@ function buildDraft(input: MeetingNoteMutationInput) {
 
 type NormalizedMeetingAction = ReturnType<typeof normalizeActionInputs>[number];
 
+type MeetingActionAssigneeFields = {
+  assigneeKind: MeetingTodoActorKind | null;
+  assigneeUserId: string | null;
+  assigneeCredentialId: string | null;
+  assigneeDisplayNameSnapshot: string | null;
+};
+
+function buildMeetingActionAssigneeMatchKey(
+  fields: MeetingActionAssigneeFields
+): string | null {
+  if (!fields.assigneeKind) {
+    return null;
+  }
+  if (fields.assigneeKind === "human") {
+    return fields.assigneeUserId ? `human:${fields.assigneeUserId}` : null;
+  }
+  if (fields.assigneeKind === "agent") {
+    return fields.assigneeCredentialId
+      ? `agent:${fields.assigneeCredentialId}`
+      : null;
+  }
+  const snapshot = fields.assigneeDisplayNameSnapshot?.trim() ?? "";
+  return snapshot
+    ? `participant:${getMeetingTodoParticipantNameKey(snapshot)}`
+    : null;
+}
+
+function isSameStoredMeetingActionAssignee(input: {
+  existing: MeetingActionAssigneeFields;
+  next: MeetingActionAssigneeFields | null;
+}): boolean {
+  return (
+    buildMeetingActionAssigneeMatchKey(input.existing) ===
+    (input.next ? buildMeetingActionAssigneeMatchKey(input.next) : null)
+  );
+}
+
+interface MeetingActionAssignmentProvenance {
+  kind: ProjectActorKind;
+  userId: string | null;
+  credentialId: string | null;
+  displayNameSnapshot: string;
+  assignedAt: Date;
+}
+
+function buildMeetingActionAssignmentProvenanceData(
+  provenance: MeetingActionAssignmentProvenance | null
+) {
+  return {
+    assignedByKind: provenance?.kind ?? null,
+    assignedByUserId: provenance?.userId ?? null,
+    assignedByCredentialId: provenance?.credentialId ?? null,
+    assignedByDisplayNameSnapshot: provenance?.displayNameSnapshot ?? null,
+    assignedAt: provenance?.assignedAt ?? null,
+  };
+}
+
+function buildMeetingActionAssigneeChangeData(input: {
+  actionId: string;
+  previous: MeetingActionAssigneeFields | null;
+  next: MeetingActionAssigneeFields | null;
+  changedBy: ResolvedProjectActorPersistence;
+  changedAt: Date;
+}) {
+  return {
+    actionId: input.actionId,
+    previousAssigneeKind: input.previous?.assigneeKind ?? null,
+    previousAssigneeUserId: input.previous?.assigneeUserId ?? null,
+    previousAssigneeCredentialId:
+      input.previous?.assigneeCredentialId ?? null,
+    previousAssigneeDisplayNameSnapshot:
+      input.previous?.assigneeDisplayNameSnapshot ?? null,
+    nextAssigneeKind: input.next?.assigneeKind ?? null,
+    nextAssigneeUserId: input.next?.assigneeUserId ?? null,
+    nextAssigneeCredentialId: input.next?.assigneeCredentialId ?? null,
+    nextAssigneeDisplayNameSnapshot:
+      input.next?.assigneeDisplayNameSnapshot ?? null,
+    changedByKind: input.changedBy.summary.kind,
+    changedByUserId: input.changedBy.userId,
+    changedByCredentialId: input.changedBy.credentialId,
+    changedByDisplayNameSnapshot: input.changedBy.displayNameSnapshot,
+    createdAt: input.changedAt,
+  };
+}
+
+// Newly created actions are matched back to their assignment by position,
+// which is unique within a note.
+async function recordMeetingActionAssigneeChanges(input: {
+  db: DbClient;
+  noteId: string;
+  changes: Array<{ position: number; next: MeetingActionAssigneeFields }>;
+  changedBy: ResolvedProjectActorPersistence;
+  changedAt: Date;
+}): Promise<void> {
+  if (input.changes.length === 0) {
+    return;
+  }
+
+  const createdActions = await input.db.projectMeetingNoteAction.findMany({
+    where: { meetingNoteId: input.noteId },
+    select: { id: true, position: true },
+  });
+  const actionIdByPosition = new Map(
+    createdActions.map((action) => [action.position, action.id])
+  );
+
+  for (const change of input.changes) {
+    const actionId = actionIdByPosition.get(change.position);
+    if (!actionId) {
+      continue;
+    }
+    await input.db.projectMeetingNoteActionAssigneeChange.create({
+      data: buildMeetingActionAssigneeChangeData({
+        actionId,
+        previous: null,
+        next: change.next,
+        changedBy: input.changedBy,
+        changedAt: input.changedAt,
+      }),
+    });
+  }
+}
+
 function resolveDraftActionAssignees(input: {
   actions: NormalizedMeetingAction[];
   registry: MeetingTodoActorRegistry | null;
@@ -766,20 +912,10 @@ function resolveDraftActionAssignees(input: {
 }):
   | {
       ok: true;
-      assignments: Array<{
-        assigneeKind: MeetingTodoActorKind | null;
-        assigneeUserId: string | null;
-        assigneeCredentialId: string | null;
-        assigneeDisplayNameSnapshot: string | null;
-      } | undefined>;
+      assignments: Array<MeetingActionAssigneeFields | undefined>;
     }
   | ServiceErrorResult {
-  const assignments: Array<{
-    assigneeKind: MeetingTodoActorKind | null;
-    assigneeUserId: string | null;
-    assigneeCredentialId: string | null;
-    assigneeDisplayNameSnapshot: string | null;
-  } | undefined> = [];
+  const assignments: Array<MeetingActionAssigneeFields | undefined> = [];
 
   for (const action of input.actions) {
     if (action.assignee === undefined) {
@@ -1068,6 +1204,19 @@ export async function createProjectMeetingNote(
         return assignmentResolution;
       }
 
+      const assignedAt = new Date();
+      const assignmentProvenance: MeetingActionAssignmentProvenance = {
+        kind: mutationActor.actor.summary.kind,
+        userId: mutationActor.actor.userId,
+        credentialId: mutationActor.actor.credentialId,
+        displayNameSnapshot: mutationActor.actor.displayNameSnapshot,
+        assignedAt,
+      };
+      const pendingCreationChanges: Array<{
+        position: number;
+        next: MeetingActionAssigneeFields;
+      }> = [];
+
       const created = await db.projectMeetingNote.create({
         data: {
           projectId: input.projectId,
@@ -1088,30 +1237,55 @@ export async function createProjectMeetingNote(
           stewardKind: mutationActor.actor.summary.kind,
           stewardDisplayNameSnapshot: mutationActor.actor.displayNameSnapshot,
           actions: {
-            create: draft.actions.map((action, index) => ({
-              content: action.content,
-              completedAt: action.completedAt,
-              position: action.position,
-              ...buildCreatorPersistence(mutationActor.actor),
-              ...(assignmentResolution.assignments[index] ?? {
-                assigneeKind: null,
-                assigneeUserId: null,
-                assigneeCredentialId: null,
-                assigneeDisplayNameSnapshot: null,
-              }),
-              ...(action.completedAt
-                ? {
-                    completedByKind: mutationActor.actor.summary.kind,
-                    completedByUserId: mutationActor.actor.userId,
-                    completedByCredentialId: mutationActor.actor.credentialId,
-                    completedByDisplayNameSnapshot:
-                      mutationActor.actor.displayNameSnapshot,
-                  }
-                : {}),
-            })),
+            create: draft.actions.map((action, index) => {
+              const assignment = assignmentResolution.assignments[index];
+              const assignmentFields: MeetingActionAssigneeFields =
+                assignment ?? {
+                  assigneeKind: null,
+                  assigneeUserId: null,
+                  assigneeCredentialId: null,
+                  assigneeDisplayNameSnapshot: null,
+                };
+              const assigned = Boolean(assignment?.assigneeKind);
+              if (assigned && assignment) {
+                pendingCreationChanges.push({
+                  position: action.position,
+                  next: assignment,
+                });
+              }
+              return {
+                content: action.content,
+                completedAt: action.completedAt,
+                position: action.position,
+                ...buildCreatorPersistence(mutationActor.actor),
+                ...assignmentFields,
+                ...(assigned
+                  ? buildMeetingActionAssignmentProvenanceData(
+                      assignmentProvenance
+                    )
+                  : {}),
+                ...(action.completedAt
+                  ? {
+                      completedByKind: mutationActor.actor.summary.kind,
+                      completedByUserId: mutationActor.actor.userId,
+                      completedByCredentialId: mutationActor.actor.credentialId,
+                      completedByDisplayNameSnapshot:
+                        mutationActor.actor.displayNameSnapshot,
+                    }
+                  : {}),
+              };
+            }),
           },
         },
         select: { id: true },
+      });
+
+      await recordMeetingActionAssigneeChanges({
+        db,
+        noteId: created.id,
+        changes: pendingCreationChanges,
+        changedBy: mutationActor.actor,
+        changedAt: assignedAt,
       });
 
       const note = await readMeetingNoteById({
@@ -1186,12 +1360,23 @@ export async function updateProjectMeetingNote(
       },
       select: {
         id: true,
-        actions: { select: { id: true } },
+        actions: {
+          select: {
+            id: true,
+            assigneeKind: true,
+            assigneeUserId: true,
+            assigneeCredentialId: true,
+            assigneeDisplayNameSnapshot: true,
+          },
+        },
       },
     });
     if (!existing) {
       return createError(404, "meeting-note-not-found");
     }
+    const existingActionById = new Map(
+      existing.actions.map((action) => [action.id, action])
+    );
 
     try {
       const [participantResolution, mutationActor, actorRegistry] =
@@ -1232,11 +1417,48 @@ export async function updateProjectMeetingNote(
         return createError(400, "meeting-note-action-invalid");
       }
 
+      const assignedAt = new Date();
+      const assignmentProvenance: MeetingActionAssignmentProvenance = {
+        kind: mutationActor.actor.summary.kind,
+        userId: mutationActor.actor.userId,
+        credentialId: mutationActor.actor.credentialId,
+        displayNameSnapshot: mutationActor.actor.displayNameSnapshot,
+        assignedAt,
+      };
+      const pendingRetainedChanges: Array<
+        ReturnType<typeof buildMeetingActionAssigneeChangeData>
+      > = [];
+      const pendingCreationChanges: Array<{
+        position: number;
+        next: MeetingActionAssigneeFields;
+      }> = [];
+
       const updates = draft.actions.flatMap((action, index) => {
         if (!action.id) {
           return [];
         }
         const assignment = assignmentResolution.assignments[index];
+        const existingAction = existingActionById.get(action.id);
+        const assignmentChanged =
+          assignment !== undefined &&
+          existingAction !== undefined &&
+          !isSameStoredMeetingActionAssignee({
+            existing: existingAction,
+            next: assignment,
+          });
+
+        if (assignmentChanged && existingAction && assignment) {
+          pendingRetainedChanges.push(
+            buildMeetingActionAssigneeChangeData({
+              actionId: action.id,
+              previous: existingAction,
+              next: assignment,
+              changedBy: mutationActor.actor,
+              changedAt: assignedAt,
+            })
+          );
+        }
+
         return [
           {
             where: { id: action.id },
@@ -1244,6 +1466,11 @@ export async function updateProjectMeetingNote(
               content: action.content,
               position: action.position,
               ...(assignment ?? {}),
+              ...(assignmentChanged
+                ? buildMeetingActionAssignmentProvenanceData(
+                    assignmentProvenance
+                  )
+                : {}),
             },
           },
         ];
@@ -1252,18 +1479,32 @@ export async function updateProjectMeetingNote(
         if (action.id) {
           return [];
         }
+        const assignment = assignmentResolution.assignments[index];
+        const assignmentFields: MeetingActionAssigneeFields = assignment ?? {
+          assigneeKind: null,
+          assigneeUserId: null,
+          assigneeCredentialId: null,
+          assigneeDisplayNameSnapshot: null,
+        };
+        const assigned = Boolean(assignment?.assigneeKind);
+        if (assigned && assignment) {
+          pendingCreationChanges.push({
+            position: action.position,
+            next: assignment,
+          });
+        }
         return [
           {
             content: action.content,
             completedAt: action.completedAt,
             position: action.position,
             ...buildCreatorPersistence(mutationActor.actor),
-            ...(assignmentResolution.assignments[index] ?? {
-              assigneeKind: null,
-              assigneeUserId: null,
-              assigneeCredentialId: null,
-              assigneeDisplayNameSnapshot: null,
-            }),
+            ...assignmentFields,
+            ...(assigned
+              ? buildMeetingActionAssignmentProvenanceData(
+                  assignmentProvenance
+                )
+              : {}),
             ...(action.completedAt
               ? {
                   completedByKind: mutationActor.actor.summary.kind,
@@ -1301,6 +1542,19 @@ export async function updateProjectMeetingNote(
             create: creates,
           },
         },
+      });
+
+      for (const change of pendingRetainedChanges) {
+        await db.projectMeetingNoteActionAssigneeChange.create({
+          data: change,
+        });
+      }
+      await recordMeetingActionAssigneeChanges({
+        db,
+        noteId,
+        changes: pendingCreationChanges,
+        changedBy: mutationActor.actor,
+        changedAt: assignedAt,
       });
 
       const note = await readMeetingNoteById({
@@ -1487,7 +1741,13 @@ export async function setProjectMeetingNoteActionAssignee(
         meetingNoteId: noteId,
         meetingNote: { projectId: input.projectId },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        assigneeKind: true,
+        assigneeUserId: true,
+        assigneeCredentialId: true,
+        assigneeDisplayNameSnapshot: true,
+      },
     });
     if (!action) {
       return createError(404, "meeting-note-action-not-found");
@@ -1529,23 +1789,69 @@ export async function setProjectMeetingNoteActionAssignee(
       return createError(assignment.status, assignment.error);
     }
 
+    const nextAssigneeFields: MeetingActionAssigneeFields | null = assignment
+      ? {
+          assigneeKind: assignment.actor.summary.kind,
+          assigneeUserId: assignment.actor.userId,
+          assigneeCredentialId: assignment.actor.credentialId,
+          assigneeDisplayNameSnapshot: assignment.actor.displayNameSnapshot,
+        }
+      : null;
+    const assignmentChanged = !isSameStoredMeetingActionAssignee({
+      existing: action,
+      next: nextAssigneeFields,
+    });
+
+    let provenanceData: ReturnType<
+      typeof buildMeetingActionAssignmentProvenanceData
+    > | null = null;
+    let pendingChange: ReturnType<
+      typeof buildMeetingActionAssigneeChangeData
+    > | null = null;
+    if (assignmentChanged) {
+      const mutationActor = await resolveMeetingTodoMutationActor({
+        db,
+        actorUserId,
+        projectId: input.projectId,
+        agentAccess: input.agentAccess,
+      });
+      if (!mutationActor.ok) {
+        return createError(mutationActor.status, mutationActor.error);
+      }
+      const assignedAt = new Date();
+      provenanceData = buildMeetingActionAssignmentProvenanceData({
+        kind: mutationActor.actor.summary.kind,
+        userId: mutationActor.actor.userId,
+        credentialId: mutationActor.actor.credentialId,
+        displayNameSnapshot: mutationActor.actor.displayNameSnapshot,
+        assignedAt,
+      });
+      pendingChange = buildMeetingActionAssigneeChangeData({
+        actionId,
+        previous: action,
+        next: nextAssigneeFields,
+        changedBy: mutationActor.actor,
+        changedAt: assignedAt,
+      });
+    }
+
     try {
       await db.projectMeetingNoteAction.update({
         where: { id: actionId },
-        data: assignment
-          ? {
-              assigneeKind: assignment.actor.summary.kind,
-              assigneeUserId: assignment.actor.userId,
-              assigneeCredentialId: assignment.actor.credentialId,
-              assigneeDisplayNameSnapshot: assignment.actor.displayNameSnapshot,
-            }
-          : {
-              assigneeKind: null,
-              assigneeUserId: null,
-              assigneeCredentialId: null,
-              assigneeDisplayNameSnapshot: null,
-            },
+        data: {
+          assigneeKind: nextAssigneeFields?.assigneeKind ?? null,
+          assigneeUserId: nextAssigneeFields?.assigneeUserId ?? null,
+          assigneeCredentialId: nextAssigneeFields?.assigneeCredentialId ?? null,
+          assigneeDisplayNameSnapshot:
+            nextAssigneeFields?.assigneeDisplayNameSnapshot ?? null,
+          ...(provenanceData ?? {}),
+        },
       });
+      if (pendingChange) {
+        await db.projectMeetingNoteActionAssigneeChange.create({
+          data: pendingChange,
+        });
+      }
       await db.projectMeetingNote.update({
         where: { id: noteId },
         data: { updatedByUserId: actorUserId },

@@ -105,6 +105,7 @@ function serializeMeetingNote(note: ProjectMeetingNoteSummary) {
     actions: note.actions.map((action) => ({
       ...action,
       completedAt: action.completedAt?.toISOString() ?? null,
+      assignedAt: action.assignedAt?.toISOString() ?? null,
     })),
   };
 }

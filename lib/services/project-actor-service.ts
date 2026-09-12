@@ -199,6 +199,43 @@ export function mapStoredProjectActor(
   };
 }
 
+// Stored actor rows resolve against the registry so project members without
+// ApiCredential read access still get live credential status; registry misses
+// fall back to the durable snapshot with a non-assignable status.
+export function mapStoredProjectActorFromRegistry(
+  input: {
+    kind: "human" | "agent";
+    id: string | null;
+    displayNameSnapshot: string | null;
+    user?: TaskPersonRecord | null;
+    registry: ProjectActorRegistry | null;
+  },
+  humanIdentityInvalidError = "project-actor-human-identity-invalid"
+): ProjectActorSummary | null {
+  if (input.kind === "agent") {
+    const credentialSummary = input.id
+      ? input.registry?.credentialById.get(input.id) ?? null
+      : null;
+    if (credentialSummary) {
+      return credentialSummary;
+    }
+  }
+
+  return mapStoredProjectActor(
+    {
+      kind: input.kind,
+      id: input.id,
+      displayNameSnapshot: input.displayNameSnapshot,
+      user: input.user,
+      credential: null,
+      isCurrentProjectHuman: Boolean(
+        input.id && input.registry?.activeHumanIds.has(input.id)
+      ),
+    },
+    humanIdentityInvalidError
+  );
+}
+
 export function buildProjectActorRegistry(input: {
   humans: TaskPersonRecord[];
   credentials: ProjectActorCredentialRecord[];
@@ -272,15 +309,29 @@ export async function loadProjectActorRegistry(input: {
   });
 }
 
-export async function listAssignableProjectActors(input: {
+export async function loadProjectActorRegistryForActor(input: {
   actorUserId: string;
   projectId: string;
-}): Promise<ProjectActorSummary[]> {
-  return listProjectActors({
-    actorUserId: input.actorUserId,
-    projectId: input.projectId,
-    loadRegistry: ({ db, projectId }) =>
-      loadProjectActorRegistry({ db, projectId }),
+}): Promise<ProjectActorRegistry | null> {
+  const actorUserId = normalizeIdentifier(input.actorUserId);
+  const projectId = normalizeIdentifier(input.projectId);
+  if (!actorUserId || !projectId) {
+    return null;
+  }
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const project = await db.project.findFirst({
+      where: {
+        id: projectId,
+        ...buildProjectPrincipalWhere(actorUserId),
+      },
+      select: { id: true },
+    });
+    if (!project) {
+      return null;
+    }
+
+    return loadProjectActorRegistry({ db, projectId });
   });
 }
 

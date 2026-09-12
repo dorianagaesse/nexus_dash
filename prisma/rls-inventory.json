@@ -79,6 +79,13 @@
       "rationale": "Tenant ownership is inherited through ProjectMeetingNote."
     },
     {
+      "model": "ProjectMeetingNoteActionAssigneeChange",
+      "classification": "indirect-project-derived",
+      "enforcement": "rls",
+      "owner": "project meeting note service",
+      "rationale": "Append-only meeting-todo assignment history; tenant ownership is inherited through ProjectMeetingNoteAction."
+    },
+    {
       "model": "ProjectMeetingNoteParticipant",
       "classification": "indirect-project-derived",
       "enforcement": "rls",
@@ -210,6 +217,13 @@
       "enforcement": "rls",
       "owner": "project task service",
       "rationale": "Tenant ownership is inherited through Task."
+    },
+    {
+      "model": "TaskAssigneeChange",
+      "classification": "indirect-project-derived",
+      "enforcement": "rls",
+      "owner": "project task service",
+      "rationale": "Append-only task assignment history; tenant ownership is inherited through Task."
     },
     {
       "model": "CalendarConnection",

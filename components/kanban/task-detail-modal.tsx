@@ -21,6 +21,7 @@ import {
 
 import {
   type KanbanTask,
+  type TaskAssigneeSummary,
   type TaskComment,
   type TaskCommentAgentMentionSelection,
   type TaskCommentMentionSelection,
@@ -78,7 +79,11 @@ import {
   MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
 } from "@/lib/content-with-mentions";
 import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
-import type { ProjectActorSummary } from "@/lib/project-actor";
+import {
+  getProjectActorKey,
+  type ProjectActorReference,
+  type ProjectActorSummary,
+} from "@/lib/project-actor";
 import {
   hasAgentMentionToken,
   parseMentions,
@@ -118,7 +123,7 @@ interface TaskDetailModalProps {
   editDescription: string;
   editDeadlineDate: string;
   editEpicId: string;
-  editAssigneeUserId: string;
+  editAssignee: ProjectActorReference | null;
   editRelatedTasks: KanbanTask["relatedTasks"];
   relatedTaskSearch: string;
   newBlockedFollowUpEntry: string;
@@ -149,7 +154,7 @@ interface TaskDetailModalProps {
   onEditDescriptionChange: (value: string) => void;
   onEditDeadlineDateChange: (value: string) => void;
   onEditEpicIdChange: (value: string) => void;
-  onEditAssigneeUserIdChange: (value: string) => void;
+  onEditAssigneeChange: (value: ProjectActorReference | null) => void;
   onRelatedTaskSearchChange: (value: string) => void;
   onAddRelatedTask: (taskId: string) => void;
   onRemoveRelatedTask: (taskId: string) => void;
@@ -163,7 +168,7 @@ interface TaskDetailModalProps {
   onAddBlockedFollowUpEntry: () => void | Promise<void>;
   onSaveTask: () => void | Promise<void>;
   onQuickEpicChange: (value: string) => void | Promise<void>;
-  onQuickAssigneeChange: (value: string) => void | Promise<void>;
+  onQuickAssigneeChange: (value: ProjectActorReference | null) => void | Promise<void>;
   onToggleLinkComposer: () => void;
   onLinkUrlChange: (value: string) => void;
   onAddLinkAttachment: () => void | Promise<void>;
@@ -194,7 +199,7 @@ export function TaskDetailModal({
   editDescription,
   editDeadlineDate,
   editEpicId,
-  editAssigneeUserId,
+  editAssignee,
   editRelatedTasks,
   relatedTaskSearch,
   newBlockedFollowUpEntry,
@@ -225,7 +230,7 @@ export function TaskDetailModal({
   onEditDescriptionChange,
   onEditDeadlineDateChange,
   onEditEpicIdChange,
-  onEditAssigneeUserIdChange,
+  onEditAssigneeChange,
   onRelatedTaskSearchChange,
   onAddRelatedTask,
   onRemoveRelatedTask,
@@ -502,7 +507,7 @@ export function TaskDetailModal({
                   editDescription={editDescription}
                   editDeadlineDate={editDeadlineDate}
                   editEpicId={editEpicId}
-                  editAssigneeUserId={editAssigneeUserId}
+                  editAssignee={editAssignee}
                   editRelatedTasks={editRelatedTasks}
                   relatedTaskSearch={relatedTaskSearch}
                   newBlockedFollowUpEntry={newBlockedFollowUpEntry}
@@ -522,7 +527,7 @@ export function TaskDetailModal({
                   onEditDescriptionChange={onEditDescriptionChange}
                   onEditDeadlineDateChange={onEditDeadlineDateChange}
                   onEditEpicIdChange={onEditEpicIdChange}
-                  onEditAssigneeUserIdChange={onEditAssigneeUserIdChange}
+                  onEditAssigneeChange={onEditAssigneeChange}
                   onRelatedTaskSearchChange={onRelatedTaskSearchChange}
                   onAddRelatedTask={onAddRelatedTask}
                   onRemoveRelatedTask={onRemoveRelatedTask}
@@ -702,7 +707,42 @@ function TaskEpicBadge({
   );
 }
 
-function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null }) {
+function TaskAssigneeAvatar({
+  assignee,
+  className,
+}: {
+  assignee: TaskAssigneeSummary;
+  className?: string;
+}) {
+  if (assignee.kind === "agent") {
+    return <AgentAvatar displayName={assignee.displayName} className={className} decorative />;
+  }
+  if (assignee.avatarSeed) {
+    return (
+      <UserAvatar
+        avatarSeed={assignee.avatarSeed}
+        displayName={assignee.displayName}
+        className={cn(className, "border-border/70")}
+        decorative
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "grid shrink-0 place-items-center rounded-full border border-border/60 bg-primary/10 text-xs font-semibold text-primary",
+        className
+      )}
+    >
+      {assignee.displayName.trim().charAt(0).toUpperCase() || "?"}
+    </span>
+  );
+}
+
+function TaskAssigneeBadge({ assignee }: { assignee: TaskAssigneeSummary | null }) {
+  const needsReassignment = Boolean(assignee && !assignee.isAssignable);
+
   return (
     <div
       data-task-assignee-badge="true"
@@ -712,23 +752,32 @@ function TaskAssigneeBadge({ assignee }: { assignee: TaskPersonSummary | null })
         Assignee
       </p>
       <div
-        className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/60 bg-background/85 px-2.5 py-1.5"
-        title={assignee ? buildTaskPersonHoverLabel(assignee) : "Unassigned"}
+        className={cn(
+          "inline-flex max-w-full items-center gap-2 rounded-full border px-2.5 py-1.5",
+          needsReassignment
+            ? "border-amber-500/45 bg-amber-500/[0.08]"
+            : "border-border/60 bg-background/85"
+        )}
+        title={assignee ? assignee.usernameTag ?? assignee.displayName : "Unassigned"}
       >
         {assignee ? (
           <>
-            <UserAvatar
-              avatarSeed={assignee.avatarSeed}
-              displayName={assignee.displayName}
-              className="h-7 w-7 border-border/70"
-              decorative
-            />
+            <TaskAssigneeAvatar assignee={assignee} className="h-7 w-7" />
             <span
               data-task-assignee-name="true"
               className="max-w-[160px] truncate text-sm font-medium text-foreground"
             >
               {assignee.displayName}
             </span>
+            {assignee.kind === "agent" ? (
+              <span className="shrink-0 text-[10px] font-normal text-muted-foreground">agent</span>
+            ) : null}
+            {needsReassignment ? (
+              <TriangleAlert
+                aria-label="Needs reassignment"
+                className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-300"
+              />
+            ) : null}
           </>
         ) : (
           <>
@@ -801,14 +850,14 @@ interface TaskOptionsMenuProps {
   currentStatus: TaskStatus;
   currentEpic: KanbanTask["epic"];
   epicOptions: ProjectEpicOption[];
-  currentAssignee: TaskPersonSummary | null;
+  currentAssignee: TaskAssigneeSummary | null;
   assigneeOptions: ProjectTaskCollaborator[];
   agentOptions: ProjectActorSummary[];
   isArchived: boolean;
   isMutating: boolean;
   onStartEdit: () => void;
   onQuickEpicChange: (value: string) => void | Promise<void>;
-  onQuickAssigneeChange: (value: string) => void | Promise<void>;
+  onQuickAssigneeChange: (value: ProjectActorReference | null) => void | Promise<void>;
   onMoveTask: (nextStatus: TaskStatus) => void;
   onArchiveTask: () => void | Promise<void>;
   onUnarchiveTask: () => void | Promise<void>;
@@ -1072,7 +1121,7 @@ function TaskOptionsMenu({
                   className="w-full justify-between"
                   disabled={!currentAssignee || isMutating}
                   onClick={() => {
-                    void onQuickAssigneeChange("");
+                    void onQuickAssigneeChange(null);
                     closeMenu();
                   }}
                 >
@@ -1089,7 +1138,10 @@ function TaskOptionsMenu({
                 </Button>
 
                 {assigneeOptions.map((assignee) => {
-                  const isSelected = assignee.id === currentAssignee?.id;
+                  const optionActor = { kind: "human" as const, id: assignee.id };
+                  const isSelected =
+                    currentAssignee !== null &&
+                    getProjectActorKey(currentAssignee) === getProjectActorKey(optionActor);
 
                   return (
                     <Button
@@ -1099,7 +1151,7 @@ function TaskOptionsMenu({
                       className="h-auto w-full justify-between py-2"
                       disabled={isSelected || isMutating}
                       onClick={() => {
-                        void onQuickAssigneeChange(assignee.id);
+                        void onQuickAssigneeChange(optionActor);
                         closeMenu();
                       }}
                     >
@@ -1126,36 +1178,48 @@ function TaskOptionsMenu({
                     </Button>
                   );
                 })}
-                {agentOptions.map((agent) => (
-                  <Button
-                    key={`agent:${agent.id}`}
-                    type="button"
-                    variant="ghost"
-                    className="h-auto min-h-12 w-full cursor-not-allowed justify-between py-2 opacity-70"
-                    disabled
-                    aria-disabled="true"
-                    title="Agent task assignment is not available yet"
-                  >
-                    <span className="inline-flex min-w-0 items-center gap-2">
-                      <AgentAvatar
-                        displayName={agent.displayName}
-                        className="h-7 w-7"
-                        decorative
-                      />
-                      <span className="min-w-0 text-left">
-                        <span className="block truncate text-sm font-medium">
-                          {agent.displayName}
-                        </span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          Agent — assignment support coming soon
+                {agentOptions.map((agent) => {
+                  const isSelected =
+                    currentAssignee !== null &&
+                    getProjectActorKey(currentAssignee) === getProjectActorKey(agent);
+
+                  return (
+                    <Button
+                      key={`agent:${agent.id}`}
+                      type="button"
+                      variant="ghost"
+                      className="h-auto min-h-12 w-full justify-between py-2"
+                      disabled={isSelected || isMutating}
+                      onClick={() => {
+                        void onQuickAssigneeChange({ kind: "agent", id: agent.id });
+                        closeMenu();
+                      }}
+                    >
+                      <span className="inline-flex min-w-0 items-center gap-2">
+                        <AgentAvatar
+                          displayName={agent.displayName}
+                          className="h-7 w-7"
+                          decorative
+                        />
+                        <span className="min-w-0 text-left">
+                          <span className="block truncate text-sm font-medium">
+                            {agent.displayName}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            Agent credential
+                          </span>
                         </span>
                       </span>
-                    </span>
-                    <Badge variant="outline" className="text-[10px]">
-                      Agent
-                    </Badge>
-                  </Button>
-                ))}
+                      {isSelected ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Badge variant="outline" className="text-[10px]">
+                          Agent
+                        </Badge>
+                      )}
+                    </Button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1844,7 +1908,7 @@ interface TaskEditContentProps {
   editDescription: string;
   editDeadlineDate: string;
   editEpicId: string;
-  editAssigneeUserId: string;
+  editAssignee: ProjectActorReference | null;
   editRelatedTasks: KanbanTask["relatedTasks"];
   relatedTaskSearch: string;
   newBlockedFollowUpEntry: string;
@@ -1864,7 +1928,7 @@ interface TaskEditContentProps {
   onEditDescriptionChange: (value: string) => void;
   onEditDeadlineDateChange: (value: string) => void;
   onEditEpicIdChange: (value: string) => void;
-  onEditAssigneeUserIdChange: (value: string) => void;
+  onEditAssigneeChange: (value: ProjectActorReference | null) => void;
   onRelatedTaskSearchChange: (value: string) => void;
   onAddRelatedTask: (taskId: string) => void;
   onRemoveRelatedTask: (taskId: string) => void;
@@ -1891,7 +1955,7 @@ function TaskEditContent({
   editDescription,
   editDeadlineDate,
   editEpicId,
-  editAssigneeUserId,
+  editAssignee,
   editRelatedTasks,
   relatedTaskSearch,
   newBlockedFollowUpEntry,
@@ -1911,7 +1975,7 @@ function TaskEditContent({
   onEditDescriptionChange,
   onEditDeadlineDateChange,
   onEditEpicIdChange,
-  onEditAssigneeUserIdChange,
+  onEditAssigneeChange,
   onRelatedTaskSearchChange,
   onAddRelatedTask,
   onRemoveRelatedTask,
@@ -2040,8 +2104,14 @@ function TaskEditContent({
           </label>
           <AssigneeSelect
             id="task-edit-assignee"
-            value={editAssigneeUserId}
-            onChange={onEditAssigneeUserIdChange}
+            value={
+              selectedTask.assignee &&
+              editAssignee &&
+              getProjectActorKey(selectedTask.assignee) === getProjectActorKey(editAssignee)
+                ? selectedTask.assignee
+                : editAssignee
+            }
+            onChange={onEditAssigneeChange}
             disabled={isUpdatingTask}
             options={availableAssignees}
             agentOptions={availableAgentOptions}

@@ -972,6 +972,7 @@ export async function revokeProjectAgentCredential(input: {
       db,
       projectId: input.projectId,
       actor: { kind: "agent", id: credentialId },
+      actingUserId: actorUserId,
       resolution: input.responsibilityResolution ?? null,
     });
     if (!resolutionResult.ok) {

@@ -82,7 +82,7 @@ function buildModalProps(comments: TaskComment[]) {
     editDescription: "",
     editDeadlineDate: "",
     editEpicId: "",
-    editAssigneeUserId: "",
+    editAssignee: null,
     editRelatedTasks: [],
     relatedTaskSearch: "",
     newBlockedFollowUpEntry: "",
@@ -113,7 +113,7 @@ function buildModalProps(comments: TaskComment[]) {
     onEditDescriptionChange: vi.fn(),
     onEditDeadlineDateChange: vi.fn(),
     onEditEpicIdChange: vi.fn(),
-    onEditAssigneeUserIdChange: vi.fn(),
+    onEditAssigneeChange: vi.fn(),
     onRelatedTaskSearchChange: vi.fn(),
     onAddRelatedTask: vi.fn(),
     onRemoveRelatedTask: vi.fn(),
@@ -177,9 +177,7 @@ async function renderComposer(
   onSubmitTaskComment: ModalProps["onSubmitTaskComment"]
 ) {
   await act(async () => {
-    root.render(
-      <CommentComposerHarness onSubmitTaskComment={onSubmitTaskComment} />
-    );
+    root.render(<CommentComposerHarness onSubmitTaskComment={onSubmitTaskComment} />);
   });
 }
 

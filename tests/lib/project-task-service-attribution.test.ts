@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
   project: {
     findFirst: vi.fn(),
     update: vi.fn(),
@@ -18,8 +19,14 @@ const prismaMock = vi.hoisted(() => ({
     deleteMany: vi.fn(),
     createMany: vi.fn(),
   },
+  taskAssigneeChange: {
+    create: vi.fn(),
+  },
   apiCredential: {
     findFirst: vi.fn(),
+  },
+  user: {
+    findUnique: vi.fn(),
   },
 }));
 
@@ -65,7 +72,7 @@ function buildCreateInput(
     description: "<p>Body</p>",
     deadlineDate: "",
     epicId: null,
-    assigneeUserId: null,
+    assignee: null,
     labelsJsonRaw: "",
     relatedTaskIdsJsonRaw: "",
     attachmentLinksJsonRaw: "",
@@ -121,9 +128,26 @@ function queueCreateFlow(storedTask: ReturnType<typeof buildStoredTask>) {
   prismaMock.task.findUnique.mockResolvedValueOnce(storedTask);
 }
 
+function revokedAgentRegistryRow(id = "cred-revoked") {
+  return {
+    kind: "agent",
+    actorId: id,
+    name: null,
+    email: null,
+    username: null,
+    usernameDiscriminator: null,
+    avatarSeed: null,
+    label: "Retired bot",
+    revokedAt: new Date("2026-09-01T00:00:00.000Z"),
+    expiresAt: null,
+  };
+}
+
 describe("createTaskForProject attribution", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$queryRaw.mockResolvedValue([]);
+    prismaMock.user.findUnique.mockResolvedValue(ownerRecord);
   });
 
   test("human execution keeps createdByUserId and persists null credential attribution", async () => {
@@ -265,6 +289,26 @@ describe("createTaskForProject attribution", () => {
       owner: null,
     });
   });
+
+  test("rejects a revoked credential as the create assignee", async () => {
+    prismaMock.project.findFirst.mockResolvedValueOnce({
+      id: "project-1",
+      ownerId: "owner-1",
+      memberships: [],
+    });
+    prismaMock.$queryRaw.mockResolvedValueOnce([revokedAgentRegistryRow()]);
+
+    const result = await createTaskForProject(
+      buildCreateInput({ assignee: { kind: "agent", id: "cred-revoked" } })
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "assignee-invalid",
+    });
+    expect(prismaMock.task.create).not.toHaveBeenCalled();
+  });
 });
 
 describe("task mutation attribution", () => {
@@ -303,6 +347,8 @@ describe("task mutation attribution", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$queryRaw.mockResolvedValue([]);
+    prismaMock.user.findUnique.mockResolvedValue(ownerRecord);
   });
 
   test("records agent attribution when reordering tasks", async () => {
@@ -448,5 +494,38 @@ describe("task mutation attribution", () => {
 
     expect(unarchiveResult).toEqual({ ok: true, data: { ok: true } });
     expectAgentUpdateAttribution();
+  });
+
+  test("rejects a revoked credential when editing the assignee", async () => {
+    queueProjectAccess();
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      projectId: "project-1",
+      status: "Backlog",
+      position: 0,
+      epicId: null,
+      assigneeKind: null,
+      assigneeUserId: null,
+      assigneeCredentialId: null,
+      assigneeDisplayNameSnapshot: null,
+      outgoingRelations: [],
+      incomingRelations: [],
+    });
+    prismaMock.$queryRaw.mockResolvedValueOnce([revokedAgentRegistryRow()]);
+
+    const result = await updateTaskForProject(
+      "project-1",
+      "task-1",
+      { title: "Existing title", assignee: { kind: "agent", id: "cred-revoked" } },
+      "owner-1"
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "assignee-invalid",
+    });
+    expect(prismaMock.task.update).not.toHaveBeenCalled();
+    expect(prismaMock.taskAssigneeChange.create).not.toHaveBeenCalled();
   });
 });

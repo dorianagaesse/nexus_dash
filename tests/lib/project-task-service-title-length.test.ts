@@ -39,7 +39,7 @@ function buildCreateInput(
     description: "<p>Body</p>",
     deadlineDate: "",
     epicId: null,
-    assigneeUserId: null,
+    assignee: null,
     labelsJsonRaw: "",
     relatedTaskIdsJsonRaw: "",
     attachmentLinksJsonRaw: "",

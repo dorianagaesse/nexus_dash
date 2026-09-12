@@ -22,11 +22,13 @@ export interface ProjectMeetingTodoSummary {
   id: string;
   content: string;
   completedAt: Date | null;
+  assignedAt: Date | null;
   updatedAt: Date;
   isOverdue: boolean;
   urgencyTimestamp: number;
   creator: MeetingTodoActorSummary | null;
   assignee: MeetingTodoActorSummary | null;
+  assignedBy: MeetingTodoActorSummary | null;
   completedBy: MeetingTodoActorSummary | null;
   participantOptions: MeetingTodoActorSummary[];
   meeting: {
@@ -132,6 +134,15 @@ export async function listProjectMeetingTodos(input: {
                 assigneeCredential: {
                   select: meetingTodoActorCredentialSelect,
                 },
+                assignedByKind: true,
+                assignedByUserId: true,
+                assignedByCredentialId: true,
+                assignedByDisplayNameSnapshot: true,
+                assignedAt: true,
+                assignedByUser: { select: meetingTodoActorUserSelect },
+                assignedByCredential: {
+                  select: meetingTodoActorCredentialSelect,
+                },
                 completedByKind: true,
                 completedByUserId: true,
                 completedByCredentialId: true,
@@ -197,6 +208,7 @@ export async function listProjectMeetingTodos(input: {
           displayNameSnapshot: action.creatorDisplayNameSnapshot,
           user: action.createdByUser,
           credential: action.createdByCredential,
+          registry: actorRegistry,
           isCurrentProjectHuman: Boolean(
             action.createdByUserId &&
               actorRegistry?.activeHumanIds.has(action.createdByUserId)
@@ -212,6 +224,7 @@ export async function listProjectMeetingTodos(input: {
               displayNameSnapshot: action.assigneeDisplayNameSnapshot,
               user: action.assigneeUser,
               credential: action.assigneeCredential,
+              registry: actorRegistry,
               isCurrentProjectHuman: Boolean(
                 action.assigneeUserId &&
                   actorRegistry?.activeHumanIds.has(action.assigneeUserId)
@@ -219,6 +232,24 @@ export async function listProjectMeetingTodos(input: {
               noteExternalParticipantNameKeys,
             })
           : null,
+        assignedBy: action.assignedByKind
+          ? mapStoredMeetingTodoActor({
+              kind: action.assignedByKind,
+              id:
+                action.assignedByKind === "human"
+                  ? action.assignedByUserId
+                  : action.assignedByCredentialId,
+              displayNameSnapshot: action.assignedByDisplayNameSnapshot,
+              user: action.assignedByUser,
+              credential: action.assignedByCredential,
+              registry: actorRegistry,
+              isCurrentProjectHuman: Boolean(
+                action.assignedByUserId &&
+                  actorRegistry?.activeHumanIds.has(action.assignedByUserId)
+              ),
+            })
+          : null,
+        assignedAt: action.assignedAt,
         completedBy: action.completedByKind
           ? mapStoredMeetingTodoActor({
               kind: action.completedByKind,
@@ -229,6 +260,7 @@ export async function listProjectMeetingTodos(input: {
               displayNameSnapshot: action.completedByDisplayNameSnapshot,
               user: action.completedByUser,
               credential: action.completedByCredential,
+              registry: actorRegistry,
               isCurrentProjectHuman: Boolean(
                 action.completedByUserId &&
                   actorRegistry?.activeHumanIds.has(action.completedByUserId)
