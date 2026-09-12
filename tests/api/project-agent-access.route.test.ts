@@ -219,8 +219,15 @@ describe("project agent access routes", () => {
       {
         method: "DELETE",
         headers: {
+          "content-type": "application/json",
           "user-agent": "Vitest",
         },
+        body: JSON.stringify({
+          responsibilityResolution: {
+            mode: "reassign",
+            replacementUserId: "owner-1",
+          },
+        }),
       }
     );
 
@@ -246,6 +253,10 @@ describe("project agent access routes", () => {
       requestId: "request-123",
       ipAddress: "198.51.100.42",
       userAgent: "Vitest",
+      responsibilityResolution: {
+        mode: "reassign",
+        replacementUserId: "owner-1",
+      },
     });
   });
 

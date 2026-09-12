@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { shouldUseActorRlsContext } from "@/lib/env.server";
 import { prisma } from "@/lib/prisma";
 
 export type DbClient = Prisma.TransactionClient | typeof prisma;
@@ -23,7 +24,7 @@ export async function withActorRlsContext<T>(
     throw new Error("unauthorized");
   }
 
-  if (process.env.NODE_ENV === "test") {
+  if (!shouldUseActorRlsContext()) {
     return operation(prisma as unknown as Prisma.TransactionClient);
   }
 

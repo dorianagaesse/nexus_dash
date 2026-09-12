@@ -34,6 +34,7 @@ export interface ProjectContextCardProjection {
   id: string;
   creator: ProjectContextActorSummary | null;
   lastEditor: ProjectContextActorSummary | null;
+  steward: ProjectContextActorSummary | null;
   attachments: ProjectContextAttachmentProjection[];
 }
 
