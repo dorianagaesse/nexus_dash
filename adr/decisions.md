@@ -59,7 +59,7 @@ Keep UI-only or task-only notes in `journal.md`.
   registry-first so members without ApiCredential read access still see live
   agent status, and the kanban save path omits the assignee field unless the
   draft actor key actually changed so revoked assignees are never re-submitted.
-- Links: `tasks/current.md` (ND-384), board card ND-384, PR #505.
+- Links: board card ND-384, PR #505.
 
 ## 2026-09-09 - ND-179: Resolve active responsibility before atomic ownership and access handoff
 - Status: Accepted.

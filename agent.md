@@ -6,9 +6,10 @@ This file defines repository-specific execution rules. Keep it focused on workfl
 
 **Nexus Dash is the source of truth for task management.** The project kanban
 ("Nexus Dash" at <https://nexus-dash.app>) owns task status, sequencing,
-labels (work type + priority), epics, relationships, and descriptions.
-`tasks/current.md` remains the repo-side active-task brief; the 2026-08-31
-migration is recorded in `tasks/backlog.md`.
+labels (work type + priority), epics, relationships, and descriptions. Work
+from the card itself: its description is the task brief (scope and acceptance
+criteria). The former repo-side brief `tasks/current.md` was retired on
+2026-09-12; the 2026-08-31 migration is recorded in `tasks/backlog.md`.
 
 Agent credentials live in `.config/.nd-nexus-dash.env` (gitignored — never
 commit). The committed contract template is `.nd-nexus-dash.example.env`;
@@ -16,9 +17,9 @@ copy it to `.config/.nd-nexus-dash.env` and fill in real values when first
 needed. Exchange the API key at `/api/auth/agent/token` for a short-lived
 bearer token at runtime.
 
-Before coding, align on these files:
+Before coding, align on:
 
-1. `tasks/current.md` (active scope and acceptance criteria)
+1. the active task's kanban card (scope and acceptance criteria)
 2. `project.md` (current architecture/product snapshot)
 3. `README.md` (runtime/env/test contract)
 
@@ -30,13 +31,26 @@ make the task brief explicit before deep implementation:
 - capture deploy/review workflow assumptions when preview or production behavior
   is part of acceptance
 - link the relevant runbook when preview validation is expected
-- ensure `tasks/current.md` has explicit `Acceptance Criteria` and
-  `Definition Of Done` sections; if either is missing or too vague, add or
-  tighten them before implementation starts
+- ensure the card's description has explicit, testable `Acceptance Criteria`
+  (and a `Definition Of Done` when the delivery contract needs clarification);
+  if missing or too vague, tighten the card before implementation starts
 
-If `tasks/current.md` is complete or invalid, pick the next task from the
-Nexus Dash kanban (In Progress lane first, then Backlog in lane order), then
-update `tasks/current.md` before implementation.
+If the current task is complete or invalid, pick the next one from the kanban
+(In Progress lane first, then Backlog in lane order) before implementation.
+
+### Kanban status and handoff comments
+
+- When you start a task, move its card to the In Progress lane before
+  implementation begins (`POST /api/projects/{projectId}/tasks/{taskId}/status`
+  with `{"status": "In Progress"}`).
+- Never move a card to Done. Done is set by the reviewer/PR merger when the
+  work is accepted — not by the implementing agent. This rule governs agent
+  work on this repository's board and supersedes conflicting wording elsewhere
+  (e.g. older stored task briefs or the generated agent-onboarding quickstart).
+- When the work is complete, add a card comment only when there is something
+  relevant to hand over (decisions, validation evidence, blockers, follow-ups).
+  Write plain English, short and straight to the point — one topic per
+  comment, no restating of the task description.
 
 ### Creating a good Nexus Dash task
 
@@ -49,11 +63,15 @@ a duplicate. A new task must be independently understandable and executable:
   validation error). Condensed task surfaces (kanban cards, epic
   linked-task lists, related-task summaries) ellipsize overlong titles after
   two lines; the full title stays readable when the task is opened.
+- Keep the description concise and readable: plain English, straight to the
+  point, covering what is wanted plus the testable acceptance criteria — a
+  reader should grasp the task in one quick scan. No padding: no restated
+  context, exhaustive scope inventories, or file-by-file walkthroughs.
 - Start the description with a clear `Rationale:` that explains the user or
   engineering problem and why the work matters.
-- State the intended scope and add testable `Acceptance Criteria:`. Add an
-  explicit `Definition Of Done:` when the delivery or validation contract needs
-  clarification beyond the acceptance criteria.
+- State the intended scope briefly and add testable `Acceptance Criteria:`.
+  Add an explicit `Definition Of Done:` when the delivery or validation
+  contract needs clarification beyond the acceptance criteria.
 - Add at least one canonical work-type label: `feature`, `fix`, `docs`,
   `refactor`, or `chore`. Use any additional priority or program labels only
   when they are supported by the task's context.
@@ -183,8 +201,7 @@ description. Compose the description as:
 
 Update docs in the same PR when behavior/architecture changes:
 
-- `tasks/current.md`: progress + status
-- Nexus Dash kanban: task status, sequencing, and new tasks
+- Nexus Dash kanban: task status, handoff comments, sequencing, and new tasks
 - `journal.md`: meaningful execution events, blockers, decisions, validation outcomes
 - `adr/decisions.md`: architecture-impacting decisions
 - Add/extend a task ADR in `adr/` only when a decision needs deeper rationale
@@ -254,13 +271,15 @@ Notes:
 
 A task is complete only when:
 
-1. Acceptance criteria in `tasks/current.md` are satisfied.
+1. The task card's acceptance criteria are satisfied.
 2. Required validation is green.
-3. Tracking docs (`tasks/current.md`, `journal.md`, `adr/decisions.md` when applicable) are updated and consistent.
+3. Tracking docs (`journal.md`, `adr/decisions.md` when applicable) and the
+   task card (handoff comments) are updated and consistent.
 
 Additional rule:
 
-- Every active task brief must explicitly state both `Acceptance Criteria` and
-  `Definition Of Done`.
-- If a task is missing either section, the agent must add them before treating
-  the task as ready for implementation.
+- Every task card must state testable `Acceptance Criteria`, plus a
+  `Definition Of Done` when the delivery or validation contract needs
+  clarification beyond them.
+- If a card is missing them, tighten it before treating the task as ready for
+  implementation.
