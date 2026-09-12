@@ -426,6 +426,30 @@ test.describe("critical UI smoke flows", () => {
     const meetingDialog = page.getByRole("dialog");
     await expect(meetingDialog).toBeVisible();
     await meetingDialog.getByRole("button", { name: "Edit prep" }).click();
+    const prepareDialog = page.getByRole("dialog", { name: "Edit preparation" });
+    const preparationInput = page.locator("#meeting-inputs");
+    const inputZoomControls = prepareDialog.getByRole("group", {
+      name: "Inputs zoom controls",
+    });
+    await expect(inputZoomControls).toContainText("100%");
+    const preparationInputBox = await preparationInput.boundingBox();
+    const inputZoomBox = await inputZoomControls.boundingBox();
+    expect(preparationInputBox).not.toBeNull();
+    expect(inputZoomBox).not.toBeNull();
+    expect(inputZoomBox!.x).toBeGreaterThanOrEqual(preparationInputBox!.x);
+    expect(inputZoomBox!.x + inputZoomBox!.width).toBeLessThanOrEqual(
+      preparationInputBox!.x + preparationInputBox!.width
+    );
+    const inputZoomBottomInset =
+      preparationInputBox!.y +
+      preparationInputBox!.height -
+      (inputZoomBox!.y + inputZoomBox!.height);
+    expect(inputZoomBottomInset).toBeGreaterThanOrEqual(0);
+    expect(inputZoomBottomInset).toBeLessThanOrEqual(12);
+    await inputZoomControls.getByRole("button", { name: "Zoom in Inputs" }).click();
+    await expect(inputZoomControls).toContainText("125%");
+    await expect(preparationInput).toHaveCSS("font-size", "17.5px");
+    await expect(preparationInput).toContainText("Review TASK-098 scope and risks.");
     const savePreparationRequest = page.waitForResponse(
       (response) =>
         response.request().method() === "PATCH" &&
@@ -449,10 +473,80 @@ test.describe("critical UI smoke flows", () => {
 
     await page.getByRole("button", { name: new RegExp(meetingTitle) }).click();
     await expect(meetingDialog).toBeVisible();
-    await expect(
-      meetingDialog.getByText("Review TASK-098 scope and risks.")
-    ).toBeVisible();
-    await page.locator("#meeting-outputs").fill("Backend alignment confirmed.");
+    const inputNoteContent = meetingDialog.locator(
+      '[data-meeting-note-content="inputs"]'
+    );
+    const outputNoteContent = page.locator("#meeting-outputs");
+    const outputZoomControls = meetingDialog.getByRole("group", {
+      name: "Outputs zoom controls",
+    });
+    const outputEditorBox = await outputNoteContent.boundingBox();
+    const outputZoomBox = await outputZoomControls.boundingBox();
+    expect(outputEditorBox).not.toBeNull();
+    expect(outputZoomBox).not.toBeNull();
+    expect(outputZoomBox!.x).toBeGreaterThanOrEqual(outputEditorBox!.x);
+    expect(outputZoomBox!.x + outputZoomBox!.width).toBeLessThanOrEqual(
+      outputEditorBox!.x + outputEditorBox!.width
+    );
+    const outputZoomBottomInset =
+      outputEditorBox!.y +
+      outputEditorBox!.height -
+      (outputZoomBox!.y + outputZoomBox!.height);
+    expect(outputZoomBottomInset).toBeGreaterThanOrEqual(0);
+    expect(outputZoomBottomInset).toBeLessThanOrEqual(12);
+    await expect(inputNoteContent).toHaveText("Review TASK-098 scope and risks.");
+    await expect(inputNoteContent).toHaveCSS("font-size", "17.5px");
+    await expect(outputNoteContent).toHaveCSS("font-size", "14px");
+
+    await outputZoomControls
+      .getByRole("button", { name: "Zoom out Outputs" })
+      .click();
+    await expect(outputZoomControls).toContainText("75%");
+    await expect(outputNoteContent).toHaveCSS("font-size", "10.5px");
+    await expect(inputNoteContent).toHaveCSS("font-size", "17.5px");
+    await outputZoomControls
+      .getByRole("button", { name: "Zoom in Outputs" })
+      .press("Enter");
+    await expect(outputZoomControls).toContainText("100%");
+
+    const desktopViewport = page.viewportSize();
+    for (const viewport of [
+      { width: 375, height: 667 },
+      { width: 667, height: 375 },
+    ]) {
+      await page.setViewportSize(viewport);
+      for (const theme of ["light", "dark"]) {
+        await page.evaluate((activeTheme) => {
+          document.documentElement.classList.toggle(
+            "dark",
+            activeTheme === "dark"
+          );
+        }, theme);
+        for (const controls of [
+          meetingDialog.getByRole("group", { name: "Inputs zoom controls" }),
+          outputZoomControls,
+        ]) {
+          await expect(controls).toBeVisible();
+          const box = await controls.boundingBox();
+          expect(box).not.toBeNull();
+          expect(box!.x).toBeGreaterThanOrEqual(0);
+          expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+        }
+        const viewportMetrics = await page.evaluate(() => ({
+          clientWidth: document.documentElement.clientWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+        }));
+        expect(viewportMetrics.scrollWidth).toBeLessThanOrEqual(
+          viewportMetrics.clientWidth
+        );
+      }
+    }
+    await page.evaluate(() => document.documentElement.classList.remove("dark"));
+    if (desktopViewport) {
+      await page.setViewportSize(desktopViewport);
+    }
+
+    await outputNoteContent.fill("Backend alignment confirmed.");
     await meetingDialog.getByRole("button", { name: "Add", exact: true }).click();
     await meetingDialog
       .getByRole("textbox", { name: "Todo 1" })

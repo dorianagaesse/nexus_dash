@@ -3,6 +3,84 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-12 - ND-426 final layout feedback, main reconciliation, and Copilot review
+
+- Restored the pre-ND-426 visual structure for the editable Inputs and Outputs
+  areas by removing the temporary outer bordered section frames while keeping
+  the zoom controls anchored inside each rich-text field at the bottom right.
+  Reserved bottom padding prevents note content from sitting beneath the
+  controls; browser assertions verify each pill stays within its editor bounds.
+- Addressed Copilot's sole review comment in 4e9da2b: replaced
+  locale-sensitive `toLocaleLowerCase()` data-attribute tokens with stable
+  `toLowerCase()` values and added focused assertions for `inputs`/`outputs`.
+  Replied on PR #499 and resolved the review conversation.
+- Merged `origin/main` at d64dbb3 in 2f08cc6. The only conflict was this
+  journal; both the ND-426 history and mainline epic-guidance entry were kept.
+- Reconciled again after ND-382 landed on `origin/main` at a80a33a, preserving
+  both task histories and advancing ND-426 to v0.64.0 over main's v0.63.0.
+- Final post-merge validation: `git diff --check`, lint, RLS inventory, and
+  release policy clean; Vitest 190 files / 1,398 tests passed (2 files / 2
+  tests skipped); coverage 93.45% statements, 84% branches, 95.3% functions,
+  and 93.75% lines; production build green; full Playwright 59 passed / 1
+  skipped.
+
+# 2026-09-10 - ND-426: zoom controls nested inside the meeting-note sections (layout feedback round)
+
+- User feedback on PR #499's implementation: the zoom pills rendered outside
+  the text areas for the preparation-dialog Inputs (above the editor toolbar
+  box) and for the note-dialog Outputs (above the editor and above the
+  read-only box for viewers), while the note-dialog Inputs pill — inside the
+  bordered section header — was well positioned. Expected: buttons top right
+  inside the text areas.
+- Fixed in bc0236d: the prepare-dialog Inputs editor and the note-dialog
+  Outputs editor/read body moved into the same bordered `SectionBlock`
+  framing (rounded-xl border, header row with the uppercase title and the
+  zoom pill action) that the note-dialog Inputs reference already used. The
+  old `htmlFor` label rows were absorbed into the section headers and the
+  editors now carry explicit `ariaLabel` names (the contentEditable divs
+  were never labelable, so no accessible name was lost). No shared-component
+  (RichTextEditor/RichTextContent/zoom control) changes were needed, and the
+  e2e zoom assertions are placement-agnostic (group role, editor ids, CSS
+  font sizes, viewport containment), so they stayed green unchanged.
+- Layout verified with a throwaway Playwright geometry probe before removal:
+  bounding boxes confirmed the pill is inside the bordered section frame at
+  all three surfaces with the same insets as the reference Inputs block
+  (prep Inputs right inset 23px, note Outputs editor 21px, viewer Outputs
+  16px vs reference 16px), for owner and viewer sessions.
+- Validation on the fixed tree (2026-09-10): lint, `rls:check`,
+  `release:check`, and `git diff --check` clean; full Vitest 186 files /
+  1,389 tests passed (2 skipped); coverage above thresholds (93.45%
+  statements / 84% branches / 95.3% functions / 93.75% lines); production
+  build green; focused smoke + ND-381 meeting-note e2e 9/9 green; full
+  Playwright suite green (58 passed / 1 skipped — the single nd-408 drag
+  failure under parallel load passed 6/6 on re-run).
+- Branch pushed at bc0236d and reported on PR #499.
+
+# 2026-09-09 - ND-426: zoomable meeting note inputs and outputs implemented
+
+- Onboarded on the ND-426 card (feature label): implemented per the card
+  brief on `feature/nd-426-zoomable-meeting-notes` (worktree
+  `../nexus_dash_task426`, branched from `origin/main` at 2fbc228). No
+  GitHub issue exists; PR #499 carries the ND-426 reference. The board card
+  still sat in Backlog at takeover and was moved through In Progress.
+- Added `components/meeting-notes/meeting-note-zoom-control.tsx`:
+  `MeetingNoteZoomControl` (75-200% in 25% steps, section-specific
+  accessible group names, live percentage, boundary-disabled actions,
+  44px touch targets), `MEETING_NOTE_ZOOM_*` constants, clamp, and
+  `getMeetingNoteZoomTextStyle` (14px base × zoom, line-height 1.7).
+- Wired independent `inputNotesZoom`/`outputNotesZoom` presentation state
+  into the prepare-dialog Inputs editor and the note-dialog Inputs read
+  view + Outputs editor/read view, applying the zoom text style only —
+  content and payloads are untouched (presentation-only per the card).
+- Component tests `tests/components/meeting-note-zoom-control.test.tsx`
+  (labels, boundaries, independent scaling, clamped style contract) plus
+  zoom assertions in the smoke e2e spec: font-size changes after
+  zoom-in/out and Enter activation, independence of Inputs vs Outputs, and
+  bounding-box viewport containment at 375px / landscape / dark themes.
+- Reconciled with `origin/main` (6426c1a, v0.62.0) and finalized release
+  metadata at v0.63.0 over the v0.62.0 base (dated CHANGELOG entry) in
+  be2b0f0; initial validation green (lint, rls:check, build, focused e2e).
+
 # 2026-09-12 - ND-382 retest follow-up: freshly created agents stayed out of task pickers until a reload
 
 - The retest ("mention autocomplete shows the agent, but the task assignee list has no agents") surfaced an interactive gap, not a data defect. Task pickers render from the route's server-rendered actor list (`listAssignableProjectActors` → `projectActors` on the board), while the mention autocomplete fetches `/actors/search` per keystroke. Creating a credential from the project's "Agent access" panel refreshed only the panel's client-fetched list; the server payload (and so the assignee pickers) kept the pre-creation list until a manual reload. The agent's credential never having completed a token exchange is irrelevant to both pickers.

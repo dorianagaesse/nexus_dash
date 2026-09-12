@@ -170,6 +170,35 @@ describe("project-meeting-notes-panel rich sections", () => {
     expect(document.body.textContent).not.toContain("No inputs captured.");
   });
 
+  test("zooms rich input and output content independently for viewers", async () => {
+    await renderPanel(renderer.root, [richNote], false);
+
+    await clickButtonLike(findButton(renderer.container, "Rich prep review"));
+
+    const inputs = document.querySelector<HTMLElement>(
+      "[data-meeting-note-content='inputs']"
+    );
+    const outputs = document.querySelector<HTMLElement>(
+      "[data-meeting-note-content='outputs']"
+    );
+    expect(inputs?.style.fontSize).toBe("14px");
+    expect(outputs?.style.fontSize).toBe("14px");
+
+    await clickButtonLike(
+      document.querySelector("button[aria-label='Zoom in Inputs']")
+    );
+    expect(inputs?.style.fontSize).toBe("17.5px");
+    expect(outputs?.style.fontSize).toBe("14px");
+
+    await clickButtonLike(
+      document.querySelector("button[aria-label='Zoom out Outputs']")
+    );
+    expect(inputs?.style.fontSize).toBe("17.5px");
+    expect(outputs?.style.fontSize).toBe("10.5px");
+    expect(inputs?.textContent).toContain("Agenda bolded");
+    expect(outputs?.textContent).toContain("Backend aligned");
+  });
+
   test("opens an empty legacy note with muted empty states", async () => {
     const emptyLegacy = baseNote({
       id: "note-empty",
@@ -194,11 +223,18 @@ describe("project-meeting-notes-panel rich sections", () => {
     const outputsEditor = document.getElementById("meeting-outputs");
     expect(outputsEditor?.getAttribute("contenteditable")).toBe("true");
     expect(outputsEditor?.textContent ?? "").toBe("");
+    expect(outputsEditor?.style.fontSize).toBe("14px");
+
+    await clickButtonLike(
+      document.querySelector("button[aria-label='Zoom in Outputs']")
+    );
+    expect(outputsEditor?.style.fontSize).toBe("17.5px");
 
     await clickButtonLike(findButton(document.body, "Edit prep"));
 
     const inputsEditor = document.getElementById("meeting-inputs");
     expect(inputsEditor?.getAttribute("contenteditable")).toBe("true");
+    expect(inputsEditor?.style.fontSize).toBe("14px");
     expect(inputsEditor?.textContent).toContain("Legacy line one.");
     expect(inputsEditor?.textContent).toContain("Legacy line two.");
     expect(inputsEditor?.querySelectorAll("p").length).toBeGreaterThanOrEqual(2);
