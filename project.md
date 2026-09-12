@@ -142,10 +142,9 @@ holds the remaining queue in priority order.
 
 - Product/runtime overview: `README.md`
 - Agent workflow rules: `agent.md`
-- Current execution scope: `tasks/current.md`
-- Task queue, status, and sequencing: the Nexus Dash project kanban
-  (credentials in `.config/.nd-nexus-dash.env`; template in
-  `.nd-nexus-dash.example.env`)
+- Task queue, status, and sequencing: the Nexus Dash project kanban — the
+  active task's card is also its brief (credentials in
+  `.config/.nd-nexus-dash.env`; template in `.nd-nexus-dash.example.env`)
 - Migration record: `tasks/backlog.md`
 - Execution log: `journal.md`
 - Architecture decisions: `adr/decisions.md` + task-specific ADRs in `adr/`
