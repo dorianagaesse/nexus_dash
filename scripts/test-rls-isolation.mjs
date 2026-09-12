@@ -46,6 +46,9 @@ const ids = {
   meetingActionChangeB: `rls_meeting_action_change_b_${suffix}`,
   credentialA: `rls_credential_a_${suffix}`,
   credentialB: `rls_credential_b_${suffix}`,
+  credentialB2: `rls_credential_b2_${suffix}`,
+  mentionA: `rls_mention_a_${suffix}`,
+  mentionB: `rls_mention_b_${suffix}`,
   auditA: `rls_audit_a_${suffix}`,
   auditB: `rls_audit_b_${suffix}`,
   calendarA: `rls_calendar_a_${suffix}`,
@@ -281,7 +284,8 @@ async function seed() {
       ("id", "projectId", "createdByUserId", "label", "publicId", "secretHash", "createdAt", "updatedAt")
      VALUES
        ($1, $2, $3, 'Agent A', $4, 'hash-a', NOW(), NOW()),
-       ($5, $6, $7, 'Agent B', $8, 'hash-b', NOW(), NOW())`,
+       ($5, $6, $7, 'Agent B', $8, 'hash-b', NOW(), NOW()),
+       ($9, $6, $7, 'Agent B2', $10, 'hash-b2', NOW(), NOW())`,
     [
       ids.credentialA,
       ids.projectA,
@@ -291,6 +295,8 @@ async function seed() {
       ids.projectB,
       ids.ownerB,
       `nda_${ids.credentialB}`,
+      ids.credentialB2,
+      `nda_${ids.credentialB2}`,
     ]
   );
   await admin.query(
@@ -322,6 +328,25 @@ async function seed() {
       ids.ownerA,
       ids.auditB,
       ids.projectB,
+      ids.credentialB,
+      ids.ownerB,
+    ]
+  );
+  await admin.query(
+    `INSERT INTO "TaskCommentAgentMention"
+      ("id", "commentId", "taskId", "agentCredentialId", "agentLabel", "createdByUserId", "createdAt")
+     VALUES
+       ($1, $2, $3, $4, 'Agent A', $5, NOW()),
+       ($6, $7, $8, $9, 'Agent B', $10, NOW())`,
+    [
+      ids.mentionA,
+      ids.commentA,
+      ids.taskA,
+      ids.credentialA,
+      ids.ownerA,
+      ids.mentionB,
+      ids.commentB,
+      ids.taskB,
       ids.credentialB,
       ids.ownerB,
     ]
@@ -735,6 +760,151 @@ try {
     ])
   );
   assert.equal(crossReactionDelete.rowCount, 0);
+
+  const crossAgentMentionRead = await runtimeTransaction(ids.ownerA, () =>
+    runtime.query(
+      `SELECT "id" FROM "TaskCommentAgentMention" WHERE "id" = $1`,
+      [ids.mentionB]
+    )
+  );
+  assert.equal(crossAgentMentionRead.rowCount, 0);
+
+  await expectRlsViolation(
+    () =>
+      runtimeTransaction(ids.ownerA, () =>
+        runtime.query(
+          `INSERT INTO "TaskCommentAgentMention"
+            ("id", "commentId", "taskId", "agentCredentialId", "agentLabel", "createdByUserId", "createdAt")
+           VALUES ($1, $2, $3, $4, 'Cross agent', $5, NOW())`,
+          [
+            `rls_cross_agent_mention_${suffix}`,
+            ids.commentB,
+            ids.taskB,
+            ids.credentialB,
+            ids.ownerA,
+          ]
+        )
+      ),
+    "cross-project agent mention insert"
+  );
+
+  // The actor owns commentA's project, so only the comment/task pairing
+  // invariant can reject this row: without it the mention would surface in
+  // project B's task history. credentialB2 avoids the seeded (commentA,
+  // credentialA) unique pair so the pairing clause is the rejecting guard.
+  await expectRlsViolation(
+    () =>
+      runtimeTransaction(ids.ownerA, () =>
+        runtime.query(
+          `INSERT INTO "TaskCommentAgentMention"
+            ("id", "commentId", "taskId", "agentCredentialId", "agentLabel", "createdByUserId", "createdAt")
+           VALUES ($1, $2, $3, $4, 'Mismatched agent', $5, NOW())`,
+          [
+            `rls_mismatched_agent_mention_${suffix}`,
+            ids.commentA,
+            ids.taskB,
+            ids.credentialB2,
+            ids.ownerA,
+          ]
+        )
+      ),
+    "agent mention insert pairing a comment with another project's task"
+  );
+
+  await expectRlsViolation(
+    () =>
+      runtimeTransaction(ids.editorB, () =>
+        runtime.query(
+          `INSERT INTO "TaskCommentAgentMention"
+            ("id", "commentId", "taskId", "agentCredentialId", "agentLabel", "createdByUserId", "createdAt")
+           VALUES ($1, $2, $3, $4, 'Misattributed agent', $5, NOW())`,
+          [
+            `rls_misattributed_agent_mention_${suffix}`,
+            ids.commentB,
+            ids.taskB,
+            ids.credentialB,
+            ids.ownerB,
+          ]
+        )
+      ),
+    "agent mention insert on behalf of another actor"
+  );
+
+  await expectRlsViolation(
+    () =>
+      runtimeTransaction(ids.viewerB, () =>
+        runtime.query(
+          `INSERT INTO "TaskCommentAgentMention"
+            ("id", "commentId", "taskId", "agentCredentialId", "agentLabel", "createdByUserId", "createdAt")
+           VALUES ($1, $2, $3, $4, 'Viewer agent', $5, NOW())`,
+          [
+            `rls_viewer_agent_mention_${suffix}`,
+            ids.commentB,
+            ids.taskB,
+            ids.credentialB,
+            ids.viewerB,
+          ]
+        )
+      ),
+    "viewer agent mention insert"
+  );
+
+  const editorAgentMentionInsert = await runtimeTransaction(ids.editorB, () =>
+    runtime.query(
+      `INSERT INTO "TaskCommentAgentMention"
+        ("id", "commentId", "taskId", "agentCredentialId", "agentLabel", "createdByUserId", "createdAt")
+       VALUES ($1, $2, $3, $4, 'Agent B2', $5, NOW())`,
+      [
+        `rls_editor_agent_mention_${suffix}`,
+        ids.commentB,
+        ids.taskB,
+        ids.credentialB2,
+        ids.editorB,
+      ]
+    )
+  );
+  assert.equal(editorAgentMentionInsert.rowCount, 1);
+
+  const viewerAgentMentionRead = await runtimeTransaction(ids.viewerB, () =>
+    runtime.query(
+      `SELECT "id" FROM "TaskCommentAgentMention" WHERE "id" = $1`,
+      [ids.mentionB]
+    )
+  );
+  assert.equal(viewerAgentMentionRead.rowCount, 1);
+
+  const ownerBAgentMentions = await runtimeTransaction(ids.ownerB, () =>
+    runtime.query(
+      `SELECT "id" FROM "TaskCommentAgentMention" WHERE "id" IN ($1, $2)`,
+      [ids.mentionA, ids.mentionB]
+    )
+  );
+  assert.deepEqual(ownerBAgentMentions.rows.map((row) => row.id), [
+    ids.mentionB,
+  ]);
+
+  const crossAgentMentionDelete = await runtimeTransaction(ids.ownerA, () =>
+    runtime.query(`DELETE FROM "TaskCommentAgentMention" WHERE "id" = $1`, [
+      ids.mentionB,
+    ])
+  );
+  assert.equal(crossAgentMentionDelete.rowCount, 0);
+
+  const editorOtherActorMentionDelete = await runtimeTransaction(
+    ids.editorB,
+    () =>
+      runtime.query(`DELETE FROM "TaskCommentAgentMention" WHERE "id" = $1`, [
+        ids.mentionB,
+      ])
+  );
+  assert.equal(editorOtherActorMentionDelete.rowCount, 0);
+
+  const ownerBOwnMentionDelete = await runtimeTransaction(ids.ownerB, () =>
+    runtime.query(`DELETE FROM "TaskCommentAgentMention" WHERE "id" = $1`, [
+      ids.mentionB,
+    ])
+  );
+  assert.equal(ownerBOwnMentionDelete.rowCount, 1);
 
   const ownerACredentials = await runtimeTransaction(ids.ownerA, () =>
     runtime.query(`SELECT "id" FROM "ApiCredential" WHERE "id" IN ($1, $2)`, [

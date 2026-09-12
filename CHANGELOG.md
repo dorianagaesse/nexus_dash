@@ -8,6 +8,30 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.67.0 - 2026-09-12
+
+- Added agent mentions to task comments (ND-383). Selecting an agent in the
+  comment `@` picker inserts an unambiguous `@{Credential Label}` token;
+  human `@username` mention behavior is unchanged.
+- Saving a comment with tagged agents records one durable mention event per
+  credential, storing the mentioned credential, its label snapshot, the
+  comment, the source task, the tagging actor (human or agent), and the
+  occurrence time. Events are immune to credential renames, and historical
+  mentions keep rendering after revocation or credential deletion.
+- Agent mentions are validated server-side against the live project actor
+  registry: selections must match the submitted content token exactly, and
+  out-of-project, revoked, or expired credentials fail the whole submission
+  without persisting anything.
+- Repeated tokens or duplicate selections collapse into a single event per
+  (comment, credential), and comment deletion removes its mention events
+  deterministically. The new `TaskCommentAgentMention` table is protected by
+  forced row-level security with member reads and same-actor
+  editor/owner writes.
+- Agent mentions display exactly like human mentions — brace-free, with the
+  same avatar-and-name hover card — by sharing the mention chip component;
+  the stored `@{Label}` token remains the wire format and is hidden in the
+  display layer.
+
 ## v0.66.0 - 2026-09-12
 
 - Active project agents (API credential identities) are now assignable to

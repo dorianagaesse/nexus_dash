@@ -486,6 +486,179 @@ describe("rich-text-content", () => {
     });
   });
 
+  test("highlights agent tokens alongside human mentions in order", () => {
+    const { container, root } = createTestRenderer();
+
+    act(() => {
+      root.render(
+        React.createElement(
+          "div",
+          null,
+          renderContentWithMentions(
+            "Hi @alice#1234 and @{Release bot} done",
+            {
+              mentionUsers: [
+                {
+                  id: "user-alice",
+                  displayName: "Alice Example",
+                  usernameTag: "alice#1234",
+                  avatarSeed: "user-alice",
+                },
+              ],
+              renderAgentMentions: true,
+            }
+          )
+        )
+      );
+    });
+
+    const spans = Array.from(container.querySelectorAll("span"));
+    expect(spans.map((span) => span.textContent)).toEqual([
+      "@alice",
+      "@Release bot",
+    ]);
+    expect(container.textContent).toBe("Hi @alice and @Release bot done");
+    // Agent chips share the human mention chip styling and hover affordance.
+    expect(spans[1]?.className).toBe(spans[0]?.className);
+    expect(spans[1]?.getAttribute("title")).toBe("Release bot (Agent)");
+    expect(spans[0]?.getAttribute("title")).toBe("Alice Example (alice#1234)");
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  test("keeps agent tokens literal on surfaces without agent mention support", () => {
+    const { container, root } = createTestRenderer();
+
+    act(() => {
+      root.render(
+        React.createElement(
+          "div",
+          null,
+          renderContentWithMentions("Hi @alice#1234 and @{Release bot} done", {
+            mentionUsers: [
+              {
+                id: "user-alice",
+                displayName: "Alice Example",
+                usernameTag: "alice#1234",
+                avatarSeed: "user-alice",
+              },
+            ],
+          })
+        )
+      );
+    });
+
+    const spans = Array.from(container.querySelectorAll("span"));
+    expect(spans.map((span) => span.textContent)).toEqual(["@alice"]);
+    expect(container.textContent).toBe("Hi @alice and @{Release bot} done");
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  test("renders brace-free agent chips in mirrors while preserving token metrics", () => {
+    const { container, root } = createTestRenderer();
+
+    act(() => {
+      root.render(
+        React.createElement(
+          "div",
+          null,
+          renderContentWithMentions("ping @{Release bot} now", {
+            mentionHighlightClassName: MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
+            resolveDisplayUsers: false,
+            renderAgentMentions: true,
+            preserveAgentMentionText: true,
+          })
+        )
+      );
+    });
+
+    const agent = container.querySelector("span");
+    expect(agent?.textContent).toBe("@{Release bot}");
+    expect(container.textContent).toBe("ping @{Release bot} now");
+    expect(agent?.className).toContain("px-0");
+    expect(agent?.className).not.toContain("inline-block");
+    // The braces stay in the layout (visibility: hidden) so the mirror keeps
+    // the exact text metrics of the underlying `@{Label}` textarea value.
+    const hiddenBraces = Array.from(
+      agent?.querySelectorAll<HTMLSpanElement>("span[aria-hidden='true']") ?? []
+    );
+    expect(hiddenBraces.map((brace) => brace.textContent)).toEqual(["{", "}"]);
+    expect(hiddenBraces.every((brace) => brace.className.includes("invisible"))).toBe(
+      true
+    );
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  test("shows the shared hover card for agent mention chips", async () => {
+    const { container, root } = createTestRenderer();
+    await renderWithRoot(
+      root,
+      React.createElement(
+        "div",
+        null,
+        renderContentWithMentions("ping @{Release bot} now", {
+          renderAgentMentions: true,
+        })
+      )
+    );
+
+    const agent = container.querySelector<HTMLElement>("span");
+    expect(agent?.textContent).toBe("@Release bot");
+
+    await act(async () => {
+      agent?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+
+    const tooltip = document.querySelector("[role='tooltip']");
+    expect(tooltip?.textContent).toContain("Release bot");
+    expect(tooltip?.textContent).toContain("Agent");
+    expect(tooltip?.querySelector("[data-agent-avatar='true']")).not.toBeNull();
+
+    await act(async () => {
+      agent?.dispatchEvent(
+        new MouseEvent("mouseout", { bubbles: true, relatedTarget: document.body })
+      );
+    });
+
+    expect(document.querySelector("[role='tooltip']")).toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("leaves malformed agent tokens as plain text", () => {
+    const { container, root } = createTestRenderer();
+
+    act(() => {
+      root.render(
+        React.createElement(
+          "div",
+          null,
+          renderContentWithMentions("empty @{} and @{unclosed", {
+            resolveDisplayUsers: false,
+            renderAgentMentions: true,
+          })
+        )
+      );
+    });
+
+    expect(container.querySelectorAll("span")).toHaveLength(0);
+    expect(container.textContent).toBe("empty @{} and @{unclosed");
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
   test("highlights every task-description mention after repeated edits", async () => {
     const { container, root } = createTestRenderer();
 

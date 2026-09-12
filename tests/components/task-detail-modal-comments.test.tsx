@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import React from "react";
+import React, { useState } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -68,82 +68,131 @@ function createTestRenderer() {
   };
 }
 
-async function renderWithRoot(root: Root, comments: TaskComment[]) {
+function buildModalProps(comments: TaskComment[]) {
+  return {
+    projectId: "project-1",
+    canEdit: false,
+    isOpen: true,
+    selectedTask: { ...taskForRender, commentCount: comments.length },
+    isEditMode: false,
+    editTitle: "",
+    editLabels: [],
+    editLabelInput: "",
+    editLabelSuggestions: [],
+    editDescription: "",
+    editDeadlineDate: "",
+    editEpicId: "",
+    editAssignee: null,
+    editRelatedTasks: [],
+    relatedTaskSearch: "",
+    newBlockedFollowUpEntry: "",
+    isUpdatingTask: false,
+    taskModalError: null,
+    attachmentError: null,
+    isSubmittingAttachment: false,
+    isArchivingTask: false,
+    isArchivedTask: false,
+    hasPendingAttachmentUploads: false,
+    pendingAttachmentUploads: [],
+    isLinkComposerOpen: false,
+    linkUrl: "",
+    fileInputKey: 0,
+    previewAttachment: null,
+    taskComments: comments,
+    taskCommentsError: null,
+    isLoadingTaskComments: false,
+    newTaskComment: "",
+    isSubmittingTaskComment: false,
+    onClose: vi.fn(),
+    onActivateEditMode: vi.fn(),
+    onToggleEditMode: vi.fn(),
+    onEditTitleChange: vi.fn(),
+    onEditLabelInputChange: vi.fn(),
+    onAddEditLabel: vi.fn(),
+    onRemoveEditLabel: vi.fn(),
+    onEditDescriptionChange: vi.fn(),
+    onEditDeadlineDateChange: vi.fn(),
+    onEditEpicIdChange: vi.fn(),
+    onEditAssigneeChange: vi.fn(),
+    onRelatedTaskSearchChange: vi.fn(),
+    onAddRelatedTask: vi.fn(),
+    onRemoveRelatedTask: vi.fn(),
+    availableEpicOptions: [],
+    availableAssignees: [],
+    mentionUsers: [],
+    availableRelatedTaskOptions: [],
+    onOpenRelatedTask: vi.fn(),
+    onNewBlockedFollowUpEntryChange: vi.fn(),
+    onAddBlockedFollowUpEntry: vi.fn(),
+    onSaveTask: vi.fn(),
+    onQuickEpicChange: vi.fn(),
+    onQuickAssigneeChange: vi.fn(),
+    onToggleLinkComposer: vi.fn(),
+    onLinkUrlChange: vi.fn(),
+    onAddLinkAttachment: vi.fn(),
+    onAddFileAttachment: vi.fn(),
+    onDeleteAttachment: vi.fn(),
+    onPreviewAttachmentChange: vi.fn(),
+    onNewTaskCommentChange: vi.fn(),
+    onSubmitTaskComment: vi.fn(),
+    onMoveTask: vi.fn(),
+    onArchiveTask: vi.fn(),
+    onUnarchiveTask: vi.fn(),
+    onRequestDeleteTask: vi.fn(),
+  };
+}
+
+type ModalProps = ReturnType<typeof buildModalProps>;
+
+async function renderWithRoot(
+  root: Root,
+  comments: TaskComment[],
+  overrides?: Partial<ModalProps>
+) {
   await act(async () => {
-    root.render(
-      <TaskDetailModal
-        projectId="project-1"
-        canEdit={false}
-        isOpen
-        selectedTask={{ ...taskForRender, commentCount: comments.length }}
-        isEditMode={false}
-        editTitle=""
-        editLabels={[]}
-        editLabelInput=""
-        editLabelSuggestions={[]}
-        editDescription=""
-        editDeadlineDate=""
-        editEpicId=""
-        editAssignee={null}
-        editRelatedTasks={[]}
-        relatedTaskSearch=""
-        newBlockedFollowUpEntry=""
-        isUpdatingTask={false}
-        taskModalError={null}
-        attachmentError={null}
-        isSubmittingAttachment={false}
-        isArchivingTask={false}
-        isArchivedTask={false}
-        hasPendingAttachmentUploads={false}
-        pendingAttachmentUploads={[]}
-        isLinkComposerOpen={false}
-        linkUrl=""
-        fileInputKey={0}
-        previewAttachment={null}
-        taskComments={comments}
-        taskCommentsError={null}
-        isLoadingTaskComments={false}
-        newTaskComment=""
-        isSubmittingTaskComment={false}
-        onClose={vi.fn()}
-        onActivateEditMode={vi.fn()}
-        onToggleEditMode={vi.fn()}
-        onEditTitleChange={vi.fn()}
-        onEditLabelInputChange={vi.fn()}
-        onAddEditLabel={vi.fn()}
-        onRemoveEditLabel={vi.fn()}
-        onEditDescriptionChange={vi.fn()}
-        onEditDeadlineDateChange={vi.fn()}
-        onEditEpicIdChange={vi.fn()}
-        onEditAssigneeChange={vi.fn()}
-        onRelatedTaskSearchChange={vi.fn()}
-        onAddRelatedTask={vi.fn()}
-        onRemoveRelatedTask={vi.fn()}
-        availableEpicOptions={[]}
-        availableAssignees={[]}
-        mentionUsers={[]}
-        availableRelatedTaskOptions={[]}
-        onOpenRelatedTask={vi.fn()}
-        onNewBlockedFollowUpEntryChange={vi.fn()}
-        onAddBlockedFollowUpEntry={vi.fn()}
-        onSaveTask={vi.fn()}
-        onQuickEpicChange={vi.fn()}
-        onQuickAssigneeChange={vi.fn()}
-        onToggleLinkComposer={vi.fn()}
-        onLinkUrlChange={vi.fn()}
-        onAddLinkAttachment={vi.fn()}
-        onAddFileAttachment={vi.fn()}
-        onDeleteAttachment={vi.fn()}
-        onPreviewAttachmentChange={vi.fn()}
-        onNewTaskCommentChange={vi.fn()}
-        onSubmitTaskComment={vi.fn()}
-        onMoveTask={vi.fn()}
-        onArchiveTask={vi.fn()}
-        onUnarchiveTask={vi.fn()}
-        onRequestDeleteTask={vi.fn()}
-      />
-    );
+    root.render(<TaskDetailModal {...buildModalProps(comments)} {...overrides} />);
   });
+}
+
+function CommentComposerHarness({
+  onSubmitTaskComment,
+}: {
+  onSubmitTaskComment: ModalProps["onSubmitTaskComment"];
+}) {
+  const [comment, setComment] = useState("");
+
+  return (
+    <TaskDetailModal
+      {...buildModalProps([])}
+      canEdit
+      newTaskComment={comment}
+      onNewTaskCommentChange={setComment}
+      onSubmitTaskComment={onSubmitTaskComment}
+    />
+  );
+}
+
+async function renderComposer(
+  root: Root,
+  onSubmitTaskComment: ModalProps["onSubmitTaskComment"]
+) {
+  await act(async () => {
+    root.render(<CommentComposerHarness onSubmitTaskComment={onSubmitTaskComment} />);
+  });
+}
+
+function setTextareaValue(textarea: HTMLTextAreaElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(
+    window.HTMLTextAreaElement.prototype,
+    "value"
+  )?.set;
+  setter?.call(textarea, value);
+  textarea.setSelectionRange(value.length, value.length);
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function waitForSearchDebounce() {
+  return new Promise((resolve) => setTimeout(resolve, 200));
 }
 
 describe("TaskDetailModal comments", () => {
@@ -255,6 +304,164 @@ describe("TaskDetailModal comments", () => {
 
     expect(document.body.textContent).toContain("owner");
     expect(document.body.querySelectorAll("[data-agent-avatar='true']")).toHaveLength(0);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("inserts an agent token and submits the tagged-agent selection", async () => {
+    const { root } = createTestRenderer();
+    const onSubmitTaskComment = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/actors/search")) {
+          return Promise.resolve({
+            ok: true,
+            json: vi.fn().mockResolvedValue({
+              actors: [
+                {
+                  kind: "agent",
+                  id: "credential-1",
+                  displayName: "Release bot",
+                  usernameTag: null,
+                  avatarSeed: null,
+                  projectRole: null,
+                  isOwner: false,
+                },
+              ],
+            }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: vi.fn().mockResolvedValue({ reactions: [] }),
+        });
+      })
+    );
+
+    await renderComposer(root, onSubmitTaskComment);
+
+    const textarea = document.getElementById(
+      "task-comment-input"
+    ) as HTMLTextAreaElement;
+    expect(textarea).not.toBeNull();
+
+    act(() => {
+      setTextareaValue(textarea, "@rel");
+    });
+    await act(async () => {
+      await waitForSearchDebounce();
+    });
+
+    const agentOption = Array.from(
+      document.querySelectorAll("[role='option']")
+    ).find((option) => option.textContent?.includes("Release bot"));
+    expect(agentOption).toBeDefined();
+    expect(agentOption?.getAttribute("aria-disabled")).toBe("false");
+
+    act(() => {
+      agentOption?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true })
+      );
+    });
+
+    expect(textarea.value).toBe("@{Release bot} ");
+
+    const submitButton = Array.from(
+      document.querySelectorAll("button")
+    ).find((button) => button.textContent === "Add comment");
+    expect(submitButton).toBeDefined();
+
+    act(() => {
+      submitButton?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true })
+      );
+    });
+
+    expect(onSubmitTaskComment).toHaveBeenCalledWith(
+      [],
+      [{ credentialId: "credential-1" }]
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("drops the agent selection when the token stops matching", async () => {
+    const { root } = createTestRenderer();
+    const onSubmitTaskComment = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/actors/search")) {
+          return Promise.resolve({
+            ok: true,
+            json: vi.fn().mockResolvedValue({
+              actors: [
+                {
+                  kind: "agent",
+                  id: "credential-1",
+                  displayName: "Release bot",
+                  usernameTag: null,
+                  avatarSeed: null,
+                  projectRole: null,
+                  isOwner: false,
+                },
+              ],
+            }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: vi.fn().mockResolvedValue({ reactions: [] }),
+        });
+      })
+    );
+
+    await renderComposer(root, onSubmitTaskComment);
+
+    const textarea = document.getElementById(
+      "task-comment-input"
+    ) as HTMLTextAreaElement;
+
+    act(() => {
+      setTextareaValue(textarea, "@rel");
+    });
+    await act(async () => {
+      await waitForSearchDebounce();
+    });
+
+    const agentOption = Array.from(
+      document.querySelectorAll("[role='option']")
+    ).find((option) => option.textContent?.includes("Release bot"));
+
+    act(() => {
+      agentOption?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true })
+      );
+    });
+    expect(textarea.value).toBe("@{Release bot} ");
+
+    act(() => {
+      setTextareaValue(textarea, "@{Release bot without close");
+    });
+
+    const submitButton = Array.from(
+      document.querySelectorAll("button")
+    ).find((button) => button.textContent === "Add comment");
+
+    act(() => {
+      submitButton?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true })
+      );
+    });
+
+    expect(onSubmitTaskComment).toHaveBeenCalledWith([], []);
 
     await act(async () => {
       root.unmount();

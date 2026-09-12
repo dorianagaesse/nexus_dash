@@ -4,9 +4,12 @@ import React from "react";
 
 import {
   MentionText,
+  buildAgentMentionIdentity,
+  buildUserMentionIdentity,
+  resolveMentionDisplayUser,
   type MentionDisplayUser,
 } from "@/components/ui/mention-hover-card";
-import { parseMentions } from "@/lib/mention";
+import { parseAgentMentions, parseMentions } from "@/lib/mention";
 
 /**
  * Canonical highlight class for @username mentions.
@@ -37,59 +40,119 @@ export function renderContentWithMentions(
     hideMentionDiscriminator?: boolean;
     preserveMentionText?: boolean;
     resolveDisplayUsers?: boolean;
+    renderAgentMentions?: boolean;
+    preserveAgentMentionText?: boolean;
   }
 ): React.ReactNode {
   const { mentions } = parseMentions(content);
+  // `@{Label}` tokens become chips only on surfaces where agent mentions are
+  // an enabled feature (comment content and the comment composer mirror).
+  // Everywhere else the text stays literal, matching the disabled pickers.
+  const agentMentions = options?.renderAgentMentions
+    ? parseAgentMentions(content)
+    : [];
 
-  if (mentions.length === 0) {
+  if (mentions.length === 0 && agentMentions.length === 0) {
     return <>{content}</>;
   }
-
-  const segments: React.ReactNode[] = [];
-  let lastIndex = 0;
 
   const highlightClass =
     options?.mentionHighlightClassName ?? MENTION_HIGHLIGHT_CLASS;
   const mentionUsers = options?.resolveDisplayUsers === false ? undefined : options?.mentionUsers;
 
-  for (const mention of mentions) {
-    // Add text before the mention using original content indices
-    if (mention.startIndex > lastIndex) {
-      segments.push(content.slice(lastIndex, mention.startIndex));
+  const items = [
+    ...mentions.map((mention) => ({
+      startIndex: mention.startIndex,
+      endIndex: mention.endIndex,
+      render: () => {
+        const shouldHideDiscriminator =
+          options?.hideMentionDiscriminator && mention.discriminator;
+        const mentionContent = options?.preserveMentionText
+          ? mention.fullMatch
+          : `@${mention.username}`;
+        const user = resolveMentionDisplayUser(
+          {
+            username: mention.username,
+            discriminator: mention.discriminator,
+          },
+          mentionUsers
+        );
+
+        return (
+          <>
+            <MentionText
+              identity={user ? buildUserMentionIdentity(user) : null}
+              className={highlightClass}
+            >
+              {mentionContent}
+            </MentionText>
+            {shouldHideDiscriminator ? (
+              <span aria-hidden="true" className="hidden">
+                #{mention.discriminator}
+              </span>
+            ) : null}
+          </>
+        );
+      },
+    })),
+    ...agentMentions.map((mention) => ({
+      startIndex: mention.startIndex,
+      endIndex: mention.endIndex,
+      render: () => {
+        const identity =
+          options?.resolveDisplayUsers === false
+            ? null
+            : buildAgentMentionIdentity(mention.label);
+
+        if (options?.preserveAgentMentionText) {
+          // Transparent textarea mirrors keep the braced token's text metrics
+          // with the underlying value; the braces stay invisible so the chip
+          // reads exactly like a human mention.
+          return (
+            <MentionText identity={identity} className={highlightClass}>
+              {"@"}
+              <span aria-hidden="true" className="invisible">
+                {"{"}
+              </span>
+              {mention.label}
+              <span aria-hidden="true" className="invisible">
+                {"}"}
+              </span>
+            </MentionText>
+          );
+        }
+
+        return (
+          <MentionText identity={identity} className={highlightClass}>
+            {`@${mention.label}`}
+          </MentionText>
+        );
+      },
+    })),
+  ].sort(
+    (left, right) =>
+      left.startIndex - right.startIndex || right.endIndex - left.endIndex
+  );
+
+  const segments: React.ReactNode[] = [];
+  let lastIndex = 0;
+
+  for (const item of items) {
+    // Skip patterns already covered by a longer token at the same position.
+    if (item.startIndex < lastIndex) {
+      continue;
     }
 
-    const shouldHideDiscriminator =
-      options?.hideMentionDiscriminator && mention.discriminator;
-    const mentionContent = options?.preserveMentionText
-      ? mention.fullMatch
-      : `@${mention.username}`;
+    if (item.startIndex > lastIndex) {
+      segments.push(content.slice(lastIndex, item.startIndex));
+    }
 
     segments.push(
-      <MentionText
-        key={`mention-${mention.startIndex}`}
-        mention={{
-          username: mention.username,
-          discriminator: mention.discriminator,
-        }}
-        users={mentionUsers}
-        className={highlightClass}
-      >
-        {mentionContent}
-      </MentionText>
+      <React.Fragment key={`mention-${item.startIndex}`}>
+        {item.render()}
+      </React.Fragment>
     );
-    if (shouldHideDiscriminator) {
-      segments.push(
-        <span
-          key={`mention-layout-${mention.startIndex}`}
-          aria-hidden="true"
-          className="hidden"
-        >
-          #{mention.discriminator}
-        </span>
-      );
-    }
-
-    lastIndex = mention.endIndex;
+    lastIndex = item.endIndex;
   }
 
   // Add remaining text after last mention using original content

@@ -16,6 +16,7 @@ import {
 interface TaskCommentCreateRequestBody {
   content?: unknown;
   mentionSelections?: unknown;
+  agentMentionSelections?: unknown;
 }
 
 function parseMentionSelections(
@@ -55,6 +56,36 @@ function parseMentionSelections(
       username,
       discriminator: discriminator || null,
     });
+  }
+
+  return selections;
+}
+
+function parseAgentMentionSelections(
+  value: unknown
+): Array<{ credentialId: string }> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const selections: Array<{ credentialId: string }> = [];
+
+  for (const entry of value.slice(0, 50)) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+
+    const candidate = entry as Record<string, unknown>;
+    const credentialId =
+      typeof candidate.credentialId === "string"
+        ? candidate.credentialId.trim()
+        : "";
+
+    if (!credentialId) {
+      continue;
+    }
+
+    selections.push({ credentialId });
   }
 
   return selections;
@@ -135,6 +166,9 @@ export async function POST(
     taskId: params.taskId,
     content: typeof payload.content === "string" ? payload.content : "",
     mentionSelections: parseMentionSelections(payload.mentionSelections),
+    agentMentionSelections: parseAgentMentionSelections(
+      payload.agentMentionSelections
+    ),
     agentAccess: getAgentProjectAccessContext(principalResult.principal),
   });
 

@@ -72,6 +72,10 @@ export interface TaskCommentMentionSelection {
   discriminator: string | null;
 }
 
+export interface TaskCommentAgentMentionSelection {
+  credentialId: string;
+}
+
 export interface TaskAttachment {
   id: string;
   kind: string;

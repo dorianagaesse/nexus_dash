@@ -12,7 +12,7 @@ import { createPortal } from "react-dom";
 
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { getActiveMentionTrigger } from "@/lib/mention";
+import { buildAgentMentionToken, getActiveMentionTrigger } from "@/lib/mention";
 import { cn } from "@/lib/utils";
 
 export interface MentionAutocompleteMember {
@@ -31,18 +31,40 @@ export function buildMentionAutocompleteValue(
   if (member.kind === "human" && member.usernameTag) {
     return `@${member.usernameTag}`;
   }
+  if (member.kind === "agent") {
+    // Structured agent token; the server only persists a tagged-agent event
+    // when the matching selection arrives with this exact token.
+    return buildAgentMentionToken(member.displayName);
+  }
 
-  // Agent mention persistence is owned by ND-383. Discovery can show an
-  // active credential now, but must not serialize it as a human mention.
   return "";
 }
 
 export function buildMentionAutocompleteDisplayValue(
   member: MentionAutocompleteMember
 ): string {
-  const username =
-    member.kind === "human" ? member.usernameTag?.split("#", 1)[0] ?? "" : "";
+  if (member.kind === "agent") {
+    return buildAgentMentionToken(member.displayName);
+  }
+
+  const username = member.usernameTag?.split("#", 1)[0] ?? "";
   return username ? `@${username}` : "";
+}
+
+function isMemberSelectable(
+  member: MentionAutocompleteMember,
+  agentMentionsEnabled: boolean
+): boolean {
+  if (member.kind === "human") {
+    return true;
+  }
+
+  // Credential labels that contain braces or line breaks have no encodable
+  // `@{Label}` token, so the picker keeps those rows inert with an explicit
+  // reason instead of inserting nothing.
+  return (
+    agentMentionsEnabled && buildAgentMentionToken(member.displayName) !== ""
+  );
 }
 
 interface MentionAutocompleteProps {
@@ -51,6 +73,7 @@ interface MentionAutocompleteProps {
   position: { top: number; left: number } | null;
   onSelect: (member: MentionAutocompleteMember) => void;
   onClose: () => void;
+  agentMentionsEnabled?: boolean;
 }
 
 interface PanelLayout {
@@ -79,6 +102,7 @@ export function MentionAutocomplete({
   position,
   onSelect,
   onClose,
+  agentMentionsEnabled = false,
 }: MentionAutocompleteProps) {
   const [members, setMembers] = useState<MentionAutocompleteMember[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -222,14 +246,19 @@ export function MentionAutocomplete({
             (prev) => (prev - 1 + members.length) % members.length
           );
           break;
-        case "Enter":
+        case "Enter": {
           if (!members.length) return;
           event.preventDefault();
           event.stopPropagation();
-          if (members[activeIndex]?.kind === "human") {
-            onSelect(members[activeIndex]);
+          const activeMember = members[activeIndex];
+          if (
+            activeMember &&
+            isMemberSelectable(activeMember, agentMentionsEnabled)
+          ) {
+            onSelect(activeMember);
           }
           break;
+        }
         case "Escape":
           event.preventDefault();
           event.stopPropagation();
@@ -237,7 +266,7 @@ export function MentionAutocomplete({
           break;
       }
     },
-    [members, activeIndex, onSelect, onClose]
+    [members, activeIndex, onSelect, onClose, agentMentionsEnabled]
   );
 
   useEffect(() => {
@@ -312,69 +341,88 @@ export function MentionAutocomplete({
 
         {!isLoading && !error && members.length > 0 && (
           <div role="presentation" className="space-y-0.5">
-            {members.map((member, index) => (
-              <div
-                key={`${member.kind}:${member.id}`}
-                role="option"
-                aria-selected={index === activeIndex}
-                aria-disabled={member.kind === "agent"}
-                title={
-                  member.kind === "agent"
-                    ? "Agent mentions are not available yet"
-                    : undefined
-                }
-                className={cn(
-                  "flex min-h-12 items-center gap-3 rounded-lg px-2 py-2 transition-colors",
-                  member.kind === "human" ? "cursor-pointer" : "cursor-not-allowed",
-                  index === activeIndex ? "bg-muted/70" : "hover:bg-muted/40"
-                )}
-                onMouseDown={(event) => event.preventDefault()}
-                onMouseEnter={() => handleMouseEnter(index)}
-                onClick={(e: MouseEvent) => {
-                  e.preventDefault();
-                  if (member.kind === "human") {
-                    handleItemClick(member);
+            {members.map((member, index) => {
+              const isSelectable = isMemberSelectable(
+                member,
+                agentMentionsEnabled
+              );
+              const showAgentComingSoon =
+                member.kind === "agent" && !agentMentionsEnabled;
+              const showAgentTokenUnsupported =
+                member.kind === "agent" &&
+                agentMentionsEnabled &&
+                !isSelectable;
+
+              return (
+                <div
+                  key={`${member.kind}:${member.id}`}
+                  role="option"
+                  aria-selected={index === activeIndex}
+                  aria-disabled={!isSelectable}
+                  title={
+                    showAgentComingSoon
+                      ? "Agent mentions are not available here yet"
+                      : showAgentTokenUnsupported
+                        ? "This credential label cannot be mentioned"
+                        : undefined
                   }
-                }}
-              >
-                {member.kind === "agent" ? (
-                  <AgentAvatar
-                    displayName={member.displayName}
-                    decorative
-                    className="h-8 w-8 shrink-0"
-                  />
-                ) : (
-                  <UserAvatar
-                    avatarSeed={member.avatarSeed ?? member.id}
-                    displayName={member.displayName}
-                    className="h-8 w-8 shrink-0 border border-border/50"
-                  />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium leading-tight">
-                    {member.displayName}
-                  </p>
+                  className={cn(
+                    "flex min-h-12 items-center gap-3 rounded-lg px-2 py-2 transition-colors",
+                    isSelectable ? "cursor-pointer" : "cursor-not-allowed",
+                    index === activeIndex ? "bg-muted/70" : "hover:bg-muted/40"
+                  )}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseEnter={() => handleMouseEnter(index)}
+                  onClick={(e: MouseEvent) => {
+                    e.preventDefault();
+                    if (isSelectable) {
+                      handleItemClick(member);
+                    }
+                  }}
+                >
                   {member.kind === "agent" ? (
-                    <p className="truncate text-xs leading-tight text-muted-foreground">
-                      Agent — mention support coming soon
+                    <AgentAvatar
+                      displayName={member.displayName}
+                      decorative
+                      className="h-8 w-8 shrink-0"
+                    />
+                  ) : (
+                    <UserAvatar
+                      avatarSeed={member.avatarSeed ?? member.id}
+                      displayName={member.displayName}
+                      className="h-8 w-8 shrink-0 border border-border/50"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium leading-tight">
+                      {member.displayName}
                     </p>
-                  ) : member.usernameTag ? (
-                    <p className="truncate text-xs text-muted-foreground leading-tight">
-                      {member.usernameTag}
-                    </p>
+                    {showAgentComingSoon ? (
+                      <p className="truncate text-xs leading-tight text-muted-foreground">
+                        Agent — mention support coming soon
+                      </p>
+                    ) : showAgentTokenUnsupported ? (
+                      <p className="truncate text-xs leading-tight text-muted-foreground">
+                        Agent — label can&apos;t be mentioned
+                      </p>
+                    ) : member.kind === "human" && member.usernameTag ? (
+                      <p className="truncate text-xs text-muted-foreground leading-tight">
+                        {member.usernameTag}
+                      </p>
+                    ) : null}
+                  </div>
+                  {member.kind === "agent" ? (
+                    <span className="shrink-0 rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                      Agent
+                    </span>
+                  ) : member.isOwner ? (
+                    <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                      Owner
+                    </span>
                   ) : null}
                 </div>
-                {member.kind === "agent" ? (
-                  <span className="shrink-0 rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                    Agent
-                  </span>
-                ) : member.isOwner ? (
-                  <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                    Owner
-                  </span>
-                ) : null}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

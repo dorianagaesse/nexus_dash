@@ -4,8 +4,10 @@ import * as React from "react";
 
 import {
   MentionTooltipPortal,
+  buildUserMentionIdentity,
   resolveMentionDisplayUser,
   type MentionDisplayUser,
+  type MentionIdentity,
 } from "@/components/ui/mention-hover-card";
 import { parseMentions, type ParsedMention } from "@/lib/mention";
 import { MENTION_HIGHLIGHT_CLASS } from "@/lib/content-with-mentions";
@@ -343,7 +345,7 @@ export function RichTextContent({
     () => typeof document !== "undefined"
   );
   const [mentionTooltip, setMentionTooltip] = React.useState<{
-    user: MentionDisplayUser;
+    identity: MentionIdentity;
     anchorRect: DOMRect;
   } | null>(null);
   const activeMentionElementRef = React.useRef<HTMLElement | null>(null);
@@ -484,7 +486,7 @@ export function RichTextContent({
 
     activeMentionElementRef.current = mentionElement;
     setMentionTooltip({
-      user,
+      identity: buildUserMentionIdentity(user),
       anchorRect: mentionElement.getBoundingClientRect(),
     });
   };
@@ -581,7 +583,7 @@ export function RichTextContent({
       />
       {mentionTooltip ? (
         <MentionTooltipPortal
-          user={mentionTooltip.user}
+          identity={mentionTooltip.identity}
           anchorRect={mentionTooltip.anchorRect}
         />
       ) : null}

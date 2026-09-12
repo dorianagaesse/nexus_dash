@@ -69,7 +69,10 @@ export function TaskCommentBody({
             : undefined
         }
       >
-        {renderContentWithMentions(content, { mentionUsers })}
+        {renderContentWithMentions(content, {
+          mentionUsers,
+          renderAgentMentions: true,
+        })}
       </p>
       {overflowing ? (
         <button

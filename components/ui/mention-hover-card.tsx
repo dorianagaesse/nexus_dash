@@ -3,6 +3,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 
+import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,16 @@ export interface MentionDisplayUser {
 export interface MentionLookup {
   username: string;
   discriminator: string | null;
+}
+
+/**
+ * Shared hover identity for a mention chip. Human and agent mentions render
+ * through the same chip and tooltip so both read identically on hover.
+ */
+export interface MentionIdentity {
+  displayName: string;
+  secondaryText: string | null;
+  avatar: React.ReactNode;
 }
 
 export function resolveMentionDisplayUser(
@@ -45,11 +56,39 @@ export function resolveMentionDisplayUser(
   );
 }
 
+export function buildUserMentionIdentity(user: MentionDisplayUser): MentionIdentity {
+  return {
+    displayName: user.displayName,
+    secondaryText: user.usernameTag,
+    avatar: (
+      <UserAvatar
+        avatarSeed={user.avatarSeed}
+        displayName={user.displayName}
+        className="h-9 w-9 border-border/70"
+      />
+    ),
+  };
+}
+
+export function buildAgentMentionIdentity(label: string): MentionIdentity {
+  return {
+    displayName: label,
+    secondaryText: "Agent",
+    avatar: (
+      <AgentAvatar
+        displayName={label}
+        decorative
+        className="h-9 w-9 border-border/70"
+      />
+    ),
+  };
+}
+
 export function MentionTooltipPortal({
-  user,
+  identity,
   anchorRect,
 }: {
-  user: MentionDisplayUser;
+  identity: MentionIdentity;
   anchorRect: DOMRect;
 }) {
   const [mounted, setMounted] = React.useState(false);
@@ -72,16 +111,12 @@ export function MentionTooltipPortal({
       className="pointer-events-none fixed z-[140] flex w-60 items-center gap-3 rounded-lg border border-border/70 bg-background px-3 py-2 text-foreground shadow-lg"
       style={{ left, top }}
     >
-      <UserAvatar
-        avatarSeed={user.avatarSeed}
-        displayName={user.displayName}
-        className="h-9 w-9 border-border/70"
-      />
+      {identity.avatar}
       <span className="min-w-0">
-        <span className="block truncate text-sm font-medium">{user.displayName}</span>
-        {user.usernameTag ? (
+        <span className="block truncate text-sm font-medium">{identity.displayName}</span>
+        {identity.secondaryText ? (
           <span className="block truncate text-xs text-muted-foreground">
-            {user.usernameTag}
+            {identity.secondaryText}
           </span>
         ) : null}
       </span>
@@ -91,21 +126,18 @@ export function MentionTooltipPortal({
 }
 
 export function MentionText({
-  mention,
+  identity,
   children,
-  users,
   className,
 }: {
-  mention: MentionLookup;
+  identity?: MentionIdentity | null;
   children: React.ReactNode;
-  users?: MentionDisplayUser[];
   className?: string;
 }) {
-  const user = resolveMentionDisplayUser(mention, users);
   const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null);
 
   const showTooltip = (element: HTMLElement) => {
-    if (user) {
+    if (identity) {
       setAnchorRect(element.getBoundingClientRect());
     }
   };
@@ -113,16 +145,16 @@ export function MentionText({
   return (
     <>
       <span
-        tabIndex={user ? 0 : undefined}
+        tabIndex={identity ? 0 : undefined}
         className={cn(
           "rounded-md bg-primary/15 px-1 py-0.5 font-medium text-primary not-italic",
-          user &&
+          identity &&
             "cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
           className
         )}
         title={
-          user
-            ? `${user.displayName}${user.usernameTag ? ` (${user.usernameTag})` : ""}`
+          identity
+            ? `${identity.displayName}${identity.secondaryText ? ` (${identity.secondaryText})` : ""}`
             : undefined
         }
         onMouseEnter={(event) => showTooltip(event.currentTarget)}
@@ -133,8 +165,8 @@ export function MentionText({
       >
         {children}
       </span>
-      {user && anchorRect ? (
-        <MentionTooltipPortal user={user} anchorRect={anchorRect} />
+      {identity && anchorRect ? (
+        <MentionTooltipPortal identity={identity} anchorRect={anchorRect} />
       ) : null}
     </>
   );

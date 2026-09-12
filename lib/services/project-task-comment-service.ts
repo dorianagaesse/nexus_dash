@@ -1,5 +1,13 @@
 import { logServerError } from "@/lib/observability/logger";
-import { parseMentions, type ParsedMention } from "@/lib/mention";
+import {
+  buildAgentMentionToken,
+  parseMentions,
+  type ParsedMention,
+} from "@/lib/mention";
+import {
+  loadProjectActorRegistry,
+  resolveAssignableProjectActorFromRegistry,
+} from "@/lib/services/project-actor-service";
 import {
   requireAgentProjectScopes,
   requireProjectRole,
@@ -340,6 +348,145 @@ async function resolveMentionedProjectMembers(
   };
 }
 
+const AGENT_MENTION_INVALID_ERROR = "task-comment-agent-mention-invalid";
+
+export interface TaskCommentAgentMentionSelection {
+  credentialId: string;
+}
+
+export interface TaskCommentAgentMentionSummary {
+  credentialId: string;
+  label: string;
+}
+
+/**
+ * Resolve selected agent credentials against the project actor registry.
+ *
+ * A selection only becomes an event when the credential is an active project
+ * agent and the comment content carries the exact `@{Label}` token, so raw
+ * text alone can never fabricate a tagged-agent event. Selections for
+ * credentials outside the project or that are revoked/expired fail the whole
+ * submission with {@link AGENT_MENTION_INVALID_ERROR}.
+ */
+async function resolveAgentMentionSelections(input: {
+  db: DbClient;
+  projectId: string;
+  content: string;
+  selections: TaskCommentAgentMentionSelection[];
+}): Promise<ServiceResult<TaskCommentAgentMentionSummary[]>> {
+  if (input.selections.length === 0) {
+    return { ok: true, data: [] };
+  }
+
+  const registry = await loadProjectActorRegistry({
+    db: input.db,
+    projectId: input.projectId,
+  });
+  if (!registry) {
+    return createError(404, "project-not-found");
+  }
+
+  const resolved: TaskCommentAgentMentionSummary[] = [];
+  const seenCredentialIds = new Set<string>();
+
+  for (const selection of input.selections) {
+    const credentialId = normalizeText(selection.credentialId);
+    if (!credentialId || seenCredentialIds.has(credentialId)) {
+      continue;
+    }
+    seenCredentialIds.add(credentialId);
+
+    const resolution = resolveAssignableProjectActorFromRegistry({
+      registry,
+      reference: { kind: "agent", id: credentialId },
+      assigneeInvalidError: AGENT_MENTION_INVALID_ERROR,
+    });
+    if (!resolution.ok) {
+      return resolution;
+    }
+
+    const mentionToken = buildAgentMentionToken(
+      resolution.actor.displayNameSnapshot
+    );
+    if (!mentionToken || !input.content.includes(mentionToken)) {
+      return createError(400, AGENT_MENTION_INVALID_ERROR);
+    }
+
+    resolved.push({
+      credentialId,
+      label: resolution.actor.displayNameSnapshot,
+    });
+  }
+
+  return { ok: true, data: resolved };
+}
+
+/**
+ * Replace-style sync with a documented idempotency rule: at most one event
+ * per (comment, credential). Re-running it for the same desired set leaves
+ * the row set unchanged, and duplicate `@{Label}` tokens or selections
+ * collapse into that single event. Rows whose credential row was deleted keep
+ * their label snapshot and are never retracted by a re-sync.
+ */
+export async function syncTaskCommentAgentMentions(input: {
+  db: DbClient;
+  commentId: string;
+  taskId: string;
+  desiredMentions: TaskCommentAgentMentionSummary[];
+  actor: {
+    userId: string;
+    credentialId: string | null;
+    credentialLabel: string | null;
+  };
+}): Promise<void> {
+  const desiredCredentialIds = new Set(
+    input.desiredMentions.map((mention) => mention.credentialId)
+  );
+
+  const existingMentions = await input.db.taskCommentAgentMention.findMany({
+    where: { commentId: input.commentId },
+    select: { id: true, agentCredentialId: true },
+  });
+
+  const removedMentionIds = existingMentions
+    .filter(
+      (mention) =>
+        mention.agentCredentialId !== null &&
+        !desiredCredentialIds.has(mention.agentCredentialId)
+    )
+    .map((mention) => mention.id);
+  if (removedMentionIds.length > 0) {
+    await input.db.taskCommentAgentMention.deleteMany({
+      where: { id: { in: removedMentionIds } },
+    });
+  }
+
+  const existingCredentialIds = new Set(
+    existingMentions
+      .map((mention) => mention.agentCredentialId)
+      .filter((credentialId): credentialId is string => credentialId !== null)
+  );
+  const missingMentions = input.desiredMentions.filter(
+    (mention) => !existingCredentialIds.has(mention.credentialId)
+  );
+  if (missingMentions.length === 0) {
+    return;
+  }
+
+  await input.db.taskCommentAgentMention.createMany({
+    data: missingMentions.map((mention) => ({
+      commentId: input.commentId,
+      taskId: input.taskId,
+      agentCredentialId: mention.credentialId,
+      agentLabel: mention.label,
+      createdByUserId: input.actor.userId,
+      createdByCredentialId: input.actor.credentialId,
+      createdByCredentialLabel: input.actor.credentialLabel,
+    })),
+    skipDuplicates: true,
+  });
+}
+
 function buildPendingMentionNotifications(input: {
   actorUserId: string;
   authorDisplayName: string;
@@ -494,6 +641,7 @@ export async function createTaskCommentForProject(input: {
   taskId: string;
   content: string;
   mentionSelections?: TaskCommentMentionSelection[];
+  agentMentionSelections?: TaskCommentAgentMentionSelection[];
   agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<{ comment: TaskCommentSummary }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
@@ -554,6 +702,16 @@ export async function createTaskCommentForProject(input: {
         return mentionResolution;
       }
 
+      const agentMentionResolution = await resolveAgentMentionSelections({
+        db,
+        projectId: input.projectId,
+        content,
+        selections: input.agentMentionSelections ?? [],
+      });
+      if (!agentMentionResolution.ok) {
+        return agentMentionResolution;
+      }
+
       try {
         let actorKind: NotificationActorKind = "user";
         let actorCredentialId: string | null = null;
@@ -592,6 +750,18 @@ export async function createTaskCommentForProject(input: {
                 avatarSeed: true,
               },
             },
+          },
+        });
+
+        await syncTaskCommentAgentMentions({
+          db,
+          commentId: comment.id,
+          taskId: input.taskId,
+          desiredMentions: agentMentionResolution.data,
+          actor: {
+            userId: actorUserId,
+            credentialId: actorCredentialId,
+            credentialLabel: actorCredentialLabel,
           },
         });
 

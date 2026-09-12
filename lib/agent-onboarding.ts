@@ -319,6 +319,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     notes: [
       "Task comments are append-only in v1 and preserve line breaks.",
       "Agent-authored comments are attributed to the credential label with an (agent) suffix.",
+      "Tag project agents by inserting the exact `@{Credential Label}` token in content and listing the credentialId in agentMentionSelections; mismatched, revoked, expired, or out-of-project selections fail the whole request with task-comment-agent-mention-invalid.",
     ],
   },
   {
@@ -1889,6 +1890,23 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           required: ["content"],
           properties: {
             content: { type: "string" },
+            agentMentionSelections: {
+              type: "array",
+              maxItems: 50,
+              description:
+                "Active project agents tagged by this comment. Each entry requires the exact `@{Credential Label}` token of the credential in `content`; the server re-derives the label and rejects out-of-project, revoked, expired, or drifted selections with 400 task-comment-agent-mention-invalid.",
+              items: {
+                type: "object",
+                required: ["credentialId"],
+                properties: {
+                  credentialId: {
+                    type: "string",
+                    description:
+                      "Active ApiCredential id from the project actor registry.",
+                  },
+                },
+              },
+            },
           },
         },
         TaskCommentCreateResponse: {

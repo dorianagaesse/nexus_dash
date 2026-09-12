@@ -61,6 +61,7 @@ model User {
   meetingTodoAssigneeChangesPrevious  ProjectMeetingNoteActionAssigneeChange[] @relation("MeetingTodoAssigneeChangePreviousUser")
   meetingTodoAssigneeChangesNext      ProjectMeetingNoteActionAssigneeChange[] @relation("MeetingTodoAssigneeChangeNextUser")
   meetingTodoAssigneeChangesPerformed ProjectMeetingNoteActionAssigneeChange[] @relation("MeetingTodoAssigneeChangeActorUser")
+  taskCommentAgentMentions            TaskCommentAgentMention[]                @relation("TaskCommentAgentMentionCreator")
 
   @@unique([username, usernameDiscriminator])
   @@index([username])
@@ -570,16 +571,16 @@ model RoadmapEvent {
 }
 
 model Task {
-  id                                    String                @id @default(cuid())
-  referenceNumber                       Int                   @unique @default(autoincrement())
+  id                                    String                    @id @default(cuid())
+  referenceNumber                       Int                       @unique @default(autoincrement())
   title                                 String
   description                           String?
   blockedNote                           String?
-  deadlineAt                            DateTime?             @db.Date
+  deadlineAt                            DateTime?                 @db.Date
   completedAt                           DateTime?
   archivedAt                            DateTime?
-  status                                String                @default("Backlog")
-  position                              Int                   @default(0)
+  status                                String                    @default("Backlog")
+  position                              Int                       @default(0)
   label                                 String?
   labelsJson                            String?
   projectId                             String
@@ -587,36 +588,37 @@ model Task {
   createdByUserId                       String
   updatedByUserId                       String
   createdByCredentialId                 String?
-  createdByCredentialLabel              String?               @db.VarChar(80)
+  createdByCredentialLabel              String?                   @db.VarChar(80)
   updatedByCredentialId                 String?
-  updatedByCredentialLabel              String?               @db.VarChar(80)
+  updatedByCredentialLabel              String?                   @db.VarChar(80)
   assigneeUserId                        String?
   assigneeKind                          ProjectActorKind?
   assigneeCredentialId                  String?
-  assigneeDisplayNameSnapshot           String?               @db.VarChar(80)
+  assigneeDisplayNameSnapshot           String?                   @db.VarChar(80)
   assigneeAssignedByKind                ProjectActorKind?
   assigneeAssignedByUserId              String?
   assigneeAssignedByCredentialId        String?
-  assigneeAssignedByDisplayNameSnapshot String?               @db.VarChar(80)
+  assigneeAssignedByDisplayNameSnapshot String?                   @db.VarChar(80)
   assigneeAssignedAt                    DateTime?
-  project                               Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  epic                                  Epic?                 @relation(fields: [epicId], references: [id], onDelete: SetNull)
-  createdByUser                         User                  @relation("TaskCreatedBy", fields: [createdByUserId], references: [id])
-  updatedByUser                         User                  @relation("TaskUpdatedBy", fields: [updatedByUserId], references: [id])
-  createdByCredential                   ApiCredential?        @relation("TaskCreatedByCredential", fields: [createdByCredentialId], references: [id], onDelete: SetNull)
-  updatedByCredential                   ApiCredential?        @relation("TaskUpdatedByCredential", fields: [updatedByCredentialId], references: [id], onDelete: SetNull)
-  assigneeUser                          User?                 @relation("TaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
-  assigneeCredential                    ApiCredential?        @relation("TaskAssignedToCredential", fields: [assigneeCredentialId], references: [id], onDelete: SetNull)
-  assigneeAssignedByUser                User?                 @relation("TaskAssigneeAssignedByUser", fields: [assigneeAssignedByUserId], references: [id], onDelete: SetNull)
-  assigneeAssignedByCredential          ApiCredential?        @relation("TaskAssigneeAssignedByCredential", fields: [assigneeAssignedByCredentialId], references: [id], onDelete: SetNull)
+  project                               Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  epic                                  Epic?                     @relation(fields: [epicId], references: [id], onDelete: SetNull)
+  createdByUser                         User                      @relation("TaskCreatedBy", fields: [createdByUserId], references: [id])
+  updatedByUser                         User                      @relation("TaskUpdatedBy", fields: [updatedByUserId], references: [id])
+  createdByCredential                   ApiCredential?            @relation("TaskCreatedByCredential", fields: [createdByCredentialId], references: [id], onDelete: SetNull)
+  updatedByCredential                   ApiCredential?            @relation("TaskUpdatedByCredential", fields: [updatedByCredentialId], references: [id], onDelete: SetNull)
+  assigneeUser                          User?                     @relation("TaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  assigneeCredential                    ApiCredential?            @relation("TaskAssignedToCredential", fields: [assigneeCredentialId], references: [id], onDelete: SetNull)
+  assigneeAssignedByUser                User?                     @relation("TaskAssigneeAssignedByUser", fields: [assigneeAssignedByUserId], references: [id], onDelete: SetNull)
+  assigneeAssignedByCredential          ApiCredential?            @relation("TaskAssigneeAssignedByCredential", fields: [assigneeAssignedByCredentialId], references: [id], onDelete: SetNull)
   assigneeChanges                       TaskAssigneeChange[]
   attachments                           TaskAttachment[]
   comments                              TaskComment[]
+  agentMentions                         TaskCommentAgentMention[]
   blockedFollowUps                      TaskBlockedFollowUp[]
-  outgoingRelations                     TaskRelation[]        @relation("TaskRelationLeft")
-  incomingRelations                     TaskRelation[]        @relation("TaskRelationRight")
-  createdAt                             DateTime              @default(now())
-  updatedAt                             DateTime              @updatedAt
+  outgoingRelations                     TaskRelation[]            @relation("TaskRelationLeft")
+  incomingRelations                     TaskRelation[]            @relation("TaskRelationRight")
+  createdAt                             DateTime                  @default(now())
+  updatedAt                             DateTime                  @updatedAt
 
   @@index([projectId])
   @@index([projectId, deadlineAt])
@@ -644,11 +646,36 @@ model TaskComment {
   content                    String
   createdAt                  DateTime       @default(now())
 
-  reactions TaskCommentReaction[]
+  reactions     TaskCommentReaction[]
+  agentMentions TaskCommentAgentMention[]
 
   @@index([taskId, createdAt])
   @@index([authorUserId])
   @@index([authorAgentCredentialId])
+}
+
+model TaskCommentAgentMention {
+  id                       String   @id @default(cuid())
+  commentId                String
+  taskId                   String
+  agentCredentialId        String?
+  agentLabel               String   @db.VarChar(80)
+  createdByUserId          String
+  createdByCredentialId    String?
+  createdByCredentialLabel String?  @db.VarChar(80)
+  createdAt                DateTime @default(now())
+
+  comment             TaskComment    @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  task                Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  agentCredential     ApiCredential? @relation("TaskCommentAgentMentionCredential", fields: [agentCredentialId], references: [id], onDelete: SetNull)
+  createdByUser       User           @relation("TaskCommentAgentMentionCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  createdByCredential ApiCredential? @relation("TaskCommentAgentMentionCreatorCredential", fields: [createdByCredentialId], references: [id], onDelete: SetNull)
+
+  @@unique([commentId, agentCredentialId])
+  @@index([taskId, createdAt])
+  @@index([agentCredentialId])
+  @@index([createdByUserId])
+  @@index([createdByCredentialId])
 }
 
 model TaskCommentReaction {
@@ -922,6 +949,8 @@ model ApiCredential {
   scopeGrants                         ApiCredentialScopeGrant[]
   auditEvents                         AuthAuditEvent[]
   taskComments                        TaskComment[]                            @relation("TaskCommentAgentAuthorCredential")
+  taskCommentAgentMentions            TaskCommentAgentMention[]                @relation("TaskCommentAgentMentionCredential")
+  taskCommentAgentMentionsBy          TaskCommentAgentMention[]                @relation("TaskCommentAgentMentionCreatorCredential")
   tasksCreated                        Task[]                                   @relation("TaskCreatedByCredential")
   tasksUpdated                        Task[]                                   @relation("TaskUpdatedByCredential")
   meetingTodoActionsCreated           ProjectMeetingNoteAction[]               @relation("MeetingTodoCreatedByCredential")

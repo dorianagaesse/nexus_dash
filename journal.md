@@ -67,6 +67,75 @@ Use it for important implementation milestones, blockers, validation runs, and r
   runtime-role `FOR UPDATE` privilege probe, and the full Playwright suite
   (61 passed, 1 skipped).
 
+# 2026-09-12 - ND-383: Tagged-agent comment mentions with durable events
+
+- Onboarded from the live ND-383 card and implemented on
+  `feature/nd-383-agent-mentions-tagged-events`, created from `origin/main` at
+  a80a33a (v0.63.0, ND-382 agent pickers) and merged forward to 7612347
+  (v0.65.0, including ND-426 #499 and ND-179 #498); release target v0.66.0,
+  later moved to v0.67.0 when ND-384 shipped 0.66.0 first.
+- Agent mentions use a braced `@{Credential Label}` token. The comment
+  composer's `@` picker (agent rows enabled only there) inserts the token and
+  submits `agentMentionSelections`; the server re-derives each label through
+  the ND-178 project actor registry, requires the exact token in the content,
+  and rejects out-of-project, revoked, expired, or drifted selections with 400
+  `task-comment-agent-mention-invalid`. Human mentions and rich-text
+  description pickers are unchanged.
+- New `TaskCommentAgentMention` table (migration + RLS inventory entry) forces
+  RLS with member read, same-actor editor/owner insert/delete, immutable rows,
+  and no `ApiCredential` subquery; idempotency is
+  `@@unique([commentId, agentCredentialId])` with
+  `createMany({ skipDuplicates: true })`, and the replace-style sync never
+  retracts null-credential historical rows. Comment deletion cascades events.
+- Validation (2026-09-12): lint, `rls:check`, `release:check`, and
+  `git diff --check` clean; full Vitest 195 files / 1,448 tests passed
+  (2 skipped); coverage above thresholds (93.45% statements / 84% branches /
+  95.3% functions / 93.75% lines); production build green; real-PostgreSQL
+  least-privilege RLS matrix green including the new mention policies; full
+  Playwright suite 60 passed / 1 skipped with the single nd-408 drag failure
+  under parallel load passing 6/6 on re-run and the ND-383 tagging/revocation
+  journey passing on re-run.
+- Branch pushed at 8471d12 and reported on PR #504
+  (https://github.com/dorianagaesse/nexus_dash/pull/504), release target
+  v0.66.0.
+- Copilot review on PR #504 raised four findings, all addressed in the
+  review-fix commit: the agent-v1 contract now documents
+  `agentMentionSelections` with a contract test; credential labels without an
+  encodable `@{Label}` token render as inert picker rows with an explicit
+  reason instead of inserting nothing; agent-chip parsing is gated behind a
+  comment-surface `renderAgentMentions` option so kanban description previews
+  stay literal (matching the disabled description pickers); and the RLS
+  insert policy pins `taskId` to the comment's own task, with the new matrix
+  case verified against the pre-fix policy (the mismatched insert succeeded
+  without the clause, failed with 42501 after it).
+- Re-validation after the review fixes (2026-09-12): lint, `rls:check`, and
+  `git diff --check` clean; full Vitest 195 files / 1,451 tests passed
+  (2 skipped); coverage above thresholds; production build green;
+  real-PostgreSQL RLS matrix green; full Playwright suite 60 passed /
+  1 skipped / 1 flake (meeting-notes smoke `page.reload` failed with
+  `net::ERR_ABORTED` once, passed twice standalone; ND-383 journey green).
+  Mid-suite the local Docker Desktop engine crashed (environment resource
+  pressure, not code); recovery was relaunching Docker Desktop and the
+  postgres container before the re-runs.
+- Acceptance feedback (user review of PR #504): agent mentions in comments
+  must read like human mentions, not a bespoke `@{Label}` treatment. The
+  mention hover-card component now exposes one shared `MentionText` chip and
+  tooltip for both kinds — humans resolve a display user, agents build an
+  identity with the agent avatar and an `Agent` subtitle — and agent tokens
+  render brace-free (`@Release bot`) with the same highlight classes, hover
+  tooltip, and keyboard focus as humans. The composer mirror keeps the braced
+  token's text metrics via invisible brace spans so the caret stays aligned
+  with the textarea value; the stored token is unchanged. Re-validated:
+  lint, `rls:check`, full Vitest 195 files / 1,452 tests passed (2 skipped),
+  coverage above thresholds, build green, ND-383 journey green (now asserting
+  the hover tooltip and mirror metrics); full Playwright suite green.
+- Merged forward again to 0d6c9d9 (ND-384 #505), which overlapped in five
+  files: the schema now carries ND-384's task actor columns plus the ND-383
+  mention relations (prisma-format clean, validated), and the changelog, ADR,
+  and journal keep both entries. ND-384 shipped v0.66.0, so the branch bumped
+  to v0.67.0 (`release:version -- feature`) and moved its release notes to a
+  new `## v0.67.0` section.
+
 # 2026-09-12 - ND-179: Complete offboarding surface reconciliation
 
 - Followed up on acceptance feedback that context-card stewardship still
