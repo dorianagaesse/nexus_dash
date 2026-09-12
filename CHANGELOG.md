@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.64.0 - 2026-09-12
+## v0.65.0 - 2026-09-12
 
 - Added responsibility-aware collaborator and agent offboarding (ND-179):
   owners now review active task assignments, context-card stewardship,
@@ -31,6 +31,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
   page reload. Context cards now show their current steward alongside their
   preserved creator and last-editor history.
 
+## v0.64.0 - 2026-09-12
+
+- Added independent Inputs and Outputs zoom controls to meeting notes (ND-426),
+  scaling rich-text read and edit surfaces from 75% through 200% in 25% steps
+  without enlarging dialog chrome or changing stored content.
+- Zoom controls expose section-specific accessible names, live percentages,
+  visible focus and disabled boundary states, while preserving formatting,
+  mentions, editor permissions, wrapping, and mobile viewport containment.
+- Added focused component and browser coverage for zoom limits, independent
+  input/output scale, rich-text integration, keyboard use, and 375px layout.
+
 ## v0.63.0 - 2026-09-09
 
 - Added one authorized, project-scoped actor search contract for collaboration
@@ -46,7 +57,6 @@ SHA, deployment URL, and workflow run belong in release evidence.
   from new choices while durable historical actor snapshots remain readable.
 - Added service, route, and Kanban integration coverage for project isolation,
   active-credential filtering, safe response fields, and picker propagation.
-
 ## v0.62.0 - 2026-09-08
 
 - Added a project-scoped single-task read endpoint,

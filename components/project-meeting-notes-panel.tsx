@@ -31,6 +31,11 @@ import {
   MeetingParticipantStewardAffordance,
 } from "@/components/meeting-participants/meeting-participant-avatar";
 import { MeetingParticipantPicker } from "@/components/meeting-participants/meeting-participant-picker";
+import {
+  getMeetingNoteZoomTextStyle,
+  MEETING_NOTE_ZOOM_DEFAULT,
+  MeetingNoteZoomControl,
+} from "@/components/meeting-notes/meeting-note-zoom-control";
 import type {
   MeetingNoteStatus,
   ProjectMeetingNotePanelAction,
@@ -473,16 +478,21 @@ function LabelPill({ label }: { label: string }) {
 
 function SectionBlock({
   title,
+  action,
   children,
 }: {
   title: string;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="space-y-2 rounded-xl border border-border/60 bg-background/70 p-4">
-      <h4 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        {title}
-      </h4>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          {title}
+        </h4>
+        {action}
+      </div>
       {children}
     </section>
   );
@@ -823,6 +833,12 @@ export function ProjectMeetingNotesPanel({
     initialSelectedNote
       ? buildNotesDraftFromNote(initialSelectedNote)
       : EMPTY_NOTES_DRAFT
+  );
+  const [inputNotesZoom, setInputNotesZoom] = useState(
+    MEETING_NOTE_ZOOM_DEFAULT
+  );
+  const [outputNotesZoom, setOutputNotesZoom] = useState(
+    MEETING_NOTE_ZOOM_DEFAULT
   );
   const [draftError, setDraftError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -2176,7 +2192,16 @@ export function ProjectMeetingNotesPanel({
                 }
                 placeholder="Agenda, questions, links, context to bring in."
                 mentionProjectId={projectId}
+                ariaLabel="Inputs"
                 editorClassName="min-h-40"
+                editorStyle={getMeetingNoteZoomTextStyle(inputNotesZoom)}
+                editorControls={
+                  <MeetingNoteZoomControl
+                    label="Inputs"
+                    value={inputNotesZoom}
+                    onChange={setInputNotesZoom}
+                  />
+                }
               />
             </div>
 
@@ -2427,45 +2452,79 @@ export function ProjectMeetingNotesPanel({
               ) : null}
             </div>
 
-            <SectionBlock title="Inputs">
+            <SectionBlock
+              title="Inputs"
+              action={
+                <MeetingNoteZoomControl
+                  label="Inputs"
+                  value={inputNotesZoom}
+                  onChange={setInputNotesZoom}
+                />
+              }
+            >
               <RichTextContent
                 html={selectedNote.inputNotes}
                 emptyContentHtml="<p>No inputs captured.</p>"
                 mentionUsers={collaborators}
-                className="text-sm leading-6 text-foreground"
+                data-meeting-note-content="inputs"
+                className="text-sm text-foreground"
+                style={getMeetingNoteZoomTextStyle(inputNotesZoom)}
               />
             </SectionBlock>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),320px]">
-              <div className="grid gap-2">
-                <label
-                  htmlFor="meeting-outputs"
-                  className="text-sm font-medium"
-                >
-                  Outputs
-                </label>
-                {canEdit ? (
-                  <RichTextEditor
-                    id="meeting-outputs"
-                    value={notesDraft.outputNotes}
-                    onChange={(value) =>
-                      setNotesDraft((current) => ({
-                        ...current,
-                        outputNotes: value,
-                      }))
-                    }
-                    placeholder="What changed, what was clarified, what needs to happen next."
-                    mentionProjectId={projectId}
-                    editorClassName="min-h-56"
-                  />
-                ) : (
-                  <RichTextContent
-                    html={selectedNote.outputNotes}
-                    emptyContentHtml="<p>No outputs captured.</p>"
-                    mentionUsers={collaborators}
-                    className="text-sm leading-6 text-foreground"
-                  />
-                )}
+            <div className="grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr),320px]">
+              <div className="grid w-full min-w-0 max-w-full gap-2">
+                <div className="grid gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label
+                      htmlFor="meeting-outputs"
+                      className="text-sm font-medium"
+                    >
+                      Outputs
+                    </label>
+                    {!canEdit ? (
+                      <MeetingNoteZoomControl
+                        label="Outputs"
+                        value={outputNotesZoom}
+                        onChange={setOutputNotesZoom}
+                      />
+                    ) : null}
+                  </div>
+                  {canEdit ? (
+                    <RichTextEditor
+                      id="meeting-outputs"
+                      value={notesDraft.outputNotes}
+                      onChange={(value) =>
+                        setNotesDraft((current) => ({
+                          ...current,
+                          outputNotes: value,
+                        }))
+                      }
+                      placeholder="What changed, what was clarified, what needs to happen next."
+                      mentionProjectId={projectId}
+                      ariaLabel="Outputs"
+                      className="w-full min-w-0 max-w-full"
+                      editorClassName="min-h-56"
+                      editorStyle={getMeetingNoteZoomTextStyle(outputNotesZoom)}
+                      editorControls={
+                        <MeetingNoteZoomControl
+                          label="Outputs"
+                          value={outputNotesZoom}
+                          onChange={setOutputNotesZoom}
+                        />
+                      }
+                    />
+                  ) : (
+                    <RichTextContent
+                      html={selectedNote.outputNotes}
+                      emptyContentHtml="<p>No outputs captured.</p>"
+                      mentionUsers={collaborators}
+                      data-meeting-note-content="outputs"
+                      className="text-sm text-foreground"
+                      style={getMeetingNoteZoomTextStyle(outputNotesZoom)}
+                    />
+                  )}
+                </div>
               </div>
 
               <div className="grid gap-4">

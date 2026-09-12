@@ -47,6 +47,8 @@ interface RichTextEditorProps {
   placeholder?: string;
   className?: string;
   editorClassName?: string;
+  editorStyle?: React.CSSProperties;
+  editorControls?: React.ReactNode;
   ariaLabel?: string;
   ariaLabelledBy?: string;
   mentionProjectId?: string;
@@ -2253,6 +2255,8 @@ export function RichTextEditor({
   placeholder,
   className,
   editorClassName,
+  editorStyle,
+  editorControls,
   ariaLabel,
   ariaLabelledBy,
   mentionProjectId,
@@ -3108,8 +3112,10 @@ export function RichTextEditor({
           aria-label={ariaLabel}
           aria-labelledby={ariaLabelledBy}
           data-placeholder={placeholder ?? "Write here..."}
+          style={editorStyle}
           className={cn(
             "min-h-[140px] w-full max-w-full overflow-x-hidden rounded-md border border-input bg-background px-3 py-2 pr-14 text-sm text-foreground transition-colors",
+            editorControls && "pb-16",
             "focus-visible:outline-none focus-visible:border-ring/60",
             "[&:empty:before]:pointer-events-none [&:empty:before]:text-muted-foreground [&:empty:before]:content-[attr(data-placeholder)]",
             "[overflow-wrap:anywhere] [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3",
@@ -3131,6 +3137,14 @@ export function RichTextEditor({
           onBeforeInput={handleEditorBeforeInput}
           onInput={handleEditorInput}
         />
+        {editorControls ? (
+          <div
+            data-rich-text-editor-controls="true"
+            className="absolute bottom-2 right-3 z-10"
+          >
+            {editorControls}
+          </div>
+        ) : null}
       </EmojiFieldShell>
       {mentionProjectId && mentionState.isActive ? (
         <MentionAutocomplete

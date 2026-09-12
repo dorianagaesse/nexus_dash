@@ -2,8 +2,127 @@
 
 ## ND-179: Project ownership continuity and collaborator offboarding
 
-The active implementation brief follows the preserved ND-382 and ND-438
-snapshots below.
+The active implementation brief follows the preserved ND-426, ND-382, and
+ND-438 snapshots below.
+
+## Previous Task Snapshot — ND-426
+
+### Zoomable meeting note input and output
+
+## Status
+
+Delivered. Ready-for-review PR #499
+(https://github.com/dorianagaesse/nexus_dash/pull/499) is open from
+`feature/nd-426-zoomable-meeting-notes` in dedicated worktree
+`../nexus_dash_task426`, originally branched from `origin/main` at 2fbc228 and
+reconciled with current `origin/main` at a80a33a (v0.63.0), with release
+metadata finalized at v0.64.0. The Nexus Dash card ND-426 is the source of
+truth and carries the `feature` label. No counterpart GitHub issue exists;
+the PR carries the ND-426 reference.
+
+Layout-feedback rounds (2026-09-10 through 2026-09-12): editable Inputs and
+Outputs now keep their zoom pills inside the rich-text field at the bottom
+right, with reserved content padding and browser geometry assertions. The
+temporary outer `SectionBlock` frames introduced during the first feedback
+round were removed from both editable surfaces, restoring their pre-ND-426
+label/editor presentation while preserving zoom. The existing read-only
+Inputs section remains unchanged; read-only Outputs keeps its zoom action in
+the label row because it has no editable field.
+
+Post-merge validation passed (2026-09-12): lint, `rls:check`, `release:check`,
+and `git diff --check` clean; full Vitest 190 files / 1,398 tests passed (2
+files / 2 tests skipped); coverage above thresholds (statements 93.45%,
+branches 84%, functions 95.3%, lines 93.75%); production build green; the
+meeting-note rich-text and zoom flow green, and the full Playwright suite
+green (59 passed / 1 skipped). Copilot's initial review
+recommended approval and raised one maintainability comment: the zoom data
+attribute used locale-sensitive lowercasing. Commit 4e9da2b switched it to
+stable `toLowerCase()` tokens with regression assertions; the review reply
+was posted and the sole conversation resolved.
+
+## Context
+
+Meeting preparation inputs and meeting outputs can contain long, dense notes,
+but their text is fixed at one size inside the meeting-note panel. Readers
+need an accessible way to scale each note body without enlarging the
+surrounding application chrome or changing the stored content.
+
+## Product Decisions
+
+- Inputs and Outputs receive separate inline zoom controls so readers can
+  scale the two bodies independently while the dialog chrome stays stable.
+- Editable Inputs and Outputs retain their pre-ND-426 label/editor styling,
+  with the zoom pill anchored inside the field at the bottom right and enough
+  bottom padding to prevent content overlap. Read-only note bodies retain
+  their established presentation and expose the corresponding zoom action.
+- Each control uses familiar zoom-out/percentage/zoom-in affordances, changes
+  in 25% steps from 75% through 200%, exposes section-specific accessible
+  names and a live percentage, and disables its boundary action.
+- Zoom is local presentation state only. It applies to the rich-text input
+  read view, the preparation input editor, and the output editor/read view,
+  but never enters an API payload or changes stored note content.
+- Long content keeps wrapping within the existing vertically scrollable
+  dialog/editor surfaces; the feature adds no nested horizontal scroller and
+  works identically for editors and viewers.
+
+## Scope
+
+- Add a focused reusable meeting-note zoom control and text-style contract.
+- Wire independent input/output zoom state into rich-text read and edit
+  surfaces in the note detail and preparation dialogs.
+- Preserve the existing rich-text format, note CRUD, status, todo, mention,
+  emoji, permission, and responsive-dialog behavior.
+- Add focused automated coverage plus real-browser mobile containment checks.
+
+## Out Of Scope
+
+- Browser/page zoom, pinch gesture interception, full-screen note viewing, or
+  persisted per-user zoom preferences.
+- Changes to the meeting-note rich-text content/storage contract delivered by
+  ND-381.
+- API, database, service, auth, or meeting-note data-model changes.
+
+## Acceptance Criteria
+
+1. Inputs and Outputs each expose visible zoom-out and zoom-in buttons with
+   accessible section-specific names, a live percentage, visible keyboard
+   focus, and disabled controls at the 75%/200% limits.
+2. Each control changes only its corresponding rich-text note body's rendered
+   text size in 25% steps; Inputs and Outputs can hold different zoom levels,
+   and the default is 100%.
+3. Zooming never changes the draft or persisted rich-text content, the dialog
+   chrome stays at its normal scale, and editor/viewer permissions, formatting,
+   mentions, emoji insertion, and save behavior are unchanged.
+4. The controls and scaled content remain usable at 375px, in mobile
+   landscape, and in light/dark themes without horizontal page overflow; long
+   content wraps and remains reachable through the existing vertical scroll
+   regions.
+
+## Definition Of Done
+
+- A focused reusable meeting-note zoom control and zoom-style contract cover
+  the input/output rich-text read and edit surfaces.
+- Component/unit coverage verifies labels, boundaries, independent scale
+  values, rich-text integration, and presentation-only behavior; Playwright
+  covers keyboard/touch-visible controls, scaling, and mobile containment in
+  the real meeting-note flow.
+- `git diff --check`, `npm run lint`, `npm run rls:check`, `npm run
+  release:check`, `npm test`, `npm run test:coverage`, `npm run build`, and
+  the relevant Playwright coverage pass.
+- `package.json`/`package-lock.json` advance to v0.64.0 over `origin/main`
+  v0.63.0 and CHANGELOG carries a dated v0.64.0 entry for ND-426.
+- The Nexus Dash board card moves In Progress and then Done on delivery;
+  `tasks/current.md` and `journal.md` reflect execution and validation.
+- The branch is pushed, a ready-for-review PR referencing ND-426 is open, CI
+  is green, and Copilot's initial review outcome is triaged with addressed
+  conversations resolved.
+
+## Runtime Assumptions
+
+- Existing PostgreSQL, authentication, and environment contracts remain
+  unchanged; zoom is entirely client-side presentation state.
+- Preview validation uses the explicit active branch ref and the ignored
+  `.tmp/.nd-preview.env` credentials supplied for this task.
 
 ## Previous Task Snapshot — ND-382
 
