@@ -78,7 +78,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   historical provenance retention. Coverage used a 15s Vitest timeout because
   Windows/Node 24 git-spawning version-policy fixtures exceeded their fixed 5s
   under instrumentation; all tests and thresholds passed unchanged.
->>>>>>> origin/main
+
 # 2026-09-12 - ND-426 final layout feedback, main reconciliation, and Copilot review
 
 - Restored the pre-ND-426 visual structure for the editable Inputs and Outputs
