@@ -8,6 +8,30 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.68.0 - 2026-09-13
+
+- Added a read-only agent attention API (ND-385): an authenticated agent
+  credential can list its own mention events and its current assignments —
+  task comments that tagged it, tasks assigned to it, and meeting to-dos
+  assigned to it — via
+  `GET /api/projects/{projectId}/agent-attention/mentions` and
+  `GET /api/projects/{projectId}/agent-attention/assignments`.
+- Every item reports the event type, project, source artifact, a
+  human-readable summary, the acting actor, the occurrence time, and the
+  artifact's current state, with a stable per-artifact lookup key
+  (`mention:<id>`, `assignment:task:<id>`, `assignment:meeting_todo:<id>`)
+  for client-side dedup.
+- Filtering covers event type, artifact type, assignment state, and a
+  since/until time range; results are newest-first by default with an order
+  flag and page deterministically through an opaque cursor. Assignments
+  stored before provenance tracking report a null occurrence time and sort
+  as oldest.
+- Access requires the new least-privilege `attention:read` credential scope
+  ("Attention Read" in the credential UI); the endpoints only ever read the
+  calling credential's own events — no other credential id is accepted — and
+  revocation or expiry blocks access immediately while project members keep
+  their existing governance views.
+
 ## v0.67.0 - 2026-09-12
 
 - Added agent mentions to task comments (ND-383). Selecting an agent in the

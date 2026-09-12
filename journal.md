@@ -3,6 +3,46 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-13 - ND-385: Agent attention API for mentions and assignments
+
+- Implemented in the dedicated `../nexus_dash_task385` worktree on
+  `feature/nd-385-agent-attention-api` from `origin/main` at 9b42fde
+  (v0.67.0). Adds `GET /api/projects/{projectId}/agent-attention/mentions`
+  and `.../assignments` so an authenticated credential can read its own
+  mention events (ND-383 rows) and current assignments (ND-384 columns)
+  across tasks and meeting todos.
+- New least-privilege scope `attention:read` (DB enum value
+  `attention_read`; migration 20260913120000 adds the enum value only — no
+  new tables or RLS surface). The credential identity comes from the bearer
+  token alone: the endpoints accept no credential parameter and always filter
+  by the authenticated credential, and per-request credential re-validation
+  keeps revoked/expired credentials at 401.
+- Contract: items carry event type, project, artifact, summary, actor,
+  occurrence time, current state, and stable dedup keys (`mention:<id>` /
+  `assignment:task:<id>` / `assignment:meeting_todo:<id>`). Filters:
+  eventType, artifactType, state, since/until; deterministic newest-first
+  ordering with opaque base64url cursors embedding the sort direction.
+  Mentions page in SQL; assignments merge both bounded sources in memory with
+  the same sort/cursor semantics. Pre-provenance rows report null
+  `occurredAt` and sort as oldest, mirroring SQL NULL placement.
+- Mentions cursor stores the raw row id for the SQL tie-break while items
+  expose the prefixed key — kept deliberately separate so same-timestamp
+  paging stays correct.
+- Tests: `tests/lib/agent-attention.test.ts` (codec, filter parsing, sort and
+  cursor predicates), `tests/lib/project-agent-attention-service.test.ts`
+  (authorization, tenant scoping, filter casts, pagination, actor
+  resolution, legacy rows, failure wrapping), and
+  `tests/api/project-agent-attention.route.test.ts` (human 403, auth
+  passthrough, invalid filter/cursor 400s, response envelope, credential
+  query params ignored).
+- Release advanced 0.67.0 -> 0.68.0 (`release:version -- feature`) with the
+  `## v0.68.0 - 2026-09-13` CHANGELOG entry; ADR entry recorded in
+  `adr/decisions.md`.
+- Scope boundary: ND-386 owns contract publication (OpenAPI,
+  `AGENT_API_ENDPOINTS`, hosted guide, presets), so this change leaves
+  `lib/agent-onboarding.ts` untouched; the new scope auto-surfaces as an
+  "Attention Read" checkbox through `AGENT_SCOPE_DEFINITIONS`.
+
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 
 - User-directed workflow change, documented in `agent.md` (full rules) and `CLAUDE.md` (summary): agents move a card to In Progress when they start its task and never move cards to Done — Done is set by the reviewer/PR merger. Completion comments are optional and only for relevant handoff information (decisions, validation evidence, blockers): plain English, short, one topic. Task descriptions must stay concise — plain English covering the intent plus testable acceptance criteria, with no restated context, exhaustive scope inventories, or file-by-file walkthroughs.
