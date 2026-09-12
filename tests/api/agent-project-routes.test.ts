@@ -32,6 +32,10 @@ const contextCardStewardshipServiceMock = vi.hoisted(() => ({
   projectContextCard: vi.fn(),
 }));
 
+const projectActorServiceMock = vi.hoisted(() => ({
+  loadProjectActorRegistryForActor: vi.fn(),
+}));
+
 vi.mock("@/lib/auth/api-guard", () => ({
   getAgentProjectAccessContext: apiGuardMock.getAgentProjectAccessContext,
   requireApiPrincipal: apiGuardMock.requireApiPrincipal,
@@ -57,6 +61,18 @@ vi.mock("@/lib/services/project-task-service", () => ({
 vi.mock("@/lib/services/context-card-service", () => ({
   createContextCardForProject: contextCardServiceMock.createContextCardForProject,
 }));
+
+vi.mock("@/lib/services/project-actor-service", async (importOriginal) => {
+  const original =
+    await importOriginal<
+      typeof import("@/lib/services/project-actor-service")
+    >();
+  return {
+    ...original,
+    loadProjectActorRegistryForActor:
+      projectActorServiceMock.loadProjectActorRegistryForActor,
+  };
+});
 
 vi.mock("@/lib/services/context-card-stewardship-service", () => ({
   loadContextCardActorRegistryForProject:
@@ -118,6 +134,12 @@ describe("agent project routes", () => {
     contextCardStewardshipServiceMock.loadContextCardActorRegistryForProject.mockResolvedValue(
       { assignable: [] }
     );
+    projectActorServiceMock.loadProjectActorRegistryForActor.mockResolvedValue({
+      activeHumanIds: new Set(["user-3"]),
+      humanById: new Map(),
+      credentialById: new Map(),
+      assignable: [],
+    });
     contextCardStewardshipServiceMock.projectContextCard.mockReturnValue({
       needsReview: false,
     });
@@ -232,6 +254,16 @@ describe("agent project routes", () => {
           usernameDiscriminator: "4321",
           avatarSeed: "seed-bob",
         },
+        assigneeKind: "human",
+        assigneeUserId: "user-3",
+        assigneeCredentialId: null,
+        assigneeDisplayNameSnapshot: "Casey Example",
+        assigneeAssignedByKind: null,
+        assigneeAssignedByUserId: null,
+        assigneeAssignedByCredentialId: null,
+        assigneeAssignedByDisplayNameSnapshot: null,
+        assigneeAssignedByUser: null,
+        assigneeAssignedAt: null,
         assigneeUser: {
           id: "user-3",
           name: "Casey Example",
@@ -303,11 +335,16 @@ describe("agent project routes", () => {
             owner: null,
           },
           assignee: {
+            kind: "human",
             id: "user-3",
             displayName: "Casey Example",
             usernameTag: null,
             avatarSeed: "user-3",
+            status: "active",
+            isAssignable: true,
           },
+          assignedBy: null,
+          assignedAt: null,
           attachments: [
             {
               id: "att-1",

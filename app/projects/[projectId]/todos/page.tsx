@@ -24,10 +24,12 @@ function serializeTodo(
     id: todo.id,
     content: todo.content,
     completedAt: todo.completedAt?.toISOString() ?? null,
+    assignedAt: todo.assignedAt?.toISOString() ?? null,
     updatedAt: todo.updatedAt.toISOString(),
     isOverdue: todo.isOverdue,
     creator: todo.creator,
     assignee: todo.assignee,
+    assignedBy: todo.assignedBy,
     completedBy: todo.completedBy,
     participantOptions: todo.participantOptions,
     meeting: {

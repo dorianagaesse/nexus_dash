@@ -6,6 +6,9 @@ const projectAccessServiceMock = vi.hoisted(() => ({
 const rlsContextMock = vi.hoisted(() => ({ withActorRlsContext: vi.fn() }));
 const loggerMock = vi.hoisted(() => ({ logServerError: vi.fn() }));
 const dbMock = vi.hoisted(() => ({ task: { findMany: vi.fn() } }));
+const projectActorServiceMock = vi.hoisted(() => ({
+  loadProjectActorRegistry: vi.fn(),
+}));
 
 vi.mock("@/lib/services/project-access-service", () => ({
   requireProjectRole: projectAccessServiceMock.requireProjectRole,
@@ -15,6 +18,9 @@ vi.mock("@/lib/services/rls-context", () => ({
 }));
 vi.mock("@/lib/observability/logger", () => ({
   logServerError: loggerMock.logServerError,
+}));
+vi.mock("@/lib/services/project-actor-service", () => ({
+  loadProjectActorRegistry: projectActorServiceMock.loadProjectActorRegistry,
 }));
 
 import { searchProjectTaskIds } from "@/lib/services/project-task-search-service";
@@ -57,6 +63,7 @@ describe("project task search service", () => {
         operation(dbMock)
     );
     dbMock.task.findMany.mockResolvedValue([searchableTask()]);
+    projectActorServiceMock.loadProjectActorRegistry.mockResolvedValue(null);
   });
 
   test.each([
@@ -106,6 +113,96 @@ describe("project task search service", () => {
     expect(dbMock.task.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { projectId: "project-isolated" } })
     );
+  });
+
+  test("matches agent-assigned tasks by their stored display-name snapshot", async () => {
+    dbMock.task.findMany.mockResolvedValueOnce([
+      searchableTask({
+        assigneeUser: null,
+        assigneeKind: "agent",
+        assigneeCredentialId: "cred-1",
+        assigneeDisplayNameSnapshot: "Release bot",
+      }),
+    ]);
+
+    await expect(
+      searchProjectTaskIds({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        query: "release bot",
+      })
+    ).resolves.toEqual({ ok: true, data: { taskIds: ["task-1"] } });
+    expect(projectActorServiceMock.loadProjectActorRegistry).toHaveBeenCalledWith(
+      { db: dbMock, projectId: "project-1" }
+    );
+  });
+
+  test("keeps revoked-credential assignments discoverable through the snapshot", async () => {
+    dbMock.task.findMany.mockResolvedValueOnce([
+      searchableTask({
+        assigneeUser: null,
+        assigneeKind: "agent",
+        assigneeCredentialId: "cred-revoked",
+        assigneeDisplayNameSnapshot: "Nightly sync bot",
+      }),
+    ]);
+
+    await expect(
+      searchProjectTaskIds({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        query: "nightly sync",
+      })
+    ).resolves.toEqual({ ok: true, data: { taskIds: ["task-1"] } });
+  });
+
+  test("matches agent-assigned tasks by the live registry credential label", async () => {
+    dbMock.task.findMany.mockResolvedValueOnce([
+      searchableTask({
+        assigneeUser: null,
+        assigneeKind: "agent",
+        assigneeCredentialId: "cred-1",
+        assigneeDisplayNameSnapshot: "Release bot",
+      }),
+    ]);
+    projectActorServiceMock.loadProjectActorRegistry.mockResolvedValueOnce({
+      activeHumanIds: new Set<string>(),
+      humanById: new Map(),
+      credentialById: new Map([
+        [
+          "cred-1",
+          { id: "cred-1", kind: "agent", displayName: "Release bot v2" },
+        ],
+      ]),
+      assignable: [],
+    });
+
+    await expect(
+      searchProjectTaskIds({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        query: "v2",
+      })
+    ).resolves.toEqual({ ok: true, data: { taskIds: ["task-1"] } });
+  });
+
+  test("does not match agent snapshots on tasks without an agent assignee", async () => {
+    dbMock.task.findMany.mockResolvedValueOnce([
+      searchableTask({
+        assigneeUser: null,
+        assigneeKind: null,
+        assigneeCredentialId: null,
+        assigneeDisplayNameSnapshot: "Release bot",
+      }),
+    ]);
+
+    await expect(
+      searchProjectTaskIds({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        query: "release bot",
+      })
+    ).resolves.toEqual({ ok: true, data: { taskIds: [] } });
   });
 
   test("does not query tasks when project authorization fails", async () => {

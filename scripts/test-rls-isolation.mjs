@@ -27,6 +27,9 @@ const ids = {
   projectB: `rls_project_b_${suffix}`,
   taskA: `rls_task_a_${suffix}`,
   taskB: `rls_task_b_${suffix}`,
+  taskAgentB: `rls_task_agent_b_${suffix}`,
+  taskAssigneeChangeA: `rls_task_assignee_change_a_${suffix}`,
+  taskAssigneeChangeB: `rls_task_assignee_change_b_${suffix}`,
   commentA: `rls_comment_a_${suffix}`,
   commentB: `rls_comment_b_${suffix}`,
   reactionA: `rls_reaction_a_${suffix}`,
@@ -34,9 +37,13 @@ const ids = {
   meetingA: `rls_meeting_a_${suffix}`,
   meetingB: `rls_meeting_b_${suffix}`,
   meetingActionB: `rls_meeting_action_b_${suffix}`,
+  meetingResponsibilityB: `rls_meeting_responsibility_b_${suffix}`,
   resourceB: `rls_resource_b_${suffix}`,
   participantA: `rls_participant_a_${suffix}`,
   participantB: `rls_participant_b_${suffix}`,
+  meetingActionA: `rls_meeting_action_a_${suffix}`,
+  meetingActionChangeA: `rls_meeting_action_change_a_${suffix}`,
+  meetingActionChangeB: `rls_meeting_action_change_b_${suffix}`,
   credentialA: `rls_credential_a_${suffix}`,
   credentialB: `rls_credential_b_${suffix}`,
   auditA: `rls_audit_a_${suffix}`,
@@ -182,7 +189,9 @@ async function seed() {
   );
   await admin.query(
     `UPDATE "Task"
-     SET "assigneeUserId" = $1
+     SET "assigneeUserId" = $1,
+         "assigneeKind" = 'human',
+         "assigneeDisplayNameSnapshot" = 'Editor B'
      WHERE "id" = $2`,
     [ids.editorB, ids.taskB]
   );
@@ -201,7 +210,7 @@ async function seed() {
        "assigneeDisplayNameSnapshot", "createdAt", "updatedAt")
      VALUES ($1, $2, 'Responsibility B', $3, 'human', 'Editor B',
        $3, 'human', 'Editor B', NOW(), NOW())`,
-    [ids.meetingActionB, ids.meetingB, ids.editorB]
+    [ids.meetingResponsibilityB, ids.meetingB, ids.editorB]
   );
   await admin.query(
     `INSERT INTO "Resource"
@@ -221,6 +230,51 @@ async function seed() {
        ($1, $2, 'Guest A', 0, NOW(), NOW()),
        ($3, $4, 'Guest B', 0, NOW(), NOW())`,
     [ids.participantA, ids.meetingA, ids.participantB, ids.meetingB]
+  );
+  await admin.query(
+    `INSERT INTO "ProjectMeetingNoteAction"
+      ("id", "meetingNoteId", "content", "position", "createdByUserId", "createdAt", "updatedAt")
+     VALUES
+       ($1, $2, 'Action A', 0, $3, NOW(), NOW()),
+       ($4, $5, 'Action B', 0, $6, NOW(), NOW())`,
+    [
+      ids.meetingActionA,
+      ids.meetingA,
+      ids.ownerA,
+      ids.meetingActionB,
+      ids.meetingB,
+      ids.ownerB,
+    ]
+  );
+  await admin.query(
+    `INSERT INTO "TaskAssigneeChange"
+      ("id", "taskId", "nextAssigneeKind", "nextAssigneeUserId", "nextAssigneeDisplayNameSnapshot", "changedByKind", "changedByUserId", "changedByDisplayNameSnapshot", "createdAt")
+     VALUES
+       ($1, $2, 'human', $3, 'Owner A', 'human', $3, 'Owner A', NOW()),
+       ($4, $5, 'human', $6, 'Owner B', 'human', $6, 'Owner B', NOW())`,
+    [
+      ids.taskAssigneeChangeA,
+      ids.taskA,
+      ids.ownerA,
+      ids.taskAssigneeChangeB,
+      ids.taskB,
+      ids.ownerB,
+    ]
+  );
+  await admin.query(
+    `INSERT INTO "ProjectMeetingNoteActionAssigneeChange"
+      ("id", "actionId", "nextAssigneeKind", "nextAssigneeUserId", "nextAssigneeDisplayNameSnapshot", "changedByKind", "changedByUserId", "changedByDisplayNameSnapshot", "createdAt")
+     VALUES
+       ($1, $2, 'human', $3, 'Owner A', 'human', $3, 'Owner A', NOW()),
+       ($4, $5, 'human', $6, 'Owner B', 'human', $6, 'Owner B', NOW())`,
+    [
+      ids.meetingActionChangeA,
+      ids.meetingActionA,
+      ids.ownerA,
+      ids.meetingActionChangeB,
+      ids.meetingActionB,
+      ids.ownerB,
+    ]
   );
   await admin.query(
     `INSERT INTO "ApiCredential"
@@ -245,6 +299,15 @@ async function seed() {
        ($1, 'task_read', NOW()),
        ($2, 'task_write', NOW())`,
     [ids.credentialA, ids.credentialB]
+  );
+  await admin.query(
+    `INSERT INTO "Task"
+      ("id", "title", "status", "position", "projectId", "createdByUserId",
+       "updatedByUserId", "assigneeKind", "assigneeCredentialId",
+       "assigneeDisplayNameSnapshot", "createdAt", "updatedAt")
+     VALUES ($1, 'Task Agent B', 'Backlog', 1, $2, $3, $3, 'agent', $4,
+       'Agent B', NOW(), NOW())`,
+    [ids.taskAgentB, ids.projectB, ids.ownerB, ids.credentialB]
   );
   await admin.query(
     `INSERT INTO "AuthAuditEvent"
@@ -464,6 +527,114 @@ try {
     "viewer meeting participant insert"
   );
 
+  const ownerATaskHistory = await runtimeTransaction(ids.ownerA, () =>
+    runtime.query(
+      `SELECT "id" FROM "TaskAssigneeChange" WHERE "id" IN ($1, $2)`,
+      [ids.taskAssigneeChangeA, ids.taskAssigneeChangeB]
+    )
+  );
+  assert.deepEqual(ownerATaskHistory.rows.map((row) => row.id), [
+    ids.taskAssigneeChangeA,
+  ]);
+
+  await expectRlsViolation(
+    () =>
+      runtimeTransaction(ids.ownerA, () =>
+        runtime.query(
+          `INSERT INTO "TaskAssigneeChange"
+            ("id", "taskId", "changedByKind", "changedByUserId", "changedByDisplayNameSnapshot", "createdAt")
+           VALUES ($1, $2, 'human', $3, 'Owner A', NOW())`,
+          [`rls_cross_task_history_${suffix}`, ids.taskB, ids.ownerA]
+        )
+      ),
+    "cross-project task assignee-change insert"
+  );
+
+  const editorTaskHistoryInsert = await runtimeTransaction(ids.editorB, () =>
+    runtime.query(
+      `INSERT INTO "TaskAssigneeChange"
+        ("id", "taskId", "changedByKind", "changedByUserId", "changedByDisplayNameSnapshot", "createdAt")
+       VALUES ($1, $2, 'human', $3, 'Editor B', NOW())`,
+      [`rls_editor_task_history_${suffix}`, ids.taskB, ids.editorB]
+    )
+  );
+  assert.equal(editorTaskHistoryInsert.rowCount, 1);
+
+  await expectRlsViolation(
+    () =>
+      runtimeTransaction(ids.viewerB, () =>
+        runtime.query(
+          `INSERT INTO "TaskAssigneeChange"
+            ("id", "taskId", "changedByKind", "changedByUserId", "changedByDisplayNameSnapshot", "createdAt")
+           VALUES ($1, $2, 'human', $3, 'Viewer B', NOW())`,
+          [`rls_viewer_task_history_${suffix}`, ids.taskB, ids.viewerB]
+        )
+      ),
+    "viewer task assignee-change insert"
+  );
+
+  const editorTaskHistoryUpdate = await runtimeTransaction(ids.editorB, () =>
+    runtime.query(
+      `UPDATE "TaskAssigneeChange" SET "changedByDisplayNameSnapshot" = 'Blocked' WHERE "id" = $1`,
+      [ids.taskAssigneeChangeB]
+    )
+  );
+  assert.equal(editorTaskHistoryUpdate.rowCount, 0);
+  const editorTaskHistoryDelete = await runtimeTransaction(ids.editorB, () =>
+    runtime.query(`DELETE FROM "TaskAssigneeChange" WHERE "id" = $1`, [
+      ids.taskAssigneeChangeB,
+    ])
+  );
+  assert.equal(editorTaskHistoryDelete.rowCount, 0);
+
+  const ownerAMeetingActionHistory = await runtimeTransaction(ids.ownerA, () =>
+    runtime.query(
+      `SELECT "id" FROM "ProjectMeetingNoteActionAssigneeChange" WHERE "id" IN ($1, $2)`,
+      [ids.meetingActionChangeA, ids.meetingActionChangeB]
+    )
+  );
+  assert.deepEqual(ownerAMeetingActionHistory.rows.map((row) => row.id), [
+    ids.meetingActionChangeA,
+  ]);
+
+  await expectRlsViolation(
+    () =>
+      runtimeTransaction(ids.ownerA, () =>
+        runtime.query(
+          `INSERT INTO "ProjectMeetingNoteActionAssigneeChange"
+            ("id", "actionId", "changedByKind", "changedByUserId", "changedByDisplayNameSnapshot", "createdAt")
+           VALUES ($1, $2, 'human', $3, 'Owner A', NOW())`,
+          [`rls_cross_meeting_history_${suffix}`, ids.meetingActionB, ids.ownerA]
+        )
+      ),
+    "cross-project meeting action assignee-change insert"
+  );
+
+  const editorMeetingActionHistoryInsert = await runtimeTransaction(
+    ids.editorB,
+    () =>
+      runtime.query(
+        `INSERT INTO "ProjectMeetingNoteActionAssigneeChange"
+          ("id", "actionId", "changedByKind", "changedByUserId", "changedByDisplayNameSnapshot", "createdAt")
+         VALUES ($1, $2, 'human', $3, 'Editor B', NOW())`,
+        [`rls_editor_meeting_history_${suffix}`, ids.meetingActionB, ids.editorB]
+      )
+  );
+  assert.equal(editorMeetingActionHistoryInsert.rowCount, 1);
+
+  await expectRlsViolation(
+    () =>
+      runtimeTransaction(ids.viewerB, () =>
+        runtime.query(
+          `INSERT INTO "ProjectMeetingNoteActionAssigneeChange"
+            ("id", "actionId", "changedByKind", "changedByUserId", "changedByDisplayNameSnapshot", "createdAt")
+           VALUES ($1, $2, 'human', $3, 'Viewer B', NOW())`,
+          [`rls_viewer_meeting_history_${suffix}`, ids.meetingActionB, ids.viewerB]
+        )
+      ),
+    "viewer meeting action assignee-change insert"
+  );
+
   for (const memberId of [ids.editorB, ids.viewerB]) {
     const directCredentialRead = await runtimeTransaction(memberId, () =>
       runtime.query(`SELECT "id" FROM "ApiCredential" WHERE "projectId" = $1`, [
@@ -520,6 +691,19 @@ try {
     )
   );
   assert.equal(revokedParticipantRead.rowCount, 0);
+  const revokedTaskHistoryRead = await runtimeTransaction(ids.revokedB, () =>
+    runtime.query(`SELECT "id" FROM "TaskAssigneeChange" WHERE "id" = $1`, [
+      ids.taskAssigneeChangeB,
+    ])
+  );
+  assert.equal(revokedTaskHistoryRead.rowCount, 0);
+  const revokedMeetingHistoryRead = await runtimeTransaction(ids.revokedB, () =>
+    runtime.query(
+      `SELECT "id" FROM "ProjectMeetingNoteActionAssigneeChange" WHERE "id" = $1`,
+      [ids.meetingActionChangeB]
+    )
+  );
+  assert.equal(revokedMeetingHistoryRead.rowCount, 0);
   const revokedActorRead = await runtimeTransaction(ids.revokedB, () =>
     runtime.query(`SELECT "actorId" FROM app.list_project_actors($1)`, [
       ids.projectB,
@@ -665,7 +849,8 @@ try {
         [ids.projectB, ids.editorB, ids.ownerB]
       );
       const task = await runtime.query(
-        `SELECT "assigneeUserId", "createdByUserId", "updatedByUserId"
+        `SELECT "assigneeKind", "assigneeUserId", "assigneeCredentialId",
+                "assigneeDisplayNameSnapshot", "createdByUserId", "updatedByUserId"
          FROM "Task" WHERE "id" = $1`,
         [ids.taskB]
       );
@@ -680,15 +865,35 @@ try {
         [ids.meetingB]
       );
       const action = await runtime.query(
-        `SELECT "assigneeUserId", "createdByUserId"
+        `SELECT "assigneeKind", "assigneeUserId", "assigneeCredentialId",
+                "assigneeDisplayNameSnapshot", "createdByUserId"
          FROM "ProjectMeetingNoteAction" WHERE "id" = $1`,
-        [ids.meetingActionB]
+        [ids.meetingResponsibilityB]
       );
-      return { resolution, task, resource, note, action };
+      const agentResolution = await runtime.query(
+        `SELECT app.resolve_project_actor_responsibilities($1, 'agent', $2, 'reassign', $3) AS result`,
+        [ids.projectB, ids.credentialB, ids.ownerB]
+      );
+      const agentTask = await runtime.query(
+        `SELECT "assigneeKind", "assigneeUserId", "assigneeCredentialId",
+                "assigneeDisplayNameSnapshot"
+         FROM "Task" WHERE "id" = $1`,
+        [ids.taskAgentB]
+      );
+      return { resolution, task, resource, note, action, agentResolution, agentTask };
     }
   );
   assert.equal(responsibilityResolution.resolution.rows[0].result, "ok");
+  assert.equal(responsibilityResolution.task.rows[0].assigneeKind, "human");
   assert.equal(responsibilityResolution.task.rows[0].assigneeUserId, ids.ownerB);
+  assert.equal(
+    responsibilityResolution.task.rows[0].assigneeCredentialId,
+    null
+  );
+  assert.equal(
+    responsibilityResolution.task.rows[0].assigneeDisplayNameSnapshot,
+    `${ids.ownerB}@example.test`
+  );
   assert.equal(responsibilityResolution.task.rows[0].createdByUserId, ids.editorB);
   assert.equal(responsibilityResolution.task.rows[0].updatedByUserId, ids.editorB);
   assert.equal(responsibilityResolution.resource.rows[0].stewardUserId, ids.ownerB);
@@ -697,8 +902,34 @@ try {
   assert.equal(responsibilityResolution.note.rows[0].stewardUserId, ids.ownerB);
   assert.equal(responsibilityResolution.note.rows[0].createdByUserId, ids.editorB);
   assert.equal(responsibilityResolution.note.rows[0].updatedByUserId, ids.editorB);
+  assert.equal(responsibilityResolution.action.rows[0].assigneeKind, "human");
   assert.equal(responsibilityResolution.action.rows[0].assigneeUserId, ids.ownerB);
+  assert.equal(
+    responsibilityResolution.action.rows[0].assigneeCredentialId,
+    null
+  );
+  assert.equal(
+    responsibilityResolution.action.rows[0].assigneeDisplayNameSnapshot,
+    `${ids.ownerB}@example.test`
+  );
   assert.equal(responsibilityResolution.action.rows[0].createdByUserId, ids.editorB);
+  assert.equal(
+    responsibilityResolution.agentResolution.rows[0].result,
+    "ok"
+  );
+  assert.equal(responsibilityResolution.agentTask.rows[0].assigneeKind, "human");
+  assert.equal(
+    responsibilityResolution.agentTask.rows[0].assigneeUserId,
+    ids.ownerB
+  );
+  assert.equal(
+    responsibilityResolution.agentTask.rows[0].assigneeCredentialId,
+    null
+  );
+  assert.equal(
+    responsibilityResolution.agentTask.rows[0].assigneeDisplayNameSnapshot,
+    `${ids.ownerB}@example.test`
+  );
 
   const forbiddenOwnershipTransfer = await runtimeTransaction(ids.ownerA, () =>
     runtime.query(
@@ -781,7 +1012,7 @@ try {
   assert.equal(missingLookup.rowCount, 0);
 
   console.log(
-    "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, revoked membership, safe project actor reads, responsibility resolution, ownership transfer, Calendar connections/sources/preferences, and agent credentials."
+    "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, append-only assignment history, revoked membership, safe project actor reads, responsibility resolution, ownership transfer, Calendar connections/sources/preferences, and agent credentials."
   );
 } finally {
   await cleanup().catch(() => undefined);

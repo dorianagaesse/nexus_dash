@@ -7,9 +7,11 @@ export interface ProjectMeetingNotePanelAction {
   id: string;
   content: string;
   completedAt: string | null;
+  assignedAt?: string | null;
   position: number;
   creator?: MeetingTodoActorSummary | null;
   assignee?: MeetingTodoActorSummary | null;
+  assignedBy?: MeetingTodoActorSummary | null;
   completedBy?: MeetingTodoActorSummary | null;
 }
 

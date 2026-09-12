@@ -73,7 +73,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/meeting-notes",
     title: "List meeting notes and todos",
     description:
-      "List project meeting notes with todo creator, assignee, completion actor, and access state.",
+      "List project meeting notes with todo creator, assignee, assigner, completion actor, and access state.",
     requiredScopes: ["task:read"],
     notes: ["External meeting participants are attendance context and cannot be assignees."],
   },
@@ -89,6 +89,8 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     notes: [
       "Send exactly one of completed or assignee.",
       "Agent completion is attributed to the active credential, not its human owner.",
+      "Assignments accept an active project member or agent credential and record the acting credential or member as the assigner with a timestamp.",
+      "Revoked or expired agent credentials are rejected with meeting-note-action-assignee-invalid.",
     ],
   },
   {
@@ -273,6 +275,8 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "Provide labels as a string array. Task responses return the canonical labels field.",
       "Use attachmentLinks as an array of { name, url } objects.",
       "Use the direct-upload attachment routes for binary files and images.",
+      "Use assignee as { kind: \"human\" | \"agent\", id } to assign a project member or an active agent credential; the legacy human-only assigneeUserId string remains accepted and assignee wins when both are present.",
+      "Assignment persists the credential identity for agents, along with who assigned it and when; revoked or expired credentials are rejected with assignee-invalid but existing assignments stay readable with an inactive status.",
       "201 responses include taskId and the complete created task covering labels, status, ordering position, epic, assignment, timestamps, attachments, and relations, so no follow-up read is needed.",
     ],
   },
@@ -288,7 +292,9 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "True partial update: only the fields present in the request body change; omitted fields are preserved.",
       "Set deadlineDate to null to clear the deadline.",
       "Send labels as a string array to replace the full label set; an empty array clears all labels. The legacy singular label field remains accepted for compatibility.",
-      "Set epicId or assigneeUserId to null to clear the epic link or assignment, and relatedTaskIds to an empty array to remove all relations.",
+      "Set epicId or assignee to null to clear the epic link or assignment, and relatedTaskIds to an empty array to remove all relations.",
+      "assignee accepts { kind: \"human\" | \"agent\", id } and assigns against project members or active agent credentials. The legacy human-only assigneeUserId string remains accepted; when both are present, assignee wins.",
+      "Unknown, non-member, or revoked/expired actors are rejected with assignee-invalid.",
     ],
   },
   {
@@ -635,7 +641,7 @@ export function buildAgentTaskCreateExample(): string {
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
-    "  -d '{\"title\":\"Draft release notes\",\"description\":\"<p>Summarize this week''s changes.</p>\",\"deadlineDate\":\"2026-04-24\",\"epicId\":\"epic_456\",\"assigneeUserId\":\"user_456\",\"labels\":[\"release\",\"docs\"],\"attachmentLinks\":[{\"name\":\"Spec\",\"url\":\"https://example.com/spec\"}]}'",
+    "  -d '{\"title\":\"Draft release notes\",\"description\":\"<p>Summarize this week''s changes.</p>\",\"deadlineDate\":\"2026-04-24\",\"epicId\":\"epic_456\",\"assignee\":{\"kind\":\"human\",\"id\":\"user_456\"},\"labels\":[\"release\",\"docs\"],\"attachmentLinks\":[{\"name\":\"Spec\",\"url\":\"https://example.com/spec\"}]}'",
   ].join("\n");
 }
 
@@ -669,7 +675,7 @@ export function buildAgentTaskUpdateExample(): string {
     'curl -X PATCH "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
-    '  -d \'{"title":"Draft release notes","description":"<p>Add release highlights.</p>","deadlineDate":"2026-04-25","epicId":"epic_456","assigneeUserId":"user_456","labels":["release","ready"],"relatedTaskIds":["task_456"]}\'',
+    '  -d \'{"title":"Draft release notes","description":"<p>Add release highlights.</p>","deadlineDate":"2026-04-25","epicId":"epic_456","assignee":{"kind":"agent","id":"credential_456"},"labels":["release","ready"],"relatedTaskIds":["task_456"]}\'',
     "",
     "# Append a link attachment; existing attachments are preserved",
     'curl -X PATCH "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID" \\',
@@ -1495,6 +1501,49 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
+        ProjectActorReferenceInput: {
+          type: "object",
+          required: ["kind", "id"],
+          additionalProperties: false,
+          properties: {
+            kind: { type: "string", enum: ["human", "agent"] },
+            id: { type: "string" },
+          },
+        },
+        ProjectActorSummary: {
+          type: "object",
+          required: [
+            "kind",
+            "id",
+            "displayName",
+            "usernameTag",
+            "avatarSeed",
+            "status",
+            "isAssignable",
+          ],
+          properties: {
+            kind: { type: "string", enum: ["human", "agent"] },
+            id: { type: "string" },
+            displayName: {
+              type: "string",
+              description:
+                "Member display name, agent credential label, or the durable snapshot for actors that left the project.",
+            },
+            usernameTag: { type: ["string", "null"] },
+            avatarSeed: { type: ["string", "null"] },
+            status: {
+              type: "string",
+              enum: ["active", "inactive", "revoked", "expired"],
+              description:
+                "Live actor status. Revoked or expired agent credentials keep their historical assignment and surface here.",
+            },
+            isAssignable: {
+              type: "boolean",
+              description:
+                "True when the actor can receive new assignments. Inactive, revoked, and expired actors are false.",
+            },
+          },
+        },
         TaskRecord: {
           type: "object",
           required: [
@@ -1516,6 +1565,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             "updatedAt",
             "epic",
             "assignee",
+            "assignedBy",
+            "assignedAt",
             "createdBy",
             "updatedBy",
             "attachments",
@@ -1568,9 +1619,23 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
             assignee: {
               anyOf: [
-                { $ref: "#/components/schemas/TaskCommentAuthor" },
+                { $ref: "#/components/schemas/ProjectActorSummary" },
                 { type: "null" },
               ],
+              description:
+                "Current assignee as a project actor: a member or an agent credential identified by credential id, not by its human owner. Null when unassigned.",
+            },
+            assignedBy: {
+              anyOf: [
+                { $ref: "#/components/schemas/ProjectActorSummary" },
+                { type: "null" },
+              ],
+              description:
+                "Who performed the most recent assignment change, including an unassignment, with the change time in assignedAt. Null until an assignment change has been recorded.",
+            },
+            assignedAt: {
+              type: ["string", "null"],
+              format: "date-time",
             },
             createdBy: {
               $ref: "#/components/schemas/TaskCommentAuthor",
@@ -1634,7 +1699,20 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             description: { type: "string" },
             deadlineDate: { type: "string", format: "date" },
             epicId: { type: ["string", "null"] },
-            assigneeUserId: { type: ["string", "null"] },
+            assignee: {
+              anyOf: [
+                { $ref: "#/components/schemas/ProjectActorReferenceInput" },
+                { type: "null" },
+              ],
+              description:
+                "Assign a project member (kind human) or an active agent credential (kind agent). Revoked, expired, or non-member actors are rejected with assignee-invalid.",
+            },
+            assigneeUserId: {
+              type: ["string", "null"],
+              deprecated: true,
+              description:
+                "Legacy human-only assignee shorthand. Prefer assignee; when both are present, assignee wins.",
+            },
             labels: {
               type: "array",
               items: {
@@ -1703,10 +1781,19 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               type: ["string", "null"],
               description: "Replace the epic link. Omit to preserve; null clears it.",
             },
+            assignee: {
+              anyOf: [
+                { $ref: "#/components/schemas/ProjectActorReferenceInput" },
+                { type: "null" },
+              ],
+              description:
+                "Replace the assignee with a project member or active agent credential. Omit to preserve; null clears the assignment. Reassignments and unassignments append to the task assignment history.",
+            },
             assigneeUserId: {
               type: ["string", "null"],
+              deprecated: true,
               description:
-                "Replace the assignee. Omit to preserve; null clears the assignment.",
+                "Legacy human-only assignee shorthand. Prefer assignee; when both are present, assignee wins. Omit to preserve; null clears the assignment.",
             },
             blockedFollowUpEntry: {
               type: "string",
@@ -1897,7 +1984,18 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 description: { type: "string" },
                 deadlineDate: { type: "string", format: "date" },
                 epicId: { type: ["string", "null"] },
-                assigneeUserId: { type: ["string", "null"] },
+                assignee: {
+                  anyOf: [
+                    { $ref: "#/components/schemas/ProjectActorReferenceInput" },
+                    { type: "null" },
+                  ],
+                },
+                assigneeUserId: {
+                  type: ["string", "null"],
+                  deprecated: true,
+                  description:
+                    "Legacy human-only assignee shorthand. Prefer assignee; when both are present, assignee wins.",
+                },
                 labels: {
                   type: "array",
                   items: { type: "string" },
@@ -2865,6 +2963,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                                   "completedAt",
                                   "creator",
                                   "assignee",
+                                  "assignedBy",
+                                  "assignedAt",
                                   "completedBy",
                                 ],
                                 properties: {
@@ -2873,6 +2973,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                                   completedAt: { type: ["string", "null"], format: "date-time" },
                                   creator: { type: ["object", "null"], additionalProperties: true },
                                   assignee: { type: ["object", "null"], additionalProperties: true },
+                                  assignedBy: { type: ["object", "null"], additionalProperties: true },
+                                  assignedAt: { type: ["string", "null"], format: "date-time" },
                                   completedBy: { type: ["object", "null"], additionalProperties: true },
                                 },
                               },
@@ -2929,6 +3031,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                       additionalProperties: false,
                       properties: {
                         assignee: {
+                          description:
+                            "Active project member (human) or assignable agent credential; revoked and expired credentials are rejected.",
                           oneOf: [
                             { type: "null" },
                             {

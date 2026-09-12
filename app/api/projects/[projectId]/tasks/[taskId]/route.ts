@@ -9,6 +9,7 @@ import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
+import { loadProjectActorRegistryForActor } from "@/lib/services/project-actor-service";
 import { getProjectKanbanTaskById } from "@/lib/services/project-service";
 import {
   deleteTaskForProject,
@@ -48,7 +49,15 @@ export async function GET(
     );
   }
 
-  const task = mapProjectKanbanTaskToTaskResponse(result.data.task, projectId);
+  const actorRegistry = await loadProjectActorRegistryForActor({
+    actorUserId,
+    projectId,
+  });
+  const task = mapProjectKanbanTaskToTaskResponse(
+    result.data.task,
+    projectId,
+    actorRegistry
+  );
 
   return NextResponse.json({ task }, { headers: timing.headers() });
 }

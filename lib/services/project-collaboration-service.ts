@@ -1426,6 +1426,7 @@ export async function removeProjectMember(input: {
       db,
       projectId: input.projectId,
       actor: { kind: "human", id: membership.userId },
+      actingUserId: actorUserId,
       resolution: input.responsibilityResolution ?? null,
     });
     if (!resolutionResult.ok) {

@@ -9,6 +9,64 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Trigger: user feedback that agent-authored cards are unreadable and that Done-lane ownership at handoff was ambiguous. Board follow-up the same day: ND-446..ND-448 rewritten to the short form; ND-449 created for per-project agent capability settings (first capability: a Done-move toggle, UI + backend).
 - `tasks/current.md` retired (user-directed): the active card is the single source of truth for the task brief. The file had grown into a ~1,600-line append-only brief archive that drifted from current rules — this PR's Copilot review flagged its stale "In Progress and then Done on delivery" line. Live references updated in `agent.md`, `CLAUDE.md`, `project.md`, and `README.md`; historical references in journal entries, ADRs, and archived briefs left as records.
 
+# 2026-09-12 - ND-384: Persist agent assignment as actor identity with audit history
+
+- Implemented in the dedicated `../nexus_dash_nd384_wt` worktree on
+  `feature/nd-384-agent-assignment-persistence` from `origin/main` at 70ecd08,
+  merged forward to 5773235 (ND-179 #498): task assignee actor columns
+  (kind/credential/snapshot plus assigned-by provenance), meeting-todo
+  assignedBy/assignedAt columns, append-only `TaskAssigneeChange` and
+  `ProjectMeetingNoteActionAssigneeChange` tables with ENABLE/FORCE RLS,
+  inventory entries, and isolation-matrix scenarios.
+- Services and transport accept `assignee: { kind, id } | null` on task
+  create/update and meeting-todo assignment; new assignees validate against
+  the live actor registry, revoked assignees keep their snapshot and the
+  needs-reassignment treatment, and search matches agent labels. Agent
+  OpenAPI + hosted guide updated; ND-382 picker agent rows now submit.
+- Merge-forward surfaced an ND-179 integration bug:
+  `app.resolve_project_actor_responsibilities` wrote `assigneeUserId` without
+  the new actor columns, so human offboarding violated
+  `Task_assignee_actor_check`, agent-assigned tasks were invisible to the
+  inventory, and offboarding appended no history.
+  Re-declared the function in migration 20260912130000 with the same signature
+  to maintain the actor columns and resolve agent-assigned tasks, and taught
+  the offboarding service to count agent assignments and write the same
+  provenance + history rows as interactive flows. Also fixed a merge-artifact
+  duplicate fixture id in the RLS matrix and a missing assignee-kind seed in
+  the ND-179 Playwright fixture that the new constraint exposed.
+- Validation: lint, `rls:check`, Vitest 194 files / 1431 tests, coverage
+  (93.47 / 84.36 / 95.3 / 93.77), production build, `release:check`
+  (0.66.0 over 0.65.0), the real-PostgreSQL isolation matrix
+  (`test:rls:setup` + `test:rls`, now covering agent-kind responsibility
+  resolution), and the full Playwright suite against the production build on
+  port 3100 (61 passed, 1 skipped).
+- Local e2e environment: a transient `.env.production.local` provides the
+  local database and a `TRUSTED_ORIGINS` value, and sets
+  `OUTBOUND_EMAIL_DELIVERY_MODE=disabled` so production-mode local runs mirror
+  CI's test-mode email skip for the password-recovery journey.
+- Copilot review on PR #505 raised 13 inline findings; 8 were applied and 3
+  were declined with thread rationale (see below). Applied: the multipart task
+  transport now rejects `assigneeKind` without `assigneeId` (and vice versa),
+  an explicit structured `assignee: null` suppresses the legacy
+  `assigneeUserId` shorthand on create, meeting-todo provenance maps stored
+  actors registry-first so members without ApiCredential read access see live
+  agent status, the kanban save path omits the assignee field when the draft
+  actor key is unchanged so a revoked assignee is never re-submitted, the
+  agent OpenAPI `assignedBy` copy documents unassignment, and the offboarding
+  snapshot queries now hold `FOR UPDATE` row locks. Declined: read→write
+  concurrency on interactive saves (write + history are atomic in the
+  enclosing RLS transaction and last-write-wins matches every existing editor
+  flow), and `Cascade` FKs on the history child tables (a hard parent delete
+  intentionally drops its own history; actor FKs `SET NULL` with denormalized
+  snapshots, matching TaskComment/ProjectActivityEvent precedent). The review
+  fixtures also exposed test-only TypeScript regressions the repo's build gate
+  does not typecheck; those fixtures were fixed and verified with
+  `npx tsc --noEmit` against the recorded main baseline.
+- Review-fix validation: lint, `rls:check`, Vitest 195 files / 1439 tests,
+  coverage, production build, the real-PostgreSQL isolation matrix plus a
+  runtime-role `FOR UPDATE` privilege probe, and the full Playwright suite
+  (61 passed, 1 skipped).
+
 # 2026-09-12 - ND-179: Complete offboarding surface reconciliation
 
 - Followed up on acceptance feedback that context-card stewardship still

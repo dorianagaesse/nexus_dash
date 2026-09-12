@@ -350,6 +350,125 @@ describe("project meeting todo service", () => {
     expect(removedResult?.open[0].participantOptions).toEqual([]);
   });
 
+  test("derives agent provenance from the registry when credential rows are unreadable", async () => {
+    dbMock.$queryRaw.mockResolvedValueOnce([
+      {
+        kind: "human",
+        actorId: "user-1",
+        name: "Owner",
+        email: "owner@example.com",
+        username: "owner",
+        usernameDiscriminator: "0001",
+        avatarSeed: "seed-owner",
+        label: null,
+        revokedAt: null,
+        expiresAt: null,
+      },
+      {
+        kind: "agent",
+        actorId: "credential-active",
+        name: null,
+        email: null,
+        username: null,
+        usernameDiscriminator: null,
+        avatarSeed: null,
+        label: "Release bot",
+        revokedAt: null,
+        expiresAt: null,
+      },
+      {
+        kind: "agent",
+        actorId: "credential-revoked",
+        name: null,
+        email: null,
+        username: null,
+        usernameDiscriminator: null,
+        avatarSeed: null,
+        label: "Retired bot",
+        revokedAt: new Date("2026-09-01T00:00:00.000Z"),
+        expiresAt: null,
+      },
+    ]);
+    // An editor cannot read ApiCredential rows, so the credential relations
+    // come back null and the registry has to supply live agent status.
+    dbMock.project.findFirst.mockResolvedValueOnce({
+      id: "project-editor",
+      name: "Gamma",
+      ownerId: "user-2",
+      memberships: [{ role: "editor" }],
+      meetingNotes: [
+        {
+          id: "meeting-agent-audit",
+          title: "Release sync",
+          scheduledAt: new Date("2026-09-06T08:00:00.000Z"),
+          status: "actions_in_progress",
+          createdAt: new Date("2026-09-06T08:00:00.000Z"),
+          participants: [],
+          actions: [
+            {
+              id: "todo-agent-audit",
+              content: "Prepare the release checklist",
+              completedAt: null,
+              updatedAt: new Date("2026-09-06T10:00:00.000Z"),
+              creatorKind: "agent",
+              createdByUserId: null,
+              createdByCredentialId: "credential-active",
+              creatorDisplayNameSnapshot: "Release bot",
+              createdByUser: null,
+              createdByCredential: null,
+              assigneeKind: null,
+              assigneeUserId: null,
+              assigneeCredentialId: null,
+              assigneeDisplayNameSnapshot: null,
+              assigneeUser: null,
+              assigneeCredential: null,
+              assignedByKind: "agent",
+              assignedByUserId: null,
+              assignedByCredentialId: "credential-revoked",
+              assignedByDisplayNameSnapshot: "Retired bot",
+              assignedByUser: null,
+              assignedByCredential: null,
+              assignedAt: new Date("2026-09-06T09:00:00.000Z"),
+              completedByKind: null,
+              completedByUserId: null,
+              completedByCredentialId: null,
+              completedByDisplayNameSnapshot: null,
+              completedByUser: null,
+              completedByCredential: null,
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await listProjectMeetingTodos({
+      actorUserId: "user-1",
+      projectId: "project-editor",
+      referenceNowMs,
+    });
+
+    const todo = result?.open[0];
+    expect(todo?.creator).toEqual({
+      kind: "agent",
+      id: "credential-active",
+      displayName: "Release bot",
+      usernameTag: null,
+      avatarSeed: null,
+      status: "active",
+      isAssignable: true,
+    });
+    expect(todo?.assignedBy).toEqual({
+      kind: "agent",
+      id: "credential-revoked",
+      displayName: "Retired bot",
+      usernameTag: null,
+      avatarSeed: null,
+      status: "revoked",
+      isAssignable: false,
+    });
+    expect(todo?.assignedAt).toEqual(new Date("2026-09-06T09:00:00.000Z"));
+  });
+
   test("summarizes active and overdue todos from filtered database counts", async () => {
     dbMock.project.findFirst.mockResolvedValueOnce({
       id: "project-owned",

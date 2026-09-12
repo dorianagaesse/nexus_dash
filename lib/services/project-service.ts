@@ -84,6 +84,16 @@ export const projectKanbanTaskInclude = {
       avatarSeed: true,
     },
   },
+  assigneeAssignedByUser: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      username: true,
+      usernameDiscriminator: true,
+      avatarSeed: true,
+    },
+  },
   epic: {
     select: {
       id: true,

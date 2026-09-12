@@ -32,10 +32,12 @@ export interface ProjectMeetingTodoItem {
   id: string;
   content: string;
   completedAt: string | null;
+  assignedAt?: string | null;
   updatedAt: string;
   isOverdue: boolean;
   creator?: MeetingTodoActorSummary | null;
   assignee?: MeetingTodoActorSummary | null;
+  assignedBy?: MeetingTodoActorSummary | null;
   completedBy?: MeetingTodoActorSummary | null;
   participantOptions?: MeetingTodoActorSummary[];
   meeting: {

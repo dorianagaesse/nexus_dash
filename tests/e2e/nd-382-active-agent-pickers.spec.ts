@@ -39,7 +39,7 @@ test("active credential labels appear safely in mention and task-assignee picker
     name: new RegExp(uiLabel),
   });
   await expect(freshAgentAssignee).toBeVisible();
-  await expect(freshAgentAssignee).toBeDisabled();
+  await expect(freshAgentAssignee).toBeEnabled();
   await page.getByRole("button", { name: "Close task creation" }).click();
 
   await prisma.apiCredential.createMany({
@@ -95,7 +95,7 @@ test("active credential labels appear safely in mention and task-assignee picker
     name: new RegExp(activeLabel),
   });
   await expect(agentAssignee).toBeVisible();
-  await expect(agentAssignee).toBeDisabled();
+  await expect(agentAssignee).toBeEnabled();
   await expect(agentAssignee).toContainText("Agent");
   await expect(page.getByText(revokedLabel)).toHaveCount(0);
   await expect(page.getByText(expiredLabel)).toHaveCount(0);
