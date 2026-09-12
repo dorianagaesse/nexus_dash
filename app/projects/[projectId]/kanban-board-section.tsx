@@ -12,6 +12,7 @@ import {
   type ProjectCollaboratorIdentitySummary,
 } from "@/lib/services/project-service";
 import { listProjectEpics } from "@/lib/services/project-epic-service";
+import { listAssignableProjectActors } from "@/lib/services/project-actor-service";
 import { mapTaskEpicSummary } from "@/lib/epic";
 import { mapTaskAuthorRecord } from "@/lib/task-author";
 import { mapTaskPersonSummary } from "@/lib/task-person";
@@ -45,9 +46,10 @@ export async function KanbanBoardSection({
   collaborators,
   initialTaskId,
 }: KanbanBoardSectionProps) {
-  const [tasks, epics] = await Promise.all([
+  const [tasks, epics, projectActors] = await Promise.all([
     listProjectKanbanTasks(projectId, actorUserId),
     listProjectEpics(projectId, actorUserId),
+    listAssignableProjectActors({ projectId, actorUserId }),
   ]);
   const kanbanTasks: KanbanTask[] = [];
   const archivedDoneTasks: KanbanTask[] = [];
@@ -128,6 +130,7 @@ export async function KanbanBoardSection({
       archivedDoneTasks={archivedDoneTasks}
       epics={epicOptions}
       collaborators={collaborators}
+      projectActors={projectActors}
       actorUserId={actorUserId}
       initialTaskId={initialTaskId}
     />

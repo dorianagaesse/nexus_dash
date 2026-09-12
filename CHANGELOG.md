@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.63.0 - 2026-09-09
+## v0.64.0 - 2026-09-12
 
 - Added independent Inputs and Outputs zoom controls to meeting notes (ND-426),
   scaling rich-text read and edit surfaces from 75% through 200% in 25% steps
@@ -19,6 +19,21 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Added focused component and browser coverage for zoom limits, independent
   input/output scale, rich-text integration, keyboard use, and 375px layout.
 
+## v0.63.0 - 2026-09-09
+
+- Added one authorized, project-scoped actor search contract for collaboration
+  controls. It searches eligible humans by identity and active project-agent
+  credentials by label while returning no credential secret material (ND-382).
+- Supported `@` autocomplete and task-assignee controls now show active agent
+  credentials alongside humans with a shared bot avatar, credential-label
+  identity, and explicit Agent treatment. Agent mention and task-assignment
+  actions remain visibly unavailable until ND-383 and ND-384 add their
+  persistence contracts, so credentials are never submitted as human ids.
+- Meeting-todo assignment now loads its selectable humans and agents from the
+  same canonical actor registry. Revoked and expired credentials disappear
+  from new choices while durable historical actor snapshots remain readable.
+- Added service, route, and Kanban integration coverage for project isolation,
+  active-credential filtering, safe response fields, and picker propagation.
 ## v0.62.0 - 2026-09-08
 
 - Added a project-scoped single-task read endpoint,

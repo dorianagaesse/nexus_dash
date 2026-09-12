@@ -10,9 +10,9 @@ const rlsContextMock = vi.hoisted(() => ({
 }));
 
 const dbMock = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
   project: {
     findFirst: vi.fn(),
-    findUnique: vi.fn(),
   },
 }));
 
@@ -49,18 +49,20 @@ describe("project meeting todo service", () => {
       async (_actorUserId: string, operation: (db: typeof dbMock) => unknown) =>
         operation(dbMock)
     );
-    dbMock.project.findUnique.mockResolvedValue({
-      owner: {
-        id: "user-1",
+    dbMock.$queryRaw.mockResolvedValue([
+      {
+        kind: "human",
+        actorId: "user-1",
         name: "Owner",
         email: "owner@example.com",
         username: "owner",
         usernameDiscriminator: "0001",
         avatarSeed: "seed-owner",
+        label: null,
+        revokedAt: null,
+        expiresAt: null,
       },
-      memberships: [],
-      apiCredentials: [],
-    });
+    ]);
   });
 
   test("loads only the requested authorized project and sorts its todos", async () => {
