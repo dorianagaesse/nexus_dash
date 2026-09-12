@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
+  $queryRaw: vi.fn(),
   project: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
+    update: vi.fn(),
   },
   task: {
     findUnique: vi.fn(),
@@ -13,6 +15,11 @@ const prismaMock = vi.hoisted(() => ({
   taskComment: {
     findMany: vi.fn(),
     create: vi.fn(),
+  },
+  taskCommentAgentMention: {
+    findMany: vi.fn(),
+    deleteMany: vi.fn(),
+    createMany: vi.fn(),
   },
   notification: {
     findMany: vi.fn(),
@@ -70,6 +77,16 @@ describe("task comments route", () => {
     prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
     prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.apiCredential.findFirst.mockResolvedValue(null);
+    prismaMock.project.update.mockResolvedValue({ id: "project-1" });
+    prismaMock.task.update.mockResolvedValue({ id: "task-1" });
+    prismaMock.$queryRaw.mockResolvedValue([]);
+    prismaMock.taskCommentAgentMention.findMany.mockResolvedValue([]);
+    prismaMock.taskCommentAgentMention.deleteMany.mockResolvedValue({
+      count: 0,
+    });
+    prismaMock.taskCommentAgentMention.createMany.mockResolvedValue({
+      count: 1,
+    });
   });
 
   test("GET returns chronological task comments", async () => {
@@ -770,6 +787,178 @@ describe("task comments route", () => {
       ],
       skipDuplicates: true,
     });
+  });
+
+  test("POST forwards agent mention selections and persists tagged-agent events", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      title: "Agent mention task",
+      projectId: "project-1",
+    });
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      {
+        kind: "human",
+        actorId: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+        label: null,
+        revokedAt: null,
+        expiresAt: null,
+      },
+      {
+        kind: "agent",
+        actorId: "credential-active",
+        name: null,
+        email: null,
+        username: null,
+        usernameDiscriminator: null,
+        avatarSeed: null,
+        label: "Release bot",
+        revokedAt: null,
+        expiresAt: null,
+      },
+    ]);
+    prismaMock.taskComment.create.mockResolvedValueOnce({
+      id: "comment-agent-mention",
+      content: "@{Release bot} please cut the release",
+      createdAt: new Date("2026-09-12T11:00:00.000Z"),
+      authorAgentCredentialId: null,
+      authorAgentCredentialLabel: null,
+      author: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "@{Release bot} please cut the release",
+            agentMentionSelections: [{ credentialId: "credential-active" }],
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.taskCommentAgentMention.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          commentId: "comment-agent-mention",
+          taskId: "task-1",
+          agentCredentialId: "credential-active",
+          agentLabel: "Release bot",
+          createdByUserId: "test-user",
+          createdByCredentialId: null,
+          createdByCredentialLabel: null,
+        },
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  test("POST rejects an agent mention that is not an active project agent", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      title: "Agent mention task",
+      projectId: "project-1",
+    });
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      {
+        kind: "human",
+        actorId: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+        label: null,
+        revokedAt: null,
+        expiresAt: null,
+      },
+    ]);
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "@{Release bot} please cut the release",
+            agentMentionSelections: [{ credentialId: "credential-outside" }],
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "task-comment-agent-mention-invalid",
+    });
+    expect(prismaMock.taskComment.create).not.toHaveBeenCalled();
+    expect(prismaMock.taskCommentAgentMention.createMany).not.toHaveBeenCalled();
+  });
+
+  test("POST ignores malformed agent mention selections", async () => {
+    prismaMock.task.findUnique.mockResolvedValue({
+      id: "task-1",
+      title: "Agent mention task",
+      projectId: "project-1",
+    });
+    prismaMock.taskComment.create.mockResolvedValue({
+      id: "comment-plain",
+      content: "No agent events",
+      createdAt: new Date("2026-09-12T11:30:00.000Z"),
+      authorAgentCredentialId: null,
+      authorAgentCredentialLabel: null,
+      author: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+    });
+
+    for (const agentMentionSelections of [
+      "not-an-array",
+      [null, 42, { credentialId: 7 }, { credentialId: "   " }],
+    ]) {
+      const response = await POST(
+        new Request(
+          "http://localhost/api/projects/project-1/tasks/task-1/comments",
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              content: "No agent events",
+              agentMentionSelections,
+            }),
+          }
+        ) as never,
+        { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+      );
+
+      expect(response.status).toBe(201);
+    }
+
+    expect(prismaMock.$queryRaw).not.toHaveBeenCalled();
+    expect(prismaMock.taskCommentAgentMention.createMany).not.toHaveBeenCalled();
   });
 
   test("POST returns 400 for empty content", async () => {

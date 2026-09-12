@@ -1,6 +1,142 @@
 # Current Task
 
-## ND-179: Project ownership continuity and collaborator offboarding
+## ND-383: Support agent mentions in comments and record tagged-agent events
+
+## Status
+
+In Progress (2026-09-12). Branch `feature/nd-383-agent-mentions-tagged-events`,
+created from `origin/main` at a80a33a (v0.63.0), which includes the ND-382
+agent-picker work (PR #497), and merged forward to current `origin/main` at
+7612347 (v0.65.0, ND-426 #499 and ND-179 #498 included). The Nexus Dash board
+card is In Progress.
+
+## Context
+
+ND-382 made active project agents discoverable in the comment @mention picker,
+but agent rows are inert placeholders: selecting one inserts nothing because
+mentions are parsed as human `@username#discriminator` tokens only. Downstream
+agent-attention work (ND-385) needs a durable record of "this agent was tagged
+on this comment", including the tagging actor and time, without rewriting
+history when credentials are renamed or revoked.
+
+## Product Decisions
+
+- Structured agent mention token: selecting an agent inserts `@{Credential
+  Label}` (braced token) into the comment content. Braces disambiguate from
+  human `@username` tokens (labels may contain spaces) and round-trip as plain
+  text. Human mention insertion, parsing, and notification are unchanged.
+- Wire contract: comment submission sends `agentMentionSelections:
+  [{ credentialId }]` alongside the existing `mentionSelections`; the server
+  re-derives every other field. Raw text alone cannot fabricate a tagged event:
+  the server resolves each selection against the ND-178 project actor registry
+  (active credentials only) and requires the exact `@{resolvedLabel}` token in
+  the submitted content, rejecting anything else with 400
+  `task-comment-agent-mention-invalid`.
+- Durable snapshot doctrine (ADR TASK-337): `TaskCommentAgentMention` stores
+  the credential FK (`ON DELETE SET NULL`) plus an `agentLabel` snapshot, and
+  snapshots the tagging actor the same way (`createdByUserId` for humans,
+  `createdByCredentialId` + label snapshot for agent-authored comments).
+  Renames, revocations, and credential deletion never rewrite recorded history.
+- Documented idempotency rule: at most one tagged-agent event per
+  (comment, credential), enforced by `@@unique([commentId, agentCredentialId])`
+  with `createMany({ skipDuplicates: true })`. Repeated `@{Label}` tokens in
+  the content or duplicate payload entries collapse into a single event.
+- Deterministic mention state: persistence goes through an exported
+  replace-style sync (compute the desired credential set, delete rows no
+  longer desired, create missing rows) executed inside the comment's RLS
+  transaction. Comment deletion cascades its mention events; comment editing
+  remains out of scope but will reuse this sync.
+- Agent mentions are enabled in the task-comment composer only. Rich-text
+  description mentions stay disabled (owned by later work); the picker gains
+  an `agentMentionsEnabled` prop so the ND-382 disabled treatment remains the
+  default everywhere else.
+
+## Scope
+
+- Prisma model + migration for `TaskCommentAgentMention` (source task and
+  comment FKs, mentioned credential FK + label snapshot, actor snapshots,
+  occurrence time, `@@unique([commentId, agentCredentialId])`), RLS
+  enable/force plus select/insert/delete policies mirroring
+  `TaskCommentReaction`, `prisma/rls-inventory.json` entry, and RLS isolation
+  matrix coverage.
+- Agent mention token helpers in `lib/mention.ts` (`@{Label}` build/parse/
+  round-trip) with focused unit tests.
+- Comment service: resolve `agentMentionSelections` through the project actor
+  registry, validate content token presence, persist events under the
+  documented idempotency rule, and expose the deterministic sync path.
+- Comment route: parse and forward `agentMentionSelections` (bounded,
+  trimmed), matching the existing `mentionSelections` handling.
+- Comment UI: enable agent selection in the comment composer picker, insert
+  the `@{Label}` token, track and prune agent selections against content,
+  submit them, and render `@{Label}` spans as agent chips (composer mirror
+  included).
+- Tests: unit (token helpers), service (persistence, idempotency, rejection
+  cases, actor snapshots, sync determinism, cascade delete), route, component
+  (picker enabled treatment, token insert/prune, chip rendering), and a
+  focused Playwright spec covering end-to-end tagging plus revoked-credential
+  historical rendering.
+
+## Out Of Scope
+
+- Agent mentions in the rich-text description editor (stays disabled).
+- Comment editing/deletion routes and notification changes for agent mentions;
+  the sync/cascade semantics implemented here are the deterministic base they
+  will reuse.
+- Task/meeting-todo agent assignment persistence and audit (ND-384); agent
+  attention/work-queue APIs (ND-385); contract publishing (ND-386).
+- Credential lifecycle changes or new agent permissions.
+
+## Acceptance Criteria
+
+1. Selecting an agent from comment @ suggestions inserts an unambiguous
+   `@{Credential Label}` token; human mention insertion and parsing remain
+   unchanged.
+2. Saving a comment persists one tagged-agent event per mentioned credential
+   carrying the credential identity, its label snapshot, the comment, the
+   source task, the tagging actor (human or agent), and the occurrence time.
+3. Event state updates deterministically: re-running the sync for a comment
+   yields the same row set, duplicate tokens/selections collapse to one event,
+   and comment deletion removes its events without touching others.
+4. Authorization rejects a credential outside the project, a revoked or
+   expired credential, a selection without the matching `@{Label}` token in
+   the content, and token/payload drift with 400
+   `task-comment-agent-mention-invalid`, persisting nothing.
+5. Historical tagged-agent events keep rendering after credential revocation
+   (label snapshot plus content token), and the credential FK nulls out safely
+   if the credential row is deleted.
+6. Human mention behavior (parse, notify, render) is unaffected, and agent
+   mentions remain disabled in rich-text description composition.
+
+## Definition Of Done
+
+- Model, migration (with RLS policies), inventory entry, and RLS isolation
+  matrix additions are implemented and validated against real PostgreSQL
+  (`npm run test:rls:setup` then `npm run test:rls`).
+- `npm run lint`, `npm run rls:check`, `npm test`, `npm run test:coverage`,
+  `npm run build`, focused/full Playwright UI coverage, and `git diff --check`
+  are green.
+- The product minor version and CHANGELOG are advanced per release policy;
+  `tasks/current.md`, `journal.md`, `adr/decisions.md`, and the live ND-383
+  card reflect delivery.
+- The branch is pushed and a ready-for-review PR is open; Copilot's initial
+  review outcome is triaged and all addressed conversations are resolved.
+
+## Runtime Assumptions
+
+- Production board access uses the gitignored `.config/.nd-nexus-dash.env`
+  agent credential contract. Preview UI validation uses the gitignored
+  `.tmp/.nd-preview.env` access bundle from the main checkout if a deployed
+  preview is required.
+- The stable preview auth alias is shared by every branch preview: each
+  `deploy-preview` run re-points it to the newest validated deployment. Before
+  a preview retest handoff, re-run `deploy-preview` for this branch and verify
+  `GET /api/health/ready` reports the expected revision.
+- ND-383 introduces one new table (`TaskCommentAgentMention`) with forced RLS,
+  so the real-PostgreSQL RLS matrix must run before handoff.
+
+## Previous Task Snapshot — ND-179
+
+### Project ownership continuity and collaborator offboarding
 
 The active implementation brief follows the preserved ND-426, ND-382, and
 ND-438 snapshots below.

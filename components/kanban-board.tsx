@@ -16,6 +16,7 @@ import {
   type ProjectEpicOption,
   type ProjectTaskCollaborator,
   type TaskComment,
+  type TaskCommentAgentMentionSelection,
   type TaskCommentMentionSelection,
   type PendingAttachmentUpload,
   type TaskPersonSummary,
@@ -2183,7 +2184,8 @@ export function KanbanBoard({
   ]);
 
   const handleSubmitTaskComment = useCallback(async (
-    mentionSelections?: TaskCommentMentionSelection[]
+    mentionSelections?: TaskCommentMentionSelection[],
+    agentMentionSelections?: TaskCommentAgentMentionSelection[]
   ) => {
     if (!canEdit) {
       return;
@@ -2246,6 +2248,7 @@ export function KanbanBoard({
           body: JSON.stringify({
             content,
             mentionSelections,
+            agentMentionSelections,
           }),
         }
       );
@@ -2257,7 +2260,9 @@ export function KanbanBoard({
             ? "Comment cannot be empty."
             : message === "content-too-long"
               ? "Comment must be 4000 characters or fewer."
-              : message
+              : message === "task-comment-agent-mention-invalid"
+                ? "The agent mention could not be saved. Mention the agent again."
+                : message
         );
       }
 

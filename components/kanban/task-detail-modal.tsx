@@ -22,6 +22,7 @@ import {
 import {
   type KanbanTask,
   type TaskComment,
+  type TaskCommentAgentMentionSelection,
   type TaskCommentMentionSelection,
   type TaskCommentReaction,
   type PendingAttachmentUpload,
@@ -79,6 +80,7 @@ import {
 import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
 import type { ProjectActorSummary } from "@/lib/project-actor";
 import {
+  hasAgentMentionToken,
   parseMentions,
   removeMentionBeforeCursor,
   replaceMentionTrigger,
@@ -170,7 +172,8 @@ interface TaskDetailModalProps {
   onPreviewAttachmentChange: (attachment: TaskAttachment | null) => void;
   onNewTaskCommentChange: (value: string) => void;
   onSubmitTaskComment: (
-    mentionSelections?: TaskCommentMentionSelection[]
+    mentionSelections?: TaskCommentMentionSelection[],
+    agentMentionSelections?: TaskCommentAgentMentionSelection[]
   ) => void | Promise<void>;
   onMoveTask: (nextStatus: TaskStatus) => void;
   onArchiveTask: () => void | Promise<void>;
@@ -1224,6 +1227,52 @@ function pruneCommentMentionSelections(
   );
 }
 
+interface CommentAgentMentionDraft {
+  credentialId: string;
+  label: string;
+}
+
+function pruneCommentAgentMentionSelections(
+  selections: CommentAgentMentionDraft[],
+  value: string
+) {
+  if (selections.length === 0) {
+    return selections;
+  }
+
+  const seenCredentialIds = new Set<string>();
+
+  return selections.filter((selection) => {
+    if (seenCredentialIds.has(selection.credentialId)) {
+      return false;
+    }
+    if (!hasAgentMentionToken(value, selection.label)) {
+      return false;
+    }
+
+    seenCredentialIds.add(selection.credentialId);
+    return true;
+  });
+}
+
+function buildCommentAgentMentionSelection(
+  member: MentionAutocompleteMember
+): CommentAgentMentionDraft | null {
+  if (member.kind !== "agent") {
+    return null;
+  }
+
+  const token = buildMentionAutocompleteDisplayValue(member);
+  if (!token) {
+    return null;
+  }
+
+  return {
+    credentialId: member.id,
+    label: member.displayName,
+  };
+}
+
 function buildCommentMentionSelection(
   member: MentionAutocompleteMember
 ): TaskCommentMentionSelection | null {
@@ -1276,7 +1325,8 @@ function TaskReadOnlyContent({
   mentionUsers: MentionDisplayUser[];
   onNewTaskCommentChange: (value: string) => void;
   onSubmitTaskComment: (
-    mentionSelections?: TaskCommentMentionSelection[]
+    mentionSelections?: TaskCommentMentionSelection[],
+    agentMentionSelections?: TaskCommentAgentMentionSelection[]
   ) => void | Promise<void>;
   taskCommentReactions: Map<string, TaskCommentReaction[]>;
   toggleReaction: (commentId: string, emoji: string) => void;
@@ -1290,6 +1340,8 @@ function TaskReadOnlyContent({
   const [commentMentionSelections, setCommentMentionSelections] = useState<
     TaskCommentMentionSelection[]
   >([]);
+  const [commentAgentMentionSelections, setCommentAgentMentionSelections] =
+    useState<CommentAgentMentionDraft[]>([]);
   const commentMentionState = useMentionAutocomplete(
     newTaskComment,
     commentCursorPosition,
@@ -1344,6 +1396,16 @@ function TaskReadOnlyContent({
       );
     }
 
+    const selectedAgentMention = buildCommentAgentMentionSelection(member);
+    if (selectedAgentMention) {
+      setCommentAgentMentionSelections((previousSelections) =>
+        pruneCommentAgentMentionSelections(
+          [...previousSelections, selectedAgentMention],
+          nextValue
+        )
+      );
+    }
+
     window.requestAnimationFrame(() => {
       const currentTextarea = commentInputRef.current;
       if (!currentTextarea) {
@@ -1386,6 +1448,9 @@ function TaskReadOnlyContent({
     setCommentMentionSelections((previousSelections) =>
       pruneCommentMentionSelections(previousSelections, replacement.value)
     );
+    setCommentAgentMentionSelections((previousSelections) =>
+      pruneCommentAgentMentionSelections(previousSelections, replacement.value)
+    );
     setCommentCursorPosition(replacement.cursorPosition);
 
     window.requestAnimationFrame(() => {
@@ -1413,6 +1478,9 @@ function TaskReadOnlyContent({
   useEffect(() => {
     setCommentMentionSelections((previousSelections) =>
       pruneCommentMentionSelections(previousSelections, newTaskComment)
+    );
+    setCommentAgentMentionSelections((previousSelections) =>
+      pruneCommentAgentMentionSelections(previousSelections, newTaskComment)
     );
   }, [newTaskComment]);
 
@@ -1613,6 +1681,12 @@ function TaskReadOnlyContent({
                         event.target.value
                       )
                     );
+                    setCommentAgentMentionSelections((previousSelections) =>
+                      pruneCommentAgentMentionSelections(
+                        previousSelections,
+                        event.target.value
+                      )
+                    );
                     syncCommentCursorPosition(event.target);
                     syncCommentHighlightScroll(event.target);
                   }}
@@ -1637,6 +1711,7 @@ function TaskReadOnlyContent({
                   onClose={() => {
                     setCommentCursorPosition(-1);
                   }}
+                  agentMentionsEnabled
                 />
               ) : null}
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -1657,7 +1732,14 @@ function TaskReadOnlyContent({
                 <Button
                   type="button"
                   size="sm"
-                  onClick={() => void onSubmitTaskComment(commentMentionSelections)}
+                  onClick={() =>
+                    void onSubmitTaskComment(
+                      commentMentionSelections,
+                      commentAgentMentionSelections.map((selection) => ({
+                        credentialId: selection.credentialId,
+                      }))
+                    )
+                  }
                   disabled={isSubmittingTaskComment || !newTaskComment.trim()}
                   className="w-full sm:w-auto"
                 >

@@ -50,11 +50,26 @@ describe("buildMentionAutocompleteValue", () => {
     expect(buildMentionAutocompleteDisplayValue(member)).toBe("");
   });
 
-  test("does not serialize discovered agents as human mentions", () => {
+  test("serializes discovered agents as braced agent tokens", () => {
     const agent: MentionAutocompleteMember = {
       kind: "agent",
       id: "credential-1",
       displayName: "Release bot",
+      usernameTag: null,
+      avatarSeed: null,
+      projectRole: null,
+      isOwner: false,
+    };
+
+    expect(buildMentionAutocompleteValue(agent)).toBe("@{Release bot}");
+    expect(buildMentionAutocompleteDisplayValue(agent)).toBe("@{Release bot}");
+  });
+
+  test("returns an empty value for agents with unusable labels", () => {
+    const agent: MentionAutocompleteMember = {
+      kind: "agent",
+      id: "credential-2",
+      displayName: "",
       usernameTag: null,
       avatarSeed: null,
       projectRole: null,

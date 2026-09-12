@@ -3,6 +3,34 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-12 - ND-383: Tagged-agent comment mentions with durable events
+
+- Onboarded from the live ND-383 card and implemented on
+  `feature/nd-383-agent-mentions-tagged-events`, created from `origin/main` at
+  a80a33a (v0.63.0, ND-382 agent pickers) and merged forward to 7612347
+  (v0.65.0, including ND-426 #499 and ND-179 #498); release target v0.66.0.
+- Agent mentions use a braced `@{Credential Label}` token. The comment
+  composer's `@` picker (agent rows enabled only there) inserts the token and
+  submits `agentMentionSelections`; the server re-derives each label through
+  the ND-178 project actor registry, requires the exact token in the content,
+  and rejects out-of-project, revoked, expired, or drifted selections with 400
+  `task-comment-agent-mention-invalid`. Human mentions and rich-text
+  description pickers are unchanged.
+- New `TaskCommentAgentMention` table (migration + RLS inventory entry) forces
+  RLS with member read, same-actor editor/owner insert/delete, immutable rows,
+  and no `ApiCredential` subquery; idempotency is
+  `@@unique([commentId, agentCredentialId])` with
+  `createMany({ skipDuplicates: true })`, and the replace-style sync never
+  retracts null-credential historical rows. Comment deletion cascades events.
+- Validation (2026-09-12): lint, `rls:check`, `release:check`, and
+  `git diff --check` clean; full Vitest 195 files / 1,448 tests passed
+  (2 skipped); coverage above thresholds (93.45% statements / 84% branches /
+  95.3% functions / 93.75% lines); production build green; real-PostgreSQL
+  least-privilege RLS matrix green including the new mention policies; full
+  Playwright suite 60 passed / 1 skipped with the single nd-408 drag failure
+  under parallel load passing 6/6 on re-run and the ND-383 tagging/revocation
+  journey passing on re-run.
+
 # 2026-09-12 - ND-179: Complete offboarding surface reconciliation
 
 - Followed up on acceptance feedback that context-card stewardship still

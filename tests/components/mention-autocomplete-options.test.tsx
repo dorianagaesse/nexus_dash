@@ -92,4 +92,104 @@ describe("MentionAutocomplete actor options", () => {
     );
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  function stubActorSearch() {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          actors: [
+            {
+              kind: "agent",
+              id: "credential-1",
+              displayName: "Release bot",
+              usernameTag: null,
+              avatarSeed: null,
+              projectRole: null,
+              isOwner: false,
+            },
+          ],
+        }),
+      })
+    );
+  }
+
+  test("selects agents by click when agent mentions are enabled", async () => {
+    stubActorSearch();
+    const onSelect = vi.fn();
+
+    act(() => {
+      root.render(
+        <MentionAutocomplete
+          projectId="project-1"
+          query="rel"
+          position={{ top: 20, left: 20 }}
+          onSelect={onSelect}
+          onClose={vi.fn()}
+          agentMentionsEnabled
+        />
+      );
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(160);
+    });
+
+    const agent = Array.from(
+      document.querySelectorAll("[role='option']")
+    ).find((option) => option.textContent?.includes("Release bot"));
+
+    expect(agent?.getAttribute("aria-disabled")).toBe("false");
+    expect(agent?.textContent).not.toContain("coming soon");
+
+    act(() => {
+      agent?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true })
+      );
+    });
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect.mock.calls[0][0]).toMatchObject({
+      kind: "agent",
+      id: "credential-1",
+      displayName: "Release bot",
+    });
+  });
+
+  test("selects agents with Enter when agent mentions are enabled", async () => {
+    stubActorSearch();
+    const onSelect = vi.fn();
+
+    act(() => {
+      root.render(
+        <MentionAutocomplete
+          projectId="project-1"
+          query="rel"
+          position={{ top: 20, left: 20 }}
+          onSelect={onSelect}
+          onClose={vi.fn()}
+          agentMentionsEnabled
+        />
+      );
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(160);
+    });
+
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect.mock.calls[0][0]).toMatchObject({
+      kind: "agent",
+      id: "credential-1",
+    });
+  });
 });

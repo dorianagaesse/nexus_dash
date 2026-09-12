@@ -257,6 +257,70 @@ export function isValidMentionUsername(username: string): boolean {
 }
 
 /**
+ * Agent mentions use a braced token (`@{Credential Label}`) so labels with
+ * spaces stay unambiguous next to human `@username` mentions. Tokens are
+ * plain text; only the server-validated selection creates a tagged-agent
+ * event, never the raw token on its own.
+ */
+const AGENT_MENTION_TOKEN_REGEX = /@\{([^{}\r\n]+)\}/g;
+export const MAX_AGENT_MENTION_LABEL_LENGTH = 80;
+
+export interface ParsedAgentMention {
+  label: string;
+  fullMatch: string;
+  startIndex: number;
+  endIndex: number;
+}
+
+export function isValidAgentMentionLabel(label: string): boolean {
+  if (typeof label !== "string") {
+    return false;
+  }
+
+  const normalizedLabel = label.trim();
+  return (
+    normalizedLabel.length > 0 &&
+    normalizedLabel.length <= MAX_AGENT_MENTION_LABEL_LENGTH &&
+    !/[{}]/.test(normalizedLabel) &&
+    !/[\r\n]/.test(normalizedLabel)
+  );
+}
+
+export function buildAgentMentionToken(label: string): string {
+  if (!isValidAgentMentionLabel(label)) {
+    return "";
+  }
+
+  return `@{${label.trim()}}`;
+}
+
+export function hasAgentMentionToken(content: string, label: string): boolean {
+  const token = buildAgentMentionToken(label);
+  return Boolean(token) && content.includes(token);
+}
+
+export function parseAgentMentions(input: string): ParsedAgentMention[] {
+  if (typeof input !== "string" || !input) {
+    return [];
+  }
+
+  const mentions: ParsedAgentMention[] = [];
+  let match: RegExpExecArray | null;
+
+  AGENT_MENTION_TOKEN_REGEX.lastIndex = 0;
+  while ((match = AGENT_MENTION_TOKEN_REGEX.exec(input)) !== null) {
+    mentions.push({
+      label: match[1],
+      fullMatch: match[0],
+      startIndex: match.index,
+      endIndex: match.index + match[0].length,
+    });
+  }
+
+  return mentions;
+}
+
+/**
  * Locate the currently edited @mention immediately before a text cursor.
  */
 export function getActiveMentionTrigger(

@@ -4,8 +4,13 @@ import {
   containsMentions,
   extractMentionedUsernames,
   buildMentionString,
+  buildAgentMentionToken,
   getActiveMentionTrigger,
+  hasAgentMentionToken,
+  isValidAgentMentionLabel,
   isValidMentionUsername,
+  MAX_AGENT_MENTION_LABEL_LENGTH,
+  parseAgentMentions,
   removeMentionBeforeCursor,
   replaceMentionTrigger,
 } from "@/lib/mention";
@@ -364,5 +369,106 @@ describe("getActiveMentionTrigger", () => {
   it("ignores @ inside words or email addresses", () => {
     expect(getActiveMentionTrigger("mail me@example.com", 15)).toBeNull();
     expect(getActiveMentionTrigger("prefix@ali", 10)).toBeNull();
+  });
+});
+
+describe("isValidAgentMentionLabel", () => {
+  it("returns false for non-strings and empty strings", () => {
+    expect(isValidAgentMentionLabel(null as unknown as string)).toBe(false);
+    expect(isValidAgentMentionLabel(undefined as unknown as string)).toBe(false);
+    expect(isValidAgentMentionLabel(123 as unknown as string)).toBe(false);
+    expect(isValidAgentMentionLabel("")).toBe(false);
+    expect(isValidAgentMentionLabel("   ")).toBe(false);
+  });
+
+  it("returns false for labels exceeding the max length", () => {
+    expect(
+      isValidAgentMentionLabel("a".repeat(MAX_AGENT_MENTION_LABEL_LENGTH))
+    ).toBe(true);
+    expect(
+      isValidAgentMentionLabel("a".repeat(MAX_AGENT_MENTION_LABEL_LENGTH + 1))
+    ).toBe(false);
+  });
+
+  it("returns false for labels containing braces or newlines", () => {
+    expect(isValidAgentMentionLabel("Release {bot}")).toBe(false);
+    expect(isValidAgentMentionLabel("Release\nbot")).toBe(false);
+  });
+
+  it("returns true for labels with spaces and punctuation", () => {
+    expect(isValidAgentMentionLabel("Release bot")).toBe(true);
+    expect(isValidAgentMentionLabel("CI/CD agent")).toBe(true);
+  });
+});
+
+describe("buildAgentMentionToken", () => {
+  it("wraps the label in a braced token", () => {
+    expect(buildAgentMentionToken("Release bot")).toBe("@{Release bot}");
+  });
+
+  it("trims surrounding whitespace", () => {
+    expect(buildAgentMentionToken("  Release bot  ")).toBe("@{Release bot}");
+  });
+
+  it("returns an empty string for invalid labels", () => {
+    expect(buildAgentMentionToken("")).toBe("");
+    expect(buildAgentMentionToken("Release {bot}")).toBe("");
+    expect(
+      buildAgentMentionToken("a".repeat(MAX_AGENT_MENTION_LABEL_LENGTH + 1))
+    ).toBe("");
+  });
+});
+
+describe("hasAgentMentionToken", () => {
+  it("matches only the exact braced token", () => {
+    expect(hasAgentMentionToken("ping @{Release bot} now", "Release bot")).toBe(
+      true
+    );
+    expect(hasAgentMentionToken("ping @Release bot now", "Release bot")).toBe(
+      false
+    );
+    expect(hasAgentMentionToken("ping @{Release} now", "Release bot")).toBe(
+      false
+    );
+  });
+
+  it("returns false for invalid labels", () => {
+    expect(hasAgentMentionToken("ping @{Release bot}", "")).toBe(false);
+  });
+});
+
+describe("parseAgentMentions", () => {
+  it("returns empty for non-strings and empty input", () => {
+    expect(parseAgentMentions(null as unknown as string)).toEqual([]);
+    expect(parseAgentMentions(undefined as unknown as string)).toEqual([]);
+    expect(parseAgentMentions("")).toEqual([]);
+  });
+
+  it("extracts agent tokens from mixed content", () => {
+    const input = "Hey @alice#1234, ask @{Release bot} and @{CI/CD agent} next.";
+    const mentions = parseAgentMentions(input);
+
+    expect(mentions).toHaveLength(2);
+    expect(mentions[0]).toEqual({
+      label: "Release bot",
+      fullMatch: "@{Release bot}",
+      startIndex: input.indexOf("@{Release bot}"),
+      endIndex: input.indexOf("@{Release bot}") + "@{Release bot}".length,
+    });
+    expect(mentions[1].label).toBe("CI/CD agent");
+  });
+
+  it("ignores empty braces, nested braces, and newline-spanning tokens", () => {
+    expect(parseAgentMentions("ask @{} next")).toEqual([]);
+    expect(parseAgentMentions("ask @{Release {bot}} next")).toEqual([]);
+    expect(parseAgentMentions("ask @{Release\nbot} next")).toEqual([]);
+  });
+
+  it("repeated tokens are reported each occurrence", () => {
+    const mentions = parseAgentMentions("@{Release bot} and @{Release bot}");
+    expect(mentions.map((mention) => mention.label)).toEqual([
+      "Release bot",
+      "Release bot",
+    ]);
   });
 });

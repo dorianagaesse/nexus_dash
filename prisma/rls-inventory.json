@@ -170,6 +170,13 @@
       "rationale": "Tenant ownership is inherited through TaskComment and mutations are limited to the reacting user."
     },
     {
+      "model": "TaskCommentAgentMention",
+      "classification": "indirect-project-derived",
+      "enforcement": "rls",
+      "owner": "project task comment service",
+      "rationale": "Tenant ownership is inherited through TaskComment; insert and delete are limited to the recording actor under an editor role, and events are immutable."
+    },
+    {
       "model": "TaskRelation",
       "classification": "project-scoped-direct-rls",
       "enforcement": "rls",

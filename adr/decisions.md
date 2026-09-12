@@ -16,6 +16,48 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-09-12 - ND-383: Tagged-agent comment mentions are server-validated immutable events
+- Status: Accepted; consumes the TASK-337 actor contract and the ND-382
+  actor discovery/registry.
+- Context: Comment mentions were human-only (`@username#discriminator`).
+  Tagging an agent needed to become an auditable, durable record ("who asked
+  which agent, from which artifact, when") without letting raw comment text
+  fabricate events, without losing history when a credential is renamed,
+  revoked, or deleted, and without enabling comment edits to double-record.
+- Decision: Agent mentions use a braced plain-text token `@{Credential Label}`
+  (unambiguous next to `@username`; the transparent textarea mirror renders
+  the raw token so caret metrics stay exact). The composer sends a side
+  channel `agentMentionSelections: [{ credentialId }]`; the server re-derives
+  the label through `app.list_project_actors` and requires the exact
+  `@{label}` substring, so content alone never creates an event, and
+  out-of-project / revoked / expired credentials or label drift fail the
+  whole submission (`task-comment-agent-mention-invalid`). Persistence is a
+  new `TaskCommentAgentMention` table storing the mention, the target
+  credential, and durable label/actor snapshots with `ON DELETE SET NULL`
+  credential FKs. Idempotency is a documented invariant — at most one event
+  per (comment, credential) enforced by `@@unique([commentId,
+  agentCredentialId])` plus `createMany({ skipDuplicates: true })`; the
+  replace-style sync removes only live rows outside the desired set and never
+  retracts rows whose credential was deleted (null credential id), preserving
+  revoked-credential history. Comment/task deletion cascades the events.
+  RLS on the new table is forced with member select, editor-or-owner insert
+  bound to `createdByUserId = app.current_user_id()`, same-actor editor
+  delete, and no UPDATE policy (events are immutable). Policies deliberately
+  do not subquery `ApiCredential` (its owner-only select policy would break
+  non-owner editor inserts); credential project-scoping stays a service
+  concern through the registry.
+- Consequences: Tagged-agent history survives credential revocation and
+  deletion; raw `@{...}` text typed manually records nothing until the picker
+  selection validates against the live registry; future comment editing can
+  re-run the deterministic replace-style sync without duplicating events; and
+  ND-384/ND-385/ND-386 attention surfaces can read a stable, immutable event
+  log. Human mention behavior is unchanged, and the rich-text editor keeps
+  agent mentions disabled until it can carry selection identity.
+- Links: `prisma/migrations/20260912120000_nd383_task_comment_agent_mentions/`,
+  `lib/services/project-task-comment-service.ts`, `lib/mention.ts`,
+  `components/ui/mention-autocomplete.tsx`,
+  `tests/e2e/nd-383-agent-mentions.spec.ts`.
+
 ## 2026-09-09 - ND-179: Resolve active responsibility before atomic ownership and access handoff
 - Status: Accepted.
 - Context: Access removal could leave active work assigned to a departed actor,

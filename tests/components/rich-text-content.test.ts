@@ -486,6 +486,93 @@ describe("rich-text-content", () => {
     });
   });
 
+  test("highlights agent tokens alongside human mentions in order", () => {
+    const { container, root } = createTestRenderer();
+
+    act(() => {
+      root.render(
+        React.createElement(
+          "div",
+          null,
+          renderContentWithMentions(
+            "Hi @alice#1234 and @{Release bot} done",
+            {
+              mentionUsers: [
+                {
+                  id: "user-alice",
+                  displayName: "Alice Example",
+                  usernameTag: "alice#1234",
+                  avatarSeed: "user-alice",
+                },
+              ],
+            }
+          )
+        )
+      );
+    });
+
+    const spans = Array.from(container.querySelectorAll("span"));
+    expect(spans.map((span) => span.textContent)).toEqual([
+      "@alice",
+      "@{Release bot}",
+    ]);
+    expect(container.textContent).toBe("Hi @alice and @{Release bot} done");
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  test("keeps agent token text exact inside transparent textarea mirrors", () => {
+    const { container, root } = createTestRenderer();
+
+    act(() => {
+      root.render(
+        React.createElement(
+          "div",
+          null,
+          renderContentWithMentions("ping @{Release bot} now", {
+            mentionHighlightClassName: MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
+            resolveDisplayUsers: false,
+          })
+        )
+      );
+    });
+
+    const agent = container.querySelector("span");
+    expect(agent?.textContent).toBe("@{Release bot}");
+    expect(container.textContent).toBe("ping @{Release bot} now");
+    expect(agent?.className).toContain("px-0");
+    expect(agent?.className).not.toContain("inline-block");
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  test("leaves malformed agent tokens as plain text", () => {
+    const { container, root } = createTestRenderer();
+
+    act(() => {
+      root.render(
+        React.createElement(
+          "div",
+          null,
+          renderContentWithMentions("empty @{} and @{unclosed", {
+            resolveDisplayUsers: false,
+          })
+        )
+      );
+    });
+
+    expect(container.querySelectorAll("span")).toHaveLength(0);
+    expect(container.textContent).toBe("empty @{} and @{unclosed");
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
   test("highlights every task-description mention after repeated edits", async () => {
     const { container, root } = createTestRenderer();
 
