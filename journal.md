@@ -30,6 +30,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Playwright suite 60 passed / 1 skipped with the single nd-408 drag failure
   under parallel load passing 6/6 on re-run and the ND-383 tagging/revocation
   journey passing on re-run.
+- Branch pushed at 8471d12 and reported on PR #504
+  (https://github.com/dorianagaesse/nexus_dash/pull/504), release target
+  v0.66.0.
 
 # 2026-09-12 - ND-179: Complete offboarding surface reconciliation
 

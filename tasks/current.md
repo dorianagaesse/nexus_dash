@@ -4,11 +4,13 @@
 
 ## Status
 
-In Progress (2026-09-12). Branch `feature/nd-383-agent-mentions-tagged-events`,
-created from `origin/main` at a80a33a (v0.63.0), which includes the ND-382
-agent-picker work (PR #497), and merged forward to current `origin/main` at
-7612347 (v0.65.0, ND-426 #499 and ND-179 #498 included). The Nexus Dash board
-card is In Progress.
+Delivered (2026-09-12). Ready-for-review PR #504
+(https://github.com/dorianagaesse/nexus_dash/pull/504) is open from
+`feature/nd-383-agent-mentions-tagged-events`, created from `origin/main` at
+a80a33a (v0.63.0), which includes the ND-382 agent-picker work (PR #497), and
+merged forward to current `origin/main` at 7612347 (v0.65.0, ND-426 #499 and
+ND-179 #498 included). Release metadata advances to v0.66.0. The Nexus Dash
+card ND-383 is the source of truth and carries the `feature` label.
 
 ## Context
 
