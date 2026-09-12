@@ -29,9 +29,10 @@ template: `.nd-nexus-dash.example.env`); exchange the API key at
 
 Startup task selection: read `tasks/current.md` first. If it is complete,
 stale, or missing `Acceptance Criteria` / `Definition Of Done`, pick the next
-task from the kanban (In Progress lane first, then Backlog in lane order) and
-update `tasks/current.md`. Follow the "Creating a good Nexus Dash task"
-quality rules in `agent.md` (duplicate check, outcome-oriented title,
+task from the kanban (In Progress lane first, then Backlog in lane order),
+move its card to In Progress, and update `tasks/current.md`. Follow the
+"Creating a good Nexus Dash task" quality rules in `agent.md` (duplicate
+check, outcome-oriented title, concise plain-English description,
 `Rationale:`, one canonical work-type label `feature`/`fix`/`docs`/
 `refactor`/`chore`, testable `Acceptance Criteria:`, and Related Tasks for
 dependencies) — never raw `Dependencies:` prose in descriptions. Epic
@@ -41,6 +42,12 @@ Cards with a counterpart GitHub issue or external resource attach it at
 creation as a link attachment (`attachmentLinks` with `{ name, url }`); links
 can also be added to existing cards with a task update (`PATCH` with an
 `attachmentLinks` array) — details in `agent.md`.
+
+**Status and comments:** move a card to In Progress when you start it. Never
+move a card to Done — Done is set by the reviewer/PR merger. When the work is
+complete, comment on the card only when there is relevant information to hand
+over (decisions, validation results, blockers): plain English, short, straight
+to the point.
 
 ## Workflow Rules
 
@@ -71,7 +78,7 @@ Full contract: `agent.md` section 6.
 In the same PR:
 
 - `tasks/current.md` — mark done, update status
-- Nexus Dash kanban — task status, sequencing, and new tasks
+- Nexus Dash kanban — status moves, handoff comments, sequencing, and new tasks
 - `journal.md` — log execution events, blockers, decisions, validation outcomes
 - `adr/decisions.md` or `adr/*.md` — architecture-impacting decisions only
 

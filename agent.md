@@ -38,6 +38,18 @@ If `tasks/current.md` is complete or invalid, pick the next task from the
 Nexus Dash kanban (In Progress lane first, then Backlog in lane order), then
 update `tasks/current.md` before implementation.
 
+### Kanban status and handoff comments
+
+- When you start a task, move its card to the In Progress lane before
+  implementation begins (`POST /api/projects/{projectId}/tasks/{taskId}/status`
+  with `{"status": "In Progress"}`).
+- Never move a card to Done. Done is set by the reviewer/PR merger when the
+  work is accepted — not by the implementing agent.
+- When the work is complete, add a card comment only when there is something
+  relevant to hand over (decisions, validation evidence, blockers, follow-ups).
+  Write plain English, short and straight to the point — one topic per
+  comment, no restating of the task description.
+
 ### Creating a good Nexus Dash task
 
 Before creating a task, search the live Nexus Dash project for the same outcome
@@ -49,11 +61,15 @@ a duplicate. A new task must be independently understandable and executable:
   validation error). Condensed task surfaces (kanban cards, epic
   linked-task lists, related-task summaries) ellipsize overlong titles after
   two lines; the full title stays readable when the task is opened.
+- Keep the description concise and readable: plain English, straight to the
+  point, covering what is wanted plus the testable acceptance criteria — a
+  reader should grasp the task in one quick scan. No padding: no restated
+  context, exhaustive scope inventories, or file-by-file walkthroughs.
 - Start the description with a clear `Rationale:` that explains the user or
   engineering problem and why the work matters.
-- State the intended scope and add testable `Acceptance Criteria:`. Add an
-  explicit `Definition Of Done:` when the delivery or validation contract needs
-  clarification beyond the acceptance criteria.
+- State the intended scope briefly and add testable `Acceptance Criteria:`.
+  Add an explicit `Definition Of Done:` only when the delivery or validation
+  contract needs clarification beyond the acceptance criteria.
 - Add at least one canonical work-type label: `feature`, `fix`, `docs`,
   `refactor`, or `chore`. Use any additional priority or program labels only
   when they are supported by the task's context.

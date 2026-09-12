@@ -3,6 +3,11 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
+
+- User-directed workflow change, documented in `agent.md` (full rules) and `CLAUDE.md` (summary): agents move a card to In Progress when they start its task and never move cards to Done — Done is set by the reviewer/PR merger. Completion comments are optional and only for relevant handoff information (decisions, validation evidence, blockers): plain English, short, one topic. Task descriptions must stay concise — plain English covering the intent plus testable acceptance criteria, with no restated context, exhaustive scope inventories, or file-by-file walkthroughs.
+- Trigger: user feedback that agent-authored cards are unreadable and that Done-lane ownership at handoff was ambiguous. Board follow-up the same day: ND-446..ND-448 rewritten to the short form; ND-449 created for per-project agent capability settings (first capability: a Done-move toggle, UI + backend).
+
 # 2026-09-12 - ND-426 final layout feedback, main reconciliation, and Copilot review
 
 - Restored the pre-ND-426 visual structure for the editable Inputs and Outputs
