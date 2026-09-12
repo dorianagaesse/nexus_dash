@@ -33,6 +33,13 @@ export function getRuntimeEnvironment(): RuntimeEnvironment {
   return "development";
 }
 
+export function shouldUseActorRlsContext(): boolean {
+  return (
+    getRuntimeEnvironment() !== "test" ||
+    getOptionalServerEnv("NEXUSDASH_TEST_RLS_CONTEXT") === "enabled"
+  );
+}
+
 export function isProductionEnvironment(): boolean {
   return getRuntimeEnvironment() === "production";
 }

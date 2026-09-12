@@ -35,6 +35,8 @@ const ids = {
   reactionB: `rls_reaction_b_${suffix}`,
   meetingA: `rls_meeting_a_${suffix}`,
   meetingB: `rls_meeting_b_${suffix}`,
+  meetingActionB: `rls_meeting_action_b_${suffix}`,
+  resourceB: `rls_resource_b_${suffix}`,
   participantA: `rls_participant_a_${suffix}`,
   participantB: `rls_participant_b_${suffix}`,
   meetingActionA: `rls_meeting_action_a_${suffix}`,
@@ -67,6 +69,21 @@ async function runtimeTransaction(actorUserId, operation) {
     return result;
   } catch (error) {
     await runtime.query("ROLLBACK");
+    throw error;
+  }
+}
+
+async function adminTransaction(actorUserId, operation) {
+  await admin.query("BEGIN");
+  try {
+    await admin.query("SELECT set_config('app.user_id', $1, true)", [
+      actorUserId,
+    ]);
+    const result = await operation();
+    await admin.query("ROLLBACK");
+    return result;
+  } catch (error) {
+    await admin.query("ROLLBACK");
     throw error;
   }
 }
@@ -124,7 +141,7 @@ async function seed() {
      VALUES
        ($1, 'Task A', 'Backlog', 0, $2, $3, $3, NOW(), NOW()),
        ($4, 'Task B', 'Backlog', 0, $5, $6, $6, NOW(), NOW())`,
-    [ids.taskA, ids.projectA, ids.ownerA, ids.taskB, ids.projectB, ids.ownerB]
+    [ids.taskA, ids.projectA, ids.ownerA, ids.taskB, ids.projectB, ids.editorB]
   );
   await admin.query(
     `INSERT INTO "TaskComment" ("id", "taskId", "authorUserId", "content", "createdAt")
@@ -166,8 +183,42 @@ async function seed() {
       ids.ownerA,
       ids.meetingB,
       ids.projectB,
-      ids.ownerB,
+      ids.editorB,
     ]
+  );
+  await admin.query(
+    `UPDATE "Task"
+     SET "assigneeUserId" = $1
+     WHERE "id" = $2`,
+    [ids.editorB, ids.taskB]
+  );
+  await admin.query(
+    `UPDATE "ProjectMeetingNote"
+     SET "stewardUserId" = $1,
+         "stewardKind" = 'human',
+         "stewardDisplayNameSnapshot" = 'Editor B'
+     WHERE "id" = $2`,
+    [ids.editorB, ids.meetingB]
+  );
+  await admin.query(
+    `INSERT INTO "ProjectMeetingNoteAction"
+      ("id", "meetingNoteId", "content", "createdByUserId", "creatorKind",
+       "creatorDisplayNameSnapshot", "assigneeUserId", "assigneeKind",
+       "assigneeDisplayNameSnapshot", "createdAt", "updatedAt")
+     VALUES ($1, $2, 'Responsibility B', $3, 'human', 'Editor B',
+       $3, 'human', 'Editor B', NOW(), NOW())`,
+    [ids.meetingActionB, ids.meetingB, ids.editorB]
+  );
+  await admin.query(
+    `INSERT INTO "Resource"
+      ("id", "type", "name", "content", "projectId", "createdByUserId",
+       "creatorKind", "creatorDisplayNameSnapshot", "lastEditedByUserId",
+       "lastEditorKind", "lastEditorDisplayNameSnapshot", "stewardUserId",
+       "stewardKind", "stewardDisplayNameSnapshot", "createdAt", "updatedAt")
+     VALUES ($1, 'note', 'Resource B', 'Responsibility fixture', $2, $3,
+       'human', 'Editor B', $3, 'human', 'Editor B', $3, 'human', 'Editor B',
+       NOW(), NOW())`,
+    [ids.resourceB, ids.projectB, ids.editorB]
   );
   await admin.query(
     `INSERT INTO "ProjectMeetingNoteParticipant"
@@ -768,6 +819,119 @@ try {
   );
   assert.equal(crossCredentialUpdate.rowCount, 0);
 
+  const forbiddenResponsibilityResolution = await runtimeTransaction(
+    ids.ownerA,
+    () =>
+      runtime.query(
+        `SELECT app.resolve_project_actor_responsibilities($1, 'human', $2, 'reassign', $3) AS result`,
+        [ids.projectB, ids.editorB, ids.ownerB]
+      )
+  );
+  assert.equal(forbiddenResponsibilityResolution.rows[0].result, "forbidden");
+
+  const responsibilityResolution = await runtimeTransaction(
+    ids.ownerB,
+    async () => {
+      const resolution = await runtime.query(
+        `SELECT app.resolve_project_actor_responsibilities($1, 'human', $2, 'reassign', $3) AS result`,
+        [ids.projectB, ids.editorB, ids.ownerB]
+      );
+      const task = await runtime.query(
+        `SELECT "assigneeUserId", "createdByUserId", "updatedByUserId"
+         FROM "Task" WHERE "id" = $1`,
+        [ids.taskB]
+      );
+      const resource = await runtime.query(
+        `SELECT "stewardUserId", "createdByUserId", "lastEditedByUserId"
+         FROM "Resource" WHERE "id" = $1`,
+        [ids.resourceB]
+      );
+      const note = await runtime.query(
+        `SELECT "stewardUserId", "createdByUserId", "updatedByUserId"
+         FROM "ProjectMeetingNote" WHERE "id" = $1`,
+        [ids.meetingB]
+      );
+      const action = await runtime.query(
+        `SELECT "assigneeUserId", "createdByUserId"
+         FROM "ProjectMeetingNoteAction" WHERE "id" = $1`,
+        [ids.meetingActionB]
+      );
+      return { resolution, task, resource, note, action };
+    }
+  );
+  assert.equal(responsibilityResolution.resolution.rows[0].result, "ok");
+  assert.equal(responsibilityResolution.task.rows[0].assigneeUserId, ids.ownerB);
+  assert.equal(responsibilityResolution.task.rows[0].createdByUserId, ids.editorB);
+  assert.equal(responsibilityResolution.task.rows[0].updatedByUserId, ids.editorB);
+  assert.equal(responsibilityResolution.resource.rows[0].stewardUserId, ids.ownerB);
+  assert.equal(responsibilityResolution.resource.rows[0].createdByUserId, ids.editorB);
+  assert.equal(responsibilityResolution.resource.rows[0].lastEditedByUserId, ids.editorB);
+  assert.equal(responsibilityResolution.note.rows[0].stewardUserId, ids.ownerB);
+  assert.equal(responsibilityResolution.note.rows[0].createdByUserId, ids.editorB);
+  assert.equal(responsibilityResolution.note.rows[0].updatedByUserId, ids.editorB);
+  assert.equal(responsibilityResolution.action.rows[0].assigneeUserId, ids.ownerB);
+  assert.equal(responsibilityResolution.action.rows[0].createdByUserId, ids.editorB);
+
+  const forbiddenOwnershipTransfer = await runtimeTransaction(ids.ownerA, () =>
+    runtime.query(
+      `SELECT app.transfer_project_ownership($1, $2, $3, false) AS result`,
+      [ids.ownerA, ids.projectB, ids.editorB]
+    )
+  );
+  assert.equal(forbiddenOwnershipTransfer.rows[0].result, "forbidden");
+
+  const ownershipTransfer = await runtimeTransaction(ids.ownerB, async () => {
+    const transfer = await runtime.query(
+      `SELECT app.transfer_project_ownership($1, $2, $3, false) AS result`,
+      [ids.ownerB, ids.projectB, ids.editorB]
+    );
+    const project = await runtime.query(
+      `SELECT "ownerId" FROM "Project" WHERE "id" = $1`,
+      [ids.projectB]
+    );
+    return { transfer, project };
+  });
+  assert.equal(ownershipTransfer.transfer.rows[0].result, "ok");
+  assert.equal(ownershipTransfer.project.rows[0].ownerId, ids.editorB);
+
+  const ownershipState = await adminTransaction(ids.ownerB, async () => {
+    const transfer = await admin.query(
+      `SELECT app.transfer_project_ownership($1, $2, $3, false) AS result`,
+      [ids.ownerB, ids.projectB, ids.editorB]
+    );
+    const memberships = await admin.query(
+      `SELECT "userId", role FROM "ProjectMembership"
+       WHERE "projectId" = $1 AND role = 'owner'`,
+      [ids.projectB]
+    );
+    const previousOwner = await admin.query(
+      `SELECT role FROM "ProjectMembership"
+       WHERE "projectId" = $1 AND "userId" = $2`,
+      [ids.projectB, ids.ownerB]
+    );
+    return { transfer, memberships, previousOwner };
+  });
+  assert.equal(ownershipState.transfer.rows[0].result, "ok");
+  assert.deepEqual(ownershipState.memberships.rows, [
+    { userId: ids.editorB, role: "owner" },
+  ]);
+  assert.equal(ownershipState.previousOwner.rows[0].role, "editor");
+
+  const ownershipTransferAndLeave = await adminTransaction(ids.ownerB, async () => {
+    const transfer = await admin.query(
+      `SELECT app.transfer_project_ownership($1, $2, $3, true) AS result`,
+      [ids.ownerB, ids.projectB, ids.editorB]
+    );
+    const previousOwner = await admin.query(
+      `SELECT role FROM "ProjectMembership"
+       WHERE "projectId" = $1 AND "userId" = $2`,
+      [ids.projectB, ids.ownerB]
+    );
+    return { transfer, previousOwner };
+  });
+  assert.equal(ownershipTransferAndLeave.transfer.rows[0].result, "ok");
+  assert.equal(ownershipTransferAndLeave.previousOwner.rowCount, 0);
+
   const exchangeLookup = await runtimeTransaction(undefined, () =>
     runtime.query(
       `SELECT "id", "project_id", "created_by_user_id", "scopes"
@@ -789,7 +953,7 @@ try {
   assert.equal(missingLookup.rowCount, 0);
 
   console.log(
-    "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, append-only assignment history, revoked membership, safe project actor reads, Calendar connections/sources/preferences, and agent credentials."
+    "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, append-only assignment history, revoked membership, safe project actor reads, responsibility resolution, ownership transfer, Calendar connections/sources/preferences, and agent credentials."
   );
 } finally {
   await cleanup().catch(() => undefined);

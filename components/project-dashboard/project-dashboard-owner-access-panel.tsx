@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Copy, Mail } from "lucide-react";
+import { ArrowRightLeft, Check, Copy, Mail } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ interface ProjectDashboardOwnerAccessPanelProps {
   >;
   onRoleChange: (member: ProjectMemberSummary, nextRole: ProjectCollaboratorRole) => void;
   onRemoveMember: (member: ProjectMemberSummary) => void;
+  onTransferOwnership: (member: ProjectMemberSummary) => void;
   onCopyInvitationLink: (invitation: ProjectInvitationSummary) => Promise<boolean> | boolean;
   onSendInvitationEmail: (invitation: ProjectInvitationSummary) => void;
   onRevokeInvitation: (invitation: ProjectInvitationSummary) => void;
@@ -49,6 +50,7 @@ export function ProjectDashboardOwnerAccessPanel({
   invitationEmailDeliveries,
   onRoleChange,
   onRemoveMember,
+  onTransferOwnership,
   onCopyInvitationLink,
   onSendInvitationEmail,
   onRevokeInvitation,
@@ -153,6 +155,16 @@ export function ProjectDashboardOwnerAccessPanel({
                         <option value="editor">Editor</option>
                         <option value="viewer">Viewer</option>
                       </select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onTransferOwnership(member)}
+                        disabled={isMutatingMemberId === member.membershipId}
+                      >
+                        <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />
+                        Transfer ownership
+                      </Button>
                       <Button
                         type="button"
                         variant="ghost"

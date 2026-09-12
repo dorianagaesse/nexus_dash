@@ -6,6 +6,7 @@ import {
   resolveRequestId,
 } from "@/lib/auth/api-guard";
 import { revokeProjectAgentCredential } from "@/lib/services/project-agent-access-service";
+import { parseResponsibilityResolution } from "@/lib/services/project-offboarding-service";
 
 export async function DELETE(
   request: NextRequest,
@@ -17,6 +18,10 @@ export async function DELETE(
     return authenticatedUser.response;
   }
 
+  const payload = (await request.json().catch(() => null)) as
+    | { responsibilityResolution?: unknown }
+    | null;
+
   const result = await revokeProjectAgentCredential({
     actorUserId: authenticatedUser.userId,
     projectId: params.projectId,
@@ -24,10 +29,16 @@ export async function DELETE(
     requestId: resolveRequestId(request),
     ipAddress: readClientIpAddress(request),
     userAgent: request.headers.get("user-agent"),
+    responsibilityResolution: parseResponsibilityResolution(
+      payload?.responsibilityResolution
+    ),
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error, inventory: result.inventory },
+      { status: result.status }
+    );
   }
 
   return NextResponse.json(result.data);

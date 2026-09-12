@@ -23,6 +23,11 @@ import { sendOutboundEmail } from "@/lib/services/outbound-email-service";
 import { buildProjectInvitationEmail } from "@/lib/services/outbound-email-templates";
 import { withActorRlsContext, type DbClient } from "@/lib/services/rls-context";
 import { logServerWarning } from "@/lib/observability/logger";
+import {
+  resolveActiveProjectResponsibilities,
+  type ProjectResponsibilityInventory,
+  type ResponsibilityResolution,
+} from "@/lib/services/project-offboarding-service";
 
 const PROJECT_INVITATION_TTL_HOURS = 24;
 const INVITABLE_USER_SEARCH_LIMIT = 8;
@@ -34,6 +39,7 @@ interface ServiceError {
   ok: false;
   status: number;
   error: string;
+  inventory?: ProjectResponsibilityInventory;
 }
 
 interface ServiceSuccess<T> {
@@ -1373,7 +1379,10 @@ export async function removeProjectMember(input: {
   actorUserId: string;
   projectId: string;
   membershipId: string;
-}): Promise<ServiceResult<{ ok: true }>> {
+  responsibilityResolution?: ResponsibilityResolution | null;
+}): Promise<
+  ServiceResult<{ ok: true; resolvedInventory: ProjectResponsibilityInventory }>
+> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   const membershipId = normalizeInvitationId(input.membershipId);
   if (!actorUserId) {
@@ -1413,11 +1422,24 @@ export async function removeProjectMember(input: {
       return createError(400, "cannot-remove-owner");
     }
 
+    const resolutionResult = await resolveActiveProjectResponsibilities({
+      db,
+      projectId: input.projectId,
+      actor: { kind: "human", id: membership.userId },
+      resolution: input.responsibilityResolution ?? null,
+    });
+    if (!resolutionResult.ok) {
+      return resolutionResult;
+    }
+
     await db.projectMembership.delete({
       where: { id: membershipId },
     });
 
-    return createSuccess(200, { ok: true as const });
+    return createSuccess(200, {
+      ok: true as const,
+      resolvedInventory: resolutionResult.data.inventory,
+    });
   });
 }
 

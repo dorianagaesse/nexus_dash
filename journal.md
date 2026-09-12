@@ -3,6 +3,76 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-12 - ND-179: Complete offboarding surface reconciliation
+
+- Followed up on acceptance feedback that context-card stewardship still
+  appeared stale. The server projection already calculated the steward, but
+  the dashboard mapping and context-card UI discarded it, so a refresh could
+  not make the new assignment visible.
+- Carried the current steward through the context-card projection and displayed
+  it in both the grid and preview while preserving creator and last-editor
+  history. The existing dashboard refresh now reconciles task assignees,
+  context-card stewards, meeting-note stewards, and open meeting-todo assignees.
+- Extended component coverage and the 375px offboarding journey to assert all
+  four surfaces update without a manual page reload. Focused Vitest and
+  Playwright runs pass.
+
+# 2026-09-12 - ND-179: Immediate offboarding UI reconciliation
+
+- Followed up on preview acceptance feedback that responsibility changes only
+  became visible after a manual page reload. Member removal and agent revocation
+  updated the database but, unlike ownership transfer, did not invoke the
+  dashboard's existing server-component refresh path.
+- Added the missing automatic refresh after both successful access-removal
+  flows. Extended the 375px Playwright journey to close Settings and verify the
+  task assignee and meeting-note steward display as unassigned without reload.
+- Used UI UX Pro Max to preserve immediate success feedback and avoid a second,
+  user-driven recovery action. Lint, production build, diff checks, and the
+  focused browser journey pass.
+
+# 2026-09-11 - ND-179: Preview offboarding RLS correction
+
+- Investigated the reported collaborator-removal failure in the Vercel preview.
+  Runtime logs identified PostgreSQL `42501` on `ProjectMeetingNote`: ordinary
+  update RLS requires the current actor to become the last editor, conflicting
+  with ND-179's requirement to preserve the departing collaborator's historical
+  editor attribution while changing only active stewardship.
+- Added `app.resolve_project_actor_responsibilities`, a narrowly granted
+  security-definer function that revalidates the project owner and replacement
+  membership before changing only active assignment/stewardship fields. Public
+  execution is revoked and the runtime role is covered by the RLS matrix.
+- Added production-like actor RLS context to local Playwright server runs and
+  expanded the PostgreSQL matrix to cover cross-project denial, reassignment of
+  tasks/resources/notes/open actions, and preservation of creator/editor data.
+- Validation after the correction: focused unit tests (87 passed), lint,
+  `rls:check`, RLS role setup, real least-privilege PostgreSQL matrix,
+  production build, and the focused ND-179 Playwright journey passed.
+
+# 2026-09-09 - ND-179: Ownership continuity and collaborator offboarding
+
+- Onboarded from the live ND-179 card, tightened its rationale, scope,
+  acceptance criteria, and definition of done, moved it to In Progress, and
+  implemented in the dedicated `../nexus_dash_task179` worktree on
+  `feature/nd-179-ownership-offboarding` from `origin/main` at 6426c1a.
+- Added one owner-authorized service for active task assignments, context-card
+  and meeting-note stewardship, and open meeting-todo assignments. Member
+  removal and agent revocation recompute and resolve that inventory in their
+  RLS transaction; only active fields change, never historical provenance.
+- Added ownership transfer backed by a locked, narrowly granted
+  security-definer PostgreSQL function. Only a current membership can become
+  owner; the former owner atomically remains editor or resolves work and leaves.
+- Used UI UX Pro Max for confirmation semantics, focus, announced errors,
+  loading feedback, touch targets, responsive containment, and stacking.
+  Chromium testing found stacked dialogs could strand Cancel; Settings now
+  yields to the handoff dialog and returns on cancel or non-transfer completion.
+- Validation: lint, RLS inventory, full unit suite (1,400 passed, 2 skipped),
+  coverage (93.45% statements / 84% branches / 95.3% functions / 93.75%
+  lines), production build, real least-privilege PostgreSQL matrix, and the
+  full Chromium suite (59 passed, 1 preview-only skipped). The ND-179 375px
+  journey also confirms no overflow, 44px actions, active-field clearing, and
+  historical provenance retention. Coverage used a 15s Vitest timeout because
+  Windows/Node 24 git-spawning version-policy fixtures exceeded their fixed 5s
+  under instrumentation; all tests and thresholds passed unchanged.
 # 2026-09-12 - ND-426 final layout feedback, main reconciliation, and Copilot review
 
 - Restored the pre-ND-426 visual structure for the editable Inputs and Outputs
