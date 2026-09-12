@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   getProjectActorKey,
   hasProjectActorChanged,
+  type ProjectActorSummary,
 } from "@/lib/project-actor";
 
 describe("hasProjectActorChanged", () => {
@@ -50,19 +51,20 @@ describe("hasProjectActorChanged", () => {
   });
 
   test("compares full summaries by key so an unchanged revoked assignee stays as-is", () => {
+    const storedAssignee: ProjectActorSummary = {
+      kind: "agent",
+      id: "credential-revoked",
+      displayName: "Retired bot",
+      usernameTag: null,
+      avatarSeed: null,
+      status: "revoked",
+      isAssignable: false,
+    };
     expect(
-      hasProjectActorChanged(
-        {
-          kind: "agent",
-          id: "credential-revoked",
-          displayName: "Retired bot",
-          usernameTag: null,
-          avatarSeed: null,
-          status: "revoked",
-          isAssignable: false,
-        },
-        { kind: "agent", id: "credential-revoked" }
-      )
+      hasProjectActorChanged(storedAssignee, {
+        kind: "agent",
+        id: "credential-revoked",
+      })
     ).toBe(false);
     expect(getProjectActorKey({ kind: "agent", id: "credential-revoked" })).toBe(
       "agent:credential-revoked"
