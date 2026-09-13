@@ -8,6 +8,16 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.73.0 - 2026-09-13
+
+- Task descriptions and rich-text comments now accept pasted or uploaded
+  screenshots, show responsive inline previews, and support screenshot-only
+  comments (ND-144).
+- Comment screenshots retain their discussion context through an optional
+  task-attachment-to-comment relation while continuing to use the existing
+  storage, download authorization, file validation, and tenant-isolation
+  boundaries.
+
 ## v0.72.1 - 2026-09-13
 
 - Fixed stale Epic task counts, status, linked-task summaries, and progress by

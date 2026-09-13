@@ -1532,6 +1532,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     expect(task.attachments).toEqual([
       {
         id: "att-1",
+        commentId: null,
         kind: "link",
         name: "NexusDash board",
         url: "https://nexus-dash.app/",

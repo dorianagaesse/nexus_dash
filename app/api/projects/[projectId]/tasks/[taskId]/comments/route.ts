@@ -15,8 +15,21 @@ import {
 
 interface TaskCommentCreateRequestBody {
   content?: unknown;
+  attachmentIds?: unknown;
   mentionSelections?: unknown;
   agentMentionSelections?: unknown;
+}
+
+function parseAttachmentIds(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .slice(0, 11)
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 
 function parseMentionSelections(
@@ -127,6 +140,9 @@ export async function GET(
         content: comment.content,
         createdAt: comment.createdAt,
         author: comment.author,
+        ...(comment.attachments.length > 0
+          ? { attachments: comment.attachments }
+          : {}),
       })),
     },
     { headers: timing.headers() }
@@ -165,6 +181,7 @@ export async function POST(
     projectId: params.projectId,
     taskId: params.taskId,
     content: typeof payload.content === "string" ? payload.content : "",
+    attachmentIds: parseAttachmentIds(payload.attachmentIds),
     mentionSelections: parseMentionSelections(payload.mentionSelections),
     agentMentionSelections: parseAgentMentionSelections(
       payload.agentMentionSelections
@@ -184,6 +201,9 @@ export async function POST(
     content: result.data.comment.content,
     createdAt: result.data.comment.createdAt,
     author: result.data.comment.author,
+    ...(result.data.comment.attachments.length > 0
+      ? { attachments: result.data.comment.attachments }
+      : {}),
   };
   const version = await recordProjectActivityEventVersion({
     actorUserId: principalResult.principal.actorUserId,
