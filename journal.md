@@ -60,6 +60,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   the changed UI surfaces are static guide copy and a preset button rendered
   from data, covered by SSR/jsdom component tests, and the e2e specs that
   open the agent-access panel (nd-382, nd-384) do not use presets or layout.
+- Opened PR <https://github.com/dorianagaesse/nexus_dash/pull/516>
+  (commits 8e9d5a4 contract, fc55ad1 guide + preset, 239b05c release,
+  a6dd74c journal); card stays In Progress for the reviewer.
 
 # 2026-09-13 - ND-385: Agent attention API for mentions and assignments
 
