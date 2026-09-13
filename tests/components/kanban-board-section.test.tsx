@@ -231,4 +231,80 @@ describe("KanbanBoardSection task attribution", () => {
       isAssignable: false,
     });
   });
+
+  test("splits active and archived epics for the board", async () => {
+    projectServiceMock.listProjectKanbanTasks.mockResolvedValueOnce([]);
+    epicServiceMock.listProjectEpics.mockResolvedValueOnce([
+      {
+        id: "epic-active",
+        name: "Workspace launch",
+        description: "Ship the launch slice.",
+        status: "In progress",
+        progressPercent: 40,
+        taskCount: 5,
+        completedTaskCount: 2,
+        archivedAt: null,
+        linkedTasks: [],
+        createdAt: new Date("2026-05-01T08:00:00.000Z"),
+        updatedAt: new Date("2026-05-02T08:00:00.000Z"),
+      },
+      {
+        id: "epic-archived",
+        name: "Legacy cleanup",
+        description: "Completed and archived.",
+        status: "Completed",
+        progressPercent: 100,
+        taskCount: 3,
+        completedTaskCount: 3,
+        archivedAt: new Date("2026-09-10T10:00:00.000Z"),
+        linkedTasks: [],
+        createdAt: new Date("2026-04-01T08:00:00.000Z"),
+        updatedAt: new Date("2026-04-02T08:00:00.000Z"),
+      },
+    ]);
+    actorServiceMock.loadProjectActorRegistryForActor.mockResolvedValueOnce({
+      activeHumanIds: new Set<string>(),
+      humanById: new Map(),
+      credentialById: new Map(),
+      assignable: [],
+    });
+
+    const element = await KanbanBoardSection({
+      projectId: "project-1",
+      actorUserId: "owner-1",
+      canEdit: true,
+      storageProvider: "local",
+      collaborators: [],
+    });
+    const props = element.props as {
+      epics: Array<Record<string, unknown>>;
+      archivedEpics: Array<Record<string, unknown>>;
+    };
+
+    expect(epicServiceMock.listProjectEpics).toHaveBeenCalledWith(
+      "project-1",
+      "owner-1",
+      undefined,
+      { includeArchived: true }
+    );
+    expect(props.epics).toEqual([
+      {
+        id: "epic-active",
+        name: "Workspace launch",
+        status: "In progress",
+        progressPercent: 40,
+        taskCount: 5,
+      },
+    ]);
+    expect(props.archivedEpics).toEqual([
+      {
+        id: "epic-archived",
+        name: "Legacy cleanup",
+        status: "Completed",
+        progressPercent: 100,
+        taskCount: 3,
+        archived: true,
+      },
+    ]);
+  });
 });
