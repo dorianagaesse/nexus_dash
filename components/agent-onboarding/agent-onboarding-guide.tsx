@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  AtSign,
   BookOpenText,
   Bot,
   Globe,
@@ -16,6 +17,7 @@ import {
   AGENT_BASE_URL_PLACEHOLDER,
   AGENT_LIMITATIONS,
   buildAgentDocumentationUrls,
+  buildAgentAttentionExample,
   buildAgentProjectEnvBlock,
   buildAgentAttachmentUploadExample,
   buildAgentContextAttachmentUploadExample,
@@ -118,8 +120,9 @@ export function AgentOnboardingGuide({
             </div>
             <CardDescription>
               This v1 guide covers the supported agent routes only: project read, epics,
-              roadmap phases and events, task routes, context-card routes, and the documented
-              attachment upload flow already validated in preview-like environments.
+              roadmap phases and events, task routes, context-card routes, attention reads
+              for your own mentions and assignments, and the documented attachment upload
+              flow already validated in preview-like environments.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -166,7 +169,7 @@ export function AgentOnboardingGuide({
             </div>
             <CardDescription>
               Exchange once per runtime session, then send the bearer token on each project,
-              roadmap, task, or context-card request.
+              roadmap, task, context-card, or attention request.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -271,6 +274,42 @@ export function AgentOnboardingGuide({
               ) : null}
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card className="min-w-0 border-border/60 bg-background/70">
+        <CardHeader className="space-y-2">
+          <div className="flex items-center gap-2">
+            <AtSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xl">Attention discovery</CardTitle>
+          </div>
+          <CardDescription>
+            Discover when you are mentioned or assigned with the attention:read scope. Both
+            routes return only the calling credential&apos;s own events.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <p>
+              1. List mentions and assignments; filter with eventType, artifactType,
+              state (assignments only), since/until, limit, order, and cursor.
+            </p>
+            <p>
+              2. Poll incrementally: keep the newest occurredAt you have seen, pass it as
+              since=, page through nextCursor with the same order, and deduplicate by the
+              stable item id across overlapping windows.
+            </p>
+            <p>
+              3. Follow each item&apos;s source reference (taskId, comment id, meeting note
+              id) and re-check currentState so you do not act on archived or completed work.
+            </p>
+            <p>
+              4. Handle revocation: a 401 re-exchanges the API key once; if the exchange
+              fails, the credential was revoked, expired, or rotated — stop and ask the
+              owner for a new key.
+            </p>
+          </div>
+          <CodeBlock value={buildAgentAttentionExample()} />
         </CardContent>
       </Card>
 

@@ -307,11 +307,12 @@ export function ProjectDashboardOwnerAgentAccessPanel({
               <p className="text-sm font-medium">Scopes</p>
               <p className="text-xs text-muted-foreground">
                 Start from a preset, then adjust with the checkboxes. Most agents only
-                need read + write without delete.
+                need read + write without delete; attention-only agents can start with
+                Attention read only.
               </p>
             </div>
 
-            <div className="grid gap-2 md:grid-cols-3" role="group" aria-label="Scope presets">
+            <div className="grid gap-2 md:grid-cols-2" role="group" aria-label="Scope presets">
               {AGENT_CREDENTIAL_PRESETS.map((preset) => {
                 const isActive =
                   selectedScopes.length === preset.scopes.length &&
