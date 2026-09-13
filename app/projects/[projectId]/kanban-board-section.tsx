@@ -48,19 +48,30 @@ export async function KanbanBoardSection({
 }: KanbanBoardSectionProps) {
   const [tasks, epics, actorRegistry] = await Promise.all([
     listProjectKanbanTasks(projectId, actorUserId),
-    listProjectEpics(projectId, actorUserId),
+    listProjectEpics(projectId, actorUserId, undefined, { includeArchived: true }),
     loadProjectActorRegistryForActor({ projectId, actorUserId }),
   ]);
   const projectActors = actorRegistry?.assignable ?? [];
   const kanbanTasks: KanbanTask[] = [];
   const archivedDoneTasks: KanbanTask[] = [];
-  const epicOptions: ProjectEpicOption[] = epics.map((epic) => ({
-    id: epic.id,
-    name: epic.name,
-    status: epic.status,
-    progressPercent: epic.progressPercent,
-    taskCount: epic.taskCount,
-  }));
+  const epicOptions: ProjectEpicOption[] = [];
+  const archivedEpicOptions: ProjectEpicOption[] = [];
+  epics.forEach((epic) => {
+    const option: ProjectEpicOption = {
+      id: epic.id,
+      name: epic.name,
+      status: epic.status,
+      progressPercent: epic.progressPercent,
+      taskCount: epic.taskCount,
+    };
+
+    if (epic.archivedAt) {
+      archivedEpicOptions.push({ ...option, archived: true });
+      return;
+    }
+
+    epicOptions.push(option);
+  });
 
   tasks.forEach((task: ProjectKanbanTask) => {
     if (!isTaskStatus(task.status)) {
@@ -137,6 +148,7 @@ export async function KanbanBoardSection({
       initialTasks={kanbanTasks}
       archivedDoneTasks={archivedDoneTasks}
       epics={epicOptions}
+      archivedEpics={archivedEpicOptions}
       collaborators={collaborators}
       projectActors={projectActors}
       actorUserId={actorUserId}

@@ -79,9 +79,16 @@ const epicWithDenseLinkedTasks = {
     status: index < 2 ? "Done" : "Backlog",
     archivedAt: null,
   })),
+  archivedAt: null,
   createdAt: "2026-07-31T08:00:00.000Z",
   updatedAt: "2026-07-31T08:00:00.000Z",
 };
+
+function findButton(container: HTMLElement, labelFragment: string) {
+  return Array.from(container.querySelectorAll("button")).find((button) =>
+    button.textContent?.includes(labelFragment)
+  );
+}
 
 describe("project-epic-panel", () => {
   beforeEach(() => {
@@ -307,6 +314,200 @@ describe("project-epic-panel", () => {
     expect(article?.getAttribute("aria-label")).toBe(
       "Edit epic Launch collaboration beta"
     );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+});
+
+describe("project-epic-panel archive controls", () => {
+  const archivedEpic = {
+    ...epicWithDenseLinkedTasks,
+    id: "epic-archived",
+    name: "Completed rollout",
+    archivedAt: "2026-09-10T10:00:00.000Z",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    projectSectionExpandedMock.isExpanded = true;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.innerHTML = "";
+  });
+
+  test("reveals archived epics only after toggling show archived", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [epicWithDenseLinkedTasks, archivedEpic],
+      })
+    );
+
+    expect(container.textContent).not.toContain(archivedEpic.name);
+    expect(container.textContent).toContain("1 epic");
+
+    const toggleButton = findButton(container, "Show archived");
+    expect(toggleButton?.textContent).toContain("Show archived (1)");
+
+    await act(async () => {
+      toggleButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.textContent).toContain(archivedEpic.name);
+    expect(
+      container.querySelector(`button[aria-label="Restore epic ${archivedEpic.name}"]`)
+    ).not.toBeNull();
+    expect(findButton(container, "Hide archived")).not.toBeUndefined();
+
+    await act(async () => {
+      findButton(container, "Hide archived")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    expect(container.textContent).not.toContain(archivedEpic.name);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("archives an epic through the archive endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        epic: {
+          ...epicWithDenseLinkedTasks,
+          archivedAt: "2026-09-13T10:00:00.000Z",
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const archiveButton = container.querySelector(
+      `button[aria-label="Archive epic ${epicWithDenseLinkedTasks.name}"]`
+    );
+    expect(archiveButton).not.toBeNull();
+
+    await act(async () => {
+      archiveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/projects/project-1/epics/${epicWithDenseLinkedTasks.id}/archive`,
+      { method: "POST" }
+    );
+    expect(pushToastMock).toHaveBeenCalledWith({
+      variant: "success",
+      message: "Epic archived.",
+    });
+    expect(routerRefreshMock).toHaveBeenCalled();
+    expect(container.textContent).toContain("No active epics.");
+    expect(findButton(container, "Show archived (1)")).not.toBeUndefined();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("restores an archived epic through the archive endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        epic: {
+          ...archivedEpic,
+          archivedAt: null,
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [archivedEpic],
+      })
+    );
+
+    await act(async () => {
+      findButton(container, "Show archived")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    const restoreButton = container.querySelector(
+      `button[aria-label="Restore epic ${archivedEpic.name}"]`
+    );
+
+    await act(async () => {
+      restoreButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/projects/project-1/epics/${archivedEpic.id}/archive`,
+      { method: "DELETE" }
+    );
+    expect(pushToastMock).toHaveBeenCalledWith({
+      variant: "success",
+      message: "Epic restored.",
+    });
+    expect(findButton(container, "Show archived")).toBeUndefined();
+    expect(
+      container.querySelector(`button[aria-label="Archive epic ${archivedEpic.name}"]`)
+    ).not.toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("hides archive controls from viewers", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks, archivedEpic],
+      })
+    );
+
+    await act(async () => {
+      findButton(container, "Show archived")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    expect(
+      container.querySelector(
+        `button[aria-label="Archive epic ${epicWithDenseLinkedTasks.name}"]`
+      )
+    ).toBeNull();
+    expect(
+      container.querySelector(`button[aria-label="Restore epic ${archivedEpic.name}"]`)
+    ).toBeNull();
 
     await act(async () => {
       root.unmount();

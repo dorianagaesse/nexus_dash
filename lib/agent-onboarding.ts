@@ -110,6 +110,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "List project epics with automatic status, progress, and linked task summaries.",
     requiredScopes: ["task:read"],
     notes: [
+      "Archived epics are excluded by default; pass includeArchived=true to include them.",
       "Epic status is derived automatically from linked task states.",
       "Epics are dedicated project entities, not tasks on the kanban board.",
     ],
@@ -142,6 +143,28 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "Delete an epic and clear the epic link from its tasks.",
     requiredScopes: ["task:write"],
     notes: ["Deleting an epic does not delete its tasks."],
+  },
+  {
+    tag: "Epics",
+    method: "POST",
+    path: "/api/projects/{projectId}/epics/{epicId}/archive",
+    title: "Archive epic",
+    description: "Archive an epic so it is hidden from the default epic list.",
+    requiredScopes: ["task:write"],
+    notes: [
+      "Completed epics are archived automatically after a grace period; this operation archives an epic immediately.",
+      "Archiving an epic does not change its linked tasks, and linking new tasks does not unarchive it.",
+      "Archiving an already archived epic is a no-op that returns the epic.",
+    ],
+  },
+  {
+    tag: "Epics",
+    method: "DELETE",
+    path: "/api/projects/{projectId}/epics/{epicId}/archive",
+    title: "Restore epic",
+    description: "Restore an archived epic to the default epic list.",
+    requiredScopes: ["task:write"],
+    notes: ["Restoring an epic that is not archived is a no-op that returns the epic."],
   },
   {
     tag: "Roadmap",
@@ -1002,7 +1025,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
       {
         name: "Epics",
         description:
-          "Create, read, update, and delete project epics with automatic status and progress.",
+          "Create, read, update, archive, restore, and delete project epics with automatic status and progress.",
       },
       {
         name: "Roadmap",
@@ -1213,6 +1236,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             "taskCount",
             "completedTaskCount",
             "linkedTasks",
+            "archivedAt",
             "createdAt",
             "updatedAt",
           ],
@@ -1220,6 +1244,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             id: { type: "string" },
             name: { type: "string" },
             description: { type: "string" },
+            archivedAt: { type: ["string", "null"], format: "date-time" },
             status: {
               type: "string",
               enum: EPIC_STATUSES,
@@ -1285,6 +1310,15 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           },
         },
         ProjectEpicUpdateResponse: {
+          type: "object",
+          required: ["epic"],
+          properties: {
+            epic: {
+              $ref: "#/components/schemas/ProjectEpicRecord",
+            },
+          },
+        },
+        ProjectEpicArchiveResponse: {
           type: "object",
           required: ["epic"],
           properties: {
@@ -2536,7 +2570,17 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         get: {
           ...buildOperationMetadata("GET", "/api/projects/{projectId}/epics"),
           security: [{ BearerAuth: [] }],
-          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            {
+              name: "includeArchived",
+              in: "query",
+              required: false,
+              schema: { type: "boolean" },
+              description:
+                "Include archived epics when true. Defaults to false so the list matches the dashboard's default epic presentation.",
+            },
+          ],
           responses: {
             200: {
               description: "Epic list returned",
@@ -2626,6 +2670,50 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "application/json": {
                   schema: {
                     $ref: "#/components/schemas/OkResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/epics/{epicId}/archive": {
+        post: {
+          ...buildOperationMetadata("POST", "/api/projects/{projectId}/epics/{epicId}/archive"),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/EpicId" },
+          ],
+          responses: {
+            200: {
+              description: "Epic archived",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/ProjectEpicArchiveResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+        delete: {
+          ...buildOperationMetadata("DELETE", "/api/projects/{projectId}/epics/{epicId}/archive"),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/EpicId" },
+          ],
+          responses: {
+            200: {
+              description: "Epic restored",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/ProjectEpicArchiveResponse",
                   },
                 },
               },

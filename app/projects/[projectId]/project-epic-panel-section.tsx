@@ -12,6 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { logServerError } from "@/lib/observability/logger";
 import { listProjectEpics } from "@/lib/services/project-epic-service";
+import { serializeProjectEpicResponse } from "@/lib/services/project-epic-response";
 
 interface ProjectEpicPanelSectionProps {
   projectId: string;
@@ -28,13 +29,11 @@ export async function ProjectEpicPanelSection({
   let loadError: string | null = null;
 
   try {
-    const epics = await listProjectEpics(projectId, actorUserId);
+    const epics = await listProjectEpics(projectId, actorUserId, undefined, {
+      includeArchived: true,
+    });
 
-    serializableEpics = epics.map((epic) => ({
-      ...epic,
-      createdAt: epic.createdAt.toISOString(),
-      updatedAt: epic.updatedAt.toISOString(),
-    }));
+    serializableEpics = epics.map(serializeProjectEpicResponse);
   } catch (error) {
     logServerError("ProjectEpicPanelSection", error, {
       actorUserId,

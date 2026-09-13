@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Archive,
+  ArchiveRestore,
   ChevronDown,
   ChevronUp,
   Flag,
@@ -44,6 +46,7 @@ export interface ProjectEpicPanelEpic {
   progressPercent: number;
   taskCount: number;
   completedTaskCount: number;
+  archivedAt: string | null;
   linkedTasks: ProjectEpicPanelTask[];
   createdAt: string;
   updatedAt: string;
@@ -72,6 +75,10 @@ function mapEpicMutationError(errorCode: string): string {
       return "Could not update epic. Please retry.";
     case "epic-delete-failed":
       return "Could not delete epic. Please retry.";
+    case "epic-archive-failed":
+      return "Could not archive epic. Please retry.";
+    case "epic-restore-failed":
+      return "Could not restore epic. Please retry.";
     default:
       return "Could not save epic changes. Please retry.";
   }
@@ -153,6 +160,8 @@ export function ProjectEpicPanel({
     null
   );
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showArchivedEpics, setShowArchivedEpics] = useState(false);
+  const [isUpdatingArchive, setIsUpdatingArchive] = useState(false);
   const [expandedEpicIds, setExpandedEpicIds] = useState<Set<string>>(
     () => new Set()
   );
@@ -164,6 +173,21 @@ export function ProjectEpicPanel({
   const editingEpic = useMemo(
     () => localEpics.find((epic) => epic.id === editingEpicId) ?? null,
     [editingEpicId, localEpics]
+  );
+
+  const activeEpics = useMemo(
+    () => localEpics.filter((epic) => !epic.archivedAt),
+    [localEpics]
+  );
+
+  const archivedEpics = useMemo(
+    () => localEpics.filter((epic) => Boolean(epic.archivedAt)),
+    [localEpics]
+  );
+
+  const visibleEpics = useMemo(
+    () => (showArchivedEpics ? [...activeEpics, ...archivedEpics] : activeEpics),
+    [activeEpics, archivedEpics, showArchivedEpics]
   );
 
   const pendingDeleteEpic = useMemo(
@@ -380,6 +404,66 @@ export function ProjectEpicPanel({
     }
   };
 
+  const handleToggleEpicArchived = async (
+    epic: ProjectEpicPanelEpic,
+    archived: boolean
+  ) => {
+    if (isUpdatingArchive) {
+      return;
+    }
+
+    setIsUpdatingArchive(true);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/epics/${epic.id}/archive`,
+        {
+          method: archived ? "POST" : "DELETE",
+        }
+      );
+
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        epic?: ProjectEpicPanelEpic;
+      } | null;
+
+      if (!response.ok || !payload?.epic) {
+        throw new Error(
+          mapEpicMutationError(
+            payload?.error ?? (archived ? "epic-archive-failed" : "epic-restore-failed")
+          )
+        );
+      }
+
+      const updatedEpic = payload.epic;
+      setLocalEpics((previousEpics) =>
+        previousEpics.map((existingEpic) =>
+          existingEpic.id === updatedEpic.id ? updatedEpic : existingEpic
+        )
+      );
+      if (editingEpicId === updatedEpic.id) {
+        cancelEdit(true);
+      }
+      refreshProjectData();
+      pushToast({
+        variant: "success",
+        message: archived ? "Epic archived." : "Epic restored.",
+      });
+    } catch (error) {
+      pushToast({
+        variant: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : archived
+              ? "Could not archive epic."
+              : "Could not restore epic.",
+      });
+    } finally {
+      setIsUpdatingArchive(false);
+    }
+  };
+
   return (
     <Card
       className={PROJECT_SECTION_CARD_CLASS}
@@ -389,7 +473,8 @@ export function ProjectEpicPanel({
         Boolean(editingEpicId) ||
         isSavingEdit ||
         Boolean(pendingDeleteEpicId) ||
-        isDeleting
+        isDeleting ||
+        isUpdatingArchive
           ? "true"
           : undefined
       }
@@ -414,25 +499,43 @@ export function ProjectEpicPanel({
               </CardTitle>
             </div>
             <span className="rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
-              {localEpics.length} epic{localEpics.length === 1 ? "" : "s"}
+              {activeEpics.length} epic{activeEpics.length === 1 ? "" : "s"}
             </span>
           </button>
 
-          {canEdit ? (
-            <Button
-              type="button"
-              size="sm"
-              className="min-h-11 w-full sm:w-auto"
-              onClick={() => {
-                resetCreateDraft();
-                setIsExpanded(true);
-                setIsCreateOpen(true);
-              }}
-            >
-              <PlusSquare className="h-4 w-4" />
-              New epic
-            </Button>
-          ) : null}
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            {archivedEpics.length > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-11 w-full sm:w-auto"
+                aria-pressed={showArchivedEpics}
+                onClick={() => setShowArchivedEpics((previous) => !previous)}
+              >
+                <Archive className="h-4 w-4" />
+                {showArchivedEpics
+                  ? "Hide archived"
+                  : `Show archived (${archivedEpics.length})`}
+              </Button>
+            ) : null}
+
+            {canEdit ? (
+              <Button
+                type="button"
+                size="sm"
+                className="min-h-11 w-full sm:w-auto"
+                onClick={() => {
+                  resetCreateDraft();
+                  setIsExpanded(true);
+                  setIsCreateOpen(true);
+                }}
+              >
+                <PlusSquare className="h-4 w-4" />
+                New epic
+              </Button>
+            ) : null}
+          </div>
         </div>
       </CardHeader>
 
@@ -516,18 +619,22 @@ export function ProjectEpicPanel({
             </section>
           ) : null}
 
-          {localEpics.length === 0 ? (
+          {visibleEpics.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-5 py-8 text-center">
               <p className="text-sm font-medium text-foreground">
-                No epics yet.
+                {activeEpics.length === 0 && archivedEpics.length > 0
+                  ? "No active epics."
+                  : "No epics yet."}
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Create one to group related work under a clear initiative.
-              </p>
+              {activeEpics.length === 0 && archivedEpics.length > 0 ? null : (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Create one to group related work under a clear initiative.
+                </p>
+              )}
             </div>
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
-              {localEpics.map((epic) => {
+              {visibleEpics.map((epic) => {
                 const color = getEpicColorFromName(epic.name);
                 const isEditing = editingEpicId === epic.id;
                 const isDetailsExpanded = expandedEpicIds.has(epic.id);
@@ -622,7 +729,7 @@ export function ProjectEpicPanel({
                       </div>
                     ) : (
                       <div className="space-y-4 p-4">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <h3
@@ -640,9 +747,17 @@ export function ProjectEpicPanel({
                                 </span>
                               </h3>
                               <EpicStatusBadge status={epic.status} />
+                              {epic.archivedAt ? (
+                                <Badge
+                                  variant="outline"
+                                  className="border-border/70 bg-muted/50 text-muted-foreground"
+                                >
+                                  Archived
+                                </Badge>
+                              ) : null}
                             </div>
                           </div>
-                          <div className="flex shrink-0 items-center gap-2">
+                          <div className="flex shrink-0 items-center justify-end gap-2">
                             <Button
                               type="button"
                               variant="ghost"
@@ -675,6 +790,30 @@ export function ProjectEpicPanel({
                                   aria-label={`Edit epic ${epic.name}`}
                                 >
                                   <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="min-h-11 min-w-11"
+                                  disabled={isUpdatingArchive}
+                                  onClick={() =>
+                                    void handleToggleEpicArchived(
+                                      epic,
+                                      !epic.archivedAt
+                                    )
+                                  }
+                                  aria-label={
+                                    epic.archivedAt
+                                      ? `Restore epic ${epic.name}`
+                                      : `Archive epic ${epic.name}`
+                                  }
+                                >
+                                  {epic.archivedAt ? (
+                                    <ArchiveRestore className="h-4 w-4" />
+                                  ) : (
+                                    <Archive className="h-4 w-4" />
+                                  )}
                                 </Button>
                                 <Button
                                   type="button"
