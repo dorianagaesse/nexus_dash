@@ -72,6 +72,7 @@ const epicWithDenseLinkedTasks = {
   completedTaskCount: 2,
   linkedTasks: Array.from({ length: 8 }, (_, index) => ({
     id: `task-${index + 1}`,
+    referenceNumber: 101 + index,
     title:
       index === 7
         ? "Validate a deliberately long linked task title without truncating meaningful context"
@@ -326,6 +327,7 @@ describe("project-epic-panel overlong linked-task titles", () => {
       linkedTasks: [
         {
           id: "task-long",
+          referenceNumber: 777,
           title,
           status: "Backlog" as const,
           archivedAt: null,
@@ -364,11 +366,11 @@ describe("project-epic-panel overlong linked-task titles", () => {
     const { container, root } = createTestRenderer();
     await renderExpandedEpic(container, root, longTitle);
 
-    const chip = container.querySelector<HTMLElement>(
-      `li[title="${longTitle}"]`
+    const chip = container.querySelector<HTMLAnchorElement>(
+      `a[title="${longTitle}"]`
     );
     expect(chip).not.toBeNull();
-    const titleSpan = chip?.firstElementChild as HTMLElement | null;
+    const titleSpan = chip?.querySelector<HTMLElement>("span.line-clamp-2");
     expect(titleSpan?.textContent).toBe(longTitle);
     expect(titleSpan?.className).toContain("line-clamp-2");
     expect(titleSpan?.className).toContain("[overflow-wrap:anywhere]");
@@ -383,12 +385,74 @@ describe("project-epic-panel overlong linked-task titles", () => {
     const { container, root } = createTestRenderer();
     await renderExpandedEpic(container, root, longWord);
 
-    const chip = container.querySelector<HTMLElement>(`li[title="${longWord}"]`);
+    const chip = container.querySelector<HTMLAnchorElement>(
+      `a[title="${longWord}"]`
+    );
     expect(chip).not.toBeNull();
-    const titleSpan = chip?.firstElementChild as HTMLElement | null;
+    const titleSpan = chip?.querySelector<HTMLElement>("span.line-clamp-2");
     expect(titleSpan?.textContent).toBe(longWord);
     expect(titleSpan?.className).toContain("line-clamp-2");
     expect(titleSpan?.className).toContain("[overflow-wrap:anywhere]");
+
+    await act(async () => root.unmount());
+  });
+
+  test("shows the shared ND- reference and task deep link on each linked-task chip", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const disclosure = container.querySelector<HTMLElement>(
+      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    );
+    await act(async () => {
+      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const chip = container.querySelector<HTMLAnchorElement>(
+      'a[href="/projects/project-1/tasks/task-1"]'
+    );
+    expect(chip).not.toBeNull();
+    expect(chip?.textContent).toContain("ND-101");
+    expect(chip?.textContent).toContain("Launch task 1");
+    expect(chip?.textContent).toContain("Done");
+
+    await act(async () => root.unmount());
+  });
+
+  test("keeps each linked-task chip keyboard reachable with a visible focus ring", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const disclosure = container.querySelector<HTMLElement>(
+      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    );
+    await act(async () => {
+      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const chip = container.querySelector<HTMLAnchorElement>(
+      'a[href="/projects/project-1/tasks/task-1"]'
+    );
+    expect(chip?.tagName).toBe("A");
+    expect(chip?.className).toContain("focus-visible:ring-2");
 
     await act(async () => root.unmount());
   });

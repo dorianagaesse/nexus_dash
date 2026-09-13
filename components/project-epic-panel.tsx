@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ChevronDown,
@@ -27,10 +28,12 @@ import {
 } from "@/components/ui/emoji-field";
 import { getEpicColorFromName } from "@/lib/epic";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
+import { formatTaskReference } from "@/lib/task-reference";
 import { cn } from "@/lib/utils";
 
 interface ProjectEpicPanelTask {
   id: string;
+  referenceNumber: number;
   title: string;
   status: string;
   archivedAt: string | null;
@@ -96,7 +99,13 @@ function EpicStatusBadge({
   );
 }
 
-function EpicTaskChip({ task }: { task: ProjectEpicPanelTask }) {
+function EpicTaskChip({
+  task,
+  projectId,
+}: {
+  task: ProjectEpicPanelTask;
+  projectId: string;
+}) {
   const toneClass =
     task.archivedAt != null || task.status === "Done"
       ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
@@ -107,19 +116,25 @@ function EpicTaskChip({ task }: { task: ProjectEpicPanelTask }) {
           : "border-border/60 bg-background/70 text-muted-foreground";
 
   return (
-    <li
-      className={cn(
-        "flex min-w-0 max-w-full items-start gap-2 rounded-xl border px-2.5 py-2 text-xs font-medium",
-        toneClass
-      )}
-      title={task.title}
-    >
-      <span className="min-w-0 flex-1 break-words leading-5 [overflow-wrap:anywhere] line-clamp-2">
-        {task.title}
-      </span>
-      <span className="shrink-0 opacity-75">
-        {task.archivedAt != null ? "Archived" : task.status}
-      </span>
+    <li className="min-w-0 max-w-full">
+      <Link
+        href={`/projects/${projectId}/tasks/${task.id}`}
+        title={task.title}
+        className={cn(
+          "flex min-w-0 max-w-full items-start gap-2 rounded-xl border px-2.5 py-2 text-xs font-medium transition-colors hover:border-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          toneClass
+        )}
+      >
+        <span className="shrink-0 select-all font-mono font-semibold tabular-nums opacity-80">
+          {formatTaskReference(task.referenceNumber)}
+        </span>
+        <span className="min-w-0 flex-1 break-words leading-5 [overflow-wrap:anywhere] line-clamp-2">
+          {task.title}
+        </span>
+        <span className="shrink-0 opacity-75">
+          {task.archivedAt != null ? "Archived" : task.status}
+        </span>
+      </Link>
     </li>
   );
 }
@@ -756,7 +771,11 @@ export function ProjectEpicPanel({
                             {epic.linkedTasks.length > 0 ? (
                               <ul className="grid min-w-0 gap-2">
                                 {visibleTasks.map((task) => (
-                                  <EpicTaskChip key={task.id} task={task} />
+                                  <EpicTaskChip
+                                    key={task.id}
+                                    task={task}
+                                    projectId={projectId}
+                                  />
                                 ))}
                                 {hiddenTaskCount > 0 ? (
                                   <li className="text-xs text-muted-foreground">

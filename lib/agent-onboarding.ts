@@ -1202,6 +1202,28 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             name: { type: "string" },
           },
         },
+        EpicLinkedTaskSummary: {
+          type: "object",
+          required: ["id", "referenceNumber", "title", "status", "archivedAt"],
+          properties: {
+            id: { type: "string" },
+            referenceNumber: {
+              type: "integer",
+              minimum: 1,
+              description:
+                "Global task reference number. Render as ND-<referenceNumber>.",
+            },
+            title: { type: "string" },
+            status: {
+              type: "string",
+              enum: TASK_STATUSES,
+            },
+            archivedAt: {
+              type: ["string", "null"],
+              format: "date-time",
+            },
+          },
+        },
         ProjectEpicRecord: {
           type: "object",
           required: [
@@ -1240,7 +1262,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             linkedTasks: {
               type: "array",
               items: {
-                $ref: "#/components/schemas/RelatedTaskSummary",
+                $ref: "#/components/schemas/EpicLinkedTaskSummary",
               },
             },
             createdAt: { type: "string", format: "date-time" },
