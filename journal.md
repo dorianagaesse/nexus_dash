@@ -182,10 +182,13 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Release reconciliation: `origin/main` reached v0.68.0 first (ND-380, #513),
   so the merge forward resolves the shared v0.68.0 changelog heading by
   keeping ND-380's entry and moving ND-458 to v0.69.0 with its own section
-  (same pattern as ND-178 over ND-408's v0.54.0). The merged tree re-runs the
-  full validation: ND-380 changed shared rich-text/mention files, so lint,
-  `rls:check`, Vitest, coverage, build, and the full Playwright suite all
-  re-ran after the merge.
+  (same pattern as ND-178 over ND-408's v0.54.0). Because ND-380 changed
+  shared rich-text/mention files, the full validation re-ran on the merged
+  tree (port 3423): lint, `rls:check`, Vitest 199 files / 1515 tests
+  (2 skipped), coverage unchanged at 93.47 / 84.36 / 95.3 / 93.77,
+  production build, the real-Postgres RLS matrix, and the full Playwright
+  suite 66 passed / 1 skipped on the first run — both ND-458 and both ND-380
+  journeys included.
 
 # 2026-09-13 - ND-380: Rich text and mentions in context card descriptions
 
