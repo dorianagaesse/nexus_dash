@@ -126,6 +126,23 @@ Use it for important implementation milestones, blockers, validation runs, and r
   quick epic picker plus a second test — restore an auto-archived epic,
   reload, and verify it stays active with `archivedAt: null` and a set
   exemption in the database.
+- Round-2 validation (NODE_ENV=test, CI-parity env): lint clean, `rls:check`,
+  Vitest 196 files / 1502 tests (2 skipped), coverage 93.47 / 84.36 / 95.3 /
+  93.77, production build, real-PostgreSQL RLS matrix (`test:rls:setup` +
+  `test:rls`) — all green. Full Playwright suite (port 3417, `CI=1`): 63
+  passed, 1 skipped (preview-auth-isolation, expected locally), 1 failed —
+  the known local flake in `smoke-project-task-calendar.spec.ts` "meeting
+  notes preparation, output, and search" (a -8.4px input-zoom geometry
+  overshoot at the same assertion family as round 1; passes isolated on the
+  same build). Both ND-458 journeys pass, including the new
+  restore-stays-active test.
+- Local e2e trap this round: `PORT=3210` collided with a concurrent
+  session's `next start` from the sibling `nexus_dash_task398` worktree that
+  was already listening on that port; Playwright's `reuseExistingServer`
+  silently reused it and the suite ran against the wrong build/server (7
+  passed / 57 failed), with the piped `tail` masking the real exit code.
+  Fix: verify the chosen port is free (netstat) and set `CI=1` so Playwright
+  fails rather than reusing an unknown server.
 
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 
