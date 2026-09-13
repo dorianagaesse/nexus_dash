@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import type { MentionDisplayUser } from "@/components/ui/mention-hover-card";
 import { ATTACHMENT_KIND_LINK, isAttachmentPreviewable } from "@/lib/task-attachment";
 
 interface ContextPreviewModalProps {
@@ -24,6 +25,7 @@ interface ContextPreviewModalProps {
   isOpen: boolean;
   card: ProjectContextCard | null;
   attachments: ProjectContextAttachment[];
+  mentionUsers: MentionDisplayUser[];
   onClose: () => void;
   onEdit: (cardId: string) => void;
   onPreviewAttachment: (attachment: ProjectContextAttachment) => void;
@@ -34,6 +36,7 @@ export function ContextPreviewModal({
   isOpen,
   card,
   attachments,
+  mentionUsers,
   onClose,
   onEdit,
   onPreviewAttachment,
@@ -104,6 +107,7 @@ export function ContextPreviewModal({
             html={card.content}
             emptyContentHtml="<p>No content.</p>"
             className={`pr-1 text-sm text-slate-800 ${CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS}`}
+            mentionUsers={mentionUsers}
             onDoubleClick={() => {
               if (!canEdit) {
                 return;

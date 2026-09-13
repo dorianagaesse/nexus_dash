@@ -14,6 +14,7 @@ import {
   resolveAttachmentHref,
 } from "@/components/project-context-panel-utils";
 import { Button } from "@/components/ui/button";
+import type { MentionDisplayUser } from "@/components/ui/mention-hover-card";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import { ATTACHMENT_KIND_LINK, isAttachmentPreviewable } from "@/lib/task-attachment";
 
@@ -22,6 +23,7 @@ interface ContextCardsGridProps {
   cards: ProjectContextCard[];
   cardAttachmentsById: Record<string, ProjectContextAttachment[]>;
   deletingCardId: string | null;
+  mentionUsers: MentionDisplayUser[];
   onOpenPreview: (cardId: string) => void;
   onEditCard: (cardId: string) => void;
   onDeleteCard: (cardId: string) => void;
@@ -33,6 +35,7 @@ export function ContextCardsGrid({
   cards,
   cardAttachmentsById,
   deletingCardId,
+  mentionUsers,
   onOpenPreview,
   onEditCard,
   onDeleteCard,
@@ -100,6 +103,7 @@ export function ContextCardsGrid({
                 html={card.content}
                 emptyContentHtml="<p>No content.</p>"
                 className={`pr-1 text-xs text-slate-800 ${CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS}`}
+                mentionUsers={mentionUsers}
               />
               <div
                 className="pointer-events-none absolute inset-x-0 bottom-0 h-8"
