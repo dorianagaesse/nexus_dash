@@ -8,6 +8,24 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.68.0 - 2026-09-13
+
+- Epics are archived automatically once every linked task is done or archived
+  and the last completion is older than the same seven-day grace period used
+  for completed tasks (ND-458). Epics store their own `archivedAt` timestamp,
+  added in the companion migration.
+- The epic panel offers manual archive and restore for editors and owners, and
+  completed epics no longer pile up in the default view: archived epics are
+  hidden from the epic panel, task epic pickers, and kanban epic filters until
+  the panel's "Show archived" toggle reveals them.
+- Archived epics render an Archived badge and keep their derived status and
+  progress accurate. Linking a new open task to an archived epic, or reopening
+  a linked task, never silently restores the epic.
+- The agent API documents epic archive (`POST .../epics/{epicId}/archive`) and
+  restore (`DELETE .../epics/{epicId}/archive`), epic records now include
+  `archivedAt`, and the epic list accepts an `includeArchived` filter that
+  defaults to hiding archived epics.
+
 ## v0.67.0 - 2026-09-12
 
 - Added agent mentions to task comments (ND-383). Selecting an agent in the

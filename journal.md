@@ -3,6 +3,79 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-13 - ND-458: Auto-archive completed epics with manual archive/restore
+
+- Implemented in the dedicated `../nexus_dash_task458` worktree on
+  `feature/nd-458-auto-archive-epics`, created from `origin/main` at 9b42fde
+  (v0.67.0, ND-383 #504); release target v0.68.0. `origin/main` gained two
+  orthogonal dependabot bumps (adapter-pg 7.10.0, radix dialog 1.1.23) during
+  the work; neither touches ND-458 lines, so no merge-forward was needed.
+- `Epic.archivedAt` (nullable timestamp) with migration
+  `20260913120000_nd458_epic_archive`. The task-side grace constants moved to
+  `lib/archive-policy.ts` (`ARCHIVE_AFTER_DAYS = 7`) so tasks and epics share
+  one policy; `lib/services/project-service.ts` now imports them.
+- Completed epics auto-archive after the same 7-day grace, via the same
+  request-time sweep pattern as stale Done tasks: `listProjectEpics` runs
+  `archiveStaleCompletedEpics` first and hides archived epics unless
+  `includeArchived` is requested. Completion mirrors `deriveEpicStatus`
+  (an empty epic is never completed): a task counts as completed when Done or
+  archived, and the epic's completion moment is the latest linked-task
+  `completedAt ?? archivedAt ?? updatedAt`. The sweep is idempotent
+  (`archivedAt IS NULL` guard) and scoped through the actor principal where
+  clause; an epic that regained an open task reverts to Ready/In progress and
+  is not swept.
+- Manual archive/restore: `archiveProjectEpic` / `unarchiveProjectEpic`
+  services (editor+ requirement, project activity events, 404 on cross-tenant)
+  behind thin `POST` / `DELETE /api/projects/{projectId}/epics/{epicId}/archive`
+  routes. A shared `serializeProjectEpicResponse` helper now feeds every epic
+  transport payload (routes + server section), adding `archivedAt` to the
+  contract.
+- Epic panel: active vs archived split with a "Show archived (N)" / "Hide
+  archived" toggle, an "Archived" badge, Archive/Restore icon buttons gated to
+  editors, and a "No active epics." empty state; archived epics keep their
+  details/edit/delete affordances. Linking a new open task to an archived epic
+  (or reopening a linked task) does not silently unarchive it — status and
+  progress stay correct because archived epics still derive from live tasks.
+- Agent OpenAPI parity: `includeArchived` query parameter on the epic list,
+  Archive/Restore endpoints documented (`task:write`), and `archivedAt` on the
+  `ProjectEpicRecord` schema via a new `ProjectEpicArchiveResponse`.
+- Tests: epic service sweep/archive/restore/role/scope cases, route transport
+  cases, panel component cases (toggle, archive, restore, viewer gating),
+  agent contract additions, and the ND-458 Playwright journey (auto-archive
+  visible-once-revealed, manual archive/restore round trip, archived epic
+  unaffected by a new open task, progress stays 2 of 3).
+- Validation: lint, `rls:check`, Vitest 196 files / 1496 tests (2 skipped),
+  coverage 93.47 / 84.36 / 95.3 / 93.77 (with `--maxWorkers=1`; the
+  `version-policy` temp-repo tests flake at the 5s default timeout under
+  parallel coverage load), real-PostgreSQL RLS matrix
+  (`test:rls:setup` + `test:rls`), production build, and the full Playwright
+  suite: 62 passed, 1 skipped, 1 failed — the failure is
+  `smoke-project-task-calendar.spec.ts` "meeting notes preparation, output,
+  and search flow", a local flake on code this branch does not touch (the
+  meeting-note/zoom-overlay files are unchanged from origin/main, the fixture
+  project has no epics, and repeated isolated runs flip between pass and fail
+  with sub-4px overshoots at different zoom-geometry assertions — measurement
+  nondeterminism, not an ND-458 regression; CI on main is green for the same
+  spec). The ND-458 journey, TASK-335 compactness, ND-408 drag, and every
+  smoke flow pass individually against the same build.
+- Follow-up fixes from the full-suite runs: the added fourth icon button
+  squeezed the epic card title to one character per line at 375px and failed
+  the TASK-335 mobile-compactness guard (collapsed card measured 474px vs the
+  360px ceiling); the card header now stacks below `sm` and the Archive toggle
+  sits after Edit so the details-Edit adjacency assertion still holds
+  (cf779bd). The archive/restore route file had been left untracked since the
+  service commit and is now committed (ccd193d).
+- Local e2e quirks: the first ND-458 spec run failed against stale code — an
+  orphan `next start` process still held port 3000 and Playwright's
+  `reuseExistingServer` reused it, serving the pre-change UI (no archive
+  controls; the epic sweep absent while the pre-existing task sweep had run);
+  check port 3000 is free before local e2e runs. A later full-suite run
+  produced five unrelated-looking failures whose root cause was the manually
+  started server missing `NEXUSDASH_TEST_RLS_CONTEXT=enabled` — every
+  project-activity write 500'd with Postgres 42501 (create epic, task reorder,
+  roadmap/meeting/context-card creates). With the flag set (or the
+  Playwright-managed server, which injects it), all specs pass.
+
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 
 - User-directed workflow change, documented in `agent.md` (full rules) and `CLAUDE.md` (summary): agents move a card to In Progress when they start its task and never move cards to Done — Done is set by the reviewer/PR merger. Completion comments are optional and only for relevant handoff information (decisions, validation evidence, blockers): plain English, short, one topic. Task descriptions must stay concise — plain English covering the intent plus testable acceptance criteria, with no restated context, exhaustive scope inventories, or file-by-file walkthroughs.
