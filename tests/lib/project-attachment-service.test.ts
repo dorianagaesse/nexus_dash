@@ -289,6 +289,7 @@ describe("project-attachment-service", () => {
       ok: true,
       data: {
         id: "att-1",
+        commentId: null,
         kind: "file",
         name: "spec.pdf",
         url: null,
