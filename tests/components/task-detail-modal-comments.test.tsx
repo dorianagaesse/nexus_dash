@@ -457,7 +457,8 @@ describe("TaskDetailModal comments", () => {
 
     expect(onSubmitTaskComment).toHaveBeenCalledWith(
       [],
-      [{ credentialId: "credential-1" }]
+      [{ credentialId: "credential-1" }],
+      []
     );
 
     await act(async () => {
@@ -506,7 +507,7 @@ describe("TaskDetailModal comments", () => {
       );
     });
 
-    expect(onSubmitTaskComment).toHaveBeenCalledWith([], []);
+    expect(onSubmitTaskComment).toHaveBeenCalledWith([], [], []);
 
     await act(async () => {
       root.unmount();
