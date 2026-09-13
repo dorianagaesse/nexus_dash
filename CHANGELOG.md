@@ -8,6 +8,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.68.0 - 2026-09-13
+
+- Task comments now use the shared rich-text composer (ND-398): headings,
+  emphasis, lists, code blocks, token blocks, and the `@` mention picker work
+  in the comment box, and saved comments render through the shared
+  rich-text renderer.
+- Comment content is sanitized and normalized server-side before storage.
+  Legacy plain-text comments stay readable, unsafe markup is never rendered,
+  and bare text typed above or below blocks is wrapped in paragraphs — fixing
+  mixed content storage for comments, meeting notes, and context cards.
+
 ## v0.67.0 - 2026-09-12
 
 - Added agent mentions to task comments (ND-383). Selecting an agent in the

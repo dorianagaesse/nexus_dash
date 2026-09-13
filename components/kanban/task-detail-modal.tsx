@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Archive,
   ArrowRightLeft,
@@ -55,7 +55,7 @@ import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer
 import { Button } from "@/components/ui/button";
 import { CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { EmojiInputField, EmojiTextareaField } from "@/components/ui/emoji-field";
+import { EmojiInputField } from "@/components/ui/emoji-field";
 import { EmojiPickerButton } from "@/components/ui/emoji-picker-button";
 import { EpicSelect } from "@/components/ui/epic-select";
 import {
@@ -63,11 +63,8 @@ import {
   FORM_FOCUS_BORDER_SHELL_CLASS,
 } from "@/components/ui/focus-border-styles";
 import {
-  MentionAutocomplete,
   buildMentionAutocompleteDisplayValue,
-  buildMentionAutocompleteValue,
   type MentionAutocompleteMember,
-  useMentionAutocomplete,
 } from "@/components/ui/mention-autocomplete";
 import type { MentionDisplayUser } from "@/components/ui/mention-hover-card";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -75,9 +72,9 @@ import { getEpicColorFromName } from "@/lib/epic";
 import { cn } from "@/lib/utils";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import {
-  renderContentWithMentions,
-  MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
-} from "@/lib/content-with-mentions";
+  decodeRichTextEntities,
+  richTextToPlainText,
+} from "@/lib/rich-text";
 import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
 import {
   getProjectActorKey,
@@ -87,8 +84,6 @@ import {
 import {
   hasAgentMentionToken,
   parseMentions,
-  removeMentionBeforeCursor,
-  replaceMentionTrigger,
 } from "@/lib/mention";
 import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import {
@@ -97,6 +92,10 @@ import {
   formatAttachmentFileSize,
   isAttachmentPreviewable,
 } from "@/lib/task-attachment";
+import {
+  MAX_TASK_COMMENT_LENGTH,
+  TASK_COMMENT_LIMIT_HINT_THRESHOLD,
+} from "@/lib/task-comment";
 import {
   formatTaskDeadlineForDisplay,
   getTaskDeadlineDayDelta,
@@ -1274,14 +1273,14 @@ function TaskOptionsMenu({
 
 function pruneCommentMentionSelections(
   selections: TaskCommentMentionSelection[],
-  value: string
+  richTextValue: string
 ) {
   if (selections.length === 0) {
     return selections;
   }
 
   const visibleMentionUsernames = new Set(
-    parseMentions(value).mentions.map((mention) =>
+    parseMentions(richTextToPlainText(richTextValue)).mentions.map((mention) =>
       mention.username.toLowerCase()
     )
   );
@@ -1298,19 +1297,22 @@ interface CommentAgentMentionDraft {
 
 function pruneCommentAgentMentionSelections(
   selections: CommentAgentMentionDraft[],
-  value: string
+  richTextValue: string
 ) {
   if (selections.length === 0) {
     return selections;
   }
 
+  // The stored token text is HTML-escaped (`@{R&amp;D bot}`); compare against
+  // the decoded projection so labels with entities keep their selection.
+  const plainText = decodeRichTextEntities(richTextToPlainText(richTextValue));
   const seenCredentialIds = new Set<string>();
 
   return selections.filter((selection) => {
     if (seenCredentialIds.has(selection.credentialId)) {
       return false;
     }
-    if (!hasAgentMentionToken(value, selection.label)) {
+    if (!hasAgentMentionToken(plainText, selection.label)) {
       return false;
     }
 
@@ -1398,146 +1400,32 @@ function TaskReadOnlyContent({
 }) {
   const hasAttachments = selectedTask.attachments.length > 0;
   const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
-  const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
-  const commentHighlightRef = useRef<HTMLDivElement | null>(null);
-  const [commentCursorPosition, setCommentCursorPosition] = useState(0);
   const [commentMentionSelections, setCommentMentionSelections] = useState<
     TaskCommentMentionSelection[]
   >([]);
   const [commentAgentMentionSelections, setCommentAgentMentionSelections] =
     useState<CommentAgentMentionDraft[]>([]);
-  const commentMentionState = useMentionAutocomplete(
-    newTaskComment,
-    commentCursorPosition,
-    commentInputRef
-  );
-
-  const syncCommentCursorPosition = (textarea: HTMLTextAreaElement) => {
-    setCommentCursorPosition(textarea.selectionStart ?? textarea.value.length);
-  };
-
-  const syncCommentHighlightScroll = (textarea: HTMLTextAreaElement) => {
-    if (commentHighlightRef.current) {
-      commentHighlightRef.current.scrollTop = textarea.scrollTop;
-    }
-  };
+  const commentDraftText = richTextToPlainText(newTaskComment);
+  const commentDraftTooLong =
+    commentDraftText.length > MAX_TASK_COMMENT_LENGTH;
 
   const handleCommentMentionSelect = (member: MentionAutocompleteMember) => {
-    if (!commentMentionState.isActive || commentMentionState.startIndex < 0) {
-      return;
-    }
-
-    const mentionValue = buildMentionAutocompleteDisplayValue(member);
-    if (!mentionValue) {
-      return;
-    }
-
-    const mentionText = `${mentionValue} `;
-    const { value: nextValue, cursorPosition: nextCursorPosition } = replaceMentionTrigger({
-      text: newTaskComment,
-      startIndex: commentMentionState.startIndex,
-      endIndex: commentCursorPosition,
-      replacement: mentionText,
-    });
-
-    const textarea = commentInputRef.current;
-    onNewTaskCommentChange(nextValue);
-    setCommentCursorPosition(nextCursorPosition);
-    if (textarea) {
-      textarea.value = nextValue;
-      textarea.focus();
-      textarea.setSelectionRange(nextCursorPosition, nextCursorPosition);
-      syncCommentHighlightScroll(textarea);
-    }
-
     const selectedMention = buildCommentMentionSelection(member);
     if (selectedMention) {
-      setCommentMentionSelections((previousSelections) =>
-        pruneCommentMentionSelections(
-          [...previousSelections, selectedMention],
-          nextValue
-        )
-      );
+      setCommentMentionSelections((previousSelections) => [
+        ...previousSelections,
+        selectedMention,
+      ]);
     }
 
     const selectedAgentMention = buildCommentAgentMentionSelection(member);
     if (selectedAgentMention) {
-      setCommentAgentMentionSelections((previousSelections) =>
-        pruneCommentAgentMentionSelections(
-          [...previousSelections, selectedAgentMention],
-          nextValue
-        )
-      );
+      setCommentAgentMentionSelections((previousSelections) => [
+        ...previousSelections,
+        selectedAgentMention,
+      ]);
     }
-
-    window.requestAnimationFrame(() => {
-      const currentTextarea = commentInputRef.current;
-      if (!currentTextarea) {
-        return;
-      }
-      if (currentTextarea.value !== nextValue) {
-        return;
-      }
-
-      currentTextarea.focus();
-      currentTextarea.setSelectionRange(
-        nextCursorPosition,
-        nextCursorPosition
-      );
-    });
   };
-
-  const handleCommentInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== "Backspace") {
-      return;
-    }
-
-    const textarea = event.currentTarget;
-    const selectionStart = textarea.selectionStart ?? textarea.value.length;
-    const selectionEnd = textarea.selectionEnd ?? selectionStart;
-    if (selectionStart !== selectionEnd) {
-      return;
-    }
-
-    const replacement = removeMentionBeforeCursor({
-      text: newTaskComment,
-      cursorPosition: selectionStart,
-    });
-    if (!replacement) {
-      return;
-    }
-
-    event.preventDefault();
-    onNewTaskCommentChange(replacement.value);
-    setCommentMentionSelections((previousSelections) =>
-      pruneCommentMentionSelections(previousSelections, replacement.value)
-    );
-    setCommentAgentMentionSelections((previousSelections) =>
-      pruneCommentAgentMentionSelections(previousSelections, replacement.value)
-    );
-    setCommentCursorPosition(replacement.cursorPosition);
-
-    window.requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(replacement.cursorPosition, replacement.cursorPosition);
-      syncCommentHighlightScroll(textarea);
-    });
-  };
-
-  useEffect(() => {
-    const textarea = commentInputRef.current;
-    if (!textarea) {
-      return;
-    }
-
-    const minHeight = 44;
-    const maxHeight = 140;
-
-    textarea.style.height = "0px";
-    const nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
-    textarea.style.height = `${nextHeight}px`;
-    textarea.style.overflowY = nextHeight >= maxHeight ? "auto" : "hidden";
-  }, [newTaskComment]);
 
   useEffect(() => {
     setCommentMentionSelections((previousSelections) =>
@@ -1716,70 +1604,17 @@ function TaskReadOnlyContent({
               <label htmlFor="task-comment-input" className="sr-only">
                 Task comment
               </label>
-              <div className="relative">
-                <div
-                  ref={commentHighlightRef}
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 z-0 overflow-hidden whitespace-pre-wrap break-words px-3 py-2 pr-12 text-sm leading-5 text-foreground"
-                >
-                  {newTaskComment
-                    ? renderContentWithMentions(newTaskComment, {
-                        mentionUsers,
-                        hideMentionDiscriminator: true,
-                        resolveDisplayUsers: false,
-                        renderAgentMentions: true,
-                        preserveAgentMentionText: true,
-                        mentionHighlightClassName:
-                          MENTION_TEXTAREA_MIRROR_HIGHLIGHT_CLASS,
-                      })
-                    : null}
-                </div>
-                <EmojiTextareaField
-                  ref={commentInputRef}
-                  id="task-comment-input"
-                  aria-label="Task comment"
-                  value={newTaskComment}
-                  onChange={(event) => {
-                    onNewTaskCommentChange(event.target.value);
-                    setCommentMentionSelections((previousSelections) =>
-                      pruneCommentMentionSelections(
-                        previousSelections,
-                        event.target.value
-                      )
-                    );
-                    setCommentAgentMentionSelections((previousSelections) =>
-                      pruneCommentAgentMentionSelections(
-                        previousSelections,
-                        event.target.value
-                      )
-                    );
-                    syncCommentCursorPosition(event.target);
-                    syncCommentHighlightScroll(event.target);
-                  }}
-                  onClick={(event) => syncCommentCursorPosition(event.currentTarget)}
-                  onKeyDown={handleCommentInputKeyDown}
-                  onKeyUp={(event) => syncCommentCursorPosition(event.currentTarget)}
-                  onScroll={(event) => syncCommentHighlightScroll(event.currentTarget)}
-                  maxLength={4000}
-                  rows={1}
-                  placeholder="Add a task comment..."
-                  wrapperClassName="relative z-10 w-full"
-                  className="h-11 min-h-11 resize-none rounded-xl border border-border/50 bg-transparent px-3 py-2 text-sm leading-5 text-transparent caret-foreground transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-ring/60"
-                  disabled={isSubmittingTaskComment}
-                />
-              </div>
-              {commentMentionState.isActive ? (
-                <MentionAutocomplete
-                  projectId={projectId}
-                  query={commentMentionState.query}
-                  position={commentMentionState.position}
-                  onSelect={handleCommentMentionSelect}
-                  onClose={() => {
-                    setCommentCursorPosition(-1);
-                  }}
-                  agentMentionsEnabled
-                />
-              ) : null}
+              <RichTextEditor
+                id="task-comment-input"
+                value={newTaskComment}
+                onChange={onNewTaskCommentChange}
+                placeholder="Add a task comment..."
+                ariaLabel="Task comment"
+                mentionProjectId={projectId}
+                agentMentionsEnabled
+                onMentionSelect={handleCommentMentionSelect}
+                editorClassName="min-h-[96px]"
+              />
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
                   <TaskActivityInline
@@ -1794,6 +1629,17 @@ function TaskReadOnlyContent({
                     fallback="Unknown collaborator"
                     timestamp={selectedTask.updatedAt}
                   />
+                  {commentDraftText.length >= TASK_COMMENT_LIMIT_HINT_THRESHOLD ? (
+                    <p
+                      aria-live="polite"
+                      className={cn(
+                        "text-xs",
+                        commentDraftTooLong ? "text-destructive" : "text-amber-600"
+                      )}
+                    >
+                      {commentDraftText.length}/{MAX_TASK_COMMENT_LENGTH} characters
+                    </p>
+                  ) : null}
                 </div>
                 <Button
                   type="button"
@@ -1806,7 +1652,11 @@ function TaskReadOnlyContent({
                       }))
                     )
                   }
-                  disabled={isSubmittingTaskComment || !newTaskComment.trim()}
+                  disabled={
+                    isSubmittingTaskComment ||
+                    !commentDraftText ||
+                    commentDraftTooLong
+                  }
                   className="w-full sm:w-auto"
                 >
                   {isSubmittingTaskComment ? "Posting..." : "Add comment"}

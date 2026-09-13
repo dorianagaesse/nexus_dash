@@ -321,6 +321,23 @@ export function parseAgentMentions(input: string): ParsedAgentMention[] {
 }
 
 /**
+ * Replace `@{...}` agent token spans with equal-length spaces so human
+ * mention parsing never resolves username-like text inside credential labels
+ * (a label such as `R @alice#1234` must not mention or notify @alice). The
+ * original length is preserved so offsets stay comparable with the unmasked
+ * projection.
+ */
+export function maskAgentMentionTokens(input: string): string {
+  if (typeof input !== "string" || !input) {
+    return "";
+  }
+
+  return input.replace(AGENT_MENTION_TOKEN_REGEX, (token) =>
+    " ".repeat(token.length)
+  );
+}
+
+/**
  * Locate the currently edited @mention immediately before a text cursor.
  */
 export function getActiveMentionTrigger(

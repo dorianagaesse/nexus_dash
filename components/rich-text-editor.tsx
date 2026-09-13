@@ -28,9 +28,9 @@ import {
 } from "@/components/ui/mention-autocomplete";
 import {
   getActiveMentionTrigger,
+  parseAgentMentions,
   parseMentions,
   stripMentionFormatCharacters,
-  type ParsedMention,
 } from "@/lib/mention";
 import {
   createRichTextCodeBlock,
@@ -52,6 +52,8 @@ interface RichTextEditorProps {
   ariaLabel?: string;
   ariaLabelledBy?: string;
   mentionProjectId?: string;
+  agentMentionsEnabled?: boolean;
+  onMentionSelect?: (member: MentionAutocompleteMember) => void;
 }
 
 const EDITOR_MENTION_CLASS =
@@ -173,11 +175,62 @@ function restoreEditorSelectionFromMarker(
   marker.remove();
 }
 
+type EditorMentionItem = {
+  startIndex: number;
+  endIndex: number;
+  raw: string;
+  text: string;
+  username: string | null;
+  discriminator: string | null;
+  agentLabel: string | null;
+};
+
+function collectEditorMentionItems(
+  text: string,
+  agentMentionsEnabled: boolean
+): EditorMentionItem[] {
+  const items: EditorMentionItem[] = parseMentions(text).mentions.map(
+    (mention) => ({
+      startIndex: mention.startIndex,
+      endIndex: mention.endIndex,
+      raw: mention.fullMatch,
+      text: `@${mention.username}`,
+      username: mention.username,
+      discriminator: mention.discriminator,
+      agentLabel: null,
+    })
+  );
+
+  if (agentMentionsEnabled) {
+    for (const mention of parseAgentMentions(text)) {
+      items.push({
+        startIndex: mention.startIndex,
+        endIndex: mention.endIndex,
+        raw: mention.fullMatch,
+        text: `@${mention.label}`,
+        username: null,
+        discriminator: null,
+        agentLabel: mention.label,
+      });
+    }
+  }
+
+  // Earlier patterns first keeps the longer span when an agent label itself
+  // contains something mention-like; equal starts prefer the longer match.
+  items.sort(
+    (left, right) =>
+      left.startIndex - right.startIndex || right.endIndex - left.endIndex
+  );
+
+  return items;
+}
+
 function highlightMentionsInEditor(
   editor: HTMLDivElement,
   options?: {
     activeMention?: EditorMentionTarget | null;
     preserveSelection?: boolean;
+    agentMentionsEnabled?: boolean;
   }
 ) {
   if (typeof document === "undefined") return;
@@ -197,7 +250,7 @@ function highlightMentionsInEditor(
   editor.normalize();
 
   const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-  const textNodes: Array<{ textNode: Text; mentions: ParsedMention[] }> = [];
+  const textNodes: Array<{ textNode: Text; mentions: EditorMentionItem[] }> = [];
   const activeMention = options?.activeMention;
 
   while (walker.nextNode()) {
@@ -212,7 +265,10 @@ function highlightMentionsInEditor(
       continue;
     }
 
-    const { mentions } = parseMentions(textNode.data);
+    const mentions = collectEditorMentionItems(
+      textNode.data,
+      Boolean(options?.agentMentionsEnabled)
+    );
     if (mentions.length > 0) {
       textNodes.push({ textNode, mentions });
     }
@@ -224,6 +280,10 @@ function highlightMentionsInEditor(
     let previousNodeWasMention = false;
 
     for (const mention of mentions) {
+      if (mention.startIndex < lastIndex) {
+        continue;
+      }
+
       if (mention.startIndex > lastIndex) {
         fragment.append(
           document.createTextNode(
@@ -239,13 +299,18 @@ function highlightMentionsInEditor(
       const mentionElement = document.createElement("span");
       mentionElement.className = EDITOR_MENTION_CLASS;
       mentionElement.dataset.editorMention = "true";
-      mentionElement.dataset.mentionUsername = mention.username;
-      mentionElement.dataset.mentionRaw = mention.fullMatch;
-      mentionElement.setAttribute("contenteditable", "false");
+      mentionElement.dataset.mentionRaw = mention.raw;
+      if (mention.username) {
+        mentionElement.dataset.mentionUsername = mention.username;
+      }
       if (mention.discriminator) {
         mentionElement.dataset.mentionDiscriminator = mention.discriminator;
       }
-      mentionElement.textContent = `@${mention.username}`;
+      if (mention.agentLabel) {
+        mentionElement.dataset.agentMentionLabel = mention.agentLabel;
+      }
+      mentionElement.setAttribute("contenteditable", "false");
+      mentionElement.textContent = mention.text;
       fragment.append(mentionElement);
       previousNodeWasMention = true;
       lastIndex = mention.endIndex;
@@ -2260,6 +2325,8 @@ export function RichTextEditor({
   ariaLabel,
   ariaLabelledBy,
   mentionProjectId,
+  agentMentionsEnabled = false,
+  onMentionSelect,
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const resetTimeoutRef = useRef<number | null>(null);
@@ -2297,9 +2364,9 @@ export function RichTextEditor({
     }
 
     if (didUpdateEditorHtml || hasExternalValueChange) {
-      highlightMentionsInEditor(editorRef.current);
+      highlightMentionsInEditor(editorRef.current, { agentMentionsEnabled });
     }
-  }, [value]);
+  }, [value, agentMentionsEnabled]);
 
   useEffect(
     () => () => {
@@ -2382,11 +2449,12 @@ export function RichTextEditor({
     );
     replacementRange.insertNode(fragment);
 
-    highlightMentionsInEditor(editor);
+    highlightMentionsInEditor(editor, { agentMentionsEnabled });
     restoreEditorSelectionFromMarker(editor, marker);
 
     recordHistoryFromSnapshot(beforeSnapshot);
     emitCurrentValue();
+    onMentionSelect?.(member);
     closeMentionAutocomplete();
   };
 
@@ -2977,7 +3045,10 @@ export function RichTextEditor({
     if (nextValue === latestValueRef.current) {
       pendingInputSnapshotRef.current = null;
       if (!activeMention) {
-        highlightMentionsInEditor(currentEditor, { preserveSelection: true });
+        highlightMentionsInEditor(currentEditor, {
+          preserveSelection: true,
+          agentMentionsEnabled,
+        });
       }
       setMentionState(activeMention ?? createInactiveEditorMentionState());
       return;
@@ -2993,7 +3064,10 @@ export function RichTextEditor({
     recordHistoryFromSnapshot(beforeSnapshot);
     emitValue(nextValue);
     if (!activeMention) {
-      highlightMentionsInEditor(currentEditor, { preserveSelection: true });
+      highlightMentionsInEditor(currentEditor, {
+        preserveSelection: true,
+        agentMentionsEnabled,
+      });
     }
     setMentionState(activeMention ?? createInactiveEditorMentionState());
   };
@@ -3153,6 +3227,7 @@ export function RichTextEditor({
           position={mentionState.position}
           onSelect={handleMentionSelect}
           onClose={closeMentionAutocomplete}
+          agentMentionsEnabled={agentMentionsEnabled}
         />
       ) : null}
     </div>

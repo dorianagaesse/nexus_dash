@@ -3,6 +3,71 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-13 - ND-398: Rich-text authoring and rendering in task comments
+
+- Implemented in the dedicated `../nexus_dash_task398` worktree on
+  `feature/nd-398-rich-text-task-comments` from `origin/main` at 9b42fde
+  (ND-383 #504), fast-forwarded to a2e5e6c (@radix-ui/react-dialog 1.1.23 and
+  @prisma/adapter-pg 7.10.0 bumps). Task comments now use the shared rich-text
+  model: the task-modal comment composer is the `RichTextEditor` (headings,
+  emphasis, lists, code/token blocks, human + agent `@` mention picker), and
+  stored comments render through `RichTextContent` with the same chip model as
+  mentions elsewhere.
+- Comments go through the same server-side coerce pipeline as task
+  descriptions (sanitize-html + canonical block normalization); mention
+  parsing and the ND-383 agent-token validation project storage to plain text
+  first. Fixed a latent server-runtime bug the tests exposed:
+  `wrapRootLevelTextNodes` was DOM-based and silently no-oped in Node (no
+  `document`), so bare text typed above or below blocks was stored unwrapped
+  for comments, meeting notes, and context cards. Rewrote it as a string
+  scanner and added `tests/lib/rich-text-server.test.ts` (node environment) as
+  the regression guard.
+- Spec adaptations: the ND-383 mention spec and the smoke comment flow now
+  assert the editor chip model (`data-editor-mention` / `data-mention-raw`)
+  instead of raw token text; the new `tests/e2e/nd-398-rich-text-comments.spec.ts`
+  covers the composer round-trip into stored HTML plus legacy/unsafe comment
+  rendering.
+- Validation: lint, `rls:check`, Vitest 199 files / 1496 tests (1494 passed, 2
+  skipped), coverage (93.76 / 84.71 / 95.39 / 94.06), production build, and the
+  full Playwright suite against the build on port 3210 — 62 passed, 1 skipped,
+  2 environment-level failures investigated and cleared: `authenticated-app-shell.spec.ts:89`
+  fails 3/3 on an unmodified main baseline worktree (a2e5e6c) as well, a
+  pre-existing race where the `?taskId=` deep link opens the Radix task modal
+  during hydration and its `hideOthers` aria-hides the shell, so the aside-nav
+  `getByRole` assertion only matches in the window before the modal opens (CI's
+  cold runners pass it; warm local runs lose the race), and the smoke roadmap
+  drag (:596) failed under full-suite load and passed on isolated retry (same
+  drag-geometry flake as previously journaled).
+- Local environment notes: plain `npm run build` fails locally during
+  page-data collection because Next forces NODE_ENV=production and
+  `lib/env.server.ts` requires DATABASE_URL ≠ DIRECT_URL for remote hosts —
+  build with `NODE_ENV=test`; Vitest and Playwright runs need `NODE_ENV=test`
+  plus a `node --env-file=.env` wrapper locally.
+- Copilot review round (six moderate findings). Applied inline: task search now
+  projects stored comment HTML through `richTextToPlainText` before matching
+  (`project-task-search-service.ts`), and human mention parsing now runs on
+  `maskAgentMentionTokens(contentText)` so username-like credential labels
+  inside `@{...}` chips cannot produce false human mentions. Body-suppressed
+  findings addressed: `coerceRichTextHtml` decodes serialized editor entities
+  in the tagless branch before escaping (round-trip fixpoint; fixes stored
+  `&amp;` literals and `&`-label agent-token 400s), the composer restored the
+  4,000-character cap via a shared `lib/task-comment.ts` constant (counter from
+  3,800, submit disabled over the cap), the mention tooltip/active element now
+  clears before the unresolved-mention early return, and the modal-prune
+  finding's stated `richTextToPlainText` double-escape mechanism was verified
+  inaccurate — the shared coercion fix resolves the actual end-to-end failure
+  (empirically traced, documented on the PR).
+- Review-round tests: entity round-trips in `tests/lib/rich-text.test.ts`,
+  `R&D bot` POST route case in `tests/api/task-comments.route.test.ts`,
+  ampersand composer round-trip in `tests/e2e/nd-398-rich-text-comments.spec.ts`,
+  mask coverage in `tests/lib/mention.test.ts`, search-projection assertion,
+  length-cap case in `tests/components/task-detail-modal-comments.test.tsx`,
+  tooltip-clear case in `tests/components/rich-text-content.test.ts`.
+- Review-round validation: lint, `rls:check`, Vitest 1507 passed / 2 skipped,
+  coverage unchanged (93.76 / 84.71 / 95.39 / 94.06), `NODE_ENV=test` build;
+  e2e re-run of the nd-398/nd-383/nd-381/nd-397/smoke specs — 13 passed, 1
+  pre-existing roadmap drag-geometry flake (:596) passing on isolated retry.
+
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 
 - User-directed workflow change, documented in `agent.md` (full rules) and `CLAUDE.md` (summary): agents move a card to In Progress when they start its task and never move cards to Done — Done is set by the reviewer/PR merger. Completion comments are optional and only for relevant handoff information (decisions, validation evidence, blockers): plain English, short, one topic. Task descriptions must stay concise — plain English covering the intent plus testable acceptance criteria, with no restated context, exhaustive scope inventories, or file-by-file walkthroughs.

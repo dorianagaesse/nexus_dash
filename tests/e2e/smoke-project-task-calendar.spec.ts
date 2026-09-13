@@ -181,16 +181,17 @@ test.describe("critical UI smoke flows", () => {
     await page.getByRole("option", { name: new RegExp(mentionUsername) }).click();
     await page.keyboard.type(taskCommentSuffix);
 
-    const expectedCommentText = `@${mentionUsername} ${taskCommentSuffix}`;
-    await expect(commentInput).toHaveValue(expectedCommentText);
+    const commentMentionChip = commentInput.locator("[data-editor-mention='true']");
+    await expect(commentMentionChip).toHaveText(`@${mentionUsername}`);
+    await expect(commentMentionChip).toHaveAttribute(
+      "data-mention-raw",
+      new RegExp(`^@${mentionUsername}#[0-9]{4}$`)
+    );
     await expect
-      .poll(() =>
-        commentInput.evaluate((element) => {
-          const textarea = element as HTMLTextAreaElement;
-          return textarea.selectionStart === textarea.value.length;
-        })
+      .poll(async () =>
+        ((await commentInput.textContent()) ?? "").replace(/\u00a0/g, " ")
       )
-      .toBe(true);
+      .toBe(`@${mentionUsername} ${taskCommentSuffix}`);
 
     const createCommentRequest = page.waitForResponse(
       (response) =>
