@@ -3,6 +3,38 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-13 - ND-380: Rich text and mentions in context card descriptions
+
+- Implemented in the dedicated `../nexus_dash_task380` worktree on
+  `feature/nd-380-card-description-rich-text` from `origin/main` at 9b42fde.
+- Context card descriptions now get the task-description `@` mention flow.
+  `ProjectContextPanel` passes the project id into the create/edit modals
+  (`RichTextEditor` autocomplete; agent rows keep the disabled treatment)
+  and the server collaborator list into the card grid and preview dialog
+  (`RichTextContent` mention chips + avatar hover cards); the dashboard page
+  passes its already-loaded `listProjectCollaborators` result into the
+  section (same pattern as the Kanban section), so no extra collaborator
+  query is added per render.
+- Legacy plain-text descriptions stay readable and upgrade to HTML only on
+  re-save; stored `@username#discriminator` tokens round-trip unchanged.
+- Investigation note: the apparent e2e "mention option" flake was
+  Playwright `reuseExistingServer` silently reusing other worktrees'
+  `next start` servers on shared ports (stale v0.67.0 builds without card
+  mentions). The app code was healthy — exploratory probes and a candidate
+  layout-effect change in `rich-text-editor.tsx` / `mention-autocomplete.tsx`
+  were reverted; the diff is props wiring + tests only. A permanent guard
+  now starts the ND-380 spec by asserting the served landing page shows
+  this worktree's `package.json` version (skipped for `PLAYWRIGHT_BASE_URL`).
+- Validation: lint, `rls:check`, Vitest 197 files / 1483 tests (2 skipped),
+  coverage (93.47 / 84.36 / 95.3 / 93.77), production build, ND-380 spec
+  20/20 (2 tests × 10 repeats on a verified-free port), full Playwright suite
+  64 passed / 1 skipped, `release:check` (0.68.0 over 0.67.0),
+  `git diff --check` clean.
+- Copilot review: one finding (redundant collaborator query added by the
+  context section) — fixed by threading the page-level list into
+  `ProjectContextPanelSection`; the meeting-notes section's own
+  pre-existing query is untouched. Re-validated after the fix.
+
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 
 - User-directed workflow change, documented in `agent.md` (full rules) and `CLAUDE.md` (summary): agents move a card to In Progress when they start its task and never move cards to Done — Done is set by the reviewer/PR merger. Completion comments are optional and only for relevant handoff information (decisions, validation evidence, blockers): plain English, short, one topic. Task descriptions must stay concise — plain English covering the intent plus testable acceptance criteria, with no restated context, exhaustive scope inventories, or file-by-file walkthroughs.

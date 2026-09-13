@@ -8,6 +8,20 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.68.0 - 2026-09-13
+
+- Context card descriptions now support the same `@` mention flow as task
+  descriptions (ND-380): the Add card and Edit card editors complete member
+  mentions from the project actor registry (agent rows keep the same
+  disabled treatment), and the stored `@username#discriminator` tokens
+  round-trip unchanged.
+- Context card descriptions render mentions as the shared mention chip in
+  both read surfaces — the card grid and the preview dialog — with the same
+  avatar hover card used everywhere else.
+- Existing card content is unchanged: legacy plain-text descriptions keep
+  rendering as before and upgrade to rich HTML only when edited and saved,
+  and non-mention rich text behaves exactly as before.
+
 ## v0.67.0 - 2026-09-12
 
 - Added agent mentions to task comments (ND-383). Selecting an agent in the
