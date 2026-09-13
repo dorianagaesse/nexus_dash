@@ -2,8 +2,15 @@ import { describe, expect, test } from "vitest";
 
 import {
   AGENT_API_ENDPOINTS,
+  buildAgentAttentionExample,
   buildAgentOpenApiDocument,
 } from "@/lib/agent-onboarding";
+import {
+  AGENT_ATTENTION_ASSIGNMENT_STATES,
+  AGENT_ATTENTION_DEFAULT_LIMIT,
+  AGENT_ATTENTION_MAX_LIMIT,
+  AGENT_ATTENTION_ORDERS,
+} from "@/lib/agent-attention";
 import { MAX_BULK_TASK_OPERATIONS } from "@/lib/task-bulk";
 import { TASK_STATUSES } from "@/lib/task-status";
 
@@ -276,5 +283,190 @@ describe("agent-onboarding contract", () => {
       minimum: 1,
     });
     expect(linkedTaskSchema.properties.status.enum).toEqual(TASK_STATUSES);
+  });
+
+  test("documents the self-scoped attention endpoints", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+
+    expect(
+      AGENT_API_ENDPOINTS.filter((endpoint) => endpoint.tag === "Attention").map(
+        (endpoint) => `${endpoint.method} ${endpoint.path}`
+      )
+    ).toEqual([
+      "GET /api/projects/{projectId}/agent-attention/mentions",
+      "GET /api/projects/{projectId}/agent-attention/assignments",
+    ]);
+    expect(
+      AGENT_API_ENDPOINTS.filter((endpoint) => endpoint.tag === "Attention").every(
+        (endpoint) => endpoint.requiredScopes.join(",") === "attention:read"
+      )
+    ).toBe(true);
+
+    const mentionsPath =
+      document.paths["/api/projects/{projectId}/agent-attention/mentions"].get;
+    const assignmentsPath =
+      document.paths["/api/projects/{projectId}/agent-attention/assignments"].get;
+
+    const parameterNames = (path: { parameters: Array<{ name?: string }> }) =>
+      path.parameters
+        .map((parameter) => parameter.name)
+        .filter((name): name is string => Boolean(name));
+    expect(mentionsPath.parameters[0]).toEqual({
+      $ref: "#/components/parameters/ProjectId",
+    });
+    expect(parameterNames(mentionsPath)).toEqual([
+      "eventType",
+      "artifactType",
+      "since",
+      "until",
+      "limit",
+      "order",
+      "cursor",
+    ]);
+    expect(parameterNames(assignmentsPath)).toEqual([
+      "eventType",
+      "artifactType",
+      "state",
+      "since",
+      "until",
+      "limit",
+      "order",
+      "cursor",
+    ]);
+
+    const limitParameter = mentionsPath.parameters.find(
+      (parameter: { name?: string }) => parameter.name === "limit"
+    ) as unknown as {
+      schema: { minimum: number; maximum: number; default: number };
+    };
+    expect(limitParameter.schema).toMatchObject({
+      minimum: 1,
+      maximum: AGENT_ATTENTION_MAX_LIMIT,
+      default: AGENT_ATTENTION_DEFAULT_LIMIT,
+    });
+    const orderParameter = mentionsPath.parameters.find(
+      (parameter: { name?: string }) => parameter.name === "order"
+    ) as unknown as { schema: { enum: string[] } };
+    expect(orderParameter.schema.enum).toEqual([...AGENT_ATTENTION_ORDERS]);
+
+    expect(
+      document.paths["/api/projects/{projectId}/agent-attention/mentions"].get.responses[200]
+        .content["application/json"].schema.$ref
+    ).toBe("#/components/schemas/AgentAttentionMentionListResponse");
+    expect(
+      document.paths["/api/projects/{projectId}/agent-attention/assignments"].get.responses[200]
+        .content["application/json"].schema.$ref
+    ).toBe("#/components/schemas/AgentAttentionAssignmentListResponse");
+    expect(
+      document.paths["/api/projects/{projectId}/agent-attention/mentions"].get.responses[200]
+        .content["application/json"].examples.commentMention.value.items[0].eventType
+    ).toBe("mention");
+    expect(
+      Object.keys(
+        document.paths["/api/projects/{projectId}/agent-attention/assignments"].get.responses[200]
+          .content["application/json"].examples
+      )
+    ).toEqual(["taskAssignment", "meetingTodoAssignment"]);
+  });
+
+  test("publishes the attention item and envelope schemas", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+    const schemas = document.components.schemas;
+
+    expect(schemas.AgentAttentionMentionListResponse.required).toEqual([
+      "projectId",
+      "filters",
+      "items",
+      "nextCursor",
+    ]);
+    expect(
+      schemas.AgentAttentionMentionListResponse.properties.items.items.$ref
+    ).toBe("#/components/schemas/AgentAttentionMentionItem");
+    expect(
+      schemas.AgentAttentionAssignmentListResponse.properties.items.items.$ref
+    ).toBe("#/components/schemas/AgentAttentionAssignmentItem");
+    expect(
+      schemas.AgentAttentionMentionListResponse.properties.filters.$ref
+    ).toBe("#/components/schemas/AgentAttentionFilterEnvelope");
+
+    const filterEnvelope = schemas.AgentAttentionFilterEnvelope;
+    expect(filterEnvelope.required).toEqual([
+      "eventType",
+      "artifactType",
+      "state",
+      "since",
+      "until",
+      "limit",
+      "order",
+      "cursor",
+    ]);
+    expect(filterEnvelope.properties.order.enum).toEqual([
+      ...AGENT_ATTENTION_ORDERS,
+    ]);
+    expect(filterEnvelope.properties.limit.maximum).toBe(AGENT_ATTENTION_MAX_LIMIT);
+
+    expect(schemas.AgentAttentionMentionItem.required).toEqual([
+      "id",
+      "eventType",
+      "projectId",
+      "occurredAt",
+      "artifact",
+      "summary",
+      "actor",
+      "currentState",
+    ]);
+    expect(schemas.AgentAttentionMentionItem.properties.eventType.enum).toEqual([
+      "mention",
+    ]);
+    expect(
+      schemas.AgentAttentionMentionItem.properties.artifact.$ref
+    ).toBe("#/components/schemas/AgentAttentionMentionArtifact");
+    expect(
+      schemas.AgentAttentionMentionItem.properties.actor.$ref
+    ).toBe("#/components/schemas/AgentAttentionActor");
+
+    const assignmentItem = schemas.AgentAttentionAssignmentItem;
+    expect(assignmentItem.properties.eventType.enum).toEqual(["assignment"]);
+    expect(
+      assignmentItem.properties.artifact.oneOf.map(
+        (entry: { $ref: string }) => entry.$ref
+      )
+    ).toEqual([
+      "#/components/schemas/AgentAttentionTaskArtifact",
+      "#/components/schemas/AgentAttentionMeetingTodoArtifact",
+    ]);
+    expect(
+      assignmentItem.properties.currentState.$ref
+    ).toBe("#/components/schemas/AgentAttentionAssignmentCurrentState");
+    expect(
+      schemas.AgentAttentionAssignmentCurrentState.properties.assignmentState.enum
+    ).toEqual([...AGENT_ATTENTION_ASSIGNMENT_STATES]);
+    expect(
+      schemas.AgentAttentionAssignmentCurrentState.properties.status.enum
+    ).toEqual([...TASK_STATUSES, "open", "completed"]);
+
+    expect(schemas.AgentAttentionActor.required).toEqual([
+      "kind",
+      "id",
+      "displayName",
+      "usernameTag",
+    ]);
+    expect(schemas.AgentAttentionActor.properties.kind.enum).toEqual([
+      "human",
+      "agent",
+    ]);
+  });
+
+  test("attention example covers incremental polling, source references, and revocation", () => {
+    const example = buildAgentAttentionExample();
+
+    expect(example).toContain("/agent-attention/mentions?order=asc&limit=100");
+    expect(example).toContain("since=$LAST_SEEN_OCCURRED_AT");
+    expect(example).toContain("cursor=$NEXT_CURSOR");
+    expect(example).toContain("order it was issued for");
+    expect(example).toContain("/agent-attention/assignments?state=active");
+    expect(example).toContain("currentState");
+    expect(example).toContain("revoked, expired, or rotated away");
+    expect(example).not.toContain("nda_");
   });
 });

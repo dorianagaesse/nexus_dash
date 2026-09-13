@@ -1,4 +1,11 @@
 import { AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
+import {
+  AGENT_ATTENTION_ASSIGNMENT_STATES,
+  AGENT_ATTENTION_DEFAULT_LIMIT,
+  AGENT_ATTENTION_EVENT_TYPES,
+  AGENT_ATTENTION_MAX_LIMIT,
+  AGENT_ATTENTION_ORDERS,
+} from "@/lib/agent-attention";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
 import { EPIC_STATUSES } from "@/lib/epic";
 import { ROADMAP_STATUSES } from "@/lib/roadmap-milestone";
@@ -21,7 +28,8 @@ type AgentApiTag =
   | "Roadmap"
   | "Tasks"
   | "Meetings"
-  | "Context";
+  | "Context"
+  | "Attention";
 type AgentHttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 type AgentRequestContentType = "application/json" | "multipart/form-data";
 
@@ -542,6 +550,40 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requiredScopes: ["context:read"],
     notes: ["Use the downloadUrl returned in context-card attachment metadata."],
   },
+  {
+    tag: "Attention",
+    method: "GET",
+    path: "/api/projects/{projectId}/agent-attention/mentions",
+    title: "List your agent mention events",
+    description:
+      "List task-comment mentions of the calling agent credential, newest first by default.",
+    requiredScopes: ["attention:read"],
+    notes: [
+      "Only the calling credential's own mentions are ever returned; no credential parameter is accepted.",
+      "Each item id (mention:<rowId>) is stable for dedup across pages and repeated since windows.",
+      `Filters: artifactType=task_comment (only), since/until on occurrence time, limit 1-${AGENT_ATTENTION_MAX_LIMIT} (default ${AGENT_ATTENTION_DEFAULT_LIMIT}), order asc|desc, and an opaque cursor.`,
+      "Cursors must be re-submitted with the same order value; invalid or mismatched cursors return agent-attention-invalid-cursor.",
+      "Mentions always carry occurredAt; currentState mirrors the source task's live status and archivedAt.",
+      "Invalid filter values return agent-attention-invalid-filter.",
+    ],
+  },
+  {
+    tag: "Attention",
+    method: "GET",
+    path: "/api/projects/{projectId}/agent-attention/assignments",
+    title: "List your agent assignments",
+    description:
+      "List tasks and meeting to-dos assigned to the calling agent credential, newest first by default.",
+    requiredScopes: ["attention:read"],
+    notes: [
+      "Only the calling credential's own assignments are ever returned; no credential parameter is accepted.",
+      "Stable item ids: assignment:task:<taskId> and assignment:meeting_todo:<actionId>.",
+      "state=active|completed filters by artifact completion (Done task / completed to-do); invalid values are rejected.",
+      "occurredAt is the assignment time; assignments stored before provenance tracking report null and sort as oldest.",
+      `Filters: artifactType=task|meeting_todo, since/until, limit 1-${AGENT_ATTENTION_MAX_LIMIT} (default ${AGENT_ATTENTION_DEFAULT_LIMIT}), order asc|desc, and an opaque cursor.`,
+      "Invalid filter values return agent-attention-invalid-filter; invalid or mismatched cursors return agent-attention-invalid-cursor.",
+    ],
+  },
 ] as const;
 
 export const AGENT_LIMITATIONS: readonly string[] = [
@@ -550,6 +592,7 @@ export const AGENT_LIMITATIONS: readonly string[] = [
   "attachmentLinks must be arrays of { name, url } objects. Plain string URL arrays are not the canonical v1 format.",
   "Epic status and progress are automatic. Agents should not try to set them directly.",
   "Roadmap delete scope is separate from roadmap read/write. Grant it only when the agent should remove phases or events.",
+  "Attention reads always resolve to the calling credential. There is no parameter for reading another agent credential's mentions or assignments.",
   "Change one task's status through POST /api/projects/{projectId}/tasks/{taskId}/status. Use POST /api/projects/{projectId}/tasks/reorder only for full-board ordering, and PATCH /api/projects/{projectId}/tasks/{taskId} never changes status.",
   `Bulk task operations are capped at ${MAX_BULK_TASK_OPERATIONS} per request. Failures are reported per operation and do not roll back earlier operations. Bulk v1 does not include delete.`,
   "Rich HTML is sanitized. Inline <img> content should not be treated as a supported image-delivery path; use attachments instead.",
@@ -874,6 +917,46 @@ export function buildAgentSmokeTestExample(): string {
   ].join("\n");
 }
 
+export function buildAgentAttentionExample(): string {
+  return [
+    "# Exchange the API key for a bearer token (reuse it for every call below)",
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/auth/agent/token" \\',
+    '  -H "Authorization: ApiKey $NEXUSDASH_API_KEY"',
+    "",
+    "# 1. Baseline: list your own mention events, oldest first",
+    'curl "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/agent-attention/mentions?order=asc&limit=100" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
+    "",
+    "# 2. Poll incrementally: pass the newest occurredAt you have already seen",
+    "#    as since=..., keep order=asc, and keep paging with nextCursor until",
+    "#    it is null. Replay a cursor with the order it was issued for -",
+    "#    changing order answers agent-attention-invalid-cursor.",
+    'curl "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/agent-attention/mentions?since=$LAST_SEEN_OCCURRED_AT&order=asc&limit=100" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
+    'curl "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/agent-attention/mentions?since=$LAST_SEEN_OCCURRED_AT&order=asc&limit=100&cursor=$NEXT_CURSOR" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
+    "",
+    "# 3. Deduplicate by item id across pages and overlapping since windows",
+    "#    (mention:<rowId>, assignment:task:<taskId>, assignment:meeting_todo:<id>).",
+    "",
+    "# 4. Read your current assignments, optionally only the active ones",
+    'curl "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/agent-attention/assignments?state=active&order=asc" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
+    "",
+    "# 5. Follow the source reference before acting on an item:",
+    "#    - artifact.type=task_comment -> GET .../tasks/$ARTIFACT_TASK_ID/comments",
+    "#    - artifact.type=task         -> GET .../tasks/$ARTIFACT_TASK_ID",
+    "#    - artifact.type=meeting_todo -> GET .../meeting-notes and match $ARTIFACT_ID",
+    "#    Check currentState first (status, archivedAt, assignmentState): an old",
+    "#    mention can point at an archived task, and a completed assignment",
+    "#    no longer needs work.",
+    "",
+    "# 6. On 401, exchange the API key again and retry once. If the exchange",
+    "#    itself fails, the credential was revoked, expired, or rotated away:",
+    "#    stop polling and ask the project owner for a new key.",
+  ].join("\n");
+}
+
 function buildEndpointDescription(endpoint: AgentApiEndpointDefinition): string {
   if (!endpoint.notes || endpoint.notes.length === 0) {
     return endpoint.description;
@@ -1018,6 +1101,11 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         name: "Context",
         description:
           "Create, read, update, delete, and attach files to project context cards.",
+      },
+      {
+        name: "Attention",
+        description:
+          "Read the calling agent credential's own mention events and current assignments.",
       },
     ],
     components: {
@@ -2319,6 +2407,275 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           required: ["storageKey"],
           properties: {
             storageKey: { type: "string" },
+          },
+        },
+        AgentAttentionActor: {
+          type: "object",
+          required: ["kind", "id", "displayName", "usernameTag"],
+          properties: {
+            kind: { type: "string", enum: ["human", "agent"] },
+            id: { type: "string" },
+            displayName: {
+              type: "string",
+              description:
+                "Human display name, or the credential label with an (agent) suffix.",
+            },
+            usernameTag: {
+              type: ["string", "null"],
+              description: "Discriminated username for humans; null for agents.",
+            },
+          },
+        },
+        AgentAttentionMentionArtifact: {
+          type: "object",
+          required: ["type", "id", "taskId", "taskTitle"],
+          properties: {
+            type: { type: "string", enum: ["task_comment"] },
+            id: { type: "string", description: "Source task comment id." },
+            taskId: { type: "string" },
+            taskTitle: { type: "string" },
+          },
+        },
+        AgentAttentionTaskArtifact: {
+          type: "object",
+          required: ["type", "id", "title"],
+          properties: {
+            type: { type: "string", enum: ["task"] },
+            id: { type: "string" },
+            title: { type: "string" },
+          },
+        },
+        AgentAttentionMeetingTodoArtifact: {
+          type: "object",
+          required: ["type", "id", "content", "meetingNoteId", "meetingNoteTitle"],
+          properties: {
+            type: { type: "string", enum: ["meeting_todo"] },
+            id: { type: "string", description: "Meeting note action (to-do) id." },
+            content: { type: "string" },
+            meetingNoteId: { type: "string" },
+            meetingNoteTitle: { type: "string" },
+          },
+        },
+        AgentAttentionMentionCurrentState: {
+          type: "object",
+          required: ["status", "archivedAt"],
+          properties: {
+            status: {
+              type: "string",
+              enum: TASK_STATUSES,
+              description: "Live status of the source task.",
+            },
+            archivedAt: {
+              type: ["string", "null"],
+              format: "date-time",
+              description:
+                "Set when the source task is archived; archived mentions no longer need attention.",
+            },
+          },
+        },
+        AgentAttentionAssignmentCurrentState: {
+          type: "object",
+          required: ["assignmentState", "status", "archivedAt"],
+          properties: {
+            assignmentState: {
+              type: "string",
+              enum: AGENT_ATTENTION_ASSIGNMENT_STATES,
+              description:
+                "completed for Done tasks and completed to-dos; active otherwise.",
+            },
+            status: {
+              type: "string",
+              enum: [...TASK_STATUSES, "open", "completed"],
+              description:
+                "Live task status, or open/completed for meeting to-dos.",
+            },
+            archivedAt: {
+              type: ["string", "null"],
+              format: "date-time",
+              description:
+                "Set when the source task is archived; always null for meeting to-dos.",
+            },
+          },
+        },
+        AgentAttentionFilterEnvelope: {
+          type: "object",
+          required: [
+            "eventType",
+            "artifactType",
+            "state",
+            "since",
+            "until",
+            "limit",
+            "order",
+            "cursor",
+          ],
+          properties: {
+            eventType: {
+              oneOf: [
+                { type: "string", enum: AGENT_ATTENTION_EVENT_TYPES },
+                { type: "null" },
+              ],
+              description: "Echo of the applied event-type filter.",
+            },
+            artifactType: {
+              oneOf: [
+                {
+                  type: "string",
+                  enum: ["task_comment", "task", "meeting_todo"],
+                },
+                { type: "null" },
+              ],
+              description: "Echo of the applied artifact-type filter.",
+            },
+            state: {
+              oneOf: [
+                { type: "string", enum: AGENT_ATTENTION_ASSIGNMENT_STATES },
+                { type: "null" },
+              ],
+              description:
+                "Echo of the applied assignment-state filter; always null on the mentions endpoint.",
+            },
+            since: {
+              type: ["string", "null"],
+              format: "date-time",
+              description: "Echo of the applied lower occurrence-time bound.",
+            },
+            until: {
+              type: ["string", "null"],
+              format: "date-time",
+              description: "Echo of the applied upper occurrence-time bound.",
+            },
+            limit: {
+              type: "integer",
+              minimum: 1,
+              maximum: AGENT_ATTENTION_MAX_LIMIT,
+            },
+            order: { type: "string", enum: AGENT_ATTENTION_ORDERS },
+            cursor: {
+              type: ["string", "null"],
+              description: "Echo of the submitted cursor.",
+            },
+          },
+        },
+        AgentAttentionMentionItem: {
+          type: "object",
+          required: [
+            "id",
+            "eventType",
+            "projectId",
+            "occurredAt",
+            "artifact",
+            "summary",
+            "actor",
+            "currentState",
+          ],
+          properties: {
+            id: {
+              type: "string",
+              description: "Stable dedup key: mention:<rowId>.",
+            },
+            eventType: { type: "string", enum: ["mention"] },
+            projectId: { type: "string" },
+            occurredAt: {
+              type: "string",
+              format: "date-time",
+              description: "Comment creation time of the mention.",
+            },
+            artifact: { $ref: "#/components/schemas/AgentAttentionMentionArtifact" },
+            summary: { type: "string" },
+            actor: { $ref: "#/components/schemas/AgentAttentionActor" },
+            currentState: {
+              $ref: "#/components/schemas/AgentAttentionMentionCurrentState",
+            },
+          },
+        },
+        AgentAttentionAssignmentItem: {
+          type: "object",
+          required: [
+            "id",
+            "eventType",
+            "projectId",
+            "occurredAt",
+            "artifact",
+            "summary",
+            "actor",
+            "currentState",
+          ],
+          properties: {
+            id: {
+              type: "string",
+              description:
+                "Stable dedup key: assignment:task:<taskId> or assignment:meeting_todo:<actionId>.",
+            },
+            eventType: { type: "string", enum: ["assignment"] },
+            projectId: { type: "string" },
+            occurredAt: {
+              type: ["string", "null"],
+              format: "date-time",
+              description:
+                "Assignment time; null for assignments stored before provenance tracking, which sort as oldest.",
+            },
+            artifact: {
+              oneOf: [
+                { $ref: "#/components/schemas/AgentAttentionTaskArtifact" },
+                {
+                  $ref: "#/components/schemas/AgentAttentionMeetingTodoArtifact",
+                },
+              ],
+            },
+            summary: { type: "string" },
+            actor: {
+              oneOf: [
+                { $ref: "#/components/schemas/AgentAttentionActor" },
+                { type: "null" },
+              ],
+              description: "Acting assigner; null when provenance is unknown.",
+            },
+            currentState: {
+              $ref: "#/components/schemas/AgentAttentionAssignmentCurrentState",
+            },
+          },
+        },
+        AgentAttentionMentionListResponse: {
+          type: "object",
+          required: ["projectId", "filters", "items", "nextCursor"],
+          properties: {
+            projectId: { type: "string" },
+            filters: {
+              $ref: "#/components/schemas/AgentAttentionFilterEnvelope",
+            },
+            items: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/AgentAttentionMentionItem",
+              },
+            },
+            nextCursor: {
+              type: ["string", "null"],
+              description:
+                "Opaque cursor for the next page; null on the last page. Re-submit with the same order value.",
+            },
+          },
+        },
+        AgentAttentionAssignmentListResponse: {
+          type: "object",
+          required: ["projectId", "filters", "items", "nextCursor"],
+          properties: {
+            projectId: { type: "string" },
+            filters: {
+              $ref: "#/components/schemas/AgentAttentionFilterEnvelope",
+            },
+            items: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/AgentAttentionAssignmentItem",
+              },
+            },
+            nextCursor: {
+              type: ["string", "null"],
+              description:
+                "Opaque cursor for the next page; null on the last page. Re-submit with the same order value.",
+            },
           },
         },
       },
@@ -3786,6 +4143,324 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
             307: {
               description: "Temporary redirect to a signed storage URL",
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/agent-attention/mentions": {
+        get: {
+          ...buildOperationMetadata(
+            "GET",
+            "/api/projects/{projectId}/agent-attention/mentions"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            {
+              name: "eventType",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["mention"] },
+              description:
+                "Only mention events are exposed on this endpoint; any other value returns agent-attention-invalid-filter.",
+            },
+            {
+              name: "artifactType",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["task_comment"] },
+              description: "Mentions always originate from task comments.",
+            },
+            {
+              name: "since",
+              in: "query",
+              required: false,
+              schema: { type: "string", format: "date-time" },
+              description:
+                "Only return events whose occurredAt is at or after this timestamp. Use the last processed occurredAt for incremental polling.",
+            },
+            {
+              name: "until",
+              in: "query",
+              required: false,
+              schema: { type: "string", format: "date-time" },
+              description: "Only return events whose occurredAt is at or before this timestamp.",
+            },
+            {
+              name: "limit",
+              in: "query",
+              required: false,
+              schema: {
+                type: "integer",
+                minimum: 1,
+                maximum: AGENT_ATTENTION_MAX_LIMIT,
+                default: AGENT_ATTENTION_DEFAULT_LIMIT,
+              },
+              description: "Page size. Values outside the allowed range return agent-attention-invalid-filter.",
+            },
+            {
+              name: "order",
+              in: "query",
+              required: false,
+              schema: {
+                type: "string",
+                enum: AGENT_ATTENTION_ORDERS,
+                default: "desc",
+              },
+              description: "Newest-first (desc) by default; use asc for incremental polling.",
+            },
+            {
+              name: "cursor",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description:
+                "Opaque cursor from a previous page's nextCursor. Must be re-submitted with the same order value; invalid or mismatched cursors return agent-attention-invalid-cursor.",
+            },
+          ],
+          responses: {
+            200: {
+              description: "Mention event page returned",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/AgentAttentionMentionListResponse",
+                  },
+                  examples: {
+                    commentMention: {
+                      summary: "A task comment that tagged the calling credential",
+                      value: {
+                        projectId: AGENT_PROJECT_ID_PLACEHOLDER,
+                        filters: {
+                          eventType: null,
+                          artifactType: null,
+                          state: null,
+                          since: null,
+                          until: null,
+                          limit: AGENT_ATTENTION_DEFAULT_LIMIT,
+                          order: "desc",
+                          cursor: null,
+                        },
+                        items: [
+                          {
+                            id: "mention:cm0mention000001",
+                            eventType: "mention",
+                            projectId: AGENT_PROJECT_ID_PLACEHOLDER,
+                            occurredAt: "2026-09-12T10:00:00.000Z",
+                            artifact: {
+                              type: "task_comment",
+                              id: "cm0comment000001",
+                              taskId: "cm0task000001",
+                              taskTitle: "Prepare release checklist",
+                            },
+                            summary:
+                              'owner mentioned Release bot (agent) in a comment on "Prepare release checklist"',
+                            actor: {
+                              kind: "human",
+                              id: "user_123",
+                              displayName: "owner",
+                              usernameTag: "owner#0007",
+                            },
+                            currentState: {
+                              status: "In Progress",
+                              archivedAt: null,
+                            },
+                          },
+                        ],
+                        nextCursor: null,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/agent-attention/assignments": {
+        get: {
+          ...buildOperationMetadata(
+            "GET",
+            "/api/projects/{projectId}/agent-attention/assignments"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            {
+              name: "eventType",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["assignment"] },
+              description:
+                "Only assignment events are exposed on this endpoint; any other value returns agent-attention-invalid-filter.",
+            },
+            {
+              name: "artifactType",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["task", "meeting_todo"] },
+              description: "Restrict to task assignments or meeting to-do assignments.",
+            },
+            {
+              name: "state",
+              in: "query",
+              required: false,
+              schema: {
+                type: "string",
+                enum: AGENT_ATTENTION_ASSIGNMENT_STATES,
+              },
+              description:
+                "active for open work (non-Done tasks, open to-dos), completed for Done tasks and completed to-dos.",
+            },
+            {
+              name: "since",
+              in: "query",
+              required: false,
+              schema: { type: "string", format: "date-time" },
+              description:
+                "Only return assignments whose occurredAt is at or after this timestamp. Assignments with a null occurredAt are only included when no since/until bound is set and sort as oldest.",
+            },
+            {
+              name: "until",
+              in: "query",
+              required: false,
+              schema: { type: "string", format: "date-time" },
+              description: "Only return assignments whose occurredAt is at or before this timestamp.",
+            },
+            {
+              name: "limit",
+              in: "query",
+              required: false,
+              schema: {
+                type: "integer",
+                minimum: 1,
+                maximum: AGENT_ATTENTION_MAX_LIMIT,
+                default: AGENT_ATTENTION_DEFAULT_LIMIT,
+              },
+              description: "Per-source page size before the two assignment sources are merged. Values outside the allowed range return agent-attention-invalid-filter.",
+            },
+            {
+              name: "order",
+              in: "query",
+              required: false,
+              schema: {
+                type: "string",
+                enum: AGENT_ATTENTION_ORDERS,
+                default: "desc",
+              },
+              description: "Newest-first (desc) by default; use asc for incremental polling.",
+            },
+            {
+              name: "cursor",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description:
+                "Opaque cursor from a previous page's nextCursor. Must be re-submitted with the same order value; invalid or mismatched cursors return agent-attention-invalid-cursor.",
+            },
+          ],
+          responses: {
+            200: {
+              description: "Assignment page returned",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/AgentAttentionAssignmentListResponse",
+                  },
+                  examples: {
+                    taskAssignment: {
+                      summary: "A task assigned to the calling credential",
+                      value: {
+                        projectId: AGENT_PROJECT_ID_PLACEHOLDER,
+                        filters: {
+                          eventType: "assignment",
+                          artifactType: "task",
+                          state: "active",
+                          since: null,
+                          until: null,
+                          limit: AGENT_ATTENTION_DEFAULT_LIMIT,
+                          order: "desc",
+                          cursor: null,
+                        },
+                        items: [
+                          {
+                            id: "assignment:task:cm0task000002",
+                            eventType: "assignment",
+                            projectId: AGENT_PROJECT_ID_PLACEHOLDER,
+                            occurredAt: "2026-09-12T11:30:00.000Z",
+                            artifact: {
+                              type: "task",
+                              id: "cm0task000002",
+                              title: "Draft launch notes",
+                            },
+                            summary:
+                              'owner assigned Release bot (agent) to task "Draft launch notes"',
+                            actor: {
+                              kind: "human",
+                              id: "user_123",
+                              displayName: "owner",
+                              usernameTag: "owner#0007",
+                            },
+                            currentState: {
+                              assignmentState: "active",
+                              status: "Backlog",
+                              archivedAt: null,
+                            },
+                          },
+                        ],
+                        nextCursor: null,
+                      },
+                    },
+                    meetingTodoAssignment: {
+                      summary: "A completed meeting to-do assigned to the calling credential",
+                      value: {
+                        projectId: AGENT_PROJECT_ID_PLACEHOLDER,
+                        filters: {
+                          eventType: "assignment",
+                          artifactType: "meeting_todo",
+                          state: "completed",
+                          since: null,
+                          until: null,
+                          limit: AGENT_ATTENTION_DEFAULT_LIMIT,
+                          order: "desc",
+                          cursor: null,
+                        },
+                        items: [
+                          {
+                            id: "assignment:meeting_todo:cm0todo000001",
+                            eventType: "assignment",
+                            projectId: AGENT_PROJECT_ID_PLACEHOLDER,
+                            occurredAt: "2026-09-11T09:15:00.000Z",
+                            artifact: {
+                              type: "meeting_todo",
+                              id: "cm0todo000001",
+                              content: "Send the recap to stakeholders",
+                              meetingNoteId: "cm0note000001",
+                              meetingNoteTitle: "Weekly sync",
+                            },
+                            summary:
+                              'owner assigned Release bot (agent) to the meeting to-do "Send the recap to stakeholders" in "Weekly sync"',
+                            actor: {
+                              kind: "human",
+                              id: "user_123",
+                              displayName: "owner",
+                              usernameTag: "owner#0007",
+                            },
+                            currentState: {
+                              assignmentState: "completed",
+                              status: "completed",
+                              archivedAt: null,
+                            },
+                          },
+                        ],
+                        nextCursor: null,
+                      },
+                    },
+                  },
+                },
+              },
             },
             ...commonErrorResponses,
           },
