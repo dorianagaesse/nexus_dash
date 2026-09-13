@@ -360,7 +360,13 @@ async function expectBackspaceAfterBlockToRemoveStructuredBlock(
   });
 }
 
-function EditorHarness({ initialValue }: { initialValue: string }) {
+function EditorHarness({
+  initialValue,
+  agentMentionsEnabled,
+}: {
+  initialValue: string;
+  agentMentionsEnabled?: boolean;
+}) {
   const [value, setValue] = useState(initialValue);
 
   return React.createElement(
@@ -370,6 +376,7 @@ function EditorHarness({ initialValue }: { initialValue: string }) {
       id: "test-editor",
       value,
       onChange: setValue,
+      agentMentionsEnabled,
     }),
     React.createElement("output", { "data-testid": "value" }, value)
   );
@@ -484,6 +491,83 @@ describe("rich-text-editor", () => {
     expect(mentions?.[1]?.textContent).toBe("@bob");
     expect(mentions?.[1]?.dataset.mentionRaw).toBe("@bob#5678");
     expect(persistedValue).toBe("First @alice#1234<div>Second @bob#5678</div>");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("highlights agent tokens inside the editor without persisting editor-only spans", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>@{Release bot} ping</p>",
+        agentMentionsEnabled: true,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mention = editor?.querySelector<HTMLElement>("[data-editor-mention='true']");
+    const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+    expect(mention?.textContent).toBe("@Release bot");
+    expect(mention?.dataset.mentionRaw).toBe("@{Release bot}");
+    expect(mention?.dataset.agentMentionLabel).toBe("Release bot");
+    expect(mention?.getAttribute("contenteditable")).toBe("false");
+    expect(persistedValue).toBe("<p>@{Release bot} ping</p>");
+    expect(persistedValue).not.toContain("data-editor-mention");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("keeps agent tokens literal in editors without agent mention support", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>@{Release bot} ping</p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+
+    expect(editor?.querySelector("[data-editor-mention='true']")).toBeNull();
+    expect(editor?.textContent).toBe("@{Release bot} ping");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("prefers a single agent chip when a human-style mention overlaps its label", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>@{R @alice#1234} ping</p>",
+        agentMentionsEnabled: true,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mentions = Array.from(
+      editor?.querySelectorAll<HTMLElement>("[data-editor-mention='true']") ?? []
+    );
+
+    expect(mentions).toHaveLength(1);
+    expect(mentions[0]?.textContent).toBe("@R @alice#1234");
+    expect(mentions[0]?.dataset.mentionRaw).toBe("@{R @alice#1234}");
+    expect(mentions[0]?.dataset.agentMentionLabel).toBe("R @alice#1234");
+    expect(mentions[0]?.dataset.mentionUsername).toBeUndefined();
+    expect(container.querySelector("output[data-testid='value']")?.textContent).toBe(
+      "<p>@{R @alice#1234} ping</p>"
+    );
 
     await act(async () => {
       root.unmount();

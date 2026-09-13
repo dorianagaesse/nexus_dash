@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.71.0 - 2026-09-13
+## v0.73.0 - 2026-09-13
 
 - Published the agent attention API in the versioned OpenAPI document
   (ND-386): both attention routes now document their scopes, filters,
@@ -18,9 +18,10 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - The hosted agent guide gains an "Attention discovery" section explaining
   how to poll incrementally (since + ascending order + cursor with matching
   order), deduplicate by stable item id, follow each item's source
-  reference, re-check current state before acting, and recover from
-  revocation (retry the token exchange once; stop and ask the owner when the
-  exchange fails).
+  reference when the credential also carries the `task:read` scope
+  (attention-only credentials get 403 on those source reads), re-check
+  current state before acting, and recover from revocation (retry the token
+  exchange once; stop and ask the owner when the exchange fails).
 - Credential setup gains an "Attention read only" preset that grants exactly
   the `attention:read` scope, so poll-only agents no longer need any board
   read or write access.
@@ -28,6 +29,47 @@ SHA, deployment URL, and workflow run belong in release evidence.
   response mappers) and every published example against the OpenAPI schemas,
   and assert the examples stay free of real credentials, secrets, and tenant
   data.
+## v0.72.1 - 2026-09-13
+
+- Fixed stale Epic task counts, status, linked-task summaries, and progress by
+  reconciling a fresh server-derived Epic snapshot after successful local task
+  creation, linking, unlinking, reassignment, movement, archive, and deletion
+  mutations (ND-156).
+- Kept the Epic panel and Kanban Epic options synchronized from the same
+  targeted snapshot without requiring an Epic edit or full dashboard reload.
+
+## v0.72.0 - 2026-09-13
+
+- Task comments now use the shared rich-text composer (ND-398): headings,
+  emphasis, lists, code blocks, token blocks, and the `@` mention picker work
+  in the comment box, and saved comments render through the shared
+  rich-text renderer.
+- Comment content is sanitized and normalized server-side before storage.
+  Legacy plain-text comments stay readable, unsafe markup is never rendered,
+  and bare text typed above or below blocks is wrapped in paragraphs — fixing
+  mixed content storage for comments, meeting notes, and context cards.
+
+## v0.71.0 - 2026-09-13
+
+- Epics are archived automatically once every linked task is done or archived
+  and the last completion is older than the same seven-day grace period used
+  for completed tasks (ND-458). Epics store their own `archivedAt` timestamp,
+  added in the companion migration.
+- The epic panel offers manual archive and restore for editors and owners, and
+  a restored epic stays active until it completes again instead of being
+  re-archived by the next sweep.
+- Completed epics no longer pile up in the default view: archived epics are
+  hidden from the epic panel, task epic pickers, and kanban epic filters by
+  default. The epic panel gains the same search bar and Active/Archived view
+  switch as the Meeting Notes area, and a task still linked to an archived
+  epic keeps showing that link, marked as archived, in its detail view.
+- Archived epics render an Archived badge and keep their derived status and
+  progress accurate. Linking a new open task to an archived epic, or reopening
+  a linked task, never silently restores the epic.
+- The agent API documents epic archive (`POST .../epics/{epicId}/archive`) and
+  restore (`DELETE .../epics/{epicId}/archive`), epic records now include
+  `archivedAt`, and the epic list accepts an `includeArchived` filter that
+  defaults to hiding archived epics.
 
 ## v0.70.0 - 2026-09-13
 
@@ -77,7 +119,6 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Existing card content is unchanged: legacy plain-text descriptions keep
   rendering as before and upgrade to rich HTML only when edited and saved,
   and non-mention rich text behaves exactly as before.
-
 ## v0.67.0 - 2026-09-12
 
 - Added agent mentions to task comments (ND-383). Selecting an agent in the

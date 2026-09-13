@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Archive,
+  ArchiveRestore,
   ChevronDown,
   ChevronUp,
   Flag,
@@ -26,32 +28,25 @@ import {
   EmojiInputField,
   EmojiTextareaField,
 } from "@/components/ui/emoji-field";
-import { getEpicColorFromName } from "@/lib/epic";
+import {
+  getEpicColorFromName,
+  type EpicTaskSummary,
+  type ProjectEpicSnapshot,
+} from "@/lib/epic";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
+import {
+  discardLatestProjectEpicSnapshot,
+  getLatestProjectEpicSnapshot,
+  PROJECT_EPICS_RECONCILED_EVENT,
+  type ProjectEpicsReconciledDetail,
+} from "@/lib/project-epic-client";
+import { ListSearchInput } from "@/components/ui/list-search-input";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { requestTaskOpen } from "@/lib/task-open-client";
 import { formatTaskReference } from "@/lib/task-reference";
 import { cn } from "@/lib/utils";
 
-interface ProjectEpicPanelTask {
-  id: string;
-  referenceNumber: number;
-  title: string;
-  status: string;
-  archivedAt: string | null;
-}
-
-export interface ProjectEpicPanelEpic {
-  id: string;
-  name: string;
-  description: string;
-  status: "Ready" | "In progress" | "Completed";
-  progressPercent: number;
-  taskCount: number;
-  completedTaskCount: number;
-  linkedTasks: ProjectEpicPanelTask[];
-  createdAt: string;
-  updatedAt: string;
-}
+export type ProjectEpicPanelEpic = ProjectEpicSnapshot;
 
 interface ProjectEpicPanelProps {
   projectId: string;
@@ -59,6 +54,8 @@ interface ProjectEpicPanelProps {
   epics: ProjectEpicPanelEpic[];
   loadError?: string | null;
 }
+
+type EpicListView = "active" | "archived";
 
 function mapEpicMutationError(errorCode: string): string {
   switch (errorCode) {
@@ -76,6 +73,10 @@ function mapEpicMutationError(errorCode: string): string {
       return "Could not update epic. Please retry.";
     case "epic-delete-failed":
       return "Could not delete epic. Please retry.";
+    case "epic-archive-failed":
+      return "Could not archive epic. Please retry.";
+    case "epic-restore-failed":
+      return "Could not restore epic. Please retry.";
     default:
       return "Could not save epic changes. Please retry.";
   }
@@ -104,7 +105,7 @@ function EpicTaskChip({
   task,
   projectId,
 }: {
-  task: ProjectEpicPanelTask;
+  task: EpicTaskSummary;
   projectId: string;
 }) {
   const toneClass =
@@ -186,7 +187,10 @@ export function ProjectEpicPanel({
     defaultExpanded: true,
     logLabel: "ProjectEpicPanel",
   });
-  const [localEpics, setLocalEpics] = useState<ProjectEpicPanelEpic[]>(epics);
+  const initialEpicsRef = useRef(epics);
+  const [localEpics, setLocalEpics] = useState<ProjectEpicPanelEpic[]>(
+    () => getLatestProjectEpicSnapshot(projectId) ?? epics
+  );
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createDescription, setCreateDescription] = useState("");
@@ -201,18 +205,82 @@ export function ProjectEpicPanel({
     null
   );
   const [isDeleting, setIsDeleting] = useState(false);
+  const [listView, setListView] = useState<EpicListView>("active");
+  const [query, setQuery] = useState("");
+  const [isUpdatingArchive, setIsUpdatingArchive] = useState(false);
   const [expandedEpicIds, setExpandedEpicIds] = useState<Set<string>>(
     () => new Set()
   );
 
   useEffect(() => {
+    if (epics === initialEpicsRef.current) {
+      return;
+    }
+
+    initialEpicsRef.current = epics;
+    discardLatestProjectEpicSnapshot(projectId);
     setLocalEpics(epics);
-  }, [epics]);
+  }, [epics, projectId]);
+
+  useEffect(() => {
+    function handleProjectEpicsReconciled(event: Event) {
+      const detail = (event as CustomEvent<ProjectEpicsReconciledDetail>).detail;
+      if (detail?.projectId !== projectId) {
+        return;
+      }
+
+      setLocalEpics(detail.epics);
+    }
+
+    window.addEventListener(
+      PROJECT_EPICS_RECONCILED_EVENT,
+      handleProjectEpicsReconciled
+    );
+
+    return () => {
+      window.removeEventListener(
+        PROJECT_EPICS_RECONCILED_EVENT,
+        handleProjectEpicsReconciled
+      );
+    };
+  }, [projectId]);
 
   const editingEpic = useMemo(
     () => localEpics.find((epic) => epic.id === editingEpicId) ?? null,
     [editingEpicId, localEpics]
   );
+
+  const activeEpics = useMemo(
+    () => localEpics.filter((epic) => !epic.archivedAt),
+    [localEpics]
+  );
+
+  const archivedEpics = useMemo(
+    () => localEpics.filter((epic) => Boolean(epic.archivedAt)),
+    [localEpics]
+  );
+
+  const epicSearchTextById = useMemo(() => {
+    const searchTextById = new Map<string, string>();
+    for (const epic of localEpics) {
+      searchTextById.set(
+        epic.id,
+        `${epic.name} ${epic.description}`.toLocaleLowerCase()
+      );
+    }
+    return searchTextById;
+  }, [localEpics]);
+
+  const visibleSourceEpics = listView === "active" ? activeEpics : archivedEpics;
+
+  const filteredEpics = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    return visibleSourceEpics.filter(
+      (epic) =>
+        !normalizedQuery ||
+        (epicSearchTextById.get(epic.id) ?? "").includes(normalizedQuery)
+    );
+  }, [epicSearchTextById, query, visibleSourceEpics]);
 
   const pendingDeleteEpic = useMemo(
     () => localEpics.find((epic) => epic.id === pendingDeleteEpicId) ?? null,
@@ -428,6 +496,66 @@ export function ProjectEpicPanel({
     }
   };
 
+  const handleToggleEpicArchived = async (
+    epic: ProjectEpicPanelEpic,
+    archived: boolean
+  ) => {
+    if (isUpdatingArchive) {
+      return;
+    }
+
+    setIsUpdatingArchive(true);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/epics/${epic.id}/archive`,
+        {
+          method: archived ? "POST" : "DELETE",
+        }
+      );
+
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        epic?: ProjectEpicPanelEpic;
+      } | null;
+
+      if (!response.ok || !payload?.epic) {
+        throw new Error(
+          mapEpicMutationError(
+            payload?.error ?? (archived ? "epic-archive-failed" : "epic-restore-failed")
+          )
+        );
+      }
+
+      const updatedEpic = payload.epic;
+      setLocalEpics((previousEpics) =>
+        previousEpics.map((existingEpic) =>
+          existingEpic.id === updatedEpic.id ? updatedEpic : existingEpic
+        )
+      );
+      if (editingEpicId === updatedEpic.id) {
+        cancelEdit(true);
+      }
+      refreshProjectData();
+      pushToast({
+        variant: "success",
+        message: archived ? "Epic archived." : "Epic restored.",
+      });
+    } catch (error) {
+      pushToast({
+        variant: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : archived
+              ? "Could not archive epic."
+              : "Could not restore epic.",
+      });
+    } finally {
+      setIsUpdatingArchive(false);
+    }
+  };
+
   return (
     <Card
       className={PROJECT_SECTION_CARD_CLASS}
@@ -437,7 +565,8 @@ export function ProjectEpicPanel({
         Boolean(editingEpicId) ||
         isSavingEdit ||
         Boolean(pendingDeleteEpicId) ||
-        isDeleting
+        isDeleting ||
+        isUpdatingArchive
           ? "true"
           : undefined
       }
@@ -462,25 +591,27 @@ export function ProjectEpicPanel({
               </CardTitle>
             </div>
             <span className="rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
-              {localEpics.length} epic{localEpics.length === 1 ? "" : "s"}
+              {activeEpics.length} active
             </span>
           </button>
 
-          {canEdit ? (
-            <Button
-              type="button"
-              size="sm"
-              className="min-h-11 w-full sm:w-auto"
-              onClick={() => {
-                resetCreateDraft();
-                setIsExpanded(true);
-                setIsCreateOpen(true);
-              }}
-            >
-              <PlusSquare className="h-4 w-4" />
-              New epic
-            </Button>
-          ) : null}
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            {canEdit ? (
+              <Button
+                type="button"
+                size="sm"
+                className="min-h-11 w-full sm:w-auto"
+                onClick={() => {
+                  resetCreateDraft();
+                  setIsExpanded(true);
+                  setIsCreateOpen(true);
+                }}
+              >
+                <PlusSquare className="h-4 w-4" />
+                New epic
+              </Button>
+            ) : null}
+          </div>
         </div>
       </CardHeader>
 
@@ -491,6 +622,31 @@ export function ProjectEpicPanel({
               {loadError}
             </div>
           ) : null}
+
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <ListSearchInput
+              value={query}
+              onValueChange={setQuery}
+              placeholder="Search epics by name or description"
+              ariaLabel="Search epics"
+              clearAriaLabel="Clear epic search"
+            />
+            <SegmentedControl<EpicListView>
+              value={listView}
+              onValueChange={(nextView) => {
+                setListView(nextView);
+                cancelEdit();
+              }}
+              ariaLabel="Epic list view"
+              options={[
+                { value: "active", label: `Active (${activeEpics.length})` },
+                {
+                  value: "archived",
+                  label: `Archived (${archivedEpics.length})`,
+                },
+              ]}
+            />
+          </div>
 
           {isCreateOpen ? (
             <section className="space-y-3 rounded-2xl border border-border/70 bg-background/70 p-4">
@@ -564,18 +720,26 @@ export function ProjectEpicPanel({
             </section>
           ) : null}
 
-          {localEpics.length === 0 ? (
+          {filteredEpics.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-5 py-8 text-center">
               <p className="text-sm font-medium text-foreground">
-                No epics yet.
+                {query.trim() !== ""
+                  ? "No matching epics."
+                  : listView === "archived"
+                    ? "No archived epics."
+                    : "No active epics yet."}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Create one to group related work under a clear initiative.
+                {query.trim() !== ""
+                  ? "Try another search."
+                  : listView === "archived"
+                    ? "Completed epics will land here."
+                    : "Create one to group related work under a clear initiative."}
               </p>
             </div>
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
-              {localEpics.map((epic) => {
+              {filteredEpics.map((epic) => {
                 const color = getEpicColorFromName(epic.name);
                 const isEditing = editingEpicId === epic.id;
                 const isDetailsExpanded = expandedEpicIds.has(epic.id);
@@ -670,7 +834,7 @@ export function ProjectEpicPanel({
                       </div>
                     ) : (
                       <div className="space-y-4 p-4">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <h3
@@ -688,9 +852,17 @@ export function ProjectEpicPanel({
                                 </span>
                               </h3>
                               <EpicStatusBadge status={epic.status} />
+                              {epic.archivedAt ? (
+                                <Badge
+                                  variant="outline"
+                                  className="border-border/70 bg-muted/50 text-muted-foreground"
+                                >
+                                  Archived
+                                </Badge>
+                              ) : null}
                             </div>
                           </div>
-                          <div className="flex shrink-0 items-center gap-2">
+                          <div className="flex shrink-0 items-center justify-end gap-2">
                             <Button
                               type="button"
                               variant="ghost"
@@ -723,6 +895,30 @@ export function ProjectEpicPanel({
                                   aria-label={`Edit epic ${epic.name}`}
                                 >
                                   <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="min-h-11 min-w-11"
+                                  disabled={isUpdatingArchive}
+                                  onClick={() =>
+                                    void handleToggleEpicArchived(
+                                      epic,
+                                      !epic.archivedAt
+                                    )
+                                  }
+                                  aria-label={
+                                    epic.archivedAt
+                                      ? `Restore epic ${epic.name}`
+                                      : `Archive epic ${epic.name}`
+                                  }
+                                >
+                                  {epic.archivedAt ? (
+                                    <ArchiveRestore className="h-4 w-4" />
+                                  ) : (
+                                    <Archive className="h-4 w-4" />
+                                  )}
                                 </Button>
                                 <Button
                                   type="button"

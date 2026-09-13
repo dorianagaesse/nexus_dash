@@ -30,6 +30,7 @@ vi.mock("@/lib/hooks/use-project-section-expanded", () => ({
 }));
 
 import { ProjectEpicPanel } from "@/components/project-epic-panel";
+import { reconcileProjectEpicsAfterTaskMutation } from "@/lib/project-epic-client";
 import {
   TASK_OPEN_REQUEST_EVENT,
   type TaskOpenRequestDetail,
@@ -84,9 +85,16 @@ const epicWithDenseLinkedTasks = {
     status: index < 2 ? "Done" : "Backlog",
     archivedAt: null,
   })),
+  archivedAt: null,
   createdAt: "2026-07-31T08:00:00.000Z",
   updatedAt: "2026-07-31T08:00:00.000Z",
 };
+
+function findButton(container: HTMLElement, labelFragment: string) {
+  return Array.from(container.querySelectorAll("button")).find((button) =>
+    button.textContent?.includes(labelFragment)
+  );
+}
 
 describe("project-epic-panel", () => {
   beforeEach(() => {
@@ -95,6 +103,7 @@ describe("project-epic-panel", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     document.body.innerHTML = "";
   });
 
@@ -273,6 +282,94 @@ describe("project-epic-panel", () => {
     });
   });
 
+  test("reconciles server-derived task counts and progress after a local task mutation", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const projectId = "project-reconcile-event";
+    const { container, root } = createTestRenderer();
+    const emptyEpic = {
+      ...epicWithDenseLinkedTasks,
+      status: "Ready" as const,
+      progressPercent: 0,
+      taskCount: 0,
+      completedTaskCount: 0,
+      linkedTasks: [],
+    };
+    const completedTask = {
+      id: "task-new",
+      title: "Publish release notes",
+      status: "Done",
+      position: 0,
+      archivedAt: null,
+      epic: { id: emptyEpic.id, name: emptyEpic.name },
+    };
+    const reconciledEpic = {
+      ...emptyEpic,
+      status: "Completed" as const,
+      progressPercent: 100,
+      taskCount: 1,
+      completedTaskCount: 1,
+      linkedTasks: [
+        {
+          id: completedTask.id,
+          title: completedTask.title,
+          status: completedTask.status,
+          archivedAt: null,
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ epics: [reconciledEpic] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId,
+        canEdit: true,
+        epics: [emptyEpic],
+      })
+    );
+
+    expect(
+      container.querySelector('[role="progressbar"]')?.getAttribute(
+        "aria-valuetext"
+      )
+    ).toBe("0 of 0 tasks completed");
+
+    await act(async () => {
+      await reconcileProjectEpicsAfterTaskMutation(
+        projectId,
+        null,
+        completedTask
+      );
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/projects/project-reconcile-event/epics?includeArchived=true",
+      {
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
+      }
+    );
+    expect(
+      container.querySelector('[role="progressbar"]')?.getAttribute(
+        "aria-valuenow"
+      )
+    ).toBe("100");
+    expect(
+      container.querySelector('[role="progressbar"]')?.getAttribute(
+        "aria-valuetext"
+      )
+    ).toBe("1 of 1 tasks completed");
+    expect(container.textContent).toContain("1/1");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("keeps the editing article name synchronized with the name field", async () => {
     projectSectionExpandedMock.isExpanded = true;
     const { container, root } = createTestRenderer();
@@ -312,6 +409,380 @@ describe("project-epic-panel", () => {
     expect(article?.getAttribute("aria-label")).toBe(
       "Edit epic Launch collaboration beta"
     );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("replays a reconciled snapshot when the panel mounts after the event", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const projectId = "project-late-epic-panel";
+    const emptyEpic = {
+      ...epicWithDenseLinkedTasks,
+      progressPercent: 0,
+      taskCount: 0,
+      completedTaskCount: 0,
+      linkedTasks: [],
+    };
+    const completedTask = {
+      id: "task-before-panel",
+      title: "Complete before Epic panel resolves",
+      status: "Done",
+      position: 0,
+      archivedAt: null,
+      epic: { id: emptyEpic.id, name: emptyEpic.name },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          epics: [
+            {
+              ...emptyEpic,
+              status: "Completed",
+              progressPercent: 100,
+              taskCount: 1,
+              completedTaskCount: 1,
+              linkedTasks: [
+                {
+                  id: completedTask.id,
+                  title: completedTask.title,
+                  status: completedTask.status,
+                  archivedAt: null,
+                },
+              ],
+            },
+          ],
+        }),
+      })
+    );
+
+    await act(async () => {
+      await reconcileProjectEpicsAfterTaskMutation(
+        projectId,
+        null,
+        completedTask
+      );
+    });
+
+    const { container, root } = createTestRenderer();
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId,
+        canEdit: true,
+        epics: [emptyEpic],
+      })
+    );
+
+    expect(
+      container.querySelector('[role="progressbar"]')?.getAttribute(
+        "aria-valuetext"
+      )
+    ).toBe("1 of 1 tasks completed");
+
+    await act(async () => root.unmount());
+  });
+});
+
+describe("project-epic-panel archive controls", () => {
+  const archivedEpic = {
+    ...epicWithDenseLinkedTasks,
+    id: "epic-archived",
+    name: "Completed rollout",
+    archivedAt: "2026-09-10T10:00:00.000Z",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    projectSectionExpandedMock.isExpanded = true;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.innerHTML = "";
+  });
+
+  test("reveals archived epics through the archived list view", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [epicWithDenseLinkedTasks, archivedEpic],
+      })
+    );
+
+    expect(container.textContent).not.toContain(archivedEpic.name);
+    expect(container.textContent).toContain("1 active");
+
+    const archivedViewButton = findButton(container, "Archived (1)");
+    expect(archivedViewButton).not.toBeUndefined();
+
+    await act(async () => {
+      archivedViewButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.textContent).toContain(archivedEpic.name);
+    expect(
+      container.querySelector(`button[aria-label="Restore epic ${archivedEpic.name}"]`)
+    ).not.toBeNull();
+
+    await act(async () => {
+      findButton(container, "Active (1)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    expect(container.textContent).not.toContain(archivedEpic.name);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("filters the visible list view by name and description", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks, archivedEpic],
+      })
+    );
+
+    const searchInput = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Search epics"]'
+    );
+    expect(searchInput).not.toBeNull();
+
+    await act(async () => {
+      if (searchInput) {
+        setInputValue(searchInput, "enough context");
+      }
+    });
+
+    expect(container.querySelectorAll("article")).toHaveLength(1);
+    expect(container.textContent).toContain(epicWithDenseLinkedTasks.name);
+
+    await act(async () => {
+      if (searchInput) {
+        setInputValue(searchInput, "no such epic exists");
+      }
+    });
+
+    expect(container.querySelectorAll("article")).toHaveLength(0);
+    expect(container.textContent).toContain("No matching epics.");
+
+    const clearButton = container.querySelector(
+      'button[aria-label="Clear epic search"]'
+    );
+
+    await act(async () => {
+      clearButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.querySelectorAll("article")).toHaveLength(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("dismisses an in-progress edit when the list view changes", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    await act(async () => {
+      container
+        .querySelector(
+          `button[aria-label="Edit epic ${epicWithDenseLinkedTasks.name}"]`
+        )
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(
+      container.querySelector(`#edit-epic-name-${epicWithDenseLinkedTasks.id}`)
+    ).not.toBeNull();
+
+    await act(async () => {
+      findButton(container, "Archived (0)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    expect(container.textContent).toContain("No archived epics.");
+
+    await act(async () => {
+      findButton(container, "Active (1)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    expect(
+      container.querySelector(`#edit-epic-name-${epicWithDenseLinkedTasks.id}`)
+    ).toBeNull();
+    expect(
+      container.querySelector(
+        `button[aria-label="Edit epic ${epicWithDenseLinkedTasks.name}"]`
+      )
+    ).not.toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("archives an epic through the archive endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        epic: {
+          ...epicWithDenseLinkedTasks,
+          archivedAt: "2026-09-13T10:00:00.000Z",
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const archiveButton = container.querySelector(
+      `button[aria-label="Archive epic ${epicWithDenseLinkedTasks.name}"]`
+    );
+    expect(archiveButton).not.toBeNull();
+
+    await act(async () => {
+      archiveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/projects/project-1/epics/${epicWithDenseLinkedTasks.id}/archive`,
+      { method: "POST" }
+    );
+    expect(pushToastMock).toHaveBeenCalledWith({
+      variant: "success",
+      message: "Epic archived.",
+    });
+    expect(routerRefreshMock).toHaveBeenCalled();
+    expect(container.textContent).toContain("No active epics yet.");
+    expect(findButton(container, "Archived (1)")).not.toBeUndefined();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("restores an archived epic through the archive endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        epic: {
+          ...archivedEpic,
+          archivedAt: null,
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [archivedEpic],
+      })
+    );
+
+    await act(async () => {
+      findButton(container, "Archived (1)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    const restoreButton = container.querySelector(
+      `button[aria-label="Restore epic ${archivedEpic.name}"]`
+    );
+
+    await act(async () => {
+      restoreButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/projects/project-1/epics/${archivedEpic.id}/archive`,
+      { method: "DELETE" }
+    );
+    expect(pushToastMock).toHaveBeenCalledWith({
+      variant: "success",
+      message: "Epic restored.",
+    });
+    expect(findButton(container, "Archived (0)")).not.toBeUndefined();
+    expect(container.textContent).toContain("No archived epics.");
+
+    await act(async () => {
+      findButton(container, "Active (1)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    expect(
+      container.querySelector(`button[aria-label="Archive epic ${archivedEpic.name}"]`)
+    ).not.toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("hides archive controls from viewers", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks, archivedEpic],
+      })
+    );
+
+    await act(async () => {
+      findButton(container, "Archived (1)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    expect(
+      container.querySelector(
+        `button[aria-label="Archive epic ${epicWithDenseLinkedTasks.name}"]`
+      )
+    ).toBeNull();
+    expect(
+      container.querySelector(`button[aria-label="Restore epic ${archivedEpic.name}"]`)
+    ).toBeNull();
 
     await act(async () => {
       root.unmount();

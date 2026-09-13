@@ -35,7 +35,7 @@ function searchableTask(overrides: Record<string, unknown> = {}) {
     label: null,
     labelsJson: '["Frontend","Urgent"]',
     blockedNote: "Waiting for approval",
-    comments: [{ content: "Remember the lighthouse audit" }],
+    comments: [{ content: "<p>Remember the</p><p>lighthouse audit</p>" }],
     epic: { name: "Summer release" },
     assigneeUser: {
       name: "Ada Lovelace",
@@ -74,6 +74,7 @@ describe("project task search service", () => {
     "frontend",
     "waiting for approval",
     "lighthouse audit",
+    "the lighthouse",
     "summer release",
     "ada lovelace",
     "ada#1843",
@@ -89,6 +90,16 @@ describe("project task search service", () => {
         query,
       })
     ).resolves.toEqual({ ok: true, data: { taskIds: ["task-1"] } });
+  });
+
+  test("does not match rich-text comment markup", async () => {
+    const result = await searchProjectTaskIds({
+      actorUserId: "viewer-1",
+      projectId: "project-1",
+      query: "<p>",
+    });
+
+    expect(result).toEqual({ ok: true, data: { taskIds: [] } });
   });
 
   test("searches only the requested authorized project, including archived rows", async () => {

@@ -6,6 +6,7 @@ import {
   coerceRichTextHtml,
   createRichTextCodeBlock,
   createRichTextTokenBlock,
+  decodeRichTextEntities,
   richTextToPlainText,
   richTextToPreviewText,
   sanitizeRichText,
@@ -41,6 +42,33 @@ describe("rich-text", () => {
     );
   });
 
+  test("treats supported markup without visible text as empty content", () => {
+    expect(coerceRichTextHtml("<p><br/></p>")).toBeNull();
+    expect(coerceRichTextHtml("<p></p>")).toBeNull();
+    expect(coerceRichTextHtml("<p> </p>")).toBeNull();
+  });
+
+  describe("decodeRichTextEntities", () => {
+    test("decodes the escaped entities the sanitizer emits", () => {
+      expect(
+        decodeRichTextEntities("@{R&amp;D bot} &lt;tag&gt; &quot;q&quot; &#39;a&#39;")
+      ).toBe("@{R&D bot} <tag> \"q\" 'a'");
+    });
+
+    test("decodes in a single pass so double-escaped input stays escaped", () => {
+      expect(decodeRichTextEntities("&amp;lt;")).toBe("&lt;");
+    });
+
+    test("restores raw agent mention tokens from plain-text projections", () => {
+      const html = coerceRichTextHtml("@{R&D bot} over to you");
+      expect(html).toBe("<p>@{R&amp;D bot} over to you</p>");
+      expect(richTextToPlainText(html!)).toBe("@{R&amp;D bot} over to you");
+      expect(decodeRichTextEntities(richTextToPlainText(html!))).toBe(
+        "@{R&D bot} over to you"
+      );
+    });
+  });
+
   test("keeps lightweight code and token blocks through sanitization", () => {
     const input =
       '<pre data-rich-block="code"><code>npm run lint</code></pre><div data-rich-block="token"><p>Access token</p><code>abc123</code></div>';
@@ -51,6 +79,33 @@ describe("rich-text", () => {
   test("treats unsupported angle-bracket text as plain text", () => {
     expect(coerceRichTextHtml("Token <abc123> should stay visible")).toBe(
       "<p>Token &lt;abc123&gt; should stay visible</p>"
+    );
+  });
+
+  test("round-trips entity-escaped editor text without double-escaping", () => {
+    // The rich-text editor serializes tagless output as entity-escaped HTML
+    // text (`Fish &amp; Chips`), so coercion must decode before re-escaping.
+    expect(coerceRichTextHtml("Fish &amp; Chips")).toBe(
+      "<p>Fish &amp; Chips</p>"
+    );
+
+    const html = coerceRichTextHtml("Ping @{R&amp;D bot} today");
+    expect(html).toBe("<p>Ping @{R&amp;D bot} today</p>");
+    expect(richTextToPlainText(html!)).toBe("Ping @{R&amp;D bot} today");
+    expect(decodeRichTextEntities(richTextToPlainText(html!))).toBe(
+      "Ping @{R&D bot} today"
+    );
+  });
+
+  test("keeps literal double-escaped text stable in tagless coercion", () => {
+    expect(coerceRichTextHtml("Fish &amp;amp; Chips")).toBe(
+      "<p>Fish &amp;amp; Chips</p>"
+    );
+  });
+
+  test("decodes escaped angle brackets as text and never re-activates markup", () => {
+    expect(coerceRichTextHtml("2 &lt;p&gt; tags")).toBe(
+      "<p>2 &lt;p&gt; tags</p>"
     );
   });
 

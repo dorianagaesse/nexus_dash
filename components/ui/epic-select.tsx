@@ -152,6 +152,7 @@ export function EpicSelect({
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-foreground">{selectedEpic.name}</p>
               <p className="truncate text-xs text-muted-foreground">
+                {selectedEpic.archived ? "Archived · " : ""}
                 {selectedEpic.status} · {selectedEpic.progressPercent}% complete
               </p>
             </div>
@@ -251,6 +252,7 @@ export function EpicSelect({
                             {epic.name}
                           </p>
                           <p className="truncate text-xs text-muted-foreground">
+                            {epic.archived ? "Archived · " : ""}
                             {epic.status} · {epic.progressPercent}% complete · {epic.taskCount} task
                             {epic.taskCount === 1 ? "" : "s"}
                           </p>

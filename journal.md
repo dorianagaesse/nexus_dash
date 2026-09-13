@@ -70,6 +70,340 @@ Use it for important implementation milestones, blockers, validation runs, and r
   (commits 8e9d5a4 contract, fc55ad1 guide + preset, 239b05c release,
   a6dd74c journal); card stays In Progress for the reviewer.
 
+# 2026-09-13 - ND-398: Rich-text authoring and rendering in task comments
+
+- Implemented in the dedicated `../nexus_dash_task398` worktree on
+  `feature/nd-398-rich-text-task-comments` from `origin/main` at 9b42fde
+  (ND-383 #504), fast-forwarded to a2e5e6c (@radix-ui/react-dialog 1.1.23 and
+  @prisma/adapter-pg 7.10.0 bumps). Task comments now use the shared rich-text
+  model: the task-modal comment composer is the `RichTextEditor` (headings,
+  emphasis, lists, code/token blocks, human + agent `@` mention picker), and
+  stored comments render through `RichTextContent` with the same chip model as
+  mentions elsewhere.
+- Comments go through the same server-side coerce pipeline as task
+  descriptions (sanitize-html + canonical block normalization); mention
+  parsing and the ND-383 agent-token validation project storage to plain text
+  first. Fixed a latent server-runtime bug the tests exposed:
+  `wrapRootLevelTextNodes` was DOM-based and silently no-oped in Node (no
+  `document`), so bare text typed above or below blocks was stored unwrapped
+  for comments, meeting notes, and context cards. Rewrote it as a string
+  scanner and added `tests/lib/rich-text-server.test.ts` (node environment) as
+  the regression guard.
+- Spec adaptations: the ND-383 mention spec and the smoke comment flow now
+  assert the editor chip model (`data-editor-mention` / `data-mention-raw`)
+  instead of raw token text; the new `tests/e2e/nd-398-rich-text-comments.spec.ts`
+  covers the composer round-trip into stored HTML plus legacy/unsafe comment
+  rendering.
+- Validation: lint, `rls:check`, Vitest 199 files / 1496 tests (1494 passed, 2
+  skipped), coverage (93.76 / 84.71 / 95.39 / 94.06), production build, and the
+  full Playwright suite against the build on port 3210 — 62 passed, 1 skipped,
+  2 environment-level failures investigated and cleared: `authenticated-app-shell.spec.ts:89`
+  fails 3/3 on an unmodified main baseline worktree (a2e5e6c) as well, a
+  pre-existing race where the `?taskId=` deep link opens the Radix task modal
+  during hydration and its `hideOthers` aria-hides the shell, so the aside-nav
+  `getByRole` assertion only matches in the window before the modal opens (CI's
+  cold runners pass it; warm local runs lose the race), and the smoke roadmap
+  drag (:596) failed under full-suite load and passed on isolated retry (same
+  drag-geometry flake as previously journaled).
+- Local environment notes: plain `npm run build` fails locally during
+  page-data collection because Next forces NODE_ENV=production and
+  `lib/env.server.ts` requires DATABASE_URL ≠ DIRECT_URL for remote hosts —
+  build with `NODE_ENV=test`; Vitest and Playwright runs need `NODE_ENV=test`
+  plus a `node --env-file=.env` wrapper locally.
+- Copilot review round (six moderate findings). Applied inline: task search now
+  projects stored comment HTML through `richTextToPlainText` before matching
+  (`project-task-search-service.ts`), and human mention parsing now runs on
+  `maskAgentMentionTokens(contentText)` so username-like credential labels
+  inside `@{...}` chips cannot produce false human mentions. Body-suppressed
+  findings addressed: `coerceRichTextHtml` decodes serialized editor entities
+  in the tagless branch before escaping (round-trip fixpoint; fixes stored
+  `&amp;` literals and `&`-label agent-token 400s), the composer restored the
+  4,000-character cap via a shared `lib/task-comment.ts` constant (counter from
+  3,800, submit disabled over the cap), the mention tooltip/active element now
+  clears before the unresolved-mention early return, and the modal-prune
+  finding's stated `richTextToPlainText` double-escape mechanism was verified
+  inaccurate — the shared coercion fix resolves the actual end-to-end failure
+  (empirically traced, documented on the PR).
+- Review-round tests: entity round-trips in `tests/lib/rich-text.test.ts`,
+  `R&D bot` POST route case in `tests/api/task-comments.route.test.ts`,
+  ampersand composer round-trip in `tests/e2e/nd-398-rich-text-comments.spec.ts`,
+  mask coverage in `tests/lib/mention.test.ts`, search-projection assertion,
+  length-cap case in `tests/components/task-detail-modal-comments.test.tsx`,
+  tooltip-clear case in `tests/components/rich-text-content.test.ts`.
+- Review-round validation: lint, `rls:check`, Vitest 1507 passed / 2 skipped,
+  coverage unchanged (93.76 / 84.71 / 95.39 / 94.06), `NODE_ENV=test` build;
+  e2e re-run of the nd-398/nd-383/nd-381/nd-397/smoke specs — 13 passed, 1
+  pre-existing roadmap drag-geometry flake (:596) passing on isolated retry.
+- CI round: PR #514's E2E Smoke job failed on b129833 with a Playwright
+  strict-mode violation — `#task-comment-body-<id>` resolved to 2 elements
+  (attempt 1 at `nd-398-rich-text-comments.spec.ts:53`, attempt 2 at `:142`).
+  Root cause is a pre-existing optimistic-comment race (introduced with the
+  optimistic flow in d0aebe2 / #314, surfaced by this PR's added submission
+  coverage): submitting a comment appends an optimistic placeholder and bumps
+  `commentCount`/`updatedAt`, which re-runs the comment-load effect; when the
+  racing refetch resolves after the server commit but before the POST response
+  is applied, `mergeFetchedTaskComments` inserts the stored comment X while the
+  placeholder is still present, and the old post-submit update
+  (`map`-replace of the optimistic id) then left `[X, X]` → two DOM nodes with
+  the same id. Diagnosed with a temporary instrumented probe (fetch wrapper +
+  MutationObserver, since deleted) that reproduced the timeline locally in
+  2/2 runs, then proved deterministically by a route-delay variant forcing the
+  merge-before-response interleaving (server copy in the DOM at t=5083 ms,
+  POST response delivered at t=6705 ms; old code renders two nodes, fixed code
+  one).
+- Fix: new pure helper `mergeSubmittedTaskComment`
+  (`components/kanban-board-comments.ts`) makes the post-submit state update
+  idempotent — it removes the optimistic placeholder and any already-merged
+  copy of the submitted comment, then appends it once; wired into
+  `handleSubmitTaskComment`. Unit regression tests
+  (`tests/components/kanban-board-comments.test.ts`, 5 cases incl.
+  `[optimistic, X] → [X]`).
+- CI-round validation: lint, `rls:check`, full Vitest 1512 passed / 2 skipped
+  (coverage unchanged 93.76 / 84.71 / 95.39 / 94.06), `NODE_ENV=test` build;
+  e2e on the rebuilt server — nd-398 3/3, nd-383 1/1, 45 rapid-submission
+  probe iterations with zero duplicate ids. The same CI runs also failed
+  the smoke meeting-notes geometry assertion
+  (`smoke-project-task-calendar.spec.ts:448`, `inputZoomBottomInset` −8.4 px)
+  — reproduced locally 1/5 isolated repeats with the identical value; the
+  documented pre-existing layout-timing flake (same assertion/value flaked on
+  ND-458 the same day), unrelated to this diff. Post-merge CI run 34751563495
+  on 6244f2e is green across all gates (Quality Core, Tenant Isolation, E2E
+  Smoke — smoke passed this time —, Container Image); PR #514 is CLEAN.
+- Merge-forward of ND-380 (#513): ND-380 shipped v0.68.0 first (this branch
+  had claimed the same next version), so the CHANGELOG/journal conflicts were
+  resolved by keeping both entries and this branch re-bumped to v0.69.0 with
+  its own changelog section; `release:check` passes (0.69.0 over 0.68.0). The
+  stale conflicting state had also silently blocked the `pull_request`
+  workflow from running on the fix commit until the merge-forward was pushed.
+- Reviewer feedback round: the composer's `min-h-[96px]` read as taller than
+  the previous one-line comment input, so it was reverted to `min-h-11`
+  (44 px, matching the retired `h-11` textarea) — the contenteditable still
+  grows with content. Revalidated: lint, focused Vitest (11 passed),
+  `NODE_ENV=test` build, and nd-398/nd-383 e2e 4/4 on a verified local server;
+  a temporary geometry probe measured 44 px at rest growing to 98 px over four
+  lines (probe deleted after the run).
+- Second merge-forward (ND-459 #512): ND-459 also shipped v0.69.0 (claimed the
+  same next version again), so this branch re-bumped to v0.70.0 with a fresh
+  CHANGELOG section above ND-459's; `release:check` passes (0.70.0 over
+  0.69.0). Merge-round validation: lint, `rls:check`, Vitest 200 files /
+  1527 tests passed (2 skipped; coverage unchanged 93.76 / 84.71 / 95.39 /
+  94.06), `NODE_ENV=test` build, and nd-398/nd-383/nd-459 e2e 8/8 on a
+  verified local server; CI run 34753580248 on 9f7fe85 green across all
+  gates (Quality Core, Tenant Isolation, E2E Smoke, Container Image) and
+  PR #514 is CLEAN.
+- Third merge-forward (ND-385 #510, ND-458 #511): main shipped ND-385's
+  v0.70.0 (claimed concurrently with this branch's v0.70.0) and ND-458's
+  v0.71.0 on top, so this branch re-bumped again to v0.72.0, re-sectioning
+  its CHANGELOG entry above v0.71.0; `release:check` passes (0.72.0 over
+  0.71.0). Merge-round validation: regenerated the Prisma client for main's
+  schema changes (ND-458 `archivedAt`, ND-385 attention scope) and confirmed
+  `migrate status` reports the shared DB already current; lint, `rls:check`,
+  Vitest 205 files / 1641 tests passed (2 skipped; coverage unchanged
+  93.76 / 84.71 / 95.39 / 94.06), `NODE_ENV=test` build, and
+  nd-398/nd-383/nd-459/nd-458 e2e 10/10 on a verified local server; CI run
+  34779319961 on 023b493 green across all gates and PR #514 is CLEAN.
+
+# 2026-09-13 - ND-458: Auto-archive completed epics with manual archive/restore
+
+- Implemented in the dedicated `../nexus_dash_task458` worktree on
+  `feature/nd-458-auto-archive-epics`, created from `origin/main` at 9b42fde
+  (v0.67.0, ND-383 #504); release target v0.71.0 (see the release
+  reconciliation notes below). `origin/main` gained two
+  orthogonal dependabot bumps (adapter-pg 7.10.0, radix dialog 1.1.23) during
+  the work; neither touches ND-458 lines, so no merge-forward was needed.
+- `Epic.archivedAt` (nullable timestamp) with migration
+  `20260913120000_nd458_epic_archive`. The task-side grace constants moved to
+  `lib/archive-policy.ts` (`ARCHIVE_AFTER_DAYS = 7`) so tasks and epics share
+  one policy; `lib/services/project-service.ts` now imports them.
+- Completed epics auto-archive after the same 7-day grace, via the same
+  request-time sweep pattern as stale Done tasks: `listProjectEpics` runs
+  `archiveStaleCompletedEpics` first and hides archived epics unless
+  `includeArchived` is requested. Completion mirrors `deriveEpicStatus`
+  (an empty epic is never completed): a task counts as completed when Done or
+  archived, and the epic's completion moment is the latest linked-task
+  `completedAt ?? archivedAt ?? updatedAt`. The sweep is idempotent
+  (`archivedAt IS NULL` guard) and scoped through the actor principal where
+  clause; an epic that regained an open task reverts to Ready/In progress and
+  is not swept.
+- Manual archive/restore: `archiveProjectEpic` / `unarchiveProjectEpic`
+  services (editor+ requirement, project activity events, 404 on cross-tenant)
+  behind thin `POST` / `DELETE /api/projects/{projectId}/epics/{epicId}/archive`
+  routes. A shared `serializeProjectEpicResponse` helper now feeds every epic
+  transport payload (routes + server section), adding `archivedAt` to the
+  contract.
+- Epic panel: active vs archived split with a "Show archived (N)" / "Hide
+  archived" toggle, an "Archived" badge, Archive/Restore icon buttons gated to
+  editors, and a "No active epics." empty state; archived epics keep their
+  details/edit/delete affordances. Linking a new open task to an archived epic
+  (or reopening a linked task) does not silently unarchive it — status and
+  progress stay correct because archived epics still derive from live tasks.
+- Agent OpenAPI parity: `includeArchived` query parameter on the epic list,
+  Archive/Restore endpoints documented (`task:write`), and `archivedAt` on the
+  `ProjectEpicRecord` schema via a new `ProjectEpicArchiveResponse`.
+- Tests: epic service sweep/archive/restore/role/scope cases, route transport
+  cases, panel component cases (toggle, archive, restore, viewer gating),
+  agent contract additions, and the ND-458 Playwright journey (auto-archive
+  visible-once-revealed, manual archive/restore round trip, archived epic
+  unaffected by a new open task, progress stays 2 of 3).
+- Validation: lint, `rls:check`, Vitest 196 files / 1496 tests (2 skipped),
+  coverage 93.47 / 84.36 / 95.3 / 93.77 (with `--maxWorkers=1`; the
+  `version-policy` temp-repo tests flake at the 5s default timeout under
+  parallel coverage load), real-PostgreSQL RLS matrix
+  (`test:rls:setup` + `test:rls`), production build, and the full Playwright
+  suite: 62 passed, 1 skipped, 1 failed — the failure is
+  `smoke-project-task-calendar.spec.ts` "meeting notes preparation, output,
+  and search flow", a local flake on code this branch does not touch (the
+  meeting-note/zoom-overlay files are unchanged from origin/main, the fixture
+  project has no epics, and repeated isolated runs flip between pass and fail
+  with sub-4px overshoots at different zoom-geometry assertions — measurement
+  nondeterminism, not an ND-458 regression; CI on main is green for the same
+  spec). The ND-458 journey, TASK-335 compactness, ND-408 drag, and every
+  smoke flow pass individually against the same build.
+- Follow-up fixes from the full-suite runs: the added fourth icon button
+  squeezed the epic card title to one character per line at 375px and failed
+  the TASK-335 mobile-compactness guard (collapsed card measured 474px vs the
+  360px ceiling); the card header now stacks below `sm` and the Archive toggle
+  sits after Edit so the details-Edit adjacency assertion still holds
+  (cf779bd). The archive/restore route file had been left untracked since the
+  service commit and is now committed (ccd193d).
+- Local e2e quirks: the first ND-458 spec run failed against stale code — an
+  orphan `next start` process still held port 3000 and Playwright's
+  `reuseExistingServer` reused it, serving the pre-change UI (no archive
+  controls; the epic sweep absent while the pre-existing task sweep had run);
+  check port 3000 is free before local e2e runs. A later full-suite run
+  produced five unrelated-looking failures whose root cause was the manually
+  started server missing `NEXUSDASH_TEST_RLS_CONTEXT=enabled` — every
+  project-activity write 500'd with Postgres 42501 (create epic, task reorder,
+  roadmap/meeting/context-card creates). With the flag set (or the
+  Playwright-managed server, which injects it), all specs pass.
+- Copilot review on PR #511 raised three findings in
+  `lib/services/project-epic-service.ts`, addressed in 44d48ad:
+  (1) write-time revalidation — `updateMany` cannot filter on relations
+  (Prisma rejects `tasks: { some: ... }` there), so after the
+  timestamp-guarded conditional update the sweep now re-reads the epics it
+  just archived and rolls back any whose linked tasks no longer resolve to a
+  stale completion; the extra read only runs when rows were actually
+  archived; (2) the request-time sweep is now explicitly gated on
+  `hasRequiredRole(role, "editor")` after the viewer-level list check — epic
+  RLS only lets owners/editors write, so a viewer's sweep was a silent
+  0-row no-op, and the access requirement now lives in code rather than
+  depending on policy row filtering; (3) the duplicated-read finding was
+  answered with the cost profile (minimal-column candidate read, one
+  in-memory staleness predicate shared with the rollback, extra reads only
+  on actual archive) rather than merging the sweep into the response read,
+  since merging would mean emulating the write and its rollback in the
+  response snapshot. Three new unit tests (rollback after a reopening slips
+  in, revalidation-read skipped when nothing archived, viewer skips the
+  sweep); epic service suite 14/14.
+- Review-round validation (NODE_ENV=test, CI-parity env): lint clean,
+  `rls:check`, Vitest 196 files / 1499 tests (2 skipped), coverage
+  93.47 / 84.36 / 95.3 / 93.77, production build — all green. E2E is
+  unaffected by this round (server service + unit tests only); CI re-runs
+  the full suite on the pushed commit.
+- Copilot review round 2 on 5801f2c raised one visible and two suppressed
+  findings. (1) Restoring a stale auto-archived epic was undone by the next
+  sweep — a real loop, because the restore only cleared `archivedAt` and the
+  completion moment was still older than the grace period. Fixed with a
+  durable restore exemption: new nullable `Epic.autoArchiveExemptAt` column
+  (migration `20260913140000_nd458_epic_auto_archive_exemption`); restore
+  writes `archivedAt: null, autoArchiveExemptAt: now`, and the sweep's stale
+  predicate additionally requires the completion moment to be newer than the
+  exemption (`completedAt <= autoArchiveExemptAt` is skipped). The exemption
+  expires naturally when the epic completes again (a newer completion moment),
+  survives restarts, and is honored by the round-1 rollback revalidation
+  because both paths share the predicate. (2) The task detail epic picker
+  showed "No epic" for a task linked to an archived epic (display-only — the
+  save path already preserved the link). The board section now loads epics
+  with `includeArchived` and splits them; the task modal merges the selected
+  task's linked archived epic into its picker options marked `Archived · ...`
+  (EpicSelect + quick epic submenu), while the create dialog and kanban filter
+  bar stay active-only. (3) The CHANGELOG bullet implied "Show archived"
+  reveals archived epics everywhere; reworded to scope the toggle to the epic
+  panel and note that a task's detail view keeps showing its archived link.
+- Round-2 tests: epic service suite 16/16 (two new: exempt epic skipped when
+  the completion is not newer than the exemption; restored epic swept once a
+  newer completion passes it), section component test for the active/archived
+  split, and the ND-458 e2e journey gained the archived-link assertion in the
+  quick epic picker plus a second test — restore an auto-archived epic,
+  reload, and verify it stays active with `archivedAt: null` and a set
+  exemption in the database.
+- Round-2 validation (NODE_ENV=test, CI-parity env): lint clean, `rls:check`,
+  Vitest 196 files / 1502 tests (2 skipped), coverage 93.47 / 84.36 / 95.3 /
+  93.77, production build, real-PostgreSQL RLS matrix (`test:rls:setup` +
+  `test:rls`) — all green. Full Playwright suite (port 3417, `CI=1`): 63
+  passed, 1 skipped (preview-auth-isolation, expected locally), 1 failed —
+  the known local flake in `smoke-project-task-calendar.spec.ts` "meeting
+  notes preparation, output, and search" (a -8.4px input-zoom geometry
+  overshoot at the same assertion family as round 1; passes isolated on the
+  same build). Both ND-458 journeys pass, including the new
+  restore-stays-active test.
+- Local e2e trap this round: `PORT=3210` collided with a concurrent
+  session's `next start` from the sibling `nexus_dash_task398` worktree that
+  was already listening on that port; Playwright's `reuseExistingServer`
+  silently reused it and the suite ran against the wrong build/server (7
+  passed / 57 failed), with the piped `tail` masking the real exit code.
+  Fix: verify the chosen port is free (netstat) and set `CI=1` so Playwright
+  fails rather than reusing an unknown server.
+- Round 3 (user-directed UX uniformization): the epic panel's "Show
+  archived (N)" / "Hide archived" toggle is replaced by the Meeting Notes
+  pattern — a search bar plus an `Active (N)` / `Archived (N)` view switch.
+  The epic list filters client-side over name and description, empty states
+  are per view ("No active epics yet." / "No archived epics." / "No matching
+  epics."), the header pill reads "N active", and switching views dismisses
+  an in-progress inline edit (the meeting-notes panel's analog of clearing
+  its selected note).
+- The search input and segmented control were extracted from the
+  meeting-notes panel into shared `components/ui/list-search-input.tsx`
+  (`ListSearchInput`) and `components/ui/segmented-control.tsx`
+  (`SegmentedControl<T>`: `role="group"` + `aria-pressed` toggle buttons,
+  one grid column per option), and the meeting-notes panel now consumes
+  both with equivalent DOM semantics — its existing e2e label queries
+  ("Search meeting notes", "Clear meeting notes search", tab labels) pass
+  unchanged. Six new unit tests cover the primitives (typing, clear
+  visibility, accessible names, selection state).
+- Epic-panel tests reworked to the tab flows plus new coverage: search
+  filtering (description-only match, no-match copy, clear button) and the
+  view switch cancelling an in-progress edit. The ND-458 e2e journey now
+  drives the view switch instead of the toggle, gained a search-narrowing
+  assertion, and scopes its clicks through `getByLabel("Epic list view")`
+  because the epic and meeting-note switches can render identical labels
+  (strict-mode collision found on the first run). The first full run also
+  caught one genuine spec bug: the restore test asserted the epic's Archive
+  button while still on the archived view, where a just-restored epic is no
+  longer rendered; it now switches to the active view first. Two local
+  flakes in that run (app-shell sidebar `Overview` link missing during
+  hydration; the known smoke zoom-geometry overshoot) both pass isolated on
+  the same build, and the full-suite re-run was clean.
+- Round-3 validation (port 3421, `CI=1`): lint, `rls:check`, Vitest 198
+  files / 1510 tests (2 skipped), coverage unchanged at 93.47 / 84.36 /
+  95.3 / 93.77, production build, and the full Playwright suite 64 passed /
+  1 skipped (preview-auth-isolation, expected locally). No schema change
+  this round, so the RLS matrix was not re-run (still green from round 2).
+- Release reconciliation: `origin/main` reached v0.68.0 first (ND-380, #513),
+  so the merge forward resolves the shared v0.68.0 changelog heading by
+  keeping ND-380's entry and moving ND-458 to v0.69.0 with its own section
+  (same pattern as ND-178 over ND-408's v0.54.0). Because ND-380 changed
+  shared rich-text/mention files, the full validation re-ran on the merged
+  tree (port 3423): lint, `rls:check`, Vitest 199 files / 1515 tests
+  (2 skipped), coverage unchanged at 93.47 / 84.36 / 95.3 / 93.77,
+  production build, the real-Postgres RLS matrix, and the full Playwright
+  suite 66 passed / 1 skipped on the first run — both ND-458 and both ND-380
+  journeys included.
+- Second release reconciliation: `origin/main` then shipped ND-459 (v0.69.0)
+  and ND-385 (v0.70.0) before this branch merged, so the next merge forward
+  keeps both of those changelog sections and moves ND-458 to v0.71.0 (the
+  changelog and journal merges were the only conflicts; ND-459's epic-panel
+  changes auto-merged with the archived-epic work). The merged tree re-runs
+  the full validation again because ND-459 touches the epic panel and its
+  service/serializer, which ND-458 also changed. Merged-tree validation (port
+  3423): lint, `rls:check`, Vitest 203 files / 1607 tests (2 skipped),
+  coverage unchanged at 93.47 / 84.36 / 95.3 / 93.77, production build
+  (after `prisma generate` picked up ND-385's `attention_read` enum), the
+  RLS matrix (covers ND-385's scope-grant migration), and the full Playwright
+  suite 70 passed / 1 skipped on the first run. One conflict outside the
+  usual files: the agent-onboarding OpenAPI test gained assertion blocks from
+  both sides and now keeps both.
+
 # 2026-09-13 - ND-385: Agent attention API for mentions and assignments
 
 - Implemented in the dedicated `../nexus_dash_task385` worktree on
@@ -6821,3 +7155,37 @@ Low-value entries to avoid going forward:
   agent-authored comments instead of generating a human avatar from the agent
   snapshot seed. Regression coverage asserts both attribution cards use the
   dedicated agent avatar; focused task-author/UI tests (11 tests) and lint pass.
+
+## 2026-09-13 - ND-156 Epic task-count reconciliation
+
+- Claimed live Nexus Dash card ND-156 (`TASK-383`) and moved it from Backlog to
+  In Progress before coding. Work used the dedicated worktree
+  `nexus_dash_task156` on `fix/nd-156-epic-task-count-refresh`.
+- Root cause: Kanban task mutations updated local task state and acknowledged
+  project activity locally, while the server-derived Epic panel retained its
+  initial snapshot. Saving an Epic happened to call `router.refresh()`, which
+  masked the missing task-mutation reconciliation.
+- Added a targeted, abortable `/api/projects/{projectId}/epics` refresh after
+  successful Epic-visible task mutations and a shared snapshot event consumed
+  by the Epic panel and Kanban Epic options. Create, link, unlink, reassignment,
+  title/status/order, archive, and unarchive changes now reconcile immediately
+  without an Epic edit or full dashboard reload.
+- Added unit coverage for mutation relevance, component coverage for applying
+  the authoritative snapshot, and a Playwright flow covering create,
+  reassignment, unlink, relink, and completion progress without reload.
+- Release advanced 0.67.0 -> 0.67.1 with a fix changelog entry. Final validation:
+  lint, RLS inventory, release policy, 1,481 unit tests (2 skipped), coverage
+  thresholds (93.47% statements / 84.36% branches), production build, and the
+  ND-156 browser flow passed. The full 64-case browser suite had 62 pass, 1
+  environment-gated skip, and one unrelated meeting-note geometry timing miss
+  that passed immediately when rerun in isolation.
+- Copilot review follow-up fixed all three findings: drag snapshots now use the
+  mapped destination task and normalized source/destination positions, the
+  latest Epic snapshot is replayed when the panel mounts after Kanban, and a
+  superseded request must still own the project slot before it can publish.
+  Focused coverage (24 tests), lint, and the ND-156 Playwright flow pass.
+- Merge-forward follow-up: merged `origin/main` at `2db1386`, retaining the
+  newer Epic archive/deep-link contract and advancing the fix release to
+  v0.72.1. Reconciliation now requests archived Epics for the full panel
+  snapshot while Kanban options remain active-only. Focused Epic tests (50),
+  lint, release policy, and the production build pass after resolution.
