@@ -16,6 +16,7 @@ import {
 interface ContextCreateModalProps {
   isOpen: boolean;
   isCreatingCard: boolean;
+  mentionProjectId: string;
   createColor: string;
   createContent: string;
   createLinkUrl: string;
@@ -39,6 +40,7 @@ interface ContextCreateModalProps {
 export function ContextCreateModal({
   isOpen,
   isCreatingCard,
+  mentionProjectId,
   createColor,
   createContent,
   createLinkUrl,
@@ -103,6 +105,7 @@ export function ContextCreateModal({
             placeholder="Anything useful for this project..."
             ariaLabelledBy="context-create-content-label"
             editorClassName={FORM_FOCUS_BORDER_CLASS}
+            mentionProjectId={mentionProjectId}
           />
           <input type="hidden" name="content" value={createContent} />
         </div>
