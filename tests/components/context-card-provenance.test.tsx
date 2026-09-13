@@ -142,6 +142,7 @@ describe("context card provenance", () => {
           isOpen
           card={card}
           attachments={[]}
+          mentionUsers={[]}
           onClose={vi.fn()}
           onEdit={vi.fn()}
           onPreviewAttachment={vi.fn()}
@@ -168,6 +169,7 @@ describe("context card provenance", () => {
           cards={[card]}
           cardAttachmentsById={{ "card-1": [] }}
           deletingCardId={null}
+          mentionUsers={[]}
           onOpenPreview={vi.fn()}
           onEditCard={vi.fn()}
           onDeleteCard={vi.fn()}

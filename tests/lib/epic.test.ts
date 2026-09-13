@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { calculateEpicProgressPercent, deriveEpicStatus } from "@/lib/epic";
+import {
+  calculateEpicProgressPercent,
+  deriveEpicStatus,
+  mapEpicTaskSummary,
+} from "@/lib/epic";
 
 describe("epic helpers", () => {
   test("treats empty epics as ready with zero progress", () => {
@@ -57,5 +61,33 @@ describe("epic helpers", () => {
         { status: "Done", archivedAt: new Date("2026-04-20T08:00:00.000Z") },
       ])
     ).toBe(67);
+  });
+
+  test("keeps the task reference number in linked-task summaries", () => {
+    expect(
+      mapEpicTaskSummary({
+        id: "task-1",
+        referenceNumber: 459,
+        title: "Show ND-IDs on linked tasks",
+        status: "In Progress",
+        archivedAt: null,
+      })
+    ).toEqual({
+      id: "task-1",
+      referenceNumber: 459,
+      title: "Show ND-IDs on linked tasks",
+      status: "In Progress",
+      archivedAt: null,
+    });
+
+    expect(
+      mapEpicTaskSummary({
+        id: "task-2",
+        referenceNumber: 12,
+        title: "Archived linked task",
+        status: "Done",
+        archivedAt: new Date("2026-04-20T08:00:00.000Z"),
+      }).archivedAt
+    ).toBe("2026-04-20T08:00:00.000Z");
   });
 });

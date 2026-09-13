@@ -15,6 +15,7 @@ export interface EpicLinkedTaskStatus {
 
 export interface EpicTaskSummary {
   id: string;
+  referenceNumber: number;
   title: string;
   status: string;
   archivedAt: string | null;
@@ -109,12 +110,14 @@ export function getEpicColorFromName(name: string) {
 
 export function mapEpicTaskSummary(task: {
   id: string;
+  referenceNumber: number;
   title: string;
   status: string;
   archivedAt: Date | string | null;
 }): EpicTaskSummary {
   return {
     id: task.id,
+    referenceNumber: task.referenceNumber,
     title: task.title,
     status: task.status,
     archivedAt:

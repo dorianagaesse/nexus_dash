@@ -71,6 +71,138 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `orderBy` nulls policy and per-source cursor predicates were additionally
   executed against the real local PostgreSQL through a throwaway probe
   (deleted afterwards) to confirm the generated SQL runs clean.
+- Merged `origin/main` forward to 1dedc59 before handoff (ND-459 #512
+  v0.69.0, ND-380 #513 v0.68.0, dependabot #481/#482); conflicts in
+  `package.json`, `package-lock.json`, `CHANGELOG.md`, `journal.md`. Main had
+  consumed both v0.68.0 and v0.69.0 while this branch had bumped to v0.68.0,
+  so the version collision resolved by rebumping to v0.70.0: lockfile
+  regenerated from main's (only the version fields differ), CHANGELOG section
+  re-headered v0.70.0 and ordered above v0.69.0.
+- Post-merge re-validation with the quality-gates env block inline (local
+  Postgres URLs + placeholder secrets — worktrees carry no `.env`, and a bare
+  `npm test` fails 16 Prisma-importing suites at collection on a missing
+  `DATABASE_URL`): `git diff --check` clean; lint; `rls:check`;
+  `release:check` 0.69.0 -> 0.70.0; Vitest 201 files passed / 2 skipped
+  (1,575 tests passed / 2 skipped); coverage 93.47/84.36/95.3/93.77;
+  production build.
+
+# 2026-09-13 - ND-459: Epic linked tasks show ND- references and open the task on click
+
+- Implemented in the dedicated `../nexus_dash_task459` worktree on
+  `feature/nd-459-epic-linked-task-refs` from `origin/main` at 9b42fde
+  (v0.67.0), merged forward to a2e5e6c (dependabot #481 radix-dialog and
+  #482 prisma-adapter bumps) before handoff; release target v0.68.0.
+- Epic linked-task chips now render the shared `formatTaskReference` ND- ID
+  beside the title and status, and each chip is a `next/link` to the canonical
+  task deep link (`/projects/{projectId}/tasks/{taskId}`), which the project
+  route redirects into `?taskId=` so the board opens the task detail exactly
+  like its own deep links — archived tasks included via the board's
+  fetch-by-id fallback. Chips stay keyboard reachable with the shared
+  focus-ring treatment and keep the two-line clamp / compact mobile layout.
+- The epic linked-task projection (`epicTaskSelect`, `mapEpicTaskSummary`,
+  `EpicTaskSummary`) now carries `referenceNumber`, and the agent API contract
+  gained an `EpicLinkedTaskSummary` schema for `ProjectEpicRecord.linkedTasks`
+  with the new `referenceNumber` field (raw number; render as `ND-<n>`).
+- Validation (post-merge): `git diff --check` clean; `npm run lint`;
+  `npm run rls:check`; `npm run release:check` (0.67.0 -> 0.68.0);
+  Vitest 196 files passed / 2 skipped, 1,481 tests passed / 2 skipped;
+  coverage 93.47 / 84.36 / 95.3 / 93.77; production build; and the full
+  Playwright suite against the production build on a verified
+  task459-owned server (`PLAYWRIGHT_BASE_URL`, port 3214): 66 passed,
+  1 skipped, 0 failed — including the four new
+  `nd-459-epic-linked-task-deep-link.spec.ts` journeys (reference + click
+  deep link, archived task, keyboard Enter, 375px mobile) plus the
+  meeting-notes and roadmap smoke flows.
+- Environment note: concurrent agent sessions on this machine share the
+  local database and cluster on the same 32xx ports. Playwright's
+  `reuseExistingServer` silently latched onto a sibling worktree's
+  `next start` (a task398 ND-398 rich-text build listening on 3210 from
+  02:48), so this task's post-merge Playwright runs "failed" against the
+  wrong app — epic chips rendered from the sibling's stale markup and the
+  comment box was ND-398's rich-text editor. Re-running against a locally
+  verified server via `PLAYWRIGHT_BASE_URL` was fully green. Earlier intermittent
+  single-test failures today (meeting-notes zoom geometry,
+  accessible-overlays focus) are consistent with the same shared-port
+  server reuse and did not reproduce under the verified run.
+- Copilot's initial review (2026-09-13) raised one note in the review body
+  (no inline comment was generated, so there is no thread to resolve):
+  assert the new `EpicLinkedTaskSummary` contract in
+  `tests/lib/agent-onboarding.test.ts` so a later edit cannot drop
+  `referenceNumber` or restore the old `RelatedTaskSummary` ref silently.
+  Addressed in a follow-up commit: the test now pins
+  `ProjectEpicRecord.linkedTasks.items.$ref`, the schema's `required`
+  list, the `referenceNumber` type/minimum, and the `status` enum.
+  Follow-up validation: `git diff --check` clean, lint, rls:check,
+  1,482 tests passing / 2 skipped, coverage 93.47 / 84.36 / 95.3 / 93.77,
+  production build, release:check 0.67.0 -> 0.68.0.
+- User feedback while reviewing the PR (2026-09-13): chip clicks performed a
+  real route navigation (`/tasks/{taskId}` -> redirect -> full-dashboard
+  server render), so opening a linked task felt like a reload and took
+  ~7-9s. Reworked to open on the board's own client state instead: the chip
+  dispatches the new `nexusdash:task-open-request` client event
+  (`lib/task-open-client.ts`, same handled/markHandled convention as the
+  project-activity events); `KanbanBoard` subscribes and reuses a shared
+  `openTaskById` path (in-memory lookup, fetch-by-id fallback for archived
+  or unloaded tasks); the chip then updates the shareable deep-link URL with
+  `history.replaceState` without any navigation. The `href` stays as the
+  fallback for modified clicks (new tab) and no-JS visits, and `prefetch`
+  is disabled since plain clicks no longer use it. Unit coverage: new
+  `task-open-client` contract tests plus three chip-activation tests
+  (handled / fallback / modified click); the ND-459 keyboard and click e2e
+  journeys now also prove no document reload via a window marker.
+- Merged forward to 09dc717 (ND-380 #513, rich text in context card
+  descriptions). #513 had independently bumped `origin/main` to v0.68.0,
+  colliding with this branch's own v0.68.0 bump, so `release:check` started
+  failing (base 0.68.0 = head 0.68.0). Resolved by rebumping this branch to
+  v0.69.0 (package.json, package-lock.json, CHANGELOG section heading;
+  release target is now v0.69.0).
+- Post-merge validation (canonical local env: local Postgres on 5432,
+  placeholder secrets, shell `NODE_ENV` unset). Two env gotchas cost a rerun
+  and are worth remembering: the main checkout's shared `.env` exports
+  `NODE_ENV=development`, which Vitest keeps (it only defaults to `test` when
+  unset) and which flips the RLS-context path on, mass-failing the
+  mocked-Prisma tests; and that `.env`'s equal remote Supabase URLs
+  (DATABASE_URL === DIRECT_URL) fail the production-only
+  pooler/direct split validation during `next build`. With the canonical env:
+  `git diff --check` clean; lint; rls:check; Vitest 198 files passed /
+  2 skipped, 1,493 tests passed / 2 skipped; coverage
+  93.47 / 84.36 / 95.3 / 93.77; production build; `release:check`
+  0.68.0 -> 0.69.0; full Playwright suite against the freshly built app on a
+  verified task459-owned server (`PLAYWRIGHT_BASE_URL`, port 3219, landing
+  page asserted to serve v0.69.0): 68 passed, 1 skipped, 0 failed — including
+  the four ND-459 journeys and ND-380's two merged in from #513.
+
+# 2026-09-13 - ND-380: Rich text and mentions in context card descriptions
+
+- Implemented in the dedicated `../nexus_dash_task380` worktree on
+  `feature/nd-380-card-description-rich-text` from `origin/main` at 9b42fde.
+- Context card descriptions now get the task-description `@` mention flow.
+  `ProjectContextPanel` passes the project id into the create/edit modals
+  (`RichTextEditor` autocomplete; agent rows keep the disabled treatment)
+  and the server collaborator list into the card grid and preview dialog
+  (`RichTextContent` mention chips + avatar hover cards); the dashboard page
+  passes its already-loaded `listProjectCollaborators` result into the
+  section (same pattern as the Kanban section), so no extra collaborator
+  query is added per render.
+- Legacy plain-text descriptions stay readable and upgrade to HTML only on
+  re-save; stored `@username#discriminator` tokens round-trip unchanged.
+- Investigation note: the apparent e2e "mention option" flake was
+  Playwright `reuseExistingServer` silently reusing other worktrees'
+  `next start` servers on shared ports (stale v0.67.0 builds without card
+  mentions). The app code was healthy — exploratory probes and a candidate
+  layout-effect change in `rich-text-editor.tsx` / `mention-autocomplete.tsx`
+  were reverted; the diff is props wiring + tests only. A permanent guard
+  now starts the ND-380 spec by asserting the served landing page shows
+  this worktree's `package.json` version (skipped for `PLAYWRIGHT_BASE_URL`).
+- Validation: lint, `rls:check`, Vitest 197 files / 1483 tests (2 skipped),
+  coverage (93.47 / 84.36 / 95.3 / 93.77), production build, ND-380 spec
+  20/20 (2 tests × 10 repeats on a verified-free port), full Playwright suite
+  64 passed / 1 skipped, `release:check` (0.68.0 over 0.67.0),
+  `git diff --check` clean.
+- Copilot review: one finding (redundant collaborator query added by the
+  context section) — fixed by threading the page-level list into
+  `ProjectContextPanelSection`; the meeting-notes section's own
+  pre-existing query is untouched. Re-validated after the fix.
 
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 
