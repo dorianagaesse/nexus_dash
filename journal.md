@@ -195,7 +195,14 @@ Use it for important implementation milestones, blockers, validation runs, and r
   changelog and journal merges were the only conflicts; ND-459's epic-panel
   changes auto-merged with the archived-epic work). The merged tree re-runs
   the full validation again because ND-459 touches the epic panel and its
-  service/serializer, which ND-458 also changed.
+  service/serializer, which ND-458 also changed. Merged-tree validation (port
+  3423): lint, `rls:check`, Vitest 203 files / 1607 tests (2 skipped),
+  coverage unchanged at 93.47 / 84.36 / 95.3 / 93.77, production build
+  (after `prisma generate` picked up ND-385's `attention_read` enum), the
+  RLS matrix (covers ND-385's scope-grant migration), and the full Playwright
+  suite 70 passed / 1 skipped on the first run. One conflict outside the
+  usual files: the agent-onboarding OpenAPI test gained assertion blocks from
+  both sides and now keeps both.
 
 # 2026-09-13 - ND-385: Agent attention API for mentions and assignments
 
