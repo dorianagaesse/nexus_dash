@@ -64,6 +64,7 @@ export interface TaskComment {
   createdAt: string;
   author: TaskCommentAuthor;
   reactions: TaskCommentReaction[];
+  attachments?: TaskAttachment[];
 }
 
 export interface TaskCommentMentionSelection {
@@ -78,6 +79,7 @@ export interface TaskCommentAgentMentionSelection {
 
 export interface TaskAttachment {
   id: string;
+  commentId?: string | null;
   kind: string;
   name: string;
   url: string | null;

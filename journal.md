@@ -6754,3 +6754,20 @@ Low-value entries to avoid going forward:
   agent-authored comments instead of generating a human avatar from the agent
   snapshot seed. Regression coverage asserts both attribution cards use the
   dedicated agent avatar; focused task-author/UI tests (11 tests) and lint pass.
+
+# 2026-09-13 - ND-144 screenshot attachments in descriptions and comments
+
+- Moved ND-144 to In Progress and created the dedicated
+  `feature/task-144-screenshot-attachments` worktree from `origin/main`.
+- Reused the task attachment upload/download pipeline for screenshot paste and
+  file selection in task descriptions and task comments. Added responsive,
+  keyboard-operable inline previews, progress states, accessible 44 px mobile
+  controls, image-only validation for comment previews, and attachment-only
+  comments.
+- Added an optional `TaskAttachment.commentId` relation so comment screenshots
+  remain attached to the exact discussion entry. Binding validates task,
+  uploader, unassigned state, image MIME type, project role, and agent scope
+  before the comment transaction succeeds.
+- Updated the agent OpenAPI contract and added service/route/component/browser
+  coverage for ownership rejection, screenshot-only comments, previews,
+  removal controls, persistence, paste, upload, and mobile layout.
