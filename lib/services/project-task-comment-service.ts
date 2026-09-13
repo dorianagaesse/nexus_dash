@@ -1,6 +1,7 @@
 import { logServerError } from "@/lib/observability/logger";
 import {
   hasAgentMentionToken,
+  maskAgentMentionTokens,
   parseMentions,
   type ParsedMention,
 } from "@/lib/mention";
@@ -25,12 +26,12 @@ import {
   type TaskCommentMentionNotificationInput,
   createTaskCommentMentionNotification,
 } from "@/lib/services/notification-service";
+import { MAX_TASK_COMMENT_LENGTH } from "@/lib/task-comment";
 import {
   mapTaskPersonSummary,
   type TaskPersonSummary,
 } from "@/lib/task-person";
 
-const MAX_TASK_COMMENT_LENGTH = 4000;
 const AGENT_COMMENT_AVATAR_SEED = "nexusdash-agent-comment-avatar";
 
 interface ServiceErrorResult {
@@ -707,7 +708,7 @@ export async function createTaskCommentForProject(input: {
         return createError(404, "task-not-found");
       }
 
-      const { mentions } = parseMentions(contentText);
+      const { mentions } = parseMentions(maskAgentMentionTokens(contentText));
       const mentionResolution = await resolveMentionedProjectMembers(
         db,
         input.projectId,

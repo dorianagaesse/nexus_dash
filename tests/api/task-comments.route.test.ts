@@ -869,6 +869,176 @@ describe("task comments route", () => {
     });
   });
 
+  test("POST does not notify humans whose username appears inside an agent mention label", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      title: "Agent label task",
+      projectId: "project-1",
+    });
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      {
+        kind: "human",
+        actorId: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+        label: null,
+        revokedAt: null,
+        expiresAt: null,
+      },
+      {
+        kind: "agent",
+        actorId: "credential-active",
+        name: null,
+        email: null,
+        username: null,
+        usernameDiscriminator: null,
+        avatarSeed: null,
+        label: "Nightly sync with @alice#0001",
+        revokedAt: null,
+        expiresAt: null,
+      },
+    ]);
+    prismaMock.taskComment.create.mockResolvedValueOnce({
+      id: "comment-agent-label",
+      content: "Ping @{Nightly sync with @alice#0001} today",
+      createdAt: new Date("2026-09-13T09:00:00.000Z"),
+      authorAgentCredentialId: null,
+      authorAgentCredentialLabel: null,
+      author: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "Ping @{Nightly sync with @alice#0001} today",
+            agentMentionSelections: [{ credentialId: "credential-active" }],
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.taskCommentAgentMention.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          commentId: "comment-agent-label",
+          taskId: "task-1",
+          agentCredentialId: "credential-active",
+          agentLabel: "Nightly sync with @alice#0001",
+          createdByUserId: "test-user",
+          createdByCredentialId: null,
+          createdByCredentialLabel: null,
+        },
+      ],
+      skipDuplicates: true,
+    });
+    expect(prismaMock.notification.createMany).not.toHaveBeenCalled();
+    expect(prismaMock.project.findUnique).not.toHaveBeenCalled();
+  });
+
+  test("POST accepts entity-escaped editor tokens for labels containing ampersands", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      title: "Entity label task",
+      projectId: "project-1",
+    });
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      {
+        kind: "human",
+        actorId: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+        label: null,
+        revokedAt: null,
+        expiresAt: null,
+      },
+      {
+        kind: "agent",
+        actorId: "credential-amp",
+        name: null,
+        email: null,
+        username: null,
+        usernameDiscriminator: null,
+        avatarSeed: null,
+        label: "R&D bot",
+        revokedAt: null,
+        expiresAt: null,
+      },
+    ]);
+    prismaMock.taskComment.create.mockResolvedValueOnce({
+      id: "comment-agent-amp",
+      content: "<p>Ping @{R&amp;D bot} today</p>",
+      createdAt: new Date("2026-09-13T10:00:00.000Z"),
+      authorAgentCredentialId: null,
+      authorAgentCredentialLabel: null,
+      author: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            // The editor serializes the token as entity-escaped HTML text.
+            content: "Ping @{R&amp;D bot} today",
+            agentMentionSelections: [{ credentialId: "credential-amp" }],
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.taskComment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          content: "<p>Ping @{R&amp;D bot} today</p>",
+        }),
+      })
+    );
+    expect(prismaMock.taskCommentAgentMention.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          commentId: "comment-agent-amp",
+          taskId: "task-1",
+          agentCredentialId: "credential-amp",
+          agentLabel: "R&D bot",
+          createdByUserId: "test-user",
+          createdByCredentialId: null,
+          createdByCredentialLabel: null,
+        },
+      ],
+      skipDuplicates: true,
+    });
+  });
+
   test("POST rejects an agent mention that is not an active project agent", async () => {
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "task-1",

@@ -138,4 +138,39 @@ test.describe("ND-398 rich text in task comments", () => {
     // The composer uses the approved rich-text authoring model.
     await expect(page.getByRole("button", { name: "Bold" })).toBeVisible();
   });
+
+  test("round-trips ampersand text from the composer without double-escaping", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const userId = await signInAsVerifiedUser(page);
+    const { projectId, taskId, taskTitle } = await seedProjectWithTask(userId);
+
+    await openTaskModal(page, projectId, taskTitle);
+
+    const commentInput = page.locator("#task-comment-input");
+    await commentInput.click();
+    await page.keyboard.type("Fish & Chips overnight");
+
+    const commentResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes("/comments") &&
+        response.request().method() === "POST"
+    );
+    await page.getByRole("button", { name: "Add comment" }).click();
+    const commentResponse = await commentResponsePromise;
+    expect(commentResponse.status()).toBe(201);
+
+    const comment = await prisma.taskComment.findFirstOrThrow({
+      where: { taskId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, content: true },
+    });
+    expect(comment.content).toBe("<p>Fish &amp; Chips overnight</p>");
+
+    const commentBody = page.locator(`#task-comment-body-${comment.id}`);
+    await expect(commentBody).toBeVisible();
+    await expect(commentBody).toContainText("Fish & Chips overnight");
+    await expect(commentBody).not.toContainText("&amp;");
+  });
 });

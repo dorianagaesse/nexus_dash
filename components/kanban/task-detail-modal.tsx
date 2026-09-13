@@ -93,6 +93,10 @@ import {
   isAttachmentPreviewable,
 } from "@/lib/task-attachment";
 import {
+  MAX_TASK_COMMENT_LENGTH,
+  TASK_COMMENT_LIMIT_HINT_THRESHOLD,
+} from "@/lib/task-comment";
+import {
   formatTaskDeadlineForDisplay,
   getTaskDeadlineDayDelta,
   getTaskDeadlineUrgency,
@@ -1402,6 +1406,8 @@ function TaskReadOnlyContent({
   const [commentAgentMentionSelections, setCommentAgentMentionSelections] =
     useState<CommentAgentMentionDraft[]>([]);
   const commentDraftText = richTextToPlainText(newTaskComment);
+  const commentDraftTooLong =
+    commentDraftText.length > MAX_TASK_COMMENT_LENGTH;
 
   const handleCommentMentionSelect = (member: MentionAutocompleteMember) => {
     const selectedMention = buildCommentMentionSelection(member);
@@ -1623,6 +1629,17 @@ function TaskReadOnlyContent({
                     fallback="Unknown collaborator"
                     timestamp={selectedTask.updatedAt}
                   />
+                  {commentDraftText.length >= TASK_COMMENT_LIMIT_HINT_THRESHOLD ? (
+                    <p
+                      aria-live="polite"
+                      className={cn(
+                        "text-xs",
+                        commentDraftTooLong ? "text-destructive" : "text-amber-600"
+                      )}
+                    >
+                      {commentDraftText.length}/{MAX_TASK_COMMENT_LENGTH} characters
+                    </p>
+                  ) : null}
                 </div>
                 <Button
                   type="button"
@@ -1635,7 +1652,11 @@ function TaskReadOnlyContent({
                       }))
                     )
                   }
-                  disabled={isSubmittingTaskComment || !commentDraftText}
+                  disabled={
+                    isSubmittingTaskComment ||
+                    !commentDraftText ||
+                    commentDraftTooLong
+                  }
                   className="w-full sm:w-auto"
                 >
                   {isSubmittingTaskComment ? "Posting..." : "Add comment"}

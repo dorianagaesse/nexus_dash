@@ -10,6 +10,7 @@ import {
   isValidAgentMentionLabel,
   isValidMentionUsername,
   MAX_AGENT_MENTION_LABEL_LENGTH,
+  maskAgentMentionTokens,
   parseAgentMentions,
   removeMentionBeforeCursor,
   replaceMentionTrigger,
@@ -470,5 +471,41 @@ describe("parseAgentMentions", () => {
       "Release bot",
       "Release bot",
     ]);
+  });
+});
+
+describe("maskAgentMentionTokens", () => {
+  it("returns empty for non-strings and empty input", () => {
+    expect(maskAgentMentionTokens(null as unknown as string)).toBe("");
+    expect(maskAgentMentionTokens(undefined as unknown as string)).toBe("");
+    expect(maskAgentMentionTokens("")).toBe("");
+  });
+
+  it("blanks token spans without shifting surrounding text", () => {
+    const input = "Ask @{Release bot} to sync with @alice#1234.";
+    const masked = maskAgentMentionTokens(input);
+
+    expect(masked).toHaveLength(input.length);
+    expect(masked).not.toContain("Release bot");
+    const { mentions } = parseMentions(masked);
+    expect(mentions.map((mention) => mention.username)).toEqual(["alice"]);
+  });
+
+  it("hides username-like credential label text from human mention parsing", () => {
+    const input = "Ping @{Nightly sync with @alice#1234} today.";
+    const masked = maskAgentMentionTokens(input);
+
+    expect(parseMentions(input).mentions).toHaveLength(1);
+    expect(parseMentions(masked).mentions).toEqual([]);
+  });
+
+  it("masks every occurrence and leaves token-free text untouched", () => {
+    const masked = maskAgentMentionTokens("@{Release bot} then @{CI/CD agent}");
+
+    expect(masked).not.toContain("Release bot");
+    expect(masked).not.toContain("CI/CD agent");
+    expect(maskAgentMentionTokens("Plain @alice#1234 text")).toBe(
+      "Plain @alice#1234 text"
+    );
   });
 });

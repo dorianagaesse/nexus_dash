@@ -537,6 +537,8 @@ export function RichTextContent({
 
     const username = mentionElement.dataset.mentionUsername;
     if (!username || !mentionUsers || mentionUsers.length === 0) {
+      activeMentionElementRef.current = null;
+      setMentionTooltip(null);
       return;
     }
 

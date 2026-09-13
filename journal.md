@@ -43,6 +43,30 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `lib/env.server.ts` requires DATABASE_URL ≠ DIRECT_URL for remote hosts —
   build with `NODE_ENV=test`; Vitest and Playwright runs need `NODE_ENV=test`
   plus a `node --env-file=.env` wrapper locally.
+- Copilot review round (six moderate findings). Applied inline: task search now
+  projects stored comment HTML through `richTextToPlainText` before matching
+  (`project-task-search-service.ts`), and human mention parsing now runs on
+  `maskAgentMentionTokens(contentText)` so username-like credential labels
+  inside `@{...}` chips cannot produce false human mentions. Body-suppressed
+  findings addressed: `coerceRichTextHtml` decodes serialized editor entities
+  in the tagless branch before escaping (round-trip fixpoint; fixes stored
+  `&amp;` literals and `&`-label agent-token 400s), the composer restored the
+  4,000-character cap via a shared `lib/task-comment.ts` constant (counter from
+  3,800, submit disabled over the cap), the mention tooltip/active element now
+  clears before the unresolved-mention early return, and the modal-prune
+  finding's stated `richTextToPlainText` double-escape mechanism was verified
+  inaccurate — the shared coercion fix resolves the actual end-to-end failure
+  (empirically traced, documented on the PR).
+- Review-round tests: entity round-trips in `tests/lib/rich-text.test.ts`,
+  `R&D bot` POST route case in `tests/api/task-comments.route.test.ts`,
+  ampersand composer round-trip in `tests/e2e/nd-398-rich-text-comments.spec.ts`,
+  mask coverage in `tests/lib/mention.test.ts`, search-projection assertion,
+  length-cap case in `tests/components/task-detail-modal-comments.test.tsx`,
+  tooltip-clear case in `tests/components/rich-text-content.test.ts`.
+- Review-round validation: lint, `rls:check`, Vitest 1507 passed / 2 skipped,
+  coverage unchanged (93.76 / 84.71 / 95.39 / 94.06), `NODE_ENV=test` build;
+  e2e re-run of the nd-398/nd-383/nd-381/nd-397/smoke specs — 13 passed, 1
+  pre-existing roadmap drag-geometry flake (:596) passing on isolated retry.
 
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 

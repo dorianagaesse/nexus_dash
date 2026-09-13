@@ -683,6 +683,49 @@ describe("rich-text-content", () => {
     });
   });
 
+  test("clears a stale agent tooltip when hovering an unresolved human mention without user metadata", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "<p>ping @{Release bot} and @alice#1234</p>",
+        renderAgentMentions: true,
+      })
+    );
+
+    // Tooltip state commits replace the enhanced innerHTML, so re-query the
+    // chips before each dispatch instead of holding stale node references.
+    const getChips = () =>
+      Array.from(
+        container.querySelectorAll<HTMLElement>("[data-rich-mention='true']")
+      );
+
+    const [agentChip, humanChip] = getChips();
+    expect(agentChip?.dataset.agentMentionLabel).toBe("Release bot");
+    expect(humanChip?.dataset.mentionUsername).toBe("alice");
+
+    await act(async () => {
+      getChips()[0]?.dispatchEvent(
+        new MouseEvent("mouseover", { bubbles: true })
+      );
+    });
+    expect(document.querySelector("[role='tooltip']")?.textContent).toContain(
+      "Release bot"
+    );
+
+    await act(async () => {
+      getChips()[1]?.dispatchEvent(
+        new MouseEvent("mouseover", { bubbles: true })
+      );
+    });
+    expect(document.querySelector("[role='tooltip']")).toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("renders a single agent chip when a human-style mention overlaps its label", async () => {
     const { container, root } = createTestRenderer();
 

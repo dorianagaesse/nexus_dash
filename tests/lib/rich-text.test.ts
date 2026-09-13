@@ -82,6 +82,33 @@ describe("rich-text", () => {
     );
   });
 
+  test("round-trips entity-escaped editor text without double-escaping", () => {
+    // The rich-text editor serializes tagless output as entity-escaped HTML
+    // text (`Fish &amp; Chips`), so coercion must decode before re-escaping.
+    expect(coerceRichTextHtml("Fish &amp; Chips")).toBe(
+      "<p>Fish &amp; Chips</p>"
+    );
+
+    const html = coerceRichTextHtml("Ping @{R&amp;D bot} today");
+    expect(html).toBe("<p>Ping @{R&amp;D bot} today</p>");
+    expect(richTextToPlainText(html!)).toBe("Ping @{R&amp;D bot} today");
+    expect(decodeRichTextEntities(richTextToPlainText(html!))).toBe(
+      "Ping @{R&D bot} today"
+    );
+  });
+
+  test("keeps literal double-escaped text stable in tagless coercion", () => {
+    expect(coerceRichTextHtml("Fish &amp;amp; Chips")).toBe(
+      "<p>Fish &amp;amp; Chips</p>"
+    );
+  });
+
+  test("decodes escaped angle brackets as text and never re-activates markup", () => {
+    expect(coerceRichTextHtml("2 &lt;p&gt; tags")).toBe(
+      "<p>2 &lt;p&gt; tags</p>"
+    );
+  });
+
   test("converts rich html to plain text", () => {
     const input = "<h1>Hello</h1><p>there   team</p>";
     expect(richTextToPlainText(input)).toBe("Hello there team");

@@ -262,7 +262,11 @@ export function coerceRichTextHtml(input: string): string | null {
   }
 
   if (!SUPPORTED_HTML_TAG_PATTERN.test(trimmed)) {
-    return plainTextToRichText(trimmed);
+    // Serialized editor text arrives entity-escaped (`Fish &amp; Chips`) even
+    // when it carries no tags; decode before escaping so the round-trip is a
+    // fixpoint instead of double-escaping, and the decode stays inside this
+    // branch so escaped markup (`&lt;p&gt;`) can never re-activate as tags.
+    return plainTextToRichText(decodeRichTextEntities(trimmed));
   }
 
   const sanitized = sanitizeRichText(trimmed);

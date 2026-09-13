@@ -23,6 +23,7 @@ import type {
   KanbanTask,
   TaskComment,
 } from "@/components/kanban-board-types";
+import { MAX_TASK_COMMENT_LENGTH } from "@/lib/task-comment";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -506,6 +507,39 @@ describe("TaskDetailModal comments", () => {
     });
 
     expect(onSubmitTaskComment).toHaveBeenCalledWith([], []);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("disables submission once the projected comment exceeds the length limit", async () => {
+    const { root } = createTestRenderer();
+    const onSubmitTaskComment = vi.fn();
+
+    await renderComposer(root, onSubmitTaskComment);
+
+    const editor = document.getElementById(
+      "task-comment-input"
+    ) as HTMLDivElement;
+
+    await typeIntoCommentEditor(editor, "x".repeat(MAX_TASK_COMMENT_LENGTH));
+    const submitButton = findButtonByText(
+      "Add comment"
+    ) as HTMLButtonElement | undefined;
+    expect(submitButton?.disabled).toBe(false);
+
+    await typeIntoCommentEditor(
+      editor,
+      "x".repeat(MAX_TASK_COMMENT_LENGTH + 1)
+    );
+    const overLimitButton = findButtonByText(
+      "Add comment"
+    ) as HTMLButtonElement | undefined;
+    expect(overLimitButton?.disabled).toBe(true);
+    expect(document.body.textContent).toContain(
+      `${MAX_TASK_COMMENT_LENGTH + 1}/${MAX_TASK_COMMENT_LENGTH} characters`
+    );
 
     await act(async () => {
       root.unmount();
