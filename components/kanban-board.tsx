@@ -64,6 +64,11 @@ import {
   fetchProjectActivityMutation,
   type ProjectActivityRemoteEventDetail,
 } from "@/lib/project-activity-client";
+import {
+  PROJECT_EPICS_RECONCILED_EVENT,
+  reconcileProjectEpicsAfterTaskMutation,
+  type ProjectEpicsReconciledDetail,
+} from "@/lib/project-epic-client";
 import type { ProjectActivityEventPayload } from "@/lib/project-activity-event-types";
 import {
   getTaskDeadlineUrgency,
@@ -319,6 +324,8 @@ export function KanbanBoard({
   const [archivedDoneTasks, setArchivedDoneTasks] = useState<KanbanTask[]>(
     initialArchivedDoneTasks
   );
+  const [localEpicOptions, setLocalEpicOptions] =
+    useState<ProjectEpicOption[]>(epics);
   const [taskSearchQuery, setTaskSearchQuery] = useState("");
   const [selectedLabels, setSelectedLabels] = useState<Set<string>>(
     () => new Set()
@@ -477,6 +484,41 @@ export function KanbanBoard({
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    setLocalEpicOptions(epics);
+  }, [epics]);
+
+  useEffect(() => {
+    function handleProjectEpicsReconciled(event: Event) {
+      const detail = (event as CustomEvent<ProjectEpicsReconciledDetail>).detail;
+      if (detail?.projectId !== projectId) {
+        return;
+      }
+
+      setLocalEpicOptions(
+        detail.epics.map((epic) => ({
+          id: epic.id,
+          name: epic.name,
+          status: epic.status,
+          progressPercent: epic.progressPercent,
+          taskCount: epic.taskCount,
+        }))
+      );
+    }
+
+    window.addEventListener(
+      PROJECT_EPICS_RECONCILED_EVENT,
+      handleProjectEpicsReconciled
+    );
+
+    return () => {
+      window.removeEventListener(
+        PROJECT_EPICS_RECONCILED_EVENT,
+        handleProjectEpicsReconciled
+      );
+    };
+  }, [projectId]);
 
   const selectedTaskId = selectedTask?.id ?? null;
   const selectedTaskCommentCount = selectedTask?.commentCount ?? 0;
@@ -725,12 +767,12 @@ export function KanbanBoard({
   );
 
   const availableEpicOptions = useMemo<ProjectEpicOption[]>(
-    () => [...epics].sort((left, right) => left.name.localeCompare(right.name)),
-    [epics]
+    () => [...localEpicOptions].sort((left, right) => left.name.localeCompare(right.name)),
+    [localEpicOptions]
   );
 
   useEffect(() => {
-    const availableEpicIds = new Set(epics.map((epic) => epic.id));
+    const availableEpicIds = new Set(localEpicOptions.map((epic) => epic.id));
     setSelectedEpicFilters((currentFilters) => {
       const nextFilters = new Set(
         Array.from(currentFilters).filter(
@@ -748,7 +790,7 @@ export function KanbanBoard({
 
       return nextFilters;
     });
-  }, [epics]);
+  }, [localEpicOptions]);
 
   const availableAssignees = useMemo<ProjectTaskCollaborator[]>(
     () =>
@@ -938,7 +980,11 @@ export function KanbanBoard({
   const persistColumns = useCallback(
     async (
       nextColumns: TaskColumns<KanbanTask>,
-      previousColumns: TaskColumns<KanbanTask>
+      previousColumns: TaskColumns<KanbanTask>,
+      epicTaskMutation?: {
+        previousTask: KanbanTask;
+        nextTask: KanbanTask;
+      }
     ) => {
       try {
         const response = await fetchProjectActivityMutation(
@@ -958,6 +1004,13 @@ export function KanbanBoard({
       }
 
       setPersistError(null);
+      if (epicTaskMutation) {
+        void reconcileProjectEpicsAfterTaskMutation(
+          projectId,
+          epicTaskMutation.previousTask,
+          epicTaskMutation.nextTask
+        );
+      }
     } catch (error) {
       console.error("[KanbanBoard.persistColumns]", error);
       setColumns(previousColumns);
@@ -1031,7 +1084,13 @@ export function KanbanBoard({
       setPersistError(null);
 
       startTransition(() => {
-        void persistColumns(nextColumns, previousColumns);
+        void persistColumns(nextColumns, previousColumns, {
+          previousTask: {
+            ...movedTask,
+            status: sourceStatus,
+          },
+          nextTask: movedTask,
+        });
       });
     },
     [
@@ -1618,6 +1677,11 @@ export function KanbanBoard({
 
         const updatedTask = mapTaskMutationResponseTask(responsePayload.task);
         applyUpdatedTask(updatedTask);
+        void reconcileProjectEpicsAfterTaskMutation(
+          projectId,
+          selectedTask,
+          updatedTask
+        );
         pushToast({
           variant: "success",
           message: successMessage,
@@ -1713,6 +1777,11 @@ export function KanbanBoard({
 
         const updatedTask = mapTaskMutationResponseTask(payload.task);
         applyUpdatedTask(updatedTask);
+        void reconcileProjectEpicsAfterTaskMutation(
+          projectId,
+          selectedTask,
+          updatedTask
+        );
         setTaskModalError(null);
         if (options?.exitEditMode !== false) {
           setIsEditMode(false);
@@ -1872,7 +1941,14 @@ export function KanbanBoard({
       setPersistError(null);
 
       startTransition(() => {
-        void persistColumns(nextColumns, previousColumns);
+        void persistColumns(nextColumns, previousColumns, {
+          previousTask: task,
+          nextTask: {
+            ...movedTask,
+            status: nextStatus,
+            archivedAt: null,
+          },
+        });
       });
 
       pushToast({
@@ -1933,6 +2009,11 @@ export function KanbanBoard({
         return null;
       });
       removeRelatedTaskReferences(pendingDeleteTask.id);
+      void reconcileProjectEpicsAfterTaskMutation(
+        projectId,
+        pendingDeleteTask,
+        null
+      );
 
       pushToast({
         variant: "success",
@@ -2003,6 +2084,11 @@ export function KanbanBoard({
         status: taskToArchive.status,
         archivedAt: payload.archivedAt,
       });
+      void reconcileProjectEpicsAfterTaskMutation(
+        projectId,
+        taskToArchive,
+        archivedTask
+      );
       closeTaskModal();
       pushToast({
         variant: "success",
@@ -2079,6 +2165,11 @@ export function KanbanBoard({
         status: taskToRestore.status,
         archivedAt: null,
       });
+      void reconcileProjectEpicsAfterTaskMutation(
+        projectId,
+        selectedTask,
+        taskToRestore
+      );
       pushToast({
         variant: "success",
         message: "Task moved back to Done.",
@@ -2697,10 +2788,15 @@ export function KanbanBoard({
                   optimisticTaskId,
                   createdTask
                 );
-                return;
+              } else {
+                insertCreatedTask(createdTask);
               }
 
-              insertCreatedTask(createdTask);
+              void reconcileProjectEpicsAfterTaskMutation(
+                projectId,
+                null,
+                createdTask
+              );
             }}
           />
         ) : null}

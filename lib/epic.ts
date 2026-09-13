@@ -20,6 +20,19 @@ export interface EpicTaskSummary {
   archivedAt: string | null;
 }
 
+export interface ProjectEpicSnapshot {
+  id: string;
+  name: string;
+  description: string;
+  status: EpicStatus;
+  progressPercent: number;
+  taskCount: number;
+  completedTaskCount: number;
+  linkedTasks: EpicTaskSummary[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface TaskEpicSummary {
   id: string;
   name: string;
