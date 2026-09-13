@@ -67,7 +67,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   (1559 passed; one Windows-load flake in `tests/scripts/version-policy.test.ts`
   that passes in isolation), coverage 93.47/84.36/95.3/93.77, build,
   `release:check`, `git diff --check` — all green. RLS DB matrix not re-run:
-  no schema, migration, or tenant-ownership change.
+  no schema, migration, or tenant-ownership change. The new Prisma
+  `orderBy` nulls policy and per-source cursor predicates were additionally
+  executed against the real local PostgreSQL through a throwaway probe
+  (deleted afterwards) to confirm the generated SQL runs clean.
 
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 
