@@ -67,6 +67,40 @@ Use it for important implementation milestones, blockers, validation runs, and r
   coverage unchanged (93.76 / 84.71 / 95.39 / 94.06), `NODE_ENV=test` build;
   e2e re-run of the nd-398/nd-383/nd-381/nd-397/smoke specs — 13 passed, 1
   pre-existing roadmap drag-geometry flake (:596) passing on isolated retry.
+- CI round: PR #514's E2E Smoke job failed on b129833 with a Playwright
+  strict-mode violation — `#task-comment-body-<id>` resolved to 2 elements
+  (attempt 1 at `nd-398-rich-text-comments.spec.ts:53`, attempt 2 at `:142`).
+  Root cause is a pre-existing optimistic-comment race (introduced with the
+  optimistic flow in d0aebe2 / #314, surfaced by this PR's added submission
+  coverage): submitting a comment appends an optimistic placeholder and bumps
+  `commentCount`/`updatedAt`, which re-runs the comment-load effect; when the
+  racing refetch resolves after the server commit but before the POST response
+  is applied, `mergeFetchedTaskComments` inserts the stored comment X while the
+  placeholder is still present, and the old post-submit update
+  (`map`-replace of the optimistic id) then left `[X, X]` → two DOM nodes with
+  the same id. Diagnosed with a temporary instrumented probe (fetch wrapper +
+  MutationObserver, since deleted) that reproduced the timeline locally in
+  2/2 runs, then proved deterministically by a route-delay variant forcing the
+  merge-before-response interleaving (server copy in the DOM at t=5083 ms,
+  POST response delivered at t=6705 ms; old code renders two nodes, fixed code
+  one).
+- Fix: new pure helper `mergeSubmittedTaskComment`
+  (`components/kanban-board-comments.ts`) makes the post-submit state update
+  idempotent — it removes the optimistic placeholder and any already-merged
+  copy of the submitted comment, then appends it once; wired into
+  `handleSubmitTaskComment`. Unit regression tests
+  (`tests/components/kanban-board-comments.test.ts`, 5 cases incl.
+  `[optimistic, X] → [X]`).
+- CI-round validation: lint, `rls:check`, full Vitest 1512 passed / 2 skipped
+  (coverage unchanged 93.76 / 84.71 / 95.39 / 94.06), `NODE_ENV=test` build;
+  e2e on the rebuilt server — nd-398 3/3, nd-383 1/1, 45 rapid-submission
+  probe iterations with zero duplicate ids. The same CI runs also failed
+  the smoke meeting-notes geometry assertion
+  (`smoke-project-task-calendar.spec.ts:448`, `inputZoomBottomInset` −8.4 px)
+  — reproduced locally 1/5 isolated repeats with the identical value; the
+  documented pre-existing layout-timing flake (same assertion/value flaked on
+  ND-458 the same day), unrelated to this diff — CI rerun pending after the
+  fix push.
 
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 

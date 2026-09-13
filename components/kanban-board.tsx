@@ -48,6 +48,7 @@ import {
   readApiError,
   type TaskColumns,
 } from "@/components/kanban-board-utils";
+import { mergeSubmittedTaskComment } from "@/components/kanban-board-comments";
 import { reconcileBilateralTaskRelations } from "@/components/kanban-board-related";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
@@ -2327,13 +2328,11 @@ export function KanbanBoard({
       };
 
       setTaskComments((previousComments) =>
-        optimisticComment
-          ? previousComments.some((comment) => comment.id === optimisticCommentId)
-            ? previousComments.map((comment) =>
-                comment.id === optimisticCommentId ? payload.comment : comment
-              )
-            : [...previousComments, payload.comment]
-          : [...previousComments, payload.comment]
+        mergeSubmittedTaskComment(
+          previousComments,
+          optimisticCommentId,
+          payload.comment
+        )
       );
       setNewTaskComment("");
       if (!optimisticComment) {
