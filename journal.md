@@ -108,6 +108,13 @@ Use it for important implementation milestones, blockers, validation runs, and r
   its own changelog section; `release:check` passes (0.69.0 over 0.68.0). The
   stale conflicting state had also silently blocked the `pull_request`
   workflow from running on the fix commit until the merge-forward was pushed.
+- Reviewer feedback round: the composer's `min-h-[96px]` read as taller than
+  the previous one-line comment input, so it was reverted to `min-h-11`
+  (44 px, matching the retired `h-11` textarea) — the contenteditable still
+  grows with content. Revalidated: lint, focused Vitest (11 passed),
+  `NODE_ENV=test` build, and nd-398/nd-383 e2e 4/4 on a verified local server;
+  a temporary geometry probe measured 44 px at rest growing to 98 px over four
+  lines (probe deleted after the run).
 
 # 2026-09-13 - ND-380: Rich text and mentions in context card descriptions
 
