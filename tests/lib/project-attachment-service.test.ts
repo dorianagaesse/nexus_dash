@@ -7,6 +7,7 @@ const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
   project: {
     findFirst: vi.fn(),
+    update: vi.fn(),
   },
   task: {
     findUnique: vi.fn(),
@@ -17,6 +18,8 @@ const prismaMock = vi.hoisted(() => ({
   },
   taskAttachment: {
     create: vi.fn(),
+    findUnique: vi.fn(),
+    delete: vi.fn(),
   },
   resourceAttachment: {
     create: vi.fn(),
@@ -63,6 +66,7 @@ import {
   createContextAttachmentFromForm,
   createTaskAttachmentUploadTarget,
   createTaskAttachmentFromForm,
+  deleteTaskAttachmentForProject,
   finalizeContextAttachmentDirectUpload,
   finalizeTaskAttachmentDirectUpload,
 } from "@/lib/services/project-attachment-service";
@@ -82,6 +86,61 @@ describe("project-attachment-service", () => {
       usernameDiscriminator: "0001",
       avatarSeed: "seed-ada",
     });
+    prismaMock.task.update.mockResolvedValue({ id: "task-1" });
+    prismaMock.project.update.mockResolvedValue({ id: "project-1" });
+  });
+
+  test("allows an editor to delete their own unbound task upload", async () => {
+    prismaMock.project.findFirst.mockResolvedValueOnce({
+      ownerId: "owner-1",
+      memberships: [{ role: "editor" }],
+    });
+    prismaMock.taskAttachment.findUnique.mockResolvedValueOnce({
+      id: "att-draft",
+      kind: "file",
+      storageKey: null,
+      uploadedByUserId: actorUserId,
+      commentId: null,
+      task: { id: "task-1", projectId: "project-1" },
+    });
+    prismaMock.taskAttachment.delete.mockResolvedValueOnce({ id: "att-draft" });
+
+    const result = await deleteTaskAttachmentForProject({
+      actorUserId,
+      projectId: "project-1",
+      taskId: "task-1",
+      attachmentId: "att-draft",
+    });
+
+    expect(result).toEqual({ ok: true, data: { ok: true } });
+    expect(prismaMock.taskAttachment.delete).toHaveBeenCalledWith({
+      where: { id: "att-draft" },
+    });
+  });
+
+  test("prevents an editor from deleting another actor's task upload", async () => {
+    prismaMock.project.findFirst.mockResolvedValueOnce({
+      ownerId: "owner-1",
+      memberships: [{ role: "editor" }],
+    });
+    prismaMock.taskAttachment.findUnique.mockResolvedValueOnce({
+      id: "att-other",
+      kind: "file",
+      storageKey: null,
+      uploadedByUserId: "user-2",
+      commentId: null,
+      task: { id: "task-1", projectId: "project-1" },
+    });
+
+    const result = await deleteTaskAttachmentForProject({
+      actorUserId,
+      projectId: "project-1",
+      taskId: "task-1",
+      attachmentId: "att-other",
+    });
+
+    expect(result).toEqual({ ok: false, status: 403, error: "forbidden" });
+    expect(prismaMock.taskAttachment.delete).not.toHaveBeenCalled();
   });
 
   test("maps task upload storage-unavailable errors to actionable message", async () => {

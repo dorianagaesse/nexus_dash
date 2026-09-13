@@ -349,6 +349,7 @@ export function KanbanBoard({
   const [isArchivingTask, setIsArchivingTask] = useState(false);
   const shouldOpenTaskInEditModeRef = useRef(false);
   const previousSelectedTaskIdRef = useRef<string | null>(null);
+  const commentDraftTaskIdRef = useRef<string | null>(null);
   const openedInitialTaskIdRef = useRef<string | null>(null);
   const { pushToast } = useToast();
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
@@ -429,10 +430,6 @@ export function KanbanBoard({
     setLinkUrl("");
     setFileInputKey((previous) => previous + 1);
     setPreviewAttachment(null);
-    setCommentScreenshotAttachments([]);
-    setPendingCommentScreenshotUploads([]);
-    setCommentScreenshotInputKey((previous) => previous + 1);
-    setNewTaskComment("");
   }, []);
 
   useEffect(() => {
@@ -468,6 +465,7 @@ export function KanbanBoard({
   useEffect(() => {
     if (!selectedTask) {
       previousSelectedTaskIdRef.current = null;
+      commentDraftTaskIdRef.current = null;
       return;
     }
 
@@ -478,6 +476,11 @@ export function KanbanBoard({
       return;
     }
 
+    commentDraftTaskIdRef.current = selectedTask.id;
+    setCommentScreenshotAttachments([]);
+    setPendingCommentScreenshotUploads([]);
+    setCommentScreenshotInputKey((previous) => previous + 1);
+    setNewTaskComment("");
     setIsEditMode(shouldOpenTaskInEditModeRef.current);
     shouldOpenTaskInEditModeRef.current = false;
     resetTaskEditDraft(selectedTask);
@@ -1164,6 +1167,7 @@ export function KanbanBoard({
   );
 
   const closeTaskModal = useCallback(() => {
+    commentDraftTaskIdRef.current = null;
     setSelectedTask(null);
     shouldOpenTaskInEditModeRef.current = false;
     setIsEditMode(false);
@@ -1175,13 +1179,20 @@ export function KanbanBoard({
     setRelatedTaskSearch("");
     setPreviewAttachment(null);
     setTaskComments([]);
+    setCommentScreenshotAttachments([]);
+    setPendingCommentScreenshotUploads([]);
+    setCommentScreenshotInputKey((previous) => previous + 1);
     setNewTaskComment("");
   }, []);
 
   const handleSelectTask = useCallback((task: KanbanTask) => {
+    commentDraftTaskIdRef.current = task.id;
     shouldOpenTaskInEditModeRef.current = false;
     setTaskComments([]);
     setTaskCommentsError(null);
+    setCommentScreenshotAttachments([]);
+    setPendingCommentScreenshotUploads([]);
+    setCommentScreenshotInputKey((previous) => previous + 1);
     setNewTaskComment("");
     setSelectedTask(task);
   }, []);
@@ -1191,9 +1202,13 @@ export function KanbanBoard({
       return;
     }
 
+    commentDraftTaskIdRef.current = task.id;
     shouldOpenTaskInEditModeRef.current = true;
     setTaskComments([]);
     setTaskCommentsError(null);
+    setCommentScreenshotAttachments([]);
+    setPendingCommentScreenshotUploads([]);
+    setCommentScreenshotInputKey((previous) => previous + 1);
     setNewTaskComment("");
     setSelectedTask(task);
   }, [canEdit]);
@@ -1206,8 +1221,12 @@ export function KanbanBoard({
       }
 
       shouldOpenTaskInEditModeRef.current = false;
+      commentDraftTaskIdRef.current = relatedTask.id;
       setTaskComments([]);
       setTaskCommentsError(null);
+      setCommentScreenshotAttachments([]);
+      setPendingCommentScreenshotUploads([]);
+      setCommentScreenshotInputKey((previous) => previous + 1);
       setNewTaskComment("");
       setSelectedTask(relatedTask);
     },
@@ -2818,6 +2837,15 @@ export function KanbanBoard({
               attachment = payload.attachment;
             }
 
+            if (commentDraftTaskIdRef.current !== taskId) {
+              await fetchProjectActivityMutation(
+                projectId,
+                `/api/projects/${projectId}/tasks/${taskId}/attachments/${attachment.id}`,
+                { method: "DELETE" }
+              );
+              return;
+            }
+
             applyTaskMutation(taskId, (task) => ({
               ...task,
               attachments: [attachment, ...task.attachments],
@@ -2830,8 +2858,10 @@ export function KanbanBoard({
             console.error("[KanbanBoard.handleAddCommentScreenshots]", error);
             const message =
               error instanceof Error ? error.message : "Could not upload screenshot.";
-            setTaskCommentsError(message);
-            pushToast({ variant: "error", message });
+            if (commentDraftTaskIdRef.current === taskId) {
+              setTaskCommentsError(message);
+              pushToast({ variant: "error", message });
+            }
           } finally {
             setPendingCommentScreenshotUploads((previous) =>
               previous.filter((upload) => upload.id !== pendingUploadId)
@@ -2857,11 +2887,11 @@ export function KanbanBoard({
   const handleDeleteAttachment = useCallback(
     async (attachmentId: string) => {
       if (!canEdit) {
-        return;
+        return false;
       }
 
       if (!selectedTask) {
-        return;
+        return false;
       }
 
       setIsSubmittingAttachment(true);
@@ -2897,6 +2927,7 @@ export function KanbanBoard({
           variant: "success",
           message: "Attachment deleted.",
         });
+        return true;
       } catch (error) {
         console.error("[KanbanBoard.handleDeleteAttachment]", error);
         const message =
@@ -2906,6 +2937,7 @@ export function KanbanBoard({
           variant: "error",
           message,
         });
+        return false;
       } finally {
         setIsSubmittingAttachment(false);
       }
@@ -2915,10 +2947,12 @@ export function KanbanBoard({
 
   const handleRemoveCommentScreenshot = useCallback(
     async (attachmentId: string) => {
-      setCommentScreenshotAttachments((previous) =>
-        previous.filter((attachment) => attachment.id !== attachmentId)
-      );
-      await handleDeleteAttachment(attachmentId);
+      const deleted = await handleDeleteAttachment(attachmentId);
+      if (deleted) {
+        setCommentScreenshotAttachments((previous) =>
+          previous.filter((attachment) => attachment.id !== attachmentId)
+        );
+      }
     },
     [handleDeleteAttachment]
   );
@@ -3112,7 +3146,9 @@ export function KanbanBoard({
         onLinkUrlChange={setLinkUrl}
         onAddLinkAttachment={handleAddLinkAttachment}
         onAddFileAttachment={handleAddFileAttachment}
-        onDeleteAttachment={handleDeleteAttachment}
+        onDeleteAttachment={(attachmentId) => {
+          void handleDeleteAttachment(attachmentId);
+        }}
         onPreviewAttachmentChange={setPreviewAttachment}
         onNewTaskCommentChange={setNewTaskComment}
         onSubmitTaskComment={handleSubmitTaskComment}

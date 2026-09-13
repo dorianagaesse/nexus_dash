@@ -1409,7 +1409,7 @@ export async function deleteTaskAttachmentForProject(input: {
     const access = await requireProjectRole({
       actorUserId,
       projectId: input.projectId,
-      minimumRole: "owner",
+      minimumRole: "editor",
       db,
     });
     if (!access.ok) {
@@ -1424,6 +1424,7 @@ export async function deleteTaskAttachmentForProject(input: {
           kind: true,
           storageKey: true,
           uploadedByUserId: true,
+          commentId: true,
           task: {
             select: {
               id: true,
@@ -1439,6 +1440,13 @@ export async function deleteTaskAttachmentForProject(input: {
         attachment.task.projectId !== input.projectId
       ) {
         return createError(404, "Attachment not found");
+      }
+
+      if (
+        access.role !== "owner" &&
+        (attachment.uploadedByUserId !== actorUserId || attachment.commentId !== null)
+      ) {
+        return createError(403, "forbidden");
       }
 
       if (

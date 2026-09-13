@@ -7139,3 +7139,10 @@ Low-value entries to avoid going forward:
 - Updated the agent OpenAPI contract and added service/route/component/browser
   coverage for ownership rejection, screenshot-only comments, previews,
   removal controls, persistence, paste, upload, and mobile layout.
+- Rebased the implementation onto ND-398's rich-text comment composer and then
+  onto current `main` at `414effa`. Copilot follow-up scopes asynchronous
+  uploads to their originating task, preserves screenshot drafts across edit
+  mode, removes duplicate preview rows, documents non-empty attachment arrays,
+  and permits editor cleanup only for the actor's own unbound uploads through
+  matching service and RLS rules. Removed the disallowed `project.md` edits and
+  added direct rich-text paste and attachment cleanup coverage.
