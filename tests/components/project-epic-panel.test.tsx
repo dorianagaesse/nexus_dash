@@ -30,6 +30,10 @@ vi.mock("@/lib/hooks/use-project-section-expanded", () => ({
 }));
 
 import { ProjectEpicPanel } from "@/components/project-epic-panel";
+import {
+  TASK_OPEN_REQUEST_EVENT,
+  type TaskOpenRequestDetail,
+} from "@/lib/task-open-client";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -455,5 +459,134 @@ describe("project-epic-panel overlong linked-task titles", () => {
     expect(chip?.className).toContain("focus-visible:ring-2");
 
     await act(async () => root.unmount());
+  });
+});
+
+describe("project-epic-panel linked-task chip activation", () => {
+  async function renderExpandedChips(container: HTMLElement, root: Root) {
+    projectSectionExpandedMock.isExpanded = true;
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const disclosure = container.querySelector<HTMLElement>(
+      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    );
+    await act(async () => {
+      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+  }
+
+  function findFirstChip(container: HTMLElement) {
+    return container.querySelector<HTMLAnchorElement>(
+      'a[href="/projects/project-1/tasks/task-1"]'
+    );
+  }
+
+  test("hands plain chip clicks to the board and keeps the deep-link URL without navigating", async () => {
+    const { container, root } = createTestRenderer();
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    const requestedTaskIds: string[] = [];
+    const handleRequest = (event: Event) => {
+      const detail = (event as CustomEvent<TaskOpenRequestDetail>).detail;
+      requestedTaskIds.push(detail.taskId);
+      detail.markHandled();
+    };
+    window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+
+    try {
+      await renderExpandedChips(container, root);
+      const chip = findFirstChip(container);
+      expect(chip).not.toBeNull();
+
+      let navigationAllowed = true;
+      await act(async () => {
+        navigationAllowed = chip!.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      expect(requestedTaskIds).toEqual(["task-1"]);
+      expect(replaceStateSpy).toHaveBeenCalledWith(
+        null,
+        "",
+        "/projects/project-1?taskId=task-1"
+      );
+      expect(navigationAllowed).toBe(false);
+    } finally {
+      window.removeEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+      replaceStateSpy.mockRestore();
+      await act(async () => {
+        root.unmount();
+      });
+    }
+  });
+
+  test("falls back to the deep-link navigation when no board claims the click", async () => {
+    const { container, root } = createTestRenderer();
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    const handleRequest = vi.fn();
+    window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+
+    try {
+      await renderExpandedChips(container, root);
+      const chip = findFirstChip(container);
+
+      let navigationAllowed = false;
+      await act(async () => {
+        navigationAllowed = chip!.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      expect(handleRequest).toHaveBeenCalledTimes(1);
+      expect(navigationAllowed).toBe(true);
+      expect(replaceStateSpy).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+      replaceStateSpy.mockRestore();
+      await act(async () => {
+        root.unmount();
+      });
+    }
+  });
+
+  test("leaves modified clicks to the browser for new-tab behavior", async () => {
+    const { container, root } = createTestRenderer();
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    const handleRequest = vi.fn();
+    window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+
+    try {
+      await renderExpandedChips(container, root);
+      const chip = findFirstChip(container);
+
+      let navigationAllowed = false;
+      await act(async () => {
+        navigationAllowed = chip!.dispatchEvent(
+          new MouseEvent("click", {
+            bubbles: true,
+            cancelable: true,
+            ctrlKey: true,
+          })
+        );
+      });
+
+      expect(handleRequest).not.toHaveBeenCalled();
+      expect(navigationAllowed).toBe(true);
+      expect(replaceStateSpy).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+      replaceStateSpy.mockRestore();
+      await act(async () => {
+        root.unmount();
+      });
+    }
   });
 });

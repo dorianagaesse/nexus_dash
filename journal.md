@@ -52,6 +52,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Follow-up validation: `git diff --check` clean, lint, rls:check,
   1,482 tests passing / 2 skipped, coverage 93.47 / 84.36 / 95.3 / 93.77,
   production build, release:check 0.67.0 -> 0.68.0.
+- User feedback while reviewing the PR (2026-09-13): chip clicks performed a
+  real route navigation (`/tasks/{taskId}` -> redirect -> full-dashboard
+  server render), so opening a linked task felt like a reload and took
+  ~7-9s. Reworked to open on the board's own client state instead: the chip
+  dispatches the new `nexusdash:task-open-request` client event
+  (`lib/task-open-client.ts`, same handled/markHandled convention as the
+  project-activity events); `KanbanBoard` subscribes and reuses a shared
+  `openTaskById` path (in-memory lookup, fetch-by-id fallback for archived
+  or unloaded tasks); the chip then updates the shareable deep-link URL with
+  `history.replaceState` without any navigation. The `href` stays as the
+  fallback for modified clicks (new tab) and no-JS visits, and `prefetch`
+  is disabled since plain clicks no longer use it. Unit coverage: new
+  `task-open-client` contract tests plus three chip-activation tests
+  (handled / fallback / modified click); the ND-459 keyboard and click e2e
+  journeys now also prove no document reload via a window marker.
 
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 

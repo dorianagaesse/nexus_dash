@@ -13,9 +13,9 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Epic panels now show the shared ND- reference beside each linked task's title
   and status (ND-459), so epic context uses the same identifiers as the board,
   search, and notifications.
-- Linked-task chips open the task detail exactly like the board deep link
-  (`/projects/{projectId}/tasks/{taskId}`) on click or keyboard, including
-  archived tasks, and keep the two-line title clamp and compact mobile layout.
+- Linked-task chips open the task detail on the board instantly on click or
+  keyboard, including archived tasks, while the deep-link URL stays shareable
+  and the two-line title clamp / compact mobile layout are preserved.
 - The epic linked-task projection and the agent API contract now expose the
   task reference number, keeping agent integrations in sync with the UI.
 

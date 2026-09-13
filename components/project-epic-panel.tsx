@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/emoji-field";
 import { getEpicColorFromName } from "@/lib/epic";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
+import { requestTaskOpen } from "@/lib/task-open-client";
 import { formatTaskReference } from "@/lib/task-reference";
 import { cn } from "@/lib/utils";
 
@@ -115,10 +116,42 @@ function EpicTaskChip({
           ? "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-200"
           : "border-border/60 bg-background/70 text-muted-foreground";
 
+  const chipHref = `/projects/${projectId}/tasks/${task.id}`;
+
+  // Plain clicks open the task on the board's own client state so the whole
+  // dashboard does not re-render; the href stays as the fallback for new-tab
+  // and no-JS visits.
+  const handleChipClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    if (!requestTaskOpen(task.id)) {
+      return;
+    }
+
+    event.preventDefault();
+    window.history.replaceState(
+      null,
+      "",
+      `/projects/${projectId}?taskId=${encodeURIComponent(task.id)}${
+        window.location.hash
+      }`
+    );
+  };
+
   return (
     <li className="min-w-0 max-w-full">
       <Link
-        href={`/projects/${projectId}/tasks/${task.id}`}
+        href={chipHref}
+        prefetch={false}
+        onClick={handleChipClick}
         title={task.title}
         className={cn(
           "flex min-w-0 max-w-full items-start gap-2 rounded-xl border px-2.5 py-2 text-xs font-medium transition-colors hover:border-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",

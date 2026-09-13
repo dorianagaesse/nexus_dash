@@ -116,11 +116,19 @@ test.describe("ND-459 epic linked-task chips", () => {
     await expect(activeChip).toContainText(fixture.activeTask.title);
     await expect(activeChip).toContainText("Backlog");
 
+    await page.evaluate(() => {
+      Reflect.set(window, "__nd459DocumentLoads", 1);
+    });
+
     await activeChip.click();
 
     await expect(
       page.getByRole("dialog", { name: fixture.activeTask.title })
     ).toBeVisible();
+    // A window property only survives if the click never reloaded the page.
+    expect(
+      await page.evaluate(() => Reflect.get(window, "__nd459DocumentLoads"))
+    ).toBe(1);
     await expectTaskDeepLink(page, fixture.projectId, fixture.activeTask.id);
 
     await page.getByRole("button", { name: "Close task" }).click();
@@ -158,11 +166,18 @@ test.describe("ND-459 epic linked-task chips", () => {
     await activeChip.focus();
     await expect(activeChip).toBeFocused();
 
+    await page.evaluate(() => {
+      Reflect.set(window, "__nd459DocumentLoads", 1);
+    });
+
     await activeChip.press("Enter");
 
     await expect(
       page.getByRole("dialog", { name: fixture.activeTask.title })
     ).toBeVisible();
+    expect(
+      await page.evaluate(() => Reflect.get(window, "__nd459DocumentLoads"))
+    ).toBe(1);
     await expectTaskDeepLink(page, fixture.projectId, fixture.activeTask.id);
   });
 
