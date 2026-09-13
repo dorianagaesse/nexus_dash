@@ -635,6 +635,87 @@ describe("rich-text-content", () => {
     });
   });
 
+  test("renders agent mention chips through the RichTextContent renderer", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "<p>ping @{Release bot} now</p>",
+        renderAgentMentions: true,
+      })
+    );
+
+    const chip = container.querySelector<HTMLElement>("[data-rich-mention='true']");
+    expect(chip?.textContent).toBe("@Release bot");
+    expect(chip?.dataset.agentMentionLabel).toBe("Release bot");
+    expect(container.textContent).toBe("ping @Release bot now");
+
+    await act(async () => {
+      chip?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+
+    const tooltip = document.querySelector("[role='tooltip']");
+    expect(tooltip?.textContent).toContain("Release bot");
+    expect(tooltip?.textContent).toContain("Agent");
+    expect(tooltip?.querySelector("[data-agent-avatar='true']")).not.toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("keeps agent tokens literal in RichTextContent without agent render support", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "<p>ping @{Release bot} now</p>",
+      })
+    );
+
+    expect(container.querySelector("[data-rich-mention='true']")).toBeNull();
+    expect(container.textContent).toBe("ping @{Release bot} now");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("renders a single agent chip when a human-style mention overlaps its label", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "<p>intro @{R @alice#1234} outro</p>",
+        renderAgentMentions: true,
+        mentionUsers: [
+          {
+            id: "user-alice",
+            displayName: "Alice Example",
+            usernameTag: "alice#1234",
+            avatarSeed: "user-alice",
+          },
+        ],
+      })
+    );
+
+    const chips = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-rich-mention='true']")
+    );
+    expect(chips).toHaveLength(1);
+    expect(chips[0]?.textContent).toBe("@R @alice#1234");
+    expect(chips[0]?.dataset.agentMentionLabel).toBe("R @alice#1234");
+    expect(chips[0]?.dataset.mentionUsername).toBeUndefined();
+    expect(container.textContent).toBe("intro @R @alice#1234 outro");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("leaves malformed agent tokens as plain text", () => {
     const { container, root } = createTestRenderer();
 

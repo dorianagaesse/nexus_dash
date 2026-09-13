@@ -4,12 +4,13 @@ import * as React from "react";
 
 import {
   MentionTooltipPortal,
+  buildAgentMentionIdentity,
   buildUserMentionIdentity,
   resolveMentionDisplayUser,
   type MentionDisplayUser,
   type MentionIdentity,
 } from "@/components/ui/mention-hover-card";
-import { parseMentions, type ParsedMention } from "@/lib/mention";
+import { parseAgentMentions, parseMentions } from "@/lib/mention";
 import { MENTION_HIGHLIGHT_CLASS } from "@/lib/content-with-mentions";
 import { coerceRichTextHtml } from "@/lib/rich-text";
 import { cn } from "@/lib/utils";
@@ -159,7 +160,8 @@ function setTokenVisibility(
 
 export function buildEnhancedRichTextHtml(
   input: string,
-  mentionUsers?: MentionDisplayUser[]
+  mentionUsers?: MentionDisplayUser[],
+  renderAgentMentions = false
 ): string {
   if (!input || typeof document === "undefined") {
     return input;
@@ -257,20 +259,66 @@ export function buildEnhancedRichTextHtml(
     });
 
   if (hasMentions) {
-    highlightMentionTextNodes(template.content, mentionUsers);
+    highlightMentionTextNodes(template.content, mentionUsers, renderAgentMentions);
   }
 
   return template.innerHTML;
 }
 
+type RichMentionItem = {
+  startIndex: number;
+  endIndex: number;
+  text: string;
+  username: string | null;
+  discriminator: string | null;
+  agentLabel: string | null;
+};
+
+function collectRichMentionItems(
+  text: string,
+  renderAgentMentions: boolean
+): RichMentionItem[] {
+  const items: RichMentionItem[] = parseMentions(text).mentions.map(
+    (mention) => ({
+      startIndex: mention.startIndex,
+      endIndex: mention.endIndex,
+      text: `@${mention.username}`,
+      username: mention.username,
+      discriminator: mention.discriminator,
+      agentLabel: null,
+    })
+  );
+
+  if (renderAgentMentions) {
+    for (const mention of parseAgentMentions(text)) {
+      items.push({
+        startIndex: mention.startIndex,
+        endIndex: mention.endIndex,
+        text: `@${mention.label}`,
+        username: null,
+        discriminator: null,
+        agentLabel: mention.label,
+      });
+    }
+  }
+
+  items.sort(
+    (left, right) =>
+      left.startIndex - right.startIndex || right.endIndex - left.endIndex
+  );
+
+  return items;
+}
+
 function highlightMentionTextNodes(
   root: DocumentFragment,
-  mentionUsers?: MentionDisplayUser[]
+  mentionUsers?: MentionDisplayUser[],
+  renderAgentMentions = false
 ) {
   root.normalize();
 
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  const textNodes: Array<{ textNode: Text; mentions: ParsedMention[] }> = [];
+  const textNodes: Array<{ textNode: Text; mentions: RichMentionItem[] }> = [];
 
   while (walker.nextNode()) {
     const textNode = walker.currentNode as Text;
@@ -279,9 +327,7 @@ function highlightMentionTextNodes(
       continue;
     }
 
-    const { mentions }: { mentions: ParsedMention[] } = parseMentions(
-      textNode.data
-    );
+    const mentions = collectRichMentionItems(textNode.data, renderAgentMentions);
     if (mentions.length > 0) {
       textNodes.push({ textNode, mentions });
     }
@@ -292,6 +338,10 @@ function highlightMentionTextNodes(
     let lastIndex = 0;
 
     for (const mention of mentions) {
+      if (mention.startIndex < lastIndex) {
+        continue;
+      }
+
       if (mention.startIndex > lastIndex) {
         fragment.append(
           document.createTextNode(
@@ -303,12 +353,17 @@ function highlightMentionTextNodes(
       const mentionElement = document.createElement("span");
       mentionElement.className = MENTION_HIGHLIGHT_CLASS;
       mentionElement.dataset.richMention = "true";
-      mentionElement.dataset.mentionUsername = mention.username;
+      if (mention.username) {
+        mentionElement.dataset.mentionUsername = mention.username;
+      }
       if (mention.discriminator) {
         mentionElement.dataset.mentionDiscriminator = mention.discriminator;
       }
+      if (mention.agentLabel) {
+        mentionElement.dataset.agentMentionLabel = mention.agentLabel;
+      }
 
-      mentionElement.textContent = `@${mention.username}`;
+      mentionElement.textContent = mention.text;
       fragment.append(mentionElement);
       lastIndex = mention.endIndex;
     }
@@ -325,16 +380,20 @@ type RichTextContentProps = React.HTMLAttributes<HTMLDivElement> & {
   html: string | null;
   emptyContentHtml?: string;
   mentionUsers?: MentionDisplayUser[];
+  renderAgentMentions?: boolean;
+  ref?: React.Ref<HTMLDivElement>;
 };
 
 export function RichTextContent({
   html,
   emptyContentHtml,
   mentionUsers,
+  renderAgentMentions = false,
   className,
   onClick,
   onMouseLeave,
   onBlur,
+  ref,
   ...props
 }: RichTextContentProps) {
   const normalizedHtml = React.useMemo(
@@ -360,8 +419,12 @@ export function RichTextContent({
       return normalizedHtml;
     }
 
-    return buildEnhancedRichTextHtml(normalizedHtml, mentionUsers);
-  }, [isMounted, mentionUsers, normalizedHtml]);
+    return buildEnhancedRichTextHtml(
+      normalizedHtml,
+      mentionUsers,
+      renderAgentMentions
+    );
+  }, [isMounted, mentionUsers, normalizedHtml, renderAgentMentions]);
 
   React.useEffect(
     () => () => {
@@ -437,11 +500,7 @@ export function RichTextContent({
     currentTarget: HTMLDivElement,
     pointer?: { clientX: number; clientY: number }
   ) => {
-    if (
-      !mentionUsers ||
-      mentionUsers.length === 0 ||
-      !(target instanceof HTMLElement)
-    ) {
+    if (!(target instanceof HTMLElement)) {
       activeMentionElementRef.current = null;
       setMentionTooltip(null);
       return;
@@ -466,8 +525,18 @@ export function RichTextContent({
       }
     }
 
+    const agentLabel = mentionElement.dataset.agentMentionLabel;
+    if (agentLabel) {
+      activeMentionElementRef.current = mentionElement;
+      setMentionTooltip({
+        identity: buildAgentMentionIdentity(agentLabel),
+        anchorRect: mentionElement.getBoundingClientRect(),
+      });
+      return;
+    }
+
     const username = mentionElement.dataset.mentionUsername;
-    if (!username) {
+    if (!username || !mentionUsers || mentionUsers.length === 0) {
       return;
     }
 
@@ -542,6 +611,7 @@ export function RichTextContent({
     <>
       <div
         {...props}
+        ref={ref}
         suppressHydrationWarning
         className={cn(
           "max-w-full overflow-x-hidden [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words",

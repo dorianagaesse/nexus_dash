@@ -162,13 +162,16 @@ function CommentComposerHarness({
   const [comment, setComment] = useState("");
 
   return (
-    <TaskDetailModal
-      {...buildModalProps([])}
-      canEdit
-      newTaskComment={comment}
-      onNewTaskCommentChange={setComment}
-      onSubmitTaskComment={onSubmitTaskComment}
-    />
+    <>
+      <TaskDetailModal
+        {...buildModalProps([])}
+        canEdit
+        newTaskComment={comment}
+        onNewTaskCommentChange={setComment}
+        onSubmitTaskComment={onSubmitTaskComment}
+      />
+      <output data-testid="comment-value">{comment}</output>
+    </>
   );
 }
 
@@ -181,23 +184,113 @@ async function renderComposer(
   });
 }
 
-function setTextareaValue(textarea: HTMLTextAreaElement, value: string) {
-  const setter = Object.getOwnPropertyDescriptor(
-    window.HTMLTextAreaElement.prototype,
-    "value"
-  )?.set;
-  setter?.call(textarea, value);
-  textarea.setSelectionRange(value.length, value.length);
-  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+// jsdom has no layout engine, so Range#getClientRects does not exist at all.
+// The composer's mention picker needs a non-zero caret rect to anchor itself.
+const RANGE_VIEWPORT_RECT = {
+  x: 0,
+  y: 0,
+  top: 0,
+  left: 0,
+  bottom: 16,
+  right: 120,
+  width: 120,
+  height: 16,
+  toJSON: () => ({}),
+} as DOMRect;
+
+const rangeClientRectsDescriptor = Object.getOwnPropertyDescriptor(
+  Range.prototype,
+  "getClientRects"
+);
+
+function installRangeClientRectsMock() {
+  Object.defineProperty(Range.prototype, "getClientRects", {
+    configurable: true,
+    writable: true,
+    value: () => [RANGE_VIEWPORT_RECT],
+  });
+}
+
+function restoreRangeClientRectsMock() {
+  if (rangeClientRectsDescriptor) {
+    Object.defineProperty(
+      Range.prototype,
+      "getClientRects",
+      rangeClientRectsDescriptor
+    );
+    return;
+  }
+
+  delete (Range.prototype as { getClientRects?: unknown }).getClientRects;
+}
+
+function selectEditorText(textNode: Text, offset: number) {
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.setStart(textNode, offset);
+  range.collapse(true);
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+}
+
+async function typeIntoCommentEditor(editor: HTMLDivElement, text: string) {
+  const textNode = document.createTextNode(text);
+  editor.replaceChildren(textNode);
+  selectEditorText(textNode, text.length);
+
+  await act(async () => {
+    editor.dispatchEvent(
+      new Event("beforeinput", { bubbles: true, cancelable: true })
+    );
+    editor.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+function findButtonByText(text: string) {
+  return Array.from(document.querySelectorAll("button")).find(
+    (button) => button.textContent === text
+  );
 }
 
 function waitForSearchDebounce() {
   return new Promise((resolve) => setTimeout(resolve, 200));
 }
 
+function stubActorSearchFetch() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/actors/search")) {
+        return Promise.resolve({
+          ok: true,
+          json: vi.fn().mockResolvedValue({
+            actors: [
+              {
+                kind: "agent",
+                id: "credential-1",
+                displayName: "Release bot",
+                usernameTag: null,
+                avatarSeed: null,
+                projectRole: null,
+                isOwner: false,
+              },
+            ],
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ reactions: [] }),
+      });
+    })
+  );
+}
+
 describe("TaskDetailModal comments", () => {
   beforeEach(() => {
     taskForRender = baseTask;
+    installRangeClientRectsMock();
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -208,6 +301,7 @@ describe("TaskDetailModal comments", () => {
   });
 
   afterEach(() => {
+    restoreRangeClientRectsMock();
     vi.unstubAllGlobals();
     document.body.innerHTML = "";
   });
@@ -310,48 +404,19 @@ describe("TaskDetailModal comments", () => {
     });
   });
 
-  test("inserts an agent token and submits the tagged-agent selection", async () => {
+  test("inserts an agent token chip and submits the tagged-agent selection", async () => {
     const { root } = createTestRenderer();
     const onSubmitTaskComment = vi.fn();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((input: RequestInfo | URL) => {
-        const url = typeof input === "string" ? input : input.toString();
-        if (url.includes("/actors/search")) {
-          return Promise.resolve({
-            ok: true,
-            json: vi.fn().mockResolvedValue({
-              actors: [
-                {
-                  kind: "agent",
-                  id: "credential-1",
-                  displayName: "Release bot",
-                  usernameTag: null,
-                  avatarSeed: null,
-                  projectRole: null,
-                  isOwner: false,
-                },
-              ],
-            }),
-          });
-        }
-        return Promise.resolve({
-          ok: true,
-          json: vi.fn().mockResolvedValue({ reactions: [] }),
-        });
-      })
-    );
+    stubActorSearchFetch();
 
     await renderComposer(root, onSubmitTaskComment);
 
-    const textarea = document.getElementById(
+    const editor = document.getElementById(
       "task-comment-input"
-    ) as HTMLTextAreaElement;
-    expect(textarea).not.toBeNull();
+    ) as HTMLDivElement;
+    expect(editor).not.toBeNull();
 
-    act(() => {
-      setTextareaValue(textarea, "@rel");
-    });
+    await typeIntoCommentEditor(editor, "@rel");
     await act(async () => {
       await waitForSearchDebounce();
     });
@@ -362,20 +427,28 @@ describe("TaskDetailModal comments", () => {
     expect(agentOption).toBeDefined();
     expect(agentOption?.getAttribute("aria-disabled")).toBe("false");
 
-    act(() => {
+    await act(async () => {
       agentOption?.dispatchEvent(
         new MouseEvent("click", { bubbles: true, cancelable: true })
       );
     });
 
-    expect(textarea.value).toBe("@{Release bot} ");
+    const chip = editor.querySelector<HTMLElement>(
+      "[data-editor-mention='true']"
+    );
+    expect(chip?.textContent).toBe("@Release bot");
+    expect(chip?.dataset.mentionRaw).toBe("@{Release bot}");
+    expect(chip?.dataset.agentMentionLabel).toBe("Release bot");
+    expect(editor.textContent).not.toContain("{");
+    expect(
+      document.querySelector("output[data-testid='comment-value']")?.textContent
+    ).toBe("@{Release bot} ");
+    expect(document.querySelector("[role='option']")).toBeNull();
 
-    const submitButton = Array.from(
-      document.querySelectorAll("button")
-    ).find((button) => button.textContent === "Add comment");
+    const submitButton = findButtonByText("Add comment");
     expect(submitButton).toBeDefined();
 
-    act(() => {
+    await act(async () => {
       submitButton?.dispatchEvent(
         new MouseEvent("click", { bubbles: true, cancelable: true })
       );
@@ -394,44 +467,15 @@ describe("TaskDetailModal comments", () => {
   test("drops the agent selection when the token stops matching", async () => {
     const { root } = createTestRenderer();
     const onSubmitTaskComment = vi.fn();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((input: RequestInfo | URL) => {
-        const url = typeof input === "string" ? input : input.toString();
-        if (url.includes("/actors/search")) {
-          return Promise.resolve({
-            ok: true,
-            json: vi.fn().mockResolvedValue({
-              actors: [
-                {
-                  kind: "agent",
-                  id: "credential-1",
-                  displayName: "Release bot",
-                  usernameTag: null,
-                  avatarSeed: null,
-                  projectRole: null,
-                  isOwner: false,
-                },
-              ],
-            }),
-          });
-        }
-        return Promise.resolve({
-          ok: true,
-          json: vi.fn().mockResolvedValue({ reactions: [] }),
-        });
-      })
-    );
+    stubActorSearchFetch();
 
     await renderComposer(root, onSubmitTaskComment);
 
-    const textarea = document.getElementById(
+    const editor = document.getElementById(
       "task-comment-input"
-    ) as HTMLTextAreaElement;
+    ) as HTMLDivElement;
 
-    act(() => {
-      setTextareaValue(textarea, "@rel");
-    });
+    await typeIntoCommentEditor(editor, "@rel");
     await act(async () => {
       await waitForSearchDebounce();
     });
@@ -440,22 +484,22 @@ describe("TaskDetailModal comments", () => {
       document.querySelectorAll("[role='option']")
     ).find((option) => option.textContent?.includes("Release bot"));
 
-    act(() => {
+    await act(async () => {
       agentOption?.dispatchEvent(
         new MouseEvent("click", { bubbles: true, cancelable: true })
       );
     });
-    expect(textarea.value).toBe("@{Release bot} ");
+    expect(editor.querySelector("[data-editor-mention='true']")).not.toBeNull();
 
-    act(() => {
-      setTextareaValue(textarea, "@{Release bot without close");
-    });
+    await typeIntoCommentEditor(editor, "@{Release bot without close");
+    expect(editor.querySelector("[data-editor-mention='true']")).toBeNull();
+    expect(
+      document.querySelector("output[data-testid='comment-value']")?.textContent
+    ).toBe("@{Release bot without close");
 
-    const submitButton = Array.from(
-      document.querySelectorAll("button")
-    ).find((button) => button.textContent === "Add comment");
+    const submitButton = findButtonByText("Add comment");
 
-    act(() => {
+    await act(async () => {
       submitButton?.dispatchEvent(
         new MouseEvent("click", { bubbles: true, cancelable: true })
       );

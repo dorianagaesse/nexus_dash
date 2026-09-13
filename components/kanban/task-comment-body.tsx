@@ -3,12 +3,12 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
+import { RichTextContent } from "@/components/rich-text-content";
 import type { MentionDisplayUser } from "@/components/ui/mention-hover-card";
 import {
   COMMENT_BODY_COLLAPSED_MAX_HEIGHT_REM,
   measureCommentBodyOverflow,
 } from "@/lib/comment-body-overflow";
-import { renderContentWithMentions } from "@/lib/content-with-mentions";
 import { cn } from "@/lib/utils";
 
 interface TaskCommentBodyProps {
@@ -29,7 +29,7 @@ export function TaskCommentBody({
   mentionUsers,
   authorDisplayName,
 }: TaskCommentBodyProps) {
-  const bodyRef = useRef<HTMLParagraphElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   const [overflowing, setOverflowing] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
@@ -56,10 +56,13 @@ export function TaskCommentBody({
 
   return (
     <div className="mt-1">
-      <p
+      <RichTextContent
         ref={bodyRef}
         id={bodyId}
-        className="whitespace-pre-wrap break-words text-sm text-foreground"
+        html={content}
+        mentionUsers={mentionUsers}
+        renderAgentMentions
+        className="text-sm text-foreground"
         style={
           isCollapsed
             ? {
@@ -68,12 +71,7 @@ export function TaskCommentBody({
               }
             : undefined
         }
-      >
-        {renderContentWithMentions(content, {
-          mentionUsers,
-          renderAgentMentions: true,
-        })}
-      </p>
+      />
       {overflowing ? (
         <button
           type="button"

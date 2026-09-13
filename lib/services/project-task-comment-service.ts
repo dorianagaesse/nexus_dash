@@ -1,9 +1,14 @@
 import { logServerError } from "@/lib/observability/logger";
 import {
-  buildAgentMentionToken,
+  hasAgentMentionToken,
   parseMentions,
   type ParsedMention,
 } from "@/lib/mention";
+import {
+  coerceRichTextHtml,
+  decodeRichTextEntities,
+  richTextToPlainText,
+} from "@/lib/rich-text";
 import {
   loadProjectActorRegistry,
   resolveAssignableProjectActorFromRegistry,
@@ -371,7 +376,7 @@ export interface TaskCommentAgentMentionSummary {
 async function resolveAgentMentionSelections(input: {
   db: DbClient;
   projectId: string;
-  content: string;
+  contentText: string;
   selections: TaskCommentAgentMentionSelection[];
 }): Promise<ServiceResult<TaskCommentAgentMentionSummary[]>> {
   if (input.selections.length === 0) {
@@ -405,10 +410,12 @@ async function resolveAgentMentionSelections(input: {
       return resolution;
     }
 
-    const mentionToken = buildAgentMentionToken(
-      resolution.actor.displayNameSnapshot
-    );
-    if (!mentionToken || !input.content.includes(mentionToken)) {
+    if (
+      !hasAgentMentionToken(
+        input.contentText,
+        resolution.actor.displayNameSnapshot
+      )
+    ) {
       return createError(400, AGENT_MENTION_INVALID_ERROR);
     }
 
@@ -649,11 +656,20 @@ export async function createTaskCommentForProject(input: {
     return createError(401, "unauthorized");
   }
 
-  const content = typeof input.content === "string" ? input.content.trim() : "";
+  const content = coerceRichTextHtml(
+    typeof input.content === "string" ? input.content : ""
+  );
   if (!content) {
     return createError(400, "content-required");
   }
-  if (content.length > MAX_TASK_COMMENT_LENGTH) {
+
+  // Length limits and mention parsing run on the plain-text projection so
+  // formatting markup neither inflates the character count nor hides tokens.
+  const contentText = richTextToPlainText(content);
+  if (!contentText) {
+    return createError(400, "content-required");
+  }
+  if (contentText.length > MAX_TASK_COMMENT_LENGTH) {
     return createError(400, "content-too-long");
   }
 
@@ -691,7 +707,7 @@ export async function createTaskCommentForProject(input: {
         return createError(404, "task-not-found");
       }
 
-      const { mentions } = parseMentions(content);
+      const { mentions } = parseMentions(contentText);
       const mentionResolution = await resolveMentionedProjectMembers(
         db,
         input.projectId,
@@ -705,7 +721,7 @@ export async function createTaskCommentForProject(input: {
       const agentMentionResolution = await resolveAgentMentionSelections({
         db,
         projectId: input.projectId,
-        content,
+        contentText: decodeRichTextEntities(contentText),
         selections: input.agentMentionSelections ?? [],
       });
       if (!agentMentionResolution.ok) {

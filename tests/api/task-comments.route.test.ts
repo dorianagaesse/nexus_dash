@@ -349,7 +349,7 @@ describe("task comments route", () => {
         authorUserId: "test-user",
         authorAgentCredentialId: null,
         authorAgentCredentialLabel: null,
-        content: "Ready for review",
+        content: "<p>Ready for review</p>",
       },
       select: {
         id: true,
@@ -771,7 +771,7 @@ describe("task comments route", () => {
     expect(prismaMock.taskComment.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          content: "Can @alice check this?",
+          content: "<p>Can @alice check this?</p>",
         }),
       })
     );
@@ -980,6 +980,75 @@ describe("task comments route", () => {
     await expect(readJson(response)).resolves.toEqual({
       error: "content-required",
     });
+    expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
+  });
+
+  test("POST persists sanitized rich text and strips unsafe markup", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      projectId: "project-1",
+    });
+    prismaMock.taskComment.create.mockResolvedValueOnce({
+      id: "comment-rich",
+      content: "<p>Hold <strong>tight</strong></p><p>Safe</p>",
+      createdAt: new Date("2026-09-13T09:00:00.000Z"),
+      authorAgentCredentialId: null,
+      authorAgentCredentialLabel: null,
+      author: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content:
+              '<p>Hold <strong>tight</strong></p><script>window.__ndPwned = 1;</script><p onclick="window.__ndPwned = 2">Safe</p>',
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.taskComment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          content: "<p>Hold <strong>tight</strong></p><p>Safe</p>",
+        }),
+      })
+    );
+  });
+
+  test("POST rejects comment content over the length cap before touching the task", async () => {
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: `<p>${"a".repeat(4001)}</p>`,
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "content-too-long",
+    });
+    expect(prismaMock.taskComment.create).not.toHaveBeenCalled();
     expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
   });
 });
