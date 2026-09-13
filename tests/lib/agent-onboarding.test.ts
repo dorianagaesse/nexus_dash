@@ -208,7 +208,11 @@ describe("agent-onboarding contract", () => {
     expect(endpoint?.notes?.join(" ")).toContain("agentMentionSelections");
 
     const requestSchema = document.components.schemas.TaskCommentCreateRequest;
-    expect(requestSchema.required).toEqual(["content"]);
+    expect(requestSchema.anyOf).toEqual([
+      { required: ["content"] },
+      { required: ["attachmentIds"] },
+    ]);
+    expect(requestSchema.properties.attachmentIds.maxItems).toBe(10);
     expect(requestSchema.properties.agentMentionSelections.maxItems).toBe(50);
     expect(
       requestSchema.properties.agentMentionSelections.items.required

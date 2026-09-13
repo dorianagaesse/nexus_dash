@@ -318,6 +318,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requestContentType: "application/json",
     notes: [
       "Task comments are append-only in v1 and preserve line breaks.",
+      "A comment may include up to 10 previously uploaded image attachment ids; content may be empty when at least one screenshot is attached.",
       "Agent-authored comments are attributed to the credential label with an (agent) suffix.",
       "Tag project agents by inserting the exact `@{Credential Label}` token in content and listing the credentialId in agentMentionSelections; mismatched, revoked, expired, or out-of-project selections fail the whole request with task-comment-agent-mention-invalid.",
     ],
@@ -1170,6 +1171,11 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           ],
           properties: {
             id: { type: "string" },
+            commentId: {
+              type: ["string", "null"],
+              description:
+                "The task comment that owns this screenshot, or null for a task-level attachment.",
+            },
             kind: { type: "string", enum: ["file", "link"] },
             name: { type: "string" },
             url: { type: ["string", "null"], format: "uri" },
@@ -1871,6 +1877,11 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             author: {
               $ref: "#/components/schemas/TaskCommentAuthor",
             },
+            attachments: {
+              type: "array",
+              items: { $ref: "#/components/schemas/AttachmentRecord" },
+              description: "Inline screenshot attachments owned by this comment.",
+            },
           },
         },
         TaskCommentListResponse: {
@@ -1887,9 +1898,17 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         TaskCommentCreateRequest: {
           type: "object",
-          required: ["content"],
+          anyOf: [{ required: ["content"] }, { required: ["attachmentIds"] }],
           properties: {
             content: { type: "string" },
+            attachmentIds: {
+              type: "array",
+              maxItems: 10,
+              uniqueItems: true,
+              items: { type: "string" },
+              description:
+                "Task image attachment ids uploaded by the caller and not already assigned to a comment.",
+            },
             agentMentionSelections: {
               type: "array",
               maxItems: 50,

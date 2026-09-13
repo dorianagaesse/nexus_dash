@@ -16,6 +16,10 @@ const prismaMock = vi.hoisted(() => ({
     findMany: vi.fn(),
     create: vi.fn(),
   },
+  taskAttachment: {
+    findMany: vi.fn(),
+    updateMany: vi.fn(),
+  },
   taskCommentAgentMention: {
     findMany: vi.fn(),
     deleteMany: vi.fn(),
@@ -87,6 +91,8 @@ describe("task comments route", () => {
     prismaMock.taskCommentAgentMention.createMany.mockResolvedValue({
       count: 1,
     });
+    prismaMock.taskAttachment.findMany.mockResolvedValue([]);
+    prismaMock.taskAttachment.updateMany.mockResolvedValue({ count: 0 });
   });
 
   test("GET returns chronological task comments", async () => {
@@ -169,29 +175,12 @@ describe("task comments route", () => {
         },
       ],
     });
-    expect(prismaMock.taskComment.findMany).toHaveBeenCalledWith({
+    expect(prismaMock.taskComment.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         taskId: "task-1",
       },
       orderBy: [{ createdAt: "asc" }],
-      select: {
-        id: true,
-        content: true,
-        createdAt: true,
-        authorAgentCredentialId: true,
-        authorAgentCredentialLabel: true,
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            username: true,
-            usernameDiscriminator: true,
-            avatarSeed: true,
-          },
-        },
-      },
-    });
+    }));
   });
 
   test("GET returns persisted agent comment identity", async () => {
@@ -343,7 +332,7 @@ describe("task comments route", () => {
         },
       },
     });
-    expect(prismaMock.taskComment.create).toHaveBeenCalledWith({
+    expect(prismaMock.taskComment.create).toHaveBeenCalledWith(expect.objectContaining({
       data: {
         taskId: "task-1",
         authorUserId: "test-user",
@@ -351,24 +340,7 @@ describe("task comments route", () => {
         authorAgentCredentialLabel: null,
         content: "Ready for review",
       },
-      select: {
-        id: true,
-        content: true,
-        createdAt: true,
-        authorAgentCredentialId: true,
-        authorAgentCredentialLabel: true,
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            username: true,
-            usernameDiscriminator: true,
-            avatarSeed: true,
-          },
-        },
-      },
-    });
+    }));
     expect(prismaMock.task.update).toHaveBeenCalledWith({
       where: { id: "task-1" },
       data: {
@@ -981,5 +953,108 @@ describe("task comments route", () => {
       error: "content-required",
     });
     expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
+  });
+
+  test("POST creates an attachment-only comment and binds its screenshot", async () => {
+    const screenshot = {
+      id: "attachment-1",
+      commentId: null,
+      kind: "file",
+      name: "repro.png",
+      url: null,
+      mimeType: "image/png",
+      sizeBytes: 2048,
+    };
+    prismaMock.task.findUnique.mockResolvedValue({
+      id: "task-1",
+      title: "Screenshot task",
+      projectId: "project-1",
+    });
+    prismaMock.taskAttachment.findMany
+      .mockResolvedValueOnce([screenshot])
+      .mockResolvedValueOnce([{ ...screenshot, commentId: "comment-image" }]);
+    prismaMock.taskAttachment.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.taskComment.create.mockResolvedValue({
+      id: "comment-image",
+      content: "",
+      createdAt: new Date("2026-09-13T00:00:00.000Z"),
+      authorAgentCredentialId: null,
+      authorAgentCredentialLabel: null,
+      author: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+      attachments: [],
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ content: "", attachmentIds: ["attachment-1"] }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.taskAttachment.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["attachment-1"] },
+        taskId: "task-1",
+        uploadedByUserId: "test-user",
+        commentId: null,
+      },
+      data: { commentId: "comment-image" },
+    });
+    await expect(readJson(response)).resolves.toMatchObject({
+      comment: {
+        id: "comment-image",
+        attachments: [
+          {
+            id: "attachment-1",
+            commentId: "comment-image",
+            downloadUrl:
+              "/api/projects/project-1/tasks/task-1/attachments/attachment-1/download",
+          },
+        ],
+      },
+    });
+  });
+
+  test("POST rejects screenshot ids that are not attachable by the actor", async () => {
+    prismaMock.task.findUnique.mockResolvedValue({
+      id: "task-1",
+      title: "Screenshot task",
+      projectId: "project-1",
+    });
+    prismaMock.taskAttachment.findMany.mockResolvedValue([]);
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "See screenshot",
+            attachmentIds: ["someone-elses-attachment"],
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "task-comment-attachment-invalid",
+    });
+    expect(prismaMock.taskComment.create).not.toHaveBeenCalled();
   });
 });

@@ -15,6 +15,7 @@ import {
   TriangleAlert,
   Undo2,
   Upload,
+  ImagePlus,
   UserRound,
   X,
 } from "lucide-react";
@@ -44,6 +45,7 @@ import {
   type RelatedTaskOption,
 } from "@/components/kanban/related-task-field";
 import { TaskCommentBody } from "@/components/kanban/task-comment-body";
+import { ScreenshotAttachmentGrid } from "@/components/kanban/screenshot-attachment-grid";
 import { TaskDeadlineField } from "@/components/kanban/task-deadline-field";
 import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
 import { RichTextContent } from "@/components/rich-text-content";
@@ -144,6 +146,9 @@ interface TaskDetailModalProps {
   isLoadingTaskComments: boolean;
   newTaskComment: string;
   isSubmittingTaskComment: boolean;
+  commentScreenshotAttachments?: TaskAttachment[];
+  pendingCommentScreenshotUploads?: PendingAttachmentUpload[];
+  commentScreenshotInputKey?: number;
   onClose: () => void;
   onActivateEditMode: () => void;
   onToggleEditMode: (nextValue: boolean) => void;
@@ -178,8 +183,11 @@ interface TaskDetailModalProps {
   onNewTaskCommentChange: (value: string) => void;
   onSubmitTaskComment: (
     mentionSelections?: TaskCommentMentionSelection[],
-    agentMentionSelections?: TaskCommentAgentMentionSelection[]
+    agentMentionSelections?: TaskCommentAgentMentionSelection[],
+    attachmentIds?: string[]
   ) => void | Promise<void>;
+  onAddCommentScreenshots?: (files: File[]) => void | Promise<void>;
+  onRemoveCommentScreenshot?: (attachmentId: string) => void | Promise<void>;
   onMoveTask: (nextStatus: TaskStatus) => void;
   onArchiveTask: () => void | Promise<void>;
   onUnarchiveTask: () => void | Promise<void>;
@@ -220,6 +228,9 @@ export function TaskDetailModal({
   isLoadingTaskComments,
   newTaskComment,
   isSubmittingTaskComment,
+  commentScreenshotAttachments = [],
+  pendingCommentScreenshotUploads = [],
+  commentScreenshotInputKey = 0,
   onClose,
   onActivateEditMode,
   onToggleEditMode,
@@ -253,6 +264,8 @@ export function TaskDetailModal({
   onPreviewAttachmentChange,
   onNewTaskCommentChange,
   onSubmitTaskComment,
+  onAddCommentScreenshots = () => undefined,
+  onRemoveCommentScreenshot = () => undefined,
   onMoveTask,
   onArchiveTask,
   onUnarchiveTask,
@@ -486,6 +499,9 @@ export function TaskDetailModal({
                     isLoadingTaskComments={isLoadingTaskComments}
                     newTaskComment={newTaskComment}
                     isSubmittingTaskComment={isSubmittingTaskComment}
+                    commentScreenshotAttachments={commentScreenshotAttachments}
+                    pendingCommentScreenshotUploads={pendingCommentScreenshotUploads}
+                    commentScreenshotInputKey={commentScreenshotInputKey}
                     onPreviewAttachment={onPreviewAttachmentChange}
                     onActivateEditMode={onActivateEditMode}
                     onOpenRelatedTask={onOpenRelatedTask}
@@ -493,6 +509,8 @@ export function TaskDetailModal({
                     mentionUsers={mentionUsers}
                     onNewTaskCommentChange={onNewTaskCommentChange}
                     onSubmitTaskComment={onSubmitTaskComment}
+                    onAddCommentScreenshots={onAddCommentScreenshots}
+                    onRemoveCommentScreenshot={onRemoveCommentScreenshot}
                     taskCommentReactions={taskCommentReactions}
                     toggleReaction={toggleReaction}
                     handleAddReaction={handleAddReaction}
@@ -1364,6 +1382,9 @@ function TaskReadOnlyContent({
   isLoadingTaskComments,
   newTaskComment,
   isSubmittingTaskComment,
+  commentScreenshotAttachments,
+  pendingCommentScreenshotUploads,
+  commentScreenshotInputKey,
   onPreviewAttachment,
   onActivateEditMode,
   onOpenRelatedTask,
@@ -1371,6 +1392,8 @@ function TaskReadOnlyContent({
   mentionUsers,
   onNewTaskCommentChange,
   onSubmitTaskComment,
+  onAddCommentScreenshots,
+  onRemoveCommentScreenshot,
   taskCommentReactions,
   toggleReaction,
   handleAddReaction,
@@ -1382,6 +1405,9 @@ function TaskReadOnlyContent({
   isLoadingTaskComments: boolean;
   newTaskComment: string;
   isSubmittingTaskComment: boolean;
+  commentScreenshotAttachments: TaskAttachment[];
+  pendingCommentScreenshotUploads: PendingAttachmentUpload[];
+  commentScreenshotInputKey: number;
   onPreviewAttachment: (attachment: TaskAttachment | null) => void;
   onActivateEditMode: () => void;
   onOpenRelatedTask: (taskId: string) => void;
@@ -1390,13 +1416,26 @@ function TaskReadOnlyContent({
   onNewTaskCommentChange: (value: string) => void;
   onSubmitTaskComment: (
     mentionSelections?: TaskCommentMentionSelection[],
-    agentMentionSelections?: TaskCommentAgentMentionSelection[]
+    agentMentionSelections?: TaskCommentAgentMentionSelection[],
+    attachmentIds?: string[]
   ) => void | Promise<void>;
+  onAddCommentScreenshots: (files: File[]) => void | Promise<void>;
+  onRemoveCommentScreenshot: (attachmentId: string) => void | Promise<void>;
   taskCommentReactions: Map<string, TaskCommentReaction[]>;
   toggleReaction: (commentId: string, emoji: string) => void;
   handleAddReaction: (commentId: string) => (emoji: string) => void;
 }) {
-  const hasAttachments = selectedTask.attachments.length > 0;
+  const commentDraftAttachmentIds = new Set(
+    commentScreenshotAttachments.map((attachment) => attachment.id)
+  );
+  const taskAttachments = selectedTask.attachments.filter(
+    (attachment) =>
+      !attachment.commentId && !commentDraftAttachmentIds.has(attachment.id)
+  );
+  const descriptionScreenshots = taskAttachments.filter(
+    (attachment) => attachment.mimeType?.startsWith("image/")
+  );
+  const hasAttachments = taskAttachments.length > 0;
   const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
   const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
   const commentHighlightRef = useRef<HTMLDivElement | null>(null);
@@ -1619,6 +1658,10 @@ function TaskReadOnlyContent({
           onActivateEditMode();
         }}
       />
+      <ScreenshotAttachmentGrid
+        attachments={descriptionScreenshots}
+        onPreview={onPreviewAttachment}
+      />
       <section className="pt-4">
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
@@ -1673,6 +1716,13 @@ function TaskReadOnlyContent({
                         content={comment.content}
                         mentionUsers={mentionUsers}
                       />
+                      <div className="mt-2">
+                        <ScreenshotAttachmentGrid
+                          attachments={comment.attachments ?? []}
+                          onPreview={onPreviewAttachment}
+                          compact
+                        />
+                      </div>
                       {canEdit ? (
                         <div className="mt-1.5 flex flex-wrap items-center gap-1">
                           {(taskCommentReactions.get(comment.id) ?? []).map((reaction) => (
@@ -1760,6 +1810,19 @@ function TaskReadOnlyContent({
                   onKeyDown={handleCommentInputKeyDown}
                   onKeyUp={(event) => syncCommentCursorPosition(event.currentTarget)}
                   onScroll={(event) => syncCommentHighlightScroll(event.currentTarget)}
+                  onPaste={(event) => {
+                    const imageFiles = Array.from(event.clipboardData.items)
+                      .filter(
+                        (item) => item.kind === "file" && item.type.startsWith("image/")
+                      )
+                      .map((item) => item.getAsFile())
+                      .filter((file): file is File => file !== null);
+                    if (imageFiles.length === 0) {
+                      return;
+                    }
+                    event.preventDefault();
+                    void onAddCommentScreenshots(imageFiles);
+                  }}
                   maxLength={4000}
                   rows={1}
                   placeholder="Add a task comment..."
@@ -1780,6 +1843,13 @@ function TaskReadOnlyContent({
                   agentMentionsEnabled
                 />
               ) : null}
+              <ScreenshotAttachmentGrid
+                attachments={commentScreenshotAttachments}
+                pendingUploads={pendingCommentScreenshotUploads}
+                onPreview={onPreviewAttachment}
+                onRemove={onRemoveCommentScreenshot}
+                compact
+              />
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
                   <TaskActivityInline
@@ -1795,22 +1865,49 @@ function TaskReadOnlyContent({
                     timestamp={selectedTask.updatedAt}
                   />
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() =>
-                    void onSubmitTaskComment(
-                      commentMentionSelections,
-                      commentAgentMentionSelections.map((selection) => ({
-                        credentialId: selection.credentialId,
-                      }))
-                    )
-                  }
-                  disabled={isSubmittingTaskComment || !newTaskComment.trim()}
-                  className="w-full sm:w-auto"
-                >
-                  {isSubmittingTaskComment ? "Posting..." : "Add comment"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <input
+                    key={commentScreenshotInputKey}
+                    id="task-comment-screenshot-file"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(event) =>
+                      void onAddCommentScreenshots(Array.from(event.target.files ?? []))
+                    }
+                    className="hidden"
+                  />
+                  <Button type="button" variant="outline" size="icon" asChild>
+                    <label
+                      htmlFor="task-comment-screenshot-file"
+                      aria-label="Upload screenshots to comment"
+                      className="h-11 w-11 cursor-pointer"
+                    >
+                      <ImagePlus className="h-4 w-4" />
+                    </label>
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() =>
+                      void onSubmitTaskComment(
+                        commentMentionSelections,
+                        commentAgentMentionSelections.map((selection) => ({
+                          credentialId: selection.credentialId,
+                        })),
+                        commentScreenshotAttachments.map((attachment) => attachment.id)
+                      )
+                    }
+                    disabled={
+                      isSubmittingTaskComment ||
+                      pendingCommentScreenshotUploads.length > 0 ||
+                      (!newTaskComment.trim() && commentScreenshotAttachments.length === 0)
+                    }
+                    className="min-h-11 flex-1 sm:flex-none"
+                  >
+                    {isSubmittingTaskComment ? "Posting..." : "Add comment"}
+                  </Button>
+                </div>
               </div>
             </div>
           ) : (
@@ -1835,7 +1932,7 @@ function TaskReadOnlyContent({
         <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
           <p className="text-sm font-medium">Attachments</p>
           <div className="space-y-2">
-            {selectedTask.attachments.map((attachment) => {
+            {taskAttachments.map((attachment) => {
               const href = resolveAttachmentHref(attachment);
               const canPreview =
                 isAttachmentPreviewable(attachment.kind, attachment.mimeType) &&
@@ -1993,6 +2090,9 @@ function TaskEditContent({
   onAddLinkAttachment,
   onSaveTask,
 }: TaskEditContentProps) {
+  const taskAttachments = selectedTask.attachments.filter(
+    (attachment) => !attachment.commentId
+  );
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 space-y-4 overflow-x-hidden pr-1">
@@ -2072,6 +2172,20 @@ function TaskEditContent({
             placeholder="Task details..."
             mentionProjectId={projectId}
             editorClassName={FORM_FOCUS_BORDER_CLASS}
+            onPasteFiles={(files) => {
+              for (const file of files) {
+                void onAddFileAttachment(file);
+              }
+            }}
+          />
+          <ScreenshotAttachmentGrid
+            attachments={selectedTask.attachments.filter(
+              (attachment) =>
+                !attachment.commentId && attachment.mimeType?.startsWith("image/")
+            )}
+            pendingUploads={pendingAttachmentUploads}
+            onPreview={onPreviewAttachment}
+            onRemove={onDeleteAttachment}
           />
         </div>
 
@@ -2181,11 +2295,11 @@ function TaskEditContent({
         ) : null}
 
         <div className="space-y-2">
-          {selectedTask.attachments.length === 0 ? (
+          {taskAttachments.length === 0 ? (
             <p className="text-xs text-muted-foreground">No attachments yet.</p>
           ) : (
             <div className="space-y-2">
-              {selectedTask.attachments.map((attachment) => {
+              {taskAttachments.map((attachment) => {
                 const href = resolveAttachmentHref(attachment);
                 const canPreview =
                   isAttachmentPreviewable(attachment.kind, attachment.mimeType) &&

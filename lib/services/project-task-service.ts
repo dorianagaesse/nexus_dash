@@ -143,6 +143,7 @@ export interface UpdatedTaskPayload {
   }[];
   attachments: {
     id: string;
+    commentId: string | null;
     kind: string;
     name: string;
     url: string | null;
@@ -366,6 +367,7 @@ async function loadTaskMutationPayload(
         orderBy: [{ createdAt: "desc" }],
         select: {
           id: true,
+          commentId: true,
           kind: true,
           name: true,
           url: true,
