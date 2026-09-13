@@ -75,6 +75,30 @@ Use it for important implementation milestones, blockers, validation runs, and r
   project-activity write 500'd with Postgres 42501 (create epic, task reorder,
   roadmap/meeting/context-card creates). With the flag set (or the
   Playwright-managed server, which injects it), all specs pass.
+- Copilot review on PR #511 raised three findings in
+  `lib/services/project-epic-service.ts`, addressed in 44d48ad:
+  (1) write-time revalidation — `updateMany` cannot filter on relations
+  (Prisma rejects `tasks: { some: ... }` there), so after the
+  timestamp-guarded conditional update the sweep now re-reads the epics it
+  just archived and rolls back any whose linked tasks no longer resolve to a
+  stale completion; the extra read only runs when rows were actually
+  archived; (2) the request-time sweep is now explicitly gated on
+  `hasRequiredRole(role, "editor")` after the viewer-level list check — epic
+  RLS only lets owners/editors write, so a viewer's sweep was a silent
+  0-row no-op, and the access requirement now lives in code rather than
+  depending on policy row filtering; (3) the duplicated-read finding was
+  answered with the cost profile (minimal-column candidate read, one
+  in-memory staleness predicate shared with the rollback, extra reads only
+  on actual archive) rather than merging the sweep into the response read,
+  since merging would mean emulating the write and its rollback in the
+  response snapshot. Three new unit tests (rollback after a reopening slips
+  in, revalidation-read skipped when nothing archived, viewer skips the
+  sweep); epic service suite 14/14.
+- Review-round validation (NODE_ENV=test, CI-parity env): lint clean,
+  `rls:check`, Vitest 196 files / 1499 tests (2 skipped), coverage
+  93.47 / 84.36 / 95.3 / 93.77, production build — all green. E2E is
+  unaffected by this round (server service + unit tests only); CI re-runs
+  the full suite on the pushed commit.
 
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 
