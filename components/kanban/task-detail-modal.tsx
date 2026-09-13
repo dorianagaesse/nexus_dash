@@ -1068,6 +1068,7 @@ function TaskOptionsMenu({
                           <span className="min-w-0 text-left">
                             <span className="block truncate text-sm font-medium">{epic.name}</span>
                             <span className="block truncate text-xs text-muted-foreground">
+                              {epic.archived ? "Archived · " : ""}
                               {epic.status} · {epic.progressPercent}% complete · {epic.taskCount} task
                               {epic.taskCount === 1 ? "" : "s"}
                             </span>

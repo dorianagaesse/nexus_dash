@@ -9,6 +9,7 @@ import {
   createProjectEpic,
   listProjectEpics,
 } from "@/lib/services/project-epic-service";
+import { serializeProjectEpicResponse } from "@/lib/services/project-epic-response";
 
 interface ProjectEpicRequestBody {
   name?: unknown;
@@ -25,18 +26,19 @@ export async function GET(
     return principalResult.response;
   }
 
+  const includeArchived =
+    request.nextUrl.searchParams.get("includeArchived")?.trim().toLowerCase() ===
+    "true";
+
   const epics = await listProjectEpics(
     params.projectId,
     principalResult.principal.actorUserId,
-    getAgentProjectAccessContext(principalResult.principal)
+    getAgentProjectAccessContext(principalResult.principal),
+    { includeArchived }
   );
 
   return NextResponse.json({
-    epics: epics.map((epic) => ({
-      ...epic,
-      createdAt: epic.createdAt.toISOString(),
-      updatedAt: epic.updatedAt.toISOString(),
-    })),
+    epics: epics.map(serializeProjectEpicResponse),
   });
 }
 
@@ -76,11 +78,7 @@ export async function POST(
 
   return NextResponse.json(
     {
-      epic: {
-        ...result.data.epic,
-        createdAt: result.data.epic.createdAt.toISOString(),
-        updatedAt: result.data.epic.updatedAt.toISOString(),
-      },
+      epic: serializeProjectEpicResponse(result.data.epic),
     },
     { status: 201 }
   );
