@@ -830,3 +830,9 @@ Keep UI-only or task-only notes in `journal.md`.
   uploads, enforced identically by the service and RLS policy; owners retain
   the broader delete capability. The nullable relation preserves historical
   task files if a comment is ever removed.
+- Browser uploads still prefer signed direct R2 requests. If that request is
+  blocked at the transport layer (most commonly because a preview origin is
+  absent from R2 CORS), the client cleans the reserved object and retries files
+  within the app route's 4 MB limit through the authenticated multipart route.
+  Larger files retain the actionable CORS error because proxying them would
+  exceed the serverless request-size contract.

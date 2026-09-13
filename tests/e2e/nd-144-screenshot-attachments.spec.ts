@@ -95,6 +95,12 @@ test.describe("ND-144 screenshot attachments", () => {
       name: "Preview screenshot comment-paste.png",
     });
     await expect(draftPreview).toBeVisible();
+    const commentComposer = page.getByTestId("task-comment-composer");
+    await expect(commentComposer.locator("#task-comment-input")).toBeVisible();
+    await expect(commentComposer.getByRole("button", {
+      name: "Preview screenshot comment-paste.png",
+    })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Bold" })).toHaveCount(0);
     const uploadButton = page.getByLabel("Upload screenshots to comment");
     expect((await uploadButton.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(44);
     expect((await uploadButton.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);

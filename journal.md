@@ -7239,3 +7239,14 @@ Low-value entries to avoid going forward:
   and permits editor cleanup only for the actor's own unbound uploads through
   matching service and RLS rules. Removed the disallowed `project.md` edits and
   added direct rich-text paste and attachment cleanup coverage.
+- Preview investigation confirmed browser-to-R2 `PUT` requests can be rejected
+  before reaching storage when an ephemeral Vercel origin is absent from the
+  bucket CORS allowlist. Direct uploads now clean their reserved object and
+  retry through the authenticated app upload route for files up to 4 MB, while
+  retaining the 25 MB direct path when CORS is available.
+- Simplified the comment composer by hiding its rich-text toolbar while keeping
+  rich-text rendering and keyboard behavior, and moved draft screenshot
+  previews into the bordered input shell. Focused component/client coverage
+  passes (84 tests), changed-file lint passes, and the production build compiles
+  and type-checks before stopping at page-data collection because this worktree
+  has no `DATABASE_URL`.

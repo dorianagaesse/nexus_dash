@@ -15,6 +15,14 @@ interface UploadFileDirectInput<TAttachment> {
   finalizeUrl: string;
   cleanupUrl?: string;
   fallbackErrorMessage: string;
+  fallbackUpload?: () => Promise<TAttachment>;
+}
+
+export class DirectUploadStorageRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DirectUploadStorageRequestError";
+  }
 }
 
 export interface DirectUploadBackgroundProgress {
@@ -70,6 +78,7 @@ export async function uploadFileAttachmentDirect<TAttachment>({
   finalizeUrl,
   cleanupUrl,
   fallbackErrorMessage,
+  fallbackUpload,
 }: UploadFileDirectInput<TAttachment>): Promise<TAttachment> {
   let uploadedStorageKey: string | null = null;
   let finalized = false;
@@ -130,7 +139,9 @@ export async function uploadFileAttachmentDirect<TAttachment>({
       });
     } catch (error) {
       if (error instanceof TypeError) {
-        throw new Error(buildCorsPreflightErrorMessage(fallbackErrorMessage));
+        throw new DirectUploadStorageRequestError(
+          buildCorsPreflightErrorMessage(fallbackErrorMessage)
+        );
       }
       throw error;
     }
@@ -173,6 +184,9 @@ export async function uploadFileAttachmentDirect<TAttachment>({
   } catch (error) {
     if (uploadedStorageKey && !finalized) {
       await cleanupUploadedFile(uploadedStorageKey);
+    }
+    if (error instanceof DirectUploadStorageRequestError && fallbackUpload) {
+      return fallbackUpload();
     }
     throw error;
   }

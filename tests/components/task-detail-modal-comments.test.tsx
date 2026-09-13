@@ -307,6 +307,36 @@ describe("TaskDetailModal comments", () => {
     document.body.innerHTML = "";
   });
 
+  test("keeps screenshot previews inside the compact comment composer", async () => {
+    const { root } = createTestRenderer();
+
+    await renderWithRoot(root, [], {
+      canEdit: true,
+      commentScreenshotAttachments: [
+        {
+          id: "attachment-1",
+          commentId: null,
+          kind: "file",
+          name: "pasted.png",
+          url: null,
+          mimeType: "image/png",
+          sizeBytes: 1024,
+          downloadUrl: "/download/attachment-1",
+        },
+      ],
+    });
+
+    const composer = document.querySelector('[data-testid="task-comment-composer"]');
+    expect(composer?.querySelector("#task-comment-input")).not.toBeNull();
+    expect(
+      composer?.querySelector('[aria-label="Preview screenshot pasted.png"]')
+    ).not.toBeNull();
+    expect(document.body.textContent).not.toContain("Title 1");
+    expect(document.body.textContent).not.toContain("Bullet list");
+
+    await act(async () => root.unmount());
+  });
+
   test("renders agent-authored comments with credential identity and shared avatar", async () => {
     const { root } = createTestRenderer();
 

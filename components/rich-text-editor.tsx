@@ -56,6 +56,7 @@ interface RichTextEditorProps {
   agentMentionsEnabled?: boolean;
   onMentionSelect?: (member: MentionAutocompleteMember) => void;
   onPasteFiles?: (files: File[]) => void;
+  hideToolbar?: boolean;
 }
 
 const EDITOR_MENTION_CLASS =
@@ -2330,6 +2331,7 @@ export function RichTextEditor({
   agentMentionsEnabled = false,
   onMentionSelect,
   onPasteFiles,
+  hideToolbar = false,
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const resetTimeoutRef = useRef<number | null>(null);
@@ -3100,7 +3102,7 @@ export function RichTextEditor({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="flex flex-wrap gap-2">
+      {!hideToolbar ? <div className="flex flex-wrap gap-2">
         <Button
           type="button"
           size="sm"
@@ -3189,7 +3191,7 @@ export function RichTextEditor({
           <KeyRound className="h-4 w-4" />
           Token
         </Button>
-      </div>
+      </div> : null}
 
       <EmojiFieldShell targetRef={editorRef} buttonPlacement="top">
         <div

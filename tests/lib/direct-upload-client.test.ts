@@ -69,6 +69,45 @@ describe("direct-upload-client", () => {
     );
   });
 
+  test("falls back after cleaning up a direct upload blocked by CORS", async () => {
+    const fallbackUpload = vi.fn().mockResolvedValue({ id: "fallback-attachment" });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            upload: {
+              storageKey: "task/p1/screenshot.png",
+              uploadUrl: "https://example.r2.cloudflarestorage.com/screenshot.png",
+              method: "PUT",
+              headers: { "Content-Type": "image/png" },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      )
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      uploadFileAttachmentDirect<{ id: string }>({
+        file: new File(["png"], "screenshot.png", { type: "image/png" }),
+        uploadTargetUrl: "/upload-url",
+        finalizeUrl: "/finalize",
+        cleanupUrl: "/cleanup",
+        fallbackErrorMessage: "Could not upload screenshot.",
+        fallbackUpload,
+      })
+    ).resolves.toEqual({ id: "fallback-attachment" });
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/cleanup",
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(fallbackUpload).toHaveBeenCalledTimes(1);
+  });
+
   test("reports deterministic progress and failures for background direct uploads", async () => {
     const progressSnapshots: Array<{
       phase: "uploading" | "done" | "failed";

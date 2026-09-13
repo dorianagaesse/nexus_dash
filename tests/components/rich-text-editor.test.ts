@@ -383,6 +383,26 @@ function EditorHarness({
 }
 
 describe("rich-text-editor", () => {
+  test("can hide formatting controls while keeping the editor available", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextEditor, {
+        id: "compact-editor",
+        value: "",
+        onChange: vi.fn(),
+        hideToolbar: true,
+      })
+    );
+
+    expect(container.querySelector('[contenteditable="true"]')).not.toBeNull();
+    expect(container.textContent).not.toContain("Bold");
+    expect(container.textContent).not.toContain("Title 1");
+
+    await act(async () => root.unmount());
+  });
+
   test("routes image paste to the file handler without intercepting text paste", async () => {
     const { container, root } = createTestRenderer();
     const onPasteFiles = vi.fn();

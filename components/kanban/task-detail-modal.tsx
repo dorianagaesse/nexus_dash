@@ -1658,25 +1658,37 @@ function TaskReadOnlyContent({
               <label htmlFor="task-comment-input" className="sr-only">
                 Task comment
               </label>
-              <RichTextEditor
-                id="task-comment-input"
-                value={newTaskComment}
-                onChange={onNewTaskCommentChange}
-                placeholder="Add a task comment..."
-                ariaLabel="Task comment"
-                mentionProjectId={projectId}
-                agentMentionsEnabled
-                onMentionSelect={handleCommentMentionSelect}
-                editorClassName="min-h-11"
-                onPasteFiles={onAddCommentScreenshots}
-              />
-              <ScreenshotAttachmentGrid
-                attachments={commentScreenshotAttachments}
-                pendingUploads={pendingCommentScreenshotUploads}
-                onPreview={onPreviewAttachment}
-                onRemove={onRemoveCommentScreenshot}
-                compact
-              />
+              <div
+                data-testid="task-comment-composer"
+                className="rounded-md border border-input bg-background transition-colors focus-within:border-ring/60"
+              >
+                <RichTextEditor
+                  id="task-comment-input"
+                  value={newTaskComment}
+                  onChange={onNewTaskCommentChange}
+                  placeholder="Add a task comment..."
+                  ariaLabel="Task comment"
+                  mentionProjectId={projectId}
+                  agentMentionsEnabled
+                  onMentionSelect={handleCommentMentionSelect}
+                  className="space-y-0"
+                  editorClassName="min-h-11 border-0 focus-visible:border-transparent"
+                  onPasteFiles={onAddCommentScreenshots}
+                  hideToolbar
+                />
+                {(commentScreenshotAttachments.length > 0 ||
+                  pendingCommentScreenshotUploads.length > 0) ? (
+                  <div className="border-t border-border/60 px-3 py-2.5">
+                    <ScreenshotAttachmentGrid
+                      attachments={commentScreenshotAttachments}
+                      pendingUploads={pendingCommentScreenshotUploads}
+                      onPreview={onPreviewAttachment}
+                      onRemove={onRemoveCommentScreenshot}
+                      compact
+                    />
+                  </div>
+                ) : null}
+              </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div className="flex flex-wrap items-center gap-2">
                   <TaskActivityInline

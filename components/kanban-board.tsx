@@ -112,6 +112,53 @@ function createLocalUploadId(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+async function uploadTaskFileAttachment({
+  projectId,
+  taskId,
+  file,
+  useDirectUpload,
+  fallbackErrorMessage,
+}: {
+  projectId: string;
+  taskId: string;
+  file: File;
+  useDirectUpload: boolean;
+  fallbackErrorMessage: string;
+}): Promise<TaskAttachment> {
+  const uploadThroughApp = async () => {
+    const formData = new FormData();
+    formData.append("kind", ATTACHMENT_KIND_FILE);
+    formData.append("name", "");
+    formData.append("file", file);
+
+    const response = await fetchProjectActivityMutation(
+      projectId,
+      `/api/projects/${projectId}/tasks/${taskId}/attachments`,
+      { method: "POST", body: formData }
+    );
+    if (!response.ok) {
+      throw new Error(await readApiError(response, fallbackErrorMessage));
+    }
+
+    const payload = (await response.json()) as { attachment: TaskAttachment };
+    return payload.attachment;
+  };
+
+  if (!useDirectUpload) {
+    return uploadThroughApp();
+  }
+
+  return uploadFileAttachmentDirect<TaskAttachment>({
+    file,
+    uploadTargetUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/upload-url`,
+    finalizeUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct`,
+    cleanupUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct/cleanup`,
+    fallbackErrorMessage,
+    fallbackUpload:
+      file.size <= MAX_ATTACHMENT_FILE_SIZE_BYTES ? uploadThroughApp : undefined,
+  });
+}
+
 function resolveOptimisticAssigneeSummary({
   reference,
   collaborators,
@@ -2689,42 +2736,13 @@ export function KanbanBoard({
       setFileInputKey((previous) => previous + 1);
 
       try {
-        let attachment: TaskAttachment;
-
-        if (storageProvider === "r2") {
-          attachment = await uploadFileAttachmentDirect<TaskAttachment>({
-            file: selectedFile,
-            uploadTargetUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/upload-url`,
-            finalizeUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct`,
-            cleanupUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct/cleanup`,
-            fallbackErrorMessage: "Could not upload file attachment.",
-          });
-        } else {
-          const formData = new FormData();
-          formData.append("kind", ATTACHMENT_KIND_FILE);
-          formData.append("name", "");
-          formData.append("file", selectedFile);
-
-          const response = await fetchProjectActivityMutation(
-            projectId,
-            `/api/projects/${projectId}/tasks/${taskId}/attachments`,
-            {
-              method: "POST",
-              body: formData,
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error(
-              await readApiError(response, "Could not upload file attachment.")
-            );
-          }
-
-          const payload = (await response.json()) as {
-            attachment: TaskAttachment;
-          };
-          attachment = payload.attachment;
-        }
+        const attachment = await uploadTaskFileAttachment({
+          projectId,
+          taskId,
+          file: selectedFile,
+          useDirectUpload: storageProvider === "r2",
+          fallbackErrorMessage: "Could not upload file attachment.",
+        });
 
         applyTaskMutation(taskId, (task) =>
           stampTaskActivity(
@@ -2807,35 +2825,13 @@ export function KanbanBoard({
           ]);
 
           try {
-            let attachment: TaskAttachment;
-            if (storageProvider === "r2") {
-              attachment = await uploadFileAttachmentDirect<TaskAttachment>({
-                file,
-                uploadTargetUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/upload-url`,
-                finalizeUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct`,
-                cleanupUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct/cleanup`,
-                fallbackErrorMessage: "Could not upload screenshot.",
-              });
-            } else {
-              const formData = new FormData();
-              formData.append("kind", ATTACHMENT_KIND_FILE);
-              formData.append("name", "");
-              formData.append("file", file);
-              const response = await fetchProjectActivityMutation(
-                projectId,
-                `/api/projects/${projectId}/tasks/${taskId}/attachments`,
-                { method: "POST", body: formData }
-              );
-              if (!response.ok) {
-                throw new Error(
-                  await readApiError(response, "Could not upload screenshot.")
-                );
-              }
-              const payload = (await response.json()) as {
-                attachment: TaskAttachment;
-              };
-              attachment = payload.attachment;
-            }
+            const attachment = await uploadTaskFileAttachment({
+              projectId,
+              taskId,
+              file,
+              useDirectUpload: storageProvider === "r2",
+              fallbackErrorMessage: "Could not upload screenshot.",
+            });
 
             if (commentDraftTaskIdRef.current !== taskId) {
               await fetchProjectActivityMutation(
