@@ -16,6 +16,40 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-09-13 - ND-385: Attention reads are credential-scoped, cursor-paginated, and least-privilege
+- Status: Accepted.
+- Context: ND-383 stored durable mention events and ND-384 stored agent
+  assignment identity, but an agent credential had no way to answer "what
+  mentions and assignments need my attention" without broad read scopes, and
+  the raw rows lack a client-facing contract (summaries, artifact links,
+  current state, pagination, dedup).
+- Decision: Add a dedicated `attention:read` scope and two read endpoints
+  (`agent-attention/mentions`, `agent-attention/assignments`) that are
+  implicitly scoped to the authenticated credential — no credential id is
+  accepted as input, and the credential identity comes from the bearer token
+  only, re-validated per request. Items expose a stable per-artifact dedup
+  key (`mention:<id>`, `assignment:task:<id>`,
+  `assignment:meeting_todo:<id>`), event/artifact/state/time filters, and
+  opaque base64url cursors `{order, occurredAt, id}` that embed the sort
+  direction; null occurrence times (pre-provenance assignments) sort as
+  oldest. Mentions paginate in SQL; assignments apply per-source keyset
+  predicates with an ordered overfetch bounded to `limit + 1` per source,
+  then merge the two bounded pages in memory under the same sort/cursor
+  contract (cursor ids are raw row ids so they line up with the predicates).
+  Current state
+  (task status, todo completion) is derived live from the artifact while
+  occurrence time and actor provenance stay durable snapshots, and stored
+  actors resolve registry-first with the shared `(agent)` display
+  convention. Contract publication (OpenAPI, endpoint catalog, hosted guide,
+  presets) stays with ND-386.
+- Consequences: Credential revocation or expiry immediately blocks reads
+  while historical mention and assignment rows stay intact for project
+  governance views; agents get attention reads with no board or write
+  capability. Cursors are opaque by design — clients dedup by item id, never
+  by cursor — so cursor encoding can evolve behind the versioned payload.
+- Links: board card ND-385, epic "Agent mentions, assignment, and attention
+  API"; predecessor decisions ND-383 and ND-384.
+
 ## 2026-09-12 - ND-384: Persist agent assignment as actor identity with append-only assignment history
 - Status: Accepted.
 - Context: The canonical project-actor contract (TASK-337/ND-178) and the
