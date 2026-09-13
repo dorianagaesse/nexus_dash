@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -28,35 +28,25 @@ import {
   EmojiInputField,
   EmojiTextareaField,
 } from "@/components/ui/emoji-field";
+import {
+  getEpicColorFromName,
+  type EpicTaskSummary,
+  type ProjectEpicSnapshot,
+} from "@/lib/epic";
+import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
+import {
+  discardLatestProjectEpicSnapshot,
+  getLatestProjectEpicSnapshot,
+  PROJECT_EPICS_RECONCILED_EVENT,
+  type ProjectEpicsReconciledDetail,
+} from "@/lib/project-epic-client";
 import { ListSearchInput } from "@/components/ui/list-search-input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { getEpicColorFromName } from "@/lib/epic";
-import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import { requestTaskOpen } from "@/lib/task-open-client";
 import { formatTaskReference } from "@/lib/task-reference";
 import { cn } from "@/lib/utils";
 
-interface ProjectEpicPanelTask {
-  id: string;
-  referenceNumber: number;
-  title: string;
-  status: string;
-  archivedAt: string | null;
-}
-
-export interface ProjectEpicPanelEpic {
-  id: string;
-  name: string;
-  description: string;
-  status: "Ready" | "In progress" | "Completed";
-  progressPercent: number;
-  taskCount: number;
-  completedTaskCount: number;
-  archivedAt: string | null;
-  linkedTasks: ProjectEpicPanelTask[];
-  createdAt: string;
-  updatedAt: string;
-}
+export type ProjectEpicPanelEpic = ProjectEpicSnapshot;
 
 interface ProjectEpicPanelProps {
   projectId: string;
@@ -115,7 +105,7 @@ function EpicTaskChip({
   task,
   projectId,
 }: {
-  task: ProjectEpicPanelTask;
+  task: EpicTaskSummary;
   projectId: string;
 }) {
   const toneClass =
@@ -197,7 +187,10 @@ export function ProjectEpicPanel({
     defaultExpanded: true,
     logLabel: "ProjectEpicPanel",
   });
-  const [localEpics, setLocalEpics] = useState<ProjectEpicPanelEpic[]>(epics);
+  const initialEpicsRef = useRef(epics);
+  const [localEpics, setLocalEpics] = useState<ProjectEpicPanelEpic[]>(
+    () => getLatestProjectEpicSnapshot(projectId) ?? epics
+  );
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createDescription, setCreateDescription] = useState("");
@@ -220,8 +213,37 @@ export function ProjectEpicPanel({
   );
 
   useEffect(() => {
+    if (epics === initialEpicsRef.current) {
+      return;
+    }
+
+    initialEpicsRef.current = epics;
+    discardLatestProjectEpicSnapshot(projectId);
     setLocalEpics(epics);
-  }, [epics]);
+  }, [epics, projectId]);
+
+  useEffect(() => {
+    function handleProjectEpicsReconciled(event: Event) {
+      const detail = (event as CustomEvent<ProjectEpicsReconciledDetail>).detail;
+      if (detail?.projectId !== projectId) {
+        return;
+      }
+
+      setLocalEpics(detail.epics);
+    }
+
+    window.addEventListener(
+      PROJECT_EPICS_RECONCILED_EVENT,
+      handleProjectEpicsReconciled
+    );
+
+    return () => {
+      window.removeEventListener(
+        PROJECT_EPICS_RECONCILED_EVENT,
+        handleProjectEpicsReconciled
+      );
+    };
+  }, [projectId]);
 
   const editingEpic = useMemo(
     () => localEpics.find((epic) => epic.id === editingEpicId) ?? null,

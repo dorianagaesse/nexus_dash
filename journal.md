@@ -7088,3 +7088,37 @@ Low-value entries to avoid going forward:
   agent-authored comments instead of generating a human avatar from the agent
   snapshot seed. Regression coverage asserts both attribution cards use the
   dedicated agent avatar; focused task-author/UI tests (11 tests) and lint pass.
+
+## 2026-09-13 - ND-156 Epic task-count reconciliation
+
+- Claimed live Nexus Dash card ND-156 (`TASK-383`) and moved it from Backlog to
+  In Progress before coding. Work used the dedicated worktree
+  `nexus_dash_task156` on `fix/nd-156-epic-task-count-refresh`.
+- Root cause: Kanban task mutations updated local task state and acknowledged
+  project activity locally, while the server-derived Epic panel retained its
+  initial snapshot. Saving an Epic happened to call `router.refresh()`, which
+  masked the missing task-mutation reconciliation.
+- Added a targeted, abortable `/api/projects/{projectId}/epics` refresh after
+  successful Epic-visible task mutations and a shared snapshot event consumed
+  by the Epic panel and Kanban Epic options. Create, link, unlink, reassignment,
+  title/status/order, archive, and unarchive changes now reconcile immediately
+  without an Epic edit or full dashboard reload.
+- Added unit coverage for mutation relevance, component coverage for applying
+  the authoritative snapshot, and a Playwright flow covering create,
+  reassignment, unlink, relink, and completion progress without reload.
+- Release advanced 0.67.0 -> 0.67.1 with a fix changelog entry. Final validation:
+  lint, RLS inventory, release policy, 1,481 unit tests (2 skipped), coverage
+  thresholds (93.47% statements / 84.36% branches), production build, and the
+  ND-156 browser flow passed. The full 64-case browser suite had 62 pass, 1
+  environment-gated skip, and one unrelated meeting-note geometry timing miss
+  that passed immediately when rerun in isolation.
+- Copilot review follow-up fixed all three findings: drag snapshots now use the
+  mapped destination task and normalized source/destination positions, the
+  latest Epic snapshot is replayed when the panel mounts after Kanban, and a
+  superseded request must still own the project slot before it can publish.
+  Focused coverage (24 tests), lint, and the ND-156 Playwright flow pass.
+- Merge-forward follow-up: merged `origin/main` at `2db1386`, retaining the
+  newer Epic archive/deep-link contract and advancing the fix release to
+  v0.72.1. Reconciliation now requests archived Epics for the full panel
+  snapshot while Kanban options remain active-only. Focused Epic tests (50),
+  lint, release policy, and the production build pass after resolution.

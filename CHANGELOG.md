@@ -8,6 +8,15 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.72.1 - 2026-09-13
+
+- Fixed stale Epic task counts, status, linked-task summaries, and progress by
+  reconciling a fresh server-derived Epic snapshot after successful local task
+  creation, linking, unlinking, reassignment, movement, archive, and deletion
+  mutations (ND-156).
+- Kept the Epic panel and Kanban Epic options synchronized from the same
+  targeted snapshot without requiring an Epic edit or full dashboard reload.
+
 ## v0.72.0 - 2026-09-13
 
 - Task comments now use the shared rich-text composer (ND-398): headings,
@@ -89,7 +98,6 @@ SHA, deployment URL, and workflow run belong in release evidence.
 - Existing card content is unchanged: legacy plain-text descriptions keep
   rendering as before and upgrade to rich HTML only when edited and saved,
   and non-mention rich text behaves exactly as before.
-
 ## v0.67.0 - 2026-09-12
 
 - Added agent mentions to task comments (ND-383). Selecting an agent in the
