@@ -432,17 +432,18 @@ Branch-name note:
 
 ### Release version metadata
 
-`package.json` is the canonical product-version source. Product-impacting PRs
-that change the product version must update both `package.json` and
-`package-lock.json`; Dependabot maintenance PRs must not bump the product
-version by themselves.
+`package.json` is the canonical product-version source. Release-preparation
+PRs (`chore/release-vX.Y.Z`) update `package.json` and `package-lock.json`
+together; every other PR — including Dependabot maintenance — merges without
+changing the product version.
 
-Product versions move through branch-based release decisions, not commit counts
-or every production deployment. While NexusDash is pre-1.0, `feature/*` PRs bump
-minor and reset patch, for example `0.2.0` to `0.3.0`; release-impacting
-`fix/*`, `refactor/*`, and `chore/*` PRs bump patch, for example `0.3.0` to
-`0.3.1`; `1.0.0` remains reserved for the first stable product baseline. The
-detailed checklist lives in
+Product versions identify cohesive production releases, not commit counts or
+every production deployment: one release can contain many product PRs. A
+`chore/release-vX.Y.Z` preparation PR selects the release version (minor for
+capability releases, patch for fix-only releases), composes the `CHANGELOG.md`
+entry, and is tagged and promoted after merge; `1.0.0` remains reserved for
+the first stable product baseline. CI (`npm run release:check`) rejects
+version changes outside release preparation. The detailed checklist lives in
 [`docs/runbooks/release-versioning.md`](docs/runbooks/release-versioning.md).
 
 The running app displays only the clean product version, for example `v0.18.0`.
