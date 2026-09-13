@@ -3,6 +3,64 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-13 - ND-386: Publish and validate the agent attention API contract
+
+- Implemented in the dedicated `../nexus_dash_task386` worktree on
+  `feature/nd-386-attention-api-contract` from `origin/main` at 63c49c4
+  (v0.70.0). ND-385 deliberately deferred contract publication to this task;
+  this change touches no runtime route code — the published contract now
+  covers the already-merged attention endpoints.
+- OpenAPI (`lib/agent-onboarding.ts`): new `Attention` tag, two
+  `AGENT_API_ENDPOINTS` entries (`attention:read` scope), two path items with
+  the full query surface (eventType, artifactType, assignments-only `state`,
+  since/until, limit 1-100 default 50, order, cursor with same-order replay
+  rule), 11 schemas (`AgentAttentionMentionItem`,
+  `AgentAttentionAssignmentItem`, filter envelope, artifact/current-state
+  variants with oneOf unions), and named synthetic examples
+  (`commentMention`; `taskAssignment`, `meetingTodoAssignment`). Two
+  `AGENT_LIMITATIONS` rows document the self-scoped read and cursor replay
+  behavior. `limit` bounds in the docs are asserted equal to the runtime
+  constants.
+- Hosted guide (`components/agent-onboarding/agent-onboarding-guide.tsx`):
+  new full-width "Attention discovery" card backed by the new exported
+  `buildAgentAttentionExample()` — incremental polling (since + ascending
+  order + cursor replayed with the issuing order), dedup by stable item id,
+  following `artifact.taskId`/comment/meeting-note references, re-checking
+  `currentState` before acting, and revocation handling (401 retries the
+  exchange once; a failed exchange means revoked/expired/rotated — stop and
+  ask the owner).
+- Least privilege (`lib/agent-access.ts` + owner panel): new
+  `attention-read` preset granting exactly `attention:read`, so a poll-only
+  agent needs no board read or write scope. The panel preset grid becomes
+  2x2 to fit the fourth preset; the scope checkbox for `attention:read`
+  already existed from ND-385.
+- Contract tests: new `tests/api/agent-attention-contract.route.test.ts`
+  runs the real routes with the real service response mappers (only the two
+  list functions are mocked) and validates responses with a hand-rolled
+  JSON-schema subset validator against the built document — runtime 200
+  envelopes (mentions, assignments incl. null `occurredAt`/null actor),
+  documented 400/403 error bodies, both published examples against their
+  schemas, and example hygiene (no `nda_` keys, emails, bearer tokens,
+  JWT-shaped strings, or URLs; placeholder project id; stable id prefixes).
+  Additional assertions in `tests/lib/agent-onboarding.test.ts`,
+  `tests/lib/agent-access.test.ts`,
+  `tests/components/agent-onboarding-guide.test.ts`, and
+  `tests/api/agent-openapi.route.test.ts`.
+- Validation (local env via the `scripts/local-validation.mjs` shape, local
+  Postgres on 5432): `git diff --check` clean; `npm run lint`;
+  `npm run rls:check`; `npm test` 202 files / 1585 tests pass (2 skipped);
+  `npm run test:coverage`; `npm run build` (BUILD_ID written); release
+  advanced 0.70.0 -> 0.71.0 (`## v0.71.0 - 2026-09-13` CHANGELOG entry,
+  `release:check` passes). Live smoke against the production build on an
+  owned server (port 3427, PID verified): `/api/health/ready` 200,
+  `/docs/agent/v1` renders the Attention discovery section, and the served
+  `openapi.json` contains both paths with the documented parameters,
+  examples, and `attention:read` in the token scope enum.
+- Playwright suite not run: no auth, calendar, or upload flow is touched;
+  the changed UI surfaces are static guide copy and a preset button rendered
+  from data, covered by SSR/jsdom component tests, and the e2e specs that
+  open the agent-access panel (nd-382, nd-384) do not use presets or layout.
+
 # 2026-09-13 - ND-385: Agent attention API for mentions and assignments
 
 - Implemented in the dedicated `../nexus_dash_task385` worktree on
