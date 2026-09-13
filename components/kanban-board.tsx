@@ -48,6 +48,7 @@ import {
   readApiError,
   type TaskColumns,
 } from "@/components/kanban-board-utils";
+import { mergeSubmittedTaskComment } from "@/components/kanban-board-comments";
 import { reconcileBilateralTaskRelations } from "@/components/kanban-board-related";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
@@ -78,6 +79,10 @@ import {
   getTaskLabelsFromStorage,
   normalizeTaskLabel,
 } from "@/lib/task-label";
+import {
+  TASK_OPEN_REQUEST_EVENT,
+  type TaskOpenRequestDetail,
+} from "@/lib/task-open-client";
 import { createRelatedTaskMap } from "@/lib/task-related";
 import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 import { MAX_TASK_TITLE_LENGTH } from "@/lib/task-title";
@@ -97,6 +102,7 @@ interface KanbanBoardProps {
   initialTasks: KanbanTask[];
   archivedDoneTasks?: KanbanTask[];
   epics: ProjectEpicOption[];
+  archivedEpics?: ProjectEpicOption[];
   collaborators: ProjectTaskCollaborator[];
   projectActors?: ProjectActorSummary[];
   initialTaskId?: string | null;
@@ -311,6 +317,7 @@ export function KanbanBoard({
   initialTasks,
   archivedDoneTasks: initialArchivedDoneTasks = [],
   epics,
+  archivedEpics = [],
   collaborators,
   projectActors = [],
   initialTaskId,
@@ -497,13 +504,15 @@ export function KanbanBoard({
       }
 
       setLocalEpicOptions(
-        detail.epics.map((epic) => ({
-          id: epic.id,
-          name: epic.name,
-          status: epic.status,
-          progressPercent: epic.progressPercent,
-          taskCount: epic.taskCount,
-        }))
+        detail.epics
+          .filter((epic) => epic.archivedAt == null)
+          .map((epic) => ({
+            id: epic.id,
+            name: epic.name,
+            status: epic.status,
+            progressPercent: epic.progressPercent,
+            taskCount: epic.taskCount,
+          }))
       );
     }
 
@@ -770,6 +779,30 @@ export function KanbanBoard({
     () => [...localEpicOptions].sort((left, right) => left.name.localeCompare(right.name)),
     [localEpicOptions]
   );
+
+  // Pickers and filters stay active-only; the task modal additionally shows the
+  // selected task's linked epic even after it was archived to avoid a false
+  // "No epic" while the link is still in place.
+  const selectedTaskEpicOptions = useMemo<ProjectEpicOption[]>(() => {
+    const linkedEpicId = selectedTask?.epic?.id ?? null;
+    if (
+      !linkedEpicId ||
+      availableEpicOptions.some((epic) => epic.id === linkedEpicId)
+    ) {
+      return availableEpicOptions;
+    }
+
+    const linkedArchivedEpic = archivedEpics.find(
+      (epic) => epic.id === linkedEpicId
+    );
+    if (!linkedArchivedEpic) {
+      return availableEpicOptions;
+    }
+
+    return [...availableEpicOptions, linkedArchivedEpic].sort((left, right) =>
+      left.name.localeCompare(right.name)
+    );
+  }, [archivedEpics, availableEpicOptions, selectedTask]);
 
   useEffect(() => {
     const availableEpicIds = new Set(localEpicOptions.map((epic) => epic.id));
@@ -1346,6 +1379,49 @@ export function KanbanBoard({
     [setIsExpanded]
   );
 
+  const openTaskById = useCallback(
+    (rawTaskId: string) => {
+      const taskId = rawTaskId.trim();
+      if (!taskId) {
+        return;
+      }
+
+      const task = taskById.get(taskId);
+      if (task) {
+        handleSelectTask(task);
+        setIsExpanded(true);
+        return;
+      }
+
+      // The task is absent from the loaded board; fetch it by id so the
+      // detail modal can still open. Failures keep the board unchanged.
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/projects/${projectId}/tasks/${encodeURIComponent(taskId)}`
+          );
+          if (!response.ok) {
+            return;
+          }
+          const payload = (await response.json()) as {
+            task?: TaskMutationResponseTask;
+          };
+          const remoteTask = payload.task;
+          if (!remoteTask || !isTaskStatus(remoteTask.status)) {
+            return;
+          }
+          const mappedTask = mapTaskMutationResponseTask(remoteTask);
+          upsertRemoteTask(mappedTask);
+          handleSelectTask(mappedTask);
+          setIsExpanded(true);
+        } catch (error) {
+          console.error("[KanbanBoard.openTaskById]", error);
+        }
+      })();
+    },
+    [handleSelectTask, projectId, setIsExpanded, taskById, upsertRemoteTask]
+  );
+
   const normalizedInitialTaskId =
     typeof initialTaskId === "string" ? initialTaskId.trim() : "";
 
@@ -1357,57 +1433,27 @@ export function KanbanBoard({
       return;
     }
 
-    const initialTask = taskById.get(normalizedInitialTaskId);
     openedInitialTaskIdRef.current = normalizedInitialTaskId;
-    if (initialTask) {
-      shouldOpenTaskInEditModeRef.current = false;
-      setSelectedTask(initialTask);
-      setIsExpanded(true);
-      return;
-    }
+    openTaskById(normalizedInitialTaskId);
+  }, [normalizedInitialTaskId, openTaskById]);
 
-    // The deep-linked task is absent from the loaded board; fetch it by id so
-    // the detail modal can still open. Failures keep the board unchanged.
-    let cancelled = false;
-    const openRemoteInitialTask = async () => {
-      try {
-        const response = await fetch(
-          `/api/projects/${projectId}/tasks/${encodeURIComponent(
-            normalizedInitialTaskId
-          )}`
-        );
-        if (!response.ok) {
-          return;
-        }
-        const payload = (await response.json()) as {
-          task?: TaskMutationResponseTask;
-        };
-        const remoteTask = payload.task;
-        if (cancelled || !remoteTask || !isTaskStatus(remoteTask.status)) {
-          return;
-        }
-        const mappedTask = mapTaskMutationResponseTask(remoteTask);
-        shouldOpenTaskInEditModeRef.current = false;
-        upsertRemoteTask(mappedTask);
-        setSelectedTask(mappedTask);
-        setIsExpanded(true);
-      } catch (error) {
-        console.error("[KanbanBoard.openRemoteInitialTask]", error);
+  useEffect(() => {
+    const handleTaskOpenRequest = (event: Event) => {
+      const detail = (event as CustomEvent<TaskOpenRequestDetail>).detail;
+      if (!detail?.taskId) {
+        return;
       }
+
+      detail.markHandled();
+      openTaskById(detail.taskId);
     };
 
-    void openRemoteInitialTask();
+    window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleTaskOpenRequest);
 
     return () => {
-      cancelled = true;
+      window.removeEventListener(TASK_OPEN_REQUEST_EVENT, handleTaskOpenRequest);
     };
-  }, [
-    normalizedInitialTaskId,
-    projectId,
-    setIsExpanded,
-    taskById,
-    upsertRemoteTask,
-  ]);
+  }, [openTaskById]);
 
   const applyRemoteReorder = useCallback(
     (reorderedColumns: Array<{ status: TaskStatus; taskIds: string[] }>) => {
@@ -1835,7 +1881,8 @@ export function KanbanBoard({
   const handleQuickEpicUpdate = useCallback(
     async (nextEpicId: string) => {
       const nextEpicLabel =
-        availableEpicOptions.find((epic) => epic.id === nextEpicId)?.name ?? null;
+        selectedTaskEpicOptions.find((epic) => epic.id === nextEpicId)?.name ??
+        null;
 
       await patchSelectedTask({
         payload: {
@@ -1847,7 +1894,7 @@ export function KanbanBoard({
         fallbackErrorMessage: "Could not update epic.",
       });
     },
-    [availableEpicOptions, patchSelectedTask]
+    [patchSelectedTask, selectedTaskEpicOptions]
   );
 
   const handleQuickAssigneeUpdate = useCallback(
@@ -2436,13 +2483,11 @@ export function KanbanBoard({
       };
 
       setTaskComments((previousComments) =>
-        optimisticComment
-          ? previousComments.some((comment) => comment.id === optimisticCommentId)
-            ? previousComments.map((comment) =>
-                comment.id === optimisticCommentId ? payload.comment : comment
-              )
-            : [...previousComments, payload.comment]
-          : [...previousComments, payload.comment]
+        mergeSubmittedTaskComment(
+          previousComments,
+          optimisticCommentId,
+          payload.comment
+        )
       );
       setNewTaskComment("");
       if (!optimisticComment) {
@@ -2906,7 +2951,7 @@ export function KanbanBoard({
         onRelatedTaskSearchChange={setRelatedTaskSearch}
         onAddRelatedTask={addRelatedTask}
         onRemoveRelatedTask={removeRelatedTask}
-        availableEpicOptions={availableEpicOptions}
+        availableEpicOptions={selectedTaskEpicOptions}
         availableAssignees={availableAssignees}
         availableAgentOptions={availableAgentOptions}
         mentionUsers={availableAssignees}

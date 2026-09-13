@@ -1,0 +1,2 @@
+export const ARCHIVE_AFTER_DAYS = 7;
+export const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000;

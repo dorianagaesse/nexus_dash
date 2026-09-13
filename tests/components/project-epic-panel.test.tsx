@@ -31,6 +31,10 @@ vi.mock("@/lib/hooks/use-project-section-expanded", () => ({
 
 import { ProjectEpicPanel } from "@/components/project-epic-panel";
 import { reconcileProjectEpicsAfterTaskMutation } from "@/lib/project-epic-client";
+import {
+  TASK_OPEN_REQUEST_EVENT,
+  type TaskOpenRequestDetail,
+} from "@/lib/task-open-client";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -73,6 +77,7 @@ const epicWithDenseLinkedTasks = {
   completedTaskCount: 2,
   linkedTasks: Array.from({ length: 8 }, (_, index) => ({
     id: `task-${index + 1}`,
+    referenceNumber: 101 + index,
     title:
       index === 7
         ? "Validate a deliberately long linked task title without truncating meaningful context"
@@ -80,9 +85,16 @@ const epicWithDenseLinkedTasks = {
     status: index < 2 ? "Done" : "Backlog",
     archivedAt: null,
   })),
+  archivedAt: null,
   createdAt: "2026-07-31T08:00:00.000Z",
   updatedAt: "2026-07-31T08:00:00.000Z",
 };
+
+function findButton(container: HTMLElement, labelFragment: string) {
+  return Array.from(container.querySelectorAll("button")).find((button) =>
+    button.textContent?.includes(labelFragment)
+  );
+}
 
 describe("project-epic-panel", () => {
   beforeEach(() => {
@@ -335,10 +347,10 @@ describe("project-epic-panel", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/projects/project-reconcile-event/epics",
+      "/api/projects/project-reconcile-event/epics?includeArchived=true",
       {
-      cache: "no-store",
-      signal: expect.any(AbortSignal),
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
       }
     );
     expect(
@@ -475,6 +487,309 @@ describe("project-epic-panel", () => {
   });
 });
 
+describe("project-epic-panel archive controls", () => {
+  const archivedEpic = {
+    ...epicWithDenseLinkedTasks,
+    id: "epic-archived",
+    name: "Completed rollout",
+    archivedAt: "2026-09-10T10:00:00.000Z",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    projectSectionExpandedMock.isExpanded = true;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.innerHTML = "";
+  });
+
+  test("reveals archived epics through the archived list view", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [epicWithDenseLinkedTasks, archivedEpic],
+      })
+    );
+
+    expect(container.textContent).not.toContain(archivedEpic.name);
+    expect(container.textContent).toContain("1 active");
+
+    const archivedViewButton = findButton(container, "Archived (1)");
+    expect(archivedViewButton).not.toBeUndefined();
+
+    await act(async () => {
+      archivedViewButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.textContent).toContain(archivedEpic.name);
+    expect(
+      container.querySelector(`button[aria-label="Restore epic ${archivedEpic.name}"]`)
+    ).not.toBeNull();
+
+    await act(async () => {
+      findButton(container, "Active (1)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    expect(container.textContent).not.toContain(archivedEpic.name);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("filters the visible list view by name and description", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks, archivedEpic],
+      })
+    );
+
+    const searchInput = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Search epics"]'
+    );
+    expect(searchInput).not.toBeNull();
+
+    await act(async () => {
+      if (searchInput) {
+        setInputValue(searchInput, "enough context");
+      }
+    });
+
+    expect(container.querySelectorAll("article")).toHaveLength(1);
+    expect(container.textContent).toContain(epicWithDenseLinkedTasks.name);
+
+    await act(async () => {
+      if (searchInput) {
+        setInputValue(searchInput, "no such epic exists");
+      }
+    });
+
+    expect(container.querySelectorAll("article")).toHaveLength(0);
+    expect(container.textContent).toContain("No matching epics.");
+
+    const clearButton = container.querySelector(
+      'button[aria-label="Clear epic search"]'
+    );
+
+    await act(async () => {
+      clearButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.querySelectorAll("article")).toHaveLength(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("dismisses an in-progress edit when the list view changes", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    await act(async () => {
+      container
+        .querySelector(
+          `button[aria-label="Edit epic ${epicWithDenseLinkedTasks.name}"]`
+        )
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(
+      container.querySelector(`#edit-epic-name-${epicWithDenseLinkedTasks.id}`)
+    ).not.toBeNull();
+
+    await act(async () => {
+      findButton(container, "Archived (0)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    expect(container.textContent).toContain("No archived epics.");
+
+    await act(async () => {
+      findButton(container, "Active (1)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    expect(
+      container.querySelector(`#edit-epic-name-${epicWithDenseLinkedTasks.id}`)
+    ).toBeNull();
+    expect(
+      container.querySelector(
+        `button[aria-label="Edit epic ${epicWithDenseLinkedTasks.name}"]`
+      )
+    ).not.toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("archives an epic through the archive endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        epic: {
+          ...epicWithDenseLinkedTasks,
+          archivedAt: "2026-09-13T10:00:00.000Z",
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const archiveButton = container.querySelector(
+      `button[aria-label="Archive epic ${epicWithDenseLinkedTasks.name}"]`
+    );
+    expect(archiveButton).not.toBeNull();
+
+    await act(async () => {
+      archiveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/projects/project-1/epics/${epicWithDenseLinkedTasks.id}/archive`,
+      { method: "POST" }
+    );
+    expect(pushToastMock).toHaveBeenCalledWith({
+      variant: "success",
+      message: "Epic archived.",
+    });
+    expect(routerRefreshMock).toHaveBeenCalled();
+    expect(container.textContent).toContain("No active epics yet.");
+    expect(findButton(container, "Archived (1)")).not.toBeUndefined();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("restores an archived epic through the archive endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        epic: {
+          ...archivedEpic,
+          archivedAt: null,
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [archivedEpic],
+      })
+    );
+
+    await act(async () => {
+      findButton(container, "Archived (1)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    const restoreButton = container.querySelector(
+      `button[aria-label="Restore epic ${archivedEpic.name}"]`
+    );
+
+    await act(async () => {
+      restoreButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/projects/project-1/epics/${archivedEpic.id}/archive`,
+      { method: "DELETE" }
+    );
+    expect(pushToastMock).toHaveBeenCalledWith({
+      variant: "success",
+      message: "Epic restored.",
+    });
+    expect(findButton(container, "Archived (0)")).not.toBeUndefined();
+    expect(container.textContent).toContain("No archived epics.");
+
+    await act(async () => {
+      findButton(container, "Active (1)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    expect(
+      container.querySelector(`button[aria-label="Archive epic ${archivedEpic.name}"]`)
+    ).not.toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("hides archive controls from viewers", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks, archivedEpic],
+      })
+    );
+
+    await act(async () => {
+      findButton(container, "Archived (1)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    expect(
+      container.querySelector(
+        `button[aria-label="Archive epic ${epicWithDenseLinkedTasks.name}"]`
+      )
+    ).toBeNull();
+    expect(
+      container.querySelector(`button[aria-label="Restore epic ${archivedEpic.name}"]`)
+    ).toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+});
+
 describe("project-epic-panel overlong linked-task titles", () => {
   function buildEpicWithLongTitle(title: string) {
     return {
@@ -487,6 +802,7 @@ describe("project-epic-panel overlong linked-task titles", () => {
       linkedTasks: [
         {
           id: "task-long",
+          referenceNumber: 777,
           title,
           status: "Backlog" as const,
           archivedAt: null,
@@ -525,11 +841,11 @@ describe("project-epic-panel overlong linked-task titles", () => {
     const { container, root } = createTestRenderer();
     await renderExpandedEpic(container, root, longTitle);
 
-    const chip = container.querySelector<HTMLElement>(
-      `li[title="${longTitle}"]`
+    const chip = container.querySelector<HTMLAnchorElement>(
+      `a[title="${longTitle}"]`
     );
     expect(chip).not.toBeNull();
-    const titleSpan = chip?.firstElementChild as HTMLElement | null;
+    const titleSpan = chip?.querySelector<HTMLElement>("span.line-clamp-2");
     expect(titleSpan?.textContent).toBe(longTitle);
     expect(titleSpan?.className).toContain("line-clamp-2");
     expect(titleSpan?.className).toContain("[overflow-wrap:anywhere]");
@@ -544,13 +860,204 @@ describe("project-epic-panel overlong linked-task titles", () => {
     const { container, root } = createTestRenderer();
     await renderExpandedEpic(container, root, longWord);
 
-    const chip = container.querySelector<HTMLElement>(`li[title="${longWord}"]`);
+    const chip = container.querySelector<HTMLAnchorElement>(
+      `a[title="${longWord}"]`
+    );
     expect(chip).not.toBeNull();
-    const titleSpan = chip?.firstElementChild as HTMLElement | null;
+    const titleSpan = chip?.querySelector<HTMLElement>("span.line-clamp-2");
     expect(titleSpan?.textContent).toBe(longWord);
     expect(titleSpan?.className).toContain("line-clamp-2");
     expect(titleSpan?.className).toContain("[overflow-wrap:anywhere]");
 
     await act(async () => root.unmount());
+  });
+
+  test("shows the shared ND- reference and task deep link on each linked-task chip", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const disclosure = container.querySelector<HTMLElement>(
+      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    );
+    await act(async () => {
+      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const chip = container.querySelector<HTMLAnchorElement>(
+      'a[href="/projects/project-1/tasks/task-1"]'
+    );
+    expect(chip).not.toBeNull();
+    expect(chip?.textContent).toContain("ND-101");
+    expect(chip?.textContent).toContain("Launch task 1");
+    expect(chip?.textContent).toContain("Done");
+
+    await act(async () => root.unmount());
+  });
+
+  test("keeps each linked-task chip keyboard reachable with a visible focus ring", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const disclosure = container.querySelector<HTMLElement>(
+      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    );
+    await act(async () => {
+      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const chip = container.querySelector<HTMLAnchorElement>(
+      'a[href="/projects/project-1/tasks/task-1"]'
+    );
+    expect(chip?.tagName).toBe("A");
+    expect(chip?.className).toContain("focus-visible:ring-2");
+
+    await act(async () => root.unmount());
+  });
+});
+
+describe("project-epic-panel linked-task chip activation", () => {
+  async function renderExpandedChips(container: HTMLElement, root: Root) {
+    projectSectionExpandedMock.isExpanded = true;
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const disclosure = container.querySelector<HTMLElement>(
+      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    );
+    await act(async () => {
+      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+  }
+
+  function findFirstChip(container: HTMLElement) {
+    return container.querySelector<HTMLAnchorElement>(
+      'a[href="/projects/project-1/tasks/task-1"]'
+    );
+  }
+
+  test("hands plain chip clicks to the board and keeps the deep-link URL without navigating", async () => {
+    const { container, root } = createTestRenderer();
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    const requestedTaskIds: string[] = [];
+    const handleRequest = (event: Event) => {
+      const detail = (event as CustomEvent<TaskOpenRequestDetail>).detail;
+      requestedTaskIds.push(detail.taskId);
+      detail.markHandled();
+    };
+    window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+
+    try {
+      await renderExpandedChips(container, root);
+      const chip = findFirstChip(container);
+      expect(chip).not.toBeNull();
+
+      let navigationAllowed = true;
+      await act(async () => {
+        navigationAllowed = chip!.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      expect(requestedTaskIds).toEqual(["task-1"]);
+      expect(replaceStateSpy).toHaveBeenCalledWith(
+        null,
+        "",
+        "/projects/project-1?taskId=task-1"
+      );
+      expect(navigationAllowed).toBe(false);
+    } finally {
+      window.removeEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+      replaceStateSpy.mockRestore();
+      await act(async () => {
+        root.unmount();
+      });
+    }
+  });
+
+  test("falls back to the deep-link navigation when no board claims the click", async () => {
+    const { container, root } = createTestRenderer();
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    const handleRequest = vi.fn();
+    window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+
+    try {
+      await renderExpandedChips(container, root);
+      const chip = findFirstChip(container);
+
+      let navigationAllowed = false;
+      await act(async () => {
+        navigationAllowed = chip!.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      expect(handleRequest).toHaveBeenCalledTimes(1);
+      expect(navigationAllowed).toBe(true);
+      expect(replaceStateSpy).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+      replaceStateSpy.mockRestore();
+      await act(async () => {
+        root.unmount();
+      });
+    }
+  });
+
+  test("leaves modified clicks to the browser for new-tab behavior", async () => {
+    const { container, root } = createTestRenderer();
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    const handleRequest = vi.fn();
+    window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+
+    try {
+      await renderExpandedChips(container, root);
+      const chip = findFirstChip(container);
+
+      let navigationAllowed = false;
+      await act(async () => {
+        navigationAllowed = chip!.dispatchEvent(
+          new MouseEvent("click", {
+            bubbles: true,
+            cancelable: true,
+            ctrlKey: true,
+          })
+        );
+      });
+
+      expect(handleRequest).not.toHaveBeenCalled();
+      expect(navigationAllowed).toBe(true);
+      expect(replaceStateSpy).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+      replaceStateSpy.mockRestore();
+      await act(async () => {
+        root.unmount();
+      });
+    }
   });
 });

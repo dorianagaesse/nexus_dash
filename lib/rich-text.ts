@@ -203,47 +203,55 @@ export function sanitizeRichText(input: string): string | null {
 
 // Browsers keep text typed before the first Enter as a bare root text node;
 // wrap such stray text runs in paragraphs so stored sections stay canonical.
-// (A div container rather than a <template> fragment: jsdom does not
-// implement innerHTML on DocumentFragment.)
+// String scanning rather than DOM APIs: services run this on the Node server,
+// where no document exists. Input is sanitize-html output, so it is
+// well-formed markup with only the supported tags and XHTML-style voids.
 function wrapRootLevelTextNodes(html: string): string {
-  if (!html || typeof document === "undefined") {
+  if (!html) {
     return html;
   }
 
-  const root = document.createElement("div");
-  root.innerHTML = html;
-  let cursor = 0;
-  while (cursor < root.childNodes.length) {
-    const first = root.childNodes[cursor];
-    if (!first || first.nodeType !== Node.TEXT_NODE) {
-      cursor++;
+  const tokens = html.match(/<[^>]*>|[^<]+/g) ?? [];
+  const output: string[] = [];
+  let depth = 0;
+  let pendingText = "";
+
+  const flushPendingText = () => {
+    if (!pendingText) {
+      return;
+    }
+    const trimmed = pendingText.trim();
+    output.push(trimmed ? `<p>${trimmed}</p>` : pendingText);
+    pendingText = "";
+  };
+
+  for (const token of tokens) {
+    if (!token.startsWith("<")) {
+      if (depth === 0) {
+        pendingText += token;
+      } else {
+        output.push(token);
+      }
       continue;
     }
 
-    let end = cursor + 1;
-    let text = first.textContent ?? "";
-    while (
-      end < root.childNodes.length &&
-      root.childNodes[end]!.nodeType === Node.TEXT_NODE
-    ) {
-      text += root.childNodes[end]!.textContent ?? "";
-      end++;
+    const isClosingTag = token.startsWith("</");
+    const isSelfClosing = /\/>$/.test(token);
+
+    if (depth === 0 && !isClosingTag) {
+      flushPendingText();
+    }
+    output.push(token);
+
+    if (isSelfClosing) {
+      continue;
     }
 
-    const trimmedText = text.trim();
-    if (trimmedText) {
-      const paragraph = document.createElement("p");
-      paragraph.textContent = trimmedText;
-      const textNodes = Array.from(root.childNodes).slice(cursor, end);
-      root.insertBefore(paragraph, first);
-      for (const textNode of textNodes) {
-        textNode.remove();
-      }
-    }
-    cursor = end;
+    depth = isClosingTag ? Math.max(0, depth - 1) : depth + 1;
   }
 
-  return root.innerHTML;
+  flushPendingText();
+  return output.join("");
 }
 
 export function coerceRichTextHtml(input: string): string | null {
@@ -254,7 +262,11 @@ export function coerceRichTextHtml(input: string): string | null {
   }
 
   if (!SUPPORTED_HTML_TAG_PATTERN.test(trimmed)) {
-    return plainTextToRichText(trimmed);
+    // Serialized editor text arrives entity-escaped (`Fish &amp; Chips`) even
+    // when it carries no tags; decode before escaping so the round-trip is a
+    // fixpoint instead of double-escaping, and the decode stays inside this
+    // branch so escaped markup (`&lt;p&gt;`) can never re-activate as tags.
+    return plainTextToRichText(decodeRichTextEntities(trimmed));
   }
 
   const sanitized = sanitizeRichText(trimmed);
@@ -262,7 +274,30 @@ export function coerceRichTextHtml(input: string): string | null {
     return wrapRootLevelTextNodes(sanitized);
   }
 
-  return plainTextToRichText(trimmed);
+  // Supported markup whose sanitized text is empty (cleared composers emit
+  // leftovers like `<p><br /></p>`) is empty content, not literal text.
+  return null;
+}
+
+const HTML_ENTITY_DECODE_PATTERN = /&(amp|lt|gt|quot|#39);/g;
+const HTML_ENTITY_DECODE_MAP: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  "#39": "'",
+};
+
+/**
+ * Decode the entities sanitize-html emits, so text projected out of rich
+ * content can be compared against raw strings (agent mention tokens keep
+ * labels that contain `&` and friends).
+ */
+export function decodeRichTextEntities(value: string): string {
+  return value.replace(
+    HTML_ENTITY_DECODE_PATTERN,
+    (entity: string, name: string) => HTML_ENTITY_DECODE_MAP[name] ?? entity
+  );
 }
 
 export function richTextToPlainText(input: string): string {

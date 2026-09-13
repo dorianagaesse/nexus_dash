@@ -26,6 +26,7 @@ import {
 interface ContextEditModalProps {
   editingCard: ProjectContextCard | null;
   editingColor: string;
+  mentionProjectId: string;
   editContent: string;
   editingCardAttachments: ProjectContextAttachment[];
   isUpdatingCard: boolean;
@@ -50,6 +51,7 @@ interface ContextEditModalProps {
 export function ContextEditModal({
   editingCard,
   editingColor,
+  mentionProjectId,
   editContent,
   editingCardAttachments,
   isUpdatingCard,
@@ -108,6 +110,7 @@ export function ContextEditModal({
             onChange={onEditContentChange}
             ariaLabelledBy="context-edit-content-label"
             editorClassName={FORM_FOCUS_BORDER_CLASS}
+            mentionProjectId={mentionProjectId}
           />
           <input type="hidden" name="content" value={editContent} />
         </div>

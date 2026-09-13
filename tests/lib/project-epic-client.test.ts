@@ -74,6 +74,7 @@ describe("project epic client reconciliation", () => {
       progressPercent: 0,
       taskCount: 0,
       completedTaskCount: 0,
+      archivedAt: null,
       linkedTasks: [],
       createdAt: "2026-09-13T00:00:00.000Z",
       updatedAt: "2026-09-13T00:00:00.000Z",

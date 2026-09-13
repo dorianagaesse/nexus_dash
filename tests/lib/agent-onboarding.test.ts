@@ -253,4 +253,69 @@ describe("agent-onboarding contract", () => {
       "null",
     ]);
   });
+
+  test("documents the epic archive and restore surface", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+
+    expect(
+      AGENT_API_ENDPOINTS.filter((endpoint) => endpoint.tag === "Epics").map(
+        (endpoint) => `${endpoint.method} ${endpoint.path}`
+      )
+    ).toEqual([
+      "GET /api/projects/{projectId}/epics",
+      "POST /api/projects/{projectId}/epics",
+      "PATCH /api/projects/{projectId}/epics/{epicId}",
+      "DELETE /api/projects/{projectId}/epics/{epicId}",
+      "POST /api/projects/{projectId}/epics/{epicId}/archive",
+      "DELETE /api/projects/{projectId}/epics/{epicId}/archive",
+    ]);
+
+    expect(
+      document.components.schemas.ProjectEpicRecord.required
+    ).toContain("archivedAt");
+    expect(
+      document.components.schemas.ProjectEpicRecord.properties.archivedAt.type
+    ).toEqual(["string", "null"]);
+
+    const epicListGet = document.paths["/api/projects/{projectId}/epics"].get;
+    const queryParameters = epicListGet.parameters.filter(
+      (parameter: { in?: string }) => parameter.in === "query"
+    );
+    expect(queryParameters.map((parameter: { name: string }) => parameter.name)).toEqual([
+      "includeArchived",
+    ]);
+
+    const archivePath =
+      document.paths["/api/projects/{projectId}/epics/{epicId}/archive"];
+    expect(
+      archivePath.post.responses[200].content["application/json"].schema.$ref
+    ).toBe("#/components/schemas/ProjectEpicArchiveResponse");
+    expect(
+      archivePath.delete.responses[200].content["application/json"].schema.$ref
+    ).toBe("#/components/schemas/ProjectEpicArchiveResponse");
+  });
+
+  test("documents epic linked-task reference contract", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+
+    const linkedTasks =
+      document.components.schemas.ProjectEpicRecord.properties.linkedTasks;
+    expect(linkedTasks.items.$ref).toBe(
+      "#/components/schemas/EpicLinkedTaskSummary"
+    );
+
+    const linkedTaskSchema = document.components.schemas.EpicLinkedTaskSummary;
+    expect(linkedTaskSchema.required).toEqual([
+      "id",
+      "referenceNumber",
+      "title",
+      "status",
+      "archivedAt",
+    ]);
+    expect(linkedTaskSchema.properties.referenceNumber).toMatchObject({
+      type: "integer",
+      minimum: 1,
+    });
+    expect(linkedTaskSchema.properties.status.enum).toEqual(TASK_STATUSES);
+  });
 });

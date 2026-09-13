@@ -74,7 +74,7 @@ export async function reconcileProjectEpicsAfterTaskMutation(
 
   try {
     const response = await fetch(
-      `/api/projects/${encodeURIComponent(projectId)}/epics`,
+      `/api/projects/${encodeURIComponent(projectId)}/epics?includeArchived=true`,
       {
         cache: "no-store",
         signal: controller.signal,
