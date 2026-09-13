@@ -10,6 +10,7 @@ import { logServerError } from "@/lib/observability/logger";
 import { touchProjectActivity } from "@/lib/services/project-activity-service";
 import {
   buildProjectPrincipalWhere,
+  hasRequiredRole,
   requireAgentProjectScopes,
   requireProjectRole,
   type AgentProjectAccessContext,
@@ -77,6 +78,20 @@ const epicTaskSelect = {
   archivedAt: true,
   position: true,
   createdAt: true,
+} as const;
+
+interface EpicCompletionTask {
+  status: string;
+  archivedAt: Date | null;
+  completedAt: Date | null;
+  updatedAt: Date;
+}
+
+const epicCompletionTaskSelect = {
+  status: true,
+  archivedAt: true,
+  completedAt: true,
+  updatedAt: true,
 } as const;
 
 function createError(status: number, error: string): ServiceErrorResult {
@@ -158,14 +173,7 @@ function mapProjectEpicSummary(epic: {
   };
 }
 
-function resolveEpicCompletionTime(
-  tasks: Array<{
-    status: string;
-    archivedAt: Date | null;
-    completedAt: Date | null;
-    updatedAt: Date;
-  }>
-): Date | null {
+function resolveEpicCompletionTime(tasks: EpicCompletionTask[]): Date | null {
   if (tasks.length === 0) {
     return null;
   }
@@ -185,6 +193,11 @@ function resolveEpicCompletionTime(
   }, new Date(0));
 }
 
+function isStaleCompletedEpic(tasks: EpicCompletionTask[], archiveThreshold: Date): boolean {
+  const completedAt = resolveEpicCompletionTime(tasks);
+  return completedAt !== null && completedAt.getTime() <= archiveThreshold.getTime();
+}
+
 async function archiveStaleCompletedEpics(input: {
   db: DbClient;
   projectId: string;
@@ -200,34 +213,65 @@ async function archiveStaleCompletedEpics(input: {
     select: {
       id: true,
       tasks: {
-        select: {
-          status: true,
-          archivedAt: true,
-          completedAt: true,
-          updatedAt: true,
-        },
+        select: epicCompletionTaskSelect,
       },
     },
   });
 
   const staleEpicIds = candidateEpics
-    .filter((epic) => {
-      const completedAt = resolveEpicCompletionTime(epic.tasks);
-      return completedAt !== null && completedAt.getTime() <= archiveThreshold.getTime();
-    })
+    .filter((epic) => isStaleCompletedEpic(epic.tasks, archiveThreshold))
     .map((epic) => epic.id);
 
   if (staleEpicIds.length === 0) {
     return;
   }
 
-  await input.db.epic.updateMany({
+  const archivedAt = new Date();
+  const { count } = await input.db.epic.updateMany({
     where: {
       id: { in: staleEpicIds },
       archivedAt: null,
     },
     data: {
-      archivedAt: new Date(),
+      archivedAt,
+    },
+  });
+
+  if (count === 0) {
+    return;
+  }
+
+  // Task reopenings can slip in between the candidate read and the update, and
+  // updateMany cannot re-check relations, so verify what was just archived and
+  // roll back any epic that is no longer stale.
+  const archivedEpics = await input.db.epic.findMany({
+    where: {
+      id: { in: staleEpicIds },
+      archivedAt,
+    },
+    select: {
+      id: true,
+      tasks: {
+        select: epicCompletionTaskSelect,
+      },
+    },
+  });
+
+  const noLongerStaleEpicIds = archivedEpics
+    .filter((epic) => !isStaleCompletedEpic(epic.tasks, archiveThreshold))
+    .map((epic) => epic.id);
+
+  if (noLongerStaleEpicIds.length === 0) {
+    return;
+  }
+
+  await input.db.epic.updateMany({
+    where: {
+      id: { in: noLongerStaleEpicIds },
+      archivedAt,
+    },
+    data: {
+      archivedAt: null,
     },
   });
 }
@@ -320,11 +364,15 @@ export async function listProjectEpics(
       return [];
     }
 
-    await archiveStaleCompletedEpics({
-      db,
-      projectId,
-      actorUserId: normalizedActorUserId,
-    });
+    // The sweep writes, and epic RLS only lets owners/editors write, so
+    // viewers get the list without it.
+    if (hasRequiredRole(access.role, "editor")) {
+      await archiveStaleCompletedEpics({
+        db,
+        projectId,
+        actorUserId: normalizedActorUserId,
+      });
+    }
 
     const epics = await db.epic.findMany({
       where: {

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const projectAccessServiceMock = vi.hoisted(() => ({
   buildProjectPrincipalWhere: vi.fn(),
+  hasRequiredRole: vi.fn(),
   requireAgentProjectScopes: vi.fn(),
   requireProjectRole: vi.fn(),
 }));
@@ -30,6 +31,7 @@ const dbMock = vi.hoisted(() => ({
 
 vi.mock("@/lib/services/project-access-service", () => ({
   buildProjectPrincipalWhere: projectAccessServiceMock.buildProjectPrincipalWhere,
+  hasRequiredRole: projectAccessServiceMock.hasRequiredRole,
   requireAgentProjectScopes: projectAccessServiceMock.requireAgentProjectScopes,
   requireProjectRole: projectAccessServiceMock.requireProjectRole,
 }));
@@ -76,6 +78,9 @@ describe("project-epic-service", () => {
     projectAccessServiceMock.buildProjectPrincipalWhere.mockReturnValue({
       mockPrincipalWhere: true,
     });
+    projectAccessServiceMock.hasRequiredRole.mockImplementation(
+      (role: string) => role === "owner" || role === "editor"
+    );
     projectAccessServiceMock.requireAgentProjectScopes.mockReturnValue({ ok: true });
     projectAccessServiceMock.requireProjectRole.mockResolvedValue({
       ok: true,
@@ -319,21 +324,117 @@ describe("project-epic-service", () => {
         },
         { id: "epic-empty", tasks: [] },
       ])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([epicSummaryFixture()]);
+    dbMock.epic.updateMany.mockResolvedValueOnce({ count: 1 });
 
     const epics = await listProjectEpics("project-1", "user-1");
 
     expect(epics).toHaveLength(1);
+    expect(dbMock.epic.updateMany).toHaveBeenCalledTimes(1);
     expect(dbMock.epic.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ["epic-stale"] }, archivedAt: null },
       data: { archivedAt: expect.any(Date) },
     });
+    const archiveWrite = dbMock.epic.updateMany.mock.calls[0][0] as {
+      data: { archivedAt: Date };
+    };
     expect(dbMock.epic.findMany).toHaveBeenNthCalledWith(
       2,
+      expect.objectContaining({
+        where: { id: { in: ["epic-stale"] }, archivedAt: archiveWrite.data.archivedAt },
+      })
+    );
+    expect(dbMock.epic.findMany).toHaveBeenNthCalledWith(
+      3,
       expect.objectContaining({
         where: { projectId: "project-1", archivedAt: null },
       })
     );
+  });
+
+  test("rolls back the archive when a linked task is reopened before the update lands", async () => {
+    const staleCompletedAt = new Date(Date.now() - 8 * DAY_MS);
+    dbMock.epic.findMany
+      .mockResolvedValueOnce([
+        {
+          id: "epic-stale",
+          tasks: [
+            {
+              status: "Done",
+              archivedAt: null,
+              completedAt: staleCompletedAt,
+              updatedAt: staleCompletedAt,
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "epic-stale",
+          tasks: [
+            {
+              status: "In Progress",
+              archivedAt: null,
+              completedAt: null,
+              updatedAt: new Date(),
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    dbMock.epic.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 1 });
+
+    await listProjectEpics("project-1", "user-1");
+
+    const archiveWrite = dbMock.epic.updateMany.mock.calls[0][0] as {
+      data: { archivedAt: Date };
+    };
+    expect(dbMock.epic.updateMany).toHaveBeenNthCalledWith(2, {
+      where: { id: { in: ["epic-stale"] }, archivedAt: archiveWrite.data.archivedAt },
+      data: { archivedAt: null },
+    });
+  });
+
+  test("skips the revalidation read when the archive update matched no epics", async () => {
+    const staleCompletedAt = new Date(Date.now() - 8 * DAY_MS);
+    dbMock.epic.findMany
+      .mockResolvedValueOnce([
+        {
+          id: "epic-stale",
+          tasks: [
+            {
+              status: "Done",
+              archivedAt: null,
+              completedAt: staleCompletedAt,
+              updatedAt: staleCompletedAt,
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    dbMock.epic.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await listProjectEpics("project-1", "user-1");
+
+    expect(dbMock.epic.updateMany).toHaveBeenCalledTimes(1);
+    expect(dbMock.epic.findMany).toHaveBeenCalledTimes(2);
+  });
+
+  test("viewers list epics without running the archive sweep", async () => {
+    projectAccessServiceMock.requireProjectRole.mockResolvedValueOnce({
+      ok: true,
+      role: "viewer",
+    });
+    dbMock.epic.findMany.mockResolvedValueOnce([epicSummaryFixture()]);
+
+    const epics = await listProjectEpics("project-1", "user-1");
+
+    expect(epics).toHaveLength(1);
+    expect(dbMock.epic.updateMany).not.toHaveBeenCalled();
+    expect(dbMock.epic.findMany).toHaveBeenCalledTimes(1);
   });
 
   test("list includes archived epics when requested", async () => {
