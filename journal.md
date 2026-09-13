@@ -99,8 +99,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   (`smoke-project-task-calendar.spec.ts:448`, `inputZoomBottomInset` −8.4 px)
   — reproduced locally 1/5 isolated repeats with the identical value; the
   documented pre-existing layout-timing flake (same assertion/value flaked on
-  ND-458 the same day), unrelated to this diff — CI rerun pending after the
-  fix push.
+  ND-458 the same day), unrelated to this diff. Post-merge CI run 34751563495
+  on 6244f2e is green across all gates (Quality Core, Tenant Isolation, E2E
+  Smoke — smoke passed this time —, Container Image); PR #514 is CLEAN.
 - Merge-forward of ND-380 (#513): ND-380 shipped v0.68.0 first (this branch
   had claimed the same next version), so the CHANGELOG/journal conflicts were
   resolved by keeping both entries and this branch re-bumped to v0.69.0 with
