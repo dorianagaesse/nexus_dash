@@ -1,3 +1,4 @@
+import { ARCHIVE_AFTER_MS } from "@/lib/archive-policy";
 import {
   calculateEpicProgressPercent,
   deriveEpicStatus,
@@ -8,6 +9,7 @@ import {
 import { logServerError } from "@/lib/observability/logger";
 import { touchProjectActivity } from "@/lib/services/project-activity-service";
 import {
+  buildProjectPrincipalWhere,
   requireAgentProjectScopes,
   requireProjectRole,
   type AgentProjectAccessContext,
@@ -39,6 +41,7 @@ export interface ProjectEpicSummary {
   progressPercent: number;
   taskCount: number;
   completedTaskCount: number;
+  archivedAt: Date | null;
   linkedTasks: EpicTaskSummary[];
   createdAt: Date;
   updatedAt: Date;
@@ -54,6 +57,17 @@ interface CreateProjectEpicInput {
 
 interface UpdateProjectEpicInput extends CreateProjectEpicInput {
   epicId: string;
+}
+
+interface EpicMutationInput {
+  actorUserId: string;
+  projectId: string;
+  epicId: string;
+  agentAccess?: AgentProjectAccessContext;
+}
+
+export interface ListProjectEpicsOptions {
+  includeArchived?: boolean;
 }
 
 const epicTaskSelect = {
@@ -89,6 +103,7 @@ function mapProjectEpicSummary(epic: {
   id: string;
   name: string;
   description: string;
+  archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   tasks: Array<{
@@ -136,10 +151,85 @@ function mapProjectEpicSummary(epic: {
     progressPercent: calculateEpicProgressPercent(epicTasks),
     taskCount: epic.tasks.length,
     completedTaskCount,
+    archivedAt: epic.archivedAt ?? null,
     linkedTasks,
     createdAt: epic.createdAt,
     updatedAt: epic.updatedAt,
   };
+}
+
+function resolveEpicCompletionTime(
+  tasks: Array<{
+    status: string;
+    archivedAt: Date | null;
+    completedAt: Date | null;
+    updatedAt: Date;
+  }>
+): Date | null {
+  if (tasks.length === 0) {
+    return null;
+  }
+
+  const linkedTaskStatuses = tasks.map((task) => ({
+    status: task.status as TaskStatus,
+    archivedAt: task.archivedAt,
+  })) satisfies EpicLinkedTaskStatus[];
+
+  if (deriveEpicStatus(linkedTaskStatuses) !== "Completed") {
+    return null;
+  }
+
+  return tasks.reduce<Date>((latest, task) => {
+    const completedMoment = task.completedAt ?? task.archivedAt ?? task.updatedAt;
+    return completedMoment.getTime() > latest.getTime() ? completedMoment : latest;
+  }, new Date(0));
+}
+
+async function archiveStaleCompletedEpics(input: {
+  db: DbClient;
+  projectId: string;
+  actorUserId: string;
+}): Promise<void> {
+  const archiveThreshold = new Date(Date.now() - ARCHIVE_AFTER_MS);
+  const candidateEpics = await input.db.epic.findMany({
+    where: {
+      projectId: input.projectId,
+      archivedAt: null,
+      project: buildProjectPrincipalWhere(input.actorUserId),
+    },
+    select: {
+      id: true,
+      tasks: {
+        select: {
+          status: true,
+          archivedAt: true,
+          completedAt: true,
+          updatedAt: true,
+        },
+      },
+    },
+  });
+
+  const staleEpicIds = candidateEpics
+    .filter((epic) => {
+      const completedAt = resolveEpicCompletionTime(epic.tasks);
+      return completedAt !== null && completedAt.getTime() <= archiveThreshold.getTime();
+    })
+    .map((epic) => epic.id);
+
+  if (staleEpicIds.length === 0) {
+    return;
+  }
+
+  await input.db.epic.updateMany({
+    where: {
+      id: { in: staleEpicIds },
+      archivedAt: null,
+    },
+    data: {
+      archivedAt: new Date(),
+    },
+  });
 }
 
 async function ensureUniqueEpicName(input: {
@@ -186,6 +276,7 @@ async function readEpicSummaryById(input: {
       id: true,
       name: true,
       description: true,
+      archivedAt: true,
       createdAt: true,
       updatedAt: true,
       tasks: {
@@ -201,7 +292,8 @@ async function readEpicSummaryById(input: {
 export async function listProjectEpics(
   projectId: string,
   actorUserId: string,
-  agentAccess?: AgentProjectAccessContext
+  agentAccess?: AgentProjectAccessContext,
+  options?: ListProjectEpicsOptions
 ): Promise<ProjectEpicSummary[]> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
@@ -228,15 +320,23 @@ export async function listProjectEpics(
       return [];
     }
 
+    await archiveStaleCompletedEpics({
+      db,
+      projectId,
+      actorUserId: normalizedActorUserId,
+    });
+
     const epics = await db.epic.findMany({
       where: {
         projectId,
+        ...(options?.includeArchived ? {} : { archivedAt: null }),
       },
       orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
       select: {
         id: true,
         name: true,
         description: true,
+        archivedAt: true,
         createdAt: true,
         updatedAt: true,
         tasks: {
@@ -504,5 +604,113 @@ export async function deleteProjectEpic(input: {
       logServerError("deleteProjectEpic", error);
       return createError(500, "epic-delete-failed");
     }
+  });
+}
+
+async function setProjectEpicArchivedAt(
+  input: EpicMutationInput & { archivedAt: Date | null }
+): Promise<ServiceResult<{ epic: ProjectEpicSummary }>> {
+  const actorUserId = normalizeText(input.actorUserId);
+  const epicId = normalizeText(input.epicId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+  if (!epicId) {
+    return createError(400, "epic-not-found");
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["task:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
+  }
+
+  const failureCode = input.archivedAt ? "epic-archive-failed" : "epic-restore-failed";
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
+
+    const existingEpic = await db.epic.findFirst({
+      where: {
+        id: epicId,
+        projectId: input.projectId,
+      },
+      select: {
+        id: true,
+        archivedAt: true,
+      },
+    });
+    if (!existingEpic) {
+      return createError(404, "epic-not-found");
+    }
+
+    try {
+      const isAlreadyInTargetState = input.archivedAt
+        ? existingEpic.archivedAt != null
+        : existingEpic.archivedAt == null;
+
+      if (!isAlreadyInTargetState) {
+        await db.epic.update({
+          where: {
+            id: epicId,
+          },
+          data: {
+            archivedAt: input.archivedAt,
+          },
+        });
+      }
+
+      const epic = await readEpicSummaryById({
+        db,
+        epicId,
+        projectId: input.projectId,
+      });
+      if (!epic) {
+        return createError(404, "epic-not-found");
+      }
+
+      if (!isAlreadyInTargetState) {
+        await touchProjectActivity({ db, projectId: input.projectId });
+      }
+
+      return {
+        ok: true,
+        data: {
+          epic,
+        },
+      };
+    } catch (error) {
+      logServerError(input.archivedAt ? "archiveProjectEpic" : "unarchiveProjectEpic", error);
+      return createError(500, failureCode);
+    }
+  });
+}
+
+export async function archiveProjectEpic(
+  input: EpicMutationInput
+): Promise<ServiceResult<{ epic: ProjectEpicSummary }>> {
+  return setProjectEpicArchivedAt({
+    ...input,
+    archivedAt: new Date(),
+  });
+}
+
+export async function unarchiveProjectEpic(
+  input: EpicMutationInput
+): Promise<ServiceResult<{ epic: ProjectEpicSummary }>> {
+  return setProjectEpicArchivedAt({
+    ...input,
+    archivedAt: null,
   });
 }

@@ -9,6 +9,7 @@ import {
   deleteProjectEpic,
   updateProjectEpic,
 } from "@/lib/services/project-epic-service";
+import { serializeProjectEpicResponse } from "@/lib/services/project-epic-response";
 
 interface ProjectEpicRequestBody {
   name?: unknown;
@@ -51,11 +52,7 @@ export async function PATCH(
   }
 
   return NextResponse.json({
-    epic: {
-      ...result.data.epic,
-      createdAt: result.data.epic.createdAt.toISOString(),
-      updatedAt: result.data.epic.updatedAt.toISOString(),
-    },
+    epic: serializeProjectEpicResponse(result.data.epic),
   });
 }
 
