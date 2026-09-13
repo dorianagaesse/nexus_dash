@@ -18,7 +18,10 @@ import {
   loadContextCardActorRegistryForProject,
   type ContextCardCardRecord,
 } from "@/lib/services/context-card-stewardship-service";
-import { listProjectContextResources } from "@/lib/services/project-service";
+import {
+  listProjectContextResources,
+  type ProjectCollaboratorIdentitySummary,
+} from "@/lib/services/project-service";
 import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 
 type ContextCardAttachment =
@@ -29,6 +32,7 @@ interface ProjectContextPanelSectionProps {
   actorUserId: string;
   canEdit: boolean;
   storageProvider: "local" | "r2";
+  collaborators: ProjectCollaboratorIdentitySummary[];
 }
 
 export async function ProjectContextPanelSection({
@@ -36,6 +40,7 @@ export async function ProjectContextPanelSection({
   actorUserId,
   canEdit,
   storageProvider,
+  collaborators,
 }: ProjectContextPanelSectionProps) {
   const resources = await listProjectContextResources(projectId, actorUserId);
   const registry = await loadContextCardActorRegistryForProject({
@@ -110,6 +115,7 @@ export async function ProjectContextPanelSection({
       projectId={projectId}
       storageProvider={storageProvider}
       cards={cards}
+      collaborators={collaborators}
     />
   );
 }

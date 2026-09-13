@@ -23,6 +23,7 @@ import { ContextCreateModal } from "@/components/context-panel/context-create-mo
 import { ContextEditModal } from "@/components/context-panel/context-edit-modal";
 import { ContextPreviewModal } from "@/components/context-panel/context-preview-modal";
 import { useToast } from "@/components/toast-provider";
+import type { MentionDisplayUser } from "@/components/ui/mention-hover-card";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
 import type {
   PendingAttachmentLink,
@@ -64,6 +65,7 @@ interface ProjectContextPanelProps {
   projectId: string;
   storageProvider: "local" | "r2";
   cards: ProjectContextCard[];
+  collaborators: MentionDisplayUser[];
 }
 
 type RemoteContextCardPayload = Omit<Partial<ProjectContextCard>, "attachments"> & {
@@ -119,6 +121,7 @@ export function ProjectContextPanel({
   projectId,
   storageProvider,
   cards,
+  collaborators,
 }: ProjectContextPanelProps) {
   const isMountedRef = useRef(true);
   const router = useRouter();
@@ -1149,6 +1152,7 @@ export function ProjectContextPanel({
               cards={localCards}
               cardAttachmentsById={cardAttachmentsById}
               deletingCardId={deletingCardId}
+              mentionUsers={collaborators}
               onOpenPreview={setPreviewCardId}
             onEditCard={openEditModal}
             onDeleteCard={requestDeleteCard}
@@ -1160,6 +1164,7 @@ export function ProjectContextPanel({
       <ContextCreateModal
         isOpen={isCreateOpen}
         isCreatingCard={isCreatingCard}
+        mentionProjectId={projectId}
         createColor={createColor}
         createContent={createContent}
         createLinkUrl={createLinkUrl}
@@ -1188,6 +1193,7 @@ export function ProjectContextPanel({
       <ContextEditModal
         editingCard={editingCard}
         editingColor={editingColor}
+        mentionProjectId={projectId}
         editContent={editContent}
         editingCardAttachments={editingCardAttachments}
         isUpdatingCard={isUpdatingCard}
@@ -1216,6 +1222,7 @@ export function ProjectContextPanel({
         isOpen={Boolean(previewCard)}
         card={previewCard}
         attachments={previewCardAttachments}
+        mentionUsers={collaborators}
         onClose={() => setPreviewCardId(null)}
         onEdit={openEditModal}
         onPreviewAttachment={(attachment) => setPreviewAttachment(attachment)}
