@@ -138,6 +138,13 @@ export const AGENT_CREDENTIAL_PRESETS: ReadonlyArray<AgentCredentialPreset> = [
     scopes: ["project:read", "task:read"],
   },
   {
+    id: "attention-read",
+    label: "Attention read only",
+    description:
+      "Let an agent poll its own mentions and assignments without board read or write access.",
+    scopes: ["attention:read"],
+  },
+  {
     id: "read-write",
     label: "Read + write (no delete)",
     description:

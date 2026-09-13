@@ -61,6 +61,12 @@ describe("GET /api/docs/agent/v1/openapi.json", () => {
     expect(paths).toHaveProperty(
       "/api/projects/{projectId}/context-cards/{cardId}/attachments/direct"
     );
+    expect(paths).toHaveProperty(
+      "/api/projects/{projectId}/agent-attention/mentions"
+    );
+    expect(paths).toHaveProperty(
+      "/api/projects/{projectId}/agent-attention/assignments"
+    );
     expect(components?.securitySchemes).toHaveProperty("BearerAuth");
     expect(components?.securitySchemes).toHaveProperty("ApiKeyAuthorization");
     expect(components?.securitySchemes).toHaveProperty("AgentApiKeyHeader");

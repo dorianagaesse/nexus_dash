@@ -34,6 +34,22 @@ describe("agent-onboarding-guide", () => {
     expect(result).toContain("Move the task to Done before archiving it");
   });
 
+  test("documents attention discovery with the least-privilege read scope", () => {
+    const result = renderToStaticMarkup(
+      React.createElement(AgentOnboardingGuide, {
+        initialAppOrigin: "https://preview.nexusdash.test",
+      })
+    );
+
+    expect(result).toContain("Attention discovery");
+    expect(result).toContain("/api/projects/{projectId}/agent-attention/mentions");
+    expect(result).toContain("/api/projects/{projectId}/agent-attention/assignments");
+    expect(result).toContain("attention:read");
+    expect(result).toContain("task:read");
+    expect(result).toContain("since=$LAST_SEEN_OCCURRED_AT");
+    expect(result).toContain("revoked, expired, or rotated away");
+  });
+
   test("keeps long code and endpoint content inside shrinkable mobile-safe containers", () => {
     const result = renderToStaticMarkup(
       React.createElement(AgentOnboardingGuide, {

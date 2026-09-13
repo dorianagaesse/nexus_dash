@@ -3,6 +3,99 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-13 - ND-386: Publish and validate the agent attention API contract
+
+- Implemented in the dedicated `../nexus_dash_task386` worktree on
+  `feature/nd-386-attention-api-contract` from `origin/main` at 63c49c4
+  (v0.70.0). ND-385 deliberately deferred contract publication to this task;
+  this change touches no runtime route code — the published contract now
+  covers the already-merged attention endpoints.
+- OpenAPI (`lib/agent-onboarding.ts`): new `Attention` tag, two
+  `AGENT_API_ENDPOINTS` entries (`attention:read` scope), two path items with
+  the full query surface (eventType, artifactType, assignments-only `state`,
+  since/until, limit 1-100 default 50, order, cursor with same-order replay
+  rule), 11 schemas (`AgentAttentionMentionItem`,
+  `AgentAttentionAssignmentItem`, filter envelope, artifact/current-state
+  variants with oneOf unions), and named synthetic examples
+  (`commentMention`; `taskAssignment`, `meetingTodoAssignment`). Two
+  `AGENT_LIMITATIONS` rows document the self-scoped read and cursor replay
+  behavior. `limit` bounds in the docs are asserted equal to the runtime
+  constants.
+- Hosted guide (`components/agent-onboarding/agent-onboarding-guide.tsx`):
+  new full-width "Attention discovery" card backed by the new exported
+  `buildAgentAttentionExample()` — incremental polling (since + ascending
+  order + cursor replayed with the issuing order), dedup by stable item id,
+  following `artifact.taskId`/comment/meeting-note references, re-checking
+  `currentState` before acting, and revocation handling (401 retries the
+  exchange once; a failed exchange means revoked/expired/rotated — stop and
+  ask the owner).
+- Least privilege (`lib/agent-access.ts` + owner panel): new
+  `attention-read` preset granting exactly `attention:read`, so a poll-only
+  agent needs no board read or write scope. The panel preset grid becomes
+  2x2 to fit the fourth preset; the scope checkbox for `attention:read`
+  already existed from ND-385.
+- Contract tests: new `tests/api/agent-attention-contract.route.test.ts`
+  runs the real routes with the real service response mappers (only the two
+  list functions are mocked) and validates responses with a hand-rolled
+  JSON-schema subset validator against the built document — runtime 200
+  envelopes (mentions, assignments incl. null `occurredAt`/null actor),
+  documented 400/403 error bodies, both published examples against their
+  schemas, and example hygiene (no `nda_` keys, emails, bearer tokens,
+  JWT-shaped strings, or URLs; placeholder project id; stable id prefixes).
+  Additional assertions in `tests/lib/agent-onboarding.test.ts`,
+  `tests/lib/agent-access.test.ts`,
+  `tests/components/agent-onboarding-guide.test.ts`, and
+  `tests/api/agent-openapi.route.test.ts`.
+- Validation (local env via the `scripts/local-validation.mjs` shape, local
+  Postgres on 5432): `git diff --check` clean; `npm run lint`;
+  `npm run rls:check`; `npm test` 202 files / 1585 tests pass (2 skipped);
+  `npm run test:coverage`; `npm run build` (BUILD_ID written); release
+  advanced 0.70.0 -> 0.71.0 (`## v0.71.0 - 2026-09-13` CHANGELOG entry,
+  `release:check` passes). Live smoke against the production build on an
+  owned server (port 3427, PID verified): `/api/health/ready` 200,
+  `/docs/agent/v1` renders the Attention discovery section, and the served
+  `openapi.json` contains both paths with the documented parameters,
+  examples, and `attention:read` in the token scope enum.
+- Playwright: full `npm run test:e2e` suite run locally against the
+  production build (own verified server on an isolated port, `CI=1` plus
+  `PLAYWRIGHT_BASE_URL` so no foreign server can be reused) — 68 passed,
+  1 skipped, including the nd-382/nd-384 specs that drive the agent-access
+  panel. One env-only failure on the first pass (`password-recovery` finds
+  no reset token without `OUTBOUND_EMAIL_DELIVERY_MODE=disabled` on a local
+  production server with the placeholder Resend key) disappeared with the
+  documented flag; the full rerun is the recorded result. CI's E2E Smoke
+  job runs the same full suite and passed on this PR (run 34757354473,
+  head 102e08f).
+- Opened PR <https://github.com/dorianagaesse/nexus_dash/pull/516>
+  (commits 8e9d5a4 contract, fc55ad1 guide + preset, 239b05c release,
+  a6dd74c journal); card stays In Progress for the reviewer.
+- Review round (Codex findings + merge-forward): GitHub reported the PR
+  CONFLICTING/DIRTY after main advanced to v0.72.1 (ND-398 #514, ND-156
+  #515). The merge forward (17ac3c9) conflicted only in the CHANGELOG,
+  journal, and both package files; the OpenAPI implementation and tests
+  auto-merged. The release entry was re-sectioned to `## v0.73.0 -
+  2026-09-13` above v0.72.1 and both package files bumped to 0.73.0;
+  `release:check` passes (0.73.0 over 0.72.1).
+- Addressed the Codex finding that the attention docs advertised source
+  lookups (task, task comments, meeting notes) that an `attention:read`-only
+  credential cannot perform — all three source routes require `task:read`,
+  so the advertised preset workflow answered 403 (c6d8bfa). The example
+  step 5, the guide's Attention discovery item 3, and both attention
+  endpoint note lists now state the `task:read` requirement explicitly
+  (work from the item summary when the credential is attention-only); the
+  "Attention read only" preset deliberately stays `attention:read`-only.
+  Focused tests extend the example and guide assertions to the new copy and
+  assert both attention endpoint notes carry the scope requirement.
+- Review-round validation on the merged tree: `git diff --check` clean,
+  lint, `rls:check`, Vitest 207 files / 1656 tests passed (2 skipped),
+  coverage unchanged (93.77 / 84.71 / 95.39 / 94.07), production build
+  (BUILD_ID written, Prisma client regenerated for the merged schema), and
+  the full Playwright suite — 74 passed, 1 skipped
+  (preview-auth-isolation skips locally) — against an owned verified server
+  (port 3471, listener PID checked against this worktree, RLS-context and
+  outbound-email flags set); the merged-in nd-156/nd-398/nd-458 specs all
+  pass.
+
 # 2026-09-13 - ND-398: Rich-text authoring and rendering in task comments
 
 - Implemented in the dedicated `../nexus_dash_task398` worktree on

@@ -25,6 +25,12 @@ describe("agent credential presets", () => {
     expect(recommended?.scopes).not.toContain("task:delete");
   });
 
+  test("the attention preset grants only the attention read scope", () => {
+    const preset = resolveAgentCredentialPreset("attention-read");
+    expect(preset?.scopes).toEqual(["attention:read"]);
+    expect(preset?.recommended).toBeUndefined();
+  });
+
   test("the default preset id resolves to the recommended preset", () => {
     const defaultPreset = resolveAgentCredentialPreset(DEFAULT_AGENT_CREDENTIAL_PRESET_ID);
     expect(defaultPreset?.recommended).toBe(true);
