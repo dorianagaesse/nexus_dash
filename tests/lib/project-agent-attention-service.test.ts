@@ -32,6 +32,8 @@ import {
   encodeAgentAttentionCursor,
   type AgentAttentionListFilters,
 } from "@/lib/agent-attention";
+import type { AgentAttentionItemActor } from "@/lib/services/project-agent-attention-service";
+import type { AgentProjectAccessContext } from "@/lib/services/project-access-service";
 import {
   listAgentAssignments,
   listAgentMentionEvents,
@@ -39,7 +41,7 @@ import {
   mapAgentMentionItemToResponse,
 } from "@/lib/services/project-agent-attention-service";
 
-const AGENT_ACCESS = {
+const AGENT_ACCESS: AgentProjectAccessContext = {
   credentialId: "credential-1",
   projectId: "project-1",
   scopes: ["attention:read"],
@@ -82,7 +84,7 @@ function agentRegistryRow(input: { actorId: string; label: string }) {
   };
 }
 
-const HUMAN_ACTOR = {
+const HUMAN_ACTOR: AgentAttentionItemActor = {
   kind: "human",
   id: "user-1",
   displayName: "reviewer",
@@ -337,6 +339,23 @@ describe("listAgentMentionEvents filters", () => {
     );
   });
 
+  test("rejects a null-timestamp cursor that this surface never mints", async () => {
+    const result = await listAgentMentionEvents(
+      mentionInput({
+        filters: {
+          cursor: { order: "desc", occurredAt: null, id: "mention-row-9" },
+        },
+      })
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "agent-attention-invalid-cursor",
+    });
+    expect(dbMock.taskCommentAgentMention.findMany).not.toHaveBeenCalled();
+  });
+
   test("wraps database failures as a 500", async () => {
     dbMock.taskCommentAgentMention.findMany.mockRejectedValueOnce(
       new Error("connection lost")
@@ -449,6 +468,33 @@ describe("listAgentMentionEvents results", () => {
         kind: "agent",
         id: "credential-2",
         displayName: "Build bot (agent)",
+        usernameTag: null,
+      },
+    });
+  });
+
+  test("keeps agent provenance when the author credential was deleted", async () => {
+    dbMock.taskCommentAgentMention.findMany.mockResolvedValueOnce([
+      mentionRow({
+        createdByUserId: "user-1",
+        createdByCredentialId: null,
+        createdByCredentialLabel: "Ghost bot",
+      }),
+    ]);
+
+    const result = await listAgentMentionEvents(mentionInput());
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.data.items[0]).toMatchObject({
+      summary:
+        'Ghost bot (agent) mentioned Release bot v2 (agent) in a comment on "Release task"',
+      actor: {
+        kind: "agent",
+        id: "historical-agent-Ghost%20bot",
+        displayName: "Ghost bot (agent)",
         usernameTag: null,
       },
     });
@@ -642,6 +688,56 @@ describe("listAgentAssignments", () => {
     expect(dbMock.task.findMany).not.toHaveBeenCalled();
   });
 
+  test("prunes each source with keyset predicates and a bounded overfetch", async () => {
+    const cursorOccurredAt = new Date("2026-09-12T11:00:00.000Z");
+
+    await listAgentAssignments(
+      assignmentInput({
+        filters: {
+          limit: 2,
+          cursor: {
+            order: "desc",
+            occurredAt: cursorOccurredAt,
+            id: "task-1",
+          },
+        },
+      })
+    );
+
+    expect(dbMock.task.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { assigneeAssignedAt: null },
+            { assigneeAssignedAt: { lt: cursorOccurredAt } },
+            { assigneeAssignedAt: cursorOccurredAt, id: { lt: "task-1" } },
+          ],
+        }),
+        orderBy: [
+          { assigneeAssignedAt: { sort: "desc", nulls: "last" } },
+          { id: "desc" },
+        ],
+        take: 3,
+      })
+    );
+    expect(dbMock.projectMeetingNoteAction.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { assignedAt: null },
+            { assignedAt: { lt: cursorOccurredAt } },
+            { assignedAt: cursorOccurredAt, id: { lt: "task-1" } },
+          ],
+        }),
+        orderBy: [
+          { assignedAt: { sort: "desc", nulls: "last" } },
+          { id: "desc" },
+        ],
+        take: 3,
+      })
+    );
+  });
+
   test("paginates deterministically across both sources, treating missing times as oldest", async () => {
     const legacyTask = assignmentTaskRow({
       id: "task-legacy",
@@ -676,7 +772,11 @@ describe("listAgentAssignments", () => {
     expect(firstPage.data.nextCursor).toEqual(expect.any(String));
 
     const cursor = decodeAgentAttentionCursor(firstPage.data.nextCursor);
-    expect(cursor).not.toBeNull();
+    expect(cursor).toEqual({
+      order: "desc",
+      occurredAt: new Date("2026-09-12T11:00:00.000Z"),
+      id: "task-1",
+    });
 
     const secondPage = await listAgentAssignments(
       assignmentInput({ filters: { limit: 2, cursor } })
@@ -708,6 +808,73 @@ describe("listAgentAssignments", () => {
       },
     ]);
     expect(secondPage.data.nextCursor).toBeNull();
+  });
+
+  test("continues ascending pages past leading legacy rows without a timestamp", async () => {
+    const legacyTodo = meetingTodoRow({
+      id: "todo-legacy",
+      assignedAt: null,
+      assignedByKind: null,
+      assignedByUserId: null,
+      assignedByCredentialId: null,
+      assignedByDisplayNameSnapshot: null,
+      assignedByUser: null,
+      assigneeDisplayNameSnapshot: null,
+    });
+    dbMock.task.findMany.mockResolvedValue([assignmentTaskRow()]);
+    dbMock.projectMeetingNoteAction.findMany
+      .mockResolvedValueOnce([legacyTodo, meetingTodoRow()])
+      .mockResolvedValueOnce([meetingTodoRow()]);
+
+    const firstPage = await listAgentAssignments(
+      assignmentInput({ filters: { limit: 1, order: "asc" } })
+    );
+
+    expect(firstPage.ok).toBe(true);
+    if (!firstPage.ok) {
+      return;
+    }
+    expect(firstPage.data.items.map((item) => item.id)).toEqual([
+      "assignment:meeting_todo:todo-legacy",
+    ]);
+    const cursor = decodeAgentAttentionCursor(firstPage.data.nextCursor);
+    expect(cursor).toEqual({
+      order: "asc",
+      occurredAt: null,
+      id: "todo-legacy",
+    });
+
+    const secondPage = await listAgentAssignments(
+      assignmentInput({ filters: { limit: 1, order: "asc", cursor } })
+    );
+
+    expect(secondPage.ok).toBe(true);
+    if (!secondPage.ok) {
+      return;
+    }
+    expect(secondPage.data.items.map((item) => item.id)).toEqual([
+      "assignment:task:task-1",
+    ]);
+    expect(decodeAgentAttentionCursor(secondPage.data.nextCursor)).toEqual({
+      order: "asc",
+      occurredAt: new Date("2026-09-12T11:00:00.000Z"),
+      id: "task-1",
+    });
+    expect(dbMock.task.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            { assigneeAssignedAt: null, id: { gt: "todo-legacy" } },
+            { assigneeAssignedAt: { not: null } },
+          ],
+        }),
+        orderBy: [
+          { assigneeAssignedAt: { sort: "asc", nulls: "first" } },
+          { id: "asc" },
+        ],
+        take: 2,
+      })
+    );
   });
 
   test("marks completed artifacts in the current state", async () => {

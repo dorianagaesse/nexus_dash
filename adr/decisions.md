@@ -32,8 +32,11 @@ Keep UI-only or task-only notes in `journal.md`.
   `assignment:meeting_todo:<id>`), event/artifact/state/time filters, and
   opaque base64url cursors `{order, occurredAt, id}` that embed the sort
   direction; null occurrence times (pre-provenance assignments) sort as
-  oldest. Mentions paginate in SQL; assignments merge the two bounded
-  sources in memory and reuse the same sort/cursor contract. Current state
+  oldest. Mentions paginate in SQL; assignments apply per-source keyset
+  predicates with an ordered overfetch bounded to `limit + 1` per source,
+  then merge the two bounded pages in memory under the same sort/cursor
+  contract (cursor ids are raw row ids so they line up with the predicates).
+  Current state
   (task status, todo completion) is derived live from the artifact while
   occurrence time and actor provenance stay durable snapshots, and stored
   actors resolve registry-first with the shared `(agent)` display

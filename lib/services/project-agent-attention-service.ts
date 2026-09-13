@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import {
+  AGENT_ATTENTION_INVALID_CURSOR_ERROR,
   AGENT_ATTENTION_INVALID_FILTER_ERROR,
   buildAgentMeetingTodoAssignmentItemId,
   buildAgentMentionEventItemId,
@@ -9,6 +10,7 @@ import {
   encodeAgentAttentionCursor,
   isAgentAttentionItemAfterCursor,
   type AgentAttentionAssignmentState,
+  type AgentAttentionCursor,
   type AgentAttentionListFilters,
 } from "@/lib/agent-attention";
 import { logServerError } from "@/lib/observability/logger";
@@ -211,6 +213,71 @@ function buildMentionCursorWhereClause(input: {
       };
 }
 
+// The assignment sources paginate independently with keyset predicates that
+// mirror isAgentAttentionItemAfterCursor: ties break on the raw row id and
+// null assignment times sort as oldest (first in asc, last in desc).
+function buildTaskAssignmentCursorWhereClause(input: {
+  cursor: AgentAttentionCursor;
+  order: AgentAttentionListFilters["order"];
+}): Prisma.TaskWhereInput {
+  const { cursor, order } = input;
+  if (order === "desc") {
+    return cursor.occurredAt
+      ? {
+          OR: [
+            { assigneeAssignedAt: null },
+            { assigneeAssignedAt: { lt: cursor.occurredAt } },
+            { assigneeAssignedAt: cursor.occurredAt, id: { lt: cursor.id } },
+          ],
+        }
+      : { assigneeAssignedAt: null, id: { lt: cursor.id } };
+  }
+  return cursor.occurredAt
+    ? {
+        OR: [
+          { assigneeAssignedAt: { gt: cursor.occurredAt } },
+          { assigneeAssignedAt: cursor.occurredAt, id: { gt: cursor.id } },
+        ],
+      }
+    : {
+        OR: [
+          { assigneeAssignedAt: null, id: { gt: cursor.id } },
+          { assigneeAssignedAt: { not: null } },
+        ],
+      };
+}
+
+function buildMeetingTodoAssignmentCursorWhereClause(input: {
+  cursor: AgentAttentionCursor;
+  order: AgentAttentionListFilters["order"];
+}): Prisma.ProjectMeetingNoteActionWhereInput {
+  const { cursor, order } = input;
+  if (order === "desc") {
+    return cursor.occurredAt
+      ? {
+          OR: [
+            { assignedAt: null },
+            { assignedAt: { lt: cursor.occurredAt } },
+            { assignedAt: cursor.occurredAt, id: { lt: cursor.id } },
+          ],
+        }
+      : { assignedAt: null, id: { lt: cursor.id } };
+  }
+  return cursor.occurredAt
+    ? {
+        OR: [
+          { assignedAt: { gt: cursor.occurredAt } },
+          { assignedAt: cursor.occurredAt, id: { gt: cursor.id } },
+        ],
+      }
+    : {
+        OR: [
+          { assignedAt: null, id: { gt: cursor.id } },
+          { assignedAt: { not: null } },
+        ],
+      };
+}
+
 export async function listAgentMentionEvents(
   input: AgentAttentionServiceInput
 ): Promise<
@@ -230,6 +297,12 @@ export async function listAgentMentionEvents(
   }
   if (filters.state) {
     return createError(400, AGENT_ATTENTION_INVALID_FILTER_ERROR);
+  }
+  // Mention rows always carry a created time, so a cursor without one was
+  // never minted by this endpoint; re-serving the first page would silently
+  // duplicate items.
+  if (filters.cursor && !filters.cursor.occurredAt) {
+    return createError(400, AGENT_ATTENTION_INVALID_CURSOR_ERROR);
   }
 
   const actorUserId = normalizeIdentifier(input.actorUserId);
@@ -293,9 +366,17 @@ export async function listAgentMentionEvents(
       const pageRows = hasNextPage ? mentions.slice(0, filters.limit) : mentions;
 
       const items: AgentAttentionMentionItem[] = pageRows.map((mention) => {
+        // The credential id is set null when a credential is deleted while
+        // the label snapshot survives, so the snapshot alone still marks an
+        // agent author (same rule as mapTaskAuthorRecord).
+        const actorIsAgent = Boolean(
+          mention.createdByCredentialId || mention.createdByCredentialLabel
+        );
         const actorSummary = mapStoredProjectActorFromRegistry({
-          kind: mention.createdByCredentialId ? "agent" : "human",
-          id: mention.createdByCredentialId ?? mention.createdByUserId,
+          kind: actorIsAgent ? "agent" : "human",
+          id: actorIsAgent
+            ? mention.createdByCredentialId
+            : mention.createdByUserId,
           displayNameSnapshot: mention.createdByCredentialLabel,
           user: mention.createdByUser,
           registry,
@@ -407,6 +488,21 @@ export async function listAgentAssignments(
 
     try {
       const occurredAtRange = buildOccurredAtRange(filters);
+      const taskCursorWhere = filters.cursor
+        ? buildTaskAssignmentCursorWhereClause({
+            cursor: filters.cursor,
+            order: filters.order,
+          })
+        : null;
+      const meetingTodoCursorWhere = filters.cursor
+        ? buildMeetingTodoAssignmentCursorWhereClause({
+            cursor: filters.cursor,
+            order: filters.order,
+          })
+        : null;
+      // Nulls sort as oldest, which deviates from PostgreSQL's defaults in
+      // both directions, so both orderBy clauses pin the null policy.
+      const occurredAtNulls = filters.order === "asc" ? "first" : "last";
 
       const [tasks, meetingTodos, registry] = await Promise.all([
         includeTasks
@@ -418,7 +514,18 @@ export async function listAgentAssignments(
                   ? { assigneeAssignedAt: occurredAtRange }
                   : {}),
                 ...taskStateWhere,
+                ...(taskCursorWhere ?? {}),
               },
+              orderBy: [
+                {
+                  assigneeAssignedAt: {
+                    sort: filters.order,
+                    nulls: occurredAtNulls,
+                  },
+                },
+                { id: filters.order },
+              ],
+              take: filters.limit + 1,
               select: {
                 id: true,
                 title: true,
@@ -443,7 +550,18 @@ export async function listAgentAssignments(
                 meetingNote: { projectId: input.projectId },
                 ...(occurredAtRange ? { assignedAt: occurredAtRange } : {}),
                 ...meetingTodoStateWhere,
+                ...(meetingTodoCursorWhere ?? {}),
               },
+              orderBy: [
+                {
+                  assignedAt: {
+                    sort: filters.order,
+                    nulls: occurredAtNulls,
+                  },
+                },
+                { id: filters.order },
+              ],
+              take: filters.limit + 1,
               select: {
                 id: true,
                 content: true,
@@ -470,8 +588,15 @@ export async function listAgentAssignments(
       const registrySelfLabel =
         registry?.credentialById.get(access.credentialId)?.displayName ?? null;
 
-      const items: AgentAttentionAssignmentItem[] = [
-        ...tasks.map((task): AgentAttentionAssignmentItem => {
+      // Sort and cursor keys use the raw row id so they line up with the
+      // per-source keyset predicates; items keep their prefixed dedup key.
+      interface AssignmentCandidate {
+        sortKey: { occurredAt: Date | null; id: string };
+        item: AgentAttentionAssignmentItem;
+      }
+
+      const candidates: AssignmentCandidate[] = [
+        ...tasks.map((task): AssignmentCandidate => {
           const actor = mapItemActor(
             mapTaskStoredActor({
               kind: task.assigneeAssignedByKind,
@@ -486,27 +611,30 @@ export async function listAgentAssignments(
             task.status === "Done" ? "completed" : "active";
 
           return {
-            id: buildAgentTaskAssignmentItemId(task.id),
-            eventType: "assignment",
-            projectId: input.projectId,
-            occurredAt: task.assigneeAssignedAt,
-            artifact: {
-              type: "task",
-              id: task.id,
-              title: task.title,
-            },
-            summary: `${actor?.displayName ?? "Unknown actor"} assigned ${formatAgentDisplayName(
-              registrySelfLabel ?? task.assigneeDisplayNameSnapshot
-            )} to task "${task.title}"`,
-            actor,
-            currentState: {
-              assignmentState,
-              status: task.status,
-              archivedAt: task.archivedAt,
+            sortKey: { occurredAt: task.assigneeAssignedAt, id: task.id },
+            item: {
+              id: buildAgentTaskAssignmentItemId(task.id),
+              eventType: "assignment",
+              projectId: input.projectId,
+              occurredAt: task.assigneeAssignedAt,
+              artifact: {
+                type: "task",
+                id: task.id,
+                title: task.title,
+              },
+              summary: `${actor?.displayName ?? "Unknown actor"} assigned ${formatAgentDisplayName(
+                registrySelfLabel ?? task.assigneeDisplayNameSnapshot
+              )} to task "${task.title}"`,
+              actor,
+              currentState: {
+                assignmentState,
+                status: task.status,
+                archivedAt: task.archivedAt,
+              },
             },
           };
         }),
-        ...meetingTodos.map((todo): AgentAttentionAssignmentItem => {
+        ...meetingTodos.map((todo): AssignmentCandidate => {
           const actor = mapItemActor(
             mapTaskStoredActor({
               kind: todo.assignedByKind,
@@ -522,54 +650,67 @@ export async function listAgentAssignments(
             : "active";
 
           return {
-            id: buildAgentMeetingTodoAssignmentItemId(todo.id),
-            eventType: "assignment",
-            projectId: input.projectId,
-            occurredAt: todo.assignedAt,
-            artifact: {
-              type: "meeting_todo",
-              id: todo.id,
-              content: todo.content,
-              meetingNoteId: todo.meetingNoteId,
-              meetingNoteTitle: todo.meetingNote.title,
-            },
-            summary: `${actor?.displayName ?? "Unknown actor"} assigned ${formatAgentDisplayName(
-              registrySelfLabel ?? todo.assigneeDisplayNameSnapshot
-            )} to the meeting to-do "${todo.content}" in "${todo.meetingNote.title}"`,
-            actor,
-            currentState: {
-              assignmentState,
-              status: assignmentState === "completed" ? "completed" : "open",
-              archivedAt: null,
+            sortKey: { occurredAt: todo.assignedAt, id: todo.id },
+            item: {
+              id: buildAgentMeetingTodoAssignmentItemId(todo.id),
+              eventType: "assignment",
+              projectId: input.projectId,
+              occurredAt: todo.assignedAt,
+              artifact: {
+                type: "meeting_todo",
+                id: todo.id,
+                content: todo.content,
+                meetingNoteId: todo.meetingNoteId,
+                meetingNoteTitle: todo.meetingNote.title,
+              },
+              summary: `${actor?.displayName ?? "Unknown actor"} assigned ${formatAgentDisplayName(
+                registrySelfLabel ?? todo.assigneeDisplayNameSnapshot
+              )} to the meeting to-do "${todo.content}" in "${todo.meetingNote.title}"`,
+              actor,
+              currentState: {
+                assignmentState,
+                status: assignmentState === "completed" ? "completed" : "open",
+                archivedAt: null,
+              },
             },
           };
         }),
       ];
 
-      const sortedItems = items.sort((left, right) =>
-        compareAgentAttentionSortKeys(left, right, filters.order)
+      const sortedCandidates = candidates.sort((left, right) =>
+        compareAgentAttentionSortKeys(left.sortKey, right.sortKey, filters.order)
       );
       const cursor = filters.cursor;
-      const cursorFilteredItems = cursor
-        ? sortedItems.filter((item) =>
-            isAgentAttentionItemAfterCursor(item, cursor, filters.order)
+      const cursorFilteredCandidates = cursor
+        ? sortedCandidates.filter((candidate) =>
+            isAgentAttentionItemAfterCursor(
+              candidate.sortKey,
+              cursor,
+              filters.order
+            )
           )
-        : sortedItems;
-      const hasNextPage = cursorFilteredItems.length > filters.limit;
-      const pageItems = hasNextPage
-        ? cursorFilteredItems.slice(0, filters.limit)
-        : cursorFilteredItems;
-      const lastPageItem = pageItems[pageItems.length - 1];
+        : sortedCandidates;
+      const hasNextPage = cursorFilteredCandidates.length > filters.limit;
+      const pageCandidates = hasNextPage
+        ? cursorFilteredCandidates.slice(0, filters.limit)
+        : cursorFilteredCandidates;
+      const lastPageCandidate = pageCandidates[pageCandidates.length - 1];
       const nextCursor =
-        hasNextPage && lastPageItem
+        hasNextPage && lastPageCandidate
           ? encodeAgentAttentionCursor({
               order: filters.order,
-              occurredAt: lastPageItem.occurredAt,
-              id: lastPageItem.id,
+              occurredAt: lastPageCandidate.sortKey.occurredAt,
+              id: lastPageCandidate.sortKey.id,
             })
           : null;
 
-      return { ok: true as const, data: { items: pageItems, nextCursor } };
+      return {
+        ok: true as const,
+        data: {
+          items: pageCandidates.map((candidate) => candidate.item),
+          nextCursor,
+        },
+      };
     } catch (error) {
       logServerError("listAgentAssignments", error, {
         projectId: input.projectId,

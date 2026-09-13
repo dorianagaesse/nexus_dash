@@ -22,9 +22,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `assignment:task:<id>` / `assignment:meeting_todo:<id>`). Filters:
   eventType, artifactType, state, since/until; deterministic newest-first
   ordering with opaque base64url cursors embedding the sort direction.
-  Mentions page in SQL; assignments merge both bounded sources in memory with
-  the same sort/cursor semantics. Pre-provenance rows report null
-  `occurredAt` and sort as oldest, mirroring SQL NULL placement.
+  Mentions page in SQL; assignments apply per-source keyset predicates with
+  an ordered overfetch bounded to `limit + 1` per source and merge the two
+  bounded pages in memory under the same sort/cursor semantics, with both
+  `orderBy` clauses pinning null placement (first in asc, last in desc).
+  Pre-provenance rows report null `occurredAt` and sort as oldest.
 - Mentions cursor stores the raw row id for the SQL tie-break while items
   expose the prefixed key — kept deliberately separate so same-timestamp
   paging stays correct.
@@ -47,6 +49,25 @@ Use it for important implementation milestones, blockers, validation runs, and r
   card stays In Progress for the reviewer. E2E not run: no UI, auth,
   calendar, or upload flow is touched, and the credential-scope checkbox
   renders through the existing definitions loop.
+- PR review triage (Copilot, all three findings applied): (1) the service
+  test fixtures are typed as `AgentProjectAccessContext` / the item actor
+  type so strict typechecking stays clean; (2) mention actor provenance now
+  infers the agent kind from the credential id OR the preserved label
+  snapshot (same rule as `mapTaskAuthorRecord`), so a deleted credential's
+  mentions keep a `historical-agent-*` actor instead of collapsing into the
+  owner; (3) assignment paging now prunes each source in SQL with keyset
+  predicates (raw-id tie-break, nulls pinned) plus `take: limit + 1`, and
+  the in-memory pass only merges/slices — no unbounded per-credential
+  materialization. Also rejects mention cursors carrying a null timestamp
+  as invalid (that endpoint never mints one; ignoring it silently re-served
+  page 1). New tests cover the deleted-credential actor, the asc
+  legacy-row continuation, predicate/overfetch forwarding, and the
+  null-timestamp cursor guard.
+- Re-validation after the review fixes: lint, `rls:check`, full vitest
+  (1559 passed; one Windows-load flake in `tests/scripts/version-policy.test.ts`
+  that passes in isolation), coverage 93.47/84.36/95.3/93.77, build,
+  `release:check`, `git diff --check` — all green. RLS DB matrix not re-run:
+  no schema, migration, or tenant-ownership change.
 
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 
