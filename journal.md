@@ -118,7 +118,12 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Second merge-forward (ND-459 #512): ND-459 also shipped v0.69.0 (claimed the
   same next version again), so this branch re-bumped to v0.70.0 with a fresh
   CHANGELOG section above ND-459's; `release:check` passes (0.70.0 over
-  0.69.0).
+  0.69.0). Merge-round validation: lint, `rls:check`, Vitest 200 files /
+  1527 tests passed (2 skipped; coverage unchanged 93.76 / 84.71 / 95.39 /
+  94.06), `NODE_ENV=test` build, and nd-398/nd-383/nd-459 e2e 8/8 on a
+  verified local server; CI run 34753580248 on 9f7fe85 green across all
+  gates (Quality Core, Tenant Isolation, E2E Smoke, Container Image) and
+  PR #514 is CLEAN.
 
 # 2026-09-13 - ND-459: Epic linked tasks show ND- references and open the task on click
 
