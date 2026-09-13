@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.69.0 - 2026-09-13
+## v0.71.0 - 2026-09-13
 
 - Epics are archived automatically once every linked task is done or archived
   and the last completion is older than the same seven-day grace period used
@@ -29,6 +29,41 @@ SHA, deployment URL, and workflow run belong in release evidence.
   restore (`DELETE .../epics/{epicId}/archive`), epic records now include
   `archivedAt`, and the epic list accepts an `includeArchived` filter that
   defaults to hiding archived epics.
+
+## v0.70.0 - 2026-09-13
+
+- Added a read-only agent attention API (ND-385): an authenticated agent
+  credential can list its own mention events and its current assignments —
+  task comments that tagged it, tasks assigned to it, and meeting to-dos
+  assigned to it — via
+  `GET /api/projects/{projectId}/agent-attention/mentions` and
+  `GET /api/projects/{projectId}/agent-attention/assignments`.
+- Every item reports the event type, project, source artifact, a
+  human-readable summary, the acting actor, the occurrence time, and the
+  artifact's current state, with a stable per-artifact lookup key
+  (`mention:<id>`, `assignment:task:<id>`, `assignment:meeting_todo:<id>`)
+  for client-side dedup.
+- Filtering covers event type, artifact type, assignment state, and a
+  since/until time range; results are newest-first by default with an order
+  flag and page deterministically through an opaque cursor. Assignments
+  stored before provenance tracking report a null occurrence time and sort
+  as oldest.
+- Access requires the new least-privilege `attention:read` credential scope
+  ("Attention Read" in the credential UI); the endpoints only ever read the
+  calling credential's own events — no other credential id is accepted — and
+  revocation or expiry blocks access immediately while project members keep
+  their existing governance views.
+
+## v0.69.0 - 2026-09-13
+
+- Epic panels now show the shared ND- reference beside each linked task's title
+  and status (ND-459), so epic context uses the same identifiers as the board,
+  search, and notifications.
+- Linked-task chips open the task detail on the board instantly on click or
+  keyboard, including archived tasks, while the deep-link URL stays shareable
+  and the two-line title clamp / compact mobile layout are preserved.
+- The epic linked-task projection and the agent API contract now expose the
+  task reference number, keeping agent integrations in sync with the UI.
 
 ## v0.68.0 - 2026-09-13
 

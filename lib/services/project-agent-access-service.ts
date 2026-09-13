@@ -110,6 +110,7 @@ const AGENT_SCOPE_TO_DB_SCOPE: Record<AgentScope, ApiCredentialScope> = {
   "roadmap:read": ApiCredentialScope.roadmap_read,
   "roadmap:write": ApiCredentialScope.roadmap_write,
   "roadmap:delete": ApiCredentialScope.roadmap_delete,
+  "attention:read": ApiCredentialScope.attention_read,
 };
 
 const DB_SCOPE_TO_AGENT_SCOPE: Record<ApiCredentialScope, AgentScope> = {
@@ -123,6 +124,7 @@ const DB_SCOPE_TO_AGENT_SCOPE: Record<ApiCredentialScope, AgentScope> = {
   [ApiCredentialScope.roadmap_read]: "roadmap:read",
   [ApiCredentialScope.roadmap_write]: "roadmap:write",
   [ApiCredentialScope.roadmap_delete]: "roadmap:delete",
+  [ApiCredentialScope.attention_read]: "attention:read",
 };
 
 interface AgentCredentialExchangeRow {

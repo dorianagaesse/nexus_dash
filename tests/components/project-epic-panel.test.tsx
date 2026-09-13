@@ -30,6 +30,10 @@ vi.mock("@/lib/hooks/use-project-section-expanded", () => ({
 }));
 
 import { ProjectEpicPanel } from "@/components/project-epic-panel";
+import {
+  TASK_OPEN_REQUEST_EVENT,
+  type TaskOpenRequestDetail,
+} from "@/lib/task-open-client";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -72,6 +76,7 @@ const epicWithDenseLinkedTasks = {
   completedTaskCount: 2,
   linkedTasks: Array.from({ length: 8 }, (_, index) => ({
     id: `task-${index + 1}`,
+    referenceNumber: 101 + index,
     title:
       index === 7
         ? "Validate a deliberately long linked task title without truncating meaningful context"
@@ -636,6 +641,7 @@ describe("project-epic-panel overlong linked-task titles", () => {
       linkedTasks: [
         {
           id: "task-long",
+          referenceNumber: 777,
           title,
           status: "Backlog" as const,
           archivedAt: null,
@@ -674,11 +680,11 @@ describe("project-epic-panel overlong linked-task titles", () => {
     const { container, root } = createTestRenderer();
     await renderExpandedEpic(container, root, longTitle);
 
-    const chip = container.querySelector<HTMLElement>(
-      `li[title="${longTitle}"]`
+    const chip = container.querySelector<HTMLAnchorElement>(
+      `a[title="${longTitle}"]`
     );
     expect(chip).not.toBeNull();
-    const titleSpan = chip?.firstElementChild as HTMLElement | null;
+    const titleSpan = chip?.querySelector<HTMLElement>("span.line-clamp-2");
     expect(titleSpan?.textContent).toBe(longTitle);
     expect(titleSpan?.className).toContain("line-clamp-2");
     expect(titleSpan?.className).toContain("[overflow-wrap:anywhere]");
@@ -693,13 +699,204 @@ describe("project-epic-panel overlong linked-task titles", () => {
     const { container, root } = createTestRenderer();
     await renderExpandedEpic(container, root, longWord);
 
-    const chip = container.querySelector<HTMLElement>(`li[title="${longWord}"]`);
+    const chip = container.querySelector<HTMLAnchorElement>(
+      `a[title="${longWord}"]`
+    );
     expect(chip).not.toBeNull();
-    const titleSpan = chip?.firstElementChild as HTMLElement | null;
+    const titleSpan = chip?.querySelector<HTMLElement>("span.line-clamp-2");
     expect(titleSpan?.textContent).toBe(longWord);
     expect(titleSpan?.className).toContain("line-clamp-2");
     expect(titleSpan?.className).toContain("[overflow-wrap:anywhere]");
 
     await act(async () => root.unmount());
+  });
+
+  test("shows the shared ND- reference and task deep link on each linked-task chip", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const disclosure = container.querySelector<HTMLElement>(
+      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    );
+    await act(async () => {
+      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const chip = container.querySelector<HTMLAnchorElement>(
+      'a[href="/projects/project-1/tasks/task-1"]'
+    );
+    expect(chip).not.toBeNull();
+    expect(chip?.textContent).toContain("ND-101");
+    expect(chip?.textContent).toContain("Launch task 1");
+    expect(chip?.textContent).toContain("Done");
+
+    await act(async () => root.unmount());
+  });
+
+  test("keeps each linked-task chip keyboard reachable with a visible focus ring", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const disclosure = container.querySelector<HTMLElement>(
+      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    );
+    await act(async () => {
+      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const chip = container.querySelector<HTMLAnchorElement>(
+      'a[href="/projects/project-1/tasks/task-1"]'
+    );
+    expect(chip?.tagName).toBe("A");
+    expect(chip?.className).toContain("focus-visible:ring-2");
+
+    await act(async () => root.unmount());
+  });
+});
+
+describe("project-epic-panel linked-task chip activation", () => {
+  async function renderExpandedChips(container: HTMLElement, root: Root) {
+    projectSectionExpandedMock.isExpanded = true;
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const disclosure = container.querySelector<HTMLElement>(
+      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    );
+    await act(async () => {
+      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+  }
+
+  function findFirstChip(container: HTMLElement) {
+    return container.querySelector<HTMLAnchorElement>(
+      'a[href="/projects/project-1/tasks/task-1"]'
+    );
+  }
+
+  test("hands plain chip clicks to the board and keeps the deep-link URL without navigating", async () => {
+    const { container, root } = createTestRenderer();
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    const requestedTaskIds: string[] = [];
+    const handleRequest = (event: Event) => {
+      const detail = (event as CustomEvent<TaskOpenRequestDetail>).detail;
+      requestedTaskIds.push(detail.taskId);
+      detail.markHandled();
+    };
+    window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+
+    try {
+      await renderExpandedChips(container, root);
+      const chip = findFirstChip(container);
+      expect(chip).not.toBeNull();
+
+      let navigationAllowed = true;
+      await act(async () => {
+        navigationAllowed = chip!.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      expect(requestedTaskIds).toEqual(["task-1"]);
+      expect(replaceStateSpy).toHaveBeenCalledWith(
+        null,
+        "",
+        "/projects/project-1?taskId=task-1"
+      );
+      expect(navigationAllowed).toBe(false);
+    } finally {
+      window.removeEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+      replaceStateSpy.mockRestore();
+      await act(async () => {
+        root.unmount();
+      });
+    }
+  });
+
+  test("falls back to the deep-link navigation when no board claims the click", async () => {
+    const { container, root } = createTestRenderer();
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    const handleRequest = vi.fn();
+    window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+
+    try {
+      await renderExpandedChips(container, root);
+      const chip = findFirstChip(container);
+
+      let navigationAllowed = false;
+      await act(async () => {
+        navigationAllowed = chip!.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      expect(handleRequest).toHaveBeenCalledTimes(1);
+      expect(navigationAllowed).toBe(true);
+      expect(replaceStateSpy).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+      replaceStateSpy.mockRestore();
+      await act(async () => {
+        root.unmount();
+      });
+    }
+  });
+
+  test("leaves modified clicks to the browser for new-tab behavior", async () => {
+    const { container, root } = createTestRenderer();
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    const handleRequest = vi.fn();
+    window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+
+    try {
+      await renderExpandedChips(container, root);
+      const chip = findFirstChip(container);
+
+      let navigationAllowed = false;
+      await act(async () => {
+        navigationAllowed = chip!.dispatchEvent(
+          new MouseEvent("click", {
+            bubbles: true,
+            cancelable: true,
+            ctrlKey: true,
+          })
+        );
+      });
+
+      expect(handleRequest).not.toHaveBeenCalled();
+      expect(navigationAllowed).toBe(true);
+      expect(replaceStateSpy).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
+      replaceStateSpy.mockRestore();
+      await act(async () => {
+        root.unmount();
+      });
+    }
   });
 });

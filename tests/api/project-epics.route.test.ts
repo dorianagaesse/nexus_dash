@@ -81,6 +81,7 @@ describe("project epic routes", () => {
         linkedTasks: [
           {
             id: "task-1",
+            referenceNumber: 123,
             title: "Ship hero",
             status: "Done",
             archivedAt: null,
@@ -111,6 +112,7 @@ describe("project epic routes", () => {
           linkedTasks: [
             {
               id: "task-1",
+              referenceNumber: 123,
               title: "Ship hero",
               status: "Done",
               archivedAt: null,

@@ -73,6 +73,7 @@ export interface ListProjectEpicsOptions {
 
 const epicTaskSelect = {
   id: true,
+  referenceNumber: true,
   title: true,
   status: true,
   archivedAt: true,
@@ -123,6 +124,7 @@ function mapProjectEpicSummary(epic: {
   updatedAt: Date;
   tasks: Array<{
     id: string;
+    referenceNumber: number;
     title: string;
     status: string;
     archivedAt: Date | null;

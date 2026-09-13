@@ -905,6 +905,7 @@ enum ApiCredentialScope {
   roadmap_read
   roadmap_write
   roadmap_delete
+  attention_read
 }
 
 enum AuthAuditActorKind {

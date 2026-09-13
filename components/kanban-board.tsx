@@ -73,6 +73,10 @@ import {
   getTaskLabelsFromStorage,
   normalizeTaskLabel,
 } from "@/lib/task-label";
+import {
+  TASK_OPEN_REQUEST_EVENT,
+  type TaskOpenRequestDetail,
+} from "@/lib/task-open-client";
 import { createRelatedTaskMap } from "@/lib/task-related";
 import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 import { MAX_TASK_TITLE_LENGTH } from "@/lib/task-title";
@@ -1295,6 +1299,49 @@ export function KanbanBoard({
     [setIsExpanded]
   );
 
+  const openTaskById = useCallback(
+    (rawTaskId: string) => {
+      const taskId = rawTaskId.trim();
+      if (!taskId) {
+        return;
+      }
+
+      const task = taskById.get(taskId);
+      if (task) {
+        handleSelectTask(task);
+        setIsExpanded(true);
+        return;
+      }
+
+      // The task is absent from the loaded board; fetch it by id so the
+      // detail modal can still open. Failures keep the board unchanged.
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/projects/${projectId}/tasks/${encodeURIComponent(taskId)}`
+          );
+          if (!response.ok) {
+            return;
+          }
+          const payload = (await response.json()) as {
+            task?: TaskMutationResponseTask;
+          };
+          const remoteTask = payload.task;
+          if (!remoteTask || !isTaskStatus(remoteTask.status)) {
+            return;
+          }
+          const mappedTask = mapTaskMutationResponseTask(remoteTask);
+          upsertRemoteTask(mappedTask);
+          handleSelectTask(mappedTask);
+          setIsExpanded(true);
+        } catch (error) {
+          console.error("[KanbanBoard.openTaskById]", error);
+        }
+      })();
+    },
+    [handleSelectTask, projectId, setIsExpanded, taskById, upsertRemoteTask]
+  );
+
   const normalizedInitialTaskId =
     typeof initialTaskId === "string" ? initialTaskId.trim() : "";
 
@@ -1306,57 +1353,27 @@ export function KanbanBoard({
       return;
     }
 
-    const initialTask = taskById.get(normalizedInitialTaskId);
     openedInitialTaskIdRef.current = normalizedInitialTaskId;
-    if (initialTask) {
-      shouldOpenTaskInEditModeRef.current = false;
-      setSelectedTask(initialTask);
-      setIsExpanded(true);
-      return;
-    }
+    openTaskById(normalizedInitialTaskId);
+  }, [normalizedInitialTaskId, openTaskById]);
 
-    // The deep-linked task is absent from the loaded board; fetch it by id so
-    // the detail modal can still open. Failures keep the board unchanged.
-    let cancelled = false;
-    const openRemoteInitialTask = async () => {
-      try {
-        const response = await fetch(
-          `/api/projects/${projectId}/tasks/${encodeURIComponent(
-            normalizedInitialTaskId
-          )}`
-        );
-        if (!response.ok) {
-          return;
-        }
-        const payload = (await response.json()) as {
-          task?: TaskMutationResponseTask;
-        };
-        const remoteTask = payload.task;
-        if (cancelled || !remoteTask || !isTaskStatus(remoteTask.status)) {
-          return;
-        }
-        const mappedTask = mapTaskMutationResponseTask(remoteTask);
-        shouldOpenTaskInEditModeRef.current = false;
-        upsertRemoteTask(mappedTask);
-        setSelectedTask(mappedTask);
-        setIsExpanded(true);
-      } catch (error) {
-        console.error("[KanbanBoard.openRemoteInitialTask]", error);
+  useEffect(() => {
+    const handleTaskOpenRequest = (event: Event) => {
+      const detail = (event as CustomEvent<TaskOpenRequestDetail>).detail;
+      if (!detail?.taskId) {
+        return;
       }
+
+      detail.markHandled();
+      openTaskById(detail.taskId);
     };
 
-    void openRemoteInitialTask();
+    window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleTaskOpenRequest);
 
     return () => {
-      cancelled = true;
+      window.removeEventListener(TASK_OPEN_REQUEST_EVENT, handleTaskOpenRequest);
     };
-  }, [
-    normalizedInitialTaskId,
-    projectId,
-    setIsExpanded,
-    taskById,
-    upsertRemoteTask,
-  ]);
+  }, [openTaskById]);
 
   const applyRemoteReorder = useCallback(
     (reorderedColumns: Array<{ status: TaskStatus; taskIds: string[] }>) => {
