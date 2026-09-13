@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.68.0 - 2026-09-13
+## v0.69.0 - 2026-09-13
 
 - Epic panels now show the shared ND- reference beside each linked task's title
   and status (ND-459), so epic context uses the same identifiers as the board,
@@ -18,6 +18,20 @@ SHA, deployment URL, and workflow run belong in release evidence.
   and the two-line title clamp / compact mobile layout are preserved.
 - The epic linked-task projection and the agent API contract now expose the
   task reference number, keeping agent integrations in sync with the UI.
+
+## v0.68.0 - 2026-09-13
+
+- Context card descriptions now support the same `@` mention flow as task
+  descriptions (ND-380): the Add card and Edit card editors complete member
+  mentions from the project actor registry (agent rows keep the same
+  disabled treatment), and the stored `@username#discriminator` tokens
+  round-trip unchanged.
+- Context card descriptions render mentions as the shared mention chip in
+  both read surfaces — the card grid and the preview dialog — with the same
+  avatar hover card used everywhere else.
+- Existing card content is unchanged: legacy plain-text descriptions keep
+  rendering as before and upgrade to rich HTML only when edited and saved,
+  and non-mention rich text behaves exactly as before.
 
 ## v0.67.0 - 2026-09-12
 
