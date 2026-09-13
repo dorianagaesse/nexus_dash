@@ -3,6 +3,89 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-13 - ND-385: Agent attention API for mentions and assignments
+
+- Implemented in the dedicated `../nexus_dash_task385` worktree on
+  `feature/nd-385-agent-attention-api` from `origin/main` at 9b42fde
+  (v0.67.0). Adds `GET /api/projects/{projectId}/agent-attention/mentions`
+  and `.../assignments` so an authenticated credential can read its own
+  mention events (ND-383 rows) and current assignments (ND-384 columns)
+  across tasks and meeting todos.
+- New least-privilege scope `attention:read` (DB enum value
+  `attention_read`; migration 20260913120000 adds the enum value only — no
+  new tables or RLS surface). The credential identity comes from the bearer
+  token alone: the endpoints accept no credential parameter and always filter
+  by the authenticated credential, and per-request credential re-validation
+  keeps revoked/expired credentials at 401.
+- Contract: items carry event type, project, artifact, summary, actor,
+  occurrence time, current state, and stable dedup keys (`mention:<id>` /
+  `assignment:task:<id>` / `assignment:meeting_todo:<id>`). Filters:
+  eventType, artifactType, state, since/until; deterministic newest-first
+  ordering with opaque base64url cursors embedding the sort direction.
+  Mentions page in SQL; assignments apply per-source keyset predicates with
+  an ordered overfetch bounded to `limit + 1` per source and merge the two
+  bounded pages in memory under the same sort/cursor semantics, with both
+  `orderBy` clauses pinning null placement (first in asc, last in desc).
+  Pre-provenance rows report null `occurredAt` and sort as oldest.
+- Mentions cursor stores the raw row id for the SQL tie-break while items
+  expose the prefixed key — kept deliberately separate so same-timestamp
+  paging stays correct.
+- Tests: `tests/lib/agent-attention.test.ts` (codec, filter parsing, sort and
+  cursor predicates), `tests/lib/project-agent-attention-service.test.ts`
+  (authorization, tenant scoping, filter casts, pagination, actor
+  resolution, legacy rows, failure wrapping), and
+  `tests/api/project-agent-attention.route.test.ts` (human 403, auth
+  passthrough, invalid filter/cursor 400s, response envelope, credential
+  query params ignored).
+- Release advanced 0.67.0 -> 0.68.0 (`release:version -- feature`) with the
+  `## v0.68.0 - 2026-09-13` CHANGELOG entry; ADR entry recorded in
+  `adr/decisions.md`.
+- Scope boundary: ND-386 owns contract publication (OpenAPI,
+  `AGENT_API_ENDPOINTS`, hosted guide, presets), so this change leaves
+  `lib/agent-onboarding.ts` untouched; the new scope auto-surfaces as an
+  "Attention Read" checkbox through `AGENT_SCOPE_DEFINITIONS`.
+- Opened PR <https://github.com/dorianagaesse/nexus_dash/pull/510>
+  (commits dbcf928 scope, 3dc6318 API, c030454 tests, f91c05d release);
+  card stays In Progress for the reviewer. E2E not run: no UI, auth,
+  calendar, or upload flow is touched, and the credential-scope checkbox
+  renders through the existing definitions loop.
+- PR review triage (Copilot, all three findings applied): (1) the service
+  test fixtures are typed as `AgentProjectAccessContext` / the item actor
+  type so strict typechecking stays clean; (2) mention actor provenance now
+  infers the agent kind from the credential id OR the preserved label
+  snapshot (same rule as `mapTaskAuthorRecord`), so a deleted credential's
+  mentions keep a `historical-agent-*` actor instead of collapsing into the
+  owner; (3) assignment paging now prunes each source in SQL with keyset
+  predicates (raw-id tie-break, nulls pinned) plus `take: limit + 1`, and
+  the in-memory pass only merges/slices — no unbounded per-credential
+  materialization. Also rejects mention cursors carrying a null timestamp
+  as invalid (that endpoint never mints one; ignoring it silently re-served
+  page 1). New tests cover the deleted-credential actor, the asc
+  legacy-row continuation, predicate/overfetch forwarding, and the
+  null-timestamp cursor guard.
+- Re-validation after the review fixes: lint, `rls:check`, full vitest
+  (1559 passed; one Windows-load flake in `tests/scripts/version-policy.test.ts`
+  that passes in isolation), coverage 93.47/84.36/95.3/93.77, build,
+  `release:check`, `git diff --check` — all green. RLS DB matrix not re-run:
+  no schema, migration, or tenant-ownership change. The new Prisma
+  `orderBy` nulls policy and per-source cursor predicates were additionally
+  executed against the real local PostgreSQL through a throwaway probe
+  (deleted afterwards) to confirm the generated SQL runs clean.
+- Merged `origin/main` forward to 1dedc59 before handoff (ND-459 #512
+  v0.69.0, ND-380 #513 v0.68.0, dependabot #481/#482); conflicts in
+  `package.json`, `package-lock.json`, `CHANGELOG.md`, `journal.md`. Main had
+  consumed both v0.68.0 and v0.69.0 while this branch had bumped to v0.68.0,
+  so the version collision resolved by rebumping to v0.70.0: lockfile
+  regenerated from main's (only the version fields differ), CHANGELOG section
+  re-headered v0.70.0 and ordered above v0.69.0.
+- Post-merge re-validation with the quality-gates env block inline (local
+  Postgres URLs + placeholder secrets — worktrees carry no `.env`, and a bare
+  `npm test` fails 16 Prisma-importing suites at collection on a missing
+  `DATABASE_URL`): `git diff --check` clean; lint; `rls:check`;
+  `release:check` 0.69.0 -> 0.70.0; Vitest 201 files passed / 2 skipped
+  (1,575 tests passed / 2 skipped); coverage 93.47/84.36/95.3/93.77;
+  production build.
+
 # 2026-09-13 - ND-459: Epic linked tasks show ND- references and open the task on click
 
 - Implemented in the dedicated `../nexus_dash_task459` worktree on
