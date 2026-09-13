@@ -144,7 +144,9 @@ export async function searchProjectTaskIds(input: {
             task.assigneeUser?.username,
             assigneeTag,
             ...agentAssigneeValues,
-            ...task.comments.map((comment) => comment.content),
+            ...task.comments.map((comment) =>
+              richTextToPlainText(comment.content)
+            ),
             ...task.blockedFollowUps.map((entry) => entry.content),
             ...task.attachments.map((attachment) => attachment.name),
             ...task.outgoingRelations.map((relation) => relation.rightTask.title),

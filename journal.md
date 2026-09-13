@@ -3,6 +3,139 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-13 - ND-398: Rich-text authoring and rendering in task comments
+
+- Implemented in the dedicated `../nexus_dash_task398` worktree on
+  `feature/nd-398-rich-text-task-comments` from `origin/main` at 9b42fde
+  (ND-383 #504), fast-forwarded to a2e5e6c (@radix-ui/react-dialog 1.1.23 and
+  @prisma/adapter-pg 7.10.0 bumps). Task comments now use the shared rich-text
+  model: the task-modal comment composer is the `RichTextEditor` (headings,
+  emphasis, lists, code/token blocks, human + agent `@` mention picker), and
+  stored comments render through `RichTextContent` with the same chip model as
+  mentions elsewhere.
+- Comments go through the same server-side coerce pipeline as task
+  descriptions (sanitize-html + canonical block normalization); mention
+  parsing and the ND-383 agent-token validation project storage to plain text
+  first. Fixed a latent server-runtime bug the tests exposed:
+  `wrapRootLevelTextNodes` was DOM-based and silently no-oped in Node (no
+  `document`), so bare text typed above or below blocks was stored unwrapped
+  for comments, meeting notes, and context cards. Rewrote it as a string
+  scanner and added `tests/lib/rich-text-server.test.ts` (node environment) as
+  the regression guard.
+- Spec adaptations: the ND-383 mention spec and the smoke comment flow now
+  assert the editor chip model (`data-editor-mention` / `data-mention-raw`)
+  instead of raw token text; the new `tests/e2e/nd-398-rich-text-comments.spec.ts`
+  covers the composer round-trip into stored HTML plus legacy/unsafe comment
+  rendering.
+- Validation: lint, `rls:check`, Vitest 199 files / 1496 tests (1494 passed, 2
+  skipped), coverage (93.76 / 84.71 / 95.39 / 94.06), production build, and the
+  full Playwright suite against the build on port 3210 — 62 passed, 1 skipped,
+  2 environment-level failures investigated and cleared: `authenticated-app-shell.spec.ts:89`
+  fails 3/3 on an unmodified main baseline worktree (a2e5e6c) as well, a
+  pre-existing race where the `?taskId=` deep link opens the Radix task modal
+  during hydration and its `hideOthers` aria-hides the shell, so the aside-nav
+  `getByRole` assertion only matches in the window before the modal opens (CI's
+  cold runners pass it; warm local runs lose the race), and the smoke roadmap
+  drag (:596) failed under full-suite load and passed on isolated retry (same
+  drag-geometry flake as previously journaled).
+- Local environment notes: plain `npm run build` fails locally during
+  page-data collection because Next forces NODE_ENV=production and
+  `lib/env.server.ts` requires DATABASE_URL ≠ DIRECT_URL for remote hosts —
+  build with `NODE_ENV=test`; Vitest and Playwright runs need `NODE_ENV=test`
+  plus a `node --env-file=.env` wrapper locally.
+- Copilot review round (six moderate findings). Applied inline: task search now
+  projects stored comment HTML through `richTextToPlainText` before matching
+  (`project-task-search-service.ts`), and human mention parsing now runs on
+  `maskAgentMentionTokens(contentText)` so username-like credential labels
+  inside `@{...}` chips cannot produce false human mentions. Body-suppressed
+  findings addressed: `coerceRichTextHtml` decodes serialized editor entities
+  in the tagless branch before escaping (round-trip fixpoint; fixes stored
+  `&amp;` literals and `&`-label agent-token 400s), the composer restored the
+  4,000-character cap via a shared `lib/task-comment.ts` constant (counter from
+  3,800, submit disabled over the cap), the mention tooltip/active element now
+  clears before the unresolved-mention early return, and the modal-prune
+  finding's stated `richTextToPlainText` double-escape mechanism was verified
+  inaccurate — the shared coercion fix resolves the actual end-to-end failure
+  (empirically traced, documented on the PR).
+- Review-round tests: entity round-trips in `tests/lib/rich-text.test.ts`,
+  `R&D bot` POST route case in `tests/api/task-comments.route.test.ts`,
+  ampersand composer round-trip in `tests/e2e/nd-398-rich-text-comments.spec.ts`,
+  mask coverage in `tests/lib/mention.test.ts`, search-projection assertion,
+  length-cap case in `tests/components/task-detail-modal-comments.test.tsx`,
+  tooltip-clear case in `tests/components/rich-text-content.test.ts`.
+- Review-round validation: lint, `rls:check`, Vitest 1507 passed / 2 skipped,
+  coverage unchanged (93.76 / 84.71 / 95.39 / 94.06), `NODE_ENV=test` build;
+  e2e re-run of the nd-398/nd-383/nd-381/nd-397/smoke specs — 13 passed, 1
+  pre-existing roadmap drag-geometry flake (:596) passing on isolated retry.
+- CI round: PR #514's E2E Smoke job failed on b129833 with a Playwright
+  strict-mode violation — `#task-comment-body-<id>` resolved to 2 elements
+  (attempt 1 at `nd-398-rich-text-comments.spec.ts:53`, attempt 2 at `:142`).
+  Root cause is a pre-existing optimistic-comment race (introduced with the
+  optimistic flow in d0aebe2 / #314, surfaced by this PR's added submission
+  coverage): submitting a comment appends an optimistic placeholder and bumps
+  `commentCount`/`updatedAt`, which re-runs the comment-load effect; when the
+  racing refetch resolves after the server commit but before the POST response
+  is applied, `mergeFetchedTaskComments` inserts the stored comment X while the
+  placeholder is still present, and the old post-submit update
+  (`map`-replace of the optimistic id) then left `[X, X]` → two DOM nodes with
+  the same id. Diagnosed with a temporary instrumented probe (fetch wrapper +
+  MutationObserver, since deleted) that reproduced the timeline locally in
+  2/2 runs, then proved deterministically by a route-delay variant forcing the
+  merge-before-response interleaving (server copy in the DOM at t=5083 ms,
+  POST response delivered at t=6705 ms; old code renders two nodes, fixed code
+  one).
+- Fix: new pure helper `mergeSubmittedTaskComment`
+  (`components/kanban-board-comments.ts`) makes the post-submit state update
+  idempotent — it removes the optimistic placeholder and any already-merged
+  copy of the submitted comment, then appends it once; wired into
+  `handleSubmitTaskComment`. Unit regression tests
+  (`tests/components/kanban-board-comments.test.ts`, 5 cases incl.
+  `[optimistic, X] → [X]`).
+- CI-round validation: lint, `rls:check`, full Vitest 1512 passed / 2 skipped
+  (coverage unchanged 93.76 / 84.71 / 95.39 / 94.06), `NODE_ENV=test` build;
+  e2e on the rebuilt server — nd-398 3/3, nd-383 1/1, 45 rapid-submission
+  probe iterations with zero duplicate ids. The same CI runs also failed
+  the smoke meeting-notes geometry assertion
+  (`smoke-project-task-calendar.spec.ts:448`, `inputZoomBottomInset` −8.4 px)
+  — reproduced locally 1/5 isolated repeats with the identical value; the
+  documented pre-existing layout-timing flake (same assertion/value flaked on
+  ND-458 the same day), unrelated to this diff. Post-merge CI run 34751563495
+  on 6244f2e is green across all gates (Quality Core, Tenant Isolation, E2E
+  Smoke — smoke passed this time —, Container Image); PR #514 is CLEAN.
+- Merge-forward of ND-380 (#513): ND-380 shipped v0.68.0 first (this branch
+  had claimed the same next version), so the CHANGELOG/journal conflicts were
+  resolved by keeping both entries and this branch re-bumped to v0.69.0 with
+  its own changelog section; `release:check` passes (0.69.0 over 0.68.0). The
+  stale conflicting state had also silently blocked the `pull_request`
+  workflow from running on the fix commit until the merge-forward was pushed.
+- Reviewer feedback round: the composer's `min-h-[96px]` read as taller than
+  the previous one-line comment input, so it was reverted to `min-h-11`
+  (44 px, matching the retired `h-11` textarea) — the contenteditable still
+  grows with content. Revalidated: lint, focused Vitest (11 passed),
+  `NODE_ENV=test` build, and nd-398/nd-383 e2e 4/4 on a verified local server;
+  a temporary geometry probe measured 44 px at rest growing to 98 px over four
+  lines (probe deleted after the run).
+- Second merge-forward (ND-459 #512): ND-459 also shipped v0.69.0 (claimed the
+  same next version again), so this branch re-bumped to v0.70.0 with a fresh
+  CHANGELOG section above ND-459's; `release:check` passes (0.70.0 over
+  0.69.0). Merge-round validation: lint, `rls:check`, Vitest 200 files /
+  1527 tests passed (2 skipped; coverage unchanged 93.76 / 84.71 / 95.39 /
+  94.06), `NODE_ENV=test` build, and nd-398/nd-383/nd-459 e2e 8/8 on a
+  verified local server; CI run 34753580248 on 9f7fe85 green across all
+  gates (Quality Core, Tenant Isolation, E2E Smoke, Container Image) and
+  PR #514 is CLEAN.
+- Third merge-forward (ND-385 #510, ND-458 #511): main shipped ND-385's
+  v0.70.0 (claimed concurrently with this branch's v0.70.0) and ND-458's
+  v0.71.0 on top, so this branch re-bumped again to v0.72.0, re-sectioning
+  its CHANGELOG entry above v0.71.0; `release:check` passes (0.72.0 over
+  0.71.0). Merge-round validation: regenerated the Prisma client for main's
+  schema changes (ND-458 `archivedAt`, ND-385 attention scope) and confirmed
+  `migrate status` reports the shared DB already current; lint, `rls:check`,
+  Vitest 205 files / 1641 tests passed (2 skipped; coverage unchanged
+  93.76 / 84.71 / 95.39 / 94.06), `NODE_ENV=test` build, and
+  nd-398/nd-383/nd-459/nd-458 e2e 10/10 on a verified local server; CI run
+  34779319961 on 023b493 green across all gates and PR #514 is CLEAN.
+
 # 2026-09-13 - ND-458: Auto-archive completed epics with manual archive/restore
 
 - Implemented in the dedicated `../nexus_dash_task458` worktree on
