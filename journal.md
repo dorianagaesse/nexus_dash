@@ -41,6 +41,17 @@ Use it for important implementation milestones, blockers, validation runs, and r
   single-test failures today (meeting-notes zoom geometry,
   accessible-overlays focus) are consistent with the same shared-port
   server reuse and did not reproduce under the verified run.
+- Copilot's initial review (2026-09-13) raised one note in the review body
+  (no inline comment was generated, so there is no thread to resolve):
+  assert the new `EpicLinkedTaskSummary` contract in
+  `tests/lib/agent-onboarding.test.ts` so a later edit cannot drop
+  `referenceNumber` or restore the old `RelatedTaskSummary` ref silently.
+  Addressed in a follow-up commit: the test now pins
+  `ProjectEpicRecord.linkedTasks.items.$ref`, the schema's `required`
+  list, the `referenceNumber` type/minimum, and the `status` enum.
+  Follow-up validation: `git diff --check` clean, lint, rls:check,
+  1,482 tests passing / 2 skipped, coverage 93.47 / 84.36 / 95.3 / 93.77,
+  production build, release:check 0.67.0 -> 0.68.0.
 
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 

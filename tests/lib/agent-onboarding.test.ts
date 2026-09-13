@@ -253,4 +253,28 @@ describe("agent-onboarding contract", () => {
       "null",
     ]);
   });
+
+  test("documents epic linked-task reference contract", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+
+    const linkedTasks =
+      document.components.schemas.ProjectEpicRecord.properties.linkedTasks;
+    expect(linkedTasks.items.$ref).toBe(
+      "#/components/schemas/EpicLinkedTaskSummary"
+    );
+
+    const linkedTaskSchema = document.components.schemas.EpicLinkedTaskSummary;
+    expect(linkedTaskSchema.required).toEqual([
+      "id",
+      "referenceNumber",
+      "title",
+      "status",
+      "archivedAt",
+    ]);
+    expect(linkedTaskSchema.properties.referenceNumber).toMatchObject({
+      type: "integer",
+      minimum: 1,
+    });
+    expect(linkedTaskSchema.properties.status.enum).toEqual(TASK_STATUSES);
+  });
 });
