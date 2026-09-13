@@ -133,7 +133,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `migrate status` reports the shared DB already current; lint, `rls:check`,
   Vitest 205 files / 1641 tests passed (2 skipped; coverage unchanged
   93.76 / 84.71 / 95.39 / 94.06), `NODE_ENV=test` build, and
-  nd-398/nd-383/nd-459/nd-458 e2e 10/10 on a verified local server.
+  nd-398/nd-383/nd-459/nd-458 e2e 10/10 on a verified local server; CI run
+  34779319961 on 023b493 green across all gates and PR #514 is CLEAN.
 
 # 2026-09-13 - ND-458: Auto-archive completed epics with manual archive/restore
 
