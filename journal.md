@@ -56,10 +56,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `/docs/agent/v1` renders the Attention discovery section, and the served
   `openapi.json` contains both paths with the documented parameters,
   examples, and `attention:read` in the token scope enum.
-- Playwright suite not run: no auth, calendar, or upload flow is touched;
-  the changed UI surfaces are static guide copy and a preset button rendered
-  from data, covered by SSR/jsdom component tests, and the e2e specs that
-  open the agent-access panel (nd-382, nd-384) do not use presets or layout.
+- Playwright: full `npm run test:e2e` suite run locally against the
+  production build (own verified server on an isolated port, `CI=1` plus
+  `PLAYWRIGHT_BASE_URL` so no foreign server can be reused) — 68 passed,
+  1 skipped, including the nd-382/nd-384 specs that drive the agent-access
+  panel. One env-only failure on the first pass (`password-recovery` finds
+  no reset token without `OUTBOUND_EMAIL_DELIVERY_MODE=disabled` on a local
+  production server with the placeholder Resend key) disappeared with the
+  documented flag; the full rerun is the recorded result. CI's E2E Smoke
+  job runs the same full suite and passed on this PR (run 34757354473,
+  head 102e08f).
 - Opened PR <https://github.com/dorianagaesse/nexus_dash/pull/516>
   (commits 8e9d5a4 contract, fc55ad1 guide + preset, 239b05c release,
   a6dd74c journal); card stays In Progress for the reviewer.
