@@ -27,6 +27,8 @@ import {
   EmojiInputField,
   EmojiTextareaField,
 } from "@/components/ui/emoji-field";
+import { ListSearchInput } from "@/components/ui/list-search-input";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { getEpicColorFromName } from "@/lib/epic";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import { cn } from "@/lib/utils";
@@ -58,6 +60,8 @@ interface ProjectEpicPanelProps {
   epics: ProjectEpicPanelEpic[];
   loadError?: string | null;
 }
+
+type EpicListView = "active" | "archived";
 
 function mapEpicMutationError(errorCode: string): string {
   switch (errorCode) {
@@ -160,7 +164,8 @@ export function ProjectEpicPanel({
     null
   );
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showArchivedEpics, setShowArchivedEpics] = useState(false);
+  const [listView, setListView] = useState<EpicListView>("active");
+  const [query, setQuery] = useState("");
   const [isUpdatingArchive, setIsUpdatingArchive] = useState(false);
   const [expandedEpicIds, setExpandedEpicIds] = useState<Set<string>>(
     () => new Set()
@@ -185,10 +190,27 @@ export function ProjectEpicPanel({
     [localEpics]
   );
 
-  const visibleEpics = useMemo(
-    () => (showArchivedEpics ? [...activeEpics, ...archivedEpics] : activeEpics),
-    [activeEpics, archivedEpics, showArchivedEpics]
-  );
+  const epicSearchTextById = useMemo(() => {
+    const searchTextById = new Map<string, string>();
+    for (const epic of localEpics) {
+      searchTextById.set(
+        epic.id,
+        `${epic.name} ${epic.description}`.toLocaleLowerCase()
+      );
+    }
+    return searchTextById;
+  }, [localEpics]);
+
+  const visibleSourceEpics = listView === "active" ? activeEpics : archivedEpics;
+
+  const filteredEpics = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    return visibleSourceEpics.filter(
+      (epic) =>
+        !normalizedQuery ||
+        (epicSearchTextById.get(epic.id) ?? "").includes(normalizedQuery)
+    );
+  }, [epicSearchTextById, query, visibleSourceEpics]);
 
   const pendingDeleteEpic = useMemo(
     () => localEpics.find((epic) => epic.id === pendingDeleteEpicId) ?? null,
@@ -499,27 +521,11 @@ export function ProjectEpicPanel({
               </CardTitle>
             </div>
             <span className="rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
-              {activeEpics.length} epic{activeEpics.length === 1 ? "" : "s"}
+              {activeEpics.length} active
             </span>
           </button>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            {archivedEpics.length > 0 ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="min-h-11 w-full sm:w-auto"
-                aria-pressed={showArchivedEpics}
-                onClick={() => setShowArchivedEpics((previous) => !previous)}
-              >
-                <Archive className="h-4 w-4" />
-                {showArchivedEpics
-                  ? "Hide archived"
-                  : `Show archived (${archivedEpics.length})`}
-              </Button>
-            ) : null}
-
             {canEdit ? (
               <Button
                 type="button"
@@ -546,6 +552,31 @@ export function ProjectEpicPanel({
               {loadError}
             </div>
           ) : null}
+
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <ListSearchInput
+              value={query}
+              onValueChange={setQuery}
+              placeholder="Search epics by name or description"
+              ariaLabel="Search epics"
+              clearAriaLabel="Clear epic search"
+            />
+            <SegmentedControl<EpicListView>
+              value={listView}
+              onValueChange={(nextView) => {
+                setListView(nextView);
+                cancelEdit();
+              }}
+              ariaLabel="Epic list view"
+              options={[
+                { value: "active", label: `Active (${activeEpics.length})` },
+                {
+                  value: "archived",
+                  label: `Archived (${archivedEpics.length})`,
+                },
+              ]}
+            />
+          </div>
 
           {isCreateOpen ? (
             <section className="space-y-3 rounded-2xl border border-border/70 bg-background/70 p-4">
@@ -619,22 +650,26 @@ export function ProjectEpicPanel({
             </section>
           ) : null}
 
-          {visibleEpics.length === 0 ? (
+          {filteredEpics.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-5 py-8 text-center">
               <p className="text-sm font-medium text-foreground">
-                {activeEpics.length === 0 && archivedEpics.length > 0
-                  ? "No active epics."
-                  : "No epics yet."}
+                {query.trim() !== ""
+                  ? "No matching epics."
+                  : listView === "archived"
+                    ? "No archived epics."
+                    : "No active epics yet."}
               </p>
-              {activeEpics.length === 0 && archivedEpics.length > 0 ? null : (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Create one to group related work under a clear initiative.
-                </p>
-              )}
+              <p className="mt-1 text-sm text-muted-foreground">
+                {query.trim() !== ""
+                  ? "Try another search."
+                  : listView === "archived"
+                    ? "Completed epics will land here."
+                    : "Create one to group related work under a clear initiative."}
+              </p>
             </div>
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
-              {visibleEpics.map((epic) => {
+              {filteredEpics.map((epic) => {
                 const color = getEpicColorFromName(epic.name);
                 const isEditing = editingEpicId === epic.id;
                 const isDetailsExpanded = expandedEpicIds.has(epic.id);

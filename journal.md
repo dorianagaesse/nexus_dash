@@ -143,6 +143,41 @@ Use it for important implementation milestones, blockers, validation runs, and r
   passed / 57 failed), with the piped `tail` masking the real exit code.
   Fix: verify the chosen port is free (netstat) and set `CI=1` so Playwright
   fails rather than reusing an unknown server.
+- Round 3 (user-directed UX uniformization): the epic panel's "Show
+  archived (N)" / "Hide archived" toggle is replaced by the Meeting Notes
+  pattern — a search bar plus an `Active (N)` / `Archived (N)` view switch.
+  The epic list filters client-side over name and description, empty states
+  are per view ("No active epics yet." / "No archived epics." / "No matching
+  epics."), the header pill reads "N active", and switching views dismisses
+  an in-progress inline edit (the meeting-notes panel's analog of clearing
+  its selected note).
+- The search input and segmented control were extracted from the
+  meeting-notes panel into shared `components/ui/list-search-input.tsx`
+  (`ListSearchInput`) and `components/ui/segmented-control.tsx`
+  (`SegmentedControl<T>`: `role="group"` + `aria-pressed` toggle buttons,
+  one grid column per option), and the meeting-notes panel now consumes
+  both with equivalent DOM semantics — its existing e2e label queries
+  ("Search meeting notes", "Clear meeting notes search", tab labels) pass
+  unchanged. Six new unit tests cover the primitives (typing, clear
+  visibility, accessible names, selection state).
+- Epic-panel tests reworked to the tab flows plus new coverage: search
+  filtering (description-only match, no-match copy, clear button) and the
+  view switch cancelling an in-progress edit. The ND-458 e2e journey now
+  drives the view switch instead of the toggle, gained a search-narrowing
+  assertion, and scopes its clicks through `getByLabel("Epic list view")`
+  because the epic and meeting-note switches can render identical labels
+  (strict-mode collision found on the first run). The first full run also
+  caught one genuine spec bug: the restore test asserted the epic's Archive
+  button while still on the archived view, where a just-restored epic is no
+  longer rendered; it now switches to the active view first. Two local
+  flakes in that run (app-shell sidebar `Overview` link missing during
+  hydration; the known smoke zoom-geometry overshoot) both pass isolated on
+  the same build, and the full-suite re-run was clean.
+- Round-3 validation (port 3421, `CI=1`): lint, `rls:check`, Vitest 198
+  files / 1510 tests (2 skipped), coverage unchanged at 93.47 / 84.36 /
+  95.3 / 93.77, production build, and the full Playwright suite 64 passed /
+  1 skipped (preview-auth-isolation, expected locally). No schema change
+  this round, so the RLS matrix was not re-run (still green from round 2).
 
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 

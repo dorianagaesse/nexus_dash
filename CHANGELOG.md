@@ -19,9 +19,9 @@ SHA, deployment URL, and workflow run belong in release evidence.
   re-archived by the next sweep.
 - Completed epics no longer pile up in the default view: archived epics are
   hidden from the epic panel, task epic pickers, and kanban epic filters by
-  default. The panel's "Show archived" toggle reveals them in the panel, and a
-  task still linked to an archived epic keeps showing that link, marked as
-  archived, in its detail view.
+  default. The epic panel gains the same search bar and Active/Archived view
+  switch as the Meeting Notes area, and a task still linked to an archived
+  epic keeps showing that link, marked as archived, in its detail view.
 - Archived epics render an Archived badge and keep their derived status and
   progress accurate. Linking a new open task to an archived epic, or reopening
   a linked task, never silently restores the epic.

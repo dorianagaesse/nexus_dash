@@ -339,7 +339,7 @@ describe("project-epic-panel archive controls", () => {
     document.body.innerHTML = "";
   });
 
-  test("reveals archived epics only after toggling show archived", async () => {
+  test("reveals archived epics through the archived list view", async () => {
     const { container, root } = createTestRenderer();
 
     await renderWithRoot(
@@ -352,28 +352,129 @@ describe("project-epic-panel archive controls", () => {
     );
 
     expect(container.textContent).not.toContain(archivedEpic.name);
-    expect(container.textContent).toContain("1 epic");
+    expect(container.textContent).toContain("1 active");
 
-    const toggleButton = findButton(container, "Show archived");
-    expect(toggleButton?.textContent).toContain("Show archived (1)");
+    const archivedViewButton = findButton(container, "Archived (1)");
+    expect(archivedViewButton).not.toBeUndefined();
 
     await act(async () => {
-      toggleButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      archivedViewButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(container.textContent).toContain(archivedEpic.name);
     expect(
       container.querySelector(`button[aria-label="Restore epic ${archivedEpic.name}"]`)
     ).not.toBeNull();
-    expect(findButton(container, "Hide archived")).not.toBeUndefined();
 
     await act(async () => {
-      findButton(container, "Hide archived")?.dispatchEvent(
+      findButton(container, "Active (1)")?.dispatchEvent(
         new MouseEvent("click", { bubbles: true })
       );
     });
 
     expect(container.textContent).not.toContain(archivedEpic.name);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("filters the visible list view by name and description", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks, archivedEpic],
+      })
+    );
+
+    const searchInput = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Search epics"]'
+    );
+    expect(searchInput).not.toBeNull();
+
+    await act(async () => {
+      if (searchInput) {
+        setInputValue(searchInput, "enough context");
+      }
+    });
+
+    expect(container.querySelectorAll("article")).toHaveLength(1);
+    expect(container.textContent).toContain(epicWithDenseLinkedTasks.name);
+
+    await act(async () => {
+      if (searchInput) {
+        setInputValue(searchInput, "no such epic exists");
+      }
+    });
+
+    expect(container.querySelectorAll("article")).toHaveLength(0);
+    expect(container.textContent).toContain("No matching epics.");
+
+    const clearButton = container.querySelector(
+      'button[aria-label="Clear epic search"]'
+    );
+
+    await act(async () => {
+      clearButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.querySelectorAll("article")).toHaveLength(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("dismisses an in-progress edit when the list view changes", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    await act(async () => {
+      container
+        .querySelector(
+          `button[aria-label="Edit epic ${epicWithDenseLinkedTasks.name}"]`
+        )
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(
+      container.querySelector(`#edit-epic-name-${epicWithDenseLinkedTasks.id}`)
+    ).not.toBeNull();
+
+    await act(async () => {
+      findButton(container, "Archived (0)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    expect(container.textContent).toContain("No archived epics.");
+
+    await act(async () => {
+      findButton(container, "Active (1)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
+    expect(
+      container.querySelector(`#edit-epic-name-${epicWithDenseLinkedTasks.id}`)
+    ).toBeNull();
+    expect(
+      container.querySelector(
+        `button[aria-label="Edit epic ${epicWithDenseLinkedTasks.name}"]`
+      )
+    ).not.toBeNull();
 
     await act(async () => {
       root.unmount();
@@ -420,8 +521,8 @@ describe("project-epic-panel archive controls", () => {
       message: "Epic archived.",
     });
     expect(routerRefreshMock).toHaveBeenCalled();
-    expect(container.textContent).toContain("No active epics.");
-    expect(findButton(container, "Show archived (1)")).not.toBeUndefined();
+    expect(container.textContent).toContain("No active epics yet.");
+    expect(findButton(container, "Archived (1)")).not.toBeUndefined();
 
     await act(async () => {
       root.unmount();
@@ -451,7 +552,7 @@ describe("project-epic-panel archive controls", () => {
     );
 
     await act(async () => {
-      findButton(container, "Show archived")?.dispatchEvent(
+      findButton(container, "Archived (1)")?.dispatchEvent(
         new MouseEvent("click", { bubbles: true })
       );
     });
@@ -472,7 +573,15 @@ describe("project-epic-panel archive controls", () => {
       variant: "success",
       message: "Epic restored.",
     });
-    expect(findButton(container, "Show archived")).toBeUndefined();
+    expect(findButton(container, "Archived (0)")).not.toBeUndefined();
+    expect(container.textContent).toContain("No archived epics.");
+
+    await act(async () => {
+      findButton(container, "Active (1)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+
     expect(
       container.querySelector(`button[aria-label="Archive epic ${archivedEpic.name}"]`)
     ).not.toBeNull();
@@ -495,7 +604,7 @@ describe("project-epic-panel archive controls", () => {
     );
 
     await act(async () => {
-      findButton(container, "Show archived")?.dispatchEvent(
+      findButton(container, "Archived (1)")?.dispatchEvent(
         new MouseEvent("click", { bubbles: true })
       );
     });

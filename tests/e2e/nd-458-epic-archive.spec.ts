@@ -92,20 +92,23 @@ test("auto-archives completed epics and supports manual archive and restore", as
   });
 
   // The completed epic passed the grace period, so the dashboard request
-  // archives it and it stays hidden until the archived list is revealed.
+  // archives it and it stays hidden until the archived list view is opened.
   await expect(activeEpic).toBeVisible();
   await expect(completedEpic).toHaveCount(0);
 
-  const showArchived = page.getByRole("button", { name: "Show archived (1)" });
-  await expect(showArchived).toBeVisible();
-  await showArchived.click();
+  const epicListView = page.getByLabel("Epic list view");
+  const archivedView = epicListView.getByRole("button", {
+    name: "Archived (1)",
+  });
+  await expect(archivedView).toBeVisible();
+  await archivedView.click();
 
   await expect(completedEpic).toBeVisible();
   await expect(
     completedEpic.getByText("Archived", { exact: true }).first()
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Hide archived" }).click();
+  await epicListView.getByRole("button", { name: "Active (1)" }).click();
   await expect(completedEpic).toHaveCount(0);
 
   // Manual archive of the still-active epic hides it from the default list.
@@ -121,17 +124,24 @@ test("auto-archives completed epics and supports manual archive and restore", as
   await archiveResponse;
 
   await expect(activeEpic).toHaveCount(0);
-  await expect(page.getByText("No active epics.")).toBeVisible();
+  await expect(page.getByText("No active epics yet.")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Show archived (2)" })
+    epicListView.getByRole("button", { name: "Archived (2)" })
   ).toBeVisible();
 
   // Restore brings the epic back to the active list.
-  await page.getByRole("button", { name: "Show archived (2)" }).click();
+  await epicListView.getByRole("button", { name: "Archived (2)" }).click();
   await expect(activeEpic).toBeVisible();
   await expect(
     activeEpic.getByText("Archived", { exact: true }).first()
   ).toBeVisible();
+
+  // The search bar narrows the visible list view to matching epics.
+  await page.getByLabel("Search epics").fill(fixture.completedEpicName);
+  await expect(activeEpic).toHaveCount(0);
+  await expect(completedEpic).toBeVisible();
+  await page.getByRole("button", { name: "Clear epic search" }).click();
+  await expect(activeEpic).toBeVisible();
 
   const restoreResponse = page.waitForResponse(
     (response) =>
@@ -144,6 +154,8 @@ test("auto-archives completed epics and supports manual archive and restore", as
     .click();
   await restoreResponse;
 
+  // The restored epic moved back into the active list.
+  await epicListView.getByRole("button", { name: "Active (1)" }).click();
   await expect(activeEpic).toBeVisible();
   await expect(
     activeEpic.getByText("Archived", { exact: true })
@@ -168,7 +180,7 @@ test("auto-archives completed epics and supports manual archive and restore", as
   await expect(activeEpic).toBeVisible();
   await expect(completedEpic).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Show archived (1)" }).click();
+  await epicListView.getByRole("button", { name: "Archived (1)" }).click();
 
   await expect(completedEpic).toBeVisible();
   await expect(
@@ -207,9 +219,12 @@ test("keeps a manually restored epic active until it completes again", async ({
   await page.goto(`/projects/${fixture.projectId}#epics`);
 
   // The stale completion is auto-archived on the first dashboard load.
-  const showArchived = page.getByRole("button", { name: "Show archived (1)" });
-  await expect(showArchived).toBeVisible();
-  await showArchived.click();
+  const epicListView = page.getByLabel("Epic list view");
+  const archivedView = epicListView.getByRole("button", {
+    name: "Archived (1)",
+  });
+  await expect(archivedView).toBeVisible();
+  await archivedView.click();
 
   const restoreResponse = page.waitForResponse(
     (response) =>
@@ -222,6 +237,8 @@ test("keeps a manually restored epic active until it completes again", async ({
     .click();
   await restoreResponse;
 
+  // The restored epic left the archived view and is back in the active list.
+  await epicListView.getByRole("button", { name: "Active (2)" }).click();
   await expect(
     page.getByRole("button", {
       name: `Archive epic ${fixture.completedEpicName}`,
@@ -241,8 +258,8 @@ test("keeps a manually restored epic active until it completes again", async ({
     page.getByRole("article", { name: fixture.completedEpicName })
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Show archived \(\d+\)/ })
-  ).toHaveCount(0);
+    epicListView.getByRole("button", { name: "Archived (0)" })
+  ).toBeVisible();
 
   const storedEpic = await prisma.epic.findUnique({
     where: { id: fixture.completedEpicId },
