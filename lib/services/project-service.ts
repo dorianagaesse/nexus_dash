@@ -1,5 +1,6 @@
 import { Prisma, ProjectMembershipRole } from "@prisma/client";
 
+import { ARCHIVE_AFTER_MS } from "@/lib/archive-policy";
 import { prisma } from "@/lib/prisma";
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 import {
@@ -14,9 +15,6 @@ import {
   mapTaskPersonSummary,
   type TaskPersonSummary,
 } from "@/lib/task-person";
-
-const ARCHIVE_AFTER_DAYS = 7;
-const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000;
 
 export const projectKanbanTaskInclude = {
   _count: {
