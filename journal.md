@@ -11,8 +11,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `ProjectContextPanel` passes the project id into the create/edit modals
   (`RichTextEditor` autocomplete; agent rows keep the disabled treatment)
   and the server collaborator list into the card grid and preview dialog
-  (`RichTextContent` mention chips + avatar hover cards); the section feeds
-  `listProjectCollaborators` alongside `listProjectContextResources`.
+  (`RichTextContent` mention chips + avatar hover cards); the dashboard page
+  passes its already-loaded `listProjectCollaborators` result into the
+  section (same pattern as the Kanban section), so no extra collaborator
+  query is added per render.
 - Legacy plain-text descriptions stay readable and upgrade to HTML only on
   re-save; stored `@username#discriminator` tokens round-trip unchanged.
 - Investigation note: the apparent e2e "mention option" flake was
@@ -28,6 +30,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   20/20 (2 tests × 10 repeats on a verified-free port), full Playwright suite
   64 passed / 1 skipped, `release:check` (0.68.0 over 0.67.0),
   `git diff --check` clean.
+- Copilot review: one finding (redundant collaborator query added by the
+  context section) — fixed by threading the page-level list into
+  `ProjectContextPanelSection`; the meeting-notes section's own
+  pre-existing query is untouched. Re-validated after the fix.
 
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 
