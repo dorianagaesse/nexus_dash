@@ -8,6 +8,27 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.71.0 - 2026-09-13
+
+- Published the agent attention API in the versioned OpenAPI document
+  (ND-386): both attention routes now document their scopes, filters,
+  cursor/order rules, item and envelope schemas, error responses, and
+  schema-validated synthetic examples covering a comment mention, a task
+  assignment, and a meeting to-do assignment.
+- The hosted agent guide gains an "Attention discovery" section explaining
+  how to poll incrementally (since + ascending order + cursor with matching
+  order), deduplicate by stable item id, follow each item's source
+  reference, re-check current state before acting, and recover from
+  revocation (retry the token exchange once; stop and ask the owner when the
+  exchange fails).
+- Credential setup gains an "Attention read only" preset that grants exactly
+  the `attention:read` scope, so poll-only agents no longer need any board
+  read or write access.
+- Contract tests validate real route responses (through the production
+  response mappers) and every published example against the OpenAPI schemas,
+  and assert the examples stay free of real credentials, secrets, and tenant
+  data.
+
 ## v0.70.0 - 2026-09-13
 
 - Added a read-only agent attention API (ND-385): an authenticated agent
