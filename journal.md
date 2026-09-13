@@ -69,6 +69,32 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Opened PR <https://github.com/dorianagaesse/nexus_dash/pull/516>
   (commits 8e9d5a4 contract, fc55ad1 guide + preset, 239b05c release,
   a6dd74c journal); card stays In Progress for the reviewer.
+- Review round (Codex findings + merge-forward): GitHub reported the PR
+  CONFLICTING/DIRTY after main advanced to v0.72.1 (ND-398 #514, ND-156
+  #515). The merge forward (17ac3c9) conflicted only in the CHANGELOG,
+  journal, and both package files; the OpenAPI implementation and tests
+  auto-merged. The release entry was re-sectioned to `## v0.73.0 -
+  2026-09-13` above v0.72.1 and both package files bumped to 0.73.0;
+  `release:check` passes (0.73.0 over 0.72.1).
+- Addressed the Codex finding that the attention docs advertised source
+  lookups (task, task comments, meeting notes) that an `attention:read`-only
+  credential cannot perform — all three source routes require `task:read`,
+  so the advertised preset workflow answered 403 (c6d8bfa). The example
+  step 5, the guide's Attention discovery item 3, and both attention
+  endpoint note lists now state the `task:read` requirement explicitly
+  (work from the item summary when the credential is attention-only); the
+  "Attention read only" preset deliberately stays `attention:read`-only.
+  Focused tests extend the example and guide assertions to the new copy and
+  assert both attention endpoint notes carry the scope requirement.
+- Review-round validation on the merged tree: `git diff --check` clean,
+  lint, `rls:check`, Vitest 207 files / 1656 tests passed (2 skipped),
+  coverage unchanged (93.77 / 84.71 / 95.39 / 94.07), production build
+  (BUILD_ID written, Prisma client regenerated for the merged schema), and
+  the full Playwright suite — 74 passed, 1 skipped
+  (preview-auth-isolation skips locally) — against an owned verified server
+  (port 3471, listener PID checked against this worktree, RLS-context and
+  outbound-email flags set); the merged-in nd-156/nd-398/nd-458 specs all
+  pass.
 
 # 2026-09-13 - ND-398: Rich-text authoring and rendering in task comments
 
