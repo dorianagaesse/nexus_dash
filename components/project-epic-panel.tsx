@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronDown,
@@ -32,6 +32,8 @@ import {
 } from "@/lib/epic";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
+  discardLatestProjectEpicSnapshot,
+  getLatestProjectEpicSnapshot,
   PROJECT_EPICS_RECONCILED_EVENT,
   type ProjectEpicsReconciledDetail,
 } from "@/lib/project-epic-client";
@@ -128,7 +130,10 @@ export function ProjectEpicPanel({
     defaultExpanded: true,
     logLabel: "ProjectEpicPanel",
   });
-  const [localEpics, setLocalEpics] = useState<ProjectEpicPanelEpic[]>(epics);
+  const initialEpicsRef = useRef(epics);
+  const [localEpics, setLocalEpics] = useState<ProjectEpicPanelEpic[]>(
+    () => getLatestProjectEpicSnapshot(projectId) ?? epics
+  );
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createDescription, setCreateDescription] = useState("");
@@ -148,8 +153,14 @@ export function ProjectEpicPanel({
   );
 
   useEffect(() => {
+    if (epics === initialEpicsRef.current) {
+      return;
+    }
+
+    initialEpicsRef.current = epics;
+    discardLatestProjectEpicSnapshot(projectId);
     setLocalEpics(epics);
-  }, [epics]);
+  }, [epics, projectId]);
 
   useEffect(() => {
     function handleProjectEpicsReconciled(event: Event) {

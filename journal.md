@@ -6577,3 +6577,8 @@ Low-value entries to avoid going forward:
   ND-156 browser flow passed. The full 64-case browser suite had 62 pass, 1
   environment-gated skip, and one unrelated meeting-note geometry timing miss
   that passed immediately when rerun in isolation.
+- Copilot review follow-up fixed all three findings: drag snapshots now use the
+  mapped destination task and normalized source/destination positions, the
+  latest Epic snapshot is replayed when the panel mounts after Kanban, and a
+  superseded request must still own the project slot before it can publish.
+  Focused coverage (24 tests), lint, and the ND-156 Playwright flow pass.

@@ -173,14 +173,15 @@ export function applyFilteredTaskDrop<T extends { id: string }>({
     }
   }
 
+  const nextMovedTask = mapMovedTask(movedTask, destination.status);
   nextColumns[destination.status].splice(
     fullDestinationIndex,
     0,
-    mapMovedTask(movedTask, destination.status)
+    nextMovedTask
   );
 
   return {
     columns: nextColumns,
-    movedTask,
+    movedTask: nextMovedTask,
   };
 }

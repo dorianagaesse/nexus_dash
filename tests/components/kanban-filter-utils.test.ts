@@ -249,6 +249,7 @@ describe("applyFilteredTaskDrop", () => {
     ]);
     expect(result?.columns.Backlog).toEqual([]);
     expect(result?.columns["In Progress"][3]?.status).toBe("In Progress");
+    expect(result?.movedTask.status).toBe("In Progress");
   });
 
   test("inserts after the last visible task but before hidden trailing tasks", () => {

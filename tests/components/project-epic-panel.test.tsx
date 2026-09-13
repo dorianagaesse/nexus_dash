@@ -272,6 +272,7 @@ describe("project-epic-panel", () => {
 
   test("reconciles server-derived task counts and progress after a local task mutation", async () => {
     projectSectionExpandedMock.isExpanded = true;
+    const projectId = "project-reconcile-event";
     const { container, root } = createTestRenderer();
     const emptyEpic = {
       ...epicWithDenseLinkedTasks,
@@ -313,7 +314,7 @@ describe("project-epic-panel", () => {
     await renderWithRoot(
       root,
       React.createElement(ProjectEpicPanel, {
-        projectId: "project-1",
+        projectId,
         canEdit: true,
         epics: [emptyEpic],
       })
@@ -327,16 +328,19 @@ describe("project-epic-panel", () => {
 
     await act(async () => {
       await reconcileProjectEpicsAfterTaskMutation(
-        "project-1",
+        projectId,
         null,
         completedTask
       );
     });
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/projects/project-1/epics", {
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/projects/project-reconcile-event/epics",
+      {
       cache: "no-store",
       signal: expect.any(AbortSignal),
-    });
+      }
+    );
     expect(
       container.querySelector('[role="progressbar"]')?.getAttribute(
         "aria-valuenow"
@@ -397,6 +401,77 @@ describe("project-epic-panel", () => {
     await act(async () => {
       root.unmount();
     });
+  });
+
+  test("replays a reconciled snapshot when the panel mounts after the event", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const projectId = "project-late-epic-panel";
+    const emptyEpic = {
+      ...epicWithDenseLinkedTasks,
+      progressPercent: 0,
+      taskCount: 0,
+      completedTaskCount: 0,
+      linkedTasks: [],
+    };
+    const completedTask = {
+      id: "task-before-panel",
+      title: "Complete before Epic panel resolves",
+      status: "Done",
+      position: 0,
+      archivedAt: null,
+      epic: { id: emptyEpic.id, name: emptyEpic.name },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          epics: [
+            {
+              ...emptyEpic,
+              status: "Completed",
+              progressPercent: 100,
+              taskCount: 1,
+              completedTaskCount: 1,
+              linkedTasks: [
+                {
+                  id: completedTask.id,
+                  title: completedTask.title,
+                  status: completedTask.status,
+                  archivedAt: null,
+                },
+              ],
+            },
+          ],
+        }),
+      })
+    );
+
+    await act(async () => {
+      await reconcileProjectEpicsAfterTaskMutation(
+        projectId,
+        null,
+        completedTask
+      );
+    });
+
+    const { container, root } = createTestRenderer();
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId,
+        canEdit: true,
+        epics: [emptyEpic],
+      })
+    );
+
+    expect(
+      container.querySelector('[role="progressbar"]')?.getAttribute(
+        "aria-valuetext"
+      )
+    ).toBe("1 of 1 tasks completed");
+
+    await act(async () => root.unmount());
   });
 });
 

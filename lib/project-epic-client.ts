@@ -20,6 +20,17 @@ interface EpicVisibleTaskState {
 }
 
 const activeRequests = new Map<string, AbortController>();
+const latestSnapshots = new Map<string, ProjectEpicSnapshot[]>();
+
+export function getLatestProjectEpicSnapshot(
+  projectId: string
+): ProjectEpicSnapshot[] | null {
+  return latestSnapshots.get(projectId) ?? null;
+}
+
+export function discardLatestProjectEpicSnapshot(projectId: string): void {
+  latestSnapshots.delete(projectId);
+}
 
 export function doesTaskMutationAffectProjectEpics(
   previousTask: EpicVisibleTaskState | null,
@@ -81,6 +92,12 @@ export async function reconcileProjectEpicsAfterTaskMutation(
     if (!Array.isArray(payload.epics)) {
       throw new Error("Epic reconciliation returned an invalid payload");
     }
+
+    if (activeRequests.get(projectId) !== controller) {
+      return false;
+    }
+
+    latestSnapshots.set(projectId, payload.epics);
 
     window.dispatchEvent(
       new CustomEvent<ProjectEpicsReconciledDetail>(

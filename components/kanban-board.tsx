@@ -1074,6 +1074,19 @@ export function KanbanBoard({
       }
 
       const { columns: nextColumns, movedTask } = appliedDrop;
+      const previousTaskIndex = previousColumns[sourceStatus].findIndex(
+        (task) => task.id === movedTask.id
+      );
+      const nextTaskIndex = nextColumns[destinationStatus].findIndex(
+        (task) => task.id === movedTask.id
+      );
+      const previousTask = previousColumns[sourceStatus][previousTaskIndex];
+      const nextTask = nextColumns[destinationStatus][nextTaskIndex];
+
+      if (!previousTask || !nextTask) {
+        setPersistError("Could not map task movement. Please retry.");
+        return;
+      }
 
       setColumns(nextColumns);
       syncRelatedTaskSummary(movedTask.id, {
@@ -1086,10 +1099,15 @@ export function KanbanBoard({
       startTransition(() => {
         void persistColumns(nextColumns, previousColumns, {
           previousTask: {
-            ...movedTask,
+            ...previousTask,
             status: sourceStatus,
+            position: previousTaskIndex,
           },
-          nextTask: movedTask,
+          nextTask: {
+            ...nextTask,
+            status: destinationStatus,
+            position: nextTaskIndex,
+          },
         });
       });
     },
