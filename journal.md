@@ -3,6 +3,45 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-13 - ND-459: Epic linked tasks show ND- references and open the task on click
+
+- Implemented in the dedicated `../nexus_dash_task459` worktree on
+  `feature/nd-459-epic-linked-task-refs` from `origin/main` at 9b42fde
+  (v0.67.0), merged forward to a2e5e6c (dependabot #481 radix-dialog and
+  #482 prisma-adapter bumps) before handoff; release target v0.68.0.
+- Epic linked-task chips now render the shared `formatTaskReference` ND- ID
+  beside the title and status, and each chip is a `next/link` to the canonical
+  task deep link (`/projects/{projectId}/tasks/{taskId}`), which the project
+  route redirects into `?taskId=` so the board opens the task detail exactly
+  like its own deep links — archived tasks included via the board's
+  fetch-by-id fallback. Chips stay keyboard reachable with the shared
+  focus-ring treatment and keep the two-line clamp / compact mobile layout.
+- The epic linked-task projection (`epicTaskSelect`, `mapEpicTaskSummary`,
+  `EpicTaskSummary`) now carries `referenceNumber`, and the agent API contract
+  gained an `EpicLinkedTaskSummary` schema for `ProjectEpicRecord.linkedTasks`
+  with the new `referenceNumber` field (raw number; render as `ND-<n>`).
+- Validation (post-merge): `git diff --check` clean; `npm run lint`;
+  `npm run rls:check`; `npm run release:check` (0.67.0 -> 0.68.0);
+  Vitest 196 files passed / 2 skipped, 1,481 tests passed / 2 skipped;
+  coverage 93.47 / 84.36 / 95.3 / 93.77; production build; and the full
+  Playwright suite against the production build on a verified
+  task459-owned server (`PLAYWRIGHT_BASE_URL`, port 3214): 66 passed,
+  1 skipped, 0 failed — including the four new
+  `nd-459-epic-linked-task-deep-link.spec.ts` journeys (reference + click
+  deep link, archived task, keyboard Enter, 375px mobile) plus the
+  meeting-notes and roadmap smoke flows.
+- Environment note: concurrent agent sessions on this machine share the
+  local database and cluster on the same 32xx ports. Playwright's
+  `reuseExistingServer` silently latched onto a sibling worktree's
+  `next start` (a task398 ND-398 rich-text build listening on 3210 from
+  02:48), so this task's post-merge Playwright runs "failed" against the
+  wrong app — epic chips rendered from the sibling's stale markup and the
+  comment box was ND-398's rich-text editor. Re-running against a locally
+  verified server via `PLAYWRIGHT_BASE_URL` was fully green. Earlier intermittent
+  single-test failures today (meeting-notes zoom geometry,
+  accessible-overlays focus) are consistent with the same shared-port
+  server reuse and did not reproduce under the verified run.
+
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 
 - User-directed workflow change, documented in `agent.md` (full rules) and `CLAUDE.md` (summary): agents move a card to In Progress when they start its task and never move cards to Done — Done is set by the reviewer/PR merger. Completion comments are optional and only for relevant handoff information (decisions, validation evidence, blockers): plain English, short, one topic. Task descriptions must stay concise — plain English covering the intent plus testable acceptance criteria, with no restated context, exhaustive scope inventories, or file-by-file walkthroughs.
