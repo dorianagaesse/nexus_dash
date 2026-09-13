@@ -9,6 +9,7 @@ export const AGENT_SCOPE_VALUES = [
   "roadmap:read",
   "roadmap:write",
   "roadmap:delete",
+  "attention:read",
 ] as const;
 
 export type AgentScope = (typeof AGENT_SCOPE_VALUES)[number];
@@ -81,6 +82,11 @@ export const AGENT_SCOPE_DEFINITIONS: ReadonlyArray<AgentScopeDefinition> = [
     scope: "roadmap:delete",
     label: "Roadmap Delete",
     description: "Delete roadmap phases and events.",
+  },
+  {
+    scope: "attention:read",
+    label: "Attention Read",
+    description: "Read your own agent mention events and current assignments.",
   },
 ];
 

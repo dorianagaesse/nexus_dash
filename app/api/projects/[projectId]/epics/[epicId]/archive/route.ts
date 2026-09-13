@@ -4,19 +4,14 @@ import {
   getAgentProjectAccessContext,
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
-import { logServerWarning } from "@/lib/observability/logger";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
-  deleteProjectEpic,
-  updateProjectEpic,
+  archiveProjectEpic,
+  unarchiveProjectEpic,
 } from "@/lib/services/project-epic-service";
 import { serializeProjectEpicResponse } from "@/lib/services/project-epic-response";
 
-interface ProjectEpicRequestBody {
-  name?: unknown;
-  description?: unknown;
-}
-
-export async function PATCH(
+export async function POST(
   request: NextRequest,
   props: { params: Promise<{ projectId: string; epicId: string }> }
 ) {
@@ -26,34 +21,29 @@ export async function PATCH(
     return principalResult.response;
   }
 
-  let payload: ProjectEpicRequestBody;
-  try {
-    payload = (await request.json()) as ProjectEpicRequestBody;
-  } catch (error) {
-    logServerWarning(
-      "PATCH /api/projects/:projectId/epics/:epicId.invalidJson",
-      "Invalid JSON payload",
-      { error }
-    );
-    return NextResponse.json({ error: "invalid-json" }, { status: 400 });
+  const { projectId, epicId } = params;
+  if (!projectId || !epicId) {
+    return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
   }
 
-  const result = await updateProjectEpic({
+  const result = await archiveProjectEpic({
     actorUserId: principalResult.principal.actorUserId,
-    projectId: params.projectId,
-    epicId: params.epicId,
-    name: typeof payload.name === "string" ? payload.name : "",
-    description: typeof payload.description === "string" ? payload.description : "",
+    projectId,
+    epicId,
     agentAccess: getAgentProjectAccessContext(principalResult.principal),
   });
-
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({
-    epic: serializeProjectEpicResponse(result.data.epic),
-  });
+  return NextResponse.json(
+    {
+      epic: serializeProjectEpicResponse(result.data.epic),
+    },
+    {
+      headers: withProjectActivityVersionHeader(),
+    }
+  );
 }
 
 export async function DELETE(
@@ -66,16 +56,27 @@ export async function DELETE(
     return principalResult.response;
   }
 
-  const result = await deleteProjectEpic({
+  const { projectId, epicId } = params;
+  if (!projectId || !epicId) {
+    return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
+  }
+
+  const result = await unarchiveProjectEpic({
     actorUserId: principalResult.principal.actorUserId,
-    projectId: params.projectId,
-    epicId: params.epicId,
+    projectId,
+    epicId,
     agentAccess: getAgentProjectAccessContext(principalResult.principal),
   });
-
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(
+    {
+      epic: serializeProjectEpicResponse(result.data.epic),
+    },
+    {
+      headers: withProjectActivityVersionHeader(),
+    }
+  );
 }

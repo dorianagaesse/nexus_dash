@@ -18,7 +18,6 @@ import {
   ListTodo,
   Pencil,
   PlusSquare,
-  Search,
   Tag,
   Trash2,
   Users,
@@ -66,6 +65,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmojiInputField } from "@/components/ui/emoji-field";
+import { ListSearchInput } from "@/components/ui/list-search-input";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { TokenInput } from "@/components/ui/token-input";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
@@ -1669,65 +1670,34 @@ export function ProjectMeetingNotesPanel({
       {isExpanded ? (
         <CardContent className={cn("space-y-4", PROJECT_SECTION_CONTENT_CLASS)}>
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-            <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={query}
-                onChange={(event) => {
-                  const nextQuery = event.target.value;
-                  if (nextQuery.length === 0) {
-                    clearMeetingNotesQuery();
-                    return;
-                  }
-                  setQuery(nextQuery);
-                }}
-                className="h-11 w-full rounded-md border border-input bg-background pl-9 pr-10 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
-                placeholder="Search titles, participants, labels, inputs, outputs, actions"
-                aria-label="Search meeting notes"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  onClick={clearMeetingNotesQuery}
-                  className="absolute right-2 top-1/2 rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                  aria-label="Clear meeting notes search"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              ) : null}
-            </div>
-            <div className="grid grid-cols-2 rounded-md border border-border/70 bg-muted/20 p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setListView("active");
-                  setSelectedNoteId(null);
-                }}
-                className={cn(
-                  "rounded px-3 py-2 text-sm font-medium transition",
-                  listView === "active"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Active ({activeNotes.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setListView("archived");
-                  setSelectedNoteId(null);
-                }}
-                className={cn(
-                  "rounded px-3 py-2 text-sm font-medium transition",
-                  listView === "archived"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Archived ({archivedNotes.length})
-              </button>
-            </div>
+            <ListSearchInput
+              value={query}
+              onValueChange={(nextQuery) => {
+                if (nextQuery.length === 0) {
+                  clearMeetingNotesQuery();
+                  return;
+                }
+                setQuery(nextQuery);
+              }}
+              placeholder="Search titles, participants, labels, inputs, outputs, actions"
+              ariaLabel="Search meeting notes"
+              clearAriaLabel="Clear meeting notes search"
+            />
+            <SegmentedControl<MeetingListView>
+              value={listView}
+              onValueChange={(nextView) => {
+                setListView(nextView);
+                setSelectedNoteId(null);
+              }}
+              ariaLabel="Meeting note list view"
+              options={[
+                { value: "active", label: `Active (${activeNotes.length})` },
+                {
+                  value: "archived",
+                  label: `Archived (${archivedNotes.length})`,
+                },
+              ]}
+            />
           </div>
 
           <div className="rounded-2xl border border-border/60 bg-muted/15 p-3">

@@ -97,6 +97,7 @@ interface KanbanBoardProps {
   initialTasks: KanbanTask[];
   archivedDoneTasks?: KanbanTask[];
   epics: ProjectEpicOption[];
+  archivedEpics?: ProjectEpicOption[];
   collaborators: ProjectTaskCollaborator[];
   projectActors?: ProjectActorSummary[];
   initialTaskId?: string | null;
@@ -311,6 +312,7 @@ export function KanbanBoard({
   initialTasks,
   archivedDoneTasks: initialArchivedDoneTasks = [],
   epics,
+  archivedEpics = [],
   collaborators,
   projectActors = [],
   initialTaskId,
@@ -733,6 +735,30 @@ export function KanbanBoard({
     () => [...epics].sort((left, right) => left.name.localeCompare(right.name)),
     [epics]
   );
+
+  // Pickers and filters stay active-only; the task modal additionally shows the
+  // selected task's linked epic even after it was archived to avoid a false
+  // "No epic" while the link is still in place.
+  const selectedTaskEpicOptions = useMemo<ProjectEpicOption[]>(() => {
+    const linkedEpicId = selectedTask?.epic?.id ?? null;
+    if (
+      !linkedEpicId ||
+      availableEpicOptions.some((epic) => epic.id === linkedEpicId)
+    ) {
+      return availableEpicOptions;
+    }
+
+    const linkedArchivedEpic = archivedEpics.find(
+      (epic) => epic.id === linkedEpicId
+    );
+    if (!linkedArchivedEpic) {
+      return availableEpicOptions;
+    }
+
+    return [...availableEpicOptions, linkedArchivedEpic].sort((left, right) =>
+      left.name.localeCompare(right.name)
+    );
+  }, [archivedEpics, availableEpicOptions, selectedTask]);
 
   useEffect(() => {
     const availableEpicIds = new Set(epics.map((epic) => epic.id));
@@ -1766,7 +1792,8 @@ export function KanbanBoard({
   const handleQuickEpicUpdate = useCallback(
     async (nextEpicId: string) => {
       const nextEpicLabel =
-        availableEpicOptions.find((epic) => epic.id === nextEpicId)?.name ?? null;
+        selectedTaskEpicOptions.find((epic) => epic.id === nextEpicId)?.name ??
+        null;
 
       await patchSelectedTask({
         payload: {
@@ -1778,7 +1805,7 @@ export function KanbanBoard({
         fallbackErrorMessage: "Could not update epic.",
       });
     },
-    [availableEpicOptions, patchSelectedTask]
+    [patchSelectedTask, selectedTaskEpicOptions]
   );
 
   const handleQuickAssigneeUpdate = useCallback(
@@ -2808,7 +2835,7 @@ export function KanbanBoard({
         onRelatedTaskSearchChange={setRelatedTaskSearch}
         onAddRelatedTask={addRelatedTask}
         onRemoveRelatedTask={removeRelatedTask}
-        availableEpicOptions={availableEpicOptions}
+        availableEpicOptions={selectedTaskEpicOptions}
         availableAssignees={availableAssignees}
         availableAgentOptions={availableAgentOptions}
         mentionUsers={availableAssignees}

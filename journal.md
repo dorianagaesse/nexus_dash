@@ -124,6 +124,300 @@ Use it for important implementation milestones, blockers, validation runs, and r
   verified local server; CI run 34753580248 on 9f7fe85 green across all
   gates (Quality Core, Tenant Isolation, E2E Smoke, Container Image) and
   PR #514 is CLEAN.
+- Third merge-forward (ND-385 #510, ND-458 #511): main shipped ND-385's
+  v0.70.0 (claimed concurrently with this branch's v0.70.0) and ND-458's
+  v0.71.0 on top, so this branch re-bumped again to v0.72.0, re-sectioning
+  its CHANGELOG entry above v0.71.0; `release:check` passes (0.72.0 over
+  0.71.0). Merge-round validation: regenerated the Prisma client for main's
+  schema changes (ND-458 `archivedAt`, ND-385 attention scope) and confirmed
+  `migrate status` reports the shared DB already current; lint, `rls:check`,
+  Vitest 205 files / 1641 tests passed (2 skipped; coverage unchanged
+  93.76 / 84.71 / 95.39 / 94.06), `NODE_ENV=test` build, and
+  nd-398/nd-383/nd-459/nd-458 e2e 10/10 on a verified local server.
+
+# 2026-09-13 - ND-458: Auto-archive completed epics with manual archive/restore
+
+- Implemented in the dedicated `../nexus_dash_task458` worktree on
+  `feature/nd-458-auto-archive-epics`, created from `origin/main` at 9b42fde
+  (v0.67.0, ND-383 #504); release target v0.71.0 (see the release
+  reconciliation notes below). `origin/main` gained two
+  orthogonal dependabot bumps (adapter-pg 7.10.0, radix dialog 1.1.23) during
+  the work; neither touches ND-458 lines, so no merge-forward was needed.
+- `Epic.archivedAt` (nullable timestamp) with migration
+  `20260913120000_nd458_epic_archive`. The task-side grace constants moved to
+  `lib/archive-policy.ts` (`ARCHIVE_AFTER_DAYS = 7`) so tasks and epics share
+  one policy; `lib/services/project-service.ts` now imports them.
+- Completed epics auto-archive after the same 7-day grace, via the same
+  request-time sweep pattern as stale Done tasks: `listProjectEpics` runs
+  `archiveStaleCompletedEpics` first and hides archived epics unless
+  `includeArchived` is requested. Completion mirrors `deriveEpicStatus`
+  (an empty epic is never completed): a task counts as completed when Done or
+  archived, and the epic's completion moment is the latest linked-task
+  `completedAt ?? archivedAt ?? updatedAt`. The sweep is idempotent
+  (`archivedAt IS NULL` guard) and scoped through the actor principal where
+  clause; an epic that regained an open task reverts to Ready/In progress and
+  is not swept.
+- Manual archive/restore: `archiveProjectEpic` / `unarchiveProjectEpic`
+  services (editor+ requirement, project activity events, 404 on cross-tenant)
+  behind thin `POST` / `DELETE /api/projects/{projectId}/epics/{epicId}/archive`
+  routes. A shared `serializeProjectEpicResponse` helper now feeds every epic
+  transport payload (routes + server section), adding `archivedAt` to the
+  contract.
+- Epic panel: active vs archived split with a "Show archived (N)" / "Hide
+  archived" toggle, an "Archived" badge, Archive/Restore icon buttons gated to
+  editors, and a "No active epics." empty state; archived epics keep their
+  details/edit/delete affordances. Linking a new open task to an archived epic
+  (or reopening a linked task) does not silently unarchive it — status and
+  progress stay correct because archived epics still derive from live tasks.
+- Agent OpenAPI parity: `includeArchived` query parameter on the epic list,
+  Archive/Restore endpoints documented (`task:write`), and `archivedAt` on the
+  `ProjectEpicRecord` schema via a new `ProjectEpicArchiveResponse`.
+- Tests: epic service sweep/archive/restore/role/scope cases, route transport
+  cases, panel component cases (toggle, archive, restore, viewer gating),
+  agent contract additions, and the ND-458 Playwright journey (auto-archive
+  visible-once-revealed, manual archive/restore round trip, archived epic
+  unaffected by a new open task, progress stays 2 of 3).
+- Validation: lint, `rls:check`, Vitest 196 files / 1496 tests (2 skipped),
+  coverage 93.47 / 84.36 / 95.3 / 93.77 (with `--maxWorkers=1`; the
+  `version-policy` temp-repo tests flake at the 5s default timeout under
+  parallel coverage load), real-PostgreSQL RLS matrix
+  (`test:rls:setup` + `test:rls`), production build, and the full Playwright
+  suite: 62 passed, 1 skipped, 1 failed — the failure is
+  `smoke-project-task-calendar.spec.ts` "meeting notes preparation, output,
+  and search flow", a local flake on code this branch does not touch (the
+  meeting-note/zoom-overlay files are unchanged from origin/main, the fixture
+  project has no epics, and repeated isolated runs flip between pass and fail
+  with sub-4px overshoots at different zoom-geometry assertions — measurement
+  nondeterminism, not an ND-458 regression; CI on main is green for the same
+  spec). The ND-458 journey, TASK-335 compactness, ND-408 drag, and every
+  smoke flow pass individually against the same build.
+- Follow-up fixes from the full-suite runs: the added fourth icon button
+  squeezed the epic card title to one character per line at 375px and failed
+  the TASK-335 mobile-compactness guard (collapsed card measured 474px vs the
+  360px ceiling); the card header now stacks below `sm` and the Archive toggle
+  sits after Edit so the details-Edit adjacency assertion still holds
+  (cf779bd). The archive/restore route file had been left untracked since the
+  service commit and is now committed (ccd193d).
+- Local e2e quirks: the first ND-458 spec run failed against stale code — an
+  orphan `next start` process still held port 3000 and Playwright's
+  `reuseExistingServer` reused it, serving the pre-change UI (no archive
+  controls; the epic sweep absent while the pre-existing task sweep had run);
+  check port 3000 is free before local e2e runs. A later full-suite run
+  produced five unrelated-looking failures whose root cause was the manually
+  started server missing `NEXUSDASH_TEST_RLS_CONTEXT=enabled` — every
+  project-activity write 500'd with Postgres 42501 (create epic, task reorder,
+  roadmap/meeting/context-card creates). With the flag set (or the
+  Playwright-managed server, which injects it), all specs pass.
+- Copilot review on PR #511 raised three findings in
+  `lib/services/project-epic-service.ts`, addressed in 44d48ad:
+  (1) write-time revalidation — `updateMany` cannot filter on relations
+  (Prisma rejects `tasks: { some: ... }` there), so after the
+  timestamp-guarded conditional update the sweep now re-reads the epics it
+  just archived and rolls back any whose linked tasks no longer resolve to a
+  stale completion; the extra read only runs when rows were actually
+  archived; (2) the request-time sweep is now explicitly gated on
+  `hasRequiredRole(role, "editor")` after the viewer-level list check — epic
+  RLS only lets owners/editors write, so a viewer's sweep was a silent
+  0-row no-op, and the access requirement now lives in code rather than
+  depending on policy row filtering; (3) the duplicated-read finding was
+  answered with the cost profile (minimal-column candidate read, one
+  in-memory staleness predicate shared with the rollback, extra reads only
+  on actual archive) rather than merging the sweep into the response read,
+  since merging would mean emulating the write and its rollback in the
+  response snapshot. Three new unit tests (rollback after a reopening slips
+  in, revalidation-read skipped when nothing archived, viewer skips the
+  sweep); epic service suite 14/14.
+- Review-round validation (NODE_ENV=test, CI-parity env): lint clean,
+  `rls:check`, Vitest 196 files / 1499 tests (2 skipped), coverage
+  93.47 / 84.36 / 95.3 / 93.77, production build — all green. E2E is
+  unaffected by this round (server service + unit tests only); CI re-runs
+  the full suite on the pushed commit.
+- Copilot review round 2 on 5801f2c raised one visible and two suppressed
+  findings. (1) Restoring a stale auto-archived epic was undone by the next
+  sweep — a real loop, because the restore only cleared `archivedAt` and the
+  completion moment was still older than the grace period. Fixed with a
+  durable restore exemption: new nullable `Epic.autoArchiveExemptAt` column
+  (migration `20260913140000_nd458_epic_auto_archive_exemption`); restore
+  writes `archivedAt: null, autoArchiveExemptAt: now`, and the sweep's stale
+  predicate additionally requires the completion moment to be newer than the
+  exemption (`completedAt <= autoArchiveExemptAt` is skipped). The exemption
+  expires naturally when the epic completes again (a newer completion moment),
+  survives restarts, and is honored by the round-1 rollback revalidation
+  because both paths share the predicate. (2) The task detail epic picker
+  showed "No epic" for a task linked to an archived epic (display-only — the
+  save path already preserved the link). The board section now loads epics
+  with `includeArchived` and splits them; the task modal merges the selected
+  task's linked archived epic into its picker options marked `Archived · ...`
+  (EpicSelect + quick epic submenu), while the create dialog and kanban filter
+  bar stay active-only. (3) The CHANGELOG bullet implied "Show archived"
+  reveals archived epics everywhere; reworded to scope the toggle to the epic
+  panel and note that a task's detail view keeps showing its archived link.
+- Round-2 tests: epic service suite 16/16 (two new: exempt epic skipped when
+  the completion is not newer than the exemption; restored epic swept once a
+  newer completion passes it), section component test for the active/archived
+  split, and the ND-458 e2e journey gained the archived-link assertion in the
+  quick epic picker plus a second test — restore an auto-archived epic,
+  reload, and verify it stays active with `archivedAt: null` and a set
+  exemption in the database.
+- Round-2 validation (NODE_ENV=test, CI-parity env): lint clean, `rls:check`,
+  Vitest 196 files / 1502 tests (2 skipped), coverage 93.47 / 84.36 / 95.3 /
+  93.77, production build, real-PostgreSQL RLS matrix (`test:rls:setup` +
+  `test:rls`) — all green. Full Playwright suite (port 3417, `CI=1`): 63
+  passed, 1 skipped (preview-auth-isolation, expected locally), 1 failed —
+  the known local flake in `smoke-project-task-calendar.spec.ts` "meeting
+  notes preparation, output, and search" (a -8.4px input-zoom geometry
+  overshoot at the same assertion family as round 1; passes isolated on the
+  same build). Both ND-458 journeys pass, including the new
+  restore-stays-active test.
+- Local e2e trap this round: `PORT=3210` collided with a concurrent
+  session's `next start` from the sibling `nexus_dash_task398` worktree that
+  was already listening on that port; Playwright's `reuseExistingServer`
+  silently reused it and the suite ran against the wrong build/server (7
+  passed / 57 failed), with the piped `tail` masking the real exit code.
+  Fix: verify the chosen port is free (netstat) and set `CI=1` so Playwright
+  fails rather than reusing an unknown server.
+- Round 3 (user-directed UX uniformization): the epic panel's "Show
+  archived (N)" / "Hide archived" toggle is replaced by the Meeting Notes
+  pattern — a search bar plus an `Active (N)` / `Archived (N)` view switch.
+  The epic list filters client-side over name and description, empty states
+  are per view ("No active epics yet." / "No archived epics." / "No matching
+  epics."), the header pill reads "N active", and switching views dismisses
+  an in-progress inline edit (the meeting-notes panel's analog of clearing
+  its selected note).
+- The search input and segmented control were extracted from the
+  meeting-notes panel into shared `components/ui/list-search-input.tsx`
+  (`ListSearchInput`) and `components/ui/segmented-control.tsx`
+  (`SegmentedControl<T>`: `role="group"` + `aria-pressed` toggle buttons,
+  one grid column per option), and the meeting-notes panel now consumes
+  both with equivalent DOM semantics — its existing e2e label queries
+  ("Search meeting notes", "Clear meeting notes search", tab labels) pass
+  unchanged. Six new unit tests cover the primitives (typing, clear
+  visibility, accessible names, selection state).
+- Epic-panel tests reworked to the tab flows plus new coverage: search
+  filtering (description-only match, no-match copy, clear button) and the
+  view switch cancelling an in-progress edit. The ND-458 e2e journey now
+  drives the view switch instead of the toggle, gained a search-narrowing
+  assertion, and scopes its clicks through `getByLabel("Epic list view")`
+  because the epic and meeting-note switches can render identical labels
+  (strict-mode collision found on the first run). The first full run also
+  caught one genuine spec bug: the restore test asserted the epic's Archive
+  button while still on the archived view, where a just-restored epic is no
+  longer rendered; it now switches to the active view first. Two local
+  flakes in that run (app-shell sidebar `Overview` link missing during
+  hydration; the known smoke zoom-geometry overshoot) both pass isolated on
+  the same build, and the full-suite re-run was clean.
+- Round-3 validation (port 3421, `CI=1`): lint, `rls:check`, Vitest 198
+  files / 1510 tests (2 skipped), coverage unchanged at 93.47 / 84.36 /
+  95.3 / 93.77, production build, and the full Playwright suite 64 passed /
+  1 skipped (preview-auth-isolation, expected locally). No schema change
+  this round, so the RLS matrix was not re-run (still green from round 2).
+- Release reconciliation: `origin/main` reached v0.68.0 first (ND-380, #513),
+  so the merge forward resolves the shared v0.68.0 changelog heading by
+  keeping ND-380's entry and moving ND-458 to v0.69.0 with its own section
+  (same pattern as ND-178 over ND-408's v0.54.0). Because ND-380 changed
+  shared rich-text/mention files, the full validation re-ran on the merged
+  tree (port 3423): lint, `rls:check`, Vitest 199 files / 1515 tests
+  (2 skipped), coverage unchanged at 93.47 / 84.36 / 95.3 / 93.77,
+  production build, the real-Postgres RLS matrix, and the full Playwright
+  suite 66 passed / 1 skipped on the first run — both ND-458 and both ND-380
+  journeys included.
+- Second release reconciliation: `origin/main` then shipped ND-459 (v0.69.0)
+  and ND-385 (v0.70.0) before this branch merged, so the next merge forward
+  keeps both of those changelog sections and moves ND-458 to v0.71.0 (the
+  changelog and journal merges were the only conflicts; ND-459's epic-panel
+  changes auto-merged with the archived-epic work). The merged tree re-runs
+  the full validation again because ND-459 touches the epic panel and its
+  service/serializer, which ND-458 also changed. Merged-tree validation (port
+  3423): lint, `rls:check`, Vitest 203 files / 1607 tests (2 skipped),
+  coverage unchanged at 93.47 / 84.36 / 95.3 / 93.77, production build
+  (after `prisma generate` picked up ND-385's `attention_read` enum), the
+  RLS matrix (covers ND-385's scope-grant migration), and the full Playwright
+  suite 70 passed / 1 skipped on the first run. One conflict outside the
+  usual files: the agent-onboarding OpenAPI test gained assertion blocks from
+  both sides and now keeps both.
+
+# 2026-09-13 - ND-385: Agent attention API for mentions and assignments
+
+- Implemented in the dedicated `../nexus_dash_task385` worktree on
+  `feature/nd-385-agent-attention-api` from `origin/main` at 9b42fde
+  (v0.67.0). Adds `GET /api/projects/{projectId}/agent-attention/mentions`
+  and `.../assignments` so an authenticated credential can read its own
+  mention events (ND-383 rows) and current assignments (ND-384 columns)
+  across tasks and meeting todos.
+- New least-privilege scope `attention:read` (DB enum value
+  `attention_read`; migration 20260913120000 adds the enum value only — no
+  new tables or RLS surface). The credential identity comes from the bearer
+  token alone: the endpoints accept no credential parameter and always filter
+  by the authenticated credential, and per-request credential re-validation
+  keeps revoked/expired credentials at 401.
+- Contract: items carry event type, project, artifact, summary, actor,
+  occurrence time, current state, and stable dedup keys (`mention:<id>` /
+  `assignment:task:<id>` / `assignment:meeting_todo:<id>`). Filters:
+  eventType, artifactType, state, since/until; deterministic newest-first
+  ordering with opaque base64url cursors embedding the sort direction.
+  Mentions page in SQL; assignments apply per-source keyset predicates with
+  an ordered overfetch bounded to `limit + 1` per source and merge the two
+  bounded pages in memory under the same sort/cursor semantics, with both
+  `orderBy` clauses pinning null placement (first in asc, last in desc).
+  Pre-provenance rows report null `occurredAt` and sort as oldest.
+- Mentions cursor stores the raw row id for the SQL tie-break while items
+  expose the prefixed key — kept deliberately separate so same-timestamp
+  paging stays correct.
+- Tests: `tests/lib/agent-attention.test.ts` (codec, filter parsing, sort and
+  cursor predicates), `tests/lib/project-agent-attention-service.test.ts`
+  (authorization, tenant scoping, filter casts, pagination, actor
+  resolution, legacy rows, failure wrapping), and
+  `tests/api/project-agent-attention.route.test.ts` (human 403, auth
+  passthrough, invalid filter/cursor 400s, response envelope, credential
+  query params ignored).
+- Release advanced 0.67.0 -> 0.68.0 (`release:version -- feature`) with the
+  `## v0.68.0 - 2026-09-13` CHANGELOG entry; ADR entry recorded in
+  `adr/decisions.md`.
+- Scope boundary: ND-386 owns contract publication (OpenAPI,
+  `AGENT_API_ENDPOINTS`, hosted guide, presets), so this change leaves
+  `lib/agent-onboarding.ts` untouched; the new scope auto-surfaces as an
+  "Attention Read" checkbox through `AGENT_SCOPE_DEFINITIONS`.
+- Opened PR <https://github.com/dorianagaesse/nexus_dash/pull/510>
+  (commits dbcf928 scope, 3dc6318 API, c030454 tests, f91c05d release);
+  card stays In Progress for the reviewer. E2E not run: no UI, auth,
+  calendar, or upload flow is touched, and the credential-scope checkbox
+  renders through the existing definitions loop.
+- PR review triage (Copilot, all three findings applied): (1) the service
+  test fixtures are typed as `AgentProjectAccessContext` / the item actor
+  type so strict typechecking stays clean; (2) mention actor provenance now
+  infers the agent kind from the credential id OR the preserved label
+  snapshot (same rule as `mapTaskAuthorRecord`), so a deleted credential's
+  mentions keep a `historical-agent-*` actor instead of collapsing into the
+  owner; (3) assignment paging now prunes each source in SQL with keyset
+  predicates (raw-id tie-break, nulls pinned) plus `take: limit + 1`, and
+  the in-memory pass only merges/slices — no unbounded per-credential
+  materialization. Also rejects mention cursors carrying a null timestamp
+  as invalid (that endpoint never mints one; ignoring it silently re-served
+  page 1). New tests cover the deleted-credential actor, the asc
+  legacy-row continuation, predicate/overfetch forwarding, and the
+  null-timestamp cursor guard.
+- Re-validation after the review fixes: lint, `rls:check`, full vitest
+  (1559 passed; one Windows-load flake in `tests/scripts/version-policy.test.ts`
+  that passes in isolation), coverage 93.47/84.36/95.3/93.77, build,
+  `release:check`, `git diff --check` — all green. RLS DB matrix not re-run:
+  no schema, migration, or tenant-ownership change. The new Prisma
+  `orderBy` nulls policy and per-source cursor predicates were additionally
+  executed against the real local PostgreSQL through a throwaway probe
+  (deleted afterwards) to confirm the generated SQL runs clean.
+- Merged `origin/main` forward to 1dedc59 before handoff (ND-459 #512
+  v0.69.0, ND-380 #513 v0.68.0, dependabot #481/#482); conflicts in
+  `package.json`, `package-lock.json`, `CHANGELOG.md`, `journal.md`. Main had
+  consumed both v0.68.0 and v0.69.0 while this branch had bumped to v0.68.0,
+  so the version collision resolved by rebumping to v0.70.0: lockfile
+  regenerated from main's (only the version fields differ), CHANGELOG section
+  re-headered v0.70.0 and ordered above v0.69.0.
+- Post-merge re-validation with the quality-gates env block inline (local
+  Postgres URLs + placeholder secrets — worktrees carry no `.env`, and a bare
+  `npm test` fails 16 Prisma-importing suites at collection on a missing
+  `DATABASE_URL`): `git diff --check` clean; lint; `rls:check`;
+  `release:check` 0.69.0 -> 0.70.0; Vitest 201 files passed / 2 skipped
+  (1,575 tests passed / 2 skipped); coverage 93.47/84.36/95.3/93.77;
+  production build.
 
 # 2026-09-13 - ND-459: Epic linked tasks show ND- references and open the task on click
 

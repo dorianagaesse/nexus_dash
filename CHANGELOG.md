@@ -8,7 +8,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
-## v0.70.0 - 2026-09-13
+## v0.72.0 - 2026-09-13
 
 - Task comments now use the shared rich-text composer (ND-398): headings,
   emphasis, lists, code blocks, token blocks, and the `@` mention picker work
@@ -18,6 +18,52 @@ SHA, deployment URL, and workflow run belong in release evidence.
   Legacy plain-text comments stay readable, unsafe markup is never rendered,
   and bare text typed above or below blocks is wrapped in paragraphs — fixing
   mixed content storage for comments, meeting notes, and context cards.
+
+## v0.71.0 - 2026-09-13
+
+- Epics are archived automatically once every linked task is done or archived
+  and the last completion is older than the same seven-day grace period used
+  for completed tasks (ND-458). Epics store their own `archivedAt` timestamp,
+  added in the companion migration.
+- The epic panel offers manual archive and restore for editors and owners, and
+  a restored epic stays active until it completes again instead of being
+  re-archived by the next sweep.
+- Completed epics no longer pile up in the default view: archived epics are
+  hidden from the epic panel, task epic pickers, and kanban epic filters by
+  default. The epic panel gains the same search bar and Active/Archived view
+  switch as the Meeting Notes area, and a task still linked to an archived
+  epic keeps showing that link, marked as archived, in its detail view.
+- Archived epics render an Archived badge and keep their derived status and
+  progress accurate. Linking a new open task to an archived epic, or reopening
+  a linked task, never silently restores the epic.
+- The agent API documents epic archive (`POST .../epics/{epicId}/archive`) and
+  restore (`DELETE .../epics/{epicId}/archive`), epic records now include
+  `archivedAt`, and the epic list accepts an `includeArchived` filter that
+  defaults to hiding archived epics.
+
+## v0.70.0 - 2026-09-13
+
+- Added a read-only agent attention API (ND-385): an authenticated agent
+  credential can list its own mention events and its current assignments —
+  task comments that tagged it, tasks assigned to it, and meeting to-dos
+  assigned to it — via
+  `GET /api/projects/{projectId}/agent-attention/mentions` and
+  `GET /api/projects/{projectId}/agent-attention/assignments`.
+- Every item reports the event type, project, source artifact, a
+  human-readable summary, the acting actor, the occurrence time, and the
+  artifact's current state, with a stable per-artifact lookup key
+  (`mention:<id>`, `assignment:task:<id>`, `assignment:meeting_todo:<id>`)
+  for client-side dedup.
+- Filtering covers event type, artifact type, assignment state, and a
+  since/until time range; results are newest-first by default with an order
+  flag and page deterministically through an opaque cursor. Assignments
+  stored before provenance tracking report a null occurrence time and sort
+  as oldest.
+- Access requires the new least-privilege `attention:read` credential scope
+  ("Attention Read" in the credential UI); the endpoints only ever read the
+  calling credential's own events — no other credential id is accepted — and
+  revocation or expiry blocks access immediately while project members keep
+  their existing governance views.
 
 ## v0.69.0 - 2026-09-13
 
