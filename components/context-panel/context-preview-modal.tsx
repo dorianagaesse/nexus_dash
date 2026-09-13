@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Paperclip, X } from "lucide-react";
 
 import {
   ContextCardActorChip,
 } from "@/components/context-panel/context-card-actor-chip";
+import { ContextCardOptionsMenu } from "@/components/context-panel/context-card-options-menu";
 import type {
   ProjectContextAttachment,
   ProjectContextCard,
@@ -28,6 +30,7 @@ interface ContextPreviewModalProps {
   mentionUsers: MentionDisplayUser[];
   onClose: () => void;
   onEdit: (cardId: string) => void;
+  onDelete: (cardId: string) => void;
   onPreviewAttachment: (attachment: ProjectContextAttachment) => void;
 }
 
@@ -39,8 +42,17 @@ export function ContextPreviewModal({
   mentionUsers,
   onClose,
   onEdit,
+  onDelete,
   onPreviewAttachment,
 }: ContextPreviewModalProps) {
+  const [isOptionsMenuOpen, setIsOptionsMenuOpen] = useState(false);
+
+  // A menu that unmounts with the dialog never reports its close, so resync
+  // the tracked state whenever the preview closes or switches cards.
+  useEffect(() => {
+    setIsOptionsMenuOpen(false);
+  }, [isOpen, card?.id]);
+
   return (
     <Dialog open={isOpen && card !== null}>
       {card ? (
@@ -50,6 +62,12 @@ export function ContextPreviewModal({
         style={{ backgroundColor: card.color, borderColor: "rgb(15 23 42 / 0.2)" }}
         onEscapeKeyDown={(event) => {
           event.preventDefault();
+          if (isOptionsMenuOpen) {
+            // First Escape closes the options menu; the menu's own keydown
+            // listener handles that and the card stays open.
+            return;
+          }
+
           onClose();
         }}
         onPointerDownOutside={(event) => {
@@ -71,16 +89,27 @@ export function ContextPreviewModal({
             >
               {card.title}
             </DialogTitle>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="text-slate-800 hover:bg-slate-900/10"
-              onClick={onClose}
-              aria-label="Close context preview"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex shrink-0 items-center gap-1">
+              {canEdit ? (
+                <ContextCardOptionsMenu
+                  cardId={card.id}
+                  onEditCard={onEdit}
+                  onDeleteCard={onDelete}
+                  onOpenChange={setIsOptionsMenuOpen}
+                  triggerClassName="p-2"
+                />
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-slate-800 hover:bg-slate-900/10"
+                onClick={onClose}
+                aria-label="Close context preview"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <ContextCardActorChip

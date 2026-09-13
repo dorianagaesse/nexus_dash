@@ -346,3 +346,136 @@ describe("project context panel mentions", () => {
     expect(editor?.querySelectorAll("p").length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe("project context panel preview options menu", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    const renderer = createTestRenderer();
+    container = renderer.container;
+    root = renderer.root;
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  async function openPreview() {
+    await clickElement(findButton(container, "Project context"));
+    await clickElement(container.querySelector("article"));
+    const dialog = document.querySelector("[role='dialog']");
+    expect(dialog).not.toBeNull();
+    return dialog as HTMLElement;
+  }
+
+  test("opens the edit flow from the preview options menu", async () => {
+    await renderPanel(root, { cards: [buildCard({})] });
+    const dialog = await openPreview();
+
+    await clickElement(
+      dialog.querySelector("button[aria-label='Context card options']")
+    );
+    await clickElement(findButton(dialog, "Edit"));
+
+    const titleInput = document.getElementById(
+      "context-edit-title"
+    ) as HTMLInputElement | null;
+    expect(titleInput?.value).toBe("Launch context");
+    expect(document.getElementById("context-edit-content")).not.toBeNull();
+    expect(document.querySelector("[role='dialog']")).not.toBeNull();
+  });
+
+  test("removes the card from the preview menu through the delete confirmation", async () => {
+    const requests: { url: string; init?: RequestInit }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        requests.push({ url, init });
+        return Promise.resolve({
+          ok: true,
+          headers: new Headers(),
+          json: vi.fn().mockResolvedValue({}),
+        });
+      })
+    );
+
+    await renderPanel(root, { cards: [buildCard({})] });
+    const dialog = await openPreview();
+
+    await clickElement(
+      dialog.querySelector("button[aria-label='Context card options']")
+    );
+    await clickElement(findButton(dialog, "Delete"));
+
+    const confirmDialog = document.querySelector("[role='alertdialog']");
+    expect(confirmDialog).not.toBeNull();
+    expect(confirmDialog?.textContent).toContain("Delete context card?");
+    expect(confirmDialog?.textContent).toContain("Launch context");
+
+    await clickElement(findButton(confirmDialog!, "Delete card"));
+    await act(async () => {
+      await sleep(0);
+    });
+
+    const deleteRequest = requests.find((request) => request.init?.method === "DELETE");
+    expect(deleteRequest?.url).toContain("/context-cards/card-1");
+    expect(container.textContent).not.toContain("Launch context");
+    expect(document.querySelector("[role='alertdialog']")).toBeNull();
+  });
+
+  test("closes the preview menu on Escape before closing the card", async () => {
+    await renderPanel(root, { cards: [buildCard({})] });
+    const dialog = await openPreview();
+
+    await clickElement(
+      dialog.querySelector("button[aria-label='Context card options']")
+    );
+    expect(findButton(dialog, "Edit")).not.toBeNull();
+
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true })
+      );
+    });
+
+    const stillOpenDialog = document.querySelector("[role='dialog']");
+    expect(stillOpenDialog).not.toBeNull();
+    expect(findButton(stillOpenDialog!, "Edit")).toBeNull();
+
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true })
+      );
+    });
+    expect(document.querySelector("[role='dialog']")).toBeNull();
+  });
+
+  test("keeps double-click-to-edit working on the open card", async () => {
+    await renderPanel(root, { cards: [buildCard({})] });
+    const dialog = await openPreview();
+
+    const title = dialog.querySelector("h2");
+    expect(title).not.toBeNull();
+    await act(async () => {
+      title!.dispatchEvent(
+        new MouseEvent("dblclick", { bubbles: true, cancelable: true })
+      );
+    });
+
+    expect(document.getElementById("context-edit-content")).not.toBeNull();
+  });
+
+  test("viewers do not see the preview options menu", async () => {
+    await renderPanel(root, { cards: [buildCard({})], canEdit: false });
+    const dialog = await openPreview();
+
+    expect(
+      dialog.querySelector("button[aria-label='Context card options']")
+    ).toBeNull();
+  });
+});
