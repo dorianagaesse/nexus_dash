@@ -99,6 +99,33 @@ Use it for important implementation milestones, blockers, validation runs, and r
   93.47 / 84.36 / 95.3 / 93.77, production build — all green. E2E is
   unaffected by this round (server service + unit tests only); CI re-runs
   the full suite on the pushed commit.
+- Copilot review round 2 on 5801f2c raised one visible and two suppressed
+  findings. (1) Restoring a stale auto-archived epic was undone by the next
+  sweep — a real loop, because the restore only cleared `archivedAt` and the
+  completion moment was still older than the grace period. Fixed with a
+  durable restore exemption: new nullable `Epic.autoArchiveExemptAt` column
+  (migration `20260913140000_nd458_epic_auto_archive_exemption`); restore
+  writes `archivedAt: null, autoArchiveExemptAt: now`, and the sweep's stale
+  predicate additionally requires the completion moment to be newer than the
+  exemption (`completedAt <= autoArchiveExemptAt` is skipped). The exemption
+  expires naturally when the epic completes again (a newer completion moment),
+  survives restarts, and is honored by the round-1 rollback revalidation
+  because both paths share the predicate. (2) The task detail epic picker
+  showed "No epic" for a task linked to an archived epic (display-only — the
+  save path already preserved the link). The board section now loads epics
+  with `includeArchived` and splits them; the task modal merges the selected
+  task's linked archived epic into its picker options marked `Archived · ...`
+  (EpicSelect + quick epic submenu), while the create dialog and kanban filter
+  bar stay active-only. (3) The CHANGELOG bullet implied "Show archived"
+  reveals archived epics everywhere; reworded to scope the toggle to the epic
+  panel and note that a task's detail view keeps showing its archived link.
+- Round-2 tests: epic service suite 16/16 (two new: exempt epic skipped when
+  the completion is not newer than the exemption; restored epic swept once a
+  newer completion passes it), section component test for the active/archived
+  split, and the ND-458 e2e journey gained the archived-link assertion in the
+  quick epic picker plus a second test — restore an auto-archived epic,
+  reload, and verify it stays active with `archivedAt: null` and a set
+  exemption in the database.
 
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 

@@ -203,7 +203,7 @@ describe("project-epic-service", () => {
     expect(result.data.epic.archivedAt).toBeNull();
     expect(dbMock.epic.update).toHaveBeenCalledWith({
       where: { id: "epic-1" },
-      data: { archivedAt: null },
+      data: { archivedAt: null, autoArchiveExemptAt: expect.any(Date) },
     });
     expect(activityMock.touchProjectActivity).toHaveBeenCalledWith({
       db: dbMock,
@@ -291,6 +291,7 @@ describe("project-epic-service", () => {
       .mockResolvedValueOnce([
         {
           id: "epic-stale",
+          autoArchiveExemptAt: null,
           tasks: [
             {
               status: "Done",
@@ -302,6 +303,7 @@ describe("project-epic-service", () => {
         },
         {
           id: "epic-recent",
+          autoArchiveExemptAt: null,
           tasks: [
             {
               status: "Done",
@@ -313,6 +315,7 @@ describe("project-epic-service", () => {
         },
         {
           id: "epic-open",
+          autoArchiveExemptAt: null,
           tasks: [
             {
               status: "In Progress",
@@ -322,7 +325,7 @@ describe("project-epic-service", () => {
             },
           ],
         },
-        { id: "epic-empty", tasks: [] },
+        { id: "epic-empty", autoArchiveExemptAt: null, tasks: [] },
       ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([epicSummaryFixture()]);
@@ -359,6 +362,7 @@ describe("project-epic-service", () => {
       .mockResolvedValueOnce([
         {
           id: "epic-stale",
+          autoArchiveExemptAt: null,
           tasks: [
             {
               status: "Done",
@@ -372,6 +376,7 @@ describe("project-epic-service", () => {
       .mockResolvedValueOnce([
         {
           id: "epic-stale",
+          autoArchiveExemptAt: null,
           tasks: [
             {
               status: "In Progress",
@@ -404,6 +409,7 @@ describe("project-epic-service", () => {
       .mockResolvedValueOnce([
         {
           id: "epic-stale",
+          autoArchiveExemptAt: null,
           tasks: [
             {
               status: "Done",
@@ -421,6 +427,63 @@ describe("project-epic-service", () => {
 
     expect(dbMock.epic.updateMany).toHaveBeenCalledTimes(1);
     expect(dbMock.epic.findMany).toHaveBeenCalledTimes(2);
+  });
+
+  test("skips epics whose stale completion is not newer than the manual restore exemption", async () => {
+    const staleCompletedAt = new Date(Date.now() - 8 * DAY_MS);
+    const exemptAt = new Date(Date.now() - 1 * DAY_MS);
+    dbMock.epic.findMany
+      .mockResolvedValueOnce([
+        {
+          id: "epic-restored",
+          autoArchiveExemptAt: exemptAt,
+          tasks: [
+            {
+              status: "Done",
+              archivedAt: null,
+              completedAt: staleCompletedAt,
+              updatedAt: staleCompletedAt,
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([epicSummaryFixture()]);
+
+    const epics = await listProjectEpics("project-1", "user-1");
+
+    expect(epics).toHaveLength(1);
+    expect(dbMock.epic.updateMany).not.toHaveBeenCalled();
+    expect(dbMock.epic.findMany).toHaveBeenCalledTimes(2);
+  });
+
+  test("sweeps a restored epic once a new completion is newer than the exemption", async () => {
+    const exemptAt = new Date(Date.now() - 9 * DAY_MS);
+    const staleCompletedAt = new Date(Date.now() - 8 * DAY_MS);
+    dbMock.epic.findMany
+      .mockResolvedValueOnce([
+        {
+          id: "epic-restored",
+          autoArchiveExemptAt: exemptAt,
+          tasks: [
+            {
+              status: "Done",
+              archivedAt: null,
+              completedAt: staleCompletedAt,
+              updatedAt: staleCompletedAt,
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    dbMock.epic.updateMany.mockResolvedValueOnce({ count: 1 });
+
+    await listProjectEpics("project-1", "user-1");
+
+    expect(dbMock.epic.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["epic-restored"] }, archivedAt: null },
+      data: { archivedAt: expect.any(Date) },
+    });
   });
 
   test("viewers list epics without running the archive sweep", async () => {

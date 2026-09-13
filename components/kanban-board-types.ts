@@ -36,6 +36,7 @@ export interface ProjectEpicOption extends TaskEpicSummary {
   status: "Ready" | "In progress" | "Completed";
   progressPercent: number;
   taskCount: number;
+  archived?: boolean;
 }
 
 export interface TaskCommentAuthor extends TaskPersonSummary {

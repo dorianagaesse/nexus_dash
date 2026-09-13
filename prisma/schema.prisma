@@ -516,13 +516,14 @@ model ProjectNotificationEmailItem {
 }
 
 model Epic {
-  id          String    @id @default(cuid())
-  projectId   String
-  name        String    @db.VarChar(80)
-  description String
-  archivedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                  String    @id @default(cuid())
+  projectId           String
+  name                String    @db.VarChar(80)
+  description         String
+  archivedAt          DateTime?
+  autoArchiveExemptAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks   Task[]

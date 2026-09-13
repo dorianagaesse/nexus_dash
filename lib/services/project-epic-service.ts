@@ -193,9 +193,24 @@ function resolveEpicCompletionTime(tasks: EpicCompletionTask[]): Date | null {
   }, new Date(0));
 }
 
-function isStaleCompletedEpic(tasks: EpicCompletionTask[], archiveThreshold: Date): boolean {
-  const completedAt = resolveEpicCompletionTime(tasks);
-  return completedAt !== null && completedAt.getTime() <= archiveThreshold.getTime();
+interface EpicCompletionCandidate {
+  tasks: EpicCompletionTask[];
+  autoArchiveExemptAt: Date | null;
+}
+
+function isStaleCompletedEpic(
+  epic: EpicCompletionCandidate,
+  archiveThreshold: Date
+): boolean {
+  const completedAt = resolveEpicCompletionTime(epic.tasks);
+  if (completedAt === null || completedAt.getTime() > archiveThreshold.getTime()) {
+    return false;
+  }
+
+  return (
+    epic.autoArchiveExemptAt === null ||
+    completedAt.getTime() > epic.autoArchiveExemptAt.getTime()
+  );
 }
 
 async function archiveStaleCompletedEpics(input: {
@@ -212,6 +227,7 @@ async function archiveStaleCompletedEpics(input: {
     },
     select: {
       id: true,
+      autoArchiveExemptAt: true,
       tasks: {
         select: epicCompletionTaskSelect,
       },
@@ -219,7 +235,7 @@ async function archiveStaleCompletedEpics(input: {
   });
 
   const staleEpicIds = candidateEpics
-    .filter((epic) => isStaleCompletedEpic(epic.tasks, archiveThreshold))
+    .filter((epic) => isStaleCompletedEpic(epic, archiveThreshold))
     .map((epic) => epic.id);
 
   if (staleEpicIds.length === 0) {
@@ -251,6 +267,7 @@ async function archiveStaleCompletedEpics(input: {
     },
     select: {
       id: true,
+      autoArchiveExemptAt: true,
       tasks: {
         select: epicCompletionTaskSelect,
       },
@@ -258,7 +275,7 @@ async function archiveStaleCompletedEpics(input: {
   });
 
   const noLongerStaleEpicIds = archivedEpics
-    .filter((epic) => !isStaleCompletedEpic(epic.tasks, archiveThreshold))
+    .filter((epic) => !isStaleCompletedEpic(epic, archiveThreshold))
     .map((epic) => epic.id);
 
   if (noLongerStaleEpicIds.length === 0) {
@@ -713,9 +730,16 @@ async function setProjectEpicArchivedAt(
           where: {
             id: epicId,
           },
-          data: {
-            archivedAt: input.archivedAt,
-          },
+          data: input.archivedAt
+            ? {
+                archivedAt: input.archivedAt,
+              }
+            : {
+                archivedAt: null,
+                // Restoring is durable: the stale sweep keeps this epic active
+                // until it completes again (a newer completion moment).
+                autoArchiveExemptAt: new Date(),
+              },
         });
       }
 

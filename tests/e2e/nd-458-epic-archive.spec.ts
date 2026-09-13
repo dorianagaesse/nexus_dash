@@ -179,4 +179,75 @@ test("auto-archives completed epics and supports manual archive and restore", as
       name: `${fixture.completedEpicName} progress`,
     })
   ).toHaveAttribute("aria-valuetext", "2 of 3 tasks completed");
+
+  // The task's quick epic picker still shows the linked archived epic instead
+  // of a false "No epic".
+  const followUpCard = page
+    .getByRole("button", { name: /Follow-up linked to the archived epic/ })
+    .first();
+  await followUpCard.click();
+  await page.getByRole("button", { name: "Task options" }).click();
+  await page.getByRole("button", { name: "Epic options" }).click();
+  const epicSubmenu = page.locator("[data-task-options-submenu='epic']");
+  await expect(epicSubmenu).toBeVisible();
+  await expect(
+    epicSubmenu.getByRole("button", {
+      name: new RegExp(fixture.completedEpicName),
+    })
+  ).toBeVisible();
+  await expect(epicSubmenu.getByText(/Archived · /)).toBeVisible();
+});
+
+test("keeps a manually restored epic active until it completes again", async ({
+  page,
+}) => {
+  const userId = await signInAsVerifiedUser(page);
+  const fixture = await createEpicArchiveFixture(userId);
+
+  await page.goto(`/projects/${fixture.projectId}#epics`);
+
+  // The stale completion is auto-archived on the first dashboard load.
+  const showArchived = page.getByRole("button", { name: "Show archived (1)" });
+  await expect(showArchived).toBeVisible();
+  await showArchived.click();
+
+  const restoreResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "DELETE" &&
+      response.url().endsWith(`/epics/${fixture.completedEpicId}/archive`) &&
+      response.ok()
+  );
+  await page
+    .getByRole("button", { name: `Restore epic ${fixture.completedEpicName}` })
+    .click();
+  await restoreResponse;
+
+  await expect(
+    page.getByRole("button", {
+      name: `Archive epic ${fixture.completedEpicName}`,
+    })
+  ).toBeVisible();
+
+  // The next sweep must not re-archive the restored epic even though its
+  // completion moment is still older than the seven-day grace period.
+  await page.reload();
+
+  await expect(
+    page.getByRole("button", {
+      name: `Archive epic ${fixture.completedEpicName}`,
+    })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("article", { name: fixture.completedEpicName })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Show archived \(\d+\)/ })
+  ).toHaveCount(0);
+
+  const storedEpic = await prisma.epic.findUnique({
+    where: { id: fixture.completedEpicId },
+    select: { archivedAt: true, autoArchiveExemptAt: true },
+  });
+  expect(storedEpic?.archivedAt).toBeNull();
+  expect(storedEpic?.autoArchiveExemptAt).not.toBeNull();
 });
