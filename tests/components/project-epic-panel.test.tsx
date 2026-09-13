@@ -30,6 +30,7 @@ vi.mock("@/lib/hooks/use-project-section-expanded", () => ({
 }));
 
 import { ProjectEpicPanel } from "@/components/project-epic-panel";
+import { reconcileProjectEpicsAfterTaskMutation } from "@/lib/project-epic-client";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -90,6 +91,7 @@ describe("project-epic-panel", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     document.body.innerHTML = "";
   });
 
@@ -262,6 +264,90 @@ describe("project-epic-panel", () => {
       )?.getAttribute("aria-expanded")
     ).toBe("false");
     expect(firstDetails?.hidden).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("reconciles server-derived task counts and progress after a local task mutation", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+    const emptyEpic = {
+      ...epicWithDenseLinkedTasks,
+      status: "Ready" as const,
+      progressPercent: 0,
+      taskCount: 0,
+      completedTaskCount: 0,
+      linkedTasks: [],
+    };
+    const completedTask = {
+      id: "task-new",
+      title: "Publish release notes",
+      status: "Done",
+      position: 0,
+      archivedAt: null,
+      epic: { id: emptyEpic.id, name: emptyEpic.name },
+    };
+    const reconciledEpic = {
+      ...emptyEpic,
+      status: "Completed" as const,
+      progressPercent: 100,
+      taskCount: 1,
+      completedTaskCount: 1,
+      linkedTasks: [
+        {
+          id: completedTask.id,
+          title: completedTask.title,
+          status: completedTask.status,
+          archivedAt: null,
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ epics: [reconciledEpic] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [emptyEpic],
+      })
+    );
+
+    expect(
+      container.querySelector('[role="progressbar"]')?.getAttribute(
+        "aria-valuetext"
+      )
+    ).toBe("0 of 0 tasks completed");
+
+    await act(async () => {
+      await reconcileProjectEpicsAfterTaskMutation(
+        "project-1",
+        null,
+        completedTask
+      );
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/project-1/epics", {
+      cache: "no-store",
+      signal: expect.any(AbortSignal),
+    });
+    expect(
+      container.querySelector('[role="progressbar"]')?.getAttribute(
+        "aria-valuenow"
+      )
+    ).toBe("100");
+    expect(
+      container.querySelector('[role="progressbar"]')?.getAttribute(
+        "aria-valuetext"
+      )
+    ).toBe("1 of 1 tasks completed");
+    expect(container.textContent).toContain("1/1");
 
     await act(async () => {
       root.unmount();

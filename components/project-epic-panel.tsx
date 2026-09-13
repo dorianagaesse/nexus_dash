@@ -25,29 +25,19 @@ import {
   EmojiInputField,
   EmojiTextareaField,
 } from "@/components/ui/emoji-field";
-import { getEpicColorFromName } from "@/lib/epic";
+import {
+  getEpicColorFromName,
+  type EpicTaskSummary,
+  type ProjectEpicSnapshot,
+} from "@/lib/epic";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
+import {
+  PROJECT_EPICS_RECONCILED_EVENT,
+  type ProjectEpicsReconciledDetail,
+} from "@/lib/project-epic-client";
 import { cn } from "@/lib/utils";
 
-interface ProjectEpicPanelTask {
-  id: string;
-  title: string;
-  status: string;
-  archivedAt: string | null;
-}
-
-export interface ProjectEpicPanelEpic {
-  id: string;
-  name: string;
-  description: string;
-  status: "Ready" | "In progress" | "Completed";
-  progressPercent: number;
-  taskCount: number;
-  completedTaskCount: number;
-  linkedTasks: ProjectEpicPanelTask[];
-  createdAt: string;
-  updatedAt: string;
-}
+export type ProjectEpicPanelEpic = ProjectEpicSnapshot;
 
 interface ProjectEpicPanelProps {
   projectId: string;
@@ -96,7 +86,7 @@ function EpicStatusBadge({
   );
 }
 
-function EpicTaskChip({ task }: { task: ProjectEpicPanelTask }) {
+function EpicTaskChip({ task }: { task: EpicTaskSummary }) {
   const toneClass =
     task.archivedAt != null || task.status === "Done"
       ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
@@ -160,6 +150,29 @@ export function ProjectEpicPanel({
   useEffect(() => {
     setLocalEpics(epics);
   }, [epics]);
+
+  useEffect(() => {
+    function handleProjectEpicsReconciled(event: Event) {
+      const detail = (event as CustomEvent<ProjectEpicsReconciledDetail>).detail;
+      if (detail?.projectId !== projectId) {
+        return;
+      }
+
+      setLocalEpics(detail.epics);
+    }
+
+    window.addEventListener(
+      PROJECT_EPICS_RECONCILED_EVENT,
+      handleProjectEpicsReconciled
+    );
+
+    return () => {
+      window.removeEventListener(
+        PROJECT_EPICS_RECONCILED_EVENT,
+        handleProjectEpicsReconciled
+      );
+    };
+  }, [projectId]);
 
   const editingEpic = useMemo(
     () => localEpics.find((epic) => epic.id === editingEpicId) ?? null,
