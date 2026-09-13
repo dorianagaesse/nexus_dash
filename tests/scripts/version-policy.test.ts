@@ -24,7 +24,8 @@ function changelogWithRelease(version: string, body: string) {
   return `${CHANGELOG_PLACEHOLDER}\n## v${version} - 2026-09-14\n\n${body}`;
 }
 
-describe("version policy guard", () => {
+// Spawn-heavy sync tests: raise the timeout above the 5s default so parallel workers or a loaded CI machine cannot flake the suite.
+describe("version policy guard", { timeout: 30_000 }, () => {
   const repos: string[] = [];
 
   afterEach(() => {

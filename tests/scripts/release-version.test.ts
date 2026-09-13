@@ -29,7 +29,8 @@ function runReleaseVersion(cwd: string, args: string[]) {
   return runNodeScript(cwd, "release-version.mjs", args);
 }
 
-describe("release version helper", () => {
+// Spawn-heavy sync tests (npm version): raise the timeout above the 5s default so parallel workers or a loaded CI machine cannot flake them.
+describe("release version helper", { timeout: 30_000 }, () => {
   const repos: string[] = [];
 
   afterEach(() => {

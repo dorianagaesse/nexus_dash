@@ -29,7 +29,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   package-lock.json, CHANGELOG.md, journal.md, docs/releases/**); every other
   branch must keep the base version. The label-based no-release-impact escape
   hatch is removed; dependabot PRs pass through the no-bump rule.
-- Tests: `tests/scripts/version-policy.test.ts` rewritten (14 cases: no-bump
+- Tests: `tests/scripts/version-policy.test.ts` rewritten (15 cases: no-bump
   passes for feature/fix/docs/dependabot, bump rejection on product branches,
   minor and patch release preparation passes, branch-name/version mismatch,
   no version move, main already past the release, missing/empty/mis-headed
