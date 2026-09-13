@@ -45,6 +45,7 @@ describe("agent-onboarding-guide", () => {
     expect(result).toContain("/api/projects/{projectId}/agent-attention/mentions");
     expect(result).toContain("/api/projects/{projectId}/agent-attention/assignments");
     expect(result).toContain("attention:read");
+    expect(result).toContain("task:read");
     expect(result).toContain("since=$LAST_SEEN_OCCURRED_AT");
     expect(result).toContain("revoked, expired, or rotated away");
   });

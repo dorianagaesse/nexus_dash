@@ -342,6 +342,14 @@ describe("agent-onboarding contract", () => {
         (endpoint) => endpoint.requiredScopes.join(",") === "attention:read"
       )
     ).toBe(true);
+    expect(
+      AGENT_API_ENDPOINTS.filter((endpoint) => endpoint.tag === "Attention").every(
+        (endpoint) =>
+          endpoint.notes?.some((note) =>
+            note.includes("require task:read, so an attention:read-only credential gets 403")
+          )
+      )
+    ).toBe(true);
 
     const mentionsPath =
       document.paths["/api/projects/{projectId}/agent-attention/mentions"].get;
@@ -507,6 +515,7 @@ describe("agent-onboarding contract", () => {
     expect(example).toContain("order it was issued for");
     expect(example).toContain("/agent-attention/assignments?state=active");
     expect(example).toContain("currentState");
+    expect(example).toContain("task:read");
     expect(example).toContain("revoked, expired, or rotated away");
     expect(example).not.toContain("nda_");
   });

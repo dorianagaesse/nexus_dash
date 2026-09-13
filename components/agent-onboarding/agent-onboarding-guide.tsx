@@ -301,7 +301,8 @@ export function AgentOnboardingGuide({
             </p>
             <p>
               3. Follow each item&apos;s source reference (taskId, comment id, meeting note
-              id) and re-check currentState so you do not act on archived or completed work.
+              id) — those reads need task:read on top of attention:read — and re-check
+              currentState so you do not act on archived or completed work.
             </p>
             <p>
               4. Handle revocation: a 401 re-exchanges the API key once; if the exchange

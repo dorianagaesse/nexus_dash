@@ -29,6 +29,7 @@ SHA, deployment URL, and workflow run belong in release evidence.
   response mappers) and every published example against the OpenAPI schemas,
   and assert the examples stay free of real credentials, secrets, and tenant
   data.
+
 ## v0.72.1 - 2026-09-13
 
 - Fixed stale Epic task counts, status, linked-task summaries, and progress by
