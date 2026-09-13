@@ -73,6 +73,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
   failing (base 0.68.0 = head 0.68.0). Resolved by rebumping this branch to
   v0.69.0 (package.json, package-lock.json, CHANGELOG section heading;
   release target is now v0.69.0).
+- Post-merge validation (canonical local env: local Postgres on 5432,
+  placeholder secrets, shell `NODE_ENV` unset). Two env gotchas cost a rerun
+  and are worth remembering: the main checkout's shared `.env` exports
+  `NODE_ENV=development`, which Vitest keeps (it only defaults to `test` when
+  unset) and which flips the RLS-context path on, mass-failing the
+  mocked-Prisma tests; and that `.env`'s equal remote Supabase URLs
+  (DATABASE_URL === DIRECT_URL) fail the production-only
+  pooler/direct split validation during `next build`. With the canonical env:
+  `git diff --check` clean; lint; rls:check; Vitest 198 files passed /
+  2 skipped, 1,493 tests passed / 2 skipped; coverage
+  93.47 / 84.36 / 95.3 / 93.77; production build; `release:check`
+  0.68.0 -> 0.69.0; full Playwright suite against the freshly built app on a
+  verified task459-owned server (`PLAYWRIGHT_BASE_URL`, port 3219, landing
+  page asserted to serve v0.69.0): 68 passed, 1 skipped, 0 failed — including
+  the four ND-459 journeys and ND-380's two merged in from #513.
 
 # 2026-09-13 - ND-380: Rich text and mentions in context card descriptions
 
