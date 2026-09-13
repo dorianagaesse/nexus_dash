@@ -729,7 +729,7 @@ export function ProjectEpicPanel({
                       </div>
                     ) : (
                       <div className="space-y-4 p-4">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <h3
@@ -757,7 +757,7 @@ export function ProjectEpicPanel({
                               ) : null}
                             </div>
                           </div>
-                          <div className="flex shrink-0 items-center gap-2">
+                          <div className="flex shrink-0 items-center justify-end gap-2">
                             <Button
                               type="button"
                               variant="ghost"
@@ -786,6 +786,16 @@ export function ProjectEpicPanel({
                                   variant="ghost"
                                   size="icon"
                                   className="min-h-11 min-w-11"
+                                  onClick={() => startEdit(epic)}
+                                  aria-label={`Edit epic ${epic.name}`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="min-h-11 min-w-11"
                                   disabled={isUpdatingArchive}
                                   onClick={() =>
                                     void handleToggleEpicArchived(
@@ -804,16 +814,6 @@ export function ProjectEpicPanel({
                                   ) : (
                                     <Archive className="h-4 w-4" />
                                   )}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="min-h-11 min-w-11"
-                                  onClick={() => startEdit(epic)}
-                                  aria-label={`Edit epic ${epic.name}`}
-                                >
-                                  <Pencil className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   type="button"
