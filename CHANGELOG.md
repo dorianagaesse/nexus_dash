@@ -8,6 +8,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.68.0 - 2026-09-13
+
+- Epic panels now show the shared ND- reference beside each linked task's title
+  and status (ND-459), so epic context uses the same identifiers as the board,
+  search, and notifications.
+- Linked-task chips open the task detail exactly like the board deep link
+  (`/projects/{projectId}/tasks/{taskId}`) on click or keyboard, including
+  archived tasks, and keep the two-line title clamp and compact mobile layout.
+- The epic linked-task projection and the agent API contract now expose the
+  task reference number, keeping agent integrations in sync with the UI.
+
 ## v0.67.0 - 2026-09-12
 
 - Added agent mentions to task comments (ND-383). Selecting an agent in the
