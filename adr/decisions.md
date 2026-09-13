@@ -826,5 +826,7 @@ Keep UI-only or task-only notes in `journal.md`.
 - Consequences: Existing attachment storage keys, authorization, cleanup, and
   download URLs remain canonical. A failed or abandoned comment upload remains
   a normal task attachment rather than losing the file; the UI allows removing
-  it before submission. The nullable relation preserves historical task files
-  if a comment is ever removed.
+  it before submission. Project editors may delete only their own unbound task
+  uploads, enforced identically by the service and RLS policy; owners retain
+  the broader delete capability. The nullable relation preserves historical
+  task files if a comment is ever removed.

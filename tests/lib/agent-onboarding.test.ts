@@ -220,6 +220,7 @@ describe("agent-onboarding contract", () => {
       { required: ["attachmentIds"] },
     ]);
     expect(requestSchema.properties.attachmentIds.maxItems).toBe(10);
+    expect(requestSchema.properties.attachmentIds.minItems).toBe(1);
     expect(requestSchema.properties.agentMentionSelections.maxItems).toBe(50);
     expect(
       requestSchema.properties.agentMentionSelections.items.required

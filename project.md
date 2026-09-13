@@ -43,8 +43,6 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - lazy-loaded thread reads with lightweight board-level comment counts
   - agent-authored comments keep project credential attribution by displaying
     the credential label with an `(agent)` suffix and a shared agent avatar
-  - pasted or selected screenshots render inline and remain associated with
-    their comment; screenshot-only comments are supported
 - Project-scoped agent access:
   - owner-managed API credentials in project settings
   - one-time raw API key reveal with rotate/revoke lifecycle
@@ -55,8 +53,6 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - Link + file attachments
   - Local storage provider and Cloudflare R2 provider
   - Provider-aware upload flows (form upload + direct upload pipeline)
-  - Task screenshots can render inline with descriptions or comments while
-    retaining the same authorized download path and storage ownership
 - Per-user Google Calendar credential ownership and per-user calendar target setting (`/account/settings`).
 - Operational baseline:
   - Health probes (`/api/health/live`, `/api/health/ready`)

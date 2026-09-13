@@ -1438,7 +1438,10 @@ function TaskReadOnlyContent({
   const descriptionScreenshots = taskAttachments.filter(
     (attachment) => attachment.mimeType?.startsWith("image/")
   );
-  const hasAttachments = taskAttachments.length > 0;
+  const supplementaryAttachments = taskAttachments.filter(
+    (attachment) => !attachment.mimeType?.startsWith("image/")
+  );
+  const hasAttachments = supplementaryAttachments.length > 0;
   const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
   const [commentMentionSelections, setCommentMentionSelections] = useState<
     TaskCommentMentionSelection[]
@@ -1768,7 +1771,7 @@ function TaskReadOnlyContent({
         <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
           <p className="text-sm font-medium">Attachments</p>
           <div className="space-y-2">
-            {taskAttachments.map((attachment) => {
+            {supplementaryAttachments.map((attachment) => {
               const href = resolveAttachmentHref(attachment);
               const canPreview =
                 isAttachmentPreviewable(attachment.kind, attachment.mimeType) &&
@@ -1928,6 +1931,9 @@ function TaskEditContent({
 }: TaskEditContentProps) {
   const taskAttachments = selectedTask.attachments.filter(
     (attachment) => !attachment.commentId
+  );
+  const supplementaryAttachments = taskAttachments.filter(
+    (attachment) => !attachment.mimeType?.startsWith("image/")
   );
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -2133,9 +2139,9 @@ function TaskEditContent({
         <div className="space-y-2">
           {taskAttachments.length === 0 ? (
             <p className="text-xs text-muted-foreground">No attachments yet.</p>
-          ) : (
+          ) : supplementaryAttachments.length > 0 ? (
             <div className="space-y-2">
-              {taskAttachments.map((attachment) => {
+              {supplementaryAttachments.map((attachment) => {
                 const href = resolveAttachmentHref(attachment);
                 const canPreview =
                   isAttachmentPreviewable(attachment.kind, attachment.mimeType) &&
@@ -2191,7 +2197,7 @@ function TaskEditContent({
                 );
               })}
             </div>
-          )}
+          ) : null}
           {pendingAttachmentUploads.length > 0 ? (
             <div className="space-y-2">
               {pendingAttachmentUploads.map((upload) => (

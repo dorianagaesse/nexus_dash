@@ -383,6 +383,57 @@ function EditorHarness({
 }
 
 describe("rich-text-editor", () => {
+  test("routes image paste to the file handler without intercepting text paste", async () => {
+    const { container, root } = createTestRenderer();
+    const onPasteFiles = vi.fn();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextEditor, {
+        id: "paste-editor",
+        value: "",
+        onChange: vi.fn(),
+        onPasteFiles,
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    expect(editor).not.toBeNull();
+
+    const image = new File(["png"], "evidence.png", { type: "image/png" });
+    const imagePaste = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(imagePaste, "clipboardData", {
+      value: {
+        items: [{ kind: "file", type: "image/png", getAsFile: () => image }],
+      },
+    });
+
+    await act(async () => {
+      editor?.dispatchEvent(imagePaste);
+    });
+
+    expect(imagePaste.defaultPrevented).toBe(true);
+    expect(onPasteFiles).toHaveBeenCalledWith([image]);
+
+    const textPaste = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(textPaste, "clipboardData", {
+      value: {
+        items: [{ kind: "string", type: "text/plain", getAsFile: () => null }],
+      },
+    });
+
+    await act(async () => {
+      editor?.dispatchEvent(textPaste);
+    });
+
+    expect(textPaste.defaultPrevented).toBe(false);
+    expect(onPasteFiles).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("keeps a trailing paragraph after a terminal code block", () => {
     const html = buildEditorRichTextHtml(createRichTextCodeBlock("npm run lint") ?? "");
     const template = getTemplate(html);
