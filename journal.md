@@ -7246,3 +7246,9 @@ Low-value entries to avoid going forward:
   (meeting-notes zoom geometry, `inputZoomBottomInset` -4.85px) reproduces the
   pre-existing local nondeterminism already recorded on ND-398/ND-458; neither
   spec's component tree is touched by this diff.
+- PR #519 opened ready for review. CI green on the first run: Quality Core,
+  E2E Smoke, Tenant Isolation RLS, and Container Image all pass. The Copilot
+  review could not run -- both the automatic review and a re-requested one
+  returned "the user who requested the review has reached their quota limit"
+  -- so there were no review threads to triage; the quota state is flagged on
+  the PR and the card for the human reviewer.
