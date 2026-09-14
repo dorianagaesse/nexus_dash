@@ -3,6 +3,48 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-14 - ND-456: Meeting todo panel anchoring, drag reach, inline assignee
+
+- Claimed live Nexus Dash card ND-456 (`cmtywry0d000a04l0q6x11y0x`, GitHub
+  issue #506 attached) and moved it from Backlog to In Progress before
+  coding. Work used the dedicated worktree `../nexus_dash_task456` on
+  `fix/nd-456-meeting-todo-panel` from `origin/main` at 5c28443 (v0.73.0).
+- Trigger anchoring: the floating "Todos" button measured surrounding
+  project content to place itself and could still overlap project
+  information. It now rests at the true bottom-right page margin (16px
+  inset); verified at 1440x900 with the trigger right gap measuring exactly
+  16px.
+- Drag reach: the panel clamp was tied to the project-content bounds, so
+  the panel could not be dragged clear of project content. The clamp is now
+  the viewport edge margin. The panel's layout centering classes apply the
+  CSS `translate` property (Tailwind v4) which stacks with the inline drag
+  `transform`, leaving a constant offset between the stored position and
+  the measured rect — so clamp bounds are computed relative to the current
+  position and rect, and stored positions live in that same variable space.
+  A corner drag now parks the panel at viewport - 16px on both axes.
+- Persistence: the moved position is stored under
+  `nexusdash.meeting-todos.panel-position` and restored on reload; the
+  restore clamps only after the open animation, when the dialog rect is
+  measurable. Verified exact coordinates across a reload.
+- Inline assignee: open todo rows render the assignee chip on the same line
+  as the todo text and meeting title; todo and meeting titles truncate to
+  one line with ellipsis instead of wrapping the row.
+- Verification ran against a production build (`next build` + `next start`
+  on port 3747) per the Playwright config contract; dev-server runs showed
+  hydration and fixed-position geometry artifacts that did not reproduce in
+  production.
+- Unit clamp coverage was rewritten around the current-position-aware
+  signature, and the e2e anchoring test uses poll-based assertions because
+  raw `boundingBox()` reads can return transient values during the
+  post-hydration re-render.
+- Validation: lint, RLS inventory, release policy (0.73.0 -> 0.73.1 with
+  changelog entry), 1,658 unit tests passed (2 skipped), coverage
+  thresholds (93.77% statements / 84.71% branches / 95.39% functions /
+  94.07% lines), production build, and the full Playwright suite against
+  the local production build (75 passed, 1 environment-gated skip, 0
+  failures); the meeting-todos spec re-run targeted at the final diff
+  passed 3/3.
+
 # 2026-09-13 - ND-386: Publish and validate the agent attention API contract
 
 - Implemented in the dedicated `../nexus_dash_task386` worktree on

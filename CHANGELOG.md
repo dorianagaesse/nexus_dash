@@ -8,6 +8,17 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.73.1 - 2026-09-14
+
+- Fixed the meeting-todos floating panel on the project page (ND-456): the
+  trigger button now rests at the true bottom-right page margin instead of
+  overlapping project content, and the panel can be dragged down and right
+  across the full viewport before clamping at the page margin, with the
+  moved position persisted across reloads.
+- Each project todo row now shows its assignee chip inline on the same line
+  as the todo text, with todo and meeting titles truncating to a single line
+  so long names no longer wrap the row.
+
 ## v0.73.0 - 2026-09-13
 
 - Published the agent attention API in the versioned OpenAPI document

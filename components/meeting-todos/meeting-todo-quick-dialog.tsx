@@ -47,8 +47,8 @@ interface MeetingTodoQuickDialogProps {
 }
 
 interface DialogPosition {
-  x: number;
-  y: number;
+  left: number;
+  top: number;
 }
 
 interface DragState {
@@ -65,6 +65,8 @@ interface MovementAnnouncement {
 }
 
 const DIALOG_EDGE_PADDING = 16;
+export const PANEL_POSITION_STORAGE_KEY =
+  "nexusdash.meeting-todos.panel-position";
 const KEYBOARD_MOVE_STEP = 16;
 const KEYBOARD_MOVE_LARGE_STEP = 48;
 const POINTER_DRAG_THRESHOLD = 4;
@@ -78,60 +80,77 @@ export function clampMeetingTodoDialogPosition({
   desiredPosition,
   currentPosition,
   dialogRect,
-  projectRect,
   viewportWidth,
   viewportHeight,
 }: {
   desiredPosition: DialogPosition;
   currentPosition: DialogPosition;
   dialogRect: Pick<DOMRect, "left" | "right" | "top" | "bottom">;
-  projectRect: Pick<DOMRect, "left" | "right" | "top" | "bottom"> | null;
   viewportWidth: number;
   viewportHeight: number;
 }): DialogPosition {
-  const viewportLeft = DIALOG_EDGE_PADDING;
-  const viewportRight = viewportWidth - DIALOG_EDGE_PADDING;
-  const viewportTop = DIALOG_EDGE_PADDING;
-  const viewportBottom = viewportHeight - DIALOG_EDGE_PADDING;
-  const boundedProjectLeft = projectRect
-    ? Math.max(viewportLeft, projectRect.left + DIALOG_EDGE_PADDING)
-    : viewportLeft;
-  const boundedProjectRight = projectRect
-    ? Math.min(viewportRight, projectRect.right - DIALOG_EDGE_PADDING)
-    : viewportRight;
-  const boundedProjectTop = projectRect
-    ? Math.max(viewportTop, projectRect.top + DIALOG_EDGE_PADDING)
-    : viewportTop;
-  const boundedProjectBottom = projectRect
-    ? Math.min(viewportBottom, projectRect.bottom - DIALOG_EDGE_PADDING)
-    : viewportBottom;
-  const leftBoundary =
-    boundedProjectRight > boundedProjectLeft ? boundedProjectLeft : viewportLeft;
-  const rightBoundary =
-    boundedProjectRight > boundedProjectLeft ? boundedProjectRight : viewportRight;
-  const topBoundary =
-    boundedProjectBottom > boundedProjectTop ? boundedProjectTop : viewportTop;
-  const bottomBoundary =
-    boundedProjectBottom > boundedProjectTop ? boundedProjectBottom : viewportBottom;
-  const baseLeft = dialogRect.left - currentPosition.x;
-  const baseRight = dialogRect.right - currentPosition.x;
-  const baseTop = dialogRect.top - currentPosition.y;
-  const baseBottom = dialogRect.bottom - currentPosition.y;
-  const minimumX = leftBoundary - baseLeft;
-  const maximumX = rightBoundary - baseRight;
-  const minimumY = topBoundary - baseTop;
-  const maximumY = bottomBoundary - baseBottom;
+  // The panel rect is offset from the stored position by the fixed layout
+  // anchoring (viewport center minus panel size), so the allowed range is
+  // expressed relative to the current position and rect.
+  const minimumLeft =
+    currentPosition.left - (dialogRect.left - DIALOG_EDGE_PADDING);
+  const maximumLeft =
+    currentPosition.left +
+    (viewportWidth - DIALOG_EDGE_PADDING - dialogRect.right);
+  const minimumTop =
+    currentPosition.top - (dialogRect.top - DIALOG_EDGE_PADDING);
+  const maximumTop =
+    currentPosition.top +
+    (viewportHeight - DIALOG_EDGE_PADDING - dialogRect.bottom);
 
   return {
-    x:
-      maximumX >= minimumX
-        ? clamp(desiredPosition.x, minimumX, maximumX)
-        : currentPosition.x,
-    y:
-      maximumY >= minimumY
-        ? clamp(desiredPosition.y, minimumY, maximumY)
-        : currentPosition.y,
+    left:
+      maximumLeft >= minimumLeft
+        ? clamp(desiredPosition.left, minimumLeft, maximumLeft)
+        : currentPosition.left,
+    top:
+      maximumTop >= minimumTop
+        ? clamp(desiredPosition.top, minimumTop, maximumTop)
+        : currentPosition.top,
   };
+}
+
+export function readStoredMeetingTodoDialogPosition(): DialogPosition | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(PANEL_POSITION_STORAGE_KEY);
+    if (!stored) {
+      return null;
+    }
+
+    const parsed = JSON.parse(stored) as Partial<DialogPosition> | null;
+    if (
+      !parsed ||
+      !Number.isFinite(parsed.left) ||
+      !Number.isFinite(parsed.top)
+    ) {
+      return null;
+    }
+
+    return { left: parsed.left as number, top: parsed.top as number };
+  } catch {
+    return null;
+  }
+}
+
+function storeMeetingTodoDialogPosition(position: DialogPosition) {
+  try {
+    window.localStorage.setItem(
+      PANEL_POSITION_STORAGE_KEY,
+      JSON.stringify(position)
+    );
+  } catch {
+    // Storage can be unavailable (private mode, blocked cookies); the panel
+    // still works, it just opens centered again.
+  }
 }
 
 function TodoCompletionButton({
@@ -209,28 +228,31 @@ function OpenTodoItem({
         onSetCompleted={onSetCompleted}
       />
       <div className="min-w-0 flex-1 py-0.5">
-        <button
-          type="button"
-          onClick={() => onOpenMeeting(todo.note)}
-          className="block min-h-11 w-full min-w-0 rounded-lg text-left transition-colors duration-200 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          <span className="line-clamp-2 text-sm font-medium leading-5 text-foreground">
-            {todo.action.content}
+        <div className="flex min-h-11 min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onOpenMeeting(todo.note)}
+            title={todo.action.content}
+            className="min-w-0 flex-1 rounded-lg py-1 text-left transition-colors duration-200 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <span className="block truncate text-sm font-medium leading-5 text-foreground">
+              {todo.action.content}
+            </span>
+            <span className="inline-flex max-w-full items-center gap-1 text-xs font-medium text-muted-foreground">
+              <span className="truncate">{todo.note.title}</span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            </span>
+          </button>
+          <span className="shrink-0">
+            <MeetingTodoAssigneeChipReadonly actor={todo.action.assignee ?? null} />
           </span>
-          <span className="mt-1 inline-flex max-w-full items-center gap-1 text-xs font-medium text-muted-foreground">
-            <span className="truncate">{todo.note.title}</span>
-            <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          </span>
-        </button>
+        </div>
         {todo.isOverdue ? (
           <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-200">
             <AlertTriangle className="h-3 w-3" aria-hidden />
             Overdue
           </span>
         ) : null}
-        <div className="mt-1.5">
-          <MeetingTodoAssigneeChipReadonly actor={todo.action.assignee ?? null} />
-        </div>
       </div>
     </li>
   );
@@ -260,23 +282,31 @@ function CompletedTodoRow({
       <button
         type="button"
         onClick={() => onOpenMeeting(todo.note)}
+        title={todo.action.content}
         className="min-h-11 min-w-0 flex-1 rounded-lg py-1 text-left transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
-        <span className="line-clamp-1 text-xs font-medium text-muted-foreground line-through">
-          {todo.action.content}
-        </span>
-        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-          {todo.note.title}
-        </span>
-        {todo.action.completedBy ? (
-          <span className="mt-1 block">
-            <MeetingTodoActorIdentity
-              actor={todo.action.completedBy}
-              prefix="Completed by"
-              compact
-            />
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate text-xs font-medium text-muted-foreground line-through">
+            {todo.action.content}
           </span>
-        ) : null}
+          <span className="shrink-0 leading-none">
+            <MeetingTodoAssigneeChipReadonly actor={todo.action.assignee ?? null} bordered={false} />
+          </span>
+        </span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+            {todo.note.title}
+          </span>
+          {todo.action.completedBy ? (
+            <span className="shrink-0 leading-none">
+              <MeetingTodoActorIdentity
+                actor={todo.action.completedBy}
+                prefix="Completed by"
+                compact
+              />
+            </span>
+          ) : null}
+        </span>
       </button>
     </li>
   );
@@ -296,10 +326,9 @@ export function MeetingTodoQuickDialog({
   );
   const [isOpen, setIsOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [position, setPosition] = useState<DialogPosition>({ x: 0, y: 0 });
+  const [position, setPosition] = useState<DialogPosition>({ left: 0, top: 0 });
   const [triggerAnimationPosition, setTriggerAnimationPosition] =
-    useState<DialogPosition>({ x: 0, y: 0 });
-  const [triggerInsetRight, setTriggerInsetRight] = useState(24);
+    useState<DialogPosition>({ left: 0, top: 0 });
   const [movementAnnouncement, setMovementAnnouncement] =
     useState<MovementAnnouncement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -313,8 +342,8 @@ export function MeetingTodoQuickDialog({
 
   const applyPosition = useCallback((nextPosition: DialogPosition) => {
     if (
-      positionRef.current.x === nextPosition.x &&
-      positionRef.current.y === nextPosition.y
+      positionRef.current.left === nextPosition.left &&
+      positionRef.current.top === nextPosition.top
     ) {
       return;
     }
@@ -336,8 +365,8 @@ export function MeetingTodoQuickDialog({
 
     const triggerRect = trigger.getBoundingClientRect();
     setTriggerAnimationPosition({
-      x: triggerRect.left + triggerRect.width / 2 - window.innerWidth / 2,
-      y: triggerRect.top + triggerRect.height / 2 - window.innerHeight / 2,
+      left: triggerRect.left + triggerRect.width / 2 - window.innerWidth / 2,
+      top: triggerRect.top + triggerRect.height / 2 - window.innerHeight / 2,
     });
   }, []);
 
@@ -346,40 +375,24 @@ export function MeetingTodoQuickDialog({
     setIsOpen(false);
   }, [captureTriggerAnimationPosition]);
 
-  const clampPosition = useCallback(
-    (desiredPosition: DialogPosition) => {
-      const dialog = dialogRef.current;
-      if (!dialog) {
-        return desiredPosition;
-      }
+  const clampPosition = useCallback((desiredPosition: DialogPosition) => {
+    const dialog = dialogRef.current;
+    if (!dialog) {
+      return desiredPosition;
+    }
 
-      return clampMeetingTodoDialogPosition({
-        desiredPosition,
-        currentPosition: positionRef.current,
-        dialogRect: dialog.getBoundingClientRect(),
-        projectRect: getProjectRect(),
-        viewportWidth: window.innerWidth,
-        viewportHeight: window.innerHeight,
-      });
-    },
-    [getProjectRect]
-  );
+    return clampMeetingTodoDialogPosition({
+      desiredPosition,
+      currentPosition: positionRef.current,
+      dialogRect: dialog.getBoundingClientRect(),
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    });
+  }, []);
 
-  useEffect(() => {
-    const updateTriggerInset = () => {
-      const projectRect = getProjectRect();
-      setTriggerInsetRight(
-        projectRect
-          ? Math.max(24, window.innerWidth - projectRect.right + 24)
-          : 24
-      );
-    };
-
-    updateTriggerInset();
-    window.addEventListener("resize", updateTriggerInset);
-
-    return () => window.removeEventListener("resize", updateTriggerInset);
-  }, [getProjectRect]);
+  const storeCurrentPosition = useCallback(() => {
+    storeMeetingTodoDialogPosition(positionRef.current);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -430,13 +443,7 @@ export function MeetingTodoQuickDialog({
       window.removeEventListener("scroll", ensureContained);
       desktopMediaQuery.removeEventListener("change", handleDesktopChange);
     };
-  }, [
-    applyPosition,
-    clampPosition,
-    closePanel,
-    getProjectRect,
-    isOpen,
-  ]);
+  }, [applyPosition, clampPosition, closePanel, isOpen]);
 
   const moveDialog = useCallback(
     (desiredPosition: DialogPosition) => {
@@ -484,8 +491,8 @@ export function MeetingTodoQuickDialog({
 
     event.preventDefault();
     moveDialog({
-      x: dragState.originPosition.x + deltaX,
-      y: dragState.originPosition.y + deltaY,
+      left: dragState.originPosition.left + deltaX,
+      top: dragState.originPosition.top + deltaY,
     });
   };
 
@@ -506,6 +513,7 @@ export function MeetingTodoQuickDialog({
       return;
     }
 
+    storeCurrentPosition();
     window.setTimeout(() => {
       suppressClickRef.current = false;
     }, 0);
@@ -529,10 +537,10 @@ export function MeetingTodoQuickDialog({
   const handleMoveKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
     const step = event.shiftKey ? KEYBOARD_MOVE_LARGE_STEP : KEYBOARD_MOVE_STEP;
     const movementByKey: Record<string, DialogPosition> = {
-      ArrowLeft: { x: -step, y: 0 },
-      ArrowRight: { x: step, y: 0 },
-      ArrowUp: { x: 0, y: -step },
-      ArrowDown: { x: 0, y: step },
+      ArrowLeft: { left: -step, top: 0 },
+      ArrowRight: { left: step, top: 0 },
+      ArrowUp: { left: 0, top: -step },
+      ArrowDown: { left: 0, top: step },
     };
     const movement = movementByKey[event.key];
     if (!movement) {
@@ -541,9 +549,10 @@ export function MeetingTodoQuickDialog({
 
     event.preventDefault();
     moveDialog({
-      x: positionRef.current.x + movement.x,
-      y: positionRef.current.y + movement.y,
+      left: positionRef.current.left + movement.left,
+      top: positionRef.current.top + movement.top,
     });
+    storeCurrentPosition();
     setMovementAnnouncement((current) => ({
       id: (current?.id ?? 0) + 1,
       message: `Todos panel moved ${event.key.replace("Arrow", "").toLowerCase()}.`,
@@ -558,23 +567,30 @@ export function MeetingTodoQuickDialog({
     if (nextOpen) {
       captureTriggerAnimationPosition();
       if (!hasPositionedRef.current) {
-        const projectRect = getProjectRect();
-        const visibleProjectLeft = projectRect
-          ? Math.max(
-              DIALOG_EDGE_PADDING,
-              projectRect.left + DIALOG_EDGE_PADDING
-            )
-          : DIALOG_EDGE_PADDING;
-        const visibleProjectRight = projectRect
-          ? Math.min(
-              window.innerWidth - DIALOG_EDGE_PADDING,
-              projectRect.right - DIALOG_EDGE_PADDING
-            )
-          : window.innerWidth - DIALOG_EDGE_PADDING;
-        applyPosition({
-          x: (visibleProjectLeft + visibleProjectRight) / 2 - window.innerWidth / 2,
-          y: positionRef.current.y,
-        });
+        const storedPosition = readStoredMeetingTodoDialogPosition();
+        if (storedPosition) {
+          applyPosition(storedPosition);
+        } else {
+          const projectRect = getProjectRect();
+          const visibleProjectLeft = projectRect
+            ? Math.max(
+                DIALOG_EDGE_PADDING,
+                projectRect.left + DIALOG_EDGE_PADDING
+              )
+            : DIALOG_EDGE_PADDING;
+          const visibleProjectRight = projectRect
+            ? Math.min(
+                window.innerWidth - DIALOG_EDGE_PADDING,
+                projectRect.right - DIALOG_EDGE_PADDING
+              )
+            : window.innerWidth - DIALOG_EDGE_PADDING;
+          applyPosition({
+            left:
+              (visibleProjectLeft + visibleProjectRight) / 2 -
+              window.innerWidth / 2,
+            top: positionRef.current.top,
+          });
+        }
         hasPositionedRef.current = true;
       }
       isOpeningRef.current = true;
@@ -599,7 +615,7 @@ export function MeetingTodoQuickDialog({
           ref={triggerRef}
           type="button"
           aria-label={triggerAccessibleName}
-          style={{ right: triggerInsetRight }}
+          style={{ right: DIALOG_EDGE_PADDING }}
           className="fixed bottom-6 z-[var(--layer-floating)] hidden min-h-11 touch-manipulation items-center gap-2 rounded-full border border-border/70 bg-background/95 px-4 py-2 text-sm font-semibold text-foreground shadow-[0_18px_48px_-20px_rgba(15,23,42,0.72)] backdrop-blur transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none lg:inline-flex print:hidden"
         >
           <ListTodo className="h-4 w-4" aria-hidden />
@@ -642,11 +658,11 @@ export function MeetingTodoQuickDialog({
           isDragging && "cursor-grabbing select-none transition-none"
         )}
         style={{
-          "--meeting-todo-position-x": `${position.x}px`,
-          "--meeting-todo-position-y": `${position.y}px`,
-          "--meeting-todo-trigger-x": `${triggerAnimationPosition.x}px`,
-          "--meeting-todo-trigger-y": `${triggerAnimationPosition.y}px`,
-          transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`,
+          "--meeting-todo-position-x": `${position.left}px`,
+          "--meeting-todo-position-y": `${position.top}px`,
+          "--meeting-todo-trigger-x": `${triggerAnimationPosition.left}px`,
+          "--meeting-todo-trigger-y": `${triggerAnimationPosition.top}px`,
+          transform: `translate(calc(-50% + ${position.left}px), calc(-50% + ${position.top}px))`,
         } as CSSProperties}
       >
         <header className="border-b border-border/60 px-4 py-3">
