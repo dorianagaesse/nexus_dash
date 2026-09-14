@@ -1,6 +1,7 @@
 "use client";
 
 import React, {
+  type ClipboardEvent,
   type FormEvent,
   type KeyboardEvent,
   type MouseEvent,
@@ -54,6 +55,8 @@ interface RichTextEditorProps {
   mentionProjectId?: string;
   agentMentionsEnabled?: boolean;
   onMentionSelect?: (member: MentionAutocompleteMember) => void;
+  onPasteFiles?: (files: File[]) => void;
+  hideToolbar?: boolean;
 }
 
 const EDITOR_MENTION_CLASS =
@@ -2327,6 +2330,8 @@ export function RichTextEditor({
   mentionProjectId,
   agentMentionsEnabled = false,
   onMentionSelect,
+  onPasteFiles,
+  hideToolbar = false,
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const resetTimeoutRef = useRef<number | null>(null);
@@ -2384,6 +2389,19 @@ export function RichTextEditor({
 
     latestValueRef.current = nextValue;
     onChange(nextValue);
+  };
+
+  const handleEditorPaste = (event: ClipboardEvent<HTMLDivElement>) => {
+    const imageFiles = Array.from(event.clipboardData.items)
+      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null);
+    if (imageFiles.length === 0 || !onPasteFiles) {
+      return;
+    }
+
+    event.preventDefault();
+    onPasteFiles(imageFiles);
   };
 
   const emitCurrentValue = () => {
@@ -3084,7 +3102,7 @@ export function RichTextEditor({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="flex flex-wrap gap-2">
+      {!hideToolbar ? <div className="flex flex-wrap gap-2">
         <Button
           type="button"
           size="sm"
@@ -3173,7 +3191,7 @@ export function RichTextEditor({
           <KeyRound className="h-4 w-4" />
           Token
         </Button>
-      </div>
+      </div> : null}
 
       <EmojiFieldShell targetRef={editorRef} buttonPlacement="top">
         <div
@@ -3210,6 +3228,7 @@ export function RichTextEditor({
           onKeyUp={handleEditorKeyUp}
           onBeforeInput={handleEditorBeforeInput}
           onInput={handleEditorInput}
+          onPaste={handleEditorPaste}
         />
         {editorControls ? (
           <div

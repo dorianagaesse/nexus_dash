@@ -162,6 +162,23 @@ describe("KanbanFilterBar", () => {
     vi.unstubAllGlobals();
   });
 
+  test("renders as a bare toolbar row without the section chrome", async () => {
+    const { root } = createTestRenderer();
+    await renderWithRoot(root, <Harness />);
+
+    const section = document.body.querySelector<HTMLElement>(
+      'section[aria-label="Search and filter Kanban tasks"]'
+    );
+    expect(section).not.toBeNull();
+    const className = section?.className ?? "";
+    expect(className).not.toMatch(/\bborder\b/);
+    expect(className).not.toContain("rounded-2xl");
+    expect(className).not.toContain("shadow-");
+    expect(className).not.toContain("bg-card");
+    expect(className).toContain("px-3");
+    expect(className).toContain("py-3");
+  });
+
   test("opens a filter panel grouping labels and epics with unchecked options", async () => {
     const { root } = createTestRenderer();
     await renderWithRoot(root, <Harness />);

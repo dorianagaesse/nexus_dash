@@ -56,6 +56,10 @@ export interface AttachmentResponsePayload {
   downloadUrl: string | null;
 }
 
+export interface TaskAttachmentResponsePayload extends AttachmentResponsePayload {
+  commentId: string | null;
+}
+
 export interface AttachmentDownloadPayload {
   mode: "proxy" | "redirect";
   contentType?: string;
@@ -221,15 +225,22 @@ export function mapTaskAttachmentResponse(
   taskId: string,
   attachment: {
     id: string;
+    commentId?: string | null;
     kind: string;
     name: string;
     url: string | null;
     mimeType: string | null;
     sizeBytes: number | null;
   }
-): AttachmentResponsePayload {
+): TaskAttachmentResponsePayload {
   return {
-    ...attachment,
+    id: attachment.id,
+    kind: attachment.kind,
+    name: attachment.name,
+    url: attachment.url,
+    mimeType: attachment.mimeType,
+    sizeBytes: attachment.sizeBytes,
+    commentId: attachment.commentId ?? null,
     downloadUrl:
       attachment.kind === ATTACHMENT_KIND_FILE
         ? `/api/projects/${projectId}/tasks/${taskId}/attachments/${attachment.id}/download`
@@ -466,6 +477,7 @@ export async function createTaskAttachmentFromForm(input: {
           },
           select: {
             id: true,
+            commentId: true,
             kind: true,
             name: true,
             url: true,
@@ -541,6 +553,7 @@ export async function createTaskAttachmentFromForm(input: {
         },
         select: {
           id: true,
+          commentId: true,
           kind: true,
           name: true,
           url: true,
@@ -949,6 +962,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
         },
         select: {
           id: true,
+          commentId: true,
           kind: true,
           name: true,
           url: true,
@@ -1395,7 +1409,7 @@ export async function deleteTaskAttachmentForProject(input: {
     const access = await requireProjectRole({
       actorUserId,
       projectId: input.projectId,
-      minimumRole: "owner",
+      minimumRole: "editor",
       db,
     });
     if (!access.ok) {
@@ -1410,6 +1424,7 @@ export async function deleteTaskAttachmentForProject(input: {
           kind: true,
           storageKey: true,
           uploadedByUserId: true,
+          commentId: true,
           task: {
             select: {
               id: true,
@@ -1425,6 +1440,13 @@ export async function deleteTaskAttachmentForProject(input: {
         attachment.task.projectId !== input.projectId
       ) {
         return createError(404, "Attachment not found");
+      }
+
+      if (
+        access.role !== "owner" &&
+        (attachment.uploadedByUserId !== actorUserId || attachment.commentId !== null)
+      ) {
+        return createError(403, "forbidden");
       }
 
       if (

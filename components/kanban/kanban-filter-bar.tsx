@@ -19,7 +19,6 @@ import { getEpicColorFromName } from "@/lib/epic";
 import { getTaskLabelColor } from "@/lib/task-label";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { PROJECT_SECTION_CHROME_CLASS } from "@/components/project-dashboard/project-section-chrome";
 
 interface KanbanFilterBarProps {
   query: string;
@@ -260,10 +259,7 @@ export function KanbanFilterBar({
     <section
       ref={barRef}
       aria-label="Search and filter Kanban tasks"
-      className={cn(
-        PROJECT_SECTION_CHROME_CLASS,
-        "px-3 py-3 sm:px-4 sm:py-3.5"
-      )}
+      className="px-3 py-3 sm:px-4 sm:py-3.5"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">

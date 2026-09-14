@@ -31,7 +31,13 @@ import {
   mapTaskPersonSummary,
   type TaskPersonSummary,
 } from "@/lib/task-person";
+import {
+  mapTaskAttachmentResponse,
+  type TaskAttachmentResponsePayload,
+} from "@/lib/services/project-attachment-service";
+import { isAttachmentPreviewable } from "@/lib/task-attachment";
 
+const MAX_TASK_COMMENT_ATTACHMENTS = 10;
 const AGENT_COMMENT_AVATAR_SEED = "nexusdash-agent-comment-avatar";
 
 interface ServiceErrorResult {
@@ -61,6 +67,7 @@ export interface TaskCommentSummary {
   content: string;
   createdAt: Date;
   author: TaskCommentAuthorSummary;
+  attachments: TaskAttachmentResponsePayload[];
 }
 
 interface PendingMentionNotification {
@@ -143,7 +150,16 @@ function mapTaskComment(input: {
     usernameDiscriminator: string | null;
     avatarSeed: string | null;
   };
-}): TaskCommentSummary {
+  attachments?: Array<{
+    id: string;
+    commentId: string | null;
+    kind: string;
+    name: string;
+    url: string | null;
+    mimeType: string | null;
+    sizeBytes: number | null;
+  }>;
+}, projectId: string, taskId: string): TaskCommentSummary {
   const owner = mapTaskPersonSummary(input.author)!;
   const agentCredentialLabel = normalizeText(input.authorAgentCredentialLabel);
   const isAgentComment = Boolean(
@@ -154,6 +170,9 @@ function mapTaskComment(input: {
     id: input.id,
     content: input.content,
     createdAt: input.createdAt,
+    attachments: (input.attachments ?? []).map((attachment) =>
+      mapTaskAttachmentResponse(projectId, taskId, attachment)
+    ),
     author: isAgentComment
       ? {
           id: input.authorAgentCredentialId ?? input.author.id,
@@ -627,13 +646,27 @@ export async function listTaskCommentsForProject(input: {
               avatarSeed: true,
             },
           },
+          attachments: {
+            orderBy: [{ createdAt: "asc" }],
+            select: {
+              id: true,
+              commentId: true,
+              kind: true,
+              name: true,
+              url: true,
+              mimeType: true,
+              sizeBytes: true,
+            },
+          },
         },
       });
 
       return {
         ok: true,
         data: {
-          comments: comments.map(mapTaskComment),
+          comments: comments.map((comment) =>
+            mapTaskComment(comment, input.projectId, input.taskId)
+          ),
         },
       };
     } catch (error) {
@@ -648,6 +681,7 @@ export async function createTaskCommentForProject(input: {
   projectId: string;
   taskId: string;
   content: string;
+  attachmentIds?: string[];
   mentionSelections?: TaskCommentMentionSelection[];
   agentMentionSelections?: TaskCommentAgentMentionSelection[];
   agentAccess?: AgentProjectAccessContext;
@@ -659,17 +693,24 @@ export async function createTaskCommentForProject(input: {
 
   const content = coerceRichTextHtml(
     typeof input.content === "string" ? input.content : ""
+  ) ?? "";
+  const attachmentIds = Array.from(
+    new Set(
+      (input.attachmentIds ?? [])
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
   );
-  if (!content) {
+  const contentText = richTextToPlainText(content);
+  if (!contentText && attachmentIds.length === 0) {
     return createError(400, "content-required");
   }
-
+  if (attachmentIds.length > MAX_TASK_COMMENT_ATTACHMENTS) {
+    return createError(400, "too-many-comment-attachments");
+  }
   // Length limits and mention parsing run on the plain-text projection so
   // formatting markup neither inflates the character count nor hides tokens.
-  const contentText = richTextToPlainText(content);
-  if (!contentText) {
-    return createError(400, "content-required");
-  }
   if (contentText.length > MAX_TASK_COMMENT_LENGTH) {
     return createError(400, "content-too-long");
   }
@@ -706,6 +747,28 @@ export async function createTaskCommentForProject(input: {
 
       if (!task || task.projectId !== input.projectId) {
         return createError(404, "task-not-found");
+      }
+
+      if (attachmentIds.length > 0) {
+        const attachments = await db.taskAttachment.findMany({
+          where: {
+            id: { in: attachmentIds },
+            taskId: input.taskId,
+            uploadedByUserId: actorUserId,
+            commentId: null,
+          },
+          select: { id: true, kind: true, mimeType: true },
+        });
+        if (
+          attachments.length !== attachmentIds.length ||
+          attachments.some(
+            (attachment) =>
+              !isAttachmentPreviewable(attachment.kind, attachment.mimeType) ||
+              !attachment.mimeType?.startsWith("image/")
+          )
+        ) {
+          return createError(400, "task-comment-attachment-invalid");
+        }
       }
 
       const { mentions } = parseMentions(maskAgentMentionTokens(contentText));
@@ -767,8 +830,48 @@ export async function createTaskCommentForProject(input: {
                 avatarSeed: true,
               },
             },
+            attachments: {
+              orderBy: [{ createdAt: "asc" }],
+              select: {
+                id: true,
+                commentId: true,
+                kind: true,
+                name: true,
+                url: true,
+                mimeType: true,
+                sizeBytes: true,
+              },
+            },
           },
         });
+
+        if (attachmentIds.length > 0) {
+          const attached = await db.taskAttachment.updateMany({
+            where: {
+              id: { in: attachmentIds },
+              taskId: input.taskId,
+              uploadedByUserId: actorUserId,
+              commentId: null,
+            },
+            data: { commentId: comment.id },
+          });
+          if (attached.count !== attachmentIds.length) {
+            throw new Error("Comment attachment binding changed during creation");
+          }
+          comment.attachments = await db.taskAttachment.findMany({
+            where: { commentId: comment.id },
+            orderBy: [{ createdAt: "asc" }],
+            select: {
+              id: true,
+              commentId: true,
+              kind: true,
+              name: true,
+              url: true,
+              mimeType: true,
+              sizeBytes: true,
+            },
+          });
+        }
 
         await syncTaskCommentAgentMentions({
           db,
@@ -815,7 +918,7 @@ export async function createTaskCommentForProject(input: {
         return {
           ok: true,
           data: {
-            comment: mapTaskComment(comment),
+            comment: mapTaskComment(comment, input.projectId, input.taskId),
             pendingNotifications,
           },
         };
