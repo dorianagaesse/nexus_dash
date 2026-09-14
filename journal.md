@@ -3,6 +3,36 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-14 - ND-446: Remove the border around the Kanban search and filter bar
+
+- Implemented in the dedicated `../nexus_dash_task446` worktree on
+  `feature/nd-446-remove-kanban-filter-bar-border` from `origin/main` at 5c28443
+  (v0.73.0).
+- `components/kanban/kanban-filter-bar.tsx` stops applying the shared
+  `PROJECT_SECTION_CHROME_CLASS` (border, rounded card background, shadow) to
+  the toolbar section, so the search field and Filter button read as part of
+  the Kanban surface instead of a boxed panel above the board. The section
+  keeps its responsive padding (`px-3 py-3 sm:px-4 sm:py-3.5`), so the board
+  header and columns layout is unchanged. Search, label/epic filter,
+  clear-all, loading, and error behavior are untouched.
+- Regression test in `tests/components/kanban-filter-bar.test.tsx` asserts the
+  rendered section carries no border/rounded-2xl/shadow/bg-card classes and
+  keeps its padding utilities.
+- Visual evidence (temporary Playwright spec against the local app, deleted
+  before commit): the section's computed styles went from 1px solid borders /
+  16px radius / shadow / translucent card background (before) to 0px borders /
+  0px radius / `none` shadow / transparent background (after) at 1280px and
+  390px viewports; screenshots confirm the bar aligns with the header card and
+  columns with no layout shift, and the filter panel still opens via a real
+  click.
+- Validation (local env on the dedicated Postgres on port 55446):
+  `git diff --check` clean; `npm run lint`; `npm run rls:check`; `npm test`
+  207 files / 1657 tests pass (2 skipped); `npm run test:coverage` (94.07%
+  lines / 84.71% branches overall, thresholds met); `npm run test:e2e`
+  (production build, isolated port 3446, `CI=1`); release advanced
+  0.73.0 -> 0.74.0 (`## v0.74.0 - 2026-09-14` CHANGELOG entry,
+  `release:check` passes).
+
 # 2026-09-13 - ND-386: Publish and validate the agent attention API contract
 
 - Implemented in the dedicated `../nexus_dash_task386` worktree on

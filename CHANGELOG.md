@@ -8,6 +8,13 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.74.0 - 2026-09-14
+
+- The Kanban search and filter bar no longer renders inside its own bordered
+  panel (ND-446): removing the shared section chrome lets the search field
+  and Filter button read as part of the board surface. Search, label/epic
+  filters, clear-all, loading, and error behavior are unchanged.
+
 ## v0.73.0 - 2026-09-13
 
 - Published the agent attention API in the versioned OpenAPI document
