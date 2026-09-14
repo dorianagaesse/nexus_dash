@@ -6,10 +6,6 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 ## Unreleased
 
-- Define each release entry before the product-impacting PR is merged.
-
-## v0.74.0 - 2026-09-14
-
 - Task descriptions and rich-text comments now accept pasted or uploaded
   screenshots, show responsive inline previews, and support screenshot-only
   comments (ND-144).

@@ -7250,3 +7250,7 @@ Low-value entries to avoid going forward:
   passes (84 tests), changed-file lint passes, and the production build compiles
   and type-checks before stopping at page-data collection because this worktree
   has no `DATABASE_URL`.
+- CI initially rejected the stale feature-branch version bump after `main`
+  introduced release-boundary governance. Restored the shared `0.73.0` package
+  version and kept ND-144's product notes under `Unreleased`; version assignment
+  remains owned by the release-preparation branch.
