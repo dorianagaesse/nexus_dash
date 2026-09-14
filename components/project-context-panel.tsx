@@ -826,6 +826,9 @@ export function ProjectContextPanel({
       return;
     }
 
+    // Close the preview before the confirmation opens so dialogs never stack
+    // (same pattern as task deletion from the task detail modal).
+    setPreviewCardId(null);
     setPendingDeleteCardId(cardId);
   };
 
@@ -1224,6 +1227,7 @@ export function ProjectContextPanel({
         mentionUsers={collaborators}
         onClose={() => setPreviewCardId(null)}
         onEdit={openEditModal}
+        onDelete={requestDeleteCard}
         onPreviewAttachment={(attachment) => setPreviewAttachment(attachment)}
       />
 

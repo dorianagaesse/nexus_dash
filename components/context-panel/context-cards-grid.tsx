@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { MoreHorizontal, Paperclip, Pencil, PlusSquare, Trash2 } from "lucide-react";
+import { Paperclip, PlusSquare } from "lucide-react";
 
 import {
   ContextCardActorChip,
 } from "@/components/context-panel/context-card-actor-chip";
+import { ContextCardOptionsMenu } from "@/components/context-panel/context-card-options-menu";
 import type {
   ProjectContextAttachment,
   ProjectContextCard,
@@ -13,9 +13,7 @@ import {
   CONTEXT_CARD_PREVIEW_RICH_TEXT_CLASS,
   resolveAttachmentHref,
 } from "@/components/project-context-panel-utils";
-import { Button } from "@/components/ui/button";
 import type { MentionDisplayUser } from "@/components/ui/mention-hover-card";
-import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import { ATTACHMENT_KIND_LINK, isAttachmentPreviewable } from "@/lib/task-attachment";
 
 interface ContextCardsGridProps {
@@ -183,70 +181,6 @@ export function ContextCardsGrid({
           </article>
         );
       })}
-    </div>
-  );
-}
-
-interface ContextCardOptionsMenuProps {
-  cardId: string;
-  deletingCardId: string | null;
-  onEditCard: (cardId: string) => void;
-  onDeleteCard: (cardId: string) => void;
-}
-
-function ContextCardOptionsMenu({
-  cardId,
-  deletingCardId,
-  onEditCard,
-  onDeleteCard,
-}: ContextCardOptionsMenuProps) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useDismissibleMenu<HTMLDivElement>(isMenuOpen, () => setIsMenuOpen(false));
-
-  return (
-    <div
-      ref={menuRef}
-      className="relative"
-      onClick={(event) => event.stopPropagation()}
-    >
-      <button
-        type="button"
-        className="rounded-md p-1 text-slate-800 hover:bg-slate-900/10"
-        aria-label="Context card options"
-        aria-expanded={isMenuOpen}
-        onClick={() => setIsMenuOpen((previous) => !previous)}
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </button>
-      {isMenuOpen ? (
-        <div className="absolute right-0 z-20 mt-1 w-36 rounded-md border border-border/70 bg-background p-1 shadow-md">
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full justify-start"
-            onClick={() => {
-              setIsMenuOpen(false);
-              onEditCard(cardId);
-            }}
-          >
-            <Pencil className="h-4 w-4" />
-            Edit
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
-            onClick={() => {
-              setIsMenuOpen(false);
-              onDeleteCard(cardId);
-            }}
-            disabled={deletingCardId === cardId}
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete
-          </Button>
-        </div>
-      ) : null}
     </div>
   );
 }
