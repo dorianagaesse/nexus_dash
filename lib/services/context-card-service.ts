@@ -14,7 +14,10 @@ import {
   createContextAttachmentsFromDraft,
   mapContextAttachmentResponse,
 } from "@/lib/services/project-attachment-service";
-import { loadContextCardActorRegistry } from "@/lib/services/context-card-actor-service";
+import {
+  loadContextCardActorRegistry,
+  resolveContextCardMutationActor,
+} from "@/lib/services/context-card-actor-service";
 import {
   requireAgentProjectScopes,
   requireProjectRole,
@@ -27,9 +30,8 @@ import {
   projectContextCard,
   recordContextCardCreator,
   recordContextCardEditor,
-  resolveContextCardMutationActor,
   type ContextCardProjection,
-} from "@/lib/services/context-card-stewardship-service";
+} from "@/lib/services/context-card-projection-service";
 
 const MIN_TITLE_LENGTH = 2;
 const MAX_CONTEXT_TITLE_LENGTH = 120;

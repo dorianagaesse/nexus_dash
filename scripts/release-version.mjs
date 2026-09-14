@@ -1,63 +1,47 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 import process from "node:process";
 
-const VERSION_PATTERN = /^v?(\d+)\.(\d+)\.(\d+)$/;
-const BUMP_ALIASES = new Map([
-  ["patch", "patch"],
-  ["fix", "patch"],
-  ["refactor", "patch"],
-  ["chore", "patch"],
-  ["minor", "minor"],
-  ["feature", "minor"],
-  ["major", "major"],
-]);
+import {
+  VERSION_PATTERN,
+  parseVersion,
+  formatVersion,
+  compareVersions,
+  readJsonFile,
+  assertPackageVersionsMatch,
+} from "./version-utils.mjs";
+
+const BUMP_TYPES = new Set(["minor", "patch", "major"]);
 
 function usage() {
   console.log(`Usage:
-  npm run release:version -- <feature|fix|refactor|chore|patch|minor|major|x.y.z> [--dry-run]
+  npm run release:version -- <minor|patch|major|x.y.z> [--dry-run]
+
+Release-preparation helper. Run it on a chore/release-vX.Y.Z branch to move
+package.json and package-lock.json to the next production release version:
+minor for capability releases, patch for fix-only releases, major only for the
+1.0.0 stable baseline.
 
 Examples:
-  npm run release:version -- feature --dry-run
-  npm run release:version -- patch --dry-run
-  npm run release:version -- minor
+  npm run release:version -- minor --dry-run
+  npm run release:version -- patch
   npm run release:version -- 1.0.0`);
 }
 
-function readJson(path) {
-  return JSON.parse(readFileSync(path, "utf8"));
-}
+function currentBranchName() {
+  const result = spawnSync("git", ["branch", "--show-current"], {
+    encoding: "utf8",
+  });
 
-function parseVersion(rawVersion) {
-  const match = String(rawVersion ?? "").match(VERSION_PATTERN);
-  if (!match) {
-    throw new Error(`Invalid product version: ${rawVersion}`);
+  if (result.error || result.status !== 0) {
+    return "";
   }
 
-  return {
-    major: Number(match[1]),
-    minor: Number(match[2]),
-    patch: Number(match[3]),
-  };
+  return result.stdout.trim();
 }
 
-function formatVersion(version) {
-  return `${version.major}.${version.minor}.${version.patch}`;
-}
-
-function compareVersions(left, right) {
-  for (const key of ["major", "minor", "patch"]) {
-    if (left[key] !== right[key]) {
-      return left[key] - right[key];
-    }
-  }
-
-  return 0;
-}
-
-function bumpVersion(current, bumpType) {
-  switch (bumpType) {
+function bumpVersion(current, requested) {
+  switch (requested) {
     case "patch":
       return { ...current, patch: current.patch + 1 };
     case "minor":
@@ -65,7 +49,7 @@ function bumpVersion(current, bumpType) {
     case "major":
       return { major: current.major + 1, minor: 0, patch: 0 };
     default:
-      return parseVersion(bumpType);
+      return parseVersion(requested);
   }
 }
 
@@ -106,29 +90,21 @@ if (positional.length !== 1) {
 
 try {
   const requested = positional[0];
-  const resolvedRequest = BUMP_ALIASES.get(requested) ?? requested;
-  if (!BUMP_ALIASES.has(requested) && !VERSION_PATTERN.test(requested)) {
+  if (!BUMP_TYPES.has(requested) && !VERSION_PATTERN.test(requested)) {
     throw new Error(
-      `Expected feature, fix, refactor, chore, patch, minor, major, or x.y.z; received ${requested}.`
+      `Expected minor, patch, major, or an explicit x.y.z version; received ${requested}.`
     );
   }
 
-  const packageJson = readJson("package.json");
-  const packageLock = readJson("package-lock.json");
-  const current = parseVersion(packageJson.version);
-  const lockVersion = parseVersion(packageLock.version);
-  const rootLockVersion = parseVersion(packageLock.packages?.[""]?.version);
+  const packageJson = readJsonFile("package.json");
+  const packageLock = readJsonFile("package-lock.json");
+  const current = assertPackageVersionsMatch(
+    packageJson,
+    packageLock,
+    "Current"
+  );
 
-  if (
-    compareVersions(current, lockVersion) !== 0 ||
-    compareVersions(current, rootLockVersion) !== 0
-  ) {
-    throw new Error(
-      "package.json and package-lock.json versions differ. Resolve that before preparing a release."
-    );
-  }
-
-  const target = bumpVersion(current, resolvedRequest);
+  const target = bumpVersion(current, requested);
   if (compareVersions(target, current) <= 0) {
     throw new Error(
       `Target version ${formatVersion(target)} must be greater than current version ${formatVersion(current)}.`
@@ -136,16 +112,25 @@ try {
   }
 
   const targetVersion = formatVersion(target);
+  const releaseBranch = `chore/release-v${targetVersion}`;
   console.log(`[release-version] Current product version: ${formatVersion(current)}`);
   console.log(`[release-version] Target product version: ${targetVersion}`);
+  console.log(`[release-version] Release-preparation branch: ${releaseBranch}`);
   console.log(`[release-version] Tag to create after merge: v${targetVersion}`);
+
+  const branch = currentBranchName();
+  if (branch && !branch.startsWith(releaseBranch)) {
+    console.log(
+      `[release-version] Note: current branch "${branch}" is not ${releaseBranch}; release preparation runs on its dedicated branch.`
+    );
+  }
 
   if (dryRun) {
     console.log("[release-version] Dry run only; package files were not changed.");
   } else {
     runNpmVersion(targetVersion);
     console.log(
-      "[release-version] Updated package.json and package-lock.json. Add release notes before opening the release PR."
+      `[release-version] package.json and package-lock.json moved to ${targetVersion}. Add the matching CHANGELOG.md entry, then run release:check.`
     );
   }
 } catch (error) {

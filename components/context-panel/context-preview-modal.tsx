@@ -113,11 +113,6 @@ export function ContextPreviewModal({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <ContextCardActorChip
-              actor={card.projection.steward}
-              label="Steward"
-              fallback="Unassigned"
-            />
-            <ContextCardActorChip
               actor={card.projection.creator}
               label="Created"
               fallback="Unknown"

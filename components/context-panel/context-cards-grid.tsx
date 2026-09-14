@@ -113,11 +113,6 @@ export function ContextCardsGrid({
 
             <div className="mt-2 flex flex-wrap items-center gap-1">
               <ContextCardActorChip
-                actor={card.projection.steward}
-                label="Steward"
-                fallback="Unassigned"
-              />
-              <ContextCardActorChip
                 actor={card.projection.creator}
                 label="Created"
                 fallback="Unknown"
