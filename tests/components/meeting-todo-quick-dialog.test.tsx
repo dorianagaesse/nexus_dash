@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   clampMeetingTodoDialogPosition,
   MeetingTodoQuickDialog,
+  PANEL_POSITION_STORAGE_KEY,
+  readStoredMeetingTodoDialogPosition,
 } from "@/components/meeting-todos/meeting-todo-quick-dialog";
 import type { ProjectMeetingNotePanelNote } from "@/components/meeting-todos/meeting-note-types";
 
@@ -45,6 +47,18 @@ const OPEN_NOTE: ProjectMeetingNotePanelNote = {
 let roots: Root[] = [];
 let containers: HTMLElement[] = [];
 
+async function cleanupPanels() {
+  for (const root of roots) {
+    await act(async () => root.unmount());
+  }
+  for (const container of containers) {
+    container.remove();
+  }
+  roots = [];
+  containers = [];
+  document.body.innerHTML = "";
+}
+
 function renderPanel({
   canEdit = true,
   onOpenMeeting = vi.fn(),
@@ -77,9 +91,9 @@ function renderPanel({
 }
 
 function getButton(name: string): HTMLButtonElement {
-  const button = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
-    (candidate) => candidate.getAttribute("aria-label") === name
-  );
+  const button = Array.from(
+    document.querySelectorAll<HTMLButtonElement>("button")
+  ).find((candidate) => candidate.getAttribute("aria-label") === name);
   if (!button) {
     throw new Error(`Button not found: ${name}`);
   }
@@ -95,7 +109,9 @@ async function openTodosDialog() {
   return trigger;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  await cleanupPanels();
+  window.localStorage.clear();
   vi.stubGlobal(
     "matchMedia",
     vi.fn().mockReturnValue({
@@ -120,15 +136,8 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  for (const root of roots) {
-    await act(async () => root.unmount());
-  }
-  for (const container of containers) {
-    container.remove();
-  }
-  roots = [];
-  containers = [];
-  document.body.innerHTML = "";
+  await cleanupPanels();
+  window.localStorage.clear();
   vi.unstubAllGlobals();
 });
 
@@ -217,11 +226,10 @@ describe("meeting todo quick dialog", () => {
     ).toBeNull();
   });
 
-  test("clamps movement to the visible project and viewport intersection", () => {
+  test("clamps movement to the viewport so the panel can clear project content", () => {
     const common = {
-      currentPosition: { x: 0, y: 0 },
+      currentPosition: { left: 100, top: 100 },
       dialogRect: { left: 500, right: 900, top: 200, bottom: 600 },
-      projectRect: { left: 256, right: 1280, top: 0, bottom: 1600 },
       viewportWidth: 1280,
       viewportHeight: 900,
     };
@@ -229,15 +237,80 @@ describe("meeting todo quick dialog", () => {
     expect(
       clampMeetingTodoDialogPosition({
         ...common,
-        desiredPosition: { x: 900, y: 900 },
+        desiredPosition: { left: 900, top: 900 },
       })
-    ).toEqual({ x: 364, y: 284 });
+    ).toEqual({ left: 464, top: 384 });
     expect(
       clampMeetingTodoDialogPosition({
         ...common,
-        desiredPosition: { x: -900, y: -900 },
+        desiredPosition: { left: -900, top: -900 },
       })
-    ).toEqual({ x: -228, y: -184 });
+    ).toEqual({ left: -384, top: -84 });
+    expect(
+      clampMeetingTodoDialogPosition({
+        ...common,
+        desiredPosition: { left: 200, top: 48 },
+      })
+    ).toEqual({ left: 200, top: 48 });
+  });
+
+  test("reads only finite stored panel positions", () => {
+    expect(readStoredMeetingTodoDialogPosition()).toBeNull();
+
+    window.localStorage.setItem(
+      PANEL_POSITION_STORAGE_KEY,
+      JSON.stringify({ left: 420, top: 96 })
+    );
+    expect(readStoredMeetingTodoDialogPosition()).toEqual({
+      left: 420,
+      top: 96,
+    });
+
+    window.localStorage.setItem(PANEL_POSITION_STORAGE_KEY, "not-json");
+    expect(readStoredMeetingTodoDialogPosition()).toBeNull();
+
+    window.localStorage.setItem(
+      PANEL_POSITION_STORAGE_KEY,
+      JSON.stringify({ left: "far", top: 96 })
+    );
+    expect(readStoredMeetingTodoDialogPosition()).toBeNull();
+  });
+
+  test("persists a movement and restores the saved panel position", async () => {
+    renderPanel();
+    await openTodosDialog();
+    const defaultTransform = document.querySelector<HTMLElement>(
+      '[role="dialog"]'
+    )?.style.transform;
+    expect(window.localStorage.getItem(PANEL_POSITION_STORAGE_KEY)).toBeNull();
+
+    await act(async () => {
+      getButton("Move meeting todos panel with arrow keys").dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })
+      );
+    });
+    expect(
+      JSON.parse(window.localStorage.getItem(PANEL_POSITION_STORAGE_KEY) ?? "null")
+    ).toMatchObject({ left: expect.any(Number), top: expect.any(Number) });
+
+    await cleanupPanels();
+
+    window.localStorage.setItem(
+      PANEL_POSITION_STORAGE_KEY,
+      JSON.stringify({ left: 420, top: 96 })
+    );
+
+    renderPanel();
+    await openTodosDialog();
+    const restoredDialog = document.querySelector<HTMLElement>('[role="dialog"]');
+
+    expect(restoredDialog?.style.transform).not.toBe(defaultTransform);
+    expect(restoredDialog?.style.getPropertyValue("--meeting-todo-position-x")).toBe(
+      "420px"
+    );
+    expect(restoredDialog?.style.getPropertyValue("--meeting-todo-position-y")).toBe(
+      "96px"
+    );
   });
 
   test("supports keyboard movement from the compact header control", async () => {

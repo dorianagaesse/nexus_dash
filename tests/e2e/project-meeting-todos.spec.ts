@@ -573,7 +573,6 @@ test.describe("project meeting todos", () => {
       });
     }
 
-    const projectBounds = await page.locator("[data-project-page]").boundingBox();
     const moveHandle = todosDialog.getByRole("button", {
       name: "Move meeting todos panel with arrow keys",
     });
@@ -610,35 +609,33 @@ test.describe("project meeting todos", () => {
     const pointerMovedBounds = await todosDialog.boundingBox();
     expect(pointerMovedBounds?.x).toBeGreaterThan(keyboardMovedBounds?.x ?? 0);
     expect(pointerMovedBounds).not.toBeNull();
-    expect(projectBounds).not.toBeNull();
-    if (pointerMovedBounds && projectBounds) {
-      expect(pointerMovedBounds.x).toBeGreaterThanOrEqual(projectBounds.x + 15);
+    if (pointerMovedBounds) {
+      const viewport = page.viewportSize();
+      const viewportWidth = viewport?.width ?? 1280;
+      const viewportHeight = viewport?.height ?? 900;
+      expect(pointerMovedBounds.x).toBeGreaterThanOrEqual(15);
       expect(pointerMovedBounds.x + pointerMovedBounds.width).toBeLessThanOrEqual(
-        projectBounds.x + projectBounds.width - 15
+        viewportWidth - 15
       );
       expect(pointerMovedBounds.y).toBeGreaterThanOrEqual(15);
-      expect(pointerMovedBounds.y + pointerMovedBounds.height).toBeLessThanOrEqual(885);
+      expect(pointerMovedBounds.y + pointerMovedBounds.height).toBeLessThanOrEqual(
+        viewportHeight - 15
+      );
     }
 
     await page.setViewportSize({ width: 1024, height: 720 });
     await expect(todosDialog).toBeVisible();
     await page.waitForTimeout(100);
-    const resizedProjectBounds = await page
-      .locator("[data-project-page]")
-      .boundingBox();
     const resizedDialogBounds = await todosDialog.boundingBox();
-    expect(resizedProjectBounds).not.toBeNull();
     expect(resizedDialogBounds).not.toBeNull();
-    if (resizedDialogBounds && resizedProjectBounds) {
-      expect(resizedDialogBounds.x).toBeGreaterThanOrEqual(
-        resizedProjectBounds.x + 15
-      );
+    if (resizedDialogBounds) {
+      expect(resizedDialogBounds.x).toBeGreaterThanOrEqual(15);
       expect(resizedDialogBounds.x + resizedDialogBounds.width).toBeLessThanOrEqual(
-        resizedProjectBounds.x + resizedProjectBounds.width - 15
+        1024 - 15
       );
       expect(resizedDialogBounds.y).toBeGreaterThanOrEqual(15);
       expect(resizedDialogBounds.y + resizedDialogBounds.height).toBeLessThanOrEqual(
-        705
+        720 - 15
       );
     }
 
@@ -678,6 +675,105 @@ test.describe("project meeting todos", () => {
         path: path.resolve(screenshotDirectory, "desktop-sidebar.png"),
         fullPage: true,
       });
+    }
+  });
+
+  test("anchors the desktop todos panel bottom-right and restores a dragged position", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const userId = await signInAsVerifiedUser(page);
+    const fixture = await createProjectTodoFixture(userId);
+    const assigneeIdentity = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { username: true },
+    });
+    await prisma.projectMeetingNoteAction.update({
+      where: { id: fixture.sourceTodoId },
+      data: {
+        assigneeKind: "human",
+        assigneeUserId: userId,
+        assigneeDisplayNameSnapshot: "Dorian",
+        assignedByKind: "human",
+        assignedByUserId: userId,
+        assignedByDisplayNameSnapshot: "Dorian",
+        assignedAt: new Date(),
+      },
+    });
+
+    await page.goto(`/projects/${fixture.ownerProjectId}`);
+
+    const viewportWidth = page.viewportSize()?.width ?? 1440;
+    const todosTrigger = page.getByRole("button", { name: /^Todos, \d+ open/ });
+    await expect(todosTrigger).toBeVisible();
+    await expect
+      .poll(async () => {
+        const box = await todosTrigger.boundingBox();
+        return box ? Math.round(viewportWidth - (box.x + box.width)) : -1;
+      })
+      .toBe(16);
+
+    await todosTrigger.click();
+    const todosDialog = page.getByRole("dialog", { name: "Meeting todos" });
+    await expect(todosDialog).toBeVisible();
+    await page.waitForTimeout(300);
+
+    const assigneeTodoRow = todosDialog.locator("li").filter({
+      hasText: "Open the source meeting from Todos",
+    });
+    const assigneeChip = assigneeTodoRow.locator(
+      "[data-identity-role='assignee']"
+    );
+    await expect(assigneeChip).toContainText(assigneeIdentity.username ?? "");
+    const assigneeChipBounds = await assigneeChip.boundingBox();
+    const meetingButtonBounds = await assigneeTodoRow
+      .getByRole("button", { name: new RegExp(fixture.ownerMeetingTitle) })
+      .boundingBox();
+    expect(assigneeChipBounds).not.toBeNull();
+    expect(meetingButtonBounds).not.toBeNull();
+    if (assigneeChipBounds && meetingButtonBounds) {
+      expect(assigneeChipBounds.y).toBeLessThan(
+        meetingButtonBounds.y + meetingButtonBounds.height
+      );
+      expect(assigneeChipBounds.x).toBeGreaterThan(meetingButtonBounds.x);
+    }
+
+    const panelBounds = await todosDialog.boundingBox();
+    const dragStart = await todosDialog
+      .getByRole("heading", { name: "Meeting todos" })
+      .boundingBox();
+    expect(panelBounds).not.toBeNull();
+    expect(dragStart).not.toBeNull();
+    if (panelBounds && dragStart) {
+      await page.mouse.move(
+        dragStart.x + dragStart.width / 2,
+        dragStart.y + dragStart.height / 2
+      );
+      await page.mouse.down();
+      await page.mouse.move(1440, 880, { steps: 12 });
+      await page.mouse.up();
+
+      const maximumPanelLeft = viewportWidth - panelBounds.width - 16;
+      await expect
+        .poll(async () => (await todosDialog.boundingBox())?.x ?? 0)
+        .toBeGreaterThan(maximumPanelLeft - 2);
+      const draggedBounds = await todosDialog.boundingBox();
+      expect(draggedBounds).not.toBeNull();
+      if (draggedBounds) {
+        expect(draggedBounds.x).toBeGreaterThan(panelBounds.x);
+        expect(draggedBounds.x).toBeLessThanOrEqual(maximumPanelLeft);
+
+        await page.reload();
+        await page.getByRole("button", { name: /^Todos, \d+ open/ }).click();
+        const restoredDialog = page.getByRole("dialog", { name: "Meeting todos" });
+        await expect(restoredDialog).toBeVisible();
+        await expect
+          .poll(async () => (await restoredDialog.boundingBox())?.x ?? 0)
+          .toBeGreaterThanOrEqual(panelBounds.x + 300);
+        await expect
+          .poll(async () => (await restoredDialog.boundingBox())?.x ?? 0)
+          .toBeLessThanOrEqual(maximumPanelLeft);
+      }
     }
   });
 });

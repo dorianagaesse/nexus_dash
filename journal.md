@@ -51,6 +51,76 @@ Use it for important implementation milestones, blockers, validation runs, and r
   cache referencing the deleted stewardship route and a stale generated
   Prisma client were environment-only issues, fixed with `rm -rf .next`
   and `npx prisma generate`.
+- Second merge-forward (same day, before handoff): `origin/main` advanced
+  to 4f9a463 (ND-144 #517 comment screenshot attachments, migration
+  `20260913120000_task371_comment_screenshot_attachments`; ND-456 #522
+  meeting-todo panel). The only conflict was `journal.md` (both sides
+  prepended entries), resolved by keeping both. The new migration was
+  applied locally, the Prisma client regenerated, and the validation set
+  rerun on the final merged tree: `npm run lint`, `npm run rls:check`,
+  `npm test` (207 files / 1664 tests pass, 2 skipped), coverage thresholds
+  met (93.77% statements / 84.71% branches), production build,
+  `npm run release:check`, and the full Playwright suite (77 tests: 76
+  passed, 1 environment-gated skip, 0 failures) all pass.
+
+# 2026-09-14 - ND-456: Meeting todo panel anchoring, drag reach, inline assignee
+
+- Claimed live Nexus Dash card ND-456 (`cmtywry0d000a04l0q6x11y0x`, GitHub
+  issue #506 attached) and moved it from Backlog to In Progress before
+  coding. Work used the dedicated worktree `../nexus_dash_task456` on
+  `fix/nd-456-meeting-todo-panel`.
+- Merge-forward: ND-447 (stewardship removal, migration
+  `20260914120000_nd447_remove_context_card_stewardship`) and ND-457
+  (release-boundary versioning) landed on `main` while this branch was in
+  review; the branch was brought up to date with `main` (8fa91b4, via a
+  merge commit — the `non_fast_forward` ruleset blocks force-pushes) so it
+  carries the ND-447 migration and does not drift against a migrated
+  database.
+  The earlier per-PR version bump (0.73.1 + changelog section) predates
+  ND-457 and was reverted, leaving version metadata untouched on this fix
+  branch per the new `release:check` contract.
+- Trigger anchoring: the floating "Todos" button measured surrounding
+  project content to place itself and could still overlap project
+  information. It now rests at the true bottom-right page margin (16px
+  inset); verified at 1440x900 with the trigger right gap measuring exactly
+  16px.
+- Drag reach: the panel clamp was tied to the project-content bounds, so
+  the panel could not be dragged clear of project content. The clamp is now
+  the viewport edge margin. The panel's layout centering classes apply the
+  CSS `translate` property (Tailwind v4) which stacks with the inline drag
+  `transform`, leaving a constant offset between the stored position and
+  the measured rect — so clamp bounds are computed relative to the current
+  position and rect, and stored positions live in that same variable space.
+  A corner drag now parks the panel at viewport - 16px on both axes.
+- Persistence: the moved position is stored under
+  `nexusdash.meeting-todos.panel-position` and restored on reload; the
+  restore clamps only after the open animation, when the dialog rect is
+  measurable. Verified exact coordinates across a reload.
+- Inline assignee: open todo rows render the assignee chip on the same line
+  as the todo text and meeting title; todo and meeting titles truncate to
+  one line with ellipsis instead of wrapping the row.
+- Verification ran against a production build (`next build` + `next start`
+  on port 3747) per the Playwright config contract; dev-server runs showed
+  hydration and fixed-position geometry artifacts that did not reproduce in
+  production.
+- Unit clamp coverage was rewritten around the current-position-aware
+  signature, and the e2e anchoring test uses poll-based assertions because
+  raw `boundingBox()` reads can return transient values during the
+  post-hydration re-render.
+- A first post-merge e2e run failed broadly with
+  `Resource.stewardUserId does not exist` (P2022): `next build` does not
+  regenerate the Prisma client, so the clean build had bundled the stale
+  client generated before the ND-447 rebase while the local database had
+  the ND-447 migration applied. Re-running `npx prisma generate` before
+  the rebuild fixed it (CI runs `npm ci` + `npx prisma generate`, so this
+  is local-only).
+- Validation (merged tree): lint, RLS inventory, release policy (no
+  version metadata change on this fix branch), 1,653 unit tests passed
+  (2 skipped), coverage thresholds (93.77% statements / 84.71% branches /
+  95.39% functions / 94.07% lines), production build, and the full
+  Playwright suite against the local production build (76 tests: 75
+  passed, 1 environment-gated skip, 0 failures); the meeting-todos spec
+  passed 3/3 including the anchoring/drag/reload test.
 
 # 2026-09-14 - ND-447: Remove stewardship from context cards
 
@@ -7389,3 +7459,42 @@ Low-value entries to avoid going forward:
   v0.72.1. Reconciliation now requests archived Epics for the full panel
   snapshot while Kanban options remain active-only. Focused Epic tests (50),
   lint, release policy, and the production build pass after resolution.
+
+# 2026-09-13 - ND-144 screenshot attachments in descriptions and comments
+
+- Moved ND-144 to In Progress and created the dedicated
+  `feature/task-144-screenshot-attachments` worktree from `origin/main`.
+- Reused the task attachment upload/download pipeline for screenshot paste and
+  file selection in task descriptions and task comments. Added responsive,
+  keyboard-operable inline previews, progress states, accessible 44 px mobile
+  controls, image-only validation for comment previews, and attachment-only
+  comments.
+- Added an optional `TaskAttachment.commentId` relation so comment screenshots
+  remain attached to the exact discussion entry. Binding validates task,
+  uploader, unassigned state, image MIME type, project role, and agent scope
+  before the comment transaction succeeds.
+- Updated the agent OpenAPI contract and added service/route/component/browser
+  coverage for ownership rejection, screenshot-only comments, previews,
+  removal controls, persistence, paste, upload, and mobile layout.
+- Rebased the implementation onto ND-398's rich-text comment composer and then
+  onto current `main` at `414effa`. Copilot follow-up scopes asynchronous
+  uploads to their originating task, preserves screenshot drafts across edit
+  mode, removes duplicate preview rows, documents non-empty attachment arrays,
+  and permits editor cleanup only for the actor's own unbound uploads through
+  matching service and RLS rules. Removed the disallowed `project.md` edits and
+  added direct rich-text paste and attachment cleanup coverage.
+- Preview investigation confirmed browser-to-R2 `PUT` requests can be rejected
+  before reaching storage when an ephemeral Vercel origin is absent from the
+  bucket CORS allowlist. Direct uploads now clean their reserved object and
+  retry through the authenticated app upload route for files up to 4 MB, while
+  retaining the 25 MB direct path when CORS is available.
+- Simplified the comment composer by hiding its rich-text toolbar while keeping
+  rich-text rendering and keyboard behavior, and moved draft screenshot
+  previews into the bordered input shell. Focused component/client coverage
+  passes (84 tests), changed-file lint passes, and the production build compiles
+  and type-checks before stopping at page-data collection because this worktree
+  has no `DATABASE_URL`.
+- CI initially rejected the stale feature-branch version bump after `main`
+  introduced release-boundary governance. Restored the shared `0.73.0` package
+  version and kept ND-144's product notes under `Unreleased`; version assignment
+  remains owned by the release-preparation branch.

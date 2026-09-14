@@ -846,3 +846,31 @@ Keep UI-only or task-only notes in `journal.md`.
 - Links: `tasks/task-356-meeting-note-stewardship.md`,
   `docs/audits/task-336-multi-user-collaboration-audit.md`,
   `tasks/task-330-meeting-todo-assignees.md`.
+
+## 2026-09-13 - Comment screenshots remain task attachments with optional comment ownership (ND-144)
+
+- Status: Accepted.
+
+- Context: NexusDash already enforces storage ownership, project roles, agent
+  scopes, MIME/size validation, RLS, and authorized downloads through
+  `TaskAttachment`. Creating a second comment-file storage model would duplicate
+  those boundaries, while leaving pasted comment images as loose task files
+  would discard their discussion context.
+- Decision: Added nullable `TaskAttachment.commentId`. Screenshots upload first
+  through the existing task attachment routes, then comment creation binds up
+  to ten caller-uploaded, unassigned image attachments to the new comment in
+  the same database transaction. Task-level attachments retain `commentId =
+  null`; comment responses expose their owned screenshots for inline display.
+- Consequences: Existing attachment storage keys, authorization, cleanup, and
+  download URLs remain canonical. A failed or abandoned comment upload remains
+  a normal task attachment rather than losing the file; the UI allows removing
+  it before submission. Project editors may delete only their own unbound task
+  uploads, enforced identically by the service and RLS policy; owners retain
+  the broader delete capability. The nullable relation preserves historical
+  task files if a comment is ever removed.
+- Browser uploads still prefer signed direct R2 requests. If that request is
+  blocked at the transport layer (most commonly because a preview origin is
+  absent from R2 CORS), the client cleans the reserved object and retries files
+  within the app route's 4 MB limit through the authenticated multipart route.
+  Larger files retain the actionable CORS error because proxying them would
+  exceed the serverless request-size contract.

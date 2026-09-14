@@ -120,6 +120,7 @@ export async function KanbanBoardSection({
       position: task.position,
       attachments: task.attachments.map((attachment: TaskAttachment) => ({
         id: attachment.id,
+        commentId: attachment.commentId,
         kind: attachment.kind,
         name: attachment.name,
         url: attachment.url,
