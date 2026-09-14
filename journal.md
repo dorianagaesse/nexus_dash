@@ -7498,3 +7498,20 @@ Low-value entries to avoid going forward:
   introduced release-boundary governance. Restored the shared `0.73.0` package
   version and kept ND-144's product notes under `Unreleased`; version assignment
   remains owned by the release-preparation branch.
+
+## 2026-09-14 - ND-464 titled rich-content links
+
+- Claimed live Nexus Dash card ND-464 and created the dedicated
+  `nexus_dash_task464` worktree on `feature/nd-464-titled-links` from
+  `origin/main`.
+- Centralized titled-link rendering in the shared rich-text presentation used
+  by task comments, task descriptions, and context-card descriptions. Markdown
+  titles become safe external anchors, while legacy anchors that expose their
+  complete URL receive a compact host label.
+- Added semantic theme styling, visible keyboard focus, safe new-tab
+  attributes, overflow-safe wrapping, and focused rendering tests. Validation
+  passed: lint, RLS inventory, 1,668 unit tests (2 skipped), coverage thresholds
+  (93.77% statements / 84.71% branches), and the production build using the
+  documented local database URL plus non-secret build placeholders. A focused
+  Chromium flow also passed at a 375 px viewport across task descriptions,
+  comments, and context cards, including focus and horizontal-overflow checks.

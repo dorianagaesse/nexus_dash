@@ -65,6 +65,74 @@ describe("rich-text-content", () => {
     expect(buildEnhancedRichTextHtml("<p>Hello team</p>")).toBe("<p>Hello team</p>");
   });
 
+  test("renders user-titled Markdown links with safe external-link behavior", () => {
+    const output = buildEnhancedRichTextHtml(
+      "<p>Read the [release notes](https://example.com/releases/very-long-path).</p>"
+    );
+    const template = document.createElement("template");
+    template.innerHTML = output;
+    const link = template.content.querySelector<HTMLAnchorElement>("a");
+
+    expect(link?.textContent).toBe("release notes");
+    expect(link?.getAttribute("href")).toBe(
+      "https://example.com/releases/very-long-path"
+    );
+    expect(link?.target).toBe("_blank");
+    expect(link?.rel).toBe("noopener noreferrer");
+    expect(link?.dataset.richLink).toBe("true");
+    expect(template.content.textContent).not.toContain("https://example.com");
+  });
+
+  test("compacts legacy anchors whose visible text is the full URL", () => {
+    const output = buildEnhancedRichTextHtml(
+      '<p><a href="https://www.example.com/a/path">https://www.example.com/a/path</a></p>'
+    );
+    const template = document.createElement("template");
+    template.innerHTML = output;
+    const link = template.content.querySelector<HTMLAnchorElement>("a");
+
+    expect(link?.textContent).toBe("example.com");
+    expect(link?.getAttribute("href")).toBe("https://www.example.com/a/path");
+  });
+
+  test("keeps authored anchor titles while normalizing external-link safety", () => {
+    const output = buildEnhancedRichTextHtml(
+      '<p><a href="https://example.com/guide">Implementation guide</a></p>'
+    );
+    const template = document.createElement("template");
+    template.innerHTML = output;
+    const link = template.content.querySelector<HTMLAnchorElement>("a");
+
+    expect(link?.textContent).toBe("Implementation guide");
+    expect(link?.target).toBe("_blank");
+    expect(link?.rel).toBe("noopener noreferrer");
+  });
+
+  test("styles links for emphasis, focus visibility, and responsive wrapping", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html: "[A deliberately long link title that must wrap](https://example.com)",
+      })
+    );
+
+    const content = container.querySelector<HTMLDivElement>("div");
+    const link = content?.querySelector("a");
+    expect(link?.textContent).toBe(
+      "A deliberately long link title that must wrap"
+    );
+    expect(content?.className).toContain("[&_a]:font-bold");
+    expect(content?.className).toContain("[&_a]:text-primary");
+    expect(content?.className).toContain("[&_a]:focus-visible:ring-2");
+    expect(content?.className).toContain("[&_a]:[overflow-wrap:anywhere]");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("enhances code and token blocks into copyable confidential surfaces", () => {
     setClipboard({
       writeText: vi.fn().mockResolvedValue(undefined),

@@ -36,6 +36,7 @@ const TOKEN_BLOCK_MARKERS = [
 ];
 const HIDDEN_TOKEN_VALUE_MASK = "********";
 const RICH_TEXT_MENTION_SELECTOR = "[data-rich-mention='true']";
+const MARKDOWN_LINK_PATTERN = /\[([^\]\n]+)\]\((https?:\/\/[^\s<>)]+|mailto:[^\s<>)]+)\)/gi;
 const COPY_ICON_SVG =
   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
 const CHECK_ICON_SVG =
@@ -50,6 +51,86 @@ function supportsClipboardApi(): boolean {
     typeof navigator !== "undefined" &&
     typeof navigator.clipboard?.writeText === "function"
   );
+}
+
+function getCompactLinkTitle(href: string): string {
+  try {
+    const url = new URL(href);
+    if (url.protocol === "mailto:") {
+      return decodeURIComponent(url.pathname);
+    }
+
+    return url.hostname.replace(/^www\./i, "") || href;
+  } catch {
+    return href;
+  }
+}
+
+function configureRichTextLink(anchor: HTMLAnchorElement) {
+  const href = anchor.getAttribute("href")?.trim() ?? "";
+  if (!/^(https?:|mailto:)/i.test(href)) {
+    return;
+  }
+
+  const visibleText = anchor.textContent?.trim() ?? "";
+  if (visibleText === href) {
+    anchor.textContent = getCompactLinkTitle(href);
+  }
+
+  anchor.dataset.richLink = "true";
+  if (/^https?:/i.test(href)) {
+    anchor.target = "_blank";
+    anchor.rel = "noopener noreferrer";
+  }
+}
+
+function enhanceTitledLinks(root: DocumentFragment) {
+  root.querySelectorAll<HTMLAnchorElement>("a[href]").forEach(configureRichTextLink);
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode as Text;
+    if (
+      textNode.parentElement?.closest(
+        "a, pre, code, button, input, textarea, [data-rich-token-shell]"
+      )
+    ) {
+      continue;
+    }
+
+    MARKDOWN_LINK_PATTERN.lastIndex = 0;
+    if (MARKDOWN_LINK_PATTERN.test(textNode.data)) {
+      textNodes.push(textNode);
+    }
+  }
+
+  for (const textNode of textNodes) {
+    const fragment = document.createDocumentFragment();
+    let lastIndex = 0;
+    MARKDOWN_LINK_PATTERN.lastIndex = 0;
+
+    for (const match of textNode.data.matchAll(MARKDOWN_LINK_PATTERN)) {
+      const matchIndex = match.index ?? 0;
+      const title = match[1]?.trim() ?? "";
+      const href = match[2] ?? "";
+      if (!title) {
+        continue;
+      }
+
+      fragment.append(document.createTextNode(textNode.data.slice(lastIndex, matchIndex)));
+      const anchor = document.createElement("a");
+      anchor.href = href;
+      anchor.textContent = title;
+      configureRichTextLink(anchor);
+      fragment.append(anchor);
+      lastIndex = matchIndex + match[0].length;
+    }
+
+    fragment.append(document.createTextNode(textNode.data.slice(lastIndex)));
+    textNode.replaceWith(fragment);
+  }
 }
 
 function setMonospaceFont(element: HTMLElement) {
@@ -172,14 +253,19 @@ export function buildEnhancedRichTextHtml(
     input.includes(marker)
   );
   const hasMentions = input.includes("@");
+  const hasLinks = input.includes("href=") || input.includes("](");
 
-  if (!hasCodeBlocks && !hasTokenBlocks && !hasMentions) {
+  if (!hasCodeBlocks && !hasTokenBlocks && !hasMentions && !hasLinks) {
     return input;
   }
 
   const canCopy = supportsClipboardApi();
   const template = document.createElement("template");
   template.innerHTML = input;
+
+  if (hasLinks) {
+    enhanceTitledLinks(template.content);
+  }
 
   template.content.querySelectorAll("pre").forEach((preElement) => {
     const codeText = preElement.textContent?.replace(/\u00a0/g, " ").trim();
@@ -617,7 +703,9 @@ export function RichTextContent({
         suppressHydrationWarning
         className={cn(
           "max-w-full overflow-x-hidden [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words",
-          "[&_a]:underline [&_a]:underline-offset-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3",
+          "[&_a]:font-bold [&_a]:text-primary [&_a]:underline [&_a]:decoration-primary/50 [&_a]:underline-offset-2 [&_a]:transition-colors [&_a]:hover:text-primary/80",
+          "[&_a]:focus-visible:rounded-sm [&_a]:focus-visible:outline-none [&_a]:focus-visible:ring-2 [&_a]:focus-visible:ring-ring [&_a]:focus-visible:ring-offset-2 [&_a]:focus-visible:ring-offset-background",
+          "[&_a]:[overflow-wrap:anywhere] [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3",
           "[&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold",
           "[&_li]:mb-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-4",
           "[&_p:last-child]:mb-0 [&_ul:last-child]:mb-0 [&_ol:last-child]:mb-0 [&_button]:font-sans",
