@@ -8,6 +8,22 @@ SHA, deployment URL, and workflow run belong in release evidence.
 
 - Define each release entry before the product-impacting PR is merged.
 
+## v0.74.0 - 2026-09-14
+
+- Removed context-card stewardship end to end (ND-447). The
+  `PATCH /api/projects/{projectId}/context-cards/{cardId}/stewardship` route,
+  the steward and review fields on the context-card projection (including
+  `assignableActors` in collection responses), and the four `Resource.steward*`
+  columns with their indexes, constraints, and foreign keys are gone.
+  Meeting-note stewardship is unchanged.
+- Offboarding responsibility review counts task assignments, meeting-note
+  stewardships, and open meeting todos; the removal dialog no longer lists a
+  context-cards row, and the `resolve_project_actor_responsibilities` SQL
+  function no longer rewrites `Resource` rows.
+- The retired `context-card-stewardship-service` module is replaced by
+  `context-card-projection-service`, which keeps creator/last-editor
+  provenance and attachment projection for the context panel.
+
 ## v0.73.0 - 2026-09-13
 
 - Published the agent attention API in the versioned OpenAPI document

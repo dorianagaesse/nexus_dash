@@ -66,7 +66,6 @@ export interface ProjectSharingSummary {
 
 export interface ProjectResponsibilityInventory {
   taskAssignments: number;
-  contextCardStewardships: number;
   meetingNoteStewardships: number;
   meetingTodoAssignments: number;
   total: number;

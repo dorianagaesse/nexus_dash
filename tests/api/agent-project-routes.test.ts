@@ -27,7 +27,7 @@ const contextCardServiceMock = vi.hoisted(() => ({
   createContextCardForProject: vi.fn(),
 }));
 
-const contextCardStewardshipServiceMock = vi.hoisted(() => ({
+const contextCardProjectionServiceMock = vi.hoisted(() => ({
   loadContextCardActorRegistryForProject: vi.fn(),
   projectContextCard: vi.fn(),
 }));
@@ -74,10 +74,10 @@ vi.mock("@/lib/services/project-actor-service", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/services/context-card-stewardship-service", () => ({
+vi.mock("@/lib/services/context-card-projection-service", () => ({
   loadContextCardActorRegistryForProject:
-    contextCardStewardshipServiceMock.loadContextCardActorRegistryForProject,
-  projectContextCard: contextCardStewardshipServiceMock.projectContextCard,
+    contextCardProjectionServiceMock.loadContextCardActorRegistryForProject,
+  projectContextCard: contextCardProjectionServiceMock.projectContextCard,
 }));
 
 vi.mock("@/lib/services/project-attachment-service", () => ({
@@ -131,7 +131,7 @@ describe("agent project routes", () => {
       scopes: ["project:read", "task:read", "context:read"],
     });
     projectAccessServiceMock.requireAgentProjectScopes.mockReturnValue({ ok: true });
-    contextCardStewardshipServiceMock.loadContextCardActorRegistryForProject.mockResolvedValue(
+    contextCardProjectionServiceMock.loadContextCardActorRegistryForProject.mockResolvedValue(
       { assignable: [] }
     );
     projectActorServiceMock.loadProjectActorRegistryForActor.mockResolvedValue({
@@ -140,8 +140,11 @@ describe("agent project routes", () => {
       credentialById: new Map(),
       assignable: [],
     });
-    contextCardStewardshipServiceMock.projectContextCard.mockReturnValue({
-      needsReview: false,
+    contextCardProjectionServiceMock.projectContextCard.mockReturnValue({
+      id: "card-1",
+      creator: null,
+      lastEditor: null,
+      attachments: [],
     });
   });
 
@@ -442,11 +445,13 @@ describe("agent project routes", () => {
             },
           ],
           projection: {
-            needsReview: false,
+            id: "card-1",
+            creator: null,
+            lastEditor: null,
+            attachments: [],
           },
         },
       ],
-      assignableActors: [],
     });
     expect(projectAccessServiceMock.requireAgentProjectScopes).toHaveBeenCalledWith({
       agentAccess: undefined,

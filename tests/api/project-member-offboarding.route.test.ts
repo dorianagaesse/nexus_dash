@@ -78,7 +78,6 @@ describe("project member offboarding route", () => {
   test("DELETE returns the server-recomputed inventory on conflict", async () => {
     const inventory = {
       taskAssignments: 1,
-      contextCardStewardships: 0,
       meetingNoteStewardships: 0,
       meetingTodoAssignments: 0,
       total: 1,

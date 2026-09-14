@@ -3,6 +3,64 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-14 - ND-447: Remove stewardship from context cards
+
+- Implemented in the dedicated `../nexus_dash_task447` worktree on
+  `feature/nd-447-remove-context-card-stewardship` from `origin/main` at
+  5c28443 (v0.73.0). Context-card stewardship (ND-184, TASK-342) shipped
+  backend-first and never surfaced in the UI; this task removes it end to
+  end. Meeting-note stewardship is out of scope and untouched.
+- Schema (migration `20260914120000_nd447_remove_context_card_stewardship`):
+  drops the four `Resource` steward columns (`stewardUserId`,
+  `stewardCredentialId`, `stewardKind`, `stewardDisplayNameSnapshot`) with
+  their two indexes, the `Resource_steward_actor_check` constraint, and both
+  foreign keys. The migration also redefines
+  `app.resolve_project_actor_responsibilities` without the `Resource`
+  steward writes (everything else identical, including the retained
+  meeting-note and meeting-todo blocks) and drops
+  `app.list_project_context_card_actors`, whose only consumer was the
+  stewardship-era assignable-actor list; the canonical
+  `app.list_project_actors` projection remains. `ContextCardActorKind` and
+  all meeting-note steward columns stay.
+- API: the `PATCH /api/projects/{projectId}/context-cards/{cardId}/stewardship`
+  route is deleted, the collection response no longer returns
+  `assignableActors`, and card serialization no longer maps
+  `projection.review`.
+- Services: `context-card-stewardship-service` is replaced by
+  `context-card-projection-service` (creator, last editor, and attachment
+  provenance only); `context-card-actor-service` keeps the registry loader
+  and mutation resolver; `lib/context-card-actor.ts` shrinks to a type
+  re-export over the canonical project-actor contract.
+- Offboarding: the responsibility inventory and removal dialog now count
+  task assignments, meeting-note stewardships, and open meeting todos only;
+  the "Context cards" row is gone.
+- UI: the steward chip is removed from the context-card grid and preview
+  modal; creator and last-editor chips stay.
+- Validation: `npm run lint`, `npm run rls:check` (inventory matches
+  committed policy migrations), 1,634 unit tests passed / 2 skipped,
+  coverage thresholds met (93.77% statements / 84.71% branches), production
+  build passed, and the PostgreSQL RLS matrix passed on an isolated
+  container (`POSTGRES_PORT=55440`), including responsibility resolution and
+  safe project actor reads. The full Playwright suite passed (74 passed,
+  1 environment-gated skip) against a local `next start` on port 30447,
+  including the updated ND-179 offboarding flow. Version policy moved
+  0.73.0 -> 0.74.0 with the changelog entry. The edited migration was also
+  applied from scratch on a scratch database, verifying the dropped
+  context-card actor projection, the kept `app.list_project_actors` and
+  `resolve_project_actor_responsibilities` functions, the removed steward
+  columns, and the intact `ContextCardActorKind` enum.
+- The local e2e server must export `TRUSTED_ORIGINS=http://127.0.0.1:<port>`
+  (or NEXTAUTH_URL) when running in production mode; without it the
+  forgot-password action 500s and `password-recovery.spec.ts` fails.
+- Known flake (pre-existing, unrelated): `tests/scripts/version-policy.test.ts`
+  spawns real git repositories and occasionally crosses the 5s default
+  timeout under full coverage runs; it passes on rerun and the file is not
+  touched by this task.
+- Note: `app/api/projects/[projectId]/context-cards/route.ts` is CRLF-ended
+  in the repository (since TASK-342); the single `git diff --check` line flag
+  on it is that pre-existing EOL convention, and the file is left uniformly
+  CRLF rather than mixing endings or rewriting 215 lines out of scope.
+
 # 2026-09-13 - ND-386: Publish and validate the agent attention API contract
 
 - Implemented in the dedicated `../nexus_dash_task386` worktree on

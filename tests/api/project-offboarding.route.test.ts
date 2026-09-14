@@ -63,10 +63,9 @@ describe("project offboarding routes", () => {
   test("GET returns the current responsibility inventory", async () => {
     const inventory = {
       taskAssignments: 1,
-      contextCardStewardships: 2,
       meetingNoteStewardships: 3,
       meetingTodoAssignments: 4,
-      total: 10,
+      total: 8,
     };
     offboardingServiceMock.getProjectResponsibilityInventory.mockResolvedValueOnce(
       {
@@ -141,8 +140,7 @@ describe("project offboarding routes", () => {
   test("POST returns a recomputed inventory after a stale choice", async () => {
     const inventory = {
       taskAssignments: 0,
-      contextCardStewardships: 1,
-      meetingNoteStewardships: 0,
+      meetingNoteStewardships: 1,
       meetingTodoAssignments: 0,
       total: 1,
     };

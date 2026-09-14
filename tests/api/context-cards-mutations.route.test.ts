@@ -139,13 +139,10 @@ describe("context cards mutation routes", () => {
   });
 
   test("PATCH updates context card via service", async () => {
-    const lastEditedAt = new Date("2026-08-16T12:00:00.000Z");
     const projection = {
       id: "c1",
       creator: null,
       lastEditor: null,
-      steward: null,
-      review: { needsReview: false, thresholdDays: 90, lastEditedAt },
       attachments: [],
     };
     contextCardServiceMock.updateContextCardForProject.mockResolvedValueOnce({
@@ -189,13 +186,7 @@ describe("context cards mutation routes", () => {
         createdAt: "2026-08-15T09:00:00.000Z",
         updatedAt: "2026-08-16T12:00:00.000Z",
         attachments: [],
-        projection: {
-          ...projection,
-          review: {
-            ...projection.review,
-            lastEditedAt: lastEditedAt.toISOString(),
-          },
-        },
+        projection,
       },
     });
     expect(contextCardServiceMock.updateContextCardForProject).toHaveBeenCalledWith({
@@ -210,13 +201,10 @@ describe("context cards mutation routes", () => {
   });
 
   test("PATCH accepts json payloads", async () => {
-    const lastEditedAt = new Date("2026-08-16T12:00:00.000Z");
     const projection = {
       id: "c1",
       creator: null,
       lastEditor: null,
-      steward: null,
-      review: { needsReview: false, thresholdDays: 90, lastEditedAt },
       attachments: [],
     };
     contextCardServiceMock.updateContextCardForProject.mockResolvedValueOnce({
@@ -259,13 +247,7 @@ describe("context cards mutation routes", () => {
         createdAt: "2026-08-15T09:00:00.000Z",
         updatedAt: "2026-08-16T12:00:00.000Z",
         attachments: [],
-        projection: {
-          ...projection,
-          review: {
-            ...projection.review,
-            lastEditedAt: lastEditedAt.toISOString(),
-          },
-        },
+        projection,
       },
     });
     expect(contextCardServiceMock.updateContextCardForProject).toHaveBeenCalledWith({

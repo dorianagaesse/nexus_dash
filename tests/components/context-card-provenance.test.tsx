@@ -56,7 +56,6 @@ const card: ProjectContextCard = {
   attachments: [],
   projection: {
     id: "card-1",
-    steward: null,
     creator: agent,
     lastEditor: human,
     attachments: [],
@@ -133,7 +132,7 @@ describe("context card provenance", () => {
     await act(async () => root.unmount());
   });
 
-  test("preview shows current stewardship and historical provenance", async () => {
+  test("preview shows creator and last-editor provenance", async () => {
     const { root } = createRenderer();
     await act(async () => {
       root.render(
@@ -153,14 +152,10 @@ describe("context card provenance", () => {
     expect(document.body.textContent).toContain("Release bot");
     expect(document.body.textContent).toContain("Last edit:");
     expect(document.body.textContent).toContain("Ada");
-    expect(document.body.textContent).toContain("Steward: Unassigned");
-    expect(document.body.textContent).not.toContain("Needs review");
-    expect(document.body.textContent).not.toContain("Reviewed");
-    expect(document.querySelector("button[aria-haspopup='listbox']")).toBeNull();
     await act(async () => root.unmount());
   });
 
-  test("grid cards show current stewardship and historical provenance", async () => {
+  test("grid cards show creator and last-editor provenance", async () => {
     const { root } = createRenderer();
     await act(async () => {
       root.render(
@@ -179,8 +174,6 @@ describe("context card provenance", () => {
     });
     expect(document.body.textContent).toContain("Created:");
     expect(document.body.textContent).toContain("Last edit:");
-    expect(document.body.textContent).toContain("Steward: Unassigned");
-    expect(document.body.textContent).not.toContain("Needs review");
     await act(async () => root.unmount());
   });
 });

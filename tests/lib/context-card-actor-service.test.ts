@@ -1,31 +1,21 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {},
 }));
 
-const rlsContextMock = vi.hoisted(() => ({
+vi.mock("@/lib/services/rls-context", () => ({
   withActorRlsContext: vi.fn(),
 }));
 
-const projectAccessServiceMock = vi.hoisted(() => ({
+vi.mock("@/lib/services/project-access-service", () => ({
   buildProjectPrincipalWhere: vi.fn(),
   requireProjectRole: vi.fn(),
-}));
-
-vi.mock("@/lib/services/rls-context", () => ({
-  withActorRlsContext: rlsContextMock.withActorRlsContext,
-}));
-
-vi.mock("@/lib/services/project-access-service", () => ({
-  buildProjectPrincipalWhere: projectAccessServiceMock.buildProjectPrincipalWhere,
-  requireProjectRole: projectAccessServiceMock.requireProjectRole,
 }));
 
 import {
   loadContextCardActorRegistry,
   mapStoredContextCardActor,
-  resolveAssignableContextCardActorFromRegistry,
 } from "@/lib/services/context-card-actor-service";
 
 describe("context-card-actor-service mapStoredContextCardActor", () => {
@@ -102,122 +92,6 @@ describe("context-card-actor-service mapStoredContextCardActor", () => {
       displayName: "Release:bot",
       status: "revoked",
       isAssignable: false,
-    });
-  });
-});
-
-describe("context-card-actor-service registry resolver", () => {
-  const baseRegistry = {
-    activeHumanIds: new Set(["user-1"]),
-    humanById: new Map([
-      [
-        "user-1",
-        {
-          kind: "human" as const,
-          id: "user-1",
-          displayName: "ada",
-          usernameTag: "ada#0001",
-          avatarSeed: "seed",
-          status: "active" as const,
-          isAssignable: true,
-        },
-      ],
-    ]),
-    credentialById: new Map([
-      [
-        "cred-1",
-        {
-          kind: "agent" as const,
-          id: "cred-1",
-          displayName: "Release:bot",
-          usernameTag: null,
-          avatarSeed: null,
-          status: "active" as const,
-          isAssignable: true,
-        },
-      ],
-    ]),
-    assignable: [],
-  };
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  test("resolves an active human steward", () => {
-    const result = resolveAssignableContextCardActorFromRegistry({
-      registry: baseRegistry,
-      reference: { kind: "human", id: "user-1" },
-    });
-
-    expect(result).toMatchObject({
-      ok: true,
-      actor: {
-        userId: "user-1",
-        credentialId: null,
-        displayNameSnapshot: "ada",
-      },
-    });
-  });
-
-  test("resolves an active agent steward", () => {
-    const result = resolveAssignableContextCardActorFromRegistry({
-      registry: baseRegistry,
-      reference: { kind: "agent", id: "cred-1" },
-    });
-
-    expect(result).toMatchObject({
-      ok: true,
-      actor: {
-        userId: null,
-        credentialId: "cred-1",
-        displayNameSnapshot: "Release:bot",
-      },
-    });
-  });
-
-  test("rejects a steward that is not in the registry", () => {
-    const result = resolveAssignableContextCardActorFromRegistry({
-      registry: baseRegistry,
-      reference: { kind: "human", id: "user-2" },
-    });
-
-    expect(result).toEqual({
-      ok: false,
-      status: 400,
-      error: "context-card-steward-invalid",
-    });
-  });
-
-  test("rejects a steward that the registry marks as not assignable", () => {
-    const registry = {
-      ...baseRegistry,
-      humanById: new Map([
-        [
-          "user-1",
-          {
-            ...baseRegistry.humanById.get("user-1")!,
-            isAssignable: false,
-          },
-        ],
-      ]),
-    };
-    const result = resolveAssignableContextCardActorFromRegistry({
-      registry,
-      reference: { kind: "human", id: "user-1" },
-    });
-    expect(result.ok).toBe(false);
-  });
-
-  test("returns an error when the registry itself is missing", () => {
-    const result = resolveAssignableContextCardActorFromRegistry({
-      registry: null,
-      reference: { kind: "human", id: "user-1" },
-    });
-    expect(result).toEqual({
-      ok: false,
-      status: 400,
-      error: "context-card-steward-invalid",
     });
   });
 });

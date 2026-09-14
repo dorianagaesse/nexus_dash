@@ -20,10 +20,9 @@ import { ProjectOffboardingDialog } from "@/components/project-dashboard/project
 
 const inventory = {
   taskAssignments: 2,
-  contextCardStewardships: 1,
   meetingNoteStewardships: 3,
   meetingTodoAssignments: 4,
-  total: 10,
+  total: 9,
 };
 
 describe("project-offboarding-dialog", () => {
@@ -58,10 +57,9 @@ describe("project-offboarding-dialog", () => {
 
     expect(result).toContain("Remove Morgan?");
     expect(result).toContain("Active task assignments");
-    expect(result).toContain("Context cards");
     expect(result).toContain("Active meeting notes");
     expect(result).toContain("Open meeting todos");
-    expect(result).toContain("10 total");
+    expect(result).toContain("9 total");
     expect(result).toContain("Reassign active work");
     expect(result).toContain("Leave active work unassigned");
     expect(result).toContain('aria-label="Responsibility replacement"');
