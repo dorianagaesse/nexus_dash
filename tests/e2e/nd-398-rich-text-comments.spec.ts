@@ -135,8 +135,8 @@ test.describe("ND-398 rich text in task comments", () => {
     );
     expect(pwned).toBeUndefined();
 
-    // The composer uses the approved rich-text authoring model.
-    await expect(page.getByRole("button", { name: "Bold" })).toBeVisible();
+    // Comments retain rich-text rendering without the full authoring toolbar.
+    await expect(page.getByRole("button", { name: "Bold" })).toHaveCount(0);
   });
 
   test("round-trips ampersand text from the composer without double-escaping", async ({

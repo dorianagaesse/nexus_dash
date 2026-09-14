@@ -7340,3 +7340,42 @@ Low-value entries to avoid going forward:
   v0.72.1. Reconciliation now requests archived Epics for the full panel
   snapshot while Kanban options remain active-only. Focused Epic tests (50),
   lint, release policy, and the production build pass after resolution.
+
+# 2026-09-13 - ND-144 screenshot attachments in descriptions and comments
+
+- Moved ND-144 to In Progress and created the dedicated
+  `feature/task-144-screenshot-attachments` worktree from `origin/main`.
+- Reused the task attachment upload/download pipeline for screenshot paste and
+  file selection in task descriptions and task comments. Added responsive,
+  keyboard-operable inline previews, progress states, accessible 44 px mobile
+  controls, image-only validation for comment previews, and attachment-only
+  comments.
+- Added an optional `TaskAttachment.commentId` relation so comment screenshots
+  remain attached to the exact discussion entry. Binding validates task,
+  uploader, unassigned state, image MIME type, project role, and agent scope
+  before the comment transaction succeeds.
+- Updated the agent OpenAPI contract and added service/route/component/browser
+  coverage for ownership rejection, screenshot-only comments, previews,
+  removal controls, persistence, paste, upload, and mobile layout.
+- Rebased the implementation onto ND-398's rich-text comment composer and then
+  onto current `main` at `414effa`. Copilot follow-up scopes asynchronous
+  uploads to their originating task, preserves screenshot drafts across edit
+  mode, removes duplicate preview rows, documents non-empty attachment arrays,
+  and permits editor cleanup only for the actor's own unbound uploads through
+  matching service and RLS rules. Removed the disallowed `project.md` edits and
+  added direct rich-text paste and attachment cleanup coverage.
+- Preview investigation confirmed browser-to-R2 `PUT` requests can be rejected
+  before reaching storage when an ephemeral Vercel origin is absent from the
+  bucket CORS allowlist. Direct uploads now clean their reserved object and
+  retry through the authenticated app upload route for files up to 4 MB, while
+  retaining the 25 MB direct path when CORS is available.
+- Simplified the comment composer by hiding its rich-text toolbar while keeping
+  rich-text rendering and keyboard behavior, and moved draft screenshot
+  previews into the bordered input shell. Focused component/client coverage
+  passes (84 tests), changed-file lint passes, and the production build compiles
+  and type-checks before stopping at page-data collection because this worktree
+  has no `DATABASE_URL`.
+- CI initially rejected the stale feature-branch version bump after `main`
+  introduced release-boundary governance. Restored the shared `0.73.0` package
+  version and kept ND-144's product notes under `Unreleased`; version assignment
+  remains owned by the release-preparation branch.
