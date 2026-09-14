@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const dbMock = vi.hoisted(() => ({
   $queryRaw: vi.fn(),
   task: { count: vi.fn(), updateMany: vi.fn() },
-  resource: { count: vi.fn(), updateMany: vi.fn() },
   projectMeetingNote: { count: vi.fn(), updateMany: vi.fn() },
   projectMeetingNoteAction: {
     count: vi.fn(),
@@ -73,7 +72,6 @@ describe("project-offboarding-service", () => {
       data: { role: "owner" },
     });
     dbMock.task.count.mockResolvedValue(0);
-    dbMock.resource.count.mockResolvedValue(0);
     dbMock.projectMeetingNote.count.mockResolvedValue(0);
     dbMock.projectMeetingNoteAction.count.mockResolvedValue(0);
     dbMock.user.findUnique.mockResolvedValue({
@@ -99,7 +97,6 @@ describe("project-offboarding-service", () => {
       throw new Error(`Unexpected $queryRaw: ${sql}`);
     });
     dbMock.task.updateMany.mockResolvedValue({ count: 0 });
-    dbMock.resource.updateMany.mockResolvedValue({ count: 0 });
     dbMock.projectMeetingNote.updateMany.mockResolvedValue({ count: 0 });
     dbMock.projectMeetingNoteAction.updateMany.mockResolvedValue({ count: 0 });
     dbMock.taskAssigneeChange.createMany.mockResolvedValue({ count: 0 });
@@ -124,7 +121,6 @@ describe("project-offboarding-service", () => {
 
   test("counts each active responsibility category without historical work", async () => {
     dbMock.task.count.mockResolvedValueOnce(2);
-    dbMock.resource.count.mockResolvedValueOnce(3);
     dbMock.projectMeetingNote.count.mockResolvedValueOnce(4);
     dbMock.projectMeetingNoteAction.count.mockResolvedValueOnce(5);
 
@@ -136,10 +132,9 @@ describe("project-offboarding-service", () => {
 
     expect(inventory).toEqual({
       taskAssignments: 2,
-      contextCardStewardships: 3,
       meetingNoteStewardships: 4,
       meetingTodoAssignments: 5,
-      total: 14,
+      total: 11,
     });
     expect(dbMock.task.count).toHaveBeenCalledWith({
       where: {
@@ -181,7 +176,7 @@ describe("project-offboarding-service", () => {
   });
 
   test("requires a fresh explicit choice when active responsibility remains", async () => {
-    dbMock.resource.count.mockResolvedValueOnce(1);
+    dbMock.projectMeetingNote.count.mockResolvedValueOnce(1);
 
     const result = await resolveActiveProjectResponsibilities({
       db: dbMock as never,
@@ -197,8 +192,7 @@ describe("project-offboarding-service", () => {
       error: "responsibility-resolution-required",
       inventory: {
         taskAssignments: 0,
-        contextCardStewardships: 1,
-        meetingNoteStewardships: 0,
+        meetingNoteStewardships: 1,
         meetingTodoAssignments: 0,
         total: 1,
       },
@@ -208,7 +202,6 @@ describe("project-offboarding-service", () => {
 
   test("reassigns responsibility and records provenance plus append-only history", async () => {
     dbMock.task.count.mockResolvedValueOnce(1);
-    dbMock.resource.count.mockResolvedValueOnce(1);
     dbMock.projectMeetingNote.count.mockResolvedValueOnce(1);
     dbMock.projectMeetingNoteAction.count.mockResolvedValueOnce(1);
     dbMock.project.findUnique.mockResolvedValueOnce({
@@ -329,7 +322,6 @@ describe("project-offboarding-service", () => {
         },
       ],
     });
-    expect(dbMock.resource.updateMany).not.toHaveBeenCalled();
     expect(dbMock.projectMeetingNote.updateMany).not.toHaveBeenCalled();
   });
 
@@ -380,8 +372,8 @@ describe("project-offboarding-service", () => {
     expect(dbMock.projectMeetingNoteActionAssigneeChange.createMany).not.toHaveBeenCalled();
   });
 
-  test("skips assignment bookkeeping when only stewardships remain", async () => {
-    dbMock.resource.count.mockResolvedValueOnce(1);
+  test("skips assignment bookkeeping when only meeting-note stewardships remain", async () => {
+    dbMock.projectMeetingNote.count.mockResolvedValueOnce(1);
 
     const result = await resolveActiveProjectResponsibilities({
       db: dbMock as never,
@@ -462,7 +454,6 @@ describe("project-offboarding-service", () => {
         previousOwnerLeft: false,
         resolvedInventory: {
           taskAssignments: 0,
-          contextCardStewardships: 0,
           meetingNoteStewardships: 0,
           meetingTodoAssignments: 0,
           total: 0,
