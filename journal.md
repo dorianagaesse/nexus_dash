@@ -7377,3 +7377,17 @@ Low-value entries to avoid going forward:
   returned "the user who requested the review has reached their quota limit"
   -- so there were no review threads to triage; the quota state is flagged on
   the PR and the card for the human reviewer.
+- Merge-forward follow-up: merged `origin/main` at `8fa91b4`, picking up
+  ND-457's release-boundary versioning (PR #518) and ND-447's context-card
+  stewardship removal (PR #521). Dropped the 0.73.0 -> 0.74.0 bump and the
+  `v0.74.0` changelog section per the new policy -- product branches carry no
+  version metadata and join the next release; the preview and grid now render
+  the stewardless projection (Creator and Last edit chips only). Applied
+  ND-447's migration (`20260914120000_nd447_remove_context_card_stewardship`)
+  to the local database and regenerated the Prisma client. Post-merge
+  validation: release policy, lint, and `git diff --check` clean; `npm test`
+  fully green (1,656 passed / 2 skipped -- the version-policy timeout flake is
+  fixed by ND-457); coverage thresholds met; production build passed; full
+  Playwright suite on the owned server 75 passed / 1 skipped with only the
+  known local meeting-notes zoom geometry flake (`inputZoomBottomInset`
+  -4.85px, unrelated component tree).

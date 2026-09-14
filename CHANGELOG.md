@@ -13,15 +13,6 @@ selects the version and composes the entry for it.
 - Release entries are composed by the release-preparation PR
   (`chore/release-vX.Y.Z`), not by individual product PRs.
 
-## v0.74.0 - 2026-09-14
-
-- The open context card preview now offers the same options menu as the grid
-  cards (ND-448): a keyboard-accessible dots trigger with Edit and Delete,
-  where Edit opens the existing edit flow and Delete runs the existing
-  confirmation before removing the card. The menu closes on outside click or
-  Escape (Escape closes the menu before the card), and double-click-to-edit
-  keeps working.
-
 ## v0.73.0 - 2026-09-13
 
 - Published the agent attention API in the versioned OpenAPI document
