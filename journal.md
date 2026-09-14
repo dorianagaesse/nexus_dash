@@ -43,8 +43,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   container (`POSTGRES_PORT=55440`), including responsibility resolution and
   safe project actor reads. The full Playwright suite passed (74 passed,
   1 environment-gated skip) against a local `next start` on port 30447,
-  including the updated ND-179 offboarding flow. Version policy moved
-  0.73.0 -> 0.74.0 with the changelog entry. The edited migration was also
+  including the updated ND-179 offboarding flow. Version policy: no version
+  move — after merge-forwarding ND-457 (#518) the branch keeps 0.73.0 and
+  carries no CHANGELOG section, per the release-boundary model; the temporary
+  0.73.0 -> 0.74.0 bump and `v0.74.0` changelog entry from the first handoff
+  were removed. The edited migration was also
   applied from scratch on a scratch database, verifying the dropped
   context-card actor projection, the kept `app.list_project_actors` and
   `resolve_project_actor_responsibilities` functions, the removed steward
@@ -53,13 +56,77 @@ Use it for important implementation milestones, blockers, validation runs, and r
   (or NEXTAUTH_URL) when running in production mode; without it the
   forgot-password action 500s and `password-recovery.spec.ts` fails.
 - Known flake (pre-existing, unrelated): `tests/scripts/version-policy.test.ts`
-  spawns real git repositories and occasionally crosses the 5s default
-  timeout under full coverage runs; it passes on rerun and the file is not
-  touched by this task.
+  spawned real git repositories and occasionally crossed the 5s default
+  timeout under full coverage runs; ND-457 (#518) rewrote the file with a
+  suite-level 30s timeout, so the flake is fixed upstream by the
+  merge-forward.
+- Handoff merge-forward: `origin/main` advanced to 23b27ea (ND-457, PR #518),
+  which moves product versioning to release boundaries. The merge conflicted
+  only on `journal.md` (both sessions prepended an entry); `CHANGELOG.md`
+  auto-merged with the now-forbidden `v0.74.0` section, removed manually.
+  Resolution strips all version metadata from the branch (package.json,
+  package-lock.json back to 0.73.0; no changelog section) and keeps both
+  journal entries, ND-447 above ND-457. `npm run release:check` passes with
+  head = base = 0.73.0.
 - Note: `app/api/projects/[projectId]/context-cards/route.ts` is CRLF-ended
   in the repository (since TASK-342); the single `git diff --check` line flag
   on it is that pre-existing EOL convention, and the file is left uniformly
   CRLF rather than mixing endings or rewriting 215 lines out of scope.
+
+# 2026-09-14 - ND-457: Rework product versioning around cohesive production releases
+
+- Implemented in the dedicated `../nexus_dash_task457` worktree on
+  `chore/nd-457-cohesive-production-releases` from `origin/main` at 5c28443
+  (v0.73.0).
+- Workflow change: the product version now moves only at a release boundary.
+  Product PRs merge without touching version metadata (CI rejects version
+  changes outside release preparation); a cohesive release is prepared by a
+  metadata-only `chore/release-vX.Y.Z` PR that selects the version, moves
+  package.json + package-lock.json together, and composes the CHANGELOG entry.
+  After merge the release is tagged `vX.Y.Z` and the staged deployment built
+  from the release merge commit is promoted. The version label stays release
+  identity; commit SHA/deployment evidence keeps build identity; the
+  user-facing `vX.Y.Z` format is unchanged.
+- Tooling: new shared `scripts/version-utils.mjs` (SemVer parse/format/compare
+  plus package-file consistency) replaces the duplicated copies in both
+  scripts. `scripts/release-version.mjs` reworked: decisions are `minor`,
+  `patch`, `major`, or an explicit `x.y.z` (per-PR branch aliases
+  feature/fix/refactor/chore are rejected), and it prints the release branch
+  and tag names. `scripts/check-version-policy.mjs` reworked:
+  release-preparation branches must carry exactly the version named in the
+  branch, advance past main, keep a non-empty `## vX.Y.Z` changelog section,
+  and stay inside the metadata-only allowlist (package.json,
+  package-lock.json, CHANGELOG.md, journal.md, docs/releases/**); every other
+  branch must keep the base version. The label-based no-release-impact escape
+  hatch is removed; dependabot PRs pass through the no-bump rule.
+- Tests: `tests/scripts/version-policy.test.ts` rewritten (15 cases: no-bump
+  passes for feature/fix/docs/dependabot, bump rejection on product branches,
+  minor and patch release preparation passes, branch-name/version mismatch,
+  no version move, main already past the release, missing/empty/mis-headed
+  changelog entry, metadata-only violation, package-lock drift) and new
+  `tests/scripts/release-version.test.ts` (8 cases: minor resets patch, patch,
+  major/1.0.0, explicit version, dry-run, alias rejection, non-forward target,
+  package-file drift), sharing `tests/scripts/support/version-test-support.ts`
+  fixtures.
+- Docs: `docs/runbooks/release-versioning.md` rewritten around the release
+  boundary (minor/patch/hold/1.0 decisions, parallel PRs, hotfixes, release
+  preparation, metadata-only PRs, CI enforcement, tagging, promotion,
+  rollback, evidence, 1.0.0 readiness). README's release-version-metadata
+  section and the CHANGELOG header/Unreleased placeholder were updated to the
+  same contract; both are normally maintained separately, so the README edit
+  is called out in the PR description.
+- Representative exercises (2026-09-14, this worktree): `release:version --
+  minor --dry-run` prints 0.73.0 -> 0.74.0 with release branch
+  `chore/release-v0.74.0` and tag `v0.74.0`; `-- patch --dry-run` prints
+  0.73.0 -> 0.73.1 (package files untouched in both). The temp-repo test suite
+  exercises the real file moves plus both release types end-to-end, and the
+  updated `release:check` passes on this branch (base 0.73.0 = head 0.73.0).
+- Validation: `git diff --check` clean; `npm run lint`; `npm run rls:check`;
+  `npm test` 208 files / 1673 tests pass (2 skipped); `npm run test:coverage`
+  (93.77% statements); `npm run build` (BUILD_ID written). Playwright was not
+  rerun locally: no UI, auth, calendar, or upload paths are touched by this
+  change (scripts/tests/docs only); CI Quality Gates runs the full E2E Smoke
+  suite.
 
 # 2026-09-13 - ND-386: Publish and validate the agent attention API contract
 
