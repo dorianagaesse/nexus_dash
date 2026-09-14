@@ -48,7 +48,6 @@ function buildCard(overrides: Partial<ProjectContextCard>): ProjectContextCard {
     attachments: [],
     projection: {
       id: "card-1",
-      steward: null,
       creator: null,
       lastEditor: null,
       attachments: [],
@@ -252,7 +251,6 @@ describe("project context panel mentions", () => {
               attachments: [],
               projection: {
                 id: "card-new",
-                steward: null,
                 creator: null,
                 lastEditor: null,
                 attachments: [],

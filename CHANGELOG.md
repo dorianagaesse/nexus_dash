@@ -4,15 +4,14 @@ Product releases use SemVer-style pre-1.0 versioning. Keep build identity
 separate from product version: release entries describe `v0.x.y`, while commit
 SHA, deployment URL, and workflow run belong in release evidence.
 
+Product versions move only at release boundaries. Product PRs merge without
+touching the version; a release-preparation PR (`chore/release-vX.Y.Z`)
+selects the version and composes the entry for it.
+
 ## Unreleased
 
-- Task descriptions and rich-text comments now accept pasted or uploaded
-  screenshots, show responsive inline previews, and support screenshot-only
-  comments (ND-144).
-- Comment screenshots retain their discussion context through an optional
-  task-attachment-to-comment relation while continuing to use the existing
-  storage, download authorization, file validation, and tenant-isolation
-  boundaries.
+- Release entries are composed by the release-preparation PR
+  (`chore/release-vX.Y.Z`), not by individual product PRs.
 
 ## v0.73.0 - 2026-09-13
 
