@@ -6,32 +6,176 @@ Use it for important implementation milestones, blockers, validation runs, and r
 # 2026-09-14 - ND-446: Remove the border around the Kanban search and filter bar
 
 - Implemented in the dedicated `../nexus_dash_task446` worktree on
-  `feature/nd-446-remove-kanban-filter-bar-border` from `origin/main` at 5c28443
+  `feature/nd-446-remove-kanban-filter-bar-border` from `origin/main` at
+  414effa (v0.73.0). The filter bar no longer applies
+  `PROJECT_SECTION_CHROME_CLASS` (border, rounded card background, shadow)
+  and renders as a bare toolbar row that keeps its responsive padding
+  (`px-3 py-3 sm:px-4 sm:py-3.5`); the board header and columns are
+  unchanged, and `PROJECT_SECTION_CHROME_CLASS` remains in use by
+  `kanban-board-header.tsx`.
+- Regression test added in `tests/components/kanban-filter-bar.test.tsx`:
+  the section renders without border / `rounded-2xl` / `shadow-` /
+  `bg-card` classes and keeps its padding.
+- Visual evidence (temporary Playwright spec, removed before commit):
+  computed styles at 1280px and 390px show 0px border/radius, no shadow,
+  transparent background (before: 1px solid / 16px radius / shadow /
+  translucent card background); before/after screenshots show no layout
+  shift.
+- Pre-merge validation: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, `npm test` (207 files / 1657 tests pass, 2 skipped),
+  coverage thresholds met (94.07% lines / 84.71% branches), production
+  build, full Playwright suite 74 passed / 1 skipped on an isolated port
+  with `CI=1`.
+- Handoff merge-forward: `origin/main` advanced past this branch (ND-457
+  #518 moved product versioning to release boundaries; ND-447 #521 removed
+  context-card stewardship and dropped the `Resource.steward*` columns via
+  migration `20260914120000_nd447_remove_context_card_stewardship`). The
+  stale branch still queried those columns, which made the task untestable
+  against the migrated staging database; merging current main restores
+  schema parity. Resolution takes main's side for `CHANGELOG.md`,
+  `package.json`, and `package-lock.json` (no version metadata on product
+  branches per the release-boundary model; the earlier 0.73.0 -> 0.74.0
+  bump and `v0.74.0` changelog section were removed) and keeps every
+  journal entry. `npm run release:check` passes with head = base = 0.73.0.
+- Merged-tree re-validation (ND-447's migration applied to the local
+  database first): `npm run lint`, `npm run rls:check`, `npm test` (206
+  files / 1652 tests pass, 2 skipped), coverage thresholds met (93.77%
+  statements / 84.71% branches), production build, and the PostgreSQL RLS
+  matrix all pass. The full Playwright suite reruns reached 73 passed /
+  1 skipped with one failure in the known local flake
+  `smoke-project-task-calendar.spec.ts` ("meeting notes preparation,
+  output, and search flow"), which failed in two different modes across
+  reruns (geometry overshoot 1.3-2.4px at :441; `net::ERR_ABORTED` on
+  `page.reload()` at :351) and passed isolated on the same build. The spec
+  and its components are untouched by this branch. A stale `.next` dev
+  cache referencing the deleted stewardship route and a stale generated
+  Prisma client were environment-only issues, fixed with `rm -rf .next`
+  and `npx prisma generate`.
+
+# 2026-09-14 - ND-447: Remove stewardship from context cards
+
+- Implemented in the dedicated `../nexus_dash_task447` worktree on
+  `feature/nd-447-remove-context-card-stewardship` from `origin/main` at
+  5c28443 (v0.73.0). Context-card stewardship (ND-184, TASK-342) shipped
+  backend-first and never surfaced in the UI; this task removes it end to
+  end. Meeting-note stewardship is out of scope and untouched.
+- Schema (migration `20260914120000_nd447_remove_context_card_stewardship`):
+  drops the four `Resource` steward columns (`stewardUserId`,
+  `stewardCredentialId`, `stewardKind`, `stewardDisplayNameSnapshot`) with
+  their two indexes, the `Resource_steward_actor_check` constraint, and both
+  foreign keys. The migration also redefines
+  `app.resolve_project_actor_responsibilities` without the `Resource`
+  steward writes (everything else identical, including the retained
+  meeting-note and meeting-todo blocks) and drops
+  `app.list_project_context_card_actors`, whose only consumer was the
+  stewardship-era assignable-actor list; the canonical
+  `app.list_project_actors` projection remains. `ContextCardActorKind` and
+  all meeting-note steward columns stay.
+- API: the `PATCH /api/projects/{projectId}/context-cards/{cardId}/stewardship`
+  route is deleted, the collection response no longer returns
+  `assignableActors`, and card serialization no longer maps
+  `projection.review`.
+- Services: `context-card-stewardship-service` is replaced by
+  `context-card-projection-service` (creator, last editor, and attachment
+  provenance only); `context-card-actor-service` keeps the registry loader
+  and mutation resolver; `lib/context-card-actor.ts` shrinks to a type
+  re-export over the canonical project-actor contract.
+- Offboarding: the responsibility inventory and removal dialog now count
+  task assignments, meeting-note stewardships, and open meeting todos only;
+  the "Context cards" row is gone.
+- UI: the steward chip is removed from the context-card grid and preview
+  modal; creator and last-editor chips stay.
+- Validation: `npm run lint`, `npm run rls:check` (inventory matches
+  committed policy migrations), 1,634 unit tests passed / 2 skipped,
+  coverage thresholds met (93.77% statements / 84.71% branches), production
+  build passed, and the PostgreSQL RLS matrix passed on an isolated
+  container (`POSTGRES_PORT=55440`), including responsibility resolution and
+  safe project actor reads. The full Playwright suite passed (74 passed,
+  1 environment-gated skip) against a local `next start` on port 30447,
+  including the updated ND-179 offboarding flow. Version policy: no version
+  move — after merge-forwarding ND-457 (#518) the branch keeps 0.73.0 and
+  carries no CHANGELOG section, per the release-boundary model; the temporary
+  0.73.0 -> 0.74.0 bump and `v0.74.0` changelog entry from the first handoff
+  were removed. The edited migration was also
+  applied from scratch on a scratch database, verifying the dropped
+  context-card actor projection, the kept `app.list_project_actors` and
+  `resolve_project_actor_responsibilities` functions, the removed steward
+  columns, and the intact `ContextCardActorKind` enum.
+- The local e2e server must export `TRUSTED_ORIGINS=http://127.0.0.1:<port>`
+  (or NEXTAUTH_URL) when running in production mode; without it the
+  forgot-password action 500s and `password-recovery.spec.ts` fails.
+- Known flake (pre-existing, unrelated): `tests/scripts/version-policy.test.ts`
+  spawned real git repositories and occasionally crossed the 5s default
+  timeout under full coverage runs; ND-457 (#518) rewrote the file with a
+  suite-level 30s timeout, so the flake is fixed upstream by the
+  merge-forward.
+- Handoff merge-forward: `origin/main` advanced to 23b27ea (ND-457, PR #518),
+  which moves product versioning to release boundaries. The merge conflicted
+  only on `journal.md` (both sessions prepended an entry); `CHANGELOG.md`
+  auto-merged with the now-forbidden `v0.74.0` section, removed manually.
+  Resolution strips all version metadata from the branch (package.json,
+  package-lock.json back to 0.73.0; no changelog section) and keeps both
+  journal entries, ND-447 above ND-457. `npm run release:check` passes with
+  head = base = 0.73.0.
+- Note: `app/api/projects/[projectId]/context-cards/route.ts` is CRLF-ended
+  in the repository (since TASK-342); the single `git diff --check` line flag
+  on it is that pre-existing EOL convention, and the file is left uniformly
+  CRLF rather than mixing endings or rewriting 215 lines out of scope.
+
+# 2026-09-14 - ND-457: Rework product versioning around cohesive production releases
+
+- Implemented in the dedicated `../nexus_dash_task457` worktree on
+  `chore/nd-457-cohesive-production-releases` from `origin/main` at 5c28443
   (v0.73.0).
-- `components/kanban/kanban-filter-bar.tsx` stops applying the shared
-  `PROJECT_SECTION_CHROME_CLASS` (border, rounded card background, shadow) to
-  the toolbar section, so the search field and Filter button read as part of
-  the Kanban surface instead of a boxed panel above the board. The section
-  keeps its responsive padding (`px-3 py-3 sm:px-4 sm:py-3.5`), so the board
-  header and columns layout is unchanged. Search, label/epic filter,
-  clear-all, loading, and error behavior are untouched.
-- Regression test in `tests/components/kanban-filter-bar.test.tsx` asserts the
-  rendered section carries no border/rounded-2xl/shadow/bg-card classes and
-  keeps its padding utilities.
-- Visual evidence (temporary Playwright spec against the local app, deleted
-  before commit): the section's computed styles went from 1px solid borders /
-  16px radius / shadow / translucent card background (before) to 0px borders /
-  0px radius / `none` shadow / transparent background (after) at 1280px and
-  390px viewports; screenshots confirm the bar aligns with the header card and
-  columns with no layout shift, and the filter panel still opens via a real
-  click.
-- Validation (local env on the dedicated Postgres on port 55446):
-  `git diff --check` clean; `npm run lint`; `npm run rls:check`; `npm test`
-  207 files / 1657 tests pass (2 skipped); `npm run test:coverage` (94.07%
-  lines / 84.71% branches overall, thresholds met); `npm run test:e2e`
-  (production build, isolated port 3446, `CI=1`); release advanced
-  0.73.0 -> 0.74.0 (`## v0.74.0 - 2026-09-14` CHANGELOG entry,
-  `release:check` passes).
+- Workflow change: the product version now moves only at a release boundary.
+  Product PRs merge without touching version metadata (CI rejects version
+  changes outside release preparation); a cohesive release is prepared by a
+  metadata-only `chore/release-vX.Y.Z` PR that selects the version, moves
+  package.json + package-lock.json together, and composes the CHANGELOG entry.
+  After merge the release is tagged `vX.Y.Z` and the staged deployment built
+  from the release merge commit is promoted. The version label stays release
+  identity; commit SHA/deployment evidence keeps build identity; the
+  user-facing `vX.Y.Z` format is unchanged.
+- Tooling: new shared `scripts/version-utils.mjs` (SemVer parse/format/compare
+  plus package-file consistency) replaces the duplicated copies in both
+  scripts. `scripts/release-version.mjs` reworked: decisions are `minor`,
+  `patch`, `major`, or an explicit `x.y.z` (per-PR branch aliases
+  feature/fix/refactor/chore are rejected), and it prints the release branch
+  and tag names. `scripts/check-version-policy.mjs` reworked:
+  release-preparation branches must carry exactly the version named in the
+  branch, advance past main, keep a non-empty `## vX.Y.Z` changelog section,
+  and stay inside the metadata-only allowlist (package.json,
+  package-lock.json, CHANGELOG.md, journal.md, docs/releases/**); every other
+  branch must keep the base version. The label-based no-release-impact escape
+  hatch is removed; dependabot PRs pass through the no-bump rule.
+- Tests: `tests/scripts/version-policy.test.ts` rewritten (15 cases: no-bump
+  passes for feature/fix/docs/dependabot, bump rejection on product branches,
+  minor and patch release preparation passes, branch-name/version mismatch,
+  no version move, main already past the release, missing/empty/mis-headed
+  changelog entry, metadata-only violation, package-lock drift) and new
+  `tests/scripts/release-version.test.ts` (8 cases: minor resets patch, patch,
+  major/1.0.0, explicit version, dry-run, alias rejection, non-forward target,
+  package-file drift), sharing `tests/scripts/support/version-test-support.ts`
+  fixtures.
+- Docs: `docs/runbooks/release-versioning.md` rewritten around the release
+  boundary (minor/patch/hold/1.0 decisions, parallel PRs, hotfixes, release
+  preparation, metadata-only PRs, CI enforcement, tagging, promotion,
+  rollback, evidence, 1.0.0 readiness). README's release-version-metadata
+  section and the CHANGELOG header/Unreleased placeholder were updated to the
+  same contract; both are normally maintained separately, so the README edit
+  is called out in the PR description.
+- Representative exercises (2026-09-14, this worktree): `release:version --
+  minor --dry-run` prints 0.73.0 -> 0.74.0 with release branch
+  `chore/release-v0.74.0` and tag `v0.74.0`; `-- patch --dry-run` prints
+  0.73.0 -> 0.73.1 (package files untouched in both). The temp-repo test suite
+  exercises the real file moves plus both release types end-to-end, and the
+  updated `release:check` passes on this branch (base 0.73.0 = head 0.73.0).
+- Validation: `git diff --check` clean; `npm run lint`; `npm run rls:check`;
+  `npm test` 208 files / 1673 tests pass (2 skipped); `npm run test:coverage`
+  (93.77% statements); `npm run build` (BUILD_ID written). Playwright was not
+  rerun locally: no UI, auth, calendar, or upload paths are touched by this
+  change (scripts/tests/docs only); CI Quality Gates runs the full E2E Smoke
+  suite.
 
 # 2026-09-13 - ND-386: Publish and validate the agent attention API contract
 

@@ -69,9 +69,6 @@ test("owners review and unassign active responsibility before removing a collabo
       lastEditedByUserId: member.id,
       lastEditorKind: "human",
       lastEditorDisplayNameSnapshot: member.name ?? "Morgan Offboarding",
-      stewardUserId: member.id,
-      stewardKind: "human",
-      stewardDisplayNameSnapshot: member.name ?? "Morgan Offboarding",
     },
     select: { id: true },
   });
@@ -132,9 +129,8 @@ test("owners review and unassign active responsibility before removing a collabo
       name: `Remove ${memberLabel}?`,
     });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("4 total")).toBeVisible();
+    await expect(dialog.getByText("3 total")).toBeVisible();
     await expect(dialog.getByText("Active task assignments")).toBeVisible();
-    await expect(dialog.getByText("Context cards")).toBeVisible();
     await expect(dialog.getByText("Active meeting notes")).toBeVisible();
     await expect(dialog.getByText("Open meeting todos")).toBeVisible();
 
@@ -167,7 +163,8 @@ test("owners review and unassign active responsibility before removing a collabo
     const contextCardElement = page
       .getByRole("heading", { name: "Continuity context" })
       .locator("xpath=ancestor::article[1]");
-    await expect(contextCardElement.getByText("Steward: Unassigned")).toBeVisible();
+    await expect(contextCardElement).toContainText("Created:");
+    await expect(contextCardElement).toContainText("former member");
 
     await page.getByRole("button", { name: "Next list: In Progress" }).click();
     const taskCard = page.locator(`[data-kanban-task-card="${task.id}"]`);
@@ -207,7 +204,6 @@ test("owners review and unassign active responsibility before removing a collabo
     expect(storedTask?.assigneeCredentialId).toBeNull();
     expect(storedTask?.assigneeDisplayNameSnapshot).toBeNull();
     expect(storedTask?.createdByUserId).toBe(member.id);
-    expect(storedContextCard?.stewardUserId).toBeNull();
     expect(storedContextCard?.createdByUserId).toBe(member.id);
     expect(storedContextCard?.lastEditedByUserId).toBe(member.id);
     expect(storedMeetingNote?.stewardUserId).toBeNull();

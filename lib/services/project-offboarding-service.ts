@@ -12,7 +12,6 @@ export type ResponsibilityResolutionMode = "reassign" | "unassign";
 
 export interface ProjectResponsibilityInventory {
   taskAssignments: number;
-  contextCardStewardships: number;
   meetingNoteStewardships: number;
   meetingTodoAssignments: number;
   total: number;
@@ -45,7 +44,6 @@ interface ResponsibilityActor {
 
 const EMPTY_INVENTORY: ProjectResponsibilityInventory = {
   taskAssignments: 0,
-  contextCardStewardships: 0,
   meetingNoteStewardships: 0,
   meetingTodoAssignments: 0,
   total: 0,
@@ -133,7 +131,6 @@ export async function countActiveProjectResponsibilities(
 
   const [
     taskAssignments,
-    contextCardStewardships,
     meetingNoteStewardships,
     meetingTodoAssignments,
   ] = await Promise.all([
@@ -145,15 +142,6 @@ export async function countActiveProjectResponsibilities(
         ...(humanId
           ? { assigneeUserId: humanId }
           : { assigneeKind: "agent", assigneeCredentialId: credentialId }),
-      },
-    }),
-    db.resource.count({
-      where: {
-        projectId,
-        stewardKind: actor.kind,
-        ...(humanId
-          ? { stewardUserId: humanId }
-          : { stewardCredentialId: credentialId }),
       },
     }),
     db.projectMeetingNote.count({
@@ -180,14 +168,10 @@ export async function countActiveProjectResponsibilities(
 
   return {
     taskAssignments,
-    contextCardStewardships,
     meetingNoteStewardships,
     meetingTodoAssignments,
     total:
-      taskAssignments +
-      contextCardStewardships +
-      meetingNoteStewardships +
-      meetingTodoAssignments,
+      taskAssignments + meetingNoteStewardships + meetingTodoAssignments,
   };
 }
 

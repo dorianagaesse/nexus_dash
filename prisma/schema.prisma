@@ -52,7 +52,6 @@ model User {
   meetingTodoActionsCompleted         ProjectMeetingNoteAction[]               @relation("MeetingTodoCompletedByUser")
   contextCardsCreated                 Resource[]                               @relation("ContextCardCreatedByUser")
   contextCardsLastEdited              Resource[]                               @relation("ContextCardLastEditedByUser")
-  contextCardsStewarded               Resource[]                               @relation("ContextCardStewardedUser")
   tasksAssigneeProvenance             Task[]                                   @relation("TaskAssigneeAssignedByUser")
   taskAssigneeChangesPrevious         TaskAssigneeChange[]                     @relation("TaskAssigneeChangePreviousUser")
   taskAssigneeChangesNext             TaskAssigneeChange[]                     @relation("TaskAssigneeChangeNextUser")
@@ -727,10 +726,6 @@ model Resource {
   lastEditedByCredentialId      String?
   lastEditorKind                ContextCardActorKind?
   lastEditorDisplayNameSnapshot String?               @db.VarChar(80)
-  stewardUserId                 String?
-  stewardCredentialId           String?
-  stewardKind                   ContextCardActorKind?
-  stewardDisplayNameSnapshot    String?               @db.VarChar(80)
   createdAt                     DateTime              @default(now())
   updatedAt                     DateTime              @updatedAt
 
@@ -738,16 +733,12 @@ model Resource {
   createdByCredential    ApiCredential? @relation("ContextCardCreatedByCredential", fields: [createdByCredentialId], references: [id], onDelete: SetNull)
   lastEditedByUser       User?          @relation("ContextCardLastEditedByUser", fields: [lastEditedByUserId], references: [id], onDelete: SetNull)
   lastEditedByCredential ApiCredential? @relation("ContextCardLastEditedByCredential", fields: [lastEditedByCredentialId], references: [id], onDelete: SetNull)
-  stewardUser            User?          @relation("ContextCardStewardedUser", fields: [stewardUserId], references: [id], onDelete: SetNull)
-  stewardCredential      ApiCredential? @relation("ContextCardStewardedCredential", fields: [stewardCredentialId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([createdByUserId])
   @@index([createdByCredentialId])
   @@index([lastEditedByUserId])
   @@index([lastEditedByCredentialId])
-  @@index([stewardUserId])
-  @@index([stewardCredentialId])
   @@index([projectId, updatedAt])
 }
 
@@ -961,7 +952,6 @@ model ApiCredential {
   meetingTodoActionsCompleted         ProjectMeetingNoteAction[]               @relation("MeetingTodoCompletedByCredential")
   contextCardsCreated                 Resource[]                               @relation("ContextCardCreatedByCredential")
   contextCardsLastEdited              Resource[]                               @relation("ContextCardLastEditedByCredential")
-  contextCardsStewarded               Resource[]                               @relation("ContextCardStewardedCredential")
   meetingNotesStewarded               ProjectMeetingNote[]                     @relation("MeetingNoteStewardCredential")
   tasksAssignedToCredential           Task[]                                   @relation("TaskAssignedToCredential")
   tasksAssigneeProvenance             Task[]                                   @relation("TaskAssigneeAssignedByCredential")

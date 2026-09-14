@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowRightLeft,
   BriefcaseBusiness,
-  FileText,
   ListTodo,
   NotebookTabs,
 } from "lucide-react";
@@ -46,7 +45,6 @@ interface ProjectOffboardingDialogProps {
 
 const INVENTORY_ROWS = [
   { key: "taskAssignments", label: "Active task assignments", icon: ListTodo },
-  { key: "contextCardStewardships", label: "Context cards", icon: FileText },
   {
     key: "meetingNoteStewardships",
     label: "Active meeting notes",

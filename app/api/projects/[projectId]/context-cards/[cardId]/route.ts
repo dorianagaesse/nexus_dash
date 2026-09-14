@@ -39,10 +39,6 @@ function serializeContextCard(card: ContextCardResponse) {
     updatedAt: card.updatedAt.toISOString(),
     projection: {
       ...card.projection,
-      review: {
-        ...card.projection.review,
-        lastEditedAt: card.projection.review.lastEditedAt.toISOString(),
-      },
       attachments: card.projection.attachments.map((attachment) => ({
         ...attachment,
         uploadedAt: attachment.uploadedAt.toISOString(),

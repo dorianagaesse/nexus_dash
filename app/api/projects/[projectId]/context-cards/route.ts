@@ -15,7 +15,7 @@ import {
   projectContextCard,
   loadContextCardActorRegistryForProject,
   type ContextCardCardRecord,
-} from "@/lib/services/context-card-stewardship-service";
+} from "@/lib/services/context-card-projection-service";
 import { mapContextAttachmentResponse } from "@/lib/services/project-attachment-service";
 import { listProjectContextResources } from "@/lib/services/project-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
@@ -90,7 +90,6 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
     actorUserId: principalResult.principal.actorUserId,
     projectId: params.projectId,
   });
-  const assignableActors = registry?.assignable ?? [];
 
   return NextResponse.json(
     {
@@ -110,7 +109,6 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
           projection,
         };
       }),
-      assignableActors,
     },
     { headers: timing.headers() }
   );
