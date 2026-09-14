@@ -219,10 +219,9 @@ async function seed() {
     `INSERT INTO "Resource"
       ("id", "type", "name", "content", "projectId", "createdByUserId",
        "creatorKind", "creatorDisplayNameSnapshot", "lastEditedByUserId",
-       "lastEditorKind", "lastEditorDisplayNameSnapshot", "stewardUserId",
-       "stewardKind", "stewardDisplayNameSnapshot", "createdAt", "updatedAt")
+       "lastEditorKind", "lastEditorDisplayNameSnapshot", "createdAt", "updatedAt")
      VALUES ($1, 'note', 'Resource B', 'Responsibility fixture', $2, $3,
-       'human', 'Editor B', $3, 'human', 'Editor B', $3, 'human', 'Editor B',
+       'human', 'Editor B', $3, 'human', 'Editor B',
        NOW(), NOW())`,
     [ids.resourceB, ids.projectB, ids.editorB]
   );
@@ -1025,7 +1024,7 @@ try {
         [ids.taskB]
       );
       const resource = await runtime.query(
-        `SELECT "stewardUserId", "createdByUserId", "lastEditedByUserId"
+        `SELECT "createdByUserId", "lastEditedByUserId"
          FROM "Resource" WHERE "id" = $1`,
         [ids.resourceB]
       );
@@ -1066,7 +1065,6 @@ try {
   );
   assert.equal(responsibilityResolution.task.rows[0].createdByUserId, ids.editorB);
   assert.equal(responsibilityResolution.task.rows[0].updatedByUserId, ids.editorB);
-  assert.equal(responsibilityResolution.resource.rows[0].stewardUserId, ids.ownerB);
   assert.equal(responsibilityResolution.resource.rows[0].createdByUserId, ids.editorB);
   assert.equal(responsibilityResolution.resource.rows[0].lastEditedByUserId, ids.editorB);
   assert.equal(responsibilityResolution.note.rows[0].stewardUserId, ids.ownerB);

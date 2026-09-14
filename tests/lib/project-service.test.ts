@@ -676,25 +676,6 @@ describe("project-service", () => {
             expiresAt: true,
           },
         },
-        stewardUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            username: true,
-            usernameDiscriminator: true,
-            avatarSeed: true,
-          },
-        },
-        stewardCredential: {
-          select: {
-            id: true,
-            label: true,
-            projectId: true,
-            revokedAt: true,
-            expiresAt: true,
-          },
-        },
       },
     });
   });

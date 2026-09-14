@@ -17,7 +17,7 @@ import {
   projectContextCard,
   loadContextCardActorRegistryForProject,
   type ContextCardCardRecord,
-} from "@/lib/services/context-card-stewardship-service";
+} from "@/lib/services/context-card-projection-service";
 import {
   listProjectContextResources,
   type ProjectCollaboratorIdentitySummary,
@@ -47,13 +47,11 @@ export async function ProjectContextPanelSection({
     actorUserId,
     projectId,
   });
-  const now = new Date();
 
   const cards = resources.map((resource) => {
     const cardRecord = resource as unknown as ContextCardCardRecord;
     const projection = projectContextCard({
       card: cardRecord,
-      now,
       registry,
     });
 
@@ -103,7 +101,6 @@ export async function ProjectContextPanelSection({
         id: projection.id,
         creator: projection.creator as ProjectContextActorSummary | null,
         lastEditor: projection.lastEditor as ProjectContextActorSummary | null,
-        steward: projection.steward as ProjectContextActorSummary | null,
         attachments: attachmentProjections,
       },
     };

@@ -3,37 +3,36 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import process from "node:process";
 
-const VERSION_PATTERN = /^v?(\d+)\.(\d+)\.(\d+)$/;
-const VERSION_METADATA_FILES = new Set([
+import {
+  parseVersion,
+  formatVersion,
+  compareVersions,
+  readJsonFile,
+  assertPackageVersionsMatch,
+} from "./version-utils.mjs";
+
+const RELEASE_BRANCH_PATTERN = /^chore\/release-v(\d+\.\d+\.\d+)(?:$|[-_])/;
+const RELEASE_PREP_FILES = new Set([
   "package.json",
   "package-lock.json",
   "CHANGELOG.md",
+  "journal.md",
 ]);
-const PRODUCT_FILE_PATTERNS = [
-  /^app\//,
-  /^components\//,
-  /^lib\//,
-  /^prisma\//,
-  /^public\//,
-  /^styles\//,
-  /^middleware\.(js|ts)$/,
-  /^next\.config\./,
-  /^postcss\.config\./,
-  /^tailwind\.config\./,
-  /^tsconfig\.json$/,
-  /^Dockerfile$/,
-];
-const NO_RELEASE_IMPACT_LABELS = new Set([
-  "no-release-impact",
-  "release:none",
-]);
+const RELEASE_PREP_FILE_PREFIXES = ["docs/releases/"];
 
 function usage() {
   console.log(`Usage:
   npm run release:check -- [--base <ref>] [--head <ref>] [--branch <name>]
 
+Validates the release-boundary version policy:
+- Product branches (feature/, fix/, refactor/, docs/, chore/, dependabot/)
+  must not change the product version; they join the next release.
+- Release-preparation branches (chore/release-vX.Y.Z) must carry exactly that
+  version in package.json and package-lock.json, move forward from the base
+  version, stay metadata-only, and include a non-empty CHANGELOG.md section.
+
 Examples:
-  npm run release:check -- --base origin/main --branch feature/task-313-version-governance
+  npm run release:check -- --base origin/main --branch chore/release-v0.74.0
   npm run release:check`);
 }
 
@@ -66,72 +65,8 @@ function runGit(args, options = {}) {
   return result.stdout;
 }
 
-function readJsonFromWorkingTree(path) {
-  return JSON.parse(readFileSync(path, "utf8"));
-}
-
 function readJsonFromGit(ref, path) {
   return JSON.parse(runGit(["show", `${ref}:${path}`]));
-}
-
-function parseVersion(rawVersion) {
-  const match = String(rawVersion ?? "").match(VERSION_PATTERN);
-  if (!match) {
-    throw new Error(`Invalid product version: ${rawVersion}`);
-  }
-
-  return {
-    major: Number(match[1]),
-    minor: Number(match[2]),
-    patch: Number(match[3]),
-  };
-}
-
-function formatVersion(version) {
-  return `${version.major}.${version.minor}.${version.patch}`;
-}
-
-function compareVersions(left, right) {
-  for (const key of ["major", "minor", "patch"]) {
-    if (left[key] !== right[key]) {
-      return left[key] - right[key];
-    }
-  }
-
-  return 0;
-}
-
-function assertPackageVersionsMatch(packageJson, packageLock, label) {
-  const packageVersion = parseVersion(packageJson.version);
-  const lockVersion = parseVersion(packageLock.version);
-  const rootLockVersion = parseVersion(packageLock.packages?.[""]?.version);
-
-  if (
-    compareVersions(packageVersion, lockVersion) !== 0 ||
-    compareVersions(packageVersion, rootLockVersion) !== 0
-  ) {
-    throw new Error(
-      `${label} package.json and package-lock.json versions must match.`
-    );
-  }
-
-  return packageVersion;
-}
-
-function expectedVersion(baseVersion, branchType) {
-  if (branchType === "feature") {
-    return {
-      major: baseVersion.major,
-      minor: baseVersion.minor + 1,
-      patch: 0,
-    };
-  }
-
-  return {
-    major: baseVersion.major,
-    minor: baseVersion.minor,
-    patch: baseVersion.patch + 1,
-  };
 }
 
 function uniqueFiles(files) {
@@ -168,53 +103,37 @@ function getBranchType(branchName) {
   return branchName.split("/", 1)[0];
 }
 
-function isProductFile(file) {
-  if (VERSION_METADATA_FILES.has(file)) {
-    return false;
-  }
-
-  return PRODUCT_FILE_PATTERNS.some((pattern) => pattern.test(file));
+function isReleasePrepFile(file) {
+  return (
+    RELEASE_PREP_FILES.has(file) ||
+    RELEASE_PREP_FILE_PREFIXES.some((prefix) => file.startsWith(prefix))
+  );
 }
 
-function readEventLabels() {
-  const labels = new Set();
-  const rawLabels = process.env.VERSION_POLICY_LABELS;
-  if (rawLabels) {
-    for (const label of rawLabels.split(",")) {
-      const normalized = label.trim().toLowerCase();
-      if (normalized) {
-        labels.add(normalized);
-      }
+function changelogSectionBody(changelog, version) {
+  const heading = `## v${formatVersion(version)}`;
+  const lines = changelog.split(/\r?\n/);
+  const headingIndex = lines.findIndex(
+    (line) => line.trim() === heading || line.trim().startsWith(`${heading} `)
+  );
+  if (headingIndex === -1) {
+    return null;
+  }
+
+  const body = [];
+  for (let index = headingIndex + 1; index < lines.length; index += 1) {
+    if (/^##\s/.test(lines[index])) {
+      break;
     }
+    body.push(lines[index]);
   }
 
-  const eventPath = process.env.GITHUB_EVENT_PATH;
-  if (!eventPath) {
-    return labels;
-  }
-
-  try {
-    const event = JSON.parse(readFileSync(eventPath, "utf8"));
-    for (const label of event.pull_request?.labels ?? []) {
-      const name = String(label.name ?? "").trim().toLowerCase();
-      if (name) {
-        labels.add(name);
-      }
-    }
-  } catch {
-    return labels;
-  }
-
-  return labels;
-}
-
-function hasNoReleaseImpactDecision(labels) {
-  return [...labels].some((label) => NO_RELEASE_IMPACT_LABELS.has(label));
+  return body;
 }
 
 function assertChangelogEntry({ changedFiles, headRef, version }) {
   if (!changedFiles.includes("CHANGELOG.md")) {
-    fail("Version bumps must update CHANGELOG.md with release notes.");
+    fail("Release-preparation PRs must update CHANGELOG.md with the release entry.");
   }
 
   const changelog =
@@ -222,8 +141,13 @@ function assertChangelogEntry({ changedFiles, headRef, version }) {
       ? readFileSync("CHANGELOG.md", "utf8")
       : runGit(["show", `${headRef}:CHANGELOG.md`]);
   const heading = `## v${formatVersion(version)}`;
-  if (!changelog.includes(heading)) {
-    fail(`CHANGELOG.md must include a ${heading} entry.`);
+  const sectionBody = changelogSectionBody(changelog, version);
+  if (!sectionBody) {
+    fail(`CHANGELOG.md must include a ${heading} section for the release.`);
+  }
+
+  if (!sectionBody.some((line) => /^[-*]\s+\S/.test(line.trim()))) {
+    fail(`${heading} must include at least one release entry bullet.`);
   }
 }
 
@@ -274,22 +198,17 @@ try {
   const options = parseArgs(process.argv.slice(2));
   const branchName = options.branchName ?? inferBranchName();
   const branchType = getBranchType(branchName);
-  const labels = readEventLabels();
-
-  if (branchType === "dependabot") {
-    info("Dependabot branch detected; product version policy guard skipped.");
-    process.exit(0);
-  }
+  const releaseMatch = branchName.match(RELEASE_BRANCH_PATTERN);
 
   const basePackageJson = readJsonFromGit(options.baseRef, "package.json");
   const basePackageLock = readJsonFromGit(options.baseRef, "package-lock.json");
   const headPackageJson =
     options.headRef === "HEAD"
-      ? readJsonFromWorkingTree("package.json")
+      ? readJsonFile("package.json")
       : readJsonFromGit(options.headRef, "package.json");
   const headPackageLock =
     options.headRef === "HEAD"
-      ? readJsonFromWorkingTree("package-lock.json")
+      ? readJsonFile("package-lock.json")
       : readJsonFromGit(options.headRef, "package-lock.json");
 
   const baseVersion = assertPackageVersionsMatch(
@@ -303,52 +222,51 @@ try {
     "Head"
   );
   const versionChanged = compareVersions(baseVersion, headVersion) !== 0;
-  const changedFiles = readChangedFiles(options.baseRef, options.headRef);
-  const productFiles = changedFiles.filter(isProductFile);
-  const noReleaseImpact = hasNoReleaseImpactDecision(labels);
-  const productionBound =
-    branchType === "feature" ||
-    branchType === "fix" ||
-    branchType === "refactor" ||
-    (branchType === "chore" && productFiles.length > 0);
 
   info(`Branch: ${branchName}`);
   info(`Base version: ${formatVersion(baseVersion)}`);
   info(`Head version: ${formatVersion(headVersion)}`);
 
-  if (!productionBound) {
-    if (versionChanged && compareVersions(headVersion, baseVersion) <= 0) {
-      fail("Version metadata changed, but the target version is not greater than base.");
-    }
-
+  if (!releaseMatch) {
     if (versionChanged) {
-      assertChangelogEntry({
-        changedFiles,
-        headRef: options.headRef,
-        version: headVersion,
-      });
+      fail(
+        `Product version changes are only allowed on release-preparation branches (chore/release-vX.Y.Z). Keep package.json and package-lock.json at ${formatVersion(baseVersion)}; the release moves the version at its preparation boundary.`
+      );
     }
 
-    info("No production-bound version bump required for this branch.");
+    info(
+      `No version metadata change on this ${branchType} branch; it joins the next production release at that release's preparation boundary.`
+    );
+    info("Version policy check passed.");
     process.exit(0);
   }
 
-  if (noReleaseImpact && !versionChanged) {
-    info("No-release-impact decision found; product version bump is not required.");
-    process.exit(0);
-  }
+  const claimedVersion = parseVersion(releaseMatch[1]);
+  const claimedLabel = formatVersion(claimedVersion);
 
   if (!versionChanged) {
     fail(
-      `${branchType}/ branches that ship product changes must include a product version bump, or carry a no-release-impact/release:none label.`
+      `Release-preparation branch must bump package.json and package-lock.json to ${claimedLabel}.`
     );
   }
 
-  const expected = expectedVersion(baseVersion, branchType);
-  if (compareVersions(headVersion, expected) !== 0) {
-    const expectedKind = branchType === "feature" ? "minor" : "patch";
+  if (compareVersions(headVersion, claimedVersion) !== 0) {
     fail(
-      `${branchType}/ branches must use a ${expectedKind} bump: expected ${formatVersion(expected)}, received ${formatVersion(headVersion)}.`
+      `Release-preparation branch name must match the released version: expected ${claimedLabel}, received ${formatVersion(headVersion)}.`
+    );
+  }
+
+  if (compareVersions(headVersion, baseVersion) <= 0) {
+    fail(
+      `Release version ${formatVersion(headVersion)} must be greater than the current main version ${formatVersion(baseVersion)}. Main moved past this release; rebase and prepare the next release version.`
+    );
+  }
+
+  const changedFiles = readChangedFiles(options.baseRef, options.headRef);
+  const productChanges = changedFiles.filter((file) => !isReleasePrepFile(file));
+  if (productChanges.length > 0) {
+    fail(
+      `Release-preparation PRs are metadata-only; move non-release changes to their own PR: ${productChanges.join(", ")}`
     );
   }
 
@@ -358,7 +276,10 @@ try {
     version: headVersion,
   });
 
-  info("Product version policy check passed.");
+  info(
+    `Release-preparation branch carries version ${formatVersion(headVersion)} with a matching changelog entry.`
+  );
+  info("Version policy check passed.");
 } catch (error) {
   fail(error instanceof Error ? error.message : String(error));
 }

@@ -4,20 +4,14 @@ Product releases use SemVer-style pre-1.0 versioning. Keep build identity
 separate from product version: release entries describe `v0.x.y`, while commit
 SHA, deployment URL, and workflow run belong in release evidence.
 
+Product versions move only at release boundaries. Product PRs merge without
+touching the version; a release-preparation PR (`chore/release-vX.Y.Z`)
+selects the version and composes the entry for it.
+
 ## Unreleased
 
-- Define each release entry before the product-impacting PR is merged.
-
-## v0.73.1 - 2026-09-14
-
-- Fixed the meeting-todos floating panel on the project page (ND-456): the
-  trigger button now rests at the true bottom-right page margin instead of
-  overlapping project content, and the panel can be dragged down and right
-  across the full viewport before clamping at the page margin, with the
-  moved position persisted across reloads.
-- Each project todo row now shows its assignee chip inline on the same line
-  as the todo text, with todo and meeting titles truncating to a single line
-  so long names no longer wrap the row.
+- Release entries are composed by the release-preparation PR
+  (`chore/release-vX.Y.Z`), not by individual product PRs.
 
 ## v0.73.0 - 2026-09-13
 

@@ -16,6 +16,44 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-09-14 - ND-447: Remove context-card stewardship
+
+- Status: Accepted; removes the context-card portions of the TASK-342
+  stewardship model. Meeting-note stewardship keeps its active UI and stays.
+- Context: Context-card stewardship shipped backend-first (ND-184, TASK-342)
+  and was never surfaced in any context-card UI. It left a dead PATCH route,
+  steward/review fields on the context-card projection, an `assignableActors`
+  list, four `Resource.steward*` columns with constraints and indexes, and a
+  PUBLIC-granted SECURITY DEFINER SQL projection
+  (`app.list_project_context_card_actors`) whose only consumer was the
+  stewardship-era assignable-actor list. TASK-337 had already reduced the
+  duplicated actor modules to shims, so the remaining surface was
+  maintenance cost with no product value.
+- Decision: Remove context-card stewardship end to end in one migration and
+  one PR. The migration redefines `app.resolve_project_actor_responsibilities`
+  without the `Resource` steward writes, drops
+  `app.list_project_context_card_actors`, and drops the `Resource` steward
+  columns, their indexes, the `Resource_steward_actor_check` constraint, and
+  both foreign keys. The PATCH stewardship route is deleted, the collection
+  response stops returning `assignableActors`, card serialization stops
+  mapping `projection.review`, and the stewardship service is replaced by
+  `context-card-projection-service` covering creator/last-editor/attachment
+  projection only. Offboarding review counts task assignments, meeting-note
+  stewardships, and open meeting todos. The `ContextCardActorKind` enum stays
+  because `Resource.creatorKind`, `Resource.lastEditorKind`, and
+  context-card attachment `uploadedByKind` still use it.
+- Consequences: No API accepts or returns context-card steward or review
+  state (a breaking removal under pre-1.0 versioning; no known consumers).
+  Context cards keep durable creator and last-editor provenance, including
+  "former member" display snapshots after offboarding. Offboarding totals no
+  longer include context-card stewardships. The canonical project-actor
+  contract (`lib/project-actor.ts`, `app.list_project_actors`) remains the
+  single actor vocabulary for tasks, comments, meeting todos, and
+  meeting-note stewards.
+- Links: `tasks/task-342-context-knowledge-stewardship.md`, migration
+  `prisma/migrations/20260914120000_nd447_remove_context_card_stewardship`,
+  changelog v0.74.0.
+
 ## 2026-09-13 - ND-385: Attention reads are credential-scoped, cursor-paginated, and least-privilege
 - Status: Accepted.
 - Context: ND-383 stored durable mention events and ND-384 stored agent
