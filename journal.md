@@ -3,6 +3,66 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-14 - ND-446: Remove the border around the Kanban search and filter bar
+
+- Implemented in the dedicated `../nexus_dash_task446` worktree on
+  `feature/nd-446-remove-kanban-filter-bar-border` from `origin/main` at
+  414effa (v0.73.0). The filter bar no longer applies
+  `PROJECT_SECTION_CHROME_CLASS` (border, rounded card background, shadow)
+  and renders as a bare toolbar row that keeps its responsive padding
+  (`px-3 py-3 sm:px-4 sm:py-3.5`); the board header and columns are
+  unchanged, and `PROJECT_SECTION_CHROME_CLASS` remains in use by
+  `kanban-board-header.tsx`.
+- Regression test added in `tests/components/kanban-filter-bar.test.tsx`:
+  the section renders without border / `rounded-2xl` / `shadow-` /
+  `bg-card` classes and keeps its padding.
+- Visual evidence (temporary Playwright spec, removed before commit):
+  computed styles at 1280px and 390px show 0px border/radius, no shadow,
+  transparent background (before: 1px solid / 16px radius / shadow /
+  translucent card background); before/after screenshots show no layout
+  shift.
+- Pre-merge validation: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, `npm test` (207 files / 1657 tests pass, 2 skipped),
+  coverage thresholds met (94.07% lines / 84.71% branches), production
+  build, full Playwright suite 74 passed / 1 skipped on an isolated port
+  with `CI=1`.
+- Handoff merge-forward: `origin/main` advanced past this branch (ND-457
+  #518 moved product versioning to release boundaries; ND-447 #521 removed
+  context-card stewardship and dropped the `Resource.steward*` columns via
+  migration `20260914120000_nd447_remove_context_card_stewardship`). The
+  stale branch still queried those columns, which made the task untestable
+  against the migrated staging database; merging current main restores
+  schema parity. Resolution takes main's side for `CHANGELOG.md`,
+  `package.json`, and `package-lock.json` (no version metadata on product
+  branches per the release-boundary model; the earlier 0.73.0 -> 0.74.0
+  bump and `v0.74.0` changelog section were removed) and keeps every
+  journal entry. `npm run release:check` passes with head = base = 0.73.0.
+- Merged-tree re-validation (ND-447's migration applied to the local
+  database first): `npm run lint`, `npm run rls:check`, `npm test` (206
+  files / 1652 tests pass, 2 skipped), coverage thresholds met (93.77%
+  statements / 84.71% branches), production build, and the PostgreSQL RLS
+  matrix all pass. The full Playwright suite reruns reached 73 passed /
+  1 skipped with one failure in the known local flake
+  `smoke-project-task-calendar.spec.ts` ("meeting notes preparation,
+  output, and search flow"), which failed in two different modes across
+  reruns (geometry overshoot 1.3-2.4px at :441; `net::ERR_ABORTED` on
+  `page.reload()` at :351) and passed isolated on the same build. The spec
+  and its components are untouched by this branch. A stale `.next` dev
+  cache referencing the deleted stewardship route and a stale generated
+  Prisma client were environment-only issues, fixed with `rm -rf .next`
+  and `npx prisma generate`.
+- Second merge-forward (same day, before handoff): `origin/main` advanced
+  to 4f9a463 (ND-144 #517 comment screenshot attachments, migration
+  `20260913120000_task371_comment_screenshot_attachments`; ND-456 #522
+  meeting-todo panel). The only conflict was `journal.md` (both sides
+  prepended entries), resolved by keeping both. The new migration was
+  applied locally, the Prisma client regenerated, and the validation set
+  rerun on the final merged tree: `npm run lint`, `npm run rls:check`,
+  `npm test` (207 files / 1664 tests pass, 2 skipped), coverage thresholds
+  met (93.77% statements / 84.71% branches), production build,
+  `npm run release:check`, and the full Playwright suite (77 tests: 76
+  passed, 1 environment-gated skip, 0 failures) all pass.
+
 # 2026-09-14 - ND-456: Meeting todo panel anchoring, drag reach, inline assignee
 
 - Claimed live Nexus Dash card ND-456 (`cmtywry0d000a04l0q6x11y0x`, GitHub
