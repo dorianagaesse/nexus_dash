@@ -231,8 +231,8 @@ test.describe("critical UI smoke flows", () => {
     await deleteAttachmentRequest;
     await expect(page.getByText("example.com")).toHaveCount(0);
     await page.getByRole("button", { name: "Cancel" }).click();
-    await expect(page.getByRole("button", { name: "Task options" })).toBeVisible();
-    await page.getByRole("button", { name: "Close task" }).click();
+    // Cancel closes the task UI and discards the in-progress edit session.
+    await expect(page.getByRole("button", { name: "Close task" })).toHaveCount(0);
 
     const editedTaskCard = page
       .getByRole("button", { name: new RegExp(editedTaskTitle) })

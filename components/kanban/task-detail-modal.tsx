@@ -575,25 +575,37 @@ export function TaskDetailModal({
                   </div>
                 ) : null}
 
-                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-                  <Button
-                    type="button"
-                    onClick={() => void onSaveTask()}
-                    disabled={isUpdatingTask}
-                    className="w-full sm:w-auto"
-                  >
-                    {isUpdatingTask ? "Saving..." : "Save changes"}
-                  </Button>
+                {isEditing ? (
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                    <Button
+                      type="button"
+                      onClick={() => void onSaveTask()}
+                      disabled={isUpdatingTask}
+                      className="w-full sm:w-auto"
+                    >
+                      {isUpdatingTask ? "Saving..." : "Save changes"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={onClose}
+                      disabled={isUpdatingTask}
+                      className="w-full sm:w-auto"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={() => onToggleEditMode(false)}
+                    onClick={onClose}
                     disabled={isUpdatingTask}
-                    className="w-full sm:w-auto"
+                    className="w-full sm:w-auto sm:self-start"
                   >
-                    Cancel
+                    Close
                   </Button>
-                </div>
+                )}
               </div>
             </CardFooter>
         </DialogContent>

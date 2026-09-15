@@ -3,6 +3,55 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-16 - ND-465: Fix the non-working Cancel button in Kanban task flows
+
+- Claimed live Nexus Dash card ND-465 (`cmu1fbkhh000804jqgj2ay13w`, GitHub
+  issue #523 attached) and moved it to In Progress before coding. Work used
+  the dedicated worktree `../nexus_dash_task465` on
+  `fix/nd-465-kanban-cancel-button` from `origin/main` at b3abd42.
+- Root cause had three parts: (1) the task detail footer always rendered
+  "Save changes" and "Cancel", and in view mode Cancel called
+  `onToggleEditMode(false)`, which is inert there -- a dead button; (2) in
+  edit mode Cancel only left edit mode and dropped the user back into the
+  view modal instead of returning to the board; (3) nothing restored focus
+  because the modal opens from card clicks rather than a Radix
+  `DialogTrigger`, so Radix had no trigger to return focus to.
+- Fixes: the footer now branches by mode -- edit mode renders "Save
+  changes" plus "Cancel" and both Cancel paths call `onClose`, which
+  discards the edit session; view mode renders a single "Close" button. The
+  board stores the originating card in a ref and hands focus back as the
+  modal closes; the ref holds the element, not the task id, because an
+  optimistic card swaps to the persisted id while it stays mounted, and the
+  focus call is deferred with `requestAnimationFrame` because the closing
+  Radix dialog keeps the rest of the page inert for the remainder of its
+  commit.
+- Tests: new `tests/e2e/nd-465-kanban-task-cancel.spec.ts` covers create
+  Cancel (dialog closes, draft discarded, focus back on the New task
+  trigger), edit Cancel (no persistence after reload, focus back on the
+  card), keyboard activation in create and edit flows, the view-mode Close
+  control, and mobile `hasTouch` sheet taps in both flows.
+  `smoke-project-task-calendar.spec.ts` now asserts Cancel closes the task
+  UI in its attachment flow (the old assertion encoded the inert-button
+  behavior). That smoke edit is two lines inside a CRLF blob; the added
+  lines use LF, matching the file's existing mixed-ending regions, which
+  keeps `git diff --check` clean.
+- Environment: local Postgres for the worktree on port 55465 (`docker
+  compose` project `nexus_dash_task465`), migrations applied locally. The
+  e2e run needs CI parity: `NODE_ENV=test` (otherwise the local server is
+  treated as live production and the password-recovery spec attempts real
+  Resend delivery on the placeholder key) and empty Google OAuth variables
+  shadowing the workspace `.env` (which enables OAuth without
+  `GOOGLE_TOKEN_ENCRYPTION_KEY`, rejected by the build outside tests).
+- Validation: `git diff --check`, `npm run lint`, `npm run rls:check`;
+  `npm test` (207 files / 1669 tests pass, 2 skipped); coverage thresholds
+  met (93.77% statements / 84.71% branches); production build passes; full
+  Playwright suite on the owned server 83 passed / 1 skipped / 0 failures,
+  with the ND-465 spec green in the full run and again on a rerun after a
+  formatting-only tidy (5 passed). The first worktree run surfaced one
+  environment-only failure (password-recovery attempting real Resend
+  delivery because the server was treated as live production); rerunning
+  with `NODE_ENV=test`, matching the CI e2e job, cleared it.
+
 # 2026-09-14 - ND-446: Remove the border around the Kanban search and filter bar
 
 - Implemented in the dedicated `../nexus_dash_task446` worktree on
