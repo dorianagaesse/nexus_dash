@@ -7586,3 +7586,14 @@ Low-value entries to avoid going forward:
   that text. Escape with the options menu open closes the whole dialog (unlike
   ND-448's context preview, where the first Escape closes only the menu), so
   the desktop test exercises the Edit and Cancel path instead.
+- PR #525 opened ready for review. CI green: Quality Gates passes all four
+  jobs (Quality Core, E2E Smoke, Tenant Isolation RLS, Container Image) on
+  both the `pull_request` run and a dispatched run, plus Check Branch Name.
+  The Copilot review could not run: the automatic review and a re-requested
+  one both returned the same quota-limit message seen on ND-448's PR #519, so
+  there were no review threads to triage; the quota state is flagged on the PR
+  and the card for the human reviewer.
+- Note: the `pull_request`-triggered Quality Gates run did not queue promptly
+  after PR creation (ND-464's branch hit the same delay); a manual
+  `workflow_dispatch` run was started for immediate CI signal, and the
+  `pull_request` run landed green shortly after.
