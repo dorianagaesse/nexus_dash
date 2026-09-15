@@ -51,6 +51,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   environment-only failure (password-recovery attempting real Resend
   delivery because the server was treated as live production); rerunning
   with `NODE_ENV=test`, matching the CI e2e job, cleared it.
+- PR #527 opened ready for review at commit d90c772.
 
 # 2026-09-14 - ND-446: Remove the border around the Kanban search and filter bar
 
