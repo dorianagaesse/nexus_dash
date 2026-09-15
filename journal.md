@@ -7565,3 +7565,7 @@ Low-value entries to avoid going forward:
   documented local database URL plus non-secret build placeholders. A focused
   Chromium flow also passed at a 375 px viewport across task descriptions,
   comments, and context cards, including focus and horizontal-overflow checks.
+- Red-PR follow-up: merged current `origin/main` at `b3abd42` to incorporate
+  ND-448's accepted context-card preview changes. Post-merge lint and 41 focused
+  component tests pass, and the combined ND-448/ND-464 Chromium flows pass (3
+  tests) before refreshing the PR checks.
