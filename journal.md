@@ -3,6 +3,56 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-16 - ND-377: Limit the floating todo panel to the signed-in user
+
+- Claimed live Nexus Dash card ND-377 (`cmtj9k4qv000704k0vl0ugezw`) and
+  built it in the dedicated `../nexus_dash_task377` worktree on
+  `feature/nd-377-current-user-todos` from `origin/main` at b3abd42
+  (v0.73.0), with an isolated Postgres container on port 55477.
+- `lib/meeting-todo.ts` gained `isMeetingTodoAssignedToUser` as the single
+  definition of "assigned to me": the assignee must be a human actor whose id
+  matches the current project user and whose membership status is active. An
+  empty user id never matches, so an unresolved session shows no personal
+  todos instead of falling back to everyone's work.
+- `MeetingTodoQuickDialog` now takes a required `currentActorUserId` and
+  filters both the open and completed lists through that predicate, so the
+  trigger badge, the overdue count, the header counters, and the rows all
+  derive from the signed-in user's todos. The existing empty-state contract
+  is unchanged: when the filter leaves nothing, the component renders no
+  trigger and no panel. `project-meeting-notes-panel.tsx` passes the current
+  user id through.
+- `ProjectMeetingTodos` (the full Todos page) now reuses the shared helper
+  for its "Assigned to me" view and counts instead of duplicating the inline
+  check. Per-meeting overdue badges in the notes panel intentionally stay
+  project-wide: they describe the meeting, not the viewer.
+- Coverage: assignment-matching unit suite (active human match, another
+  user, inactive/revoked/expired membership, agent/participant/unassigned,
+  empty user id), quick-dialog tests over a mixed-assignment fixture (own
+  open and completed todos shown; another human's, the participant's, the
+  unassigned, and another user's completed todos hidden; no trigger when the
+  user has nothing), and two e2e updates. The todos spec gained a
+  per-project floating-panel test (owner project lists only the assigned
+  todo, viewer project stays hidden until the viewer is assigned, panel
+  appears after reload) plus a shared assignment helper; the smoke spec now
+  assigns its overdue action to the signed-in user so the panel still lists
+  it.
+- Validation on the final tree: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, `npm run release:check` (head = base = 0.73.0),
+  `npm test` (207 files passed / 2 skipped; 1676 tests passed / 2 skipped),
+  coverage thresholds met (93.77% statements, 84.71% branches, 95.39%
+  functions, 94.07% lines), production build, the PostgreSQL RLS isolation
+  matrix, and the full Playwright suite 79 passed / 1 skipped / 0 failed on
+  isolated port 3377 with `CI=1`.
+- First e2e sweep caught a real bug in the new test: it set the
+  provenance-side `assignedAt` without `assignedBy*`, violating
+  `ProjectMeetingNoteAction_assignment_provenance_check`; the assignment
+  helper now always writes the full provenance block. The same sweep also
+  hit the long-standing local zoom-geometry flake in
+  `smoke-project-task-calendar.spec.ts` ("meeting notes preparation, output,
+  and search flow") at the documented `inputZoomBottomInset` -4.86px and
+  1.35px overshoot signatures; the rerun passed 79/79, and the spec's
+  meeting-preparation assertions are untouched by this branch.
+
 # 2026-09-14 - ND-446: Remove the border around the Kanban search and filter bar
 
 - Implemented in the dedicated `../nexus_dash_task446` worktree on
