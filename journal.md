@@ -7577,4 +7577,8 @@ Low-value entries to avoid going forward:
   rename and removal.
 - Validation: `npm run lint`, `npm run rls:check`, full unit suite
   (207 files / 1687 tests), coverage thresholds met, production build, and
-  the full Playwright suite pass. `git diff --check` stays clean.
+  the Playwright suite (78 passed, 1 skipped). The one failure,
+  `password-recovery.spec.ts` "forgot-password request creates reset token",
+  is a pre-existing local-environment failure: it reproduces on the `main`
+  checkout, where both password-recovery tests fail for the same reason.
+  `git diff --check` stays clean.
