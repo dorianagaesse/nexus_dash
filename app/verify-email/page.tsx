@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { AuthSubmitButton } from "@/app/auth-submit-button";
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
 import { normalizeReturnToPath } from "@/lib/navigation/return-to";
 import { EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS } from "@/lib/services/email-verification-service";
@@ -14,6 +15,7 @@ import {
   continueAfterVerificationAction,
   resendVerificationEmailAction,
 } from "./actions";
+import { VerificationStatusWatcher } from "./verification-status-watcher";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -121,27 +123,28 @@ export default async function VerifyEmailPage({
         ) : null}
 
         <Card>
-          <CardHeader>
-            <CardTitle>Next step</CardTitle>
-            <CardDescription>
-              After clicking the verification link from your inbox, continue to your
-              dashboard.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap items-center gap-3">
-            <form action={continueAfterVerificationAction}>
-              <input type="hidden" name="returnTo" value={returnToPath} />
-              <Button type="submit">I verified, continue</Button>
-            </form>
-            <form action={resendVerificationEmailAction}>
-              <input type="hidden" name="returnTo" value={returnToPath} />
-              <Button type="submit" variant="secondary">
-                Resend verification email
+          <CardContent className="space-y-4 pt-6">
+            <VerificationStatusWatcher returnToPath={returnToPath} />
+            <div className="flex flex-wrap items-center gap-3">
+              <form action={continueAfterVerificationAction}>
+                <input type="hidden" name="returnTo" value={returnToPath} />
+                <AuthSubmitButton
+                  defaultLabel="I verified, continue"
+                  pendingLabel="Checking..."
+                />
+              </form>
+              <form action={resendVerificationEmailAction}>
+                <input type="hidden" name="returnTo" value={returnToPath} />
+                <AuthSubmitButton
+                  defaultLabel="Resend verification email"
+                  pendingLabel="Sending..."
+                  variant="secondary"
+                />
+              </form>
+              <Button asChild variant="ghost">
+                <Link href="/">Back to home</Link>
               </Button>
-            </form>
-            <Button asChild variant="ghost">
-              <Link href="/">Back to home</Link>
-            </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

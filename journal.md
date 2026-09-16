@@ -3,6 +3,65 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-17 - ND-131: Trim verify-email and reset-password status copy and auto-redirect on verification
+
+- Claimed live Nexus Dash card ND-131 (`cmth7efe9002804juwxx3enjc`) and
+  built it in the dedicated `../nexus_dash_task131` worktree on
+  `feature/nd-131-verify-reset-status-pages` from `origin/main` at 8f7faf1
+  (v0.73.0), with an isolated Postgres container on port 55131 (5432 was
+  held by a sibling worktree's container).
+- Audit result: the verify-email page restated the same instruction in the
+  header copy and the "Next step" card, and the reset-password page carried
+  the flow copy three times (page subhead, card title, requirements
+  description). AC 1 is met by removing the "Next step" CardHeader and the
+  reset-password subhead/CardHeader; the password requirements moved under
+  the input as persistent helper text wired with `aria-describedby`, and
+  the invalid/expired-link error strings dropped their trailing advice
+  because the surrounding panel already offers "Request a new reset link to
+  continue."
+- Auto-redirect (AC 2) is a new client watcher,
+  `app/verify-email/verification-status-watcher.tsx`: it polls the new
+  session-scoped endpoint `GET /api/auth/verify-email/status` (4s while
+  visible, 15s while hidden, immediate poll on focus/visibilitychange via
+  setTimeout scheduling and AbortController cleanup, mirroring
+  `notification-live-updates.tsx`). On `isVerified: true` it redirects with
+  `window.location.assign(returnToPath)` so the destination renders from a
+  fresh server-side session check. The route uses
+  `getSessionUserIdFromRequest` instead of `requireAuthenticatedApiUser`:
+  the guard denies unverified users in production, which is exactly the
+  audience that must poll it. The status line renders in a `role="status"`
+  live region reserved from SSR (`min-h-5`) so there is no layout shift,
+  and its text appears only after mount so no-JS clients never see a false
+  auto-redirect promise.
+- AC 3 (manual fallback): the "I verified, continue" and "Resend
+  verification email" forms remain server-action forms and now report
+  pending state through `AuthSubmitButton`; "Back to home" is unchanged.
+  The watcher is an enhancement layered on top, not a replacement.
+- Coverage: route suite (5 cases: 401 without session, no-store payload,
+  verified payload, service-failure status mapping, 500 + `logServerError`),
+  jsdom watcher suite (5 cases: poll then redirect, keep polling while
+  unverified, keep polling after a fetch failure, immediate poll on window
+  focus, stop after unmount), and two e2e cases in
+  `tests/e2e/nd-131-verify-email-auto-redirect.spec.ts` with the
+  local-build guard (trimmed copy + fallback controls visible; watcher
+  promises continuation, a direct `prisma.user.update` flips verification,
+  and the page reaches `/projects` with no clicks).
+  `tests/e2e/helpers/auth-helpers.ts` now shares one `signInAsUser` and also
+  exports `signInAsUnverifiedUser`.
+- A first component-test run failed because prior tests never unmounted
+  their roots, so leaked `focus` listeners all fired during the
+  focus-refresh case; every test now unmounts explicitly, matching the
+  `project-live-refresh.test.tsx` convention.
+- Validation on the final tree: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, `npm run release:check` (head = base = 0.73.0),
+  `npm test` (210 files passed / 2 skipped; 1689 tests passed / 2 skipped),
+  coverage thresholds met (93.77% statements, 84.71% branches, 95.39%
+  functions, 94.07% lines over the configured fixed include set), and the
+  production build. Full Playwright suite 83 passed / 1 skipped / 0 failed
+  on isolated port 3421 against the branch build (the skip is
+  `preview-auth-isolation.spec.ts`, which only runs against the preview
+  alias).
+
 # 2026-09-16 - ND-377: Limit the floating todo panel to the signed-in user
 
 - Claimed live Nexus Dash card ND-377 (`cmtj9k4qv000704k0vl0ugezw`) and

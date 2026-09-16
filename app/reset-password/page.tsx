@@ -4,7 +4,7 @@ import Link from "next/link";
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   PASSWORD_RESET_RETRY_COOKIE_NAME,
   validatePasswordResetToken,
@@ -15,11 +15,11 @@ import { resetPasswordAction } from "./actions";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
+const PASSWORD_REQUIREMENTS_ID = "reset-password-requirements";
+
 const ERROR_MESSAGES: Record<string, string> = {
-  "invalid-reset-link":
-    "This reset link is invalid. Request a new password reset email.",
-  "expired-reset-link":
-    "This reset link has expired or was already used. Request a new one.",
+  "invalid-reset-link": "This reset link is invalid.",
+  "expired-reset-link": "This reset link has expired or was already used.",
   "password-too-short": `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
   "password-too-long": "Password is too long.",
   "password-requirements-not-met":
@@ -80,12 +80,7 @@ export default async function ResetPasswordPage({
           Password recovery
         </Badge>
 
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight">Reset password</h1>
-          <p className="text-sm text-muted-foreground">
-            Set a new password for your NexusDash account.
-          </p>
-        </div>
+        <h1 className="text-3xl font-semibold tracking-tight">Reset password</h1>
 
         {errorMessage ? (
           <AutoDismissingAlert
@@ -95,14 +90,7 @@ export default async function ResetPasswordPage({
         ) : null}
 
         <Card>
-          <CardHeader>
-            <CardTitle>Choose a new password</CardTitle>
-            <CardDescription>
-              Use at least {MIN_PASSWORD_LENGTH} characters with uppercase,
-              lowercase, number, and symbol.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-6">
             {canSubmitForm ? (
               <form action={resetPasswordAction} className="grid gap-4">
                 <input type="hidden" name="token" value={token} />
@@ -116,11 +104,19 @@ export default async function ResetPasswordPage({
                     type="password"
                     autoComplete="new-password"
                     placeholder="Create a strong password"
+                    aria-describedby={PASSWORD_REQUIREMENTS_ID}
                     required
                     minLength={MIN_PASSWORD_LENGTH}
                     maxLength={128}
                     className="h-11 rounded-md border border-input bg-background px-3 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   />
+                  <p
+                    id={PASSWORD_REQUIREMENTS_ID}
+                    className="text-xs text-muted-foreground"
+                  >
+                    Use at least {MIN_PASSWORD_LENGTH} characters with uppercase,
+                    lowercase, number, and symbol.
+                  </p>
                 </div>
                 <div className="grid gap-2">
                   <label
