@@ -3,8 +3,10 @@ import { describe, expect, test } from "vitest";
 import {
   buildExternalParticipantMeetingTodoActor,
   getHistoricalMeetingTodoActorId,
+  getMeetingParticipantActorReference,
   getMeetingTodoActorKey,
   getMeetingTodoParticipantNameKey,
+  isMeetingParticipantActor,
   isMeetingTodoActorReference,
 } from "@/lib/meeting-todo-actor";
 
@@ -86,6 +88,90 @@ describe("meeting-todo-actor participant support", () => {
       expect(getMeetingTodoActorKey({ kind: "participant", id: "Ada" })).toBe(
         "participant:Ada"
       );
+    });
+  });
+
+  describe("getMeetingParticipantActorReference", () => {
+    test("builds a human reference for members and a participant reference for guests", () => {
+      expect(
+        getMeetingParticipantActorReference({
+          userId: "user-2",
+          displayName: "Dorian",
+        })
+      ).toEqual({ kind: "human", id: "user-2" });
+      expect(
+        getMeetingParticipantActorReference({
+          userId: null,
+          displayName: "  Ada   Lovelace ",
+        })
+      ).toEqual({ kind: "participant", id: "Ada Lovelace" });
+    });
+  });
+
+  describe("isMeetingParticipantActor", () => {
+    const guest = { userId: null, displayName: "Ada Lovelace" };
+
+    test("matches guests by folded display name", () => {
+      expect(
+        isMeetingParticipantActor(
+          buildExternalParticipantMeetingTodoActor({
+            displayName: "ADA LOVELACE",
+            isCurrentParticipant: true,
+          }),
+          guest
+        )
+      ).toBe(true);
+    });
+
+    test("never matches a guest participant to a member actor of the same name", () => {
+      expect(
+        isMeetingParticipantActor(
+          {
+            kind: "human",
+            id: "user-2",
+            displayName: "Ada Lovelace",
+            usernameTag: "ada#0001",
+            avatarSeed: "seed-ada",
+            status: "active",
+            isAssignable: true,
+          },
+          guest
+        )
+      ).toBe(false);
+    });
+
+    test("matches members by user id only", () => {
+      const member = { userId: "user-2", displayName: "Dorian" };
+      expect(
+        isMeetingParticipantActor(
+          {
+            kind: "human",
+            id: "user-2",
+            displayName: "Dorian",
+            usernameTag: null,
+            avatarSeed: "seed-dorian",
+            status: "active",
+            isAssignable: true,
+          },
+          member
+        )
+      ).toBe(true);
+      expect(
+        isMeetingParticipantActor(
+          {
+            kind: "human",
+            id: "user-3",
+            displayName: "Dorian",
+            usernameTag: null,
+            avatarSeed: "seed-other",
+            status: "active",
+            isAssignable: true,
+          },
+          member
+        )
+      ).toBe(false);
+      expect(isMeetingParticipantActor(null, member)).toBe(false);
+      expect(isMeetingParticipantActor(undefined, member)).toBe(false);
     });
   });
 

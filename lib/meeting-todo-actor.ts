@@ -1,4 +1,7 @@
-import { normalizeMeetingParticipantName } from "@/lib/meeting-participant";
+import {
+  normalizeMeetingParticipantName,
+  type ProjectMeetingParticipantIdentity,
+} from "@/lib/meeting-participant";
 import {
   getHistoricalProjectActorId,
   getProjectActorKey,
@@ -76,6 +79,41 @@ export function isMeetingTodoActorReference(
 
 export function getMeetingTodoParticipantNameKey(displayName: string): string {
   return normalizeMeetingParticipantName(displayName).toLowerCase();
+}
+
+type MeetingParticipantActorIdentity = Pick<
+  ProjectMeetingParticipantIdentity,
+  "userId" | "displayName"
+>;
+
+export function getMeetingParticipantActorReference(
+  participant: MeetingParticipantActorIdentity
+): MeetingTodoActorReference {
+  return participant.userId
+    ? { kind: "human", id: participant.userId }
+    : {
+        kind: "participant",
+        id: normalizeMeetingParticipantName(participant.displayName),
+      };
+}
+
+export function isMeetingParticipantActor(
+  actor: MeetingTodoActorSummary | null | undefined,
+  participant: MeetingParticipantActorIdentity
+): boolean {
+  if (!actor) {
+    return false;
+  }
+
+  if (participant.userId) {
+    return actor.kind === "human" && actor.id === participant.userId;
+  }
+
+  return (
+    actor.kind === "participant" &&
+    getMeetingTodoParticipantNameKey(actor.displayName) ===
+      getMeetingTodoParticipantNameKey(participant.displayName)
+  );
 }
 
 export function buildExternalParticipantMeetingTodoActor(input: {

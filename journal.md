@@ -7548,3 +7548,33 @@ Low-value entries to avoid going forward:
   introduced release-boundary governance. Restored the shared `0.73.0` package
   version and kept ND-144's product notes under `Unreleased`; version assignment
   remains owned by the release-preparation branch.
+# 2026-09-17 - ND-396 external participants as meeting-note stewards
+
+- Moved ND-396 to In Progress and created the
+  `feature/nd-396-guest-meeting-stewards` worktree from `origin/main`.
+- Extended TASK-356 stewardship to external meeting participants through the
+  ND-376 name-keyed contract: `setProjectMeetingNoteSteward` resolves
+  `{ kind: "participant", id }` against the note's stored external
+  participants (case/whitespace-insensitive) and snapshots the canonical
+  display name. No schema or RLS change was needed because the `participant`
+  actor kind and the TASK-356 steward CHECK constraint already permit it.
+- Added `getMeetingParticipantActorReference` / `isMeetingParticipantActor`
+  bridges so the prepare-dialog picker, note-detail chips, steward filter,
+  and Backspace removal handle guests and members through one identity
+  vocabulary. The prepare dialog limits guest steward toggles to
+  already-saved participants because a freshly typed guest has no durable key
+  until the note is saved.
+- Guest stewardship stores a snapshot with both foreign keys null, so it
+  grants no project membership, read access, notifications, or todo
+  assignment. Renaming or removing the participant leaves the steward
+  visible as inactive with the member-parity "Needs reassignment" affordance
+  instead of silently orphaning it.
+- Coverage: service tests (guest assign, canonical name, rejection of
+  non-participants, rename/removal lifecycle, filter counts), steward route
+  test, picker component tests (member and guest toggles, eligibility gating,
+  X and Backspace removal), panel component tests (guest toggle round trip,
+  read-only viewer chip, filter counts), and a Playwright guest flow through
+  rename and removal.
+- Validation: `npm run lint`, `npm run rls:check`, full unit suite
+  (207 files / 1687 tests), coverage thresholds met, production build, and
+  the full Playwright suite pass. `git diff --check` stays clean.

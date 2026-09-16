@@ -89,7 +89,9 @@ import {
 } from "@/lib/meeting-todo";
 import {
   buildExternalParticipantMeetingTodoActor,
+  getMeetingParticipantActorReference,
   getMeetingTodoActorKey,
+  isMeetingParticipantActor,
   type MeetingTodoActorReference,
   type MeetingTodoActorSummary,
 } from "@/lib/meeting-todo-actor";
@@ -451,7 +453,7 @@ function mapMeetingNoteError(errorCode: string): string {
     case "meeting-note-steward-required":
       return "Send a steward reference to update this note.";
     case "meeting-note-steward-invalid":
-      return "That steward no longer has access to this project. Pick a current project member or active agent.";
+      return "That steward is unavailable. Pick a current project member, an active agent, or one of this meeting's participants.";
     case "meeting-note-action-assignee-invalid":
       return "That assignee no longer has access to this project. Pick a current project member or active agent.";
     case "meeting-note-steward-update-failed":
@@ -1062,6 +1064,15 @@ export function ProjectMeetingNotesPanel({
         : null,
     [localNotes, prepareDialog]
   );
+  const savedParticipantKeys = useMemo(
+    () =>
+      new Set(
+        (prepareNote?.participants ?? []).map((participant) =>
+          getMeetingParticipantKey(participant)
+        )
+      ),
+    [prepareNote]
+  );
   const pendingDeleteNote = useMemo(
     () => localNotes.find((note) => note.id === pendingDeleteNoteId) ?? null,
     [localNotes, pendingDeleteNoteId]
@@ -1283,11 +1294,7 @@ export function ProjectMeetingNotesPanel({
           )
         )
       );
-      const stewardName = steward
-        ? (todoActors.find(
-            (actor) => actor.kind === steward.kind && actor.id === steward.id
-          )?.displayName ?? "steward")
-        : null;
+      const stewardName = payload.note.steward?.displayName ?? null;
       pushToast({
         variant: "success",
         message: stewardName
@@ -2061,21 +2068,15 @@ export function ProjectMeetingNotesPanel({
                 }
                 maxItems={40}
                 disabled={isSaving}
-                stewardUserId={
-                  prepareNote?.steward?.kind === "human"
-                    ? prepareNote.steward.id
-                    : null
-                }
+                steward={prepareNote?.steward ?? null}
+                stewardEligibleParticipantKeys={savedParticipantKeys}
                 stewardPending={
                   prepareNote ? pendingStewardNoteId === prepareNote.id : false
                 }
                 onStewardChange={
                   prepareNote
-                    ? (userId) => {
-                        void setNoteSteward(
-                          prepareNote,
-                          userId ? { kind: "human", id: userId } : null
-                        );
+                    ? (steward) => {
+                        void setNoteSteward(prepareNote, steward);
                       }
                     : undefined
                 }
@@ -2288,10 +2289,8 @@ export function ProjectMeetingNotesPanel({
                 aria-label="Participants and facilitator"
               >
                 {selectedNote.steward &&
-                !selectedNote.participants.some(
-                  (participant) =>
-                    selectedNote.steward?.kind === "human" &&
-                    participant.userId === selectedNote.steward.id
+                !selectedNote.participants.some((participant) =>
+                  isMeetingParticipantActor(selectedNote.steward, participant)
                 ) ? (
                   canEdit ? (
                     <button
@@ -2325,16 +2324,18 @@ export function ProjectMeetingNotesPanel({
                 ) : null}
                 {selectedNote.participants.map(
                   (participant, participantIndex) => {
-                    const isSteward =
-                      selectedNote.steward?.kind === "human" &&
-                      participant.userId === selectedNote.steward.id;
+                    const isSteward = isMeetingParticipantActor(
+                      selectedNote.steward,
+                      participant
+                    );
                     const canToggleSteward = Boolean(
                       canEdit &&
-                      participant.userId &&
-                      (collaborators.some(
-                        (collaborator) => collaborator.id === participant.userId
-                      ) ||
-                        isSteward)
+                      (participant.userId
+                        ? collaborators.some(
+                            (collaborator) =>
+                              collaborator.id === participant.userId
+                          ) || isSteward
+                        : true)
                     );
                     const stewardTooltipId = `meeting-note-${selectedNote.id}-participant-${participantIndex}-steward-tooltip`;
                     const chipClassName = cn(
@@ -2378,7 +2379,7 @@ export function ProjectMeetingNotesPanel({
                             selectedNote,
                             isSteward
                               ? null
-                              : { kind: "human", id: participant.userId! }
+                              : getMeetingParticipantActorReference(participant)
                           )
                         }
                       >

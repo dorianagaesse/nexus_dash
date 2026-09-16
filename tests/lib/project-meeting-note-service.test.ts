@@ -1475,6 +1475,193 @@ describe("project-meeting-note-service", () => {
       expect(dbMock.projectMeetingNote.update).not.toHaveBeenCalled();
     });
 
+    test("reassigns the steward to an external meeting participant", async () => {
+      dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+        id: "note-1",
+        participants: [
+          { userId: null, displayName: "Dorian" },
+          { userId: null, displayName: "Camille" },
+        ],
+      });
+      dbMock.projectMeetingNote.update.mockResolvedValueOnce({ id: "note-1" });
+      dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+        ...baseMeetingNoteRecord,
+        stewardUserId: null,
+        stewardKind: "participant" as const,
+        stewardDisplayNameSnapshot: "Camille",
+        stewardUser: null,
+      });
+
+      const result = await setProjectMeetingNoteSteward({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        noteId: "note-1",
+        steward: { kind: "participant", id: "Camille" },
+      });
+
+      expect(result.ok).toBe(true);
+      // Guest stewardship stays a snapshot: no user or credential link is
+      // written, so the guest never gains project access.
+      expect(dbMock.projectMeetingNote.update).toHaveBeenCalledWith({
+        where: { id: "note-1" },
+        data: {
+          stewardKind: "participant",
+          stewardUserId: null,
+          stewardCredentialId: null,
+          stewardDisplayNameSnapshot: "Camille",
+          updatedByUserId: "user-1",
+        },
+      });
+      expect(result.ok && result.data.note.steward).toMatchObject({
+        kind: "participant",
+        displayName: "Camille",
+        status: "active",
+        isAssignable: true,
+      });
+    });
+
+    test("stores the canonical participant name for case- and whitespace-insensitive references", async () => {
+      dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+        id: "note-1",
+        participants: [{ userId: null, displayName: "Camille" }],
+      });
+      dbMock.projectMeetingNote.update.mockResolvedValueOnce({ id: "note-1" });
+      dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce(
+        baseMeetingNoteRecord
+      );
+
+      const result = await setProjectMeetingNoteSteward({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        noteId: "note-1",
+        steward: { kind: "participant", id: "  camille " },
+      });
+
+      expect(result.ok).toBe(true);
+      expect(dbMock.projectMeetingNote.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            stewardKind: "participant",
+            stewardDisplayNameSnapshot: "Camille",
+          }),
+        })
+      );
+    });
+
+    test("rejects guest stewards that are not external participants of the note", async () => {
+      dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+        id: "note-1",
+        participants: [
+          { userId: null, displayName: "Camille" },
+          { userId: "user-2", displayName: "Editor" },
+        ],
+      });
+
+      const result = await setProjectMeetingNoteSteward({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        noteId: "note-1",
+        steward: { kind: "participant", id: "Editor" },
+      });
+
+      expect(result).toEqual({
+        ok: false,
+        status: 400,
+        error: "meeting-note-steward-invalid",
+      });
+      expect(dbMock.projectMeetingNote.update).not.toHaveBeenCalled();
+    });
+
+    test("keeps a guest steward identifiable after the participant is renamed", async () => {
+      dbMock.projectMeetingNote.findMany.mockResolvedValueOnce([
+        {
+          ...baseMeetingNoteRecord,
+          stewardUserId: null,
+          stewardCredentialId: null,
+          stewardKind: "participant" as const,
+          stewardDisplayNameSnapshot: "Camille",
+          stewardUser: null,
+          participants: [
+            externalParticipant("Dorian", 0),
+            externalParticipant("Camille Renamed", 1),
+          ],
+        },
+      ]);
+
+      const result = await listProjectMeetingNotes({
+        actorUserId: "user-1",
+        projectId: "project-1",
+      });
+
+      expect(result[0]?.steward).toMatchObject({
+        kind: "participant",
+        displayName: "Camille",
+        status: "inactive",
+        isAssignable: false,
+      });
+    });
+
+    test("keeps a guest steward active while the participant is still listed", async () => {
+      dbMock.projectMeetingNote.findMany.mockResolvedValueOnce([
+        {
+          ...baseMeetingNoteRecord,
+          stewardUserId: null,
+          stewardCredentialId: null,
+          stewardKind: "participant" as const,
+          stewardDisplayNameSnapshot: "camille",
+          stewardUser: null,
+        },
+      ]);
+
+      const result = await listProjectMeetingNotes({
+        actorUserId: "user-1",
+        projectId: "project-1",
+      });
+
+      expect(result[0]?.steward).toMatchObject({
+        kind: "participant",
+        displayName: "camille",
+        status: "active",
+        isAssignable: true,
+      });
+    });
+
+    test("treats guest-stewarded notes as stewarded but never as stewarded by me", async () => {
+      dbMock.projectMeetingNote.findMany.mockResolvedValue([
+        {
+          ...baseMeetingNoteRecord,
+          stewardUserId: null,
+          stewardCredentialId: null,
+          stewardKind: "participant" as const,
+          stewardDisplayNameSnapshot: "Camille",
+          stewardUser: null,
+        },
+        {
+          ...baseMeetingNoteRecord,
+          id: "note-2",
+          stewardUserId: null,
+          stewardCredentialId: null,
+          stewardKind: null,
+          stewardDisplayNameSnapshot: null,
+          stewardUser: null,
+        },
+      ]);
+
+      const unassigned = await listProjectMeetingNotes({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        stewardFilter: "unassigned",
+      });
+      expect(unassigned.map((note) => note.id)).toEqual(["note-2"]);
+
+      const mine = await listProjectMeetingNotes({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        stewardFilter: "mine",
+      });
+      expect(mine).toHaveLength(0);
+    });
+
     test("clears the steward when given null", async () => {
       dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
         id: "note-1",
