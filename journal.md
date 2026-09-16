@@ -3,6 +3,58 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-17 - ND-399: Enable image and file attachments in task comments
+
+- Claimed live Nexus Dash card ND-399 (`cmtkjmdbr000904leef5mheq5`) and built
+  it in the dedicated `../nexus_dash_task399` worktree on
+  `feature/nd-399-comment-file-attachments` from `origin/main` at 8f7faf1
+  (v0.73.0), with an isolated Postgres container on port 55399 and the
+  Playwright suite on port 3399.
+- ND-144 shipped the image half of the card (comment screenshots bound to
+  comments through the nullable `TaskAttachment.commentId`). ND-399
+  generalizes the same pipeline to every supported attachment type (PDF,
+  images, text, Markdown, CSV, JSON) without a schema change.
+- `lib/services/project-task-comment-service.ts`: binding now accepts any
+  caller-uploaded, unbound `kind = "file"` attachment whose MIME type passes
+  `isAllowedAttachmentMimeType`; link attachments stay task-level only and
+  the ten-attachment cap moved to the shared `MAX_TASK_COMMENT_ATTACHMENTS`
+  in `lib/task-comment.ts`. The `task-comment-attachment-invalid` and
+  `too-many-comment-attachments` error contracts are unchanged.
+- `lib/task-attachment.ts` gained `isImageAttachment(kind, mimeType)` as the
+  single image/file split used by the modal, the board state, and the
+  agent-facing API docs (`lib/agent-onboarding.ts`).
+- Client: the comment composer file input accepts the full MIME allowlist and
+  multiple files, mirrors the unsupported-type and cap copy, and shows draft
+  rows with name, size, and a 44px remove target; posted comments render
+  images through the renamed `ImageAttachmentGrid` (was
+  `ScreenshotAttachmentGrid`) and everything else through the new shared
+  `AttachmentFileList`, which the task detail panel and its edit rows now
+  reuse instead of three inline copies of the row markup. Pending uploads
+  carry `mimeType` so the draft can split images from files before the
+  server responds.
+- Coverage: API route tests (bind a PDF, reject unsupported MIME types,
+  reject link attachments, reject a foreign/unbound id, reject more than
+  ten), a new `attachment-file-list` component suite, the renamed
+  `image-attachment-grid` suite, a modal composer regression test over a
+  mixed image + PDF draft, an `isImageAttachment` unit test, and a new
+  end-to-end spec (`nd-399-comment-file-attachments`) that rejects a zip with
+  the visible copy, uploads a text report, posts it, asserts the posted size
+  label and a working authorized download, and re-checks after reload. The
+  ND-144 spec and the smoke spec follow the new "Add files to comment" /
+  "Preview image ..." / "Remove file ..." accessible names.
+- Validation on the final tree: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, `npm run release:check` (head = base = 0.73.0),
+  `npm test` (209 files passed / 2 skipped; 1690 tests passed / 2 skipped),
+  coverage thresholds met (93.77% statements, 84.79% branches, 95.42%
+  functions, 94.08% lines), production build, and the full Playwright suite
+  82 passed / 1 skipped / 0 failed on isolated port 3399.
+- No Prisma schema, migration, or RLS change: comment file attachments ride
+  the nullable `commentId` column shipped in ND-144, so the PostgreSQL RLS
+  isolation matrix was not required; `npm run rls:check` ran clean.
+- ADR entry added (`adr/decisions.md`) recording the binding rule, the
+  link-attachment exclusion, and the shared rendering components. No version
+  metadata touched (release-boundary model, ND-457).
+
 # 2026-09-16 - ND-377: Limit the floating todo panel to the signed-in user
 
 - Claimed live Nexus Dash card ND-377 (`cmtj9k4qv000704k0vl0ugezw`) and
