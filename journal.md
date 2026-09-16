@@ -118,7 +118,12 @@ Use it for important implementation milestones, blockers, validation runs, and r
   top-right, ND-377 floating todo panel) merged into the branch after the
   PR showed a conflict; only `journal.md` conflicted (both branches
   prepended entries), resolved by keeping both. The modal and smoke specs
-  auto-merged; the merged tree is re-validated locally before pushing.
+  auto-merged; the merged tree is re-validated locally before pushing. The
+  ND-466 controls spec's desktop flow expected the pre-ND-465 Cancel
+  semantics (Cancel dropped back to the view modal, then the header X
+  closed it); with Cancel now closing the task UI outright, that flow was
+  updated to dismiss from edit mode via the header close control, which is
+  what the test actually intends to cover.
 
 # 2026-09-14 - ND-446: Remove the border around the Kanban search and filter bar
 
