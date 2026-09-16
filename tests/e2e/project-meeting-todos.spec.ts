@@ -124,7 +124,16 @@ async function createProjectTodoFixture(userId: string) {
         },
       },
     },
-    select: { id: true },
+    select: {
+      id: true,
+      meetingNotes: {
+        select: {
+          actions: {
+            select: { id: true },
+          },
+        },
+      },
+    },
   });
 
   return {
@@ -136,7 +145,40 @@ async function createProjectTodoFixture(userId: string) {
     sourceTodoId: ownerProject.meetingNotes[0]!.actions.find(
       (action) => action.content === "Open the source meeting from Todos"
     )!.id,
+    auditTodoId: ownerProject.meetingNotes[0]!.actions.find(
+      (action) => action.content === "Complete the mobile navigation audit"
+    )!.id,
+    viewerTodoId: viewerProject.meetingNotes[0]!.actions[0]!.id,
   };
+}
+
+async function assignTodo(
+  todoId: string,
+  userId: string,
+  assignee: {
+    assigneeKind: "human" | "participant" | "agent";
+    assigneeUserId?: string | null;
+    assigneeDisplayNameSnapshot: string;
+  }
+) {
+  await prisma.projectMeetingNoteAction.update({
+    where: { id: todoId },
+    data: {
+      ...assignee,
+      assignedByKind: "human",
+      assignedByUserId: userId,
+      assignedByDisplayNameSnapshot: "Dorian",
+      assignedAt: new Date(),
+    },
+  });
+}
+
+async function assignTodoToUser(todoId: string, userId: string) {
+  await assignTodo(todoId, userId, {
+    assigneeKind: "human",
+    assigneeUserId: userId,
+    assigneeDisplayNameSnapshot: "Dorian",
+  });
 }
 
 test.describe("project meeting todos", () => {
@@ -451,6 +493,10 @@ test.describe("project meeting todos", () => {
       })
     ).toHaveCount(0);
 
+    // The floating panel only lists the signed-in user's todos; assign the
+    // remaining open todo to that user so the panel stays populated.
+    await assignTodoToUser(fixture.sourceTodoId, userId);
+
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`/projects/${fixture.ownerProjectId}`);
     const todosTrigger = page.getByRole("button", { name: /^Todos, \d+ open/ });
@@ -688,18 +734,7 @@ test.describe("project meeting todos", () => {
       where: { id: userId },
       select: { username: true },
     });
-    await prisma.projectMeetingNoteAction.update({
-      where: { id: fixture.sourceTodoId },
-      data: {
-        assigneeKind: "human",
-        assigneeUserId: userId,
-        assigneeDisplayNameSnapshot: "Dorian",
-        assignedByKind: "human",
-        assignedByUserId: userId,
-        assignedByDisplayNameSnapshot: "Dorian",
-        assignedAt: new Date(),
-      },
-    });
+    await assignTodoToUser(fixture.sourceTodoId, userId);
 
     await page.goto(`/projects/${fixture.ownerProjectId}`);
 
@@ -775,5 +810,54 @@ test.describe("project meeting todos", () => {
           .toBeLessThanOrEqual(maximumPanelLeft);
       }
     }
+  });
+
+  test("limits the floating panel to the signed-in user's todos per project", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const userId = await signInAsVerifiedUser(page);
+    const fixture = await createProjectTodoFixture(userId);
+
+    await assignTodoToUser(fixture.sourceTodoId, userId);
+    await assignTodo(fixture.auditTodoId, userId, {
+      assigneeKind: "participant",
+      assigneeDisplayNameSnapshot: "Dorian",
+    });
+
+    await page.goto(`/projects/${fixture.ownerProjectId}`);
+    const todosTrigger = page.getByRole("button", {
+      name: "Todos, 1 open, 1 overdue",
+    });
+    await expect(todosTrigger).toBeVisible();
+    await todosTrigger.click();
+
+    const todosDialog = page.getByRole("dialog", { name: "Meeting todos" });
+    await expect(todosDialog).toBeVisible();
+    await expect(
+      todosDialog.getByText("Open the source meeting from Todos")
+    ).toBeVisible();
+    await expect(
+      todosDialog.getByText("Complete the mobile navigation audit")
+    ).toHaveCount(0);
+    await expect(
+      todosDialog.getByText("Share the completed prototype")
+    ).toHaveCount(0);
+    await todosDialog
+      .getByRole("button", { name: "Close meeting todos" })
+      .click();
+    await expect(todosDialog).toBeHidden();
+
+    // The same rule applies on the viewer project: its only todo is
+    // unassigned, so the floating entry point stays hidden until the
+    // signed-in viewer is assigned a todo.
+    await page.goto(`/projects/${fixture.viewerProjectId}`);
+    await expect(page.getByRole("button", { name: /^Todos, / })).toHaveCount(0);
+
+    await assignTodoToUser(fixture.viewerTodoId, userId);
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "Todos, 1 open" })
+    ).toBeVisible();
   });
 });

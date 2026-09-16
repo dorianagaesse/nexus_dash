@@ -3,6 +3,56 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-16 - ND-377: Limit the floating todo panel to the signed-in user
+
+- Claimed live Nexus Dash card ND-377 (`cmtj9k4qv000704k0vl0ugezw`) and
+  built it in the dedicated `../nexus_dash_task377` worktree on
+  `feature/nd-377-current-user-todos` from `origin/main` at b3abd42
+  (v0.73.0), with an isolated Postgres container on port 55477.
+- `lib/meeting-todo.ts` gained `isMeetingTodoAssignedToUser` as the single
+  definition of "assigned to me": the assignee must be a human actor whose id
+  matches the current project user and whose membership status is active. An
+  empty user id never matches, so an unresolved session shows no personal
+  todos instead of falling back to everyone's work.
+- `MeetingTodoQuickDialog` now takes a required `currentActorUserId` and
+  filters both the open and completed lists through that predicate, so the
+  trigger badge, the overdue count, the header counters, and the rows all
+  derive from the signed-in user's todos. The existing empty-state contract
+  is unchanged: when the filter leaves nothing, the component renders no
+  trigger and no panel. `project-meeting-notes-panel.tsx` passes the current
+  user id through.
+- `ProjectMeetingTodos` (the full Todos page) now reuses the shared helper
+  for its "Assigned to me" view and counts instead of duplicating the inline
+  check. Per-meeting overdue badges in the notes panel intentionally stay
+  project-wide: they describe the meeting, not the viewer.
+- Coverage: assignment-matching unit suite (active human match, another
+  user, inactive/revoked/expired membership, agent/participant/unassigned,
+  empty user id), quick-dialog tests over a mixed-assignment fixture (own
+  open and completed todos shown; another human's, the participant's, the
+  unassigned, and another user's completed todos hidden; no trigger when the
+  user has nothing), and two e2e updates. The todos spec gained a
+  per-project floating-panel test (owner project lists only the assigned
+  todo, viewer project stays hidden until the viewer is assigned, panel
+  appears after reload) plus a shared assignment helper; the smoke spec now
+  assigns its overdue action to the signed-in user so the panel still lists
+  it.
+- Validation on the final tree: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, `npm run release:check` (head = base = 0.73.0),
+  `npm test` (207 files passed / 2 skipped; 1676 tests passed / 2 skipped),
+  coverage thresholds met (93.77% statements, 84.71% branches, 95.39%
+  functions, 94.07% lines), production build, the PostgreSQL RLS isolation
+  matrix, and the full Playwright suite 79 passed / 1 skipped / 0 failed on
+  isolated port 3377 with `CI=1`.
+- First e2e sweep caught a real bug in the new test: it set the
+  provenance-side `assignedAt` without `assignedBy*`, violating
+  `ProjectMeetingNoteAction_assignment_provenance_check`; the assignment
+  helper now always writes the full provenance block. The same sweep also
+  hit the long-standing local zoom-geometry flake in
+  `smoke-project-task-calendar.spec.ts` ("meeting notes preparation, output,
+  and search flow") at the documented `inputZoomBottomInset` -4.86px and
+  1.35px overshoot signatures; the rerun passed 79/79, and the spec's
+  meeting-preparation assertions are untouched by this branch.
+
 # 2026-09-14 - ND-446: Remove the border around the Kanban search and filter bar
 
 - Implemented in the dedicated `../nexus_dash_task446` worktree on
@@ -7548,6 +7598,56 @@ Low-value entries to avoid going forward:
   introduced release-boundary governance. Restored the shared `0.73.0` package
   version and kept ND-144's product notes under `Unreleased`; version assignment
   remains owned by the release-preparation branch.
+# 2026-09-16 - ND-466 task modal overflow and close controls top-right
+
+- Moved ND-466 to In Progress and created the dedicated
+  `fix/nd-466-kanban-task-controls-top-right` worktree from `origin/main`
+  (`b3abd42`).
+- Restructured the task detail modal header into a two-row column: the
+  status/reference badges and the anchored controls (`data-task-modal-controls`)
+  share the header's first row, and the title/assignee block or the edit form
+  flows below. Removed the previous layout that placed the controls after the
+  assignee row on mobile and absolutely positioned them in edit mode, so long
+  titles, badges, and assignee content can no longer displace or overlap the
+  controls.
+- Overflow actions, close behavior, and the aria-labels other specs drive
+  ("Task options", "Close task") are unchanged; the shared options-menu
+  component and its submenu hooks are untouched.
+- New component suite `tests/components/task-detail-modal-controls.test.tsx`
+  (3 tests) asserts the document structure: controls live in the header's top
+  row, above and independent of the title and assignee blocks, including while
+  editing.
+- New e2e spec `tests/e2e/nd-466-task-modal-controls-placement.spec.ts`
+  (desktop 1440x900, mobile 390x844) asserts real geometry: both controls sit
+  inside the modal's top-right corner band, meet the 36px hit-target floor,
+  and never intersect the assignee row or the title; keyboard access (Enter on
+  the focused trigger opens the menu) and unchanged Edit/close behavior are
+  exercised in the same run. Desktop and mobile screenshots were inspected
+  before the temporary capture lines were removed.
+- Validation: `npm run lint`, `npm run rls:check`, and `git diff --check`
+  clean; `npm test` 1,672 passed / 2 skipped (210 files); coverage thresholds
+  met (statements 93.77%, branches 84.71%); production build passed; full
+  Playwright suite on an owned production server (port 3557): 80 passed /
+  1 skipped (the `preview-auth-isolation` skip is environment-gated), 0
+  failures.
+- E2E notes: the modal's assignee menu renders the username as the display
+  name (`mapTaskPersonSummary` prefers `username` over `name`), so the spec
+  reads the username from the database after sign-in and matches the option by
+  that text. Escape with the options menu open closes the whole dialog (unlike
+  ND-448's context preview, where the first Escape closes only the menu), so
+  the desktop test exercises the Edit and Cancel path instead.
+- PR #525 opened ready for review. CI green: Quality Gates passes all four
+  jobs (Quality Core, E2E Smoke, Tenant Isolation RLS, Container Image) on
+  both the `pull_request` run and a dispatched run, plus Check Branch Name.
+  The Copilot review could not run: the automatic review and a re-requested
+  one both returned the same quota-limit message seen on ND-448's PR #519, so
+  there were no review threads to triage; the quota state is flagged on the PR
+  and the card for the human reviewer.
+- Note: the `pull_request`-triggered Quality Gates run did not queue promptly
+  after PR creation (ND-464's branch hit the same delay); a manual
+  `workflow_dispatch` run was started for immediate CI signal, and the
+  `pull_request` run landed green shortly after.
+
 # 2026-09-17 - ND-396 external participants as meeting-note stewards
 
 - Moved ND-396 to In Progress and created the

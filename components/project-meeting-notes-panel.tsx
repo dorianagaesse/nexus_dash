@@ -1938,6 +1938,7 @@ export function ProjectMeetingNotesPanel({
       <MeetingTodoQuickDialog
         notes={localNotes}
         canEdit={canEdit}
+        currentActorUserId={currentActorUserId}
         referenceNowMs={referenceNowMs}
         pendingActionId={pendingTodoActionId}
         onOpenMeeting={openNoteFromTodoPanel}
