@@ -1,9 +1,11 @@
 import { describe, expect, test } from "vitest";
 
 import type { ProjectMeetingNotePanelNote } from "@/components/meeting-todos/meeting-note-types";
+import type { MeetingTodoActorSummary } from "@/lib/meeting-todo-actor";
 import {
   MEETING_TODO_OVERDUE_GRACE_DAYS,
   buildProjectMeetingTodos,
+  isMeetingTodoAssignedToUser,
 } from "@/lib/meeting-todo";
 
 const REFERENCE_NOW = new Date("2026-06-21T12:00:00.000Z").getTime();
@@ -130,5 +132,75 @@ describe("meeting todo aggregation", () => {
     );
 
     expect(result.open[0]?.isOverdue).toBe(false);
+  });
+});
+
+describe("meeting todo assignment matching", () => {
+  const humanAssignee: MeetingTodoActorSummary = {
+    kind: "human",
+    id: "user-1",
+    displayName: "Dorian",
+    usernameTag: null,
+    avatarSeed: null,
+    status: "active",
+    isAssignable: true,
+  };
+
+  test("matches an active human assignment for the same project user", () => {
+    expect(isMeetingTodoAssignedToUser(humanAssignee, "user-1")).toBe(true);
+  });
+
+  test("rejects assignments held by another user", () => {
+    expect(isMeetingTodoAssignedToUser(humanAssignee, "user-2")).toBe(false);
+  });
+
+  test("rejects assignments that are not active project members", () => {
+    expect(
+      isMeetingTodoAssignedToUser(
+        { ...humanAssignee, status: "inactive" },
+        "user-1"
+      )
+    ).toBe(false);
+    expect(
+      isMeetingTodoAssignedToUser(
+        { ...humanAssignee, status: "revoked" },
+        "user-1"
+      )
+    ).toBe(false);
+    expect(
+      isMeetingTodoAssignedToUser(
+        { ...humanAssignee, status: "expired" },
+        "user-1"
+      )
+    ).toBe(false);
+  });
+
+  test("rejects agents, participants, and unassigned todos", () => {
+    expect(
+      isMeetingTodoAssignedToUser(
+        { ...humanAssignee, kind: "agent" },
+        "user-1"
+      )
+    ).toBe(false);
+    expect(
+      isMeetingTodoAssignedToUser(
+        {
+          kind: "participant",
+          id: "user-1",
+          displayName: "Dorian",
+          usernameTag: null,
+          avatarSeed: null,
+          status: "active",
+          isAssignable: true,
+        },
+        "user-1"
+      )
+    ).toBe(false);
+    expect(isMeetingTodoAssignedToUser(null, "user-1")).toBe(false);
+    expect(isMeetingTodoAssignedToUser(undefined, "user-1")).toBe(false);
+  });
+
+  test("rejects every assignment while the current user id is unknown", () => {
+    expect(isMeetingTodoAssignedToUser(humanAssignee, "")).toBe(false);
   });
 });

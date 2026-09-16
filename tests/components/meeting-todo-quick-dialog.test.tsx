@@ -11,10 +11,31 @@ import {
   readStoredMeetingTodoDialogPosition,
 } from "@/components/meeting-todos/meeting-todo-quick-dialog";
 import type { ProjectMeetingNotePanelNote } from "@/components/meeting-todos/meeting-note-types";
+import type { MeetingTodoActorSummary } from "@/lib/meeting-todo-actor";
 
 (globalThis as { React?: typeof React }).React = React;
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
+
+const ACTOR_USER_ID = "user-current";
+
+function humanActor(
+  id: string,
+  displayName: string,
+  status: MeetingTodoActorSummary["status"] = "active"
+): MeetingTodoActorSummary {
+  return {
+    kind: "human",
+    id,
+    displayName,
+    usernameTag: null,
+    avatarSeed: null,
+    status,
+    isAssignable: status === "active",
+  };
+}
+
+const ownActor = humanActor(ACTOR_USER_ID, "Dorian");
 
 const OPEN_NOTE: ProjectMeetingNotePanelNote = {
   id: "meeting-1",
@@ -32,16 +53,76 @@ const OPEN_NOTE: ProjectMeetingNotePanelNote = {
       content: "Choose the movable todo entry",
       completedAt: null,
       position: 0,
+      assignee: ownActor,
     },
     {
       id: "todo-complete",
       content: "Review the original quick panel",
       completedAt: "2026-07-11T10:00:00.000Z",
       position: 1,
+      assignee: ownActor,
     },
   ],
   createdAt: "2026-07-10T08:00:00.000Z",
   updatedAt: "2026-07-11T10:00:00.000Z",
+};
+
+const MIXED_ASSIGNMENT_NOTE: ProjectMeetingNotePanelNote = {
+  ...OPEN_NOTE,
+  id: "meeting-2",
+  title: "Assignment review",
+  scheduledAt: "2026-07-19T09:00:00.000Z",
+  actions: [
+    {
+      id: "todo-mine",
+      content: "My open follow-up",
+      completedAt: null,
+      position: 0,
+      assignee: ownActor,
+    },
+    {
+      id: "todo-other-human",
+      content: "Someone else's follow-up",
+      completedAt: null,
+      position: 1,
+      assignee: humanActor("user-other", "Camille"),
+    },
+    {
+      id: "todo-participant",
+      content: "External participant follow-up",
+      completedAt: null,
+      position: 2,
+      assignee: {
+        kind: "participant",
+        id: "Guest Reviewer",
+        displayName: "Guest Reviewer",
+        usernameTag: null,
+        avatarSeed: null,
+        status: "active",
+        isAssignable: true,
+      },
+    },
+    {
+      id: "todo-unassigned",
+      content: "Unclaimed follow-up",
+      completedAt: null,
+      position: 3,
+    },
+    {
+      id: "todo-mine-completed",
+      content: "My finished follow-up",
+      completedAt: "2026-07-20T08:00:00.000Z",
+      position: 4,
+      assignee: ownActor,
+    },
+    {
+      id: "todo-other-completed",
+      content: "Someone else's finished follow-up",
+      completedAt: "2026-07-20T09:00:00.000Z",
+      position: 5,
+      assignee: humanActor("user-other", "Camille"),
+    },
+  ],
 };
 
 let roots: Root[] = [];
@@ -61,10 +142,14 @@ async function cleanupPanels() {
 
 function renderPanel({
   canEdit = true,
+  notes = [OPEN_NOTE],
+  currentActorUserId = ACTOR_USER_ID,
   onOpenMeeting = vi.fn(),
   onSetCompleted = vi.fn(),
 }: {
   canEdit?: boolean;
+  notes?: ProjectMeetingNotePanelNote[];
+  currentActorUserId?: string;
   onOpenMeeting?: ReturnType<typeof vi.fn>;
   onSetCompleted?: ReturnType<typeof vi.fn>;
 } = {}) {
@@ -77,8 +162,9 @@ function renderPanel({
   act(() => {
     root.render(
       <MeetingTodoQuickDialog
-        notes={[OPEN_NOTE]}
+        notes={notes}
         canEdit={canEdit}
+        currentActorUserId={currentActorUserId}
         referenceNowMs={new Date("2026-07-20T12:00:00.000Z").getTime()}
         pendingActionId={null}
         onOpenMeeting={onOpenMeeting}
@@ -355,5 +441,43 @@ describe("meeting todo quick dialog", () => {
       "translate(calc(-50% + 0px), calc(-50% + 0px))"
     );
     expect(movedTransform).not.toBe(initialTransform);
+  });
+
+  test("shows only todos assigned to the current user", async () => {
+    renderPanel({ notes: [MIXED_ASSIGNMENT_NOTE] });
+
+    const trigger = getButton("Todos, 1 open");
+    expect(trigger.textContent).toContain("Todos");
+    await act(async () => {
+      trigger.click();
+      await Promise.resolve();
+    });
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain("My open follow-up");
+    expect(dialog?.textContent).toContain("My finished follow-up");
+    expect(dialog?.textContent).not.toContain("Someone else's follow-up");
+    expect(dialog?.textContent).not.toContain(
+      "External participant follow-up"
+    );
+    expect(dialog?.textContent).not.toContain("Unclaimed follow-up");
+    expect(dialog?.textContent).not.toContain(
+      "Someone else's finished follow-up"
+    );
+  });
+
+  test("renders no trigger or dialog when the current user has no assigned todos", () => {
+    renderPanel({
+      notes: [MIXED_ASSIGNMENT_NOTE],
+      currentActorUserId: "user-without-todos",
+    });
+
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(
+      Array.from(document.querySelectorAll("button")).some((button) =>
+        button.getAttribute("aria-label")?.startsWith("Todos,")
+      )
+    ).toBe(false);
   });
 });
