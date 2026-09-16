@@ -9,6 +9,7 @@ import {
   isAllowedAttachmentMimeType,
   isAttachmentKind,
   isAttachmentPreviewable,
+  isImageAttachment,
   normalizeAttachmentUrl,
   resolveAttachmentMimeType,
 } from "@/lib/task-attachment";
@@ -62,6 +63,14 @@ describe("task-attachment", () => {
     expect(isAttachmentPreviewable(ATTACHMENT_KIND_FILE, "image/png")).toBe(true);
     expect(isAttachmentPreviewable(ATTACHMENT_KIND_LINK, "image/png")).toBe(false);
     expect(isAttachmentPreviewable(ATTACHMENT_KIND_FILE, null)).toBe(false);
+  });
+
+  test("identifies image attachments by kind and mime type", () => {
+    expect(isImageAttachment(ATTACHMENT_KIND_FILE, "image/png")).toBe(true);
+    expect(isImageAttachment(ATTACHMENT_KIND_FILE, "application/pdf")).toBe(false);
+    expect(isImageAttachment(ATTACHMENT_KIND_LINK, "image/png")).toBe(false);
+    expect(isImageAttachment(ATTACHMENT_KIND_FILE, null)).toBe(false);
+    expect(isImageAttachment(ATTACHMENT_KIND_FILE, undefined)).toBe(false);
   });
 
   test("builds inline url query safely", () => {

@@ -26,7 +26,10 @@ import {
   type TaskCommentMentionNotificationInput,
   createTaskCommentMentionNotification,
 } from "@/lib/services/notification-service";
-import { MAX_TASK_COMMENT_LENGTH } from "@/lib/task-comment";
+import {
+  MAX_TASK_COMMENT_ATTACHMENTS,
+  MAX_TASK_COMMENT_LENGTH,
+} from "@/lib/task-comment";
 import {
   mapTaskPersonSummary,
   type TaskPersonSummary,
@@ -35,9 +38,11 @@ import {
   mapTaskAttachmentResponse,
   type TaskAttachmentResponsePayload,
 } from "@/lib/services/project-attachment-service";
-import { isAttachmentPreviewable } from "@/lib/task-attachment";
+import {
+  ATTACHMENT_KIND_FILE,
+  isAllowedAttachmentMimeType,
+} from "@/lib/task-attachment";
 
-const MAX_TASK_COMMENT_ATTACHMENTS = 10;
 const AGENT_COMMENT_AVATAR_SEED = "nexusdash-agent-comment-avatar";
 
 interface ServiceErrorResult {
@@ -763,8 +768,8 @@ export async function createTaskCommentForProject(input: {
           attachments.length !== attachmentIds.length ||
           attachments.some(
             (attachment) =>
-              !isAttachmentPreviewable(attachment.kind, attachment.mimeType) ||
-              !attachment.mimeType?.startsWith("image/")
+              attachment.kind !== ATTACHMENT_KIND_FILE ||
+              !isAllowedAttachmentMimeType(attachment.mimeType ?? "")
           )
         ) {
           return createError(400, "task-comment-attachment-invalid");

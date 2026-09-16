@@ -307,12 +307,12 @@ describe("TaskDetailModal comments", () => {
     document.body.innerHTML = "";
   });
 
-  test("keeps screenshot previews inside the compact comment composer", async () => {
+  test("keeps attachment previews inside the compact comment composer", async () => {
     const { root } = createTestRenderer();
 
     await renderWithRoot(root, [], {
       canEdit: true,
-      commentScreenshotAttachments: [
+      commentAttachments: [
         {
           id: "attachment-1",
           commentId: null,
@@ -323,14 +323,28 @@ describe("TaskDetailModal comments", () => {
           sizeBytes: 1024,
           downloadUrl: "/download/attachment-1",
         },
+        {
+          id: "attachment-2",
+          commentId: null,
+          kind: "file",
+          name: "notes.pdf",
+          url: null,
+          mimeType: "application/pdf",
+          sizeBytes: 2048,
+          downloadUrl: "/download/attachment-2",
+        },
       ],
     });
 
     const composer = document.querySelector('[data-testid="task-comment-composer"]');
     expect(composer?.querySelector("#task-comment-input")).not.toBeNull();
     expect(
-      composer?.querySelector('[aria-label="Preview screenshot pasted.png"]')
+      composer?.querySelector('[aria-label="Preview image pasted.png"]')
     ).not.toBeNull();
+    expect(
+      composer?.querySelector('button[aria-label="Remove file notes.pdf"]')
+    ).not.toBeNull();
+    expect(document.body.textContent).toContain("notes.pdf");
     expect(document.body.textContent).not.toContain("Title 1");
     expect(document.body.textContent).not.toContain("Bullet list");
 

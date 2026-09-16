@@ -10,7 +10,7 @@ import type {
 import { Button } from "@/components/ui/button";
 import { buildAttachmentInlineUrl } from "@/lib/task-attachment";
 
-interface ScreenshotAttachmentGridProps {
+interface ImageAttachmentGridProps {
   attachments: TaskAttachment[];
   pendingUploads?: PendingAttachmentUpload[];
   onPreview: (attachment: TaskAttachment) => void;
@@ -18,13 +18,13 @@ interface ScreenshotAttachmentGridProps {
   compact?: boolean;
 }
 
-export function ScreenshotAttachmentGrid({
+export function ImageAttachmentGrid({
   attachments,
   pendingUploads = [],
   onPreview,
   onRemove,
   compact = false,
-}: ScreenshotAttachmentGridProps) {
+}: ImageAttachmentGridProps) {
   if (attachments.length === 0 && pendingUploads.length === 0) {
     return null;
   }
@@ -36,7 +36,7 @@ export function ScreenshotAttachmentGrid({
           ? "grid grid-cols-2 gap-2 sm:grid-cols-3"
           : "grid grid-cols-1 gap-2 sm:grid-cols-2"
       }
-      aria-label="Screenshot attachments"
+      aria-label="Image attachments"
     >
       {attachments.map((attachment) => {
         const previewUrl = buildAttachmentInlineUrl(attachment.downloadUrl);
@@ -53,7 +53,7 @@ export function ScreenshotAttachmentGrid({
               type="button"
               onClick={() => onPreview(attachment)}
               className="relative block aspect-[16/10] w-full cursor-pointer overflow-hidden bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              aria-label={`Preview screenshot ${attachment.name}`}
+              aria-label={`Preview image ${attachment.name}`}
             >
               <Image
                 src={previewUrl}
@@ -73,7 +73,7 @@ export function ScreenshotAttachmentGrid({
                 variant="secondary"
                 size="icon"
                 onClick={() => void onRemove(attachment.id)}
-                aria-label={`Remove screenshot ${attachment.name}`}
+                aria-label={`Remove image ${attachment.name}`}
                 className="absolute bottom-0 right-0 h-11 w-11 rounded-none rounded-tl-lg"
               >
                 <X className="h-4 w-4" />

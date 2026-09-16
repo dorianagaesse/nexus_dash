@@ -16,6 +16,29 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-09-17 - ND-399: Comment attachments accept every supported file type
+
+- Status: Accepted; extends the ND-144 comment-attachment model without a
+  schema change.
+- Context: ND-144 bound only previewable image attachments to comments. Review
+  discussion routinely cites PDFs, plain text, Markdown, CSV, and JSON files,
+  which previously had to live as loose task-level attachments with no link to
+  the comment that referenced them.
+- Decision: Comment creation binds any attachment whose `kind` is `file` and
+  whose MIME type passes the existing `isAllowedAttachmentMimeType` allowlist;
+  link attachments stay task-level only, and the ten-attachment cap plus the
+  existing `task-comment-attachment-invalid` error contract are unchanged.
+  The task modal renders attachments through two shared presentational
+  components: `ImageAttachmentGrid` for image tiles and `AttachmentFileList`
+  for file rows (name, size, preview or download, optional remove), used by
+  the comment composer draft, posted comments, and the task-level panels.
+- Consequences: Uploading, authorization, and binding still flow through the
+  task attachment routes and the same transaction as ND-144, so no migration
+  or RLS change was needed. Non-previewable files render as authorized
+  download links rather than inline previews, and the composer file picker
+  accepts the full MIME allowlist instead of `image/*`.
+- Links: `adr/decisions.md` (ND-144 entry), Nexus Dash card ND-399.
+
 ## 2026-09-14 - ND-447: Remove context-card stewardship
 
 - Status: Accepted; removes the context-card portions of the TASK-342

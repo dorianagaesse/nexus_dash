@@ -1192,7 +1192,31 @@ describe("task comments route", () => {
     expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
   });
 
-  test("POST creates an attachment-only comment and binds its screenshot", async () => {
+  test("POST rejects comments with more than ten attachments", async () => {
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "<p>Too many files</p>",
+            attachmentIds: Array.from({ length: 11 }, (_, index) => `attachment-${index}`),
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "too-many-comment-attachments",
+    });
+    expect(prismaMock.taskComment.create).not.toHaveBeenCalled();
+    expect(prismaMock.task.findUnique).not.toHaveBeenCalled();
+  });
+
+  test("POST creates an attachment-only comment and binds its uploaded image", async () => {
     const screenshot = {
       id: "attachment-1",
       commentId: null,
@@ -1265,7 +1289,148 @@ describe("task comments route", () => {
     });
   });
 
-  test("POST rejects screenshot ids that are not attachable by the actor", async () => {
+  test("POST binds a supported file attachment to the comment", async () => {
+    const report = {
+      id: "attachment-2",
+      commentId: null,
+      kind: "file",
+      name: "status-report.pdf",
+      url: null,
+      mimeType: "application/pdf",
+      sizeBytes: 40960,
+    };
+    prismaMock.task.findUnique.mockResolvedValue({
+      id: "task-1",
+      title: "Screenshot task",
+      projectId: "project-1",
+    });
+    prismaMock.taskAttachment.findMany
+      .mockResolvedValueOnce([report])
+      .mockResolvedValueOnce([{ ...report, commentId: "comment-file" }]);
+    prismaMock.taskAttachment.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.taskComment.create.mockResolvedValue({
+      id: "comment-file",
+      content: "<p>Report attached</p>",
+      createdAt: new Date("2026-09-17T00:00:00.000Z"),
+      authorAgentCredentialId: null,
+      authorAgentCredentialLabel: null,
+      author: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+      attachments: [],
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "<p>Report attached</p>",
+            attachmentIds: ["attachment-2"],
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.taskAttachment.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["attachment-2"] },
+        taskId: "task-1",
+        uploadedByUserId: "test-user",
+        commentId: null,
+      },
+      data: { commentId: "comment-file" },
+    });
+    await expect(readJson(response)).resolves.toMatchObject({
+      comment: {
+        id: "comment-file",
+        attachments: [
+          {
+            id: "attachment-2",
+            commentId: "comment-file",
+            mimeType: "application/pdf",
+            downloadUrl:
+              "/api/projects/project-1/tasks/task-1/attachments/attachment-2/download",
+          },
+        ],
+      },
+    });
+  });
+
+  test("POST rejects attachments whose file type is unsupported", async () => {
+    prismaMock.task.findUnique.mockResolvedValue({
+      id: "task-1",
+      title: "Screenshot task",
+      projectId: "project-1",
+    });
+    prismaMock.taskAttachment.findMany.mockResolvedValue([
+      { id: "attachment-3", kind: "file", mimeType: "application/zip" },
+    ]);
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "<p>Archive attached</p>",
+            attachmentIds: ["attachment-3"],
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "task-comment-attachment-invalid",
+    });
+    expect(prismaMock.taskComment.create).not.toHaveBeenCalled();
+  });
+
+  test("POST rejects link attachments because comments only bind files", async () => {
+    prismaMock.task.findUnique.mockResolvedValue({
+      id: "task-1",
+      title: "Screenshot task",
+      projectId: "project-1",
+    });
+    prismaMock.taskAttachment.findMany.mockResolvedValue([
+      { id: "attachment-4", kind: "link", mimeType: null },
+    ]);
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "<p>Link attached</p>",
+            attachmentIds: ["attachment-4"],
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "task-comment-attachment-invalid",
+    });
+    expect(prismaMock.taskComment.create).not.toHaveBeenCalled();
+  });
+
+  test("POST rejects attachment ids that are not attachable by the actor", async () => {
     prismaMock.task.findUnique.mockResolvedValue({
       id: "task-1",
       title: "Screenshot task",

@@ -5,11 +5,11 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { ScreenshotAttachmentGrid } from "@/components/kanban/screenshot-attachment-grid";
+import { ImageAttachmentGrid } from "@/components/kanban/image-attachment-grid";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-describe("ScreenshotAttachmentGrid", () => {
+describe("ImageAttachmentGrid", () => {
   afterEach(() => {
     document.body.innerHTML = "";
   });
@@ -23,7 +23,7 @@ describe("ScreenshotAttachmentGrid", () => {
 
     await act(async () => {
       root.render(
-        <ScreenshotAttachmentGrid
+        <ImageAttachmentGrid
           attachments={[
             {
               id: "attachment-1",
@@ -43,10 +43,10 @@ describe("ScreenshotAttachmentGrid", () => {
     });
 
     const preview = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Preview screenshot repro.png"]'
+      'button[aria-label="Preview image repro.png"]'
     );
     const remove = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Remove screenshot repro.png"]'
+      'button[aria-label="Remove image repro.png"]'
     );
     expect(container.querySelector("img")?.getAttribute("src")).toContain(
       "disposition=inline"
@@ -63,16 +63,18 @@ describe("ScreenshotAttachmentGrid", () => {
     await act(async () => root.unmount());
   });
 
-  test("announces pending screenshot uploads", async () => {
+  test("announces pending image uploads", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
 
     await act(async () => {
       root.render(
-        <ScreenshotAttachmentGrid
+        <ImageAttachmentGrid
           attachments={[]}
-          pendingUploads={[{ id: "pending-1", name: "paste.png", sizeBytes: 12 }]}
+          pendingUploads={[
+            { id: "pending-1", name: "paste.png", sizeBytes: 12, mimeType: "image/png" },
+          ]}
           onPreview={vi.fn()}
         />
       );

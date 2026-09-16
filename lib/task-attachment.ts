@@ -175,6 +175,17 @@ export function isAttachmentPreviewable(
   return kind === ATTACHMENT_KIND_FILE && getAttachmentPreviewKind(mimeType) !== null;
 }
 
+export function isImageAttachment(
+  kind: string,
+  mimeType: string | null | undefined
+): boolean {
+  return (
+    kind === ATTACHMENT_KIND_FILE &&
+    typeof mimeType === "string" &&
+    mimeType.startsWith("image/")
+  );
+}
+
 export function buildAttachmentInlineUrl(downloadUrl: string | null): string | null {
   if (!downloadUrl) {
     return null;
