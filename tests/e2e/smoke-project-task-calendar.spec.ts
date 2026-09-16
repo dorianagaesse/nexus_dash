@@ -9,8 +9,10 @@ import {
 } from "./helpers/project-helpers";
 
 test.describe("critical UI smoke flows", () => {
+  let signedInUserId: string;
+
   test.beforeEach(async ({ page }) => {
-    await signInAsVerifiedUser(page);
+    signedInUserId = await signInAsVerifiedUser(page);
   });
 
   test("project creation and dashboard navigation flow", async ({ page }) => {
@@ -342,6 +344,8 @@ test.describe("critical UI smoke flows", () => {
             {
               content: "Finalize delayed recap",
               completedAt: null,
+              // The floating panel only lists the signed-in user's todos.
+              assignee: { kind: "human", id: signedInUserId },
             },
           ],
         },

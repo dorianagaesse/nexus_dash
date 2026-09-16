@@ -377,16 +377,9 @@ export function TaskDetailModal({
             <DialogTitle className="sr-only">
               {isEditing ? `Edit ${selectedTask.title}` : selectedTask.title}
             </DialogTitle>
-            <CardHeader
-              className={cn(
-                "flex shrink-0 flex-col gap-3 space-y-0",
-                isEditing
-                  ? "relative"
-                  : "sm:flex-row sm:items-start sm:justify-between"
-              )}
-            >
-              <div className={cn("min-w-0 flex-1 space-y-2", isEditing && "w-full pr-1")}>
-                <div className="flex flex-wrap items-center gap-2">
+            <CardHeader className="flex shrink-0 flex-col gap-3 space-y-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <Badge
                     variant="outline"
                     className={
@@ -407,6 +400,42 @@ export function TaskDetailModal({
                     </Badge>
                   ) : null}
                 </div>
+                <div
+                  data-task-modal-controls="true"
+                  className="flex shrink-0 items-center gap-1"
+                >
+                  {!isEditing && canEdit ? (
+                    <TaskOptionsMenu
+                      currentStatus={selectedTask.status}
+                      currentEpic={selectedTask.epic}
+                      epicOptions={availableEpicOptions}
+                      currentAssignee={selectedTask.assignee}
+                      assigneeOptions={availableAssignees}
+                      agentOptions={availableAgentOptions}
+                      isArchived={isArchivedTask}
+                      isMutating={isArchivingTask || isUpdatingTask}
+                      onStartEdit={() => onToggleEditMode(true)}
+                      onQuickEpicChange={onQuickEpicChange}
+                      onQuickAssigneeChange={onQuickAssigneeChange}
+                      onMoveTask={onMoveTask}
+                      onArchiveTask={onArchiveTask}
+                      onUnarchiveTask={onUnarchiveTask}
+                      onRequestDeleteTask={onRequestDeleteTask}
+                    />
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={onClose}
+                    aria-label="Close task"
+                    disabled={isUpdatingTask || isArchivingTask}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="min-w-0 space-y-2">
                 {!isEditing ? (
                   <div className="space-y-3 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:space-y-0">
                     <CardTitle
@@ -449,42 +478,6 @@ export function TaskDetailModal({
                     ) : null}
                   </>
                 )}
-              </div>
-              <div
-                className={cn(
-                  "flex items-center gap-1 self-end",
-                  isEditing ? "absolute right-4 top-4" : "sm:self-auto"
-                )}
-              >
-                {!isEditing && canEdit ? (
-                  <TaskOptionsMenu
-                    currentStatus={selectedTask.status}
-                    currentEpic={selectedTask.epic}
-                    epicOptions={availableEpicOptions}
-                    currentAssignee={selectedTask.assignee}
-                    assigneeOptions={availableAssignees}
-                    agentOptions={availableAgentOptions}
-                    isArchived={isArchivedTask}
-                    isMutating={isArchivingTask || isUpdatingTask}
-                    onStartEdit={() => onToggleEditMode(true)}
-                    onQuickEpicChange={onQuickEpicChange}
-                    onQuickAssigneeChange={onQuickAssigneeChange}
-                    onMoveTask={onMoveTask}
-                    onArchiveTask={onArchiveTask}
-                    onUnarchiveTask={onUnarchiveTask}
-                    onRequestDeleteTask={onRequestDeleteTask}
-                  />
-                ) : null}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={onClose}
-                  aria-label="Close task"
-                  disabled={isUpdatingTask || isArchivingTask}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
               </div>
             </CardHeader>
             <CardContent className="min-h-0 flex-1 overflow-y-auto [scrollbar-color:rgba(148,163,184,0.52)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]">

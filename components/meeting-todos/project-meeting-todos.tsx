@@ -20,7 +20,10 @@ import {
 } from "@/components/meeting-todos/meeting-todo-assignee-chip";
 import { MeetingTodoActorIdentity } from "@/components/meeting-todos/meeting-todo-actor-control";
 import { Badge } from "@/components/ui/badge";
-import { isMeetingTodoOverdueAt } from "@/lib/meeting-todo";
+import {
+  isMeetingTodoAssignedToUser,
+  isMeetingTodoOverdueAt,
+} from "@/lib/meeting-todo";
 import {
   type MeetingTodoActorReference,
   type MeetingTodoActorSummary,
@@ -315,11 +318,7 @@ export function ProjectMeetingTodos({
   );
   const responsibilityMatches = (todo: ProjectMeetingTodoItem) => {
     if (responsibility === "mine") {
-      return (
-        todo.assignee?.kind === "human" &&
-        todo.assignee.id === currentActorUserId &&
-        todo.assignee.status === "active"
-      );
+      return isMeetingTodoAssignedToUser(todo.assignee, currentActorUserId);
     }
     if (responsibility === "unassigned") {
       return todo.assignee === null;
@@ -331,11 +330,8 @@ export function ProjectMeetingTodos({
   );
   const responsibilityCounts = {
     all: (view === "completed" ? completedTodos : openTodos).length,
-    mine: (view === "completed" ? completedTodos : openTodos).filter(
-      (todo) =>
-        todo.assignee?.kind === "human" &&
-        todo.assignee.id === currentActorUserId &&
-        todo.assignee.status === "active"
+    mine: (view === "completed" ? completedTodos : openTodos).filter((todo) =>
+      isMeetingTodoAssignedToUser(todo.assignee, currentActorUserId)
     ).length,
     unassigned: (view === "completed" ? completedTodos : openTodos).filter(
       (todo) => todo.assignee === null
