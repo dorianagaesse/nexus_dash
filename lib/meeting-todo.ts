@@ -2,6 +2,7 @@ import type {
   ProjectMeetingNotePanelAction,
   ProjectMeetingNotePanelNote,
 } from "@/components/meeting-todos/meeting-note-types";
+import type { MeetingTodoActorSummary } from "@/lib/meeting-todo-actor";
 
 export const MEETING_TODO_OVERDUE_GRACE_DAYS = 7;
 const MEETING_TODO_OVERDUE_GRACE_MS =
@@ -53,6 +54,18 @@ export function isMeetingTodoOverdue(
     meetingStatus: note.status,
     referenceNowMs,
   });
+}
+
+export function isMeetingTodoAssignedToUser(
+  assignee: MeetingTodoActorSummary | null | undefined,
+  projectUserId: string
+): boolean {
+  return (
+    projectUserId.length > 0 &&
+    assignee?.kind === "human" &&
+    assignee.status === "active" &&
+    assignee.id === projectUserId
+  );
 }
 
 export function buildProjectMeetingTodos(

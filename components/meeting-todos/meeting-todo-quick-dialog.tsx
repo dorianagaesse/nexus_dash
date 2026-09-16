@@ -34,12 +34,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { buildProjectMeetingTodos, type ProjectMeetingTodo } from "@/lib/meeting-todo";
+import {
+  buildProjectMeetingTodos,
+  isMeetingTodoAssignedToUser,
+  type ProjectMeetingTodo,
+} from "@/lib/meeting-todo";
 import { cn } from "@/lib/utils";
 
 interface MeetingTodoQuickDialogProps {
   notes: ProjectMeetingNotePanelNote[];
   canEdit: boolean;
+  currentActorUserId: string;
   referenceNowMs: number;
   pendingActionId: string | null;
   onOpenMeeting: (note: ProjectMeetingNotePanelNote) => void;
@@ -315,15 +320,21 @@ function CompletedTodoRow({
 export function MeetingTodoQuickDialog({
   notes,
   canEdit,
+  currentActorUserId,
   referenceNowMs,
   pendingActionId,
   onOpenMeeting,
   onSetCompleted,
 }: MeetingTodoQuickDialogProps) {
-  const todos = useMemo(
-    () => buildProjectMeetingTodos(notes, referenceNowMs),
-    [notes, referenceNowMs]
-  );
+  const todos = useMemo(() => {
+    const projectTodos = buildProjectMeetingTodos(notes, referenceNowMs);
+    const isOwnTodo = (todo: ProjectMeetingTodo) =>
+      isMeetingTodoAssignedToUser(todo.action.assignee, currentActorUserId);
+    return {
+      open: projectTodos.open.filter(isOwnTodo),
+      completed: projectTodos.completed.filter(isOwnTodo),
+    };
+  }, [notes, referenceNowMs, currentActorUserId]);
   const [isOpen, setIsOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState<DialogPosition>({ left: 0, top: 0 });
