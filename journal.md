@@ -3,6 +3,33 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-17 - ND-432: Autosave architecture and conflict contract
+
+- Claimed live Nexus Dash card ND-432 (`cmtr9bfcp000i04ifqsfajd1s`), moved it
+  from Backlog to In Progress, and created the dedicated
+  `../nexus_dash_task432` worktree on
+  `feature/nd-432-autosave-architecture` from `origin/main` at 8f7faf1.
+- Audited the current task, meeting-note, comment, context-card, roadmap,
+  calendar, epic, and project authoring flows. Long-form state is currently
+  ephemeral; task/context/roadmap updates are last-write-wins; meeting-note
+  updates replace the full participant/todo aggregate; and no mutation route
+  currently implements an edit revision or HTTP precondition.
+- Accepted a two-layer contract in `adr/task-432-autosave-contract.md`:
+  browser-local recovery drafts provide reload/navigation/offline protection
+  without database traffic, while network live save is limited to existing
+  NexusDash records with atomic content revisions, partial patches, and 412
+  precondition/conflict handling. Create, comment publication,
+  destructive/workflow commands, and Google Calendar writes remain explicit.
+- The ADR records the complete surface matrix, 300 ms local and 2-second
+  network debounce (30-second maximum wait), single-flight coalescing,
+  30-day/user-scoped draft retention, reset rules, rich-text conflict policy,
+  explicit-save behavior, and the ND-428/ND-429 latency/load gate for enabling
+  live save. This task changes documentation only; implementation remains in
+  ND-433 and ND-434.
+- Linked ND-432 to ND-428, ND-429, ND-433, and ND-434 on the live board so the
+  audit, remediation, design, and two rollout stages are represented as actual
+  Related Tasks rather than duplicated dependency prose.
+
 # 2026-09-16 - ND-377: Limit the floating todo panel to the signed-in user
 
 - Claimed live Nexus Dash card ND-377 (`cmtj9k4qv000704k0vl0ugezw`) and
