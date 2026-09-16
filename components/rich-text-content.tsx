@@ -679,7 +679,7 @@ export function RichTextContent({
         suppressHydrationWarning
         className={cn(
           "max-w-full overflow-x-hidden [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words",
-          "[&_a]:font-bold [&_a]:text-primary [&_a]:underline [&_a]:decoration-primary/50 [&_a]:underline-offset-2 [&_a]:transition-colors [&_a]:hover:text-primary/80",
+          "[&_a]:cursor-pointer [&_a]:font-bold [&_a]:text-blue-700 [&_a]:no-underline [&_a]:transition-colors [&_a]:hover:text-blue-800 dark:[&_a]:text-blue-300 dark:[&_a]:hover:text-blue-200",
           "[&_a]:focus-visible:rounded-sm [&_a]:focus-visible:outline-none [&_a]:focus-visible:ring-2 [&_a]:focus-visible:ring-ring [&_a]:focus-visible:ring-offset-2 [&_a]:focus-visible:ring-offset-background",
           "[&_a]:[overflow-wrap:anywhere] [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3",
           "[&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold",

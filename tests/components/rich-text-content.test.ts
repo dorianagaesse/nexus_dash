@@ -131,7 +131,7 @@ describe("rich-text-content", () => {
     expect(link?.rel).toBe("noopener noreferrer");
   });
 
-  test("styles links for emphasis, focus visibility, and responsive wrapping", async () => {
+  test("styles links with an icon, blue themes, pointer affordance, focus, and wrapping", async () => {
     const { container, root } = createTestRenderer();
 
     await renderWithRoot(
@@ -146,8 +146,12 @@ describe("rich-text-content", () => {
     expect(link?.textContent).toBe(
       "A deliberately long link title that must wrap"
     );
+    expect(link?.dataset.richLink).toBe("true");
     expect(content?.className).toContain("[&_a]:font-bold");
-    expect(content?.className).toContain("[&_a]:text-primary");
+    expect(content?.className).toContain("[&_a]:text-blue-700");
+    expect(content?.className).toContain("dark:[&_a]:text-blue-300");
+    expect(content?.className).toContain("[&_a]:no-underline");
+    expect(content?.className).toContain("[&_a]:cursor-pointer");
     expect(content?.className).toContain("[&_a]:focus-visible:ring-2");
     expect(content?.className).toContain("[&_a]:[overflow-wrap:anywhere]");
 

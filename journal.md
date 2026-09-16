@@ -7623,6 +7623,9 @@ Low-value entries to avoid going forward:
   are compact in the editor itself and in rendered descriptions/comments,
   including legacy saved content. Focused component coverage now exercises
   load, paste, serialization, adjacent punctuation, and subdomain titles.
+- Follow-up styling adds a decorative internet icon, explicit accessible blue
+  colors for light/dark themes, no underline, and a pointer hover affordance.
+  The CSS-only icon stays out of copied text, accessible names, and stored HTML.
 
 # 2026-09-16 - ND-466 task modal overflow and close controls top-right
 

@@ -3267,7 +3267,7 @@ export function RichTextEditor({
             "focus-visible:outline-none focus-visible:border-ring/60",
             "[&:empty:before]:pointer-events-none [&:empty:before]:text-muted-foreground [&:empty:before]:content-[attr(data-placeholder)]",
             "[overflow-wrap:anywhere] [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3",
-            "[&_a]:font-bold [&_a]:text-primary [&_a]:underline [&_a]:decoration-primary/50 [&_a]:underline-offset-2 [&_a]:[overflow-wrap:anywhere]",
+            "[&_a]:cursor-pointer [&_a]:font-bold [&_a]:text-blue-700 [&_a]:no-underline [&_a]:[overflow-wrap:anywhere] [&_a]:transition-colors [&_a]:hover:text-blue-800 dark:[&_a]:text-blue-300 dark:[&_a]:hover:text-blue-200",
             "[&_a]:focus-visible:rounded-sm [&_a]:focus-visible:outline-none [&_a]:focus-visible:ring-2 [&_a]:focus-visible:ring-ring",
             "[&_nd-rich-shell]:w-full [&_nd-rich-shell]:max-w-full [&_nd-rich-shell]:min-w-0",
             "[&_pre[data-rich-block='code']]:my-0 [&_pre[data-rich-block='code']_code]:block [&_pre[data-rich-block='code']_code]:whitespace-pre-wrap [&_pre[data-rich-block='code']_code]:[overflow-wrap:anywhere]",
