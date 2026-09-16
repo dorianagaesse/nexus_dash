@@ -3097,21 +3097,23 @@ export function RichTextEditor({
       target.setAttribute("value", target.value);
     }
 
-    const selection = window.getSelection();
-    const activeRange = selection?.rangeCount ? selection.getRangeAt(0) : null;
-    let caretMarker: HTMLSpanElement | null = null;
-    if (
-      activeRange?.collapsed &&
-      currentEditor.contains(activeRange.commonAncestorContainer)
-    ) {
-      caretMarker = document.createElement("span");
-      caretMarker.dataset.editorCaretMarker = "true";
-      caretMarker.textContent = EDITOR_CARET_ANCHOR;
-      activeRange.insertNode(caretMarker);
-    }
+    if (/https?:\/\//i.test(currentEditor.textContent ?? "")) {
+      const selection = window.getSelection();
+      const activeRange = selection?.rangeCount ? selection.getRangeAt(0) : null;
+      let caretMarker: HTMLSpanElement | null = null;
+      if (
+        activeRange?.collapsed &&
+        currentEditor.contains(activeRange.commonAncestorContainer)
+      ) {
+        caretMarker = document.createElement("span");
+        caretMarker.dataset.editorCaretMarker = "true";
+        caretMarker.textContent = EDITOR_CARET_ANCHOR;
+        activeRange.insertNode(caretMarker);
+      }
 
-    linkifyPlainTextUrls(currentEditor, { requireTrailingBoundary: true });
-    restoreEditorSelectionFromMarker(currentEditor, caretMarker);
+      linkifyPlainTextUrls(currentEditor, { requireTrailingBoundary: true });
+      restoreEditorSelectionFromMarker(currentEditor, caretMarker);
+    }
 
     const nextValue = serializeEditorRichTextHtml(currentEditor.innerHTML);
     if (nextValue === latestValueRef.current) {
