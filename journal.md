@@ -52,6 +52,19 @@ Use it for important implementation milestones, blockers, validation runs, and r
   delivery because the server was treated as live production); rerunning
   with `NODE_ENV=test`, matching the CI e2e job, cleared it.
 - PR #527 opened ready for review at commit d90c772.
+- Follow-up (stakeholder feedback on the open PR): the view-mode "Close"
+  control is now a full-bleed bar -- the footer drops its padding when not
+  editing (`p-0`) and the Close button renders `w-full rounded-none`, with
+  the dialog's `overflow-hidden` rounding clipping the bar's corners; edit
+  mode keeps the padded footer with Save changes + Cancel, and the error
+  banner keeps its own margins under the padding-free footer. Visual
+  evidence (temporary Playwright spec, removed before commit): desktop
+  1440x900 and mobile 390x844 geometry both show the Close bar inset by
+  exactly the dialog's 1px border on each measurable edge; edit-mode
+  footer padding stays 24px. Re-validated after the tweak: lint, RLS
+  inventory, `npm test` (207 files / 1669 tests), coverage thresholds
+  (93.77% statements / 84.71% branches), production build, and the full
+  Playwright suite (83 passed / 1 skipped / 0 failures).
 
 # 2026-09-14 - ND-446: Remove the border around the Kanban search and filter bar
 
