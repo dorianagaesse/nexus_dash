@@ -7548,3 +7548,52 @@ Low-value entries to avoid going forward:
   introduced release-boundary governance. Restored the shared `0.73.0` package
   version and kept ND-144's product notes under `Unreleased`; version assignment
   remains owned by the release-preparation branch.
+# 2026-09-16 - ND-466 task modal overflow and close controls top-right
+
+- Moved ND-466 to In Progress and created the dedicated
+  `fix/nd-466-kanban-task-controls-top-right` worktree from `origin/main`
+  (`b3abd42`).
+- Restructured the task detail modal header into a two-row column: the
+  status/reference badges and the anchored controls (`data-task-modal-controls`)
+  share the header's first row, and the title/assignee block or the edit form
+  flows below. Removed the previous layout that placed the controls after the
+  assignee row on mobile and absolutely positioned them in edit mode, so long
+  titles, badges, and assignee content can no longer displace or overlap the
+  controls.
+- Overflow actions, close behavior, and the aria-labels other specs drive
+  ("Task options", "Close task") are unchanged; the shared options-menu
+  component and its submenu hooks are untouched.
+- New component suite `tests/components/task-detail-modal-controls.test.tsx`
+  (3 tests) asserts the document structure: controls live in the header's top
+  row, above and independent of the title and assignee blocks, including while
+  editing.
+- New e2e spec `tests/e2e/nd-466-task-modal-controls-placement.spec.ts`
+  (desktop 1440x900, mobile 390x844) asserts real geometry: both controls sit
+  inside the modal's top-right corner band, meet the 36px hit-target floor,
+  and never intersect the assignee row or the title; keyboard access (Enter on
+  the focused trigger opens the menu) and unchanged Edit/close behavior are
+  exercised in the same run. Desktop and mobile screenshots were inspected
+  before the temporary capture lines were removed.
+- Validation: `npm run lint`, `npm run rls:check`, and `git diff --check`
+  clean; `npm test` 1,672 passed / 2 skipped (210 files); coverage thresholds
+  met (statements 93.77%, branches 84.71%); production build passed; full
+  Playwright suite on an owned production server (port 3557): 80 passed /
+  1 skipped (the `preview-auth-isolation` skip is environment-gated), 0
+  failures.
+- E2E notes: the modal's assignee menu renders the username as the display
+  name (`mapTaskPersonSummary` prefers `username` over `name`), so the spec
+  reads the username from the database after sign-in and matches the option by
+  that text. Escape with the options menu open closes the whole dialog (unlike
+  ND-448's context preview, where the first Escape closes only the menu), so
+  the desktop test exercises the Edit and Cancel path instead.
+- PR #525 opened ready for review. CI green: Quality Gates passes all four
+  jobs (Quality Core, E2E Smoke, Tenant Isolation RLS, Container Image) on
+  both the `pull_request` run and a dispatched run, plus Check Branch Name.
+  The Copilot review could not run: the automatic review and a re-requested
+  one both returned the same quota-limit message seen on ND-448's PR #519, so
+  there were no review threads to triage; the quota state is flagged on the PR
+  and the card for the human reviewer.
+- Note: the `pull_request`-triggered Quality Gates run did not queue promptly
+  after PR creation (ND-464's branch hit the same delay); a manual
+  `workflow_dispatch` run was started for immediate CI signal, and the
+  `pull_request` run landed green shortly after.
