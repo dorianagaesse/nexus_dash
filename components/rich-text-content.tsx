@@ -13,6 +13,10 @@ import {
 import { parseAgentMentions, parseMentions } from "@/lib/mention";
 import { MENTION_HIGHLIGHT_CLASS } from "@/lib/content-with-mentions";
 import { coerceRichTextHtml } from "@/lib/rich-text";
+import {
+  configureRichTextLink,
+  linkifyPlainTextUrls,
+} from "@/lib/rich-text-links";
 import { cn } from "@/lib/utils";
 
 const MONOSPACE_FONT_FAMILY =
@@ -51,37 +55,6 @@ function supportsClipboardApi(): boolean {
     typeof navigator !== "undefined" &&
     typeof navigator.clipboard?.writeText === "function"
   );
-}
-
-function getCompactLinkTitle(href: string): string {
-  try {
-    const url = new URL(href);
-    if (url.protocol === "mailto:") {
-      return decodeURIComponent(url.pathname);
-    }
-
-    return url.hostname.replace(/^www\./i, "") || href;
-  } catch {
-    return href;
-  }
-}
-
-function configureRichTextLink(anchor: HTMLAnchorElement) {
-  const href = anchor.getAttribute("href")?.trim() ?? "";
-  if (!/^(https?:|mailto:)/i.test(href)) {
-    return;
-  }
-
-  const visibleText = anchor.textContent?.trim() ?? "";
-  if (visibleText === href) {
-    anchor.textContent = getCompactLinkTitle(href);
-  }
-
-  anchor.dataset.richLink = "true";
-  if (/^https?:/i.test(href)) {
-    anchor.target = "_blank";
-    anchor.rel = "noopener noreferrer";
-  }
 }
 
 function enhanceTitledLinks(root: DocumentFragment) {
@@ -131,6 +104,8 @@ function enhanceTitledLinks(root: DocumentFragment) {
     fragment.append(document.createTextNode(textNode.data.slice(lastIndex)));
     textNode.replaceWith(fragment);
   }
+
+  linkifyPlainTextUrls(root);
 }
 
 function setMonospaceFont(element: HTMLElement) {
@@ -253,7 +228,8 @@ export function buildEnhancedRichTextHtml(
     input.includes(marker)
   );
   const hasMentions = input.includes("@");
-  const hasLinks = input.includes("href=") || input.includes("](");
+  const hasLinks =
+    input.includes("href=") || input.includes("](") || /https?:\/\//i.test(input);
 
   if (!hasCodeBlocks && !hasTokenBlocks && !hasMentions && !hasLinks) {
     return input;

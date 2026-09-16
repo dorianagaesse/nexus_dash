@@ -7569,3 +7569,8 @@ Low-value entries to avoid going forward:
   ND-448's accepted context-card preview changes. Post-merge lint and 41 focused
   component tests pass, and the combined ND-448/ND-464 Chromium flows pass (3
   tests) before refreshing the PR checks.
+- Reviewer feedback exposed that plain pasted or typed URLs still stayed raw.
+  Added shared plain-URL detection and local hostname-derived titles so links
+  are compact in the editor itself and in rendered descriptions/comments,
+  including legacy saved content. Focused component coverage now exercises
+  load, paste, serialization, adjacent punctuation, and subdomain titles.

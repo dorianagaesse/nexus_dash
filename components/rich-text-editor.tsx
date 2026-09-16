@@ -39,6 +39,11 @@ import {
   RICH_TEXT_CODE_BLOCK,
   RICH_TEXT_TOKEN_BLOCK,
 } from "@/lib/rich-text";
+import {
+  configureRichTextLink,
+  getCompactLinkTitle,
+  linkifyPlainTextUrls,
+} from "@/lib/rich-text-links";
 import { cn } from "@/lib/utils";
 
 interface RichTextEditorProps {
@@ -1885,12 +1890,16 @@ export function buildEditorRichTextHtml(input: string): string {
     `data-rich-block="${RICH_TEXT_TOKEN_BLOCK}"`
   );
 
-  if (!hasCodeBlocks && !hasTokenBlocks) {
+  const hasPlainUrls = /https?:\/\//i.test(input);
+
+  if (!hasCodeBlocks && !hasTokenBlocks && !hasPlainUrls) {
     return input;
   }
 
   const template = document.createElement("template");
   template.innerHTML = input;
+  template.content.querySelectorAll<HTMLAnchorElement>("a[href]").forEach(configureRichTextLink);
+  linkifyPlainTextUrls(template.content);
 
   template.content
     .querySelectorAll<HTMLElement>(
@@ -2012,12 +2021,14 @@ export function serializeEditorRichTextHtml(input: string): string {
   const cleanedInput = stripMentionFormatCharacters(input);
   const hasEditorShells = cleanedInput.includes(`<${EDITOR_RICH_SHELL_TAG}`);
   const hasEditorMentions = cleanedInput.includes("data-editor-mention");
-  if (!hasEditorShells && !hasEditorMentions) {
-    return cleanedInput;
-  }
-
   const template = document.createElement("template");
   template.innerHTML = cleanedInput;
+  linkifyPlainTextUrls(template.content);
+  template.content.querySelectorAll<HTMLAnchorElement>("a[href]").forEach(configureRichTextLink);
+
+  if (!hasEditorShells && !hasEditorMentions) {
+    return template.innerHTML;
+  }
   unwrapEditorMentionElements(template.content);
 
   if (!hasEditorShells) {
@@ -2396,12 +2407,39 @@ export function RichTextEditor({
       .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
       .map((item) => item.getAsFile())
       .filter((file): file is File => file !== null);
-    if (imageFiles.length === 0 || !onPasteFiles) {
+    if (imageFiles.length > 0 && onPasteFiles) {
+      event.preventDefault();
+      onPasteFiles(imageFiles);
+      return;
+    }
+
+    const pastedText =
+      typeof event.clipboardData.getData === "function"
+        ? event.clipboardData.getData("text/plain").trim()
+        : "";
+    if (!/^https?:\/\/[^\s<>]+$/i.test(pastedText)) {
+      return;
+    }
+
+    const selection = window.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    const editor = editorRef.current;
+    if (!range || !editor?.contains(range.commonAncestorContainer)) {
       return;
     }
 
     event.preventDefault();
-    onPasteFiles(imageFiles);
+    range.deleteContents();
+    const anchor = document.createElement("a");
+    anchor.href = pastedText;
+    anchor.textContent = getCompactLinkTitle(pastedText);
+    configureRichTextLink(anchor);
+    range.insertNode(anchor);
+    range.setStartAfter(anchor);
+    range.collapse(true);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    emitCurrentValue();
   };
 
   const emitCurrentValue = () => {
@@ -3059,6 +3097,22 @@ export function RichTextEditor({
       target.setAttribute("value", target.value);
     }
 
+    const selection = window.getSelection();
+    const activeRange = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    let caretMarker: HTMLSpanElement | null = null;
+    if (
+      activeRange?.collapsed &&
+      currentEditor.contains(activeRange.commonAncestorContainer)
+    ) {
+      caretMarker = document.createElement("span");
+      caretMarker.dataset.editorCaretMarker = "true";
+      caretMarker.textContent = EDITOR_CARET_ANCHOR;
+      activeRange.insertNode(caretMarker);
+    }
+
+    linkifyPlainTextUrls(currentEditor, { requireTrailingBoundary: true });
+    restoreEditorSelectionFromMarker(currentEditor, caretMarker);
+
     const nextValue = serializeEditorRichTextHtml(currentEditor.innerHTML);
     if (nextValue === latestValueRef.current) {
       pendingInputSnapshotRef.current = null;
@@ -3211,6 +3265,8 @@ export function RichTextEditor({
             "focus-visible:outline-none focus-visible:border-ring/60",
             "[&:empty:before]:pointer-events-none [&:empty:before]:text-muted-foreground [&:empty:before]:content-[attr(data-placeholder)]",
             "[overflow-wrap:anywhere] [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3",
+            "[&_a]:font-bold [&_a]:text-primary [&_a]:underline [&_a]:decoration-primary/50 [&_a]:underline-offset-2 [&_a]:[overflow-wrap:anywhere]",
+            "[&_a]:focus-visible:rounded-sm [&_a]:focus-visible:outline-none [&_a]:focus-visible:ring-2 [&_a]:focus-visible:ring-ring",
             "[&_nd-rich-shell]:w-full [&_nd-rich-shell]:max-w-full [&_nd-rich-shell]:min-w-0",
             "[&_pre[data-rich-block='code']]:my-0 [&_pre[data-rich-block='code']_code]:block [&_pre[data-rich-block='code']_code]:whitespace-pre-wrap [&_pre[data-rich-block='code']_code]:[overflow-wrap:anywhere]",
             "[&_pre[data-rich-block='code']_code]:[font-family:Consolas,Monaco,'Liberation_Mono',Menlo,monospace]",

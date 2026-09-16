@@ -91,8 +91,31 @@ describe("rich-text-content", () => {
     template.innerHTML = output;
     const link = template.content.querySelector<HTMLAnchorElement>("a");
 
-    expect(link?.textContent).toBe("example.com");
+    expect(link?.textContent).toBe("Example");
     expect(link?.getAttribute("href")).toBe("https://www.example.com/a/path");
+  });
+
+  test("turns raw URLs into compact titled links without consuming adjacent text", () => {
+    const output = buildEnhancedRichTextHtml(
+      "<p>Open https://nexus-dash.app/ now, then https://mail.google.com/.</p>"
+    );
+    const template = document.createElement("template");
+    template.innerHTML = output;
+    const links = Array.from(
+      template.content.querySelectorAll<HTMLAnchorElement>("a")
+    );
+
+    expect(links.map((link) => link.textContent)).toEqual([
+      "Nexus Dash",
+      "Google Mail",
+    ]);
+    expect(links.map((link) => link.href)).toEqual([
+      "https://nexus-dash.app/",
+      "https://mail.google.com/",
+    ]);
+    expect(template.content.textContent).toBe(
+      "Open Nexus Dash now, then Google Mail."
+    );
   });
 
   test("keeps authored anchor titles while normalizing external-link safety", () => {
