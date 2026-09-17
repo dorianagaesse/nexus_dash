@@ -7950,3 +7950,18 @@ Low-value entries to avoid going forward:
   commit.
 - Copilot review: subject to the known quota limit, so the PR carries the
   validation evidence for manual review instead of an automated review.
+- CI note: the first Quality Gates run on the branch failed the E2E job on
+  the pre-existing `authenticated-app-shell.spec.ts` detour test (#4), whose
+  first sidebar assertion could not see the desktop navigation for 10s. Root
+  cause is a race unrelated to this diff: the test opens
+  `/projects/<id>?taskId=...`, and the task dialog auto-opens from a client
+  mount effect; while it is open, the Radix dialog foundation marks the app
+  shell `aria-hidden="true"` (hideOthers), so role-based locators match
+  nothing inside the sidebar. Verified with a temporary diagnostic spec
+  (removed afterwards, tree unchanged): `page.goto` resolved at ~729ms, the
+  dialog opened at ~1036ms, and with the dialog open the sidebar link was
+  absent from the accessibility tree while the CSS locator still found it
+  carrying `aria-current="page"`; closing the dialog restored the role
+  match. The same test passed on the base commit's CI and in all local
+  runs, and a rerun of the failed job (`gh run rerun --failed`) finished
+  green across all four jobs.
