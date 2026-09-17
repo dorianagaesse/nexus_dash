@@ -36,11 +36,23 @@ Use it for important implementation milestones, blockers, validation runs, and r
   check would false-positive. The ND-399 e2e spec now asserts the computed
   `opacity` / `pointer-events` in both states, the 44x44 trigger box, and that
   a draft attachment keeps the trigger reachable while the input is blurred.
+  It also proves the moved label still opens the picker (a `filechooser` event
+  — both specs otherwise drive the input directly and would miss a broken
+  label/input pairing) and that the paperclip and the emoji button stay on one
+  row with disjoint boxes; the overlap guard was mutation-checked by shifting
+  the emoji button back to `right-0`, which fails it as intended.
 - Validation on the final tree: `git diff --check`, `npm run lint`,
   `npm run rls:check`, `npm test` (209 files passed / 2 skipped; 1692 tests
   passed / 2 skipped), coverage thresholds met (93.77% statements, 84.79%
   branches, 95.42% functions, 94.08% lines), production build, and the full
   Playwright suite 82 passed / 1 skipped / 0 failed on port 3100.
+- CI on `9d4e44f`: Quality Gates green on all four jobs (Quality Core, E2E
+  Smoke, Tenant Isolation RLS, Container Image) via a dispatched run. The
+  `pull_request` run again did not queue promptly after the push — the same
+  delay seen on ND-466 — so a `workflow_dispatch` run provided the immediate
+  signal. The Copilot reviewer returned the quota-limit notice seen on PR
+  #519 and #525 instead of a review, so a substitute pass was run over the
+  new commit: no correctness, authorization, or accessibility findings.
 - Environment note: this worktree has no `.env` (gitignored, so never copied by
   `worktree:create`). Vitest fails 17 files at import time with "Missing
   required environment variable: DATABASE_URL" unless the CI job env is

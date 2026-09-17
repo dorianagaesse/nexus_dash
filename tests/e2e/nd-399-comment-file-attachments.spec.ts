@@ -58,6 +58,27 @@ test.describe("ND-399 comment file attachments", () => {
     expect(triggerBox?.width ?? 0).toBeGreaterThanOrEqual(44);
     expect(triggerBox?.height ?? 0).toBeGreaterThanOrEqual(44);
 
+    // The paperclip shares the row with the emoji button and stays left of the
+    // composer's right edge, so the two corner actions never overlap.
+    const emojiTrigger = composer.getByLabel("Insert emoji");
+    await expect(emojiTrigger).toHaveCSS("opacity", "1");
+    const emojiBox = await emojiTrigger.boundingBox();
+    expect(emojiBox).not.toBeNull();
+    expect(triggerBox).not.toBeNull();
+    expect(triggerBox!.x).toBeGreaterThanOrEqual(emojiBox!.x + emojiBox!.width);
+    expect(
+      Math.abs(
+        triggerBox!.y + triggerBox!.height / 2 - (emojiBox!.y + emojiBox!.height / 2)
+      )
+    ).toBeLessThanOrEqual(4);
+
+    // The moved label still opens the picker; both specs otherwise drive the
+    // input directly and would not notice a broken label/input pairing.
+    const chooserPromise = page.waitForEvent("filechooser");
+    await attachmentTrigger.click();
+    const chooser = await chooserPromise;
+    await chooser.setFiles([]);
+
     await page.locator("#task-comment-attachment-file").setInputFiles({
       name: "archive.zip",
       mimeType: "application/zip",
