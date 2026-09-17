@@ -9,6 +9,15 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+const activityClientMock = vi.hoisted(() => ({
+  fetchProjectActivityMutation: vi.fn(),
+}));
+
+vi.mock("@/lib/project-activity-client", () => ({
+  fetchProjectActivityMutation: activityClientMock.fetchProjectActivityMutation,
+  PROJECT_ACTIVITY_REMOTE_EVENT: "nexusdash:project-activity-remote",
+}));
+
 import { ProjectMeetingNotesPanel } from "@/components/project-meeting-notes-panel";
 import type { ProjectMeetingNotePanelNote } from "@/components/meeting-todos/meeting-note-types";
 import { ToastProvider } from "@/components/toast-provider";
@@ -238,5 +247,144 @@ describe("project-meeting-notes-panel rich sections", () => {
     expect(inputsEditor?.textContent).toContain("Legacy line one.");
     expect(inputsEditor?.textContent).toContain("Legacy line two.");
     expect(inputsEditor?.querySelectorAll("p").length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("project-meeting-notes-panel guest stewardship", () => {
+  let renderer: { container: HTMLDivElement; root: Root };
+
+  const guest = {
+    userId: null,
+    displayName: "Camille",
+    usernameTag: null,
+    avatarSeed: null,
+  };
+  const guestSteward = {
+    kind: "participant" as const,
+    id: "Camille",
+    displayName: "Camille",
+    usernameTag: null,
+    avatarSeed: null,
+    status: "active" as const,
+    isAssignable: true,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    renderer = createTestRenderer();
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      renderer.root.unmount();
+    });
+    renderer.container.remove();
+    document.body.innerHTML = "";
+  });
+
+  test("toggles a guest participant steward from the note detail dialog", async () => {
+    const note = baseNote({
+      id: "note-guest",
+      title: "Guest steward prep",
+      participants: [guest],
+    });
+    await renderPanel(renderer.root, [note], true);
+
+    await clickButtonLike(findButton(renderer.container, "Guest steward prep"));
+
+    const makeSteward = document.querySelector(
+      "button[aria-label='Make Camille steward / facilitator']"
+    );
+    expect(makeSteward).not.toBeNull();
+
+    activityClientMock.fetchProjectActivityMutation.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ note: { ...note, steward: guestSteward } }),
+    });
+
+    await clickButtonLike(makeSteward);
+
+    expect(
+      activityClientMock.fetchProjectActivityMutation
+    ).toHaveBeenCalledWith(
+      "project-1",
+      "/api/projects/project-1/meeting-notes/note-guest/steward",
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          steward: { kind: "participant", id: "Camille" },
+        }),
+      }
+    );
+    const removeSteward = document.querySelector(
+      "button[aria-label='Remove Camille as steward / facilitator']"
+    );
+    expect(removeSteward?.getAttribute("aria-pressed")).toBe("true");
+    expect(document.body.textContent).toContain(
+      "Camille is now stewarding this note."
+    );
+
+    activityClientMock.fetchProjectActivityMutation.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ note }),
+    });
+
+    await clickButtonLike(removeSteward);
+
+    expect(
+      activityClientMock.fetchProjectActivityMutation
+    ).toHaveBeenLastCalledWith(
+      "project-1",
+      "/api/projects/project-1/meeting-notes/note-guest/steward",
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ steward: null }),
+      }
+    );
+    expect(
+      document
+        .querySelector("button[aria-label='Make Camille steward / facilitator']")
+        ?.getAttribute("aria-pressed")
+    ).toBe("false");
+  });
+
+  test("renders guest stewardship read-only for viewers", async () => {
+    const note = baseNote({
+      id: "note-guest-viewer",
+      title: "Guest viewer prep",
+      participants: [guest],
+      steward: guestSteward,
+    });
+    await renderPanel(renderer.root, [note], false);
+
+    await clickButtonLike(findButton(renderer.container, "Guest viewer prep"));
+
+    expect(
+      document.querySelector(
+        "button[aria-label='Remove Camille as steward / facilitator']"
+      )
+    ).toBeNull();
+    expect(
+      document.querySelector(
+        "[aria-label='Camille, steward / facilitator']"
+      )
+    ).not.toBeNull();
+  });
+
+  test("counts guest stewardship as stewarded but never as mine", async () => {
+    const note = baseNote({
+      id: "note-guest-filter",
+      title: "Guest filter prep",
+      participants: [guest],
+      steward: guestSteward,
+    });
+    await renderPanel(renderer.root, [note], true);
+
+    const labels = Array.from(
+      document.querySelectorAll("nav[aria-label='Steward filter'] a")
+    ).map((link) => link.textContent);
+    expect(labels).toEqual(["All1", "Stewarded by me0", "Unstewarded0"]);
   });
 });

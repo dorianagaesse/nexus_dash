@@ -131,6 +131,49 @@ describe("meeting note steward route", () => {
     });
   });
 
+  test("forwards external participant steward references", async () => {
+    meetingNoteServiceMock.setProjectMeetingNoteSteward.mockResolvedValueOnce({
+      ok: true,
+      data: { note: sampleNote() },
+    });
+
+    const response = await updateSteward(
+      new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes/note-1/steward",
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            steward: { kind: "participant", id: "  Camille " },
+          }),
+        }
+      ),
+      noteParams("project-1", "note-1")
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      meetingNoteServiceMock.setProjectMeetingNoteSteward
+    ).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      noteId: "note-1",
+      steward: { kind: "participant", id: "Camille" },
+      agentAccess: undefined,
+    });
+    expect(
+      activityEventResponseMock.recordProjectActivityEventVersion
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        domain: "meeting-note",
+        payload: {
+          noteId: "note-1",
+          steward: { kind: "participant", id: "Camille" },
+        },
+      })
+    );
+  });
+
   test("clears steward with null", async () => {
     meetingNoteServiceMock.setProjectMeetingNoteSteward.mockResolvedValueOnce({
       ok: true,
