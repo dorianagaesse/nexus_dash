@@ -45,6 +45,14 @@ function mockUnverifiedResponse() {
   });
 }
 
+function mockErrorResponse(status: number, body: Record<string, unknown>) {
+  fetchMock.mockResolvedValue({
+    ok: false,
+    status,
+    json: vi.fn().mockResolvedValue(body),
+  });
+}
+
 describe("VerificationStatusWatcher", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -151,6 +159,98 @@ describe("VerificationStatusWatcher", () => {
     expect(consoleWarnSpy).toHaveBeenCalled();
     expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(verificationStatusWatcherInternals.assignLocation).not.toHaveBeenCalled();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("keeps polling when the status endpoint returns a server error", async () => {
+    const { container, root } = createTestRenderer();
+    mockErrorResponse(500, { error: "verification-status-unavailable" });
+
+    await renderWithRoot(
+      root,
+      React.createElement(VerificationStatusWatcher, {
+        returnToPath: "/projects",
+        pollIntervalMs: 50,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(130);
+    });
+
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(verificationStatusWatcherInternals.assignLocation).not.toHaveBeenCalled();
+    expect(container.textContent).toContain(
+      "This page will continue automatically once your email is verified."
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("redirects to sign in and stops polling when the session is no longer valid", async () => {
+    const { container, root } = createTestRenderer();
+    mockErrorResponse(401, { error: "unauthorized" });
+
+    await renderWithRoot(
+      root,
+      React.createElement(VerificationStatusWatcher, {
+        returnToPath: "/projects",
+        pollIntervalMs: 50,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(verificationStatusWatcherInternals.assignLocation).toHaveBeenCalledWith(
+      "/?form=signin&returnTo=%2Fprojects"
+    );
+    expect(container.textContent).toContain(
+      "Your session ended. Redirecting to sign in..."
+    );
+
+    fetchMock.mockClear();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("redirects to sign in and stops polling when the session user no longer exists", async () => {
+    const { root } = createTestRenderer();
+    mockErrorResponse(404, { error: "user-not-found" });
+
+    await renderWithRoot(
+      root,
+      React.createElement(VerificationStatusWatcher, {
+        returnToPath: "/workspace?tab=inbox",
+        pollIntervalMs: 50,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(verificationStatusWatcherInternals.assignLocation).toHaveBeenCalledWith(
+      "/?form=signin&returnTo=%2Fworkspace%3Ftab%3Dinbox"
+    );
+
+    fetchMock.mockClear();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
 
     await act(async () => {
       root.unmount();

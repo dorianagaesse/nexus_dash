@@ -3,6 +3,34 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-18 - ND-131 review round: terminal status responses redirect to sign in
+
+- Reviewer inline comment on PR #531 (watcher line 84): every non-2xx response
+  was retried forever, so a dead session (401) would keep polling every four
+  seconds while the live region still promised an automatic redirect. Asked to
+  treat terminal responses (401, likely 404) separately -- redirecting back to
+  sign in with the normalized return path or stopping -- while keeping retries
+  for transient failures.
+- `verification-status-watcher.tsx` now treats 401 (session expired, revoked,
+  or signed out in another tab) and 404 (the session user no longer exists) as
+  terminal: it stops scheduling further polls, switches the live region to
+  "Your session ended. Redirecting to sign in...", and navigates to
+  `/?form=signin&returnTo=<encoded returnToPath>` -- the same dead-session
+  target the page already redirects to server-side. Network errors, 5xx
+  responses, and retryable failures keep the previous retry behavior.
+- Tests: the jsdom suite gained three cases (401 redirects to sign-in and
+  stops polling; 404 does the same with an encoded return path; 500 keeps
+  polling with the watching text), and the ND-131 e2e spec gained a third test
+  that deletes the session row while the page waits and expects the sign-in
+  redirect with the preserved return path.
+- Also merge-forwarded `origin/main` (ND-464, ND-465, ND-396 -- three commits,
+  no version metadata and no migrations) per the stale-branch merge rule.
+- Validation on the merged tree: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, `npm run release:check` (base = head = 0.73.0),
+  `npm test` (210 files passed / 2 skipped; 1723 tests passed / 2 skipped),
+  coverage thresholds met, production build, and the full Playwright suite
+  94 passed / 1 skipped / 0 failed against the rebuilt isolated server.
+
 # 2026-09-17 - ND-131: Trim verify-email and reset-password status copy and auto-redirect on verification
 
 - Claimed live Nexus Dash card ND-131 (`cmth7efe9002804juwxx3enjc`) and

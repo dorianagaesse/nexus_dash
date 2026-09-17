@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const DEFAULT_POLL_INTERVAL_MS = 4000;
 const HIDDEN_POLL_INTERVAL_MS = 15000;
 const VERIFICATION_STATUS_PATH = "/api/auth/verify-email/status";
+const SIGN_IN_FORM_PATH = "/?form=signin";
 
 interface VerificationStatusWatcherProps {
   returnToPath: string;
@@ -27,6 +28,7 @@ export function VerificationStatusWatcher({
 }: VerificationStatusWatcherProps) {
   const [isWatching, setIsWatching] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isSessionEnded, setIsSessionEnded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,6 +86,15 @@ export function VerificationStatusWatcher({
             verificationStatusWatcherInternals.assignLocation(returnToPath);
             return;
           }
+        } else if (response.status === 401 || response.status === 404) {
+          // 401 = session expired, revoked, or signed out elsewhere; 404 = the
+          // session user no longer exists. Retrying cannot succeed either way.
+          cancelled = true;
+          setIsSessionEnded(true);
+          verificationStatusWatcherInternals.assignLocation(
+            `${SIGN_IN_FORM_PATH}&returnTo=${encodeURIComponent(returnToPath)}`
+          );
+          return;
         }
       } catch (error) {
         if ((error as { name?: string }).name !== "AbortError") {
@@ -115,7 +126,7 @@ export function VerificationStatusWatcher({
     };
   }, [pollIntervalMs, returnToPath]);
 
-  const isVisible = isWatching || isRedirecting;
+  const isVisible = isWatching || isRedirecting || isSessionEnded;
 
   return (
     <p
@@ -131,9 +142,11 @@ export function VerificationStatusWatcher({
       />
       {isRedirecting
         ? "Email verified. Redirecting..."
-        : isWatching
-          ? "This page will continue automatically once your email is verified."
-          : null}
+        : isSessionEnded
+          ? "Your session ended. Redirecting to sign in..."
+          : isWatching
+            ? "This page will continue automatically once your email is verified."
+            : null}
     </p>
   );
 }

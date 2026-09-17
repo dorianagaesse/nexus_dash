@@ -75,4 +75,25 @@ test.describe("verify-email status page", () => {
 
     await expect(page).toHaveURL(/\/projects(\?.*)?$/, { timeout: 20_000 });
   });
+
+  test("returns to sign in when the session ends while waiting", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await assertServingLocalBuild(page);
+    const userId = await signInAsUnverifiedUser(page);
+
+    await page.goto("/verify-email");
+    await expect(
+      page.getByText(
+        "This page will continue automatically once your email is verified."
+      )
+    ).toBeVisible();
+
+    await prisma.session.deleteMany({ where: { userId } });
+
+    await expect(page).toHaveURL(/form=signin&returnTo=%2Fprojects/, {
+      timeout: 20_000,
+    });
+  });
 });
