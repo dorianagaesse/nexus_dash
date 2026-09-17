@@ -7716,6 +7716,35 @@ Low-value entries to avoid going forward:
   introduced release-boundary governance. Restored the shared `0.73.0` package
   version and kept ND-144's product notes under `Unreleased`; version assignment
   remains owned by the release-preparation branch.
+## 2026-09-14 - ND-464 titled rich-content links
+
+- Claimed live Nexus Dash card ND-464 and created the dedicated
+  `nexus_dash_task464` worktree on `feature/nd-464-titled-links` from
+  `origin/main`.
+- Centralized titled-link rendering in the shared rich-text presentation used
+  by task comments, task descriptions, and context-card descriptions. Markdown
+  titles become safe external anchors, while legacy anchors that expose their
+  complete URL receive a compact host label.
+- Added semantic theme styling, visible keyboard focus, safe new-tab
+  attributes, overflow-safe wrapping, and focused rendering tests. Validation
+  passed: lint, RLS inventory, 1,668 unit tests (2 skipped), coverage thresholds
+  (93.77% statements / 84.71% branches), and the production build using the
+  documented local database URL plus non-secret build placeholders. A focused
+  Chromium flow also passed at a 375 px viewport across task descriptions,
+  comments, and context cards, including focus and horizontal-overflow checks.
+- Red-PR follow-up: merged current `origin/main` at `b3abd42` to incorporate
+  ND-448's accepted context-card preview changes. Post-merge lint and 41 focused
+  component tests pass, and the combined ND-448/ND-464 Chromium flows pass (3
+  tests) before refreshing the PR checks.
+- Reviewer feedback exposed that plain pasted or typed URLs still stayed raw.
+  Added shared plain-URL detection and local hostname-derived titles so links
+  are compact in the editor itself and in rendered descriptions/comments,
+  including legacy saved content. Focused component coverage now exercises
+  load, paste, serialization, adjacent punctuation, and subdomain titles.
+- Follow-up styling adds a decorative internet icon, explicit accessible blue
+  colors for light/dark themes, no underline, and a pointer hover affordance.
+  The CSS-only icon stays out of copied text, accessible names, and stored HTML.
+
 # 2026-09-16 - ND-466 task modal overflow and close controls top-right
 
 - Moved ND-466 to In Progress and created the dedicated
@@ -7765,6 +7794,39 @@ Low-value entries to avoid going forward:
   after PR creation (ND-464's branch hit the same delay); a manual
   `workflow_dispatch` run was started for immediate CI signal, and the
   `pull_request` run landed green shortly after.
+
+# 2026-09-17 - ND-464 inline-link line-break fix (PR #524 follow-up)
+
+- Fixed the follow-up bug on PR #524: a typed comment like
+  "XXX <link> YYY" rendered with paragraph breaks before and after the link.
+- Root cause: `wrapRootLevelTextNodes` in `lib/rich-text.ts` flushed bare
+  root-level text before any root-level tag, so editor output that keeps text
+  and the anchor as bare root nodes (`XXX <a>…</a> YYY`) was rewritten to
+  `<p>XXX</p><a>…</a><p>YYY</p>`, manufacturing the breaks.
+- The wrapper now tracks block depth and accumulates root-level inline runs
+  (text plus inline elements and their nested markup) so surrounding text and
+  the link share a single `<p>`; block elements and whitespace-only root nodes
+  are unchanged, and the string-based implementation still runs in the Node
+  server runtime used by the services.
+- Regression coverage: four new unit tests in `tests/lib/rich-text.test.ts`,
+  a new component test in `tests/components/rich-text-content.test.ts`, the
+  server-runtime test that had codified the split output now asserts the
+  single-paragraph shape, the meeting-note budget test expects the canonical
+  `<p><strong>…</strong></p>` on write, and a new e2e case types
+  "XXX https://mail.google.com YYY" through the kanban comment composer and
+  asserts one rendered paragraph plus canonical stored HTML.
+- Decision: previously stored split output is not repaired because the split
+  emptied the original whitespace; new writes are canonicalized and rendering
+  re-coerces, so only fresh content benefits.
+- Validation: lint, RLS inventory, `git diff --check` clean; full vitest
+  1,692 passed / 2 skipped (210 files) under pinned Node 20.19.5 (the local
+  Node 25 default shows 19 pre-existing jsdom localStorage failures in
+  untouched suites); coverage thresholds met (statements 93.77%, branches
+  84.38%, functions 95.39%, lines 94.07%); production build passed; focused
+  Playwright ND-464 plus ND-398 flows (5 tests) green.
+- Note: Chrome contentEditable serializes a typed space directly after an
+  inline link as a non-breaking space, so the e2e stored-HTML regex tolerates
+  any whitespace at that position.
 
 # 2026-09-17 - ND-396 external participants as meeting-note stewards
 

@@ -172,6 +172,52 @@ describe("rich-text", () => {
         coerceRichTextHtml("<p>First</p>\n\n<ul><li>Item</li></ul>")
       ).toBe("<p>First</p>\n\n<ul><li>Item</li></ul>");
     });
+
+    test("keeps an inline link in one paragraph with the text around it", () => {
+      expect(
+        coerceRichTextHtml(
+          'XXX <a href="https://example.com" target="_blank" rel="noopener noreferrer">Example</a> YYY'
+        )
+      ).toBe(
+        '<p>XXX <a href="https://example.com" target="_blank" rel="noopener noreferrer">Example</a> YYY</p>'
+      );
+    });
+
+    test("wraps a bare root-level inline element in a paragraph", () => {
+      expect(
+        coerceRichTextHtml(
+          '<a href="https://example.com">Example</a>'
+        )
+      ).toBe('<p><a href="https://example.com">Example</a></p>');
+      expect(coerceRichTextHtml("Intro <strong>bold</strong> outro")).toBe(
+        "<p>Intro <strong>bold</strong> outro</p>"
+      );
+    });
+
+    test("closes an inline run at the next block boundary", () => {
+      expect(
+        coerceRichTextHtml(
+          "Intro <strong>bold</strong><ul><li>First risk</li></ul>"
+        )
+      ).toBe("<p>Intro <strong>bold</strong></p><ul><li>First risk</li></ul>");
+      expect(
+        coerceRichTextHtml(
+          '<ul><li>Item</li></ul>Read <a href="https://example.com">Example</a>.'
+        )
+      ).toBe(
+        '<ul><li>Item</li></ul><p>Read <a href="https://example.com">Example</a>.</p>'
+      );
+    });
+
+    test("keeps nested inline markup intact inside the paragraph", () => {
+      expect(
+        coerceRichTextHtml(
+          'See <a href="https://example.com"><strong>Bold link</strong></a> now'
+        )
+      ).toBe(
+        '<p>See <a href="https://example.com"><strong>Bold link</strong></a> now</p>'
+      );
+    });
   });
 
   test("wrapped output still reads as plain text in search and preview helpers", () => {
