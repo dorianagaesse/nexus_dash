@@ -7676,3 +7676,36 @@ Low-value entries to avoid going forward:
   after PR creation (ND-464's branch hit the same delay); a manual
   `workflow_dispatch` run was started for immediate CI signal, and the
   `pull_request` run landed green shortly after.
+
+# 2026-09-17 - ND-464 inline-link line-break fix (PR #524 follow-up)
+
+- Fixed the follow-up bug on PR #524: a typed comment like
+  "XXX <link> YYY" rendered with paragraph breaks before and after the link.
+- Root cause: `wrapRootLevelTextNodes` in `lib/rich-text.ts` flushed bare
+  root-level text before any root-level tag, so editor output that keeps text
+  and the anchor as bare root nodes (`XXX <a>…</a> YYY`) was rewritten to
+  `<p>XXX</p><a>…</a><p>YYY</p>`, manufacturing the breaks.
+- The wrapper now tracks block depth and accumulates root-level inline runs
+  (text plus inline elements and their nested markup) so surrounding text and
+  the link share a single `<p>`; block elements and whitespace-only root nodes
+  are unchanged, and the string-based implementation still runs in the Node
+  server runtime used by the services.
+- Regression coverage: four new unit tests in `tests/lib/rich-text.test.ts`,
+  a new component test in `tests/components/rich-text-content.test.ts`, the
+  server-runtime test that had codified the split output now asserts the
+  single-paragraph shape, the meeting-note budget test expects the canonical
+  `<p><strong>…</strong></p>` on write, and a new e2e case types
+  "XXX https://mail.google.com YYY" through the kanban comment composer and
+  asserts one rendered paragraph plus canonical stored HTML.
+- Decision: previously stored split output is not repaired because the split
+  emptied the original whitespace; new writes are canonicalized and rendering
+  re-coerces, so only fresh content benefits.
+- Validation: lint, RLS inventory, `git diff --check` clean; full vitest
+  1,692 passed / 2 skipped (210 files) under pinned Node 20.19.5 (the local
+  Node 25 default shows 19 pre-existing jsdom localStorage failures in
+  untouched suites); coverage thresholds met (statements 93.77%, branches
+  84.38%, functions 95.39%, lines 94.07%); production build passed; focused
+  Playwright ND-464 plus ND-398 flows (5 tests) green.
+- Note: Chrome contentEditable serializes a typed space directly after an
+  inline link as a non-breaking space, so the e2e stored-HTML regex tolerates
+  any whitespace at that position.

@@ -118,6 +118,29 @@ describe("rich-text-content", () => {
     );
   });
 
+  test("renders a typed inline link in one paragraph with its surrounding text", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(RichTextContent, {
+        html:
+          'XXX <a href="https://example.com" target="_blank" rel="noopener noreferrer">Example</a> YYY',
+      })
+    );
+
+    const content = container.querySelector<HTMLDivElement>("div");
+    const paragraphs = Array.from(content?.querySelectorAll("p") ?? []);
+
+    expect(paragraphs).toHaveLength(1);
+    expect(content?.textContent).toBe("XXX Example YYY");
+    expect(paragraphs[0]?.querySelector("a")?.textContent).toBe("Example");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("keeps authored anchor titles while normalizing external-link safety", () => {
     const output = buildEnhancedRichTextHtml(
       '<p><a href="https://example.com/guide">Implementation guide</a></p>'

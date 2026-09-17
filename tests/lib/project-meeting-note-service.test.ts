@@ -522,7 +522,7 @@ describe("project-meeting-note-service", () => {
     expect(result.ok).toBe(true);
     expect(dbMock.projectMeetingNote.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        inputNotes: `<strong>${visible}</strong>`,
+        inputNotes: `<p><strong>${visible}</strong></p>`,
       }),
       select: { id: true },
     });

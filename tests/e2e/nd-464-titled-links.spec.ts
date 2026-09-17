@@ -72,4 +72,72 @@ test.describe("ND-464 titled rich-content links", () => {
       await page.evaluate(() => document.documentElement.clientWidth)
     );
   });
+
+  test("keeps a typed inline URL in the sentence around it with no paragraph breaks", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const userId = await signInAsVerifiedUser(page);
+    const project = await prisma.project.create({
+      data: {
+        name: uniqueProjectName("nd464-inline-links"),
+        description: "Inline link fixture.",
+        ownerId: userId,
+        memberships: { create: { userId, role: "owner" } },
+      },
+      select: { id: true },
+    });
+    const task = await prisma.task.create({
+      data: {
+        title: "Typed inline link",
+        description: null,
+        status: "Backlog",
+        position: 0,
+        projectId: project.id,
+        createdByUserId: userId,
+        updatedByUserId: userId,
+      },
+      select: { id: true, title: true },
+    });
+
+    await page.goto(`/projects/${project.id}#kanban`);
+    const taskCard = page
+      .getByRole("button", { name: new RegExp(task.title) })
+      .first();
+    await expect(taskCard).toBeVisible();
+    await taskCard.click();
+    await expect(
+      page.getByRole("button", { name: "Task options" })
+    ).toBeVisible();
+
+    const commentInput = page.locator("#task-comment-input");
+    await commentInput.click();
+    await page.keyboard.type("XXX https://mail.google.com YYY");
+    await expect(commentInput.locator("a")).toHaveText("Google Mail");
+
+    const commentResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes("/comments") &&
+        response.request().method() === "POST"
+    );
+    await page.getByRole("button", { name: "Add comment" }).click();
+    expect((await commentResponsePromise).status()).toBe(201);
+
+    const comment = await prisma.taskComment.findFirstOrThrow({
+      where: { taskId: task.id },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, content: true },
+    });
+    // Chrome's contentEditable emits a non-breaking space for a typed space
+    // directly after an inline link, so match any whitespace there.
+    expect(comment.content).toMatch(
+      /^<p>XXX <a\b[^>]*href="https:\/\/mail\.google\.com\/?"[^>]*>Google Mail<\/a>\sYYY<\/p>$/
+    );
+
+    const commentBody = page.locator(`#task-comment-body-${comment.id}`);
+    await expect(commentBody).toBeVisible();
+    await expect(commentBody.locator("p")).toHaveCount(1);
+    await expect(commentBody).toContainText("XXX Google Mail YYY");
+    await expect(commentBody.locator("p a")).toHaveText("Google Mail");
+  });
 });
