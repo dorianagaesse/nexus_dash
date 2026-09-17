@@ -17,6 +17,13 @@ const buttonVariants = cva(
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
+        // Theme-inverted fills: dark in the light theme, light in the dark
+        // theme. `inverted` is the solid dismissal surface (full-bleed close
+        // rows); `inverted-outline` keeps a dismissal next to a filled
+        // primary action readable as a button without matching its fill.
+        inverted: "bg-foreground text-background hover:bg-foreground/90",
+        "inverted-outline":
+          "border border-foreground/40 bg-transparent text-foreground hover:bg-foreground hover:text-background",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
