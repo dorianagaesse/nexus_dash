@@ -90,6 +90,47 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `preview-auth-isolation.spec.ts`, which only runs against the preview
   alias).
 
+# 2026-09-17 - ND-432: Autosave architecture and conflict contract
+
+- Claimed live Nexus Dash card ND-432 (`cmtr9bfcp000i04ifqsfajd1s`), moved it
+  from Backlog to In Progress, and created the dedicated
+  `../nexus_dash_task432` worktree on
+  `feature/nd-432-autosave-architecture` from `origin/main` at 8f7faf1.
+- Audited the current task, meeting-note, comment, context-card, roadmap,
+  calendar, epic, and project authoring flows. Long-form state is currently
+  ephemeral; task/context/roadmap updates are last-write-wins; meeting-note
+  updates replace the full participant/todo aggregate; and no mutation route
+  currently implements an edit revision or HTTP precondition.
+- Accepted a two-layer contract in `adr/task-432-autosave-contract.md`:
+  browser-local recovery drafts provide reload/navigation/offline protection
+  without database traffic, while network live save is limited to existing
+  NexusDash records with atomic content revisions, partial patches, and 412
+  precondition/conflict handling. Create, comment publication,
+  destructive/workflow commands, and Google Calendar writes remain explicit.
+- The ADR records the complete surface matrix, 300 ms local and 2-second
+  network debounce (30-second maximum wait), single-flight coalescing,
+  30-day/user-scoped draft retention, reset rules, rich-text conflict policy,
+  explicit-save behavior, and the ND-428/ND-429 latency/load gate for enabling
+  live save. This task changes documentation only; implementation remains in
+  ND-433 and ND-434.
+- Linked ND-432 to ND-428, ND-429, ND-433, and ND-434 on the live board so the
+  audit, remediation, design, and two rollout stages are represented as actual
+  Related Tasks rather than duplicated dependency prose.
+- Validation: `git diff --check`, Prettier for the new ADR, full repository
+  lint, and `npm run release:check` passed. Opened ready-for-review PR #529;
+  branch-name, Quality Core, and PostgreSQL tenant-isolation checks passed.
+  Native Copilot returned its initial outcome without reviewing because the
+  requesting account had reached its quota.
+- Treated the follow-up Codex review submitted through the repository owner's
+  account as the required automated review. Addressed all three P1 threads:
+  inaccessible/deleted drafts now remain copyable until discard/expiry; the
+  shared agent route has an explicit additive v1 to negotiated-v2 precondition
+  rollout with 428/412 behavior and a v1 sunset gate; and autosave requests now
+  carry a service-validated mutation intent with bounded remote invalidation
+  plus quiet-window activity/notification coalescing. Merged current
+  `origin/main` at 06d15e5 and preserved the ND-396 decision entry while
+  resolving the `adr/decisions.md` conflict.
+
 # 2026-09-16 - ND-377: Limit the floating todo panel to the signed-in user
 
 - Claimed live Nexus Dash card ND-377 (`cmtj9k4qv000704k0vl0ugezw`) and
