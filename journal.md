@@ -29,6 +29,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Linked ND-432 to ND-428, ND-429, ND-433, and ND-434 on the live board so the
   audit, remediation, design, and two rollout stages are represented as actual
   Related Tasks rather than duplicated dependency prose.
+- Validation: `git diff --check`, Prettier for the new ADR, full repository
+  lint, and `npm run release:check` passed. Opened ready-for-review PR #529;
+  branch-name, Quality Core, and PostgreSQL tenant-isolation checks passed.
+  Copilot returned its initial outcome without reviewing because the requesting
+  account had reached its quota; no review comments were created.
 
 # 2026-09-16 - ND-377: Limit the floating todo panel to the signed-in user
 
