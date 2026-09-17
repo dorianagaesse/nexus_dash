@@ -3,6 +3,19 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-18 - ND-399: Handoff merge-forward and re-validation
+
+- Merged `origin/main` (ND-396 #528, ND-465 #527) into
+  `feature/nd-399-comment-file-attachments`; the only conflict was the ADR
+  log, where both sides had added a 2026-09-17 entry — resolved by keeping
+  both, ND-399 above ND-396. Merge commit `0994ebe` pushed.
+- Re-validated the merged tree: lint, rls:check, release:check (0.73.0 = 0.73.0),
+  209 test files / 1710 tests passed (2 skipped), coverage thresholds met
+  (93.77% statements, 84.79% branches, 95.42% functions, 94.08% lines),
+  production build, and the full Playwright suite 90 passed / 1 skipped /
+  0 failed on isolated port 3399, including the ND-465 cancel flows and the
+  ND-399 attachment spec. All CI checks green; `mergeStateStatus` CLEAN.
+
 # 2026-09-17 - ND-399: Move the comment attachment trigger inside the composer
 
 - Follow-up refinement on the same card, branch, and PR: the paperclip left the
