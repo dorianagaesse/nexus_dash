@@ -47,6 +47,9 @@ function renderShell(unreadCount = notificationSnapshot.unreadCount) {
           ...notificationSnapshot,
           unreadCount,
         }}
+        appVersionLabel="v1.2.3"
+        appEnvironment="production"
+        appDiagnosticLabel="v1.2.3 | production | build abc1234"
         notificationBanner={<div>Notification banner</div>}
       >
         <main>Project content</main>

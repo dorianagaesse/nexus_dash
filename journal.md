@@ -7903,3 +7903,50 @@ Low-value entries to avoid going forward:
   is a pre-existing local-environment failure: it reproduces on the `main`
   checkout, where both password-recovery tests fail for the same reason.
   `git diff --check` stays clean.
+
+# 2026-09-18 - ND-132 sidebar workspace label deduplication
+
+- Claimed live Nexus Dash card ND-132 (`cmth7ehf6002b04ju3dx9n7nq`) from the
+  External UX feedback refinement epic and built it in the dedicated
+  `../nexus_dash_task132` worktree on
+  `fix/nd-132-sidebar-workspace-label-dedup`, branched from `origin/main` at
+  06d15e5 and merge-forwarded to 64d055c before validation.
+- Re-verified the 2026-08-31 external feedback against the current app before
+  implementing: the desktop sidebar still showed the "Project workspace"
+  brand subtitle together with the "Workspace" nav section label, so the
+  reported duplication was still real. Related TASK-322 and TASK-334 are done
+  but neither removed it.
+- The brand secondary line now surfaces build info instead of repeating the
+  navigation label: `AuthenticatedAppShell` passes the app metadata summary
+  (`versionLabel`, `environment`, `diagnosticLabel`) to the client shell,
+  which renders the clean product version in mono type plus a capitalized
+  environment qualifier outside production (`v0.73.0 · Preview`); the full
+  "version | environment | build sha" diagnostic label is the hover title.
+  The brand row, alpha badge, and the single remaining "Workspace" section
+  label are unchanged. No schema, service, or RLS change.
+- AC3 review: the only other user-visible "Workspace" label is the
+  `/projects` page heading ("Project workspace"), a page title rather than
+  navigation chrome, and it no longer duplicates the sidebar after this
+  change; it is kept. Privacy-page copy and email templates use "workspace"
+  as prose only.
+- Coverage: shell component tests assert the version line with the
+  preview-qualifier shown, the production qualifier hidden, and the
+  diagnostic title, plus the absence of the old subtitle; the existing e2e
+  alpha-disclosure test now also asserts the desktop brand line carries a
+  version and no shell repeats "Project workspace".
+- Validation: `npm run lint`, `npm run rls:check`, full unit suite (208 files
+  / 1711 tests passed, 2 skipped), coverage thresholds met (statements
+  93.77%, branches 84.38%, functions 95.39%, lines 94.07%), production build,
+  `git diff --check` clean, and the full local Playwright suite on an own
+  verified server (port 3132, `CI=1`): 91 passed / 1 skipped / 0 failed.
+- Flake note: the first full-suite run under machine load hit two
+  pre-existing local flakes that touch no files in this diff -
+  `nd-408-kanban-search-filter.spec.ts` pointer-drag ordering and the
+  `smoke-project-task-calendar.spec.ts` meeting-notes zoom geometry
+  (inputZoomBottomInset -8.4px, the known local sub-pixel flake from the
+  ND-398/ND-446 record). Both re-passed on the same build (drag 3/3 via
+  repeated isolated runs, smoke 2/2), and the clean full-suite rerun above
+  confirms it. CI Quality Gates already passes the full suite at the base
+  commit.
+- Copilot review: subject to the known quota limit, so the PR carries the
+  validation evidence for manual review instead of an automated review.
