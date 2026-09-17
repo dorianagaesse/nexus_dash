@@ -21,9 +21,14 @@ describe("rich-text in the Node server runtime (no DOM)", () => {
     expect(coerceRichTextHtml(canonical)).toBe(canonical);
   });
 
-  test("wraps bare text around inline root-level markup", () => {
+  test("keeps inline root-level markup in one paragraph with its surrounding text", () => {
     expect(coerceRichTextHtml("Intro <strong>bold</strong> outro")).toBe(
-      "<p>Intro</p><strong>bold</strong><p>outro</p>"
+      "<p>Intro <strong>bold</strong> outro</p>"
     );
+    expect(
+      coerceRichTextHtml(
+        'See <a href="https://example.com">Example</a> for details'
+      )
+    ).toBe('<p>See <a href="https://example.com">Example</a> for details</p>');
   });
 });

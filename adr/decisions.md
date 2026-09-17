@@ -39,6 +39,44 @@ Keep UI-only or task-only notes in `journal.md`.
   accepts the full MIME allowlist instead of `image/*`.
 - Links: `adr/decisions.md` (ND-144 entry), Nexus Dash card ND-399.
 
+## 2026-09-17 - ND-432: Separate recovery drafts from revision-guarded live save
+
+- Status: Accepted.
+- Context: Long-form task, meeting-note, and comment drafts currently disappear
+  on close/navigation/reload, but existing edit routes are last-write-wins and
+  meeting-note updates replace a whole participant/todo aggregate. Sending
+  every keystroke to those routes would risk silent collaborator overwrites and
+  add unmeasured database/activity load ahead of ND-428/ND-429.
+- Decision: Autosave has two independent layers. Browser-local recovery drafts
+  are the baseline and never mutate domain records. Live save is limited to
+  existing NexusDash records, sends dirty fields after a 2-second quiet period
+  (30-second maximum wait), and requires an atomic monotonic content revision
+  exposed through ETag/If-Match. Stale writes return
+  `412 Precondition Failed` with `edit-conflict` and preserve both versions;
+  disjoint fields may rebase once, while overlapping scalar, collection, or
+  rich-text edits require review. Create forms, comments,
+  workflow/destructive commands, and Google Calendar writes remain explicit.
+  Every covered surface keeps its explicit action as an immediate flush or
+  publication boundary. Eligible background writes carry a documented
+  `NexusDash-Mutation-Intent: autosave` signal; the service keeps normal audit
+  semantics, coalesces remote invalidation to at most one event per entity per
+  5 seconds, and emits one human-facing update summary after 30 seconds of
+  quiet instead of per-keystroke activity/email work.
+- Consequences: Local recovery can ship without database traffic; live save is
+  per-surface feature-flagged until the save-latency audit and remediation prove
+  the agreed p95 and load budget. Agent v1 remains compatible during an
+  announced migration window; agent v2 tokens negotiate the revision contract,
+  missing required preconditions return 428, stale ones return 412, and Live
+  stays disabled for agent-writable aggregates until v1 is retired. Shared
+  drafts are user/project/entity scoped, expire after 30 days, preserve
+  inaccessible/deleted drafts read-only for copy-out until expiry or explicit
+  discard, clear on logout/success, preserve newer in-flight edits, and exclude
+  credentials and file blobs. Task, meeting-note, and context-card live save
+  require revision-aware partial service mutations and draft-aware remote
+  activity handling.
+- Links: `adr/task-432-autosave-contract.md`, Nexus Dash cards ND-428,
+  ND-429, ND-432, ND-433, and ND-434.
+
 ## 2026-09-17 - ND-396: External meeting participants are name-keyed meeting-note stewards
 
 - Status: Accepted; extends TASK-356 stewardship with the ND-376

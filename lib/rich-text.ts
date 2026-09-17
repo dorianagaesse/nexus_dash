@@ -206,6 +206,18 @@ export function sanitizeRichText(input: string): string | null {
 // String scanning rather than DOM APIs: services run this on the Node server,
 // where no document exists. Input is sanitize-html output, so it is
 // well-formed markup with only the supported tags and XHTML-style voids.
+const BLOCK_LEVEL_RICH_TEXT_TAGS = new Set([
+  "p",
+  "h1",
+  "h2",
+  "ul",
+  "ol",
+  "li",
+  "blockquote",
+  "pre",
+  "div",
+]);
+
 function wrapRootLevelTextNodes(html: string): string {
   if (!html) {
     return html;
@@ -213,44 +225,72 @@ function wrapRootLevelTextNodes(html: string): string {
 
   const tokens = html.match(/<[^>]*>|[^<]+/g) ?? [];
   const output: string[] = [];
-  let depth = 0;
-  let pendingText = "";
+  // Inline content typed before the first Enter stays a bare root run; the
+  // run is flushed into one paragraph only when a block boundary (or the
+  // end) closes it, so a link typed mid-sentence stays in that sentence.
+  let pendingInline = "";
+  let blockDepth = 0;
+  let inlineDepth = 0;
 
-  const flushPendingText = () => {
-    if (!pendingText) {
+  const flushPendingInline = () => {
+    if (!pendingInline) {
       return;
     }
-    const trimmed = pendingText.trim();
-    output.push(trimmed ? `<p>${trimmed}</p>` : pendingText);
-    pendingText = "";
+    const trimmed = pendingInline.trim();
+    output.push(trimmed ? `<p>${trimmed}</p>` : pendingInline);
+    pendingInline = "";
   };
 
   for (const token of tokens) {
     if (!token.startsWith("<")) {
-      if (depth === 0) {
-        pendingText += token;
+      if (blockDepth > 0) {
+        output.push(token);
+      } else {
+        pendingInline += token;
+      }
+      continue;
+    }
+
+    const tagName = token.match(/^<\/?([a-zA-Z0-9-]+)/)?.[1]?.toLowerCase() ?? "";
+    const isClosingTag = token.startsWith("</");
+    const isVoidTag = /\/>$/.test(token) || tagName === "br";
+
+    if (blockDepth > 0) {
+      output.push(token);
+      if (!isVoidTag) {
+        blockDepth = isClosingTag
+          ? Math.max(0, blockDepth - 1)
+          : blockDepth + 1;
+      }
+      continue;
+    }
+
+    if (isClosingTag) {
+      if (inlineDepth > 0) {
+        pendingInline += token;
+        inlineDepth = Math.max(0, inlineDepth - 1);
       } else {
         output.push(token);
       }
       continue;
     }
 
-    const isClosingTag = token.startsWith("</");
-    const isSelfClosing = /\/>$/.test(token);
-
-    if (depth === 0 && !isClosingTag) {
-      flushPendingText();
-    }
-    output.push(token);
-
-    if (isSelfClosing) {
+    if (inlineDepth > 0 || !BLOCK_LEVEL_RICH_TEXT_TAGS.has(tagName)) {
+      pendingInline += token;
+      if (!isVoidTag) {
+        inlineDepth += 1;
+      }
       continue;
     }
 
-    depth = isClosingTag ? Math.max(0, depth - 1) : depth + 1;
+    flushPendingInline();
+    output.push(token);
+    if (!isVoidTag) {
+      blockDepth += 1;
+    }
   }
 
-  flushPendingText();
+  flushPendingInline();
   return output.join("");
 }
 
