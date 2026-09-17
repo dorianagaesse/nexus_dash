@@ -776,7 +776,7 @@ export function CreateTaskDialog({
                         </Button>
                         <Button
                           type="button"
-                          variant="inverted-outline"
+                          variant="mobile-inverted-outline"
                           onClick={closeDialog}
                           disabled={isSubmitting}
                           className="w-full sm:w-auto"

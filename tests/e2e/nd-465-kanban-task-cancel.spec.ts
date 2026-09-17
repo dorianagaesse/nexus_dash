@@ -220,12 +220,92 @@ test.describe("ND-465 Kanban task Cancel", () => {
     await expectFocusOnCard(page, taskId);
   });
 
-  test("Close and Cancel affordances invert with the theme", async ({ page }) => {
+  test("dismissals stay ghost on desktop across themes", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await setupProject(page, "theme");
+    await setupProject(page, "desktop-theme");
     await applyTheme(page, "light");
 
-    // The create dialog's Cancel uses the same outlined dismissal treatment.
+    // The create dialog's Cancel is a plain ghost button on desktop.
+    await page.getByRole("button", { name: "New task" }).first().click();
+    const createCancel = modalButton(page, "Cancel");
+    await expect(createCancel).toBeVisible();
+    const createCancelStyles = await readControlStyles(createCancel);
+    expect(createCancelStyles.background).toBe(TRANSPARENT);
+    expect(createCancelStyles.borderTopWidth).toBe("0px");
+    await createCancel.click();
+    await expect(page.locator('[role="dialog"][data-state="open"]')).toHaveCount(0);
+
+    const card = await createTask(page, "nd465 desktop theme target");
+    await card.click();
+
+    const closeBar = modalButton(page, "Close");
+    await expect(closeBar).toBeVisible();
+    await expect(modalButton(page, "Cancel")).toHaveCount(0);
+
+    // The view-mode dismissal is still a full-bleed bar across the dialog
+    // footer; only its fill is breakpoint-bound.
+    const dialogBox = await openDialog(page).boundingBox();
+    const barBox = await closeBar.boundingBox();
+    expect(dialogBox).not.toBeNull();
+    expect(barBox).not.toBeNull();
+    expect(barBox!.width / dialogBox!.width).toBeGreaterThan(0.98);
+
+    for (const theme of ["light", "dark"] as const) {
+      await applyTheme(page, theme);
+      // Park the pointer so the idle fill is measured, not the hover fill.
+      await page.mouse.move(2, 2);
+
+      // Idle: unfilled, with the theme's foreground label.
+      await expectSettledControl(closeBar).toEqual({
+        background: "transparent",
+        text: theme === "light" ? "dark" : "light",
+      });
+
+      // Hover: the subtle accent fill, not the inverted foreground surface.
+      await closeBar.hover();
+      await expectSettledControl(closeBar).toEqual({
+        background: theme === "light" ? "light" : "dark",
+        text: theme === "light" ? "dark" : "light",
+      });
+    }
+
+    await applyTheme(page, "light");
+    await page.mouse.move(2, 2);
+    await enterEditMode(page);
+    const cancel = modalButton(page, "Cancel");
+    await expect(cancel).toBeVisible();
+
+    // Cancel stays ghost, so the filled primary action beside it is the only
+    // solid surface in the row.
+    const saveStyles = await readControlStyles(modalButton(page, "Save changes"));
+    expect(isDark(saveStyles.background)).toBe(true);
+
+    for (const theme of ["light", "dark"] as const) {
+      await applyTheme(page, theme);
+      await page.mouse.move(2, 2);
+
+      // Idle: unfilled and borderless on desktop.
+      await expectSettledControl(cancel).toEqual({
+        background: "transparent",
+        text: theme === "light" ? "dark" : "light",
+      });
+      const idle = await readControlStyles(cancel);
+      expect(idle.borderTopWidth).toBe("0px");
+
+      await cancel.hover();
+      await expectSettledControl(cancel).toEqual({
+        background: theme === "light" ? "light" : "dark",
+        text: theme === "light" ? "dark" : "light",
+      });
+    }
+  });
+
+  test("dismissals invert with the theme on mobile", async ({ page }) => {
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await setupProject(page, "mobile-theme");
+    await applyTheme(page, "light");
+
+    // The create dialog's Cancel becomes an outlined dismissal in the sheet.
     await page.getByRole("button", { name: "New task" }).first().click();
     const createCancel = modalButton(page, "Cancel");
     await expect(createCancel).toBeVisible();
@@ -235,19 +315,11 @@ test.describe("ND-465 Kanban task Cancel", () => {
     await createCancel.click();
     await expect(page.locator('[role="dialog"][data-state="open"]')).toHaveCount(0);
 
-    const card = await createTask(page, "nd465 theme inversion target");
+    const card = await createTask(page, "nd465 mobile theme target");
     await card.click();
 
     const closeBar = modalButton(page, "Close");
     await expect(closeBar).toBeVisible();
-    await expect(modalButton(page, "Cancel")).toHaveCount(0);
-
-    // The view-mode dismissal is a full-bleed bar across the dialog footer.
-    const dialogBox = await openDialog(page).boundingBox();
-    const barBox = await closeBar.boundingBox();
-    expect(dialogBox).not.toBeNull();
-    expect(barBox).not.toBeNull();
-    expect(barBox!.width / dialogBox!.width).toBeGreaterThan(0.98);
 
     for (const theme of ["light", "dark"] as const) {
       await applyTheme(page, theme);
@@ -264,11 +336,6 @@ test.describe("ND-465 Kanban task Cancel", () => {
     await enterEditMode(page);
     const cancel = modalButton(page, "Cancel");
     await expect(cancel).toBeVisible();
-
-    // Cancel is an outline, so the filled primary action beside it stays the
-    // only solid button in the row.
-    const saveStyles = await readControlStyles(modalButton(page, "Save changes"));
-    expect(isDark(saveStyles.background)).toBe(true);
 
     for (const theme of ["light", "dark"] as const) {
       await applyTheme(page, theme);

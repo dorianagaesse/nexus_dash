@@ -588,7 +588,7 @@ export function TaskDetailModal({
                     </Button>
                     <Button
                       type="button"
-                      variant="inverted-outline"
+                      variant="mobile-inverted-outline"
                       onClick={onClose}
                       disabled={isUpdatingTask}
                       className="w-full sm:w-auto"
@@ -599,7 +599,7 @@ export function TaskDetailModal({
                 ) : (
                   <Button
                     type="button"
-                    variant="inverted"
+                    variant="mobile-inverted"
                     onClick={onClose}
                     disabled={isUpdatingTask}
                     className="w-full rounded-none"

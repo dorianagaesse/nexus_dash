@@ -125,19 +125,25 @@ Use it for important implementation milestones, blockers, validation runs, and r
   updated to dismiss from edit mode via the header close control, which is
   what the test actually intends to cover.
 - Follow-up (stakeholder feedback on the open PR): the dismissal affordances
-  now paint an inverted surface instead of the ghost hover fill -- dark in
-  the light theme, light in the dark theme. Two shared cva variants carry
-  the treatment so the three affordances cannot drift apart: `inverted`
-  (`bg-foreground text-background`) for the full-bleed view-mode Close bar,
-  and `inverted-outline` (foreground border plus foreground label, filling
-  inverted on hover) for the edit-mode Cancel and the create-task dialog's
-  Cancel. Cancel is deliberately the outline rather than a second solid fill
-  so "Save changes" / "Create task" stays the only solid button in the row;
-  the ND-466 header X controls stay ghost, per the same feedback round. No
-  version or changelog metadata, per ND-457's product-branch policy.
+  paint an inverted surface instead of the ghost hover fill at mobile widths
+  only -- dark in the light theme, light in the dark theme. Two shared cva
+  variants carry the treatment so the three affordances cannot drift apart:
+  `mobile-inverted` (`max-sm:bg-foreground max-sm:text-background`) for the
+  full-bleed view-mode Close bar, and `mobile-inverted-outline` (foreground
+  border plus foreground label, filling inverted on hover) for the edit-mode
+  Cancel and the create-task dialog's Cancel. Both keep `ghost` as their
+  base, so above `sm` they fall back to the pre-follow-up desktop look --
+  the bottom sheet reads as a native action row, while the same fill across
+  a desktop dialog footer read as too heavy in review. Cancel is
+  deliberately the outline rather than a second solid fill so "Save
+  changes" / "Create task" stays the only solid button in the row; the
+  ND-466 header X controls stay ghost. The first pass applied the inversion
+  at every width and was corrected to the `max-sm` scope on feedback; the
+  full-bleed Close bar itself is unchanged and stays on desktop. No version
+  or changelog metadata, per ND-457's product-branch policy.
 - Re-validated after the inversion: `git diff --check`, `npm run lint`,
   `npm run rls:check`, coverage thresholds met (93.77% statements / 84.71%
-  branches), production build, the ND-465 spec (6 passed) plus the ND-466
+  branches), production build, the ND-465 spec (7 passed) plus the ND-466
   controls spec (2 passed) and the full `smoke-project-task-calendar.spec.ts`
   (6 passed) on the owned server at PORT=3465. `npm test` reports one
   failure, `tests/components/project-context-panel.test.tsx` "closes the
@@ -147,17 +153,20 @@ Use it for important implementation milestones, blockers, validation runs, and r
   from ND-448 and unrelated to this branch. The coverage run above therefore
   parked that one spec file to read the threshold table (green), then put it
   back untouched.
-- The inversion spec (added to `tests/e2e/nd-465-kanban-task-cancel.spec.ts`)
+- The inversion coverage (added to `tests/e2e/nd-465-kanban-task-cancel.spec.ts`)
   asserts settled computed colors rather than class strings: it derives WCAG
   relative luminance from `getComputedStyle` and polls until the
   `transition-colors` animation lands, since sampling right after a theme
-  toggle or hover otherwise captures a mid-transition value. It covers the
-  Close bar in both themes, its full-bleed geometry, the idle outline and
-  hover fill of the edit-mode Cancel in both themes, the create dialog's
-  Cancel outline, and that the filled primary action beside Cancel remains
-  the only solid button. Visual evidence was captured with a temporary
-  Playwright screenshot spec (removed before commit) -- desktop light and
-  dark for both view and edit mode plus the create dialog.
+  toggle or hover otherwise captures a mid-transition value. Two cases split
+  by breakpoint: "dismissals stay ghost on desktop across themes" (1440x900
+  -- transparent idle fill, no border, accent hover fill that is never the
+  inverted surface, full-bleed Close geometry, and the filled primary action
+  still the only solid button) and "dismissals invert with the theme on
+  mobile" (390x844 -- filled Close bar and outlined Cancels, idle and hover,
+  in both themes). Visual evidence was captured with a temporary Playwright
+  screenshot spec (removed before commit) at both widths: desktop view and
+  edit mode back to the ghost footer, mobile keeping the inverted bar and
+  outlined Cancels with the sheet's stacked footer.
 - The spec file was written with CRLF endings in the first pass, which
   `git diff --check` flagged on every added line; it is new on this branch,
   so it was normalized to LF and the check is clean.
