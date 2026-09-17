@@ -7862,3 +7862,44 @@ Low-value entries to avoid going forward:
   is a pre-existing local-environment failure: it reproduces on the `main`
   checkout, where both password-recovery tests fail for the same reason.
   `git diff --check` stays clean.
+
+# 2026-09-18 - ND-137: Projects hub copy refinement
+
+- Claimed live Nexus Dash card ND-137 (external UX feedback task TASK-363,
+  `cmth7eriu002q04ju2d13ivrk`) and moved it to In Progress. Built in the
+  dedicated `../nexus_dash_task137` worktree on
+  `feature/nd-137-projects-page-copy-refinement` from `origin/main` at
+  06d15e5 (v0.73.0).
+- Validity check before implementation: the feedback still applies. The
+  `/projects` hub restated "project" in all five flagged surfaces (badge
+  "Project management", headline "Project workspace", CRUD subhead, "Create
+  project" CTA, empty state with the noun twice); none of the involved files
+  had been touched since TASK-091.
+- Keyed the new copy off the card's own example composition (headline
+  "Projects" + value-proposition subhead + "Create project" CTA +
+  empty-state next step): dropped the redundant "Project management" badge
+  (and mirrored the removal in the `loading.tsx` skeleton), headline now
+  "Projects", subhead now "Plan, track, and deliver work in one place.",
+  and the empty-state description now "Create one to start managing tasks
+  and resources." while its title keeps the status-only "No projects yet".
+  Each remaining instance of the noun adds new information; the "Create
+  project" CTA label stays because the card example sanctions it and the
+  modal title/primary-button differentiation belongs to its own task
+  (TASK-364 / ND-138).
+- The global sidebar tagline "Project workspace" is out of scope here; it
+  belongs to the own task covering sidebar workspace label deduplication.
+- Validation: `npm run lint`, `npm run rls:check`, `npm test` (208 files /
+  1710 tests passed, 2 skipped), `npm run test:coverage` (thresholds met),
+  `npm run build`, `git diff --check` clean. Full local Playwright run on a
+  verified own production server (port 3429, PID cwd checked): 88 passed /
+  1 skipped / 3 failed. All three failures are in specs untouched by this
+  branch diff (project-dashboard kanban pointer drag, titled-link focus,
+  meeting-note zoom geometry) and match the documented local flake
+  families: the nd-464 focus test passed on isolated rerun, and the two
+  that reproduced in isolation (nd-408:285 drag order off by one slot;
+  smoke:445 zoom-box overshoot of 3.4px/2.4px) ran while several sibling
+  worktrees were executing builds and Playwright suites concurrently on
+  this machine. CI E2E Smoke is the authoritative gate.
+- Visual check: a temporary Playwright capture (removed before commit)
+  confirmed the empty-state and populated hub render with the new copy in
+  an authenticated browser session.

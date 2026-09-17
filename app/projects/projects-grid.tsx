@@ -39,7 +39,7 @@ export async function ProjectsGrid() {
               No projects yet
             </CardTitle>
             <CardDescription>
-              Create your first project to start managing tasks and resources.
+              Create one to start managing tasks and resources.
             </CardDescription>
           </CardHeader>
         </Card>

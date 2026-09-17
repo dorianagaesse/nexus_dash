@@ -1,14 +1,9 @@
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export default function ProjectsLoading() {
   return (
     <main className="container py-16">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <Badge variant="secondary" className="w-fit">
-          Project management
-        </Badge>
-
         <div className="space-y-2">
           <div className="h-9 w-72 animate-pulse rounded bg-muted" />
           <div className="h-4 w-80 animate-pulse rounded bg-muted" />
