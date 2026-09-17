@@ -50,6 +50,8 @@ interface RichTextEditorProps {
   editorClassName?: string;
   editorStyle?: React.CSSProperties;
   editorControls?: React.ReactNode;
+  /** Actions pinned to the editor's top-right corner, left of the emoji button. */
+  editorCornerActions?: React.ReactNode;
   ariaLabel?: string;
   ariaLabelledBy?: string;
   mentionProjectId?: string;
@@ -2325,6 +2327,7 @@ export function RichTextEditor({
   editorClassName,
   editorStyle,
   editorControls,
+  editorCornerActions,
   ariaLabel,
   ariaLabelledBy,
   mentionProjectId,
@@ -3193,7 +3196,11 @@ export function RichTextEditor({
         </Button>
       </div> : null}
 
-      <EmojiFieldShell targetRef={editorRef} buttonPlacement="top">
+      <EmojiFieldShell
+        targetRef={editorRef}
+        buttonPlacement="top"
+        buttonClassName={editorCornerActions ? "right-12" : undefined}
+      >
         <div
           id={id}
           ref={editorRef}
@@ -3208,6 +3215,7 @@ export function RichTextEditor({
           className={cn(
             "min-h-[140px] w-full max-w-full overflow-x-hidden rounded-md border border-input bg-background px-3 py-2 pr-14 text-sm text-foreground transition-colors",
             editorControls && "pb-16",
+            editorCornerActions && "pr-20",
             "focus-visible:outline-none focus-visible:border-ring/60",
             "[&:empty:before]:pointer-events-none [&:empty:before]:text-muted-foreground [&:empty:before]:content-[attr(data-placeholder)]",
             "[overflow-wrap:anywhere] [&_blockquote]:border-l-2 [&_blockquote]:border-border/70 [&_blockquote]:pl-3",
@@ -3230,6 +3238,14 @@ export function RichTextEditor({
           onInput={handleEditorInput}
           onPaste={handleEditorPaste}
         />
+        {editorCornerActions ? (
+          <div
+            data-editor-corner-actions="true"
+            className="absolute right-0 top-0 z-10 flex items-center"
+          >
+            {editorCornerActions}
+          </div>
+        ) : null}
         {editorControls ? (
           <div
             data-rich-text-editor-controls="true"

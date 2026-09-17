@@ -41,6 +41,22 @@ test.describe("ND-399 comment file attachments", () => {
     await page.getByRole("button", { name: new RegExp(taskTitle) }).first().click();
 
     const composer = page.getByTestId("task-comment-composer");
+    const commentInput = composer.locator("#task-comment-input");
+    const attachmentTrigger = composer.getByLabel("Add files to comment");
+
+    // The trigger sits inside the comment box and only appears while the input
+    // holds focus.
+    await commentInput.evaluate((element) => (element as HTMLElement).blur());
+    await expect(attachmentTrigger).toHaveCSS("opacity", "0");
+    await expect(attachmentTrigger).toHaveCSS("pointer-events", "none");
+
+    await commentInput.click();
+    await expect(attachmentTrigger).toHaveCSS("opacity", "1");
+    await expect(attachmentTrigger).toHaveCSS("pointer-events", "auto");
+
+    const triggerBox = await attachmentTrigger.boundingBox();
+    expect(triggerBox?.width ?? 0).toBeGreaterThanOrEqual(44);
+    expect(triggerBox?.height ?? 0).toBeGreaterThanOrEqual(44);
 
     await page.locator("#task-comment-attachment-file").setInputFiles({
       name: "archive.zip",
@@ -73,7 +89,10 @@ test.describe("ND-399 comment file attachments", () => {
     expect((await removeButton.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(44);
     expect((await removeButton.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
 
-    const commentInput = composer.locator("#task-comment-input");
+    // Attached drafts keep the trigger reachable without re-focusing the input.
+    await commentInput.evaluate((element) => (element as HTMLElement).blur());
+    await expect(attachmentTrigger).toHaveCSS("opacity", "1");
+
     await commentInput.click();
     await page.keyboard.type("Status report attached.");
 

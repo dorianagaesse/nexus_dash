@@ -1445,6 +1445,8 @@ function TaskReadOnlyContent({
   );
   const hasAttachments = supplementaryAttachments.length > 0;
   const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
+  const hasCommentDraftAttachments =
+    commentAttachments.length > 0 || pendingCommentAttachmentUploads.length > 0;
   const [commentMentionSelections, setCommentMentionSelections] = useState<
     TaskCommentMentionSelection[]
   >([]);
@@ -1666,7 +1668,7 @@ function TaskReadOnlyContent({
               </label>
               <div
                 data-testid="task-comment-composer"
-                className="rounded-md border border-input bg-background transition-colors focus-within:border-ring/60"
+                className="group/composer rounded-md border border-input bg-background transition-colors focus-within:border-ring/60"
               >
                 <RichTextEditor
                   id="task-comment-input"
@@ -1680,10 +1682,45 @@ function TaskReadOnlyContent({
                   className="space-y-0"
                   editorClassName="min-h-11 border-0 focus-visible:border-transparent"
                   onPasteFiles={onAddCommentAttachments}
+                  editorCornerActions={
+                    <>
+                      <input
+                        key={commentAttachmentInputKey}
+                        id="task-comment-attachment-file"
+                        type="file"
+                        accept={ALLOWED_ATTACHMENT_MIME_TYPES.join(",")}
+                        multiple
+                        onChange={(event) =>
+                          void onAddCommentAttachments(
+                            Array.from(event.target.files ?? [])
+                          )
+                        }
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="task-comment-attachment-file"
+                        aria-label="Add files to comment"
+                        // Keeps the caret in the comment input so the corner
+                        // actions stay visible while the picker opens.
+                        onMouseDown={(event) => event.preventDefault()}
+                        className={cn(
+                          // The 44px box is the tap target; the chip inside
+                          // matches the emoji field button next to it.
+                          "flex h-11 w-11 cursor-pointer items-center justify-center text-muted-foreground transition-opacity hover:text-foreground",
+                          hasCommentDraftAttachments
+                            ? "opacity-100"
+                            : "pointer-events-none opacity-0 group-focus-within/composer:pointer-events-auto group-focus-within/composer:opacity-100"
+                        )}
+                      >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full border border-border/70 bg-background/90 shadow-sm backdrop-blur">
+                          <Paperclip className="h-3.5 w-3.5" />
+                        </span>
+                      </label>
+                    </>
+                  }
                   hideToolbar
                 />
-                {(commentAttachments.length > 0 ||
-                  pendingCommentAttachmentUploads.length > 0) ? (
+                {hasCommentDraftAttachments ? (
                   <div className="space-y-2 border-t border-border/60 px-3 py-2.5">
                     <ImageAttachmentGrid
                       attachments={commentImages}
@@ -1728,26 +1765,6 @@ function TaskReadOnlyContent({
                   ) : null}
                 </div>
                 <div className="flex items-center gap-2">
-                  <input
-                    key={commentAttachmentInputKey}
-                    id="task-comment-attachment-file"
-                    type="file"
-                    accept={ALLOWED_ATTACHMENT_MIME_TYPES.join(",")}
-                    multiple
-                    onChange={(event) =>
-                      void onAddCommentAttachments(Array.from(event.target.files ?? []))
-                    }
-                    className="hidden"
-                  />
-                  <Button type="button" variant="outline" size="icon" asChild>
-                    <label
-                      htmlFor="task-comment-attachment-file"
-                      aria-label="Add files to comment"
-                      className="h-11 w-11 cursor-pointer"
-                    >
-                      <Paperclip className="h-4 w-4" />
-                    </label>
-                  </Button>
                   <Button
                     type="button"
                     size="sm"

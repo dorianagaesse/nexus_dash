@@ -58,6 +58,10 @@ const baseTask: KanbanTask = {
 
 let taskForRender = baseTask;
 
+function classNameTokens(element: Element | null | undefined): string[] {
+  return (element?.className ?? "").split(/\s+/).filter(Boolean);
+}
+
 function createTestRenderer() {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -347,6 +351,65 @@ describe("TaskDetailModal comments", () => {
     expect(document.body.textContent).toContain("notes.pdf");
     expect(document.body.textContent).not.toContain("Title 1");
     expect(document.body.textContent).not.toContain("Bullet list");
+
+    await act(async () => root.unmount());
+  });
+
+  test("pins the comment attachment trigger to the composer corner and gates it on focus", async () => {
+    const { root } = createTestRenderer();
+
+    await renderWithRoot(root, [], { canEdit: true });
+
+    const composer = document.querySelector(
+      '[data-testid="task-comment-composer"]'
+    );
+    const trigger = composer?.querySelector('[aria-label="Add files to comment"]');
+    const fileInput = document.querySelector("#task-comment-attachment-file");
+
+    // The trigger sits inside the comment input box (composer corner), not in
+    // the action row next to "Add comment".
+    expect(composer?.contains(fileInput)).toBe(true);
+    expect(composer?.contains(trigger)).toBe(true);
+    expect(trigger?.getAttribute("for")).toBe("task-comment-attachment-file");
+
+    // Idle composer: hidden and inert until the input holds focus.
+    expect(classNameTokens(composer)).toContain("group/composer");
+    expect(classNameTokens(trigger)).toContain("opacity-0");
+    expect(classNameTokens(trigger)).toContain("pointer-events-none");
+    expect(classNameTokens(trigger)).toContain(
+      "group-focus-within/composer:opacity-100"
+    );
+    expect(classNameTokens(trigger)).toContain(
+      "group-focus-within/composer:pointer-events-auto"
+    );
+
+    await act(async () => root.unmount());
+  });
+
+  test("keeps the comment attachment trigger visible while draft attachments exist", async () => {
+    const { root } = createTestRenderer();
+
+    await renderWithRoot(root, [], {
+      canEdit: true,
+      commentAttachments: [
+        {
+          id: "attachment-1",
+          commentId: null,
+          kind: "file",
+          name: "notes.pdf",
+          url: null,
+          mimeType: "application/pdf",
+          sizeBytes: 2048,
+          downloadUrl: "/download/attachment-1",
+        },
+      ],
+    });
+
+    const trigger = document.querySelector('[aria-label="Add files to comment"]');
+
+    expect(classNameTokens(trigger)).toContain("opacity-100");
+    expect(classNameTokens(trigger)).not.toContain("opacity-0");
+    expect(classNameTokens(trigger)).not.toContain("pointer-events-none");
 
     await act(async () => root.unmount());
   });

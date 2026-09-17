@@ -3,6 +3,53 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-17 - ND-399: Move the comment attachment trigger inside the composer
+
+- Follow-up refinement on the same card, branch, and PR: the paperclip left the
+  composer's action row and now lives inside the comment input, appearing only
+  while the user is writing in it.
+- Placement (owner decision): the paperclip shares the input's top-right corner
+  with the existing emoji picker, sitting to its right. The composer keeps its
+  compact height because both actions are overlays rather than a row, and the
+  editor grows to `pr-20` so text never runs underneath them.
+- `components/ui/emoji-field.tsx` now accepts `buttonClassName`, and
+  `components/rich-text-editor.tsx` gained an `editorCornerActions` slot
+  rendered above the editor; when that slot is used the emoji button moves to
+  `right-12`, so the two triggers occupy disjoint boxes with no overlap.
+- Visibility is CSS-only and mirrors `EmojiFieldShell`'s existing
+  `group-focus-within/emoji` reveal: the composer is `group/composer` and the
+  trigger is `opacity-0` + `pointer-events-none` until the input holds focus.
+  No React focus state, so no re-render and no blur race with the native file
+  dialog. `onMouseDown` on the label prevents default, keeping the caret in the
+  editor so the trigger does not flicker out while the OS picker opens.
+- Once the composer holds draft or in-flight attachments (owner decision), the
+  trigger stays visible without re-focusing, so a second file can be added in
+  the same pass.
+- The tap target stays 44x44: an invisible 44px box carries the hit area and
+  the visible 28px chip inside it matches the emoji field button. ND-144's
+  existing `>= 44px` assertion on "Add files to comment" therefore still passes
+  unchanged rather than being weakened. The hidden file input stays always
+  mounted so both specs keep driving it through `setInputFiles`.
+- Coverage: two component tests (corner placement plus focus gating, and the
+  draft-attachment bypass) compare exact class tokens, because the shared
+  Button base classes contain `disabled:pointer-events-none` and a substring
+  check would false-positive. The ND-399 e2e spec now asserts the computed
+  `opacity` / `pointer-events` in both states, the 44x44 trigger box, and that
+  a draft attachment keeps the trigger reachable while the input is blurred.
+- Validation on the final tree: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, `npm test` (209 files passed / 2 skipped; 1692 tests
+  passed / 2 skipped), coverage thresholds met (93.77% statements, 84.79%
+  branches, 95.42% functions, 94.08% lines), production build, and the full
+  Playwright suite 82 passed / 1 skipped / 0 failed on port 3100.
+- Environment note: this worktree has no `.env` (gitignored, so never copied by
+  `worktree:create`). Vitest fails 17 files at import time with "Missing
+  required environment variable: DATABASE_URL" unless the CI job env is
+  exported (`DATABASE_URL`, `DIRECT_URL`, `AGENT_TOKEN_SIGNING_SECRET`,
+  `RESEND_API_KEY`) — those failures are environmental, not regressions.
+- Known gap, deliberately not widened here: the file input is `display: none`,
+  so the picker is pointer-only. That is unchanged from before this commit and
+  is flagged as an optional follow-up.
+
 # 2026-09-17 - ND-399: Enable image and file attachments in task comments
 
 - Claimed live Nexus Dash card ND-399 (`cmtkjmdbr000904leef5mheq5`) and built
