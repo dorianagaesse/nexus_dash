@@ -15,6 +15,19 @@ Use it for important implementation milestones, blockers, validation runs, and r
   production build, and the full Playwright suite 90 passed / 1 skipped /
   0 failed on isolated port 3399, including the ND-465 cancel flows and the
   ND-399 attachment spec. All CI checks green; `mergeStateStatus` CLEAN.
+- Second merge-forward the same day: merged `origin/main` (ND-464 #524,
+  ND-432 #529). Conflicts were `adr/decisions.md` and `journal.md` — both
+  kept-both resolutions, with ND-399 entries first. Merge commit `34fd6fc`.
+- Re-validated again on the combined tree: lint, rls:check, release:check
+  (0.73.0 = 0.73.0), 209 test files / 1723 tests passed (2 skipped),
+  coverage thresholds met (93.78% statements, 84.46% branches, 95.42%
+  functions, 94.08% lines), production build, and the full Playwright suite
+  91 passed / 1 skipped with the one long-documented local zoom-geometry
+  flake in the smoke meeting-notes flow (`inputZoomBottomInset` -4.84px and
+  ~3.8px right-edge overshoot signatures; 1 of 3 isolated reruns passed, CI
+  is green on main at both merged commits, and the flow renders no links, so
+  ND-464's link work cannot reach it). ND-464's titled-link specs and the
+  ND-399 attachment spec both pass locally.
 
 # 2026-09-17 - ND-399: Move the comment attachment trigger inside the composer
 
