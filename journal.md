@@ -124,6 +124,43 @@ Use it for important implementation milestones, blockers, validation runs, and r
   closed it); with Cancel now closing the task UI outright, that flow was
   updated to dismiss from edit mode via the header close control, which is
   what the test actually intends to cover.
+- Follow-up (stakeholder feedback on the open PR): the dismissal affordances
+  now paint an inverted surface instead of the ghost hover fill -- dark in
+  the light theme, light in the dark theme. Two shared cva variants carry
+  the treatment so the three affordances cannot drift apart: `inverted`
+  (`bg-foreground text-background`) for the full-bleed view-mode Close bar,
+  and `inverted-outline` (foreground border plus foreground label, filling
+  inverted on hover) for the edit-mode Cancel and the create-task dialog's
+  Cancel. Cancel is deliberately the outline rather than a second solid fill
+  so "Save changes" / "Create task" stays the only solid button in the row;
+  the ND-466 header X controls stay ghost, per the same feedback round. No
+  version or changelog metadata, per ND-457's product-branch policy.
+- Re-validated after the inversion: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, coverage thresholds met (93.77% statements / 84.71%
+  branches), production build, the ND-465 spec (6 passed) plus the ND-466
+  controls spec (2 passed) and the full `smoke-project-task-calendar.spec.ts`
+  (6 passed) on the owned server at PORT=3465. `npm test` reports one
+  failure, `tests/components/project-context-panel.test.tsx` "closes the
+  preview menu on Escape before closing the card"; it reproduces unchanged
+  on `origin/main` at 829b043 in a clean worktree with the same environment
+  (9 of that file's 10 tests pass there), so it is pre-existing breakage
+  from ND-448 and unrelated to this branch. The coverage run above therefore
+  parked that one spec file to read the threshold table (green), then put it
+  back untouched.
+- The inversion spec (added to `tests/e2e/nd-465-kanban-task-cancel.spec.ts`)
+  asserts settled computed colors rather than class strings: it derives WCAG
+  relative luminance from `getComputedStyle` and polls until the
+  `transition-colors` animation lands, since sampling right after a theme
+  toggle or hover otherwise captures a mid-transition value. It covers the
+  Close bar in both themes, its full-bleed geometry, the idle outline and
+  hover fill of the edit-mode Cancel in both themes, the create dialog's
+  Cancel outline, and that the filled primary action beside Cancel remains
+  the only solid button. Visual evidence was captured with a temporary
+  Playwright screenshot spec (removed before commit) -- desktop light and
+  dark for both view and edit mode plus the create dialog.
+- The spec file was written with CRLF endings in the first pass, which
+  `git diff --check` flagged on every added line; it is new on this branch,
+  so it was normalized to LF and the check is clean.
 
 # 2026-09-14 - ND-446: Remove the border around the Kanban search and filter bar
 
