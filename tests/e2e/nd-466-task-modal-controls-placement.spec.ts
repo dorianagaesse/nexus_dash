@@ -209,10 +209,9 @@ test.describe("ND-466 task modal controls placement", () => {
     await editAction.click();
     const titleField = dialog.locator("[aria-label='Task title']");
     await expect(titleField).toBeVisible();
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(titleField).toBeHidden();
 
-    // The close control keeps its behavior after the move.
+    // The close control keeps its behavior after the move: dismissing from
+    // edit mode closes the task UI and discards the edit session (ND-465).
     await dialog.getByRole("button", { name: "Close task" }).click();
     await expect(dialog).toBeHidden();
   });
