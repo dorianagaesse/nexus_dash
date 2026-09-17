@@ -454,12 +454,76 @@ describe("rich-text-editor", () => {
     });
   });
 
+  test("turns a pasted raw URL into a titled link inside the editor", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, { initialValue: "" })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    expect(editor).not.toBeNull();
+    selectNodeStart(editor);
+
+    const urlPaste = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(urlPaste, "clipboardData", {
+      value: {
+        items: [{ kind: "string", type: "text/plain", getAsFile: () => null }],
+        getData: () => "https://mail.google.com/",
+      },
+    });
+
+    await act(async () => {
+      editor?.dispatchEvent(urlPaste);
+    });
+
+    const link = editor?.querySelector<HTMLAnchorElement>("a");
+    expect(urlPaste.defaultPrevented).toBe(true);
+    expect(link?.textContent).toBe("Google Mail");
+    expect(link?.href).toBe("https://mail.google.com/");
+    expect(container.querySelector("output")?.textContent).toContain(
+      ">Google Mail</a>"
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("keeps a trailing paragraph after a terminal code block", () => {
     const html = buildEditorRichTextHtml(createRichTextCodeBlock("npm run lint") ?? "");
     const template = getTemplate(html);
 
     expect(template.content.lastElementChild?.tagName).toBe("P");
     expect(template.content.lastElementChild?.textContent).toBe("\u200B");
+  });
+
+  test("shows raw URLs as titled links when editor content loads", () => {
+    const html = buildEditorRichTextHtml(
+      "<p>Open https://nexus-dash.app/ and https://mail.google.com/.</p>"
+    );
+    const template = getTemplate(html);
+    const links = Array.from(
+      template.content.querySelectorAll<HTMLAnchorElement>("a")
+    );
+
+    expect(links.map((link) => link.textContent)).toEqual([
+      "Nexus Dash",
+      "Google Mail",
+    ]);
+    expect(serializeEditorRichTextHtml(html)).toContain(
+      '<a href="https://nexus-dash.app/" data-rich-link="true" target="_blank" rel="noopener noreferrer">Nexus Dash</a>'
+    );
+  });
+
+  test("persists raw URLs as titled links even without editor-only markup", () => {
+    const html = serializeEditorRichTextHtml(
+      "<p>Open https://nexus-dash.app/ now</p>"
+    );
+
+    expect(html).toContain(">Nexus Dash</a> now");
+    expect(html).not.toContain(">https://nexus-dash.app/</a>");
   });
 
   test("keeps a trailing paragraph after a terminal token block", () => {

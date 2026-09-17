@@ -546,6 +546,7 @@ function mapNoteActor(input: {
   user: TaskPersonRecord | null;
   credential: MeetingTodoActorCredentialRecord | null;
   registry: MeetingTodoActorRegistry | null;
+  noteExternalParticipantNameKeys?: Set<string> | null;
 }): MeetingTodoActorSummary | null {
   return mapActionActor(input);
 }
@@ -659,6 +660,7 @@ function mapMeetingNote(
       user: note.stewardUser,
       credential: note.stewardCredential,
       registry,
+      noteExternalParticipantNameKeys,
     }),
     createdBy: mapNoteActor({
       kind: "human",
@@ -1910,23 +1912,37 @@ export async function setProjectMeetingNoteSteward(
 
     const existing = await db.projectMeetingNote.findFirst({
       where: { id: noteId, projectId: input.projectId },
-      select: { id: true },
+      select: {
+        id: true,
+        participants: {
+          where: { userId: null },
+          orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+          select: { userId: true, displayName: true },
+        },
+      },
     });
     if (!existing) {
       return createError(404, "meeting-note-not-found");
     }
 
     const stewardUpdate = input.steward
-      ? await (async () => {
-          const registry = await loadMeetingNoteActorRegistry({
-            db,
-            projectId: input.projectId,
-          });
-          return resolveAssignableMeetingTodoActorFromRegistry({
-            registry,
-            reference: input.steward as MeetingTodoActorReference,
-          });
-        })()
+      ? input.steward.kind === "participant"
+        ? // Guest stewards resolve against the note's own external
+          // participants, mirroring the name-keyed assignee contract.
+          resolveExternalParticipantMeetingTodoActor({
+            reference: input.steward,
+            participants: existing.participants,
+          })
+        : await (async () => {
+            const registry = await loadMeetingNoteActorRegistry({
+              db,
+              projectId: input.projectId,
+            });
+            return resolveAssignableMeetingTodoActorFromRegistry({
+              registry,
+              reference: input.steward as MeetingTodoActorReference,
+            });
+          })()
       : null;
     if (stewardUpdate && !stewardUpdate.ok) {
       const errorCode =

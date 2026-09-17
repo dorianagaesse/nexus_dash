@@ -45,6 +45,46 @@ Keep UI-only or task-only notes in `journal.md`.
 - Links: `adr/task-432-autosave-contract.md`, Nexus Dash cards ND-428,
   ND-429, ND-432, ND-433, and ND-434.
 
+## 2026-09-17 - ND-396: External meeting participants are name-keyed meeting-note stewards
+
+- Status: Accepted; extends TASK-356 stewardship with the ND-376
+  external-participant actor contract.
+- Context: ND-396 asked for guest (external) meeting participants to be
+  selectable and clearable as meeting-note stewards. Guests have no `User`
+  row, and meeting-note participants are rewritten wholesale on every note
+  save, so a foreign key from the steward to a participant row cannot survive
+  unrelated note edits. The alternatives were a durable guest identity model
+  (new tables, new RLS surface) or extending the name-keyed external
+  participant contract that ND-376 already uses for meeting-todo assignees.
+- Decision: Reuse the name-keyed contract. `MeetingTodoActorKind` already
+  allowed `participant` and the TASK-356 `ProjectMeetingNote_steward_actor_check`
+  constraint already permitted `stewardKind='participant'` with
+  `stewardUserId` and `stewardCredentialId` null, so no migration or RLS
+  change was needed. `setProjectMeetingNoteSteward` resolves a participant
+  reference against the note's own stored external participants
+  case/whitespace-insensitively (`getMeetingTodoParticipantNameKey`) and
+  stores the canonical display name in `stewardDisplayNameSnapshot`. The
+  projector (`mapStoredMeetingTodoActor` with
+  `noteExternalParticipantNameKeys`) keeps the steward active/assignable only
+  while a matching external participant is listed on the note; otherwise it
+  renders inactive with the existing "Needs reassignment" affordance. New
+  bridge helpers in `lib/meeting-todo-actor.ts`
+  (`getMeetingParticipantActorReference`, `isMeetingParticipantActor`) let the
+  prepare-dialog picker, detail chips, steward filter, and Backspace removal
+  share one identity vocabulary for members and guests.
+- Consequences: Renaming or removing the selected guest leaves the snapshot
+  visible and flagged for reassignment instead of silently orphaning the
+  steward, and reassigning steward to a differently cased or spaced name
+  snapshots the canonical stored name. Guest stewardship writes no user or
+  credential link, so it grants no project membership, read access,
+  notifications, or todo-assignment rights, and the steward filter counts a
+  guest-stewarded note as stewarded but never as "Stewarded by me". Because a
+  freshly typed guest has no durable key until the note is saved, the prepare
+  dialog restricts guest steward toggles to already-saved participants.
+- Links: board card ND-396, `lib/meeting-todo-actor.ts`,
+  `lib/services/project-meeting-note-service.ts`,
+  `prisma/migrations/20260809120000_task356_meeting_note_stewardship`.
+
 ## 2026-09-14 - ND-447: Remove context-card stewardship
 
 - Status: Accepted; removes the context-card portions of the TASK-342

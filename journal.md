@@ -84,6 +84,124 @@ Use it for important implementation milestones, blockers, validation runs, and r
   and search flow") at the documented `inputZoomBottomInset` -4.86px and
   1.35px overshoot signatures; the rerun passed 79/79, and the spec's
   meeting-preparation assertions are untouched by this branch.
+# 2026-09-16 - ND-465: Fix the non-working Cancel button in Kanban task flows
+
+- Claimed live Nexus Dash card ND-465 (`cmu1fbkhh000804jqgj2ay13w`, GitHub
+  issue #523 attached) and moved it to In Progress before coding. Work used
+  the dedicated worktree `../nexus_dash_task465` on
+  `fix/nd-465-kanban-cancel-button` from `origin/main` at b3abd42.
+- Root cause had three parts: (1) the task detail footer always rendered
+  "Save changes" and "Cancel", and in view mode Cancel called
+  `onToggleEditMode(false)`, which is inert there -- a dead button; (2) in
+  edit mode Cancel only left edit mode and dropped the user back into the
+  view modal instead of returning to the board; (3) nothing restored focus
+  because the modal opens from card clicks rather than a Radix
+  `DialogTrigger`, so Radix had no trigger to return focus to.
+- Fixes: the footer now branches by mode -- edit mode renders "Save
+  changes" plus "Cancel" and both Cancel paths call `onClose`, which
+  discards the edit session; view mode renders a single "Close" button. The
+  board stores the originating card in a ref and hands focus back as the
+  modal closes; the ref holds the element, not the task id, because an
+  optimistic card swaps to the persisted id while it stays mounted, and the
+  focus call is deferred with `requestAnimationFrame` because the closing
+  Radix dialog keeps the rest of the page inert for the remainder of its
+  commit.
+- Tests: new `tests/e2e/nd-465-kanban-task-cancel.spec.ts` covers create
+  Cancel (dialog closes, draft discarded, focus back on the New task
+  trigger), edit Cancel (no persistence after reload, focus back on the
+  card), keyboard activation in create and edit flows, the view-mode Close
+  control, and mobile `hasTouch` sheet taps in both flows.
+  `smoke-project-task-calendar.spec.ts` now asserts Cancel closes the task
+  UI in its attachment flow (the old assertion encoded the inert-button
+  behavior). That smoke edit is two lines inside a CRLF blob; the added
+  lines use LF, matching the file's existing mixed-ending regions, which
+  keeps `git diff --check` clean.
+- Environment: local Postgres for the worktree on port 55465 (`docker
+  compose` project `nexus_dash_task465`), migrations applied locally. The
+  e2e run needs CI parity: `NODE_ENV=test` (otherwise the local server is
+  treated as live production and the password-recovery spec attempts real
+  Resend delivery on the placeholder key) and empty Google OAuth variables
+  shadowing the workspace `.env` (which enables OAuth without
+  `GOOGLE_TOKEN_ENCRYPTION_KEY`, rejected by the build outside tests).
+- Validation: `git diff --check`, `npm run lint`, `npm run rls:check`;
+  `npm test` (207 files / 1669 tests pass, 2 skipped); coverage thresholds
+  met (93.77% statements / 84.71% branches); production build passes; full
+  Playwright suite on the owned server 83 passed / 1 skipped / 0 failures,
+  with the ND-465 spec green in the full run and again on a rerun after a
+  formatting-only tidy (5 passed). The first worktree run surfaced one
+  environment-only failure (password-recovery attempting real Resend
+  delivery because the server was treated as live production); rerunning
+  with `NODE_ENV=test`, matching the CI e2e job, cleared it.
+- PR #527 opened ready for review at commit d90c772.
+- Follow-up (stakeholder feedback on the open PR): the view-mode "Close"
+  control is now a full-bleed bar -- the footer drops its padding when not
+  editing (`p-0`) and the Close button renders `w-full rounded-none`, with
+  the dialog's `overflow-hidden` rounding clipping the bar's corners; edit
+  mode keeps the padded footer with Save changes + Cancel, and the error
+  banner keeps its own margins under the padding-free footer. Visual
+  evidence (temporary Playwright spec, removed before commit): desktop
+  1440x900 and mobile 390x844 geometry both show the Close bar inset by
+  exactly the dialog's 1px border on each measurable edge; edit-mode
+  footer padding stays 24px. Re-validated after the tweak: lint, RLS
+  inventory, `npm test` (207 files / 1669 tests), coverage thresholds
+  (93.77% statements / 84.71% branches), production build, and the full
+  Playwright suite (83 passed / 1 skipped / 0 failures).
+- Merge-forward: `origin/main` (ND-466 task modal controls to the
+  top-right, ND-377 floating todo panel) merged into the branch after the
+  PR showed a conflict; only `journal.md` conflicted (both branches
+  prepended entries), resolved by keeping both. The modal and smoke specs
+  auto-merged; the merged tree is re-validated locally before pushing. The
+  ND-466 controls spec's desktop flow expected the pre-ND-465 Cancel
+  semantics (Cancel dropped back to the view modal, then the header X
+  closed it); with Cancel now closing the task UI outright, that flow was
+  updated to dismiss from edit mode via the header close control, which is
+  what the test actually intends to cover.
+- Follow-up (stakeholder feedback on the open PR): the dismissal affordances
+  paint an inverted surface instead of the ghost hover fill at mobile widths
+  only -- dark in the light theme, light in the dark theme. Two shared cva
+  variants carry the treatment so the three affordances cannot drift apart:
+  `mobile-inverted` (`max-sm:bg-foreground max-sm:text-background`) for the
+  full-bleed view-mode Close bar, and `mobile-inverted-outline` (foreground
+  border plus foreground label, filling inverted on hover) for the edit-mode
+  Cancel and the create-task dialog's Cancel. Both keep `ghost` as their
+  base, so above `sm` they fall back to the pre-follow-up desktop look --
+  the bottom sheet reads as a native action row, while the same fill across
+  a desktop dialog footer read as too heavy in review. Cancel is
+  deliberately the outline rather than a second solid fill so "Save
+  changes" / "Create task" stays the only solid button in the row; the
+  ND-466 header X controls stay ghost. The first pass applied the inversion
+  at every width and was corrected to the `max-sm` scope on feedback; the
+  full-bleed Close bar itself is unchanged and stays on desktop. No version
+  or changelog metadata, per ND-457's product-branch policy.
+- Re-validated after the inversion: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, coverage thresholds met (93.77% statements / 84.71%
+  branches), production build, the ND-465 spec (7 passed) plus the ND-466
+  controls spec (2 passed) and the full `smoke-project-task-calendar.spec.ts`
+  (6 passed) on the owned server at PORT=3465. `npm test` reports one
+  failure, `tests/components/project-context-panel.test.tsx` "closes the
+  preview menu on Escape before closing the card"; it reproduces unchanged
+  on `origin/main` at 829b043 in a clean worktree with the same environment
+  (9 of that file's 10 tests pass there), so it is pre-existing breakage
+  from ND-448 and unrelated to this branch. The coverage run above therefore
+  parked that one spec file to read the threshold table (green), then put it
+  back untouched.
+- The inversion coverage (added to `tests/e2e/nd-465-kanban-task-cancel.spec.ts`)
+  asserts settled computed colors rather than class strings: it derives WCAG
+  relative luminance from `getComputedStyle` and polls until the
+  `transition-colors` animation lands, since sampling right after a theme
+  toggle or hover otherwise captures a mid-transition value. Two cases split
+  by breakpoint: "dismissals stay ghost on desktop across themes" (1440x900
+  -- transparent idle fill, no border, accent hover fill that is never the
+  inverted surface, full-bleed Close geometry, and the filled primary action
+  still the only solid button) and "dismissals invert with the theme on
+  mobile" (390x844 -- filled Close bar and outlined Cancels, idle and hover,
+  in both themes). Visual evidence was captured with a temporary Playwright
+  screenshot spec (removed before commit) at both widths: desktop view and
+  edit mode back to the ghost footer, mobile keeping the inverted bar and
+  outlined Cancels with the sheet's stacked footer.
+- The spec file was written with CRLF endings in the first pass, which
+  `git diff --check` flagged on every added line; it is new on this branch,
+  so it was normalized to LF and the check is clean.
 
 # 2026-09-14 - ND-446: Remove the border around the Kanban search and filter bar
 
@@ -7630,6 +7748,35 @@ Low-value entries to avoid going forward:
   introduced release-boundary governance. Restored the shared `0.73.0` package
   version and kept ND-144's product notes under `Unreleased`; version assignment
   remains owned by the release-preparation branch.
+## 2026-09-14 - ND-464 titled rich-content links
+
+- Claimed live Nexus Dash card ND-464 and created the dedicated
+  `nexus_dash_task464` worktree on `feature/nd-464-titled-links` from
+  `origin/main`.
+- Centralized titled-link rendering in the shared rich-text presentation used
+  by task comments, task descriptions, and context-card descriptions. Markdown
+  titles become safe external anchors, while legacy anchors that expose their
+  complete URL receive a compact host label.
+- Added semantic theme styling, visible keyboard focus, safe new-tab
+  attributes, overflow-safe wrapping, and focused rendering tests. Validation
+  passed: lint, RLS inventory, 1,668 unit tests (2 skipped), coverage thresholds
+  (93.77% statements / 84.71% branches), and the production build using the
+  documented local database URL plus non-secret build placeholders. A focused
+  Chromium flow also passed at a 375 px viewport across task descriptions,
+  comments, and context cards, including focus and horizontal-overflow checks.
+- Red-PR follow-up: merged current `origin/main` at `b3abd42` to incorporate
+  ND-448's accepted context-card preview changes. Post-merge lint and 41 focused
+  component tests pass, and the combined ND-448/ND-464 Chromium flows pass (3
+  tests) before refreshing the PR checks.
+- Reviewer feedback exposed that plain pasted or typed URLs still stayed raw.
+  Added shared plain-URL detection and local hostname-derived titles so links
+  are compact in the editor itself and in rendered descriptions/comments,
+  including legacy saved content. Focused component coverage now exercises
+  load, paste, serialization, adjacent punctuation, and subdomain titles.
+- Follow-up styling adds a decorative internet icon, explicit accessible blue
+  colors for light/dark themes, no underline, and a pointer hover affordance.
+  The CSS-only icon stays out of copied text, accessible names, and stored HTML.
+
 # 2026-09-16 - ND-466 task modal overflow and close controls top-right
 
 - Moved ND-466 to In Progress and created the dedicated
@@ -7679,3 +7826,71 @@ Low-value entries to avoid going forward:
   after PR creation (ND-464's branch hit the same delay); a manual
   `workflow_dispatch` run was started for immediate CI signal, and the
   `pull_request` run landed green shortly after.
+
+# 2026-09-17 - ND-464 inline-link line-break fix (PR #524 follow-up)
+
+- Fixed the follow-up bug on PR #524: a typed comment like
+  "XXX <link> YYY" rendered with paragraph breaks before and after the link.
+- Root cause: `wrapRootLevelTextNodes` in `lib/rich-text.ts` flushed bare
+  root-level text before any root-level tag, so editor output that keeps text
+  and the anchor as bare root nodes (`XXX <a>…</a> YYY`) was rewritten to
+  `<p>XXX</p><a>…</a><p>YYY</p>`, manufacturing the breaks.
+- The wrapper now tracks block depth and accumulates root-level inline runs
+  (text plus inline elements and their nested markup) so surrounding text and
+  the link share a single `<p>`; block elements and whitespace-only root nodes
+  are unchanged, and the string-based implementation still runs in the Node
+  server runtime used by the services.
+- Regression coverage: four new unit tests in `tests/lib/rich-text.test.ts`,
+  a new component test in `tests/components/rich-text-content.test.ts`, the
+  server-runtime test that had codified the split output now asserts the
+  single-paragraph shape, the meeting-note budget test expects the canonical
+  `<p><strong>…</strong></p>` on write, and a new e2e case types
+  "XXX https://mail.google.com YYY" through the kanban comment composer and
+  asserts one rendered paragraph plus canonical stored HTML.
+- Decision: previously stored split output is not repaired because the split
+  emptied the original whitespace; new writes are canonicalized and rendering
+  re-coerces, so only fresh content benefits.
+- Validation: lint, RLS inventory, `git diff --check` clean; full vitest
+  1,692 passed / 2 skipped (210 files) under pinned Node 20.19.5 (the local
+  Node 25 default shows 19 pre-existing jsdom localStorage failures in
+  untouched suites); coverage thresholds met (statements 93.77%, branches
+  84.38%, functions 95.39%, lines 94.07%); production build passed; focused
+  Playwright ND-464 plus ND-398 flows (5 tests) green.
+- Note: Chrome contentEditable serializes a typed space directly after an
+  inline link as a non-breaking space, so the e2e stored-HTML regex tolerates
+  any whitespace at that position.
+
+# 2026-09-17 - ND-396 external participants as meeting-note stewards
+
+- Moved ND-396 to In Progress and created the
+  `feature/nd-396-guest-meeting-stewards` worktree from `origin/main`.
+- Extended TASK-356 stewardship to external meeting participants through the
+  ND-376 name-keyed contract: `setProjectMeetingNoteSteward` resolves
+  `{ kind: "participant", id }` against the note's stored external
+  participants (case/whitespace-insensitive) and snapshots the canonical
+  display name. No schema or RLS change was needed because the `participant`
+  actor kind and the TASK-356 steward CHECK constraint already permit it.
+- Added `getMeetingParticipantActorReference` / `isMeetingParticipantActor`
+  bridges so the prepare-dialog picker, note-detail chips, steward filter,
+  and Backspace removal handle guests and members through one identity
+  vocabulary. The prepare dialog limits guest steward toggles to
+  already-saved participants because a freshly typed guest has no durable key
+  until the note is saved.
+- Guest stewardship stores a snapshot with both foreign keys null, so it
+  grants no project membership, read access, notifications, or todo
+  assignment. Renaming or removing the participant leaves the steward
+  visible as inactive with the member-parity "Needs reassignment" affordance
+  instead of silently orphaning it.
+- Coverage: service tests (guest assign, canonical name, rejection of
+  non-participants, rename/removal lifecycle, filter counts), steward route
+  test, picker component tests (member and guest toggles, eligibility gating,
+  X and Backspace removal), panel component tests (guest toggle round trip,
+  read-only viewer chip, filter counts), and a Playwright guest flow through
+  rename and removal.
+- Validation: `npm run lint`, `npm run rls:check`, full unit suite
+  (207 files / 1687 tests), coverage thresholds met, production build, and
+  the Playwright suite (78 passed, 1 skipped). The one failure,
+  `password-recovery.spec.ts` "forgot-password request creates reset token",
+  is a pre-existing local-environment failure: it reproduces on the `main`
+  checkout, where both password-recovery tests fail for the same reason.
+  `git diff --check` stays clean.

@@ -6,10 +6,15 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import { MeetingParticipantPicker } from "@/components/meeting-participants/meeting-participant-picker";
+import { getMeetingParticipantKey } from "@/lib/meeting-participant";
 import type {
   ProjectMeetingParticipantCollaborator,
   ProjectMeetingParticipantIdentity,
 } from "@/lib/meeting-participant";
+import type {
+  MeetingTodoActorReference,
+  MeetingTodoActorSummary,
+} from "@/lib/meeting-todo-actor";
 
 (globalThis as { React?: typeof React }).React = React;
 (
@@ -54,7 +59,11 @@ function Harness() {
   );
 }
 
-function StewardHarness() {
+function StewardHarness({
+  stewardEligibleParticipantKeys = null,
+}: {
+  stewardEligibleParticipantKeys?: ReadonlySet<string> | null;
+}) {
   const [participants, setParticipants] = useState<
     ProjectMeetingParticipantIdentity[]
   >([
@@ -67,20 +76,40 @@ function StewardHarness() {
     PREVIOUS_EXTERNALS[0],
   ]);
   const [inputValue, setInputValue] = useState("");
-  const [stewardUserId, setStewardUserId] = useState<string | null>(null);
+  const [stewardReference, setStewardReference] =
+    useState<MeetingTodoActorReference | null>(null);
+  const steward: MeetingTodoActorSummary | null = stewardReference
+    ? {
+        kind: stewardReference.kind,
+        id: stewardReference.id,
+        displayName: stewardReference.id,
+        usernameTag: null,
+        avatarSeed: null,
+        status: "active",
+        isAssignable: true,
+      }
+    : null;
 
   return (
-    <MeetingParticipantPicker
-      id="steward-participants"
-      value={participants}
-      inputValue={inputValue}
-      collaborators={COLLABORATORS}
-      previousExternalParticipants={PREVIOUS_EXTERNALS}
-      onInputValueChange={setInputValue}
-      onChange={setParticipants}
-      stewardUserId={stewardUserId}
-      onStewardChange={setStewardUserId}
-    />
+    <>
+      <span data-testid="steward-reference">
+        {stewardReference
+          ? `${stewardReference.kind}:${stewardReference.id}`
+          : "none"}
+      </span>
+      <MeetingParticipantPicker
+        id="steward-participants"
+        value={participants}
+        inputValue={inputValue}
+        collaborators={COLLABORATORS}
+        previousExternalParticipants={PREVIOUS_EXTERNALS}
+        onInputValueChange={setInputValue}
+        onChange={setParticipants}
+        steward={steward}
+        onStewardChange={setStewardReference}
+        stewardEligibleParticipantKeys={stewardEligibleParticipantKeys}
+      />
+    </>
   );
 }
 
@@ -237,17 +266,14 @@ describe("MeetingParticipantPicker", () => {
     expect(
       makeSteward?.querySelector("img")?.parentElement?.className
     ).toContain("border-0");
-    expect(container.textContent).not.toContain("Click a project member");
-    expect(
-      container.querySelector(
-        "button[aria-label='Make Charlie Example steward / facilitator']"
-      )
-    ).toBeNull();
 
     await act(async () => {
       makeSteward?.click();
     });
 
+    expect(
+      container.querySelector("[data-testid='steward-reference']")?.textContent
+    ).toBe("human:user-2");
     const removeSteward = container.querySelector<HTMLButtonElement>(
       "button[aria-label='Remove camille as steward / facilitator']"
     );
@@ -268,5 +294,149 @@ describe("MeetingParticipantPicker", () => {
         )
         ?.getAttribute("aria-pressed")
     ).toBe("false");
+    expect(
+      container.querySelector("[data-testid='steward-reference']")?.textContent
+    ).toBe("none");
+  });
+
+  test("toggles a guest steward when the stored participant is eligible", async () => {
+    await act(async () => {
+      root.render(
+        <StewardHarness
+          stewardEligibleParticipantKeys={
+            new Set([getMeetingParticipantKey(PREVIOUS_EXTERNALS[0])])
+          }
+        />
+      );
+    });
+
+    const makeSteward = container.querySelector<HTMLButtonElement>(
+      "button[aria-label='Make Charlie Example steward / facilitator']"
+    );
+    expect(makeSteward).not.toBeNull();
+
+    await act(async () => {
+      makeSteward?.click();
+    });
+
+    expect(
+      container.querySelector("[data-testid='steward-reference']")?.textContent
+    ).toBe("participant:Charlie Example");
+    const removeSteward = container.querySelector<HTMLButtonElement>(
+      "button[aria-label='Remove Charlie Example as steward / facilitator']"
+    );
+    expect(removeSteward?.getAttribute("aria-pressed")).toBe("true");
+    expect(removeSteward?.querySelector("[role='tooltip']")?.textContent).toBe(
+      "Steward"
+    );
+    expect(removeSteward?.parentElement?.className).toContain(
+      "border-amber-400/80"
+    );
+
+    await act(async () => {
+      removeSteward?.click();
+    });
+
+    expect(
+      container.querySelector("[data-testid='steward-reference']")?.textContent
+    ).toBe("none");
+  });
+
+  test("keeps guests that are not yet stored on the note ineligible", async () => {
+    await act(async () => {
+      root.render(
+        <StewardHarness stewardEligibleParticipantKeys={new Set()} />
+      );
+    });
+
+    expect(
+      container.querySelector(
+        "button[aria-label='Make Charlie Example steward / facilitator']"
+      )
+    ).toBeNull();
+    expect(
+      container.querySelector(
+        "button[aria-label='Make camille steward / facilitator']"
+      )
+    ).not.toBeNull();
+  });
+
+  test("clears the guest steward when the participant is removed", async () => {
+    await act(async () => {
+      root.render(
+        <StewardHarness
+          stewardEligibleParticipantKeys={
+            new Set([getMeetingParticipantKey(PREVIOUS_EXTERNALS[0])])
+          }
+        />
+      );
+    });
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          "button[aria-label='Make Charlie Example steward / facilitator']"
+        )
+        ?.click();
+    });
+    expect(
+      container.querySelector("[data-testid='steward-reference']")?.textContent
+    ).toBe("participant:Charlie Example");
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          "button[aria-label='Remove Charlie Example']"
+        )
+        ?.click();
+    });
+
+    expect(
+      container.querySelector("[data-testid='steward-reference']")?.textContent
+    ).toBe("none");
+    expect(
+      container.querySelector("button[aria-label='Remove Charlie Example']")
+    ).toBeNull();
+  });
+
+  test("clears the guest steward when Backspace removes the participant", async () => {
+    await act(async () => {
+      root.render(
+        <StewardHarness
+          stewardEligibleParticipantKeys={
+            new Set([getMeetingParticipantKey(PREVIOUS_EXTERNALS[0])])
+          }
+        />
+      );
+    });
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>(
+          "button[aria-label='Make Charlie Example steward / facilitator']"
+        )
+        ?.click();
+    });
+
+    const input = container.querySelector<HTMLInputElement>(
+      "#steward-participants"
+    )!;
+    await act(async () => {
+      input.focus();
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Backspace",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+
+    expect(
+      container.querySelector("[data-testid='steward-reference']")?.textContent
+    ).toBe("none");
+    expect(
+      container.querySelector("button[aria-label='Remove Charlie Example']")
+    ).toBeNull();
   });
 });

@@ -112,6 +112,12 @@ function createLocalUploadId(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function findTaskCardElement(taskId: string): HTMLElement | null {
+  return document.querySelector<HTMLElement>(
+    `[data-kanban-task-card="${CSS.escape(taskId)}"]`
+  );
+}
+
 async function uploadTaskFileAttachment({
   projectId,
   taskId,
@@ -398,6 +404,9 @@ export function KanbanBoard({
   const previousSelectedTaskIdRef = useRef<string | null>(null);
   const commentDraftTaskIdRef = useRef<string | null>(null);
   const openedInitialTaskIdRef = useRef<string | null>(null);
+  // Anchored to the card element rather than its task id: an optimistic card
+  // swaps to the persisted task id while it stays mounted.
+  const taskCardReturnFocusRef = useRef<HTMLElement | null>(null);
   const { pushToast } = useToast();
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
@@ -1213,8 +1222,26 @@ export function KanbanBoard({
     ]
   );
 
+  const restoreTaskCardFocus = useCallback((card: HTMLElement | null) => {
+    if (!card) {
+      return;
+    }
+
+    // The closing dialog keeps the rest of the page inert for the remainder of
+    // its commit, so focus lands on the card only once that clears.
+    requestAnimationFrame(() => {
+      if (card.isConnected) {
+        card.focus();
+      }
+    });
+  }, []);
+
   const closeTaskModal = useCallback(() => {
+    // The task detail modal opens from card interactions instead of a Radix
+    // trigger, so hand focus back to the originating card as it closes.
+    restoreTaskCardFocus(taskCardReturnFocusRef.current);
     commentDraftTaskIdRef.current = null;
+    taskCardReturnFocusRef.current = null;
     setSelectedTask(null);
     shouldOpenTaskInEditModeRef.current = false;
     setIsEditMode(false);
@@ -1230,10 +1257,11 @@ export function KanbanBoard({
     setPendingCommentScreenshotUploads([]);
     setCommentScreenshotInputKey((previous) => previous + 1);
     setNewTaskComment("");
-  }, []);
+  }, [restoreTaskCardFocus]);
 
   const handleSelectTask = useCallback((task: KanbanTask) => {
     commentDraftTaskIdRef.current = task.id;
+    taskCardReturnFocusRef.current = findTaskCardElement(task.id);
     shouldOpenTaskInEditModeRef.current = false;
     setTaskComments([]);
     setTaskCommentsError(null);
@@ -1250,6 +1278,7 @@ export function KanbanBoard({
     }
 
     commentDraftTaskIdRef.current = task.id;
+    taskCardReturnFocusRef.current = findTaskCardElement(task.id);
     shouldOpenTaskInEditModeRef.current = true;
     setTaskComments([]);
     setTaskCommentsError(null);
@@ -1269,6 +1298,7 @@ export function KanbanBoard({
 
       shouldOpenTaskInEditModeRef.current = false;
       commentDraftTaskIdRef.current = relatedTask.id;
+      taskCardReturnFocusRef.current = findTaskCardElement(relatedTask.id);
       setTaskComments([]);
       setTaskCommentsError(null);
       setCommentScreenshotAttachments([]);

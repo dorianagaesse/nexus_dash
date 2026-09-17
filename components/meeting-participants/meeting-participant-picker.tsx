@@ -23,6 +23,12 @@ import {
   type ProjectMeetingParticipantCollaborator,
   type ProjectMeetingParticipantIdentity,
 } from "@/lib/meeting-participant";
+import {
+  getMeetingParticipantActorReference,
+  isMeetingParticipantActor,
+  type MeetingTodoActorReference,
+  type MeetingTodoActorSummary,
+} from "@/lib/meeting-todo-actor";
 import { cn } from "@/lib/utils";
 
 interface MeetingParticipantPickerProps {
@@ -36,9 +42,12 @@ interface MeetingParticipantPickerProps {
   maxItems?: number;
   maxInputLength?: number;
   disabled?: boolean;
-  stewardUserId?: string | null;
-  onStewardChange?: (userId: string | null) => void;
+  steward?: MeetingTodoActorSummary | null;
+  onStewardChange?: (steward: MeetingTodoActorReference | null) => void;
   stewardPending?: boolean;
+  // Guests only earn a durable identity once the note stores them, so the
+  // prepare dialog limits guest steward toggles to saved participants.
+  stewardEligibleParticipantKeys?: ReadonlySet<string> | null;
 }
 
 interface ParticipantSuggestion {
@@ -75,9 +84,10 @@ export function MeetingParticipantPicker({
   maxItems = 40,
   maxInputLength = 80,
   disabled = false,
-  stewardUserId = null,
+  steward = null,
   onStewardChange,
   stewardPending = false,
+  stewardEligibleParticipantKeys = null,
 }: MeetingParticipantPickerProps) {
   const generatedId = useId().replace(/:/g, "");
   const listboxId = `${id}-${generatedId}-suggestions`;
@@ -340,7 +350,7 @@ export function MeetingParticipantPicker({
       const removed = value[value.length - 1];
       onChange(value.slice(0, -1));
       if (removed) {
-        if (removed.userId === stewardUserId) {
+        if (isMeetingParticipantActor(steward, removed)) {
           onStewardChange?.(null);
         }
         setAnnouncement(`${removed.displayName} removed.`);
@@ -433,13 +443,16 @@ export function MeetingParticipantPicker({
       >
         <div className="flex min-h-10 flex-wrap items-center gap-1.5">
           {value.map((participant, participantIndex) => {
-            const isSteward =
-              participant.userId !== null &&
-              participant.userId === stewardUserId;
+            const isSteward = isMeetingParticipantActor(steward, participant);
             const canToggleSteward = Boolean(
               onStewardChange &&
-              participant.userId &&
-              (collaboratorIds.has(participant.userId) || isSteward)
+              (participant.userId
+                ? collaboratorIds.has(participant.userId) || isSteward
+                : isSteward ||
+                  !stewardEligibleParticipantKeys ||
+                  stewardEligibleParticipantKeys.has(
+                    getMeetingParticipantKey(participant)
+                  ))
             );
             const stewardTooltipId = `${id}-${generatedId}-steward-${participantIndex}`;
 
@@ -466,7 +479,11 @@ export function MeetingParticipantPicker({
                     }
                     disabled={disabled || stewardPending}
                     onClick={() =>
-                      onStewardChange?.(isSteward ? null : participant.userId)
+                      onStewardChange?.(
+                        isSteward
+                          ? null
+                          : getMeetingParticipantActorReference(participant)
+                      )
                     }
                   >
                     <MeetingParticipantStewardAffordance
