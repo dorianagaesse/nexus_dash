@@ -175,9 +175,10 @@ Rules:
 - Cancel closes the surface but preserves a dirty recovery draft. Discard is a
   separate, confirmed action that removes it and resets from the current
   server representation.
-- Retain drafts for 30 days since last edit. Opportunistically delete expired
-  entries and entries for inaccessible/deleted artifacts. Logout clears the
-  current user's draft namespace on that browser.
+- Retain drafts for 30 days since last edit and opportunistically delete only
+  expired entries. A draft for an inaccessible or deleted artifact remains
+  read-only and copyable until it expires or the user explicitly discards it.
+  Logout clears the current user's draft namespace on that browser.
 - Never store access tokens, raw agent keys, calendar credentials, password or
   account-security fields, file blobs, or object URLs. Already-uploaded
   attachment ids may be referenced if the caller is still authorized.
@@ -213,14 +214,42 @@ For matrix rows marked Live:
   `Conflict - review changes`. A local draft must never be labelled simply
   `Saved`.
 
+Live-save requests carry the documented
+`NexusDash-Mutation-Intent: autosave` header. The header does not weaken
+authorization, validation, revision checks, mutation attribution, or audit
+requirements. The service accepts autosave intent only for the allowlisted
+content fields in the surface matrix; assignment, status, archive, delete,
+mention, attachment, and other command side effects always use normal mutation
+semantics even if a client sends the header.
+
+Accepted autosaves use two bounded side-effect paths:
+
+- **Remote invalidation:** coalesce by project, domain, and entity and publish
+  at most one typed invalidation every 5 seconds, carrying the highest accepted
+  content revision in that window. Collaborators refetch or reconcile the
+  latest representation, so intermediate revisions do not need individual
+  events. An explicit Save flushes any pending invalidation.
+- **Human-facing activity and notifications:** intermediate autosaves do not
+  create one activity/email item per request. A durable pending summary is
+  upserted by project, domain, entity, actor, and edit session, then emits one
+  normal content-updated summary after 30 seconds of quiet or when explicit
+  Save flushes it. Security audit records and command-specific notifications
+  are never suppressed or coalesced through this path.
+
+The route parses the mutation intent, but the service decides whether the
+field set is eligible and returns typed side-effect metadata to the activity
+producer. A client cannot label a command as autosave to hide it from history
+or notifications.
+
 Local recovery may ship before ND-428/ND-429. Live save remains disabled per
 surface until the same representative fixture used by ND-428 shows that:
 
 1. the explicit and autosave mutation meet that surface's agreed p95 target;
 2. one active editor stays within the request cap above;
 3. an idle editor produces zero network/database writes; and
-4. representative multi-editor traffic does not cause a sustained increase in
-   database query time, activity churn, or notification-email work.
+4. representative multi-editor traffic keeps domain-write query time inside
+   the audit's agreed budget, emits no per-keystroke activity/email work, and
+   respects the 5-second invalidation and 30-second summary bounds above.
 
 Feature flags must be per surface so one expensive aggregate can be disabled
 without removing local recovery elsewhere.
@@ -251,6 +280,37 @@ aggregate already has a revision vocabulary).
   increment remain in `lib/services/**`.
 - The same precondition applies to explicit Save once a surface adopts the
   revision contract. Autosave must not be safer than the button users trust.
+
+#### Agent API compatibility and enforcement
+
+The shared task PATCH route is already published in the agent v1 contract, so
+`If-Match` cannot become mandatory for existing bearer clients without a
+transition. Enforcement is staged and principal-aware:
+
+1. **Additive revision release:** reads and successful mutations return
+   `contentRevision` and `ETag`; PATCH accepts and enforces `If-Match` when it
+   is supplied. The browser/session client is upgraded in the same release.
+   Existing agent v1 calls without the header remain compatible temporarily,
+   but every accepted v1 write still increments `contentRevision`.
+2. **Agent v2 publication:** publish the required header and `428`/`412`
+   responses in `/api/docs/agent/v2` and its OpenAPI document. Agent token
+   exchange negotiates v2 with `NexusDash-Agent-API-Version: 2`, and the
+   short-lived bearer token carries the negotiated contract version. Endpoint
+   paths stay shared; a duplicate task route is not introduced.
+3. **Required precondition:** human session mutations after the browser rollout
+   and agent v2 mutations return `428 Precondition Required` with
+   `edit-precondition-required` when `If-Match` is missing. A supplied but
+   stale value returns `412 edit-conflict` for every principal.
+4. **v1 sunset:** mark the v1 task mutation deprecated, publish the migration
+   window, update repository-owned examples/clients, stop issuing v1 tokens at
+   the announced sunset, and wait for already-issued tokens to expire. Only
+   then does the shared route return `428` for a missing header from every
+   principal.
+
+Live save stays disabled on an agent-writable aggregate until the v1 sunset;
+otherwise an unconditional v1 write could still overwrite a newer browser
+revision. This is an explicit compatibility interval, not a permanent
+last-write-wins exception.
 
 Google Calendar is not given a NexusDash `contentRevision`. Its API adapter
 must expose and use the provider ETag (or equivalent updated version) before an
@@ -345,18 +405,23 @@ and the server revision check.
 2. In ND-433, add recovery drafts to task comments, task detail edits, meeting
    preparation, and meeting output/todos. Preserve the current explicit
    buttons.
-3. Add content revisions, conditional partial PATCH contracts, and conflict UI
-   for Task and ProjectMeetingNote. Keep their Live flags off until ND-428 and
-   ND-429 provide the measured gate.
-4. Turn on task/meeting Live per surface after the gate passes; monitor request
-   rate, p50/p95 latency, conflicts, failures, and database query time.
-5. In ND-434, add recovery drafts to task/context/roadmap/calendar create and
+3. Add content revisions, conditional partial PATCH contracts, conflict UI,
+   autosave mutation intent, and the coalesced invalidation/activity producer
+   for Task and ProjectMeetingNote.
+4. Publish the additive agent v1 revision fields and agent v2 precondition
+   contract, migrate repository-owned clients/examples, complete the announced
+   v1 sunset, and verify missing/stale precondition behavior.
+5. Keep Live flags off until ND-428/ND-429 provide the measured gate and the
+   v1 sunset is complete. Then turn on task/meeting Live per surface and
+   monitor request rate, p50/p95 latency, conflicts, failures, database query
+   time, invalidation cadence, and activity/notification coalescing.
+6. In ND-434, add recovery drafts to task/context/roadmap/calendar create and
    edit surfaces per the matrix. Add conditional context-card Live; keep
    roadmap and Google Calendar edit as Draft only unless a later evidence-backed
    task changes this decision.
-6. Add epic recovery in a separately scoped follow-up if product priority
+7. Add epic recovery in a separately scoped follow-up if product priority
    warrants it. Administrative/security surfaces remain excluded.
-7. Fallback: disable the affected Live flag. Local recovery and explicit Save
+8. Fallback: disable the affected Live flag. Local recovery and explicit Save
    continue to work through the same conditional mutation contract.
 
 ## 7) Validation Requirements
@@ -369,6 +434,14 @@ and the server revision check.
 - Service/API tests proving stale revisions return 412 and cannot alter data;
   accepted writes increment exactly once; disjoint partial patches do not
   replace untouched aggregate fields.
+- Agent contract tests proving v1 compatibility during the migration window,
+  v2/human missing preconditions return 428, stale preconditions return 412,
+  token contract versions cannot be forged, and the sunset removes the v1
+  exception.
+- Activity tests proving autosave intent is accepted only for eligible content
+  fields, remote invalidations carry the highest revision at most once per
+  5-second window, explicit Save flushes pending work, and intermediate
+  autosaves produce one quiet-window summary rather than notification churn.
 - Multi-client tests for disjoint rebase, same-field conflict, rich-text
   conflict, remote delete/access loss, and a second browser tab.
 - Playwright coverage for reload/navigation recovery, successful clear,

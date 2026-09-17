@@ -34,14 +34,23 @@ Keep UI-only or task-only notes in `journal.md`.
   rich-text edits require review. Create forms, comments,
   workflow/destructive commands, and Google Calendar writes remain explicit.
   Every covered surface keeps its explicit action as an immediate flush or
-  publication boundary.
+  publication boundary. Eligible background writes carry a documented
+  `NexusDash-Mutation-Intent: autosave` signal; the service keeps normal audit
+  semantics, coalesces remote invalidation to at most one event per entity per
+  5 seconds, and emits one human-facing update summary after 30 seconds of
+  quiet instead of per-keystroke activity/email work.
 - Consequences: Local recovery can ship without database traffic; live save is
   per-surface feature-flagged until the save-latency audit and remediation prove
-  the agreed p95 and load budget. Shared drafts are user/project/entity scoped,
-  expire after 30 days, clear on logout/success, preserve newer in-flight edits,
-  and exclude credentials and file blobs. Task, meeting-note, and context-card
-  live save require revision-aware partial service mutations and draft-aware
-  remote activity handling.
+  the agreed p95 and load budget. Agent v1 remains compatible during an
+  announced migration window; agent v2 tokens negotiate the revision contract,
+  missing required preconditions return 428, stale ones return 412, and Live
+  stays disabled for agent-writable aggregates until v1 is retired. Shared
+  drafts are user/project/entity scoped, expire after 30 days, preserve
+  inaccessible/deleted drafts read-only for copy-out until expiry or explicit
+  discard, clear on logout/success, preserve newer in-flight edits, and exclude
+  credentials and file blobs. Task, meeting-note, and context-card live save
+  require revision-aware partial service mutations and draft-aware remote
+  activity handling.
 - Links: `adr/task-432-autosave-contract.md`, Nexus Dash cards ND-428,
   ND-429, ND-432, ND-433, and ND-434.
 

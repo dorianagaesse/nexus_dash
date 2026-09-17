@@ -32,8 +32,17 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Validation: `git diff --check`, Prettier for the new ADR, full repository
   lint, and `npm run release:check` passed. Opened ready-for-review PR #529;
   branch-name, Quality Core, and PostgreSQL tenant-isolation checks passed.
-  Copilot returned its initial outcome without reviewing because the requesting
-  account had reached its quota; no review comments were created.
+  Native Copilot returned its initial outcome without reviewing because the
+  requesting account had reached its quota.
+- Treated the follow-up Codex review submitted through the repository owner's
+  account as the required automated review. Addressed all three P1 threads:
+  inaccessible/deleted drafts now remain copyable until discard/expiry; the
+  shared agent route has an explicit additive v1 to negotiated-v2 precondition
+  rollout with 428/412 behavior and a v1 sunset gate; and autosave requests now
+  carry a service-validated mutation intent with bounded remote invalidation
+  plus quiet-window activity/notification coalescing. Merged current
+  `origin/main` at 06d15e5 and preserved the ND-396 decision entry while
+  resolving the `adr/decisions.md` conflict.
 
 # 2026-09-16 - ND-377: Limit the floating todo panel to the signed-in user
 
