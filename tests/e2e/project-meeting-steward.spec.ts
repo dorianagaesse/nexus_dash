@@ -172,3 +172,159 @@ test("defaults steward to creator, supports reassignment, and filters by steward
     });
   }
 });
+
+test("supports external participant stewards through rename and removal", async ({
+  page,
+}) => {
+  await signInAsVerifiedUser(page);
+  const projectName = uniqueProjectName("nd-396-guest-steward");
+  await createProjectFromProjectsPage(page, projectName);
+  await openNewestProjectDashboard(page, projectName);
+
+  const projectId = page.url().match(/\/projects\/([^/?#]+)/)?.[1];
+  expect(projectId).toBeTruthy();
+  const projectIdValue = projectId as string;
+
+  const createdResponse = await page.request.post(
+    `/api/projects/${projectIdValue}/meeting-notes`,
+    {
+      data: {
+        title: "Guest stewardship review",
+        status: "prepared",
+        participants: [{ userId: null, displayName: "Camille Guest" }],
+      },
+    }
+  );
+  expect(createdResponse.status()).toBe(201);
+  const created = (await createdResponse.json()) as { note: { id: string } };
+  const noteUrl = `/api/projects/${projectIdValue}/meeting-notes/${created.note.id}`;
+
+  // Case- and whitespace-insensitive references snapshot the canonical name.
+  const assigned = await page.request.patch(`${noteUrl}/steward`, {
+    data: { steward: { kind: "participant", id: "  camille   guest " } },
+  });
+  expect(assigned.status()).toBe(200);
+  const assignedNote = (await assigned.json()) as {
+    note: {
+      steward: {
+        kind: string;
+        displayName: string;
+        status: string;
+        isAssignable: boolean;
+      } | null;
+    };
+  };
+  expect(assignedNote.note.steward).toMatchObject({
+    kind: "participant",
+    displayName: "Camille Guest",
+    status: "active",
+    isAssignable: true,
+  });
+
+  await page.goto(`/projects/${projectIdValue}`);
+  await expect(page.getByRole("link", { name: "All 1" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Stewarded by me 0" })
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Unstewarded 0" })).toBeVisible();
+
+  await page
+    .getByRole("button", { name: /Guest stewardship review/i })
+    .first()
+    .click();
+  const clearFacilitator = page.getByRole("button", {
+    name: "Remove Camille Guest as steward / facilitator",
+  });
+  await expect(clearFacilitator).toBeVisible();
+  await expect(clearFacilitator).toHaveAttribute("aria-pressed", "true");
+  await clearFacilitator.hover();
+  await expect(page.getByRole("tooltip", { name: "Steward" })).toBeVisible();
+  await clearFacilitator.click();
+
+  const assignFacilitator = page.getByRole("button", {
+    name: "Make Camille Guest steward / facilitator",
+  });
+  await expect(assignFacilitator).toBeVisible();
+  await assignFacilitator.click();
+  await expect(
+    page.getByRole("button", {
+      name: "Remove Camille Guest as steward / facilitator",
+    })
+  ).toHaveAttribute("aria-pressed", "true");
+
+  // Renaming the guest keeps the snapshot and flags the steward for reassignment.
+  const renamed = await page.request.patch(noteUrl, {
+    data: {
+      title: "Guest stewardship review",
+      participants: [{ userId: null, displayName: "Camilla Guest" }],
+    },
+  });
+  expect(renamed.status()).toBe(200);
+  const renamedNote = (await renamed.json()) as {
+    note: {
+      steward: {
+        displayName: string;
+        status: string;
+        isAssignable: boolean;
+      } | null;
+    };
+  };
+  expect(renamedNote.note.steward).toMatchObject({
+    displayName: "Camille Guest",
+    status: "inactive",
+    isAssignable: false,
+  });
+
+  await page.reload();
+  await page
+    .getByRole("button", { name: /Guest stewardship review/i })
+    .first()
+    .click();
+  const staleFacilitator = page.getByRole("button", {
+    name: "Remove Camille Guest as steward / facilitator",
+  });
+  await expect(staleFacilitator).toBeVisible();
+  await expect(staleFacilitator.getByLabel("Needs reassignment")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Make Camilla Guest steward / facilitator" })
+    .click();
+  await expect(
+    page.getByRole("button", {
+      name: "Remove Camilla Guest as steward / facilitator",
+    })
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(staleFacilitator).toHaveCount(0);
+
+  // Removing the guest entirely also leaves the snapshot for reassignment.
+  const removed = await page.request.patch(noteUrl, {
+    data: { title: "Guest stewardship review", participants: [] },
+  });
+  expect(removed.status()).toBe(200);
+  const removedNote = (await removed.json()) as {
+    note: {
+      steward: {
+        displayName: string;
+        status: string;
+        isAssignable: boolean;
+      } | null;
+    };
+  };
+  expect(removedNote.note.steward).toMatchObject({
+    displayName: "Camilla Guest",
+    status: "inactive",
+    isAssignable: false,
+  });
+
+  await page.reload();
+  await page
+    .getByRole("button", { name: /Guest stewardship review/i })
+    .first()
+    .click();
+  const orphanedFacilitator = page.getByRole("button", {
+    name: "Remove Camilla Guest as steward / facilitator",
+  });
+  await expect(orphanedFacilitator).toBeVisible();
+  await expect(orphanedFacilitator.getByLabel("Needs reassignment")).toBeVisible();
+  await orphanedFacilitator.click();
+  await expect(orphanedFacilitator).toHaveCount(0);
+});
