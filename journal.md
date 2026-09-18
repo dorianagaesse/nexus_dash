@@ -8242,3 +8242,51 @@ Low-value entries to avoid going forward:
   match. The same test passed on the base commit's CI and in all local
   runs, and a rerun of the failed job (`gh run rerun --failed`) finished
   green across all four jobs.
+
+# 2026-09-18 - ND-134 account Settings Developers collapsible sections
+
+- Claimed live Nexus Dash card ND-134 (`cmth7elgk002h04jucytspvdw`) from the
+  External UX feedback refinement epic and built it in the dedicated
+  `../nexus_dash_task134` worktree on
+  `feature/nd-134-account-settings-developers-sections`, branched from
+  `origin/main` at dfd5f15.
+- Unlike ND-133 and ND-153 (closed as outdated the same day), the card
+  premise held at HEAD: `/account/settings/developers` still mixed
+  full-width cards with side-by-side `xl:grid-cols` pairs and had no
+  disclosure pattern, so the task was implemented normally.
+- New shared client component `AgentOnboardingSection`: a Card whose header
+  toggle button carries `aria-expanded`/`aria-controls` (stable `useId`) and
+  an up/down chevron, with the body kept mounted and hidden via the `hidden`
+  class when collapsed, matching the page-level epic panel disclosure idiom
+  (min-h-11 target, hover surface, focus-visible ring).
+- The account surface is now one uniform single-column stack: "Where
+  credentials live" is the first section and open by default; every guide
+  section is collapsed; the three intro mini-cards are folded into a
+  dedicated "How agent access works" section so no disclosure hides an
+  empty body. Guide copy and code examples are defined once and rendered by
+  two paths: the unchanged flat grid on the public `/docs/agent/v1` page
+  (no `collapsible` prop) and the collapsible stack on the settings page.
+  Consequence: the Quickstart "Rendered docs"/"OpenAPI JSON" buttons moved
+  from the card header into the section body (same buttons, one source).
+- Tests: component tests for the disclosure semantics (collapsed default +
+  matching aria-controls id + `hidden` class; open default renders no
+  `hidden`), a guide test asserting collapsible mode has no `xl:grid-cols`
+  and every section starts collapsed, a flat-mode assertion that no
+  aria-expanded leaks onto the docs page, and page-test assertions that the
+  account surface renders exactly one open first section. New e2e spec
+  `nd-134-account-developers-sections.spec.ts` (3 tests, all green in the
+  full local run): only the first section open in one column with no
+  `xl:grid-cols` present, toggle click reveals/hides the region, and the
+  hosted docs surface stays flat.
+- Validation: `npm run lint`, `npm run rls:check`, full unit suite (212
+  files / 1742 tests passed, 2 skipped), coverage thresholds met
+  (statements 93.78%, branches 84.46%, functions 95.42%, lines 94.08%),
+  production build (BUILD_ID BCSy-VIfam7B1JmoQ4qZ6), and the full
+  Playwright suite on an own verified production server (port 3134, PID
+  cwd checked, `NEXUSDASH_TEST_RLS_CONTEXT=enabled`): 97 passed / 1 skipped
+  / 1 failed. The single failure is the documented local
+  `inputZoomBottomInset` geometry flake in
+  `smoke-project-task-calendar.spec.ts:452` (meeting-notes flow) with
+  varying overshoots (-8.42px, -4.86px) and 1/3 repeats passing on the
+  identical build; the spec shares no files with this diff. No schema,
+  service, or RLS change.

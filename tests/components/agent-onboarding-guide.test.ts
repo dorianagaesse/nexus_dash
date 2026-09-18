@@ -62,4 +62,32 @@ describe("agent-onboarding-guide", () => {
     expect(result).toContain("class=\"min-w-0 flex-1 space-y-2\"");
     expect(result).toContain("class=\"break-all [overflow-wrap:anywhere]\"");
   });
+
+  test("renders the default guide without disclosure semantics", () => {
+    const result = renderToStaticMarkup(
+      React.createElement(AgentOnboardingGuide, {
+        initialAppOrigin: "https://preview.nexusdash.test",
+      })
+    );
+
+    expect(result).not.toContain("aria-expanded");
+  });
+
+  test("collapsible mode stacks sections in one column with every section collapsed", () => {
+    const result = renderToStaticMarkup(
+      React.createElement(AgentOnboardingGuide, {
+        initialAppOrigin: "https://preview.nexusdash.test",
+        collapsible: true,
+      })
+    );
+
+    expect(result).not.toContain("xl:grid-cols");
+    expect(result).not.toContain('aria-expanded="true"');
+    expect(result).toContain('aria-expanded="false"');
+    expect(result).toContain("How agent access works");
+    expect(result).toContain("NEXUSDASH_BASE_URL=https://preview.nexusdash.test");
+    expect(result).toContain("Authentication flow");
+    expect(result).toContain("Supported endpoints");
+    expect(result).toContain("Copy-paste smoke test");
+  });
 });
