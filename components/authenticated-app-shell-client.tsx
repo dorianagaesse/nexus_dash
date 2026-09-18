@@ -10,6 +10,7 @@ import { NotificationLiveUpdates } from "@/components/notification-live-updates"
 import { ProductFeedbackDialog } from "@/components/product-feedback-dialog";
 import { ProductStateBadge } from "@/components/product-state-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
+import type { AppRuntimeEnvironment } from "@/lib/app-metadata";
 import { useCurrentAppPath } from "@/lib/hooks/use-current-app-path";
 import { useProjectTodoSummary } from "@/lib/hooks/use-project-todo-summary";
 import {
@@ -63,11 +64,29 @@ function getProjectNavigationItems(projectId: string): NavigationItem[] {
   ];
 }
 
+function formatBrandEnvironmentLabel(
+  environment: AppRuntimeEnvironment
+): string | null {
+  switch (environment) {
+    case "preview":
+      return "Preview";
+    case "development":
+      return "Development";
+    case "test":
+      return "Test";
+    default:
+      return null;
+  }
+}
+
 interface AuthenticatedAppShellClientProps {
   displayName: string | null;
   usernameTag: string | null;
   avatarSeed: string | null;
   initialNotificationSnapshot: NotificationRealtimeSnapshot;
+  appVersionLabel: string;
+  appEnvironment: AppRuntimeEnvironment;
+  appDiagnosticLabel: string;
   notificationBanner: ReactNode;
   children: ReactNode;
 }
@@ -77,6 +96,9 @@ export function AuthenticatedAppShellClient({
   usernameTag,
   avatarSeed,
   initialNotificationSnapshot,
+  appVersionLabel,
+  appEnvironment,
+  appDiagnosticLabel,
   notificationBanner,
   children,
 }: AuthenticatedAppShellClientProps) {
@@ -99,6 +121,7 @@ export function AuthenticatedAppShellClient({
   const showContextualReturn =
     pathname.startsWith("/projects/") &&
     contextualReturn.href.startsWith("/account/notifications");
+  const brandEnvironmentLabel = formatBrandEnvironmentLabel(appEnvironment);
 
   const renderNavigation = (
     items: NavigationItem[],
@@ -226,8 +249,12 @@ export function AuthenticatedAppShellClient({
               </span>
               <ProductStateBadge className="mt-0.5" />
             </span>
-            <span className="block text-xs text-muted-foreground">
-              Project workspace
+            <span
+              className="block text-xs text-muted-foreground"
+              title={appDiagnosticLabel}
+            >
+              <span className="font-mono">{appVersionLabel}</span>
+              {brandEnvironmentLabel ? ` · ${brandEnvironmentLabel}` : null}
             </span>
           </span>
         </Link>

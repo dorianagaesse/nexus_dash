@@ -3,6 +3,134 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-18 - ND-131 review round: terminal status responses redirect to sign in
+
+- Reviewer inline comment on PR #531 (watcher line 84): every non-2xx response
+  was retried forever, so a dead session (401) would keep polling every four
+  seconds while the live region still promised an automatic redirect. Asked to
+  treat terminal responses (401, likely 404) separately -- redirecting back to
+  sign in with the normalized return path or stopping -- while keeping retries
+  for transient failures.
+- `verification-status-watcher.tsx` now treats 401 (session expired, revoked,
+  or signed out in another tab) and 404 (the session user no longer exists) as
+  terminal: it stops scheduling further polls, switches the live region to
+  "Your session ended. Redirecting to sign in...", and navigates to
+  `/?form=signin&returnTo=<encoded returnToPath>` -- the same dead-session
+  target the page already redirects to server-side. Network errors, 5xx
+  responses, and retryable failures keep the previous retry behavior.
+- Tests: the jsdom suite gained three cases (401 redirects to sign-in and
+  stops polling; 404 does the same with an encoded return path; 500 keeps
+  polling with the watching text), and the ND-131 e2e spec gained a third test
+  that deletes the session row while the page waits and expects the sign-in
+  redirect with the preserved return path.
+- Also merge-forwarded `origin/main` (ND-464, ND-465, ND-396 -- three commits,
+  no version metadata and no migrations) per the stale-branch merge rule.
+- Validation on the merged tree: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, `npm run release:check` (base = head = 0.73.0),
+  `npm test` (210 files passed / 2 skipped; 1723 tests passed / 2 skipped),
+  coverage thresholds met, production build, and the full Playwright suite
+  94 passed / 1 skipped / 0 failed against the rebuilt isolated server.
+
+# 2026-09-17 - ND-131: Trim verify-email and reset-password status copy and auto-redirect on verification
+
+- Claimed live Nexus Dash card ND-131 (`cmth7efe9002804juwxx3enjc`) and
+  built it in the dedicated `../nexus_dash_task131` worktree on
+  `feature/nd-131-verify-reset-status-pages` from `origin/main` at 8f7faf1
+  (v0.73.0), with an isolated Postgres container on port 55131 (5432 was
+  held by a sibling worktree's container).
+- Audit result: the verify-email page restated the same instruction in the
+  header copy and the "Next step" card, and the reset-password page carried
+  the flow copy three times (page subhead, card title, requirements
+  description). AC 1 is met by removing the "Next step" CardHeader and the
+  reset-password subhead/CardHeader; the password requirements moved under
+  the input as persistent helper text wired with `aria-describedby`, and
+  the invalid/expired-link error strings dropped their trailing advice
+  because the surrounding panel already offers "Request a new reset link to
+  continue."
+- Auto-redirect (AC 2) is a new client watcher,
+  `app/verify-email/verification-status-watcher.tsx`: it polls the new
+  session-scoped endpoint `GET /api/auth/verify-email/status` (4s while
+  visible, 15s while hidden, immediate poll on focus/visibilitychange via
+  setTimeout scheduling and AbortController cleanup, mirroring
+  `notification-live-updates.tsx`). On `isVerified: true` it redirects with
+  `window.location.assign(returnToPath)` so the destination renders from a
+  fresh server-side session check. The route uses
+  `getSessionUserIdFromRequest` instead of `requireAuthenticatedApiUser`:
+  the guard denies unverified users in production, which is exactly the
+  audience that must poll it. The status line renders in a `role="status"`
+  live region reserved from SSR (`min-h-5`) so there is no layout shift,
+  and its text appears only after mount so no-JS clients never see a false
+  auto-redirect promise.
+- AC 3 (manual fallback): the "I verified, continue" and "Resend
+  verification email" forms remain server-action forms and now report
+  pending state through `AuthSubmitButton`; "Back to home" is unchanged.
+  The watcher is an enhancement layered on top, not a replacement.
+- Coverage: route suite (5 cases: 401 without session, no-store payload,
+  verified payload, service-failure status mapping, 500 + `logServerError`),
+  jsdom watcher suite (5 cases: poll then redirect, keep polling while
+  unverified, keep polling after a fetch failure, immediate poll on window
+  focus, stop after unmount), and two e2e cases in
+  `tests/e2e/nd-131-verify-email-auto-redirect.spec.ts` with the
+  local-build guard (trimmed copy + fallback controls visible; watcher
+  promises continuation, a direct `prisma.user.update` flips verification,
+  and the page reaches `/projects` with no clicks).
+  `tests/e2e/helpers/auth-helpers.ts` now shares one `signInAsUser` and also
+  exports `signInAsUnverifiedUser`.
+- A first component-test run failed because prior tests never unmounted
+  their roots, so leaked `focus` listeners all fired during the
+  focus-refresh case; every test now unmounts explicitly, matching the
+  `project-live-refresh.test.tsx` convention.
+- Validation on the final tree: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, `npm run release:check` (head = base = 0.73.0),
+  `npm test` (210 files passed / 2 skipped; 1689 tests passed / 2 skipped),
+  coverage thresholds met (93.77% statements, 84.71% branches, 95.39%
+  functions, 94.07% lines over the configured fixed include set), and the
+  production build. Full Playwright suite 83 passed / 1 skipped / 0 failed
+  on isolated port 3421 against the branch build (the skip is
+  `preview-auth-isolation.spec.ts`, which only runs against the preview
+  alias).
+
+# 2026-09-17 - ND-432: Autosave architecture and conflict contract
+
+- Claimed live Nexus Dash card ND-432 (`cmtr9bfcp000i04ifqsfajd1s`), moved it
+  from Backlog to In Progress, and created the dedicated
+  `../nexus_dash_task432` worktree on
+  `feature/nd-432-autosave-architecture` from `origin/main` at 8f7faf1.
+- Audited the current task, meeting-note, comment, context-card, roadmap,
+  calendar, epic, and project authoring flows. Long-form state is currently
+  ephemeral; task/context/roadmap updates are last-write-wins; meeting-note
+  updates replace the full participant/todo aggregate; and no mutation route
+  currently implements an edit revision or HTTP precondition.
+- Accepted a two-layer contract in `adr/task-432-autosave-contract.md`:
+  browser-local recovery drafts provide reload/navigation/offline protection
+  without database traffic, while network live save is limited to existing
+  NexusDash records with atomic content revisions, partial patches, and 412
+  precondition/conflict handling. Create, comment publication,
+  destructive/workflow commands, and Google Calendar writes remain explicit.
+- The ADR records the complete surface matrix, 300 ms local and 2-second
+  network debounce (30-second maximum wait), single-flight coalescing,
+  30-day/user-scoped draft retention, reset rules, rich-text conflict policy,
+  explicit-save behavior, and the ND-428/ND-429 latency/load gate for enabling
+  live save. This task changes documentation only; implementation remains in
+  ND-433 and ND-434.
+- Linked ND-432 to ND-428, ND-429, ND-433, and ND-434 on the live board so the
+  audit, remediation, design, and two rollout stages are represented as actual
+  Related Tasks rather than duplicated dependency prose.
+- Validation: `git diff --check`, Prettier for the new ADR, full repository
+  lint, and `npm run release:check` passed. Opened ready-for-review PR #529;
+  branch-name, Quality Core, and PostgreSQL tenant-isolation checks passed.
+  Native Copilot returned its initial outcome without reviewing because the
+  requesting account had reached its quota.
+- Treated the follow-up Codex review submitted through the repository owner's
+  account as the required automated review. Addressed all three P1 threads:
+  inaccessible/deleted drafts now remain copyable until discard/expiry; the
+  shared agent route has an explicit additive v1 to negotiated-v2 precondition
+  rollout with 428/412 behavior and a v1 sunset gate; and autosave requests now
+  carry a service-validated mutation intent with bounded remote invalidation
+  plus quiet-window activity/notification coalescing. Merged current
+  `origin/main` at 06d15e5 and preserved the ND-396 decision entry while
+  resolving the `adr/decisions.md` conflict.
+
 # 2026-09-16 - ND-377: Limit the floating todo panel to the signed-in user
 
 - Claimed live Nexus Dash card ND-377 (`cmtj9k4qv000704k0vl0ugezw`) and
@@ -7903,3 +8031,65 @@ Low-value entries to avoid going forward:
 - Visual check: a temporary Playwright capture (removed before commit)
   confirmed the empty-state and populated hub render with the new copy in
   an authenticated browser session.
+
+# 2026-09-18 - ND-132 sidebar workspace label deduplication
+
+- Claimed live Nexus Dash card ND-132 (`cmth7ehf6002b04ju3dx9n7nq`) from the
+  External UX feedback refinement epic and built it in the dedicated
+  `../nexus_dash_task132` worktree on
+  `fix/nd-132-sidebar-workspace-label-dedup`, branched from `origin/main` at
+  06d15e5 and merge-forwarded to 64d055c before validation.
+- Re-verified the 2026-08-31 external feedback against the current app before
+  implementing: the desktop sidebar still showed the "Project workspace"
+  brand subtitle together with the "Workspace" nav section label, so the
+  reported duplication was still real. Related TASK-322 and TASK-334 are done
+  but neither removed it.
+- The brand secondary line now surfaces build info instead of repeating the
+  navigation label: `AuthenticatedAppShell` passes the app metadata summary
+  (`versionLabel`, `environment`, `diagnosticLabel`) to the client shell,
+  which renders the clean product version in mono type plus a capitalized
+  environment qualifier outside production (`v0.73.0 · Preview`); the full
+  "version | environment | build sha" diagnostic label is the hover title.
+  The brand row, alpha badge, and the single remaining "Workspace" section
+  label are unchanged. No schema, service, or RLS change.
+- AC3 review: the only other user-visible "Workspace" label is the
+  `/projects` page heading ("Project workspace"), a page title rather than
+  navigation chrome, and it no longer duplicates the sidebar after this
+  change; it is kept. Privacy-page copy and email templates use "workspace"
+  as prose only.
+- Coverage: shell component tests assert the version line with the
+  preview-qualifier shown, the production qualifier hidden, and the
+  diagnostic title, plus the absence of the old subtitle; the existing e2e
+  alpha-disclosure test now also asserts the desktop brand line carries a
+  version and no shell repeats "Project workspace".
+- Validation: `npm run lint`, `npm run rls:check`, full unit suite (208 files
+  / 1711 tests passed, 2 skipped), coverage thresholds met (statements
+  93.77%, branches 84.38%, functions 95.39%, lines 94.07%), production build,
+  `git diff --check` clean, and the full local Playwright suite on an own
+  verified server (port 3132, `CI=1`): 91 passed / 1 skipped / 0 failed.
+- Flake note: the first full-suite run under machine load hit two
+  pre-existing local flakes that touch no files in this diff -
+  `nd-408-kanban-search-filter.spec.ts` pointer-drag ordering and the
+  `smoke-project-task-calendar.spec.ts` meeting-notes zoom geometry
+  (inputZoomBottomInset -8.4px, the known local sub-pixel flake from the
+  ND-398/ND-446 record). Both re-passed on the same build (drag 3/3 via
+  repeated isolated runs, smoke 2/2), and the clean full-suite rerun above
+  confirms it. CI Quality Gates already passes the full suite at the base
+  commit.
+- Copilot review: subject to the known quota limit, so the PR carries the
+  validation evidence for manual review instead of an automated review.
+- CI note: the first Quality Gates run on the branch failed the E2E job on
+  the pre-existing `authenticated-app-shell.spec.ts` detour test (#4), whose
+  first sidebar assertion could not see the desktop navigation for 10s. Root
+  cause is a race unrelated to this diff: the test opens
+  `/projects/<id>?taskId=...`, and the task dialog auto-opens from a client
+  mount effect; while it is open, the Radix dialog foundation marks the app
+  shell `aria-hidden="true"` (hideOthers), so role-based locators match
+  nothing inside the sidebar. Verified with a temporary diagnostic spec
+  (removed afterwards, tree unchanged): `page.goto` resolved at ~729ms, the
+  dialog opened at ~1036ms, and with the dialog open the sidebar link was
+  absent from the accessibility tree while the CSS locator still found it
+  carrying `aria-current="page"`; closing the dialog restored the role
+  match. The same test passed on the base commit's CI and in all local
+  runs, and a rerun of the failed job (`gh run rerun --failed`) finished
+  green across all four jobs.

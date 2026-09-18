@@ -248,6 +248,10 @@ test.describe("responsive authenticated app shell", () => {
         await expect(
           page.locator('[data-product-state="alpha"]:visible')
         ).toHaveCount(1);
+        await expect(brand).not.toContainText("Project workspace");
+        if (viewport.shell === "desktop") {
+          await expect(brand).toContainText(/v\d+\.\d+\.\d+/);
+        }
 
         const brandBox = await brand.boundingBox();
         expect(brandBox).not.toBeNull();

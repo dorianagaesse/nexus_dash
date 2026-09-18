@@ -30,6 +30,12 @@ const notificationSnapshot = {
   serverTime: "2026-07-06T08:00:00.000Z",
 };
 
+const appMetadataProps = {
+  appVersionLabel: "v1.2.3",
+  appEnvironment: "production" as const,
+  appDiagnosticLabel: "v1.2.3 | production | build abc1234",
+};
+
 describe("authenticated app shell", () => {
   test("renders labeled primary destinations with semantic current state", () => {
     mockPathname = "/account/notifications";
@@ -43,6 +49,7 @@ describe("authenticated app shell", () => {
           usernameTag="dorian#1234"
           avatarSeed="seed"
           initialNotificationSnapshot={notificationSnapshot}
+          {...appMetadataProps}
           notificationBanner={<div>Notification banner</div>}
         >
           <main>Settings content</main>
@@ -69,9 +76,58 @@ describe("authenticated app shell", () => {
     expect(
       result.match(/aria-label="NexusDash alpha — projects"/g)
     ).toHaveLength(2);
+    expect(result).toContain("v1.2.3");
+    expect(result).not.toContain("Project workspace");
     expect(result).toContain(
       "/account/notifications?returnTo=%2Fprojects%2Fproject-1%3FtaskId%3Dtask-7"
     );
+  });
+
+  test("appends the environment label under the brand outside production", () => {
+    mockPathname = "/projects";
+    mockSearchParams = new URLSearchParams();
+
+    const previewResult = renderToStaticMarkup(
+      <ToastProvider>
+        <AuthenticatedAppShellClient
+          displayName="Dorian"
+          usernameTag="dorian#1234"
+          avatarSeed="seed"
+          initialNotificationSnapshot={notificationSnapshot}
+          {...appMetadataProps}
+          appEnvironment="preview"
+          appDiagnosticLabel="v1.2.3 | preview | build abc1234"
+          notificationBanner={<div>Notification banner</div>}
+        >
+          <main>Project content</main>
+        </AuthenticatedAppShellClient>
+      </ToastProvider>
+    );
+
+    expect(previewResult).toContain("v1.2.3");
+    expect(previewResult).toContain("· Preview");
+    expect(previewResult).toContain('title="v1.2.3 | preview | build abc1234"');
+    expect(previewResult).not.toContain("Project workspace");
+
+    const productionResult = renderToStaticMarkup(
+      <ToastProvider>
+        <AuthenticatedAppShellClient
+          displayName="Dorian"
+          usernameTag="dorian#1234"
+          avatarSeed="seed"
+          initialNotificationSnapshot={notificationSnapshot}
+          {...appMetadataProps}
+          notificationBanner={<div>Notification banner</div>}
+        >
+          <main>Project content</main>
+        </AuthenticatedAppShellClient>
+      </ToastProvider>
+    );
+
+    expect(productionResult).toContain("v1.2.3");
+    expect(productionResult).not.toContain("· Preview");
+    expect(productionResult).not.toContain("· Development");
+    expect(productionResult).not.toContain("Project workspace");
   });
 
   test("adapts desktop navigation to a specific project", () => {
@@ -85,6 +141,7 @@ describe("authenticated app shell", () => {
           usernameTag="dorian#1234"
           avatarSeed="seed"
           initialNotificationSnapshot={notificationSnapshot}
+          {...appMetadataProps}
           notificationBanner={<div>Notification banner</div>}
         >
           <main>Project content</main>
