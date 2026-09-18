@@ -8280,3 +8280,34 @@ Low-value entries to avoid going forward:
 - Copilot review: not expected (project owner reports the Copilot quota is
   reached); the PR carries the validation evidence for manual review
   instead.
+
+# 2026-09-18 - ND-486: Privacy policy entry point in account settings
+
+- Claimed ND-486, the follow-up from the ND-135 privacy-copy thread (GitHub
+  issue #541): the public policy page (/privacy) was linked only from the
+  signed-out homepage footer, so signed-in users had no in-app entry point.
+- Placement per the project owner's steer ("live in user Settings"): a muted
+  "Privacy policy" link in the shared `AccountSettingsShell` footer, so both
+  Settings tabs (Calendar and Developer) render it, instead of only the
+  Calendar tab's About card. No copy added beyond the link label.
+- Implementation: `components/account/account-settings-shell.tsx` renders an
+  `inline-flex min-h-11` muted link to `/privacy` under a `border-t` divider
+  after the tab content; styling follows the existing muted outline-link
+  convention (`text-muted-foreground` -> `hover:text-foreground
+  hover:underline`).
+- Coverage: new `tests/components/account-settings-shell.test.tsx` asserts
+  exactly one `/privacy` link with the "Privacy policy" label on the Calendar
+  tab and its presence on the Developer tab; a new authenticated Playwright
+  test in `user-hub-navigation.spec.ts` signs in, opens Settings, clicks the
+  link, and asserts the `/privacy` URL and policy heading.
+- Validation: `npm run lint`, `npm run rls:check`, `npm test` (212 files /
+  1739 tests passed, 2 skipped), `npm run test:coverage` (thresholds met:
+  statements 93.78%, branches 84.46%, functions 95.42%, lines 94.08%),
+  `npm run build`, full local Playwright suite on an own verified production
+  server (port 3146, listener PID checked against this worktree, `CI=1`):
+  97 passed / 1 skipped / 0 failed, `git diff --check` clean. No schema,
+  service, or RLS change.
+- Visual check: dark-theme 768px walkthrough screenshot shows the link at the
+  bottom of the settings column, unobtrusive under the About card.
+- Copilot review: not expected (quota reached per the project owner); the PR
+  carries the validation evidence for manual review.

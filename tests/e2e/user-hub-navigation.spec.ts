@@ -47,6 +47,20 @@ test.describe("unified user hub navigation", () => {
     await expect(page).toHaveURL(/\/account\/settings\?returnTo=/);
   });
 
+  test("reaches the privacy policy from account settings", async ({ page }) => {
+    await signInAsVerifiedUser(page);
+    await page.goto("/account/settings?returnTo=%2Fprojects");
+
+    const privacyLink = page.getByRole("link", { name: "Privacy policy" });
+    await expect(privacyLink).toBeVisible();
+    await privacyLink.click();
+
+    await expect(page).toHaveURL(/\/privacy$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Privacy Policy" })
+    ).toBeVisible();
+  });
+
   test("passes responsive light and dark visual walkthroughs", async ({ page }) => {
     await signInAsVerifiedUser(page);
 
