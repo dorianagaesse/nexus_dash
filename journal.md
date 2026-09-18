@@ -8280,3 +8280,67 @@ Low-value entries to avoid going forward:
 - Copilot review: not expected (project owner reports the Copilot quota is
   reached); the PR carries the validation evidence for manual review
   instead.
+
+# 2026-09-18 - ND-484: Task modal footer action redesign
+
+- Claimed Nexus Dash card ND-484 (GitHub issue #532 attached), moved to In
+  Progress. Built in `../nexus_dash_task484` on
+  `feature/nd-484-task-modal-footer-actions`, branched from `origin/main`
+  at a2a5d45.
+- One visual language now covers the footer actions in all three flows:
+  the dismissals (view-mode Close, edit-mode Cancel, create-dialog Cancel)
+  share the `outline` variant -- 1px `--input` border, `--background`
+  fill, foreground label, shared radius -- and the primary action (Save
+  changes / Create task) stays the only filled, inverted surface in its
+  row (`default` variant).
+- Deleted the `mobile-inverted` and `mobile-inverted-outline` cva variants
+  added as ND-465 review follow-ups; no other call sites existed. The
+  task-modal footer is always padded (`px-6 pb-6 pt-4`) under its top
+  border, so the full-bleed view-mode Close bar and the desktop borderless
+  ghost Cancel are gone.
+- Breakpoint/flow treatment (AC3, intentional): mobile sheets stack
+  full-width with the dismissal above the primary (`flex-col-reverse` over
+  DOM order primary-then-dismissal); desktop rows are inline, auto-width,
+  left-aligned `[primary][dismissal]` with the same 8px gap. The view-mode
+  Close keeps its full-width dismissal stance at every width -- it is the
+  footer's only control and this preserves the ND-465 close-bar affordance
+  -- now outlined and padded instead of full-bleed ghost. Edit and create
+  footers are structurally identical.
+- Behavior unchanged: the five ND-465 semantics tests (draft discard,
+  no-persist, focus return, keyboard activation, mobile tap) pass
+  unmodified.
+- Coverage: the two ND-465 theme tests that encoded the old look
+  ("dismissals stay ghost on desktop across themes", "dismissals invert
+  with the theme on mobile") were superseded by the new
+  `tests/e2e/nd-484-task-modal-footer.spec.ts`: three tests assert the
+  shared outlined treatment plus only-filled-primary across view, edit,
+  and create in both themes, the settled geometry (desktop inline
+  auto-width; mobile full-width stacked), and the hover accent fill that
+  stays on the theme's side of the palette. Geometry reads wait for the
+  dialog entrance animation via `getAnimations` (mid-flight reads mixed
+  scales between boxes: a settled footer next to a 0.967-scaled button);
+  hover reads poll the raw fill because idle and hover sit on the same
+  luminance side.
+- Screenshot verification (AC6): 36 shots via a temporary harness (view,
+  edit, create x desktop 1440x900 / mobile 390x844 x light/dark, captured
+  before and after the redesign for comparison). All 12 after-shots show
+  the settled shared treatment. Harness and shots live in the worktree's
+  gitignored `.tmp/`, not committed.
+- Local env note for the full suite on a fresh worktree: `.env` needs
+  `OUTBOUND_EMAIL_DELIVERY_MODE=disabled` (a local `next start` counts as
+  live production, so password-reset attempts real Resend delivery with a
+  placeholder key and the service deletes the token when the send fails)
+  and `TRUSTED_ORIGINS=http://127.0.0.1:3484` (production origin
+  resolution throws without it, so forgot-password short-circuits before
+  creating a token). Both are gitignored local config; with them the full
+  suite is green.
+- Validation on an own verified production server (port 3484, listener
+  PID checked against this worktree): `npm run lint`, `npm run
+  rls:check`, `npm test` (211 files / 1737 tests passed, 2 skipped),
+  `npm run test:coverage` (thresholds met: statements 93.78%, branches
+  84.46%, functions 95.42%, lines 94.08%), `npm run build`, full local
+  Playwright suite 97 passed / 1 skipped / 0 failed, `git diff --check`
+  clean. No schema, service, or RLS change.
+- Copilot review: not expected (project owner reports the Copilot quota is
+  reached); the PR carries the validation evidence for manual review
+  instead.
