@@ -38,6 +38,17 @@ import { AgentOnboardingSection } from "@/components/agent-onboarding/agent-onbo
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
+const SLIM_SCROLLBAR_CLASSES = [
+  "[scrollbar-color:rgba(148,163,184,0.52)_transparent]",
+  "[scrollbar-width:thin]",
+  "[&::-webkit-scrollbar]:w-2",
+  "[&::-webkit-scrollbar-track]:rounded-full",
+  "[&::-webkit-scrollbar-track]:bg-transparent",
+  "[&::-webkit-scrollbar-thumb]:rounded-full",
+  "[&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]",
+].join(" ");
 
 interface AgentOnboardingGuideProps {
   initialAppOrigin?: string | null;
@@ -114,7 +125,12 @@ function buildMethodTone(method: string): string {
 
 function CodeBlock({ value }: { value: string }) {
   return (
-    <pre className="min-w-0 max-w-full overflow-x-auto rounded-xl border border-border/70 bg-slate-950 px-3 py-3 text-[11px] leading-6 text-slate-50 sm:px-4 sm:text-xs">
+    <pre
+      className={cn(
+        "min-w-0 max-w-full overflow-x-auto rounded-xl border border-border/70 bg-slate-950 px-3 py-3 text-[11px] leading-6 text-slate-50 sm:px-4 sm:text-xs",
+        SLIM_SCROLLBAR_CLASSES
+      )}
+    >
       <code className="block min-w-max">{value}</code>
     </pre>
   );

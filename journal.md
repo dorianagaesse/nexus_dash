@@ -8332,3 +8332,16 @@ Low-value entries to avoid going forward:
 - Copilot review: not expected (project owner reports the Copilot quota is
   reached); the PR carries the validation evidence for manual review
   instead.
+- Review polish (owner request): the guide's `CodeBlock` was the only scroll
+  container on this surface, so it now carries the project's slim scrollbar
+  treatment (`SLIM_SCROLLBAR_CLASSES`, copied from
+  `meeting-todo-assignee-chip.tsx`; the same string is inlined in
+  `task-detail-modal.tsx`): 8px rounded thumb in
+  `rgba(148,163,184,0.52)` over a transparent track via the
+  `::-webkit-scrollbar` arbitrary variants, plus `scrollbar-width: thin` and
+  `scrollbar-color` for the standard path. Verified in a real browser
+  (`next start` on port 3134, 375px viewport, real Chromium without
+  Playwright's `--hide-scrollbars` default): 8px rendered scrollbar, rounded
+  translucent thumb visible on the dark `bg-slate-950` block, layout gutter
+  accounted for. Component test now asserts both standard properties are
+  present on the `pre`; no markup or copy changed.
