@@ -16,6 +16,33 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-09-18 - ND-181: Project activity events become the durable collaboration history
+
+- Status: Accepted; full rationale in
+  `adr/task-181-durable-collaboration-history.md`.
+- Context: `ProjectActivityEvent` rows existed mainly as SSE live-refresh
+  transport (raw payload + actor id), so no reader could render trustworthy
+  history after users left or credentials were revoked, and several project
+  mutations across the nine domains recorded nothing at all.
+- Decision: extend the event table with display-safe snapshots
+  (`actorKind`, `actorCredentialId`, `actorDisplayNameSnapshot`,
+  `entityDisplayNameSnapshot`, `summary`, `changes`), record a bounded,
+  typed event from every project mutation route through
+  `recordProjectActivityEventVersion`, expose a viewer-visible keyset
+  paginated `GET /api/projects/[projectId]/history` whose projection never
+  selects the transport `payload`, enrich actors through the display-safe
+  `app.list_project_actors` registry with snapshot fallback, prune events
+  older than 365 days through the batched SECURITY DEFINER
+  `app.prune_project_activity_events` from the notification-email cron, and
+  surface it in a collapsed project Timeline panel.
+- Consequences: history is one ordered pipeline covering tasks, comments,
+  context cards, meeting notes, epics, roadmap, attachments, membership, and
+  the project itself; change diffs are capped (20 fields, 200-char values)
+  and summaries at 280 characters; recording failures never fail mutations;
+  artifact-level History tabs are deferred to ND-485.
+- Links: `adr/task-181-durable-collaboration-history.md`, Nexus Dash card
+  ND-181, follow-up card ND-485.
+
 ## 2026-09-17 - ND-399: Comment attachments accept every supported file type
 
 - Status: Accepted; extends the ND-144 comment-attachment model without a

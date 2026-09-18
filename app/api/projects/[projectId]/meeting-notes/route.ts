@@ -202,6 +202,7 @@ export async function POST(
     action: "created",
     entityId: result.data.note.id,
     payload: { noteId: result.data.note.id },
+    entityDisplayNameSnapshot: result.data.note.title,
   });
 
   return NextResponse.json(

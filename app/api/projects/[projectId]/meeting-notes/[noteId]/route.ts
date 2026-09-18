@@ -162,6 +162,7 @@ export async function PATCH(
     action: "updated",
     entityId: result.data.note.id,
     payload: { noteId: result.data.note.id },
+    entityDisplayNameSnapshot: result.data.note.title,
   });
 
   return NextResponse.json(
@@ -199,6 +200,7 @@ export async function DELETE(
     action: "deleted",
     entityId: params.noteId,
     payload: { noteId: params.noteId },
+    entityDisplayNameSnapshot: result.data.title,
   });
 
   return NextResponse.json(

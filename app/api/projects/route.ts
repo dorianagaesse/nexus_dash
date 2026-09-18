@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   createProject,
   listProjectsWithCounts,
@@ -92,9 +94,19 @@ export async function POST(request: NextRequest) {
           : null,
     });
 
+    const version = await recordProjectActivityEventVersion({
+      actorUserId: authenticatedUser.userId,
+      projectId: project.id,
+      domain: "project",
+      action: "created",
+      entityId: project.id,
+      payload: { projectId: project.id },
+      entityDisplayNameSnapshot: project.name,
+    });
+
     return NextResponse.json(
       { project: serializeCreatedProject(project) },
-      { status: 201 }
+      { status: 201, headers: withProjectActivityVersionHeader(undefined, version) }
     );
   } catch (error) {
     if (

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   removeProjectMember,
   updateProjectMemberRole,
@@ -47,7 +49,26 @@ export async function PATCH(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json(result.data);
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: authenticatedUser.userId,
+    projectId: params.projectId,
+    domain: "membership",
+    action: "updated",
+    entityId: params.membershipId,
+    payload: { membershipId: params.membershipId, role: result.data.role },
+    entityDisplayNameSnapshot: result.data.memberDisplayName,
+    changes: [
+      {
+        field: "role",
+        before: result.data.previousRole,
+        after: result.data.role,
+      },
+    ],
+  });
+
+  return NextResponse.json(result.data, {
+    headers: withProjectActivityVersionHeader(undefined, version),
+  });
 }
 
 export async function DELETE(
@@ -82,5 +103,17 @@ export async function DELETE(
     );
   }
 
-  return NextResponse.json(result.data);
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: authenticatedUser.userId,
+    projectId: params.projectId,
+    domain: "membership",
+    action: "deleted",
+    entityId: params.membershipId,
+    payload: { membershipId: params.membershipId },
+    entityDisplayNameSnapshot: result.data.memberDisplayName,
+  });
+
+  return NextResponse.json(result.data, {
+    headers: withProjectActivityVersionHeader(undefined, version),
+  });
 }

@@ -435,7 +435,14 @@ describe("project-offboarding-service", () => {
     dbMock.projectMembership.findUnique.mockResolvedValueOnce({
       projectId: "project-1",
       userId: "user-2",
+      user: {
+        name: "New Owner",
+        username: null,
+        usernameDiscriminator: null,
+        email: "new-owner@example.com",
+      },
     });
+    dbMock.project.findUnique.mockResolvedValueOnce({ name: "Project One" });
 
     const result = await transferProjectOwnership({
       actorUserId: "owner-1",
@@ -451,6 +458,9 @@ describe("project-offboarding-service", () => {
       data: {
         projectId: "project-1",
         newOwnerUserId: "user-2",
+        newOwnerDisplayName: "New Owner",
+        previousOwnerDisplayName: "Acting Owner",
+        projectName: "Project One",
         previousOwnerLeft: false,
         resolvedInventory: {
           taskAssignments: 0,

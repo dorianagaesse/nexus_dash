@@ -1262,7 +1262,7 @@ export async function revokeProjectInvitation(input: {
   actorUserId: string;
   projectId: string;
   invitationId: string;
-}): Promise<ServiceResult<{ ok: true }>> {
+}): Promise<ServiceResult<{ ok: true; invitedEmail: string }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   const invitationId = normalizeInvitationId(input.invitationId);
   if (!actorUserId) {
@@ -1282,6 +1282,23 @@ export async function revokeProjectInvitation(input: {
     });
     if (!access.ok) {
       return createError(access.status, access.error);
+    }
+
+    const invitation = await db.projectInvitation.findFirst({
+      where: {
+        id: invitationId,
+        projectId: input.projectId,
+        acceptedAt: null,
+        revokedAt: null,
+        replacedAt: null,
+      },
+      select: {
+        invitedEmail: true,
+      },
+    });
+
+    if (!invitation) {
+      return createError(404, "invitation-not-found");
     }
 
     const result = await db.projectInvitation.updateMany({
@@ -1306,7 +1323,10 @@ export async function revokeProjectInvitation(input: {
       invitationIds: [invitationId],
     });
 
-    return createSuccess(200, { ok: true as const });
+    return createSuccess(200, {
+      ok: true as const,
+      invitedEmail: invitation.invitedEmail,
+    });
   });
 }
 
@@ -1315,7 +1335,13 @@ export async function updateProjectMemberRole(input: {
   projectId: string;
   membershipId: string;
   role: string;
-}): Promise<ServiceResult<{ role: ProjectCollaboratorRole }>> {
+}): Promise<
+  ServiceResult<{
+    role: ProjectCollaboratorRole;
+    previousRole: ProjectMembershipRole;
+    memberDisplayName: string;
+  }>
+> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   const membershipId = normalizeInvitationId(input.membershipId);
   if (!actorUserId) {
@@ -1349,6 +1375,14 @@ export async function updateProjectMemberRole(input: {
         projectId: true,
         userId: true,
         role: true,
+        user: {
+          select: {
+            name: true,
+            username: true,
+            usernameDiscriminator: true,
+            email: true,
+          },
+        },
       },
     });
 
@@ -1360,8 +1394,14 @@ export async function updateProjectMemberRole(input: {
       return createError(400, "cannot-change-owner-role");
     }
 
+    const memberDisplayName = buildDisplayName(membership.user);
+
     if (membership.role === targetRole) {
-      return createSuccess(200, { role: targetRole });
+      return createSuccess(200, {
+        role: targetRole,
+        previousRole: membership.role,
+        memberDisplayName,
+      });
     }
 
     await db.projectMembership.update({
@@ -1371,7 +1411,11 @@ export async function updateProjectMemberRole(input: {
       },
     });
 
-    return createSuccess(200, { role: targetRole });
+    return createSuccess(200, {
+      role: targetRole,
+      previousRole: membership.role,
+      memberDisplayName,
+    });
   });
 }
 
@@ -1381,7 +1425,11 @@ export async function removeProjectMember(input: {
   membershipId: string;
   responsibilityResolution?: ResponsibilityResolution | null;
 }): Promise<
-  ServiceResult<{ ok: true; resolvedInventory: ProjectResponsibilityInventory }>
+  ServiceResult<{
+    ok: true;
+    resolvedInventory: ProjectResponsibilityInventory;
+    memberDisplayName: string;
+  }>
 > {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   const membershipId = normalizeInvitationId(input.membershipId);
@@ -1411,6 +1459,14 @@ export async function removeProjectMember(input: {
         projectId: true,
         userId: true,
         role: true,
+        user: {
+          select: {
+            name: true,
+            username: true,
+            usernameDiscriminator: true,
+            email: true,
+          },
+        },
       },
     });
 
@@ -1440,6 +1496,7 @@ export async function removeProjectMember(input: {
     return createSuccess(200, {
       ok: true as const,
       resolvedInventory: resolutionResult.data.inventory,
+      memberDisplayName: buildDisplayName(membership.user),
     });
   });
 }

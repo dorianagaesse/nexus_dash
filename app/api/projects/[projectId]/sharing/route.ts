@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   getProjectSharingSummary,
   inviteUserToProject,
@@ -64,5 +66,24 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json(result.data, { status: result.status });
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: authenticatedUser.userId,
+    projectId: params.projectId,
+    domain: "membership",
+    action: "created",
+    entityId: result.data.invitation.invitationId,
+    payload: {
+      invitationId: result.data.invitation.invitationId,
+      invitedEmail: result.data.invitation.invitedEmail,
+      role: result.data.invitation.role,
+    },
+    entityDisplayNameSnapshot:
+      result.data.invitation.invitedUserDisplayName ??
+      result.data.invitation.invitedEmail,
+  });
+
+  return NextResponse.json(result.data, {
+    status: result.status,
+    headers: withProjectActivityVersionHeader(undefined, version),
+  });
 }

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   parseResponsibilityResolution,
   transferProjectOwnership,
@@ -61,5 +63,27 @@ export async function POST(
     );
   }
 
-  return NextResponse.json(result.data);
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: authenticatedUser.userId,
+    projectId: params.projectId,
+    domain: "project",
+    action: "transferred",
+    entityId: params.projectId,
+    payload: {
+      newOwnerUserId: result.data.newOwnerUserId,
+      previousOwnerLeft: result.data.previousOwnerLeft,
+    },
+    entityDisplayNameSnapshot: result.data.projectName,
+    changes: [
+      {
+        field: "owner",
+        before: result.data.previousOwnerDisplayName,
+        after: result.data.newOwnerDisplayName,
+      },
+    ],
+  });
+
+  return NextResponse.json(result.data, {
+    headers: withProjectActivityVersionHeader(undefined, version),
+  });
 }

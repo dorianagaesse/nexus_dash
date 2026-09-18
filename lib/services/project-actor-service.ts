@@ -219,6 +219,13 @@ export function mapStoredProjectActorFromRegistry(
     if (credentialSummary) {
       return credentialSummary;
     }
+  } else if (!input.user) {
+    const humanSummary = input.id
+      ? input.registry?.humanById.get(input.id) ?? null
+      : null;
+    if (humanSummary) {
+      return humanSummary;
+    }
   }
 
   return mapStoredProjectActor(

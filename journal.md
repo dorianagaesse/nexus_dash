@@ -8311,3 +8311,93 @@ Low-value entries to avoid going forward:
   bottom of the settings column, unobtrusive under the About card.
 - Copilot review: not expected (quota reached per the project owner); the PR
   carries the validation evidence for manual review.
+
+# 2026-09-18 - ND-181 Durable collaboration history
+
+- Claimed live Nexus Dash card ND-181 and built it in the dedicated
+  `nexus_dash_task181` worktree on
+  `feature/nd-181-durable-collaboration-history`, branched from `origin/main`
+  and merge-forwarded to `e3281a1` before validation.
+- Scope was agreed with the user before implementation: the durable project
+  timeline foundation, not the full collaboration refinement. In: display-safe
+  actor/entity/summary/change snapshots, typed recording across the nine
+  project domains, a paginated viewer-visible history endpoint, a one-year
+  retention prune from the existing cron, and a Timeline panel on the project
+  dashboard. Out: artifact-level History tabs inside task, context-card, and
+  meeting-note panels, split to follow-up card ND-485.
+- Schema: `20260918120000_nd181_history_columns` adds `actorKind`,
+  `actorCredentialId` (FK, `ON DELETE SET NULL`), `actorDisplayNameSnapshot`
+  (80), `entityDisplayNameSnapshot` (160), `summary` (280), and `changes`
+  JSONB plus indexes on `actorCredentialId` and `createdAt`; all columns are
+  nullable and additive, so existing rows and the live-refresh payload
+  contract are unchanged. `20260918121000_nd181_history_retention_prune` adds
+  the SECURITY DEFINER `app.prune_project_activity_events(cutoff, batch_limit)`
+  because the table is FORCE RLS with SELECT/INSERT policies only and the
+  sweep has no actor context; the runtime role receives EXECUTE only. Both
+  migrations were applied to the shared preview database and to the local
+  validation database.
+- Recording contract: route handlers record through
+  `recordProjectActivityEventVersion` with fixed vocabularies - domains
+  `task`, `task-comment`, `context-card`, `meeting-note`, `epic`, `roadmap`,
+  `attachment`, `membership`, `project`; actions `created`, `updated`,
+  `deleted`, `moved`, `reordered`, `archived`, `unarchived`, `transferred`.
+  The service caps changes at 20 fields, values at 200 characters, entity
+  names at 160, and summaries at 280, drops no-op before/after pairs, and
+  never fails a mutation when recording fails. Producer coverage now includes
+  the previously silent surfaces: comment deletion, attachment add/remove,
+  membership changes, and ownership transfer.
+- Read surface: `GET /api/projects/[projectId]/history` requires a
+  principal, enforces `project:read` for agents and a viewer-minimum project
+  role for everyone, keyset-pages over `(version, createdAt, id)` descending
+  with a base64url composite cursor (25 per page, clamped to 50), rejects
+  malformed cursors with `400 invalid-cursor`, selects a projection that
+  never includes `payload`, and serves `Cache-Control: no-store`. Entries
+  carry the stored actor snapshot enriched by the display-safe project actor
+  registry; unresolvable actors fall back to the snapshot with a
+  non-assignable `inactive`/`revoked` status, and credential secrets never
+  enter the response.
+- Retention: the notification-email cron also prunes events older than 365
+  days in batches of 500 capped at 20 batches per run and reports
+  `historyPrune: { deleted, batches }`; a prune failure is logged and never
+  blocks email dispatch.
+- Project view: a collapsed-by-default Timeline panel on the project
+  dashboard loads history on expand and renders actor, summary, timestamp,
+  and bounded change chips with cursor-backed Load more and error retry. No
+  query runs while collapsed.
+- Deliberate non-recording: agent-access credential routes, attachment
+  upload-url and direct-cleanup plumbing routes, invitation email resend,
+  and comment reactions do not record timeline events - per-request plumbing
+  and high-churn micro-actions rather than timeline facts.
+- Coverage: service tests cover the cursor codec, change bounding, summary
+  composition, prune loop and guard, paging, access enforcement, capability
+  fallback, and actor registry fallback; route tests cover serialization,
+  caching, cursor forwarding, unauthorized calls, and preview-origin
+  dispatch; component tests cover the collapsed state, entry rendering,
+  paging, and error retry; cron tests cover the prune summary and prune
+  failure tolerance; and `tests/e2e/nd-181-project-timeline.spec.ts` covers
+  the view end to end (UI task creation, collapsed-by-default panel, entry
+  rendering with actor and summary, and the durable API contract without
+  transport payloads).
+- Validation: `npm run lint`, `npm run rls:check`, full suite 215 files /
+  1,769 tests passed (2 files / 2 tests skipped), coverage thresholds met
+  (93.81% statements, 84.46% branches, 95.42% functions, 94.11% lines),
+  production `npm run build` with local-safe placeholder secrets, the real
+  PostgreSQL RLS matrix against local Postgres, and the full local Playwright
+  suite 98 passed / 1 skipped / 0 failed on port 3210 with outbound email
+  disabled; `git diff --check` clean.
+- Preview verification: dispatched `deploy-vercel.yml` with
+  `action=deploy-preview` and `git_ref=feature/nd-181-durable-collaboration-history`
+  (run 35345628272); the job checked out the branch head `df73875`, deployed
+  `https://nexus-dash-n5d6q1b5v-dorian-agaesses-projects.vercel.app`, and
+  `/api/health/ready` reported revision `df73875` with database readiness.
+  `tests/e2e/nd-181-project-timeline.spec.ts` then passed live against that
+  immutable deployment (preview database seeded through the current pooled
+  credential obtained with `vercel env pull`), which automates the ADR's
+  manual preview check: expand the Timeline panel and confirm an entry for a
+  UI mutation.
+- CI: PR #545 checks green on `df73875` - Quality Core, E2E Smoke (full
+  Playwright suite), Tenant Isolation (real PostgreSQL RLS), Container Image,
+  and check-name.
+- Decision record: `adr/task-181-durable-collaboration-history.md` (option A:
+  extend `ProjectActivityEvent` rather than per-domain audit tables or event
+  sourcing), summarized in `adr/decisions.md`.

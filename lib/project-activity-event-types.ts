@@ -3,14 +3,21 @@ export type ProjectActivityDomain =
   | "task-comment"
   | "context-card"
   | "meeting-note"
-  | "project";
+  | "project"
+  | "epic"
+  | "roadmap"
+  | "attachment"
+  | "membership";
 
 export type ProjectActivityAction =
   | "created"
   | "updated"
   | "deleted"
   | "moved"
-  | "reordered";
+  | "reordered"
+  | "archived"
+  | "unarchived"
+  | "transferred";
 
 export type ProjectActivityEventDomain = ProjectActivityDomain;
 export type ProjectActivityEventAction = ProjectActivityAction;

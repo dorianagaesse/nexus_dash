@@ -1,5 +1,5 @@
 import { deleteAttachmentFile } from "@/lib/attachment-storage";
-import { sanitizeRichText } from "@/lib/rich-text";
+import { richTextToPreviewText, sanitizeRichText } from "@/lib/rich-text";
 import {
   buildCanonicalTaskRelation,
   mergeRelatedTaskSummaries,
@@ -20,7 +20,10 @@ import {
   validateAttachmentFiles,
 } from "@/lib/services/attachment-input-service";
 import { logServerError } from "@/lib/observability/logger";
-import { touchProjectActivity } from "@/lib/services/project-activity-service";
+import {
+  touchProjectActivity,
+  type ProjectActivityChangeEntry,
+} from "@/lib/services/project-activity-service";
 import { createTaskAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
 import {
   formatTaskDeadlineDate,
@@ -150,6 +153,68 @@ export interface UpdatedTaskPayload {
     mimeType: string | null;
     sizeBytes: number | null;
   }[];
+}
+
+export interface TaskUpdatePreviousSnapshot {
+  title: string;
+  description: string;
+  deadlineDate: string | null;
+  epicName: string | null;
+  labels: string[];
+  assigneeDisplayName: string | null;
+}
+
+export function buildTaskUpdateActivityChanges(
+  payload: UpdateTaskPayload,
+  previous: TaskUpdatePreviousSnapshot,
+  task: UpdatedTaskPayload
+): ProjectActivityChangeEntry[] {
+  const hasField = (field: keyof UpdateTaskPayload) =>
+    Object.prototype.hasOwnProperty.call(payload, field);
+  const previewOf = (value: string | null) =>
+    value ? richTextToPreviewText(value) : null;
+  const changes: ProjectActivityChangeEntry[] = [];
+
+  if (hasField("title")) {
+    changes.push({ field: "title", before: previous.title, after: task.title });
+  }
+  if (hasField("description")) {
+    changes.push({
+      field: "description",
+      before: previewOf(previous.description),
+      after: previewOf(task.description),
+    });
+  }
+  if (hasField("deadlineDate")) {
+    changes.push({
+      field: "deadlineDate",
+      before: previous.deadlineDate,
+      after: task.deadlineDate,
+    });
+  }
+  if (hasField("epicId")) {
+    changes.push({
+      field: "epic",
+      before: previous.epicName,
+      after: task.epic?.name ?? null,
+    });
+  }
+  if (hasField("labels") || hasField("label")) {
+    changes.push({
+      field: "labels",
+      before: previous.labels.join(", ") || null,
+      after: task.labels.join(", ") || null,
+    });
+  }
+  if (hasField("assignee") || hasField("assigneeUserId")) {
+    changes.push({
+      field: "assignee",
+      before: previous.assigneeDisplayName,
+      after: task.assignee?.displayName ?? null,
+    });
+  }
+
+  return changes;
 }
 
 interface PendingTaskAssignmentNotification {
@@ -1377,7 +1442,7 @@ export async function moveTaskStatusForProject(
   payload: TaskStatusTransitionPayload,
   actorUserId: string,
   agentAccess?: AgentProjectAccessContext
-): Promise<ServiceResult<{ task: UpdatedTaskPayload }>> {
+): Promise<ServiceResult<{ task: UpdatedTaskPayload; previousStatus: string }>> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
     return createError(401, "unauthorized");
@@ -1467,7 +1532,7 @@ export async function moveTaskStatusForProject(
         if (!task) {
           return createError(404, "Task not found");
         }
-        return { ok: true, data: { task } };
+        return { ok: true, data: { task, previousStatus: existingTask.status } };
       }
 
       if (sameColumn) {
@@ -1543,7 +1608,7 @@ export async function moveTaskStatusForProject(
         return createError(500, "Failed to move task");
       }
 
-      return { ok: true, data: { task } };
+      return { ok: true, data: { task, previousStatus: existingTask.status } };
     } catch (error) {
       logServerError("moveTaskStatusForProject", error);
       return createError(500, "Failed to move task");
@@ -1557,7 +1622,9 @@ export async function updateTaskForProject(
   payload: UpdateTaskPayload,
   actorUserId: string,
   agentAccess?: AgentProjectAccessContext
-): Promise<ServiceResult<{ task: UpdatedTaskPayload }>> {
+): Promise<
+  ServiceResult<{ task: UpdatedTaskPayload; previous: TaskUpdatePreviousSnapshot }>
+> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
     return createError(401, "unauthorized");
@@ -1659,9 +1726,19 @@ export async function updateTaskForProject(
         select: {
           id: true,
           projectId: true,
+          title: true,
+          description: true,
+          deadlineAt: true,
+          label: true,
+          labelsJson: true,
           status: true,
           position: true,
           epicId: true,
+          epic: {
+            select: {
+              name: true,
+            },
+          },
           assigneeKind: true,
           assigneeUserId: true,
           assigneeCredentialId: true,
@@ -1893,6 +1970,19 @@ export async function updateTaskForProject(
         ok: true,
         data: {
           task: updatedTask,
+          previous: {
+            title: existingTask.title,
+            description: existingTask.description ?? "",
+            deadlineDate: existingTask.deadlineAt
+              ? formatTaskDeadlineDate(existingTask.deadlineAt)
+              : null,
+            epicName: existingTask.epic?.name ?? null,
+            labels: getTaskLabelsFromStorage(
+              existingTask.labelsJson,
+              existingTask.label
+            ),
+            assigneeDisplayName: existingTask.assigneeDisplayNameSnapshot,
+          },
         },
       };
     } catch (error) {
@@ -1907,7 +1997,7 @@ export async function archiveTaskForProject(
   taskId: string,
   actorUserId: string,
   agentAccess?: AgentProjectAccessContext
-): Promise<ServiceResult<{ archivedAt: Date }>> {
+): Promise<ServiceResult<{ archivedAt: Date; title: string }>> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
     return createError(401, "unauthorized");
@@ -1939,6 +2029,7 @@ export async function archiveTaskForProject(
         select: {
           id: true,
           projectId: true,
+          title: true,
           status: true,
           archivedAt: true,
         },
@@ -1957,6 +2048,7 @@ export async function archiveTaskForProject(
           ok: true,
           data: {
             archivedAt: existingTask.archivedAt,
+            title: existingTask.title,
           },
         };
       }
@@ -1992,6 +2084,7 @@ export async function archiveTaskForProject(
         ok: true,
         data: {
           archivedAt: archivedTask.archivedAt,
+          title: existingTask.title,
         },
       };
     } catch (error) {
@@ -2010,7 +2103,7 @@ export async function unarchiveTaskForProject(
   taskId: string,
   actorUserId: string,
   agentAccess?: AgentProjectAccessContext
-): Promise<ServiceResult<{ ok: true }>> {
+): Promise<ServiceResult<{ ok: true; title: string }>> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
     return createError(401, "unauthorized");
@@ -2042,6 +2135,7 @@ export async function unarchiveTaskForProject(
         select: {
           id: true,
           projectId: true,
+          title: true,
           status: true,
           archivedAt: true,
         },
@@ -2058,7 +2152,7 @@ export async function unarchiveTaskForProject(
       if (!existingTask.archivedAt) {
         return {
           ok: true,
-          data: { ok: true },
+          data: { ok: true, title: existingTask.title },
         };
       }
 
@@ -2083,7 +2177,7 @@ export async function unarchiveTaskForProject(
 
       return {
         ok: true,
-        data: { ok: true },
+        data: { ok: true, title: existingTask.title },
       };
     } catch (error) {
       if (isPrismaNotFoundError(error)) {
@@ -2101,7 +2195,7 @@ export async function deleteTaskForProject(
   taskId: string,
   actorUserId: string,
   agentAccess?: AgentProjectAccessContext
-): Promise<ServiceResult<{ ok: true }>> {
+): Promise<ServiceResult<{ ok: true; title: string }>> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
     return createError(401, "unauthorized");
@@ -2133,6 +2227,7 @@ export async function deleteTaskForProject(
         select: {
           id: true,
           projectId: true,
+          title: true,
           attachments: {
             where: {
               kind: ATTACHMENT_KIND_FILE,
@@ -2167,7 +2262,7 @@ export async function deleteTaskForProject(
 
       return {
         ok: true,
-        data: { ok: true },
+        data: { ok: true, title: existingTask.title },
       };
     } catch (error) {
       if (isPrismaNotFoundError(error)) {

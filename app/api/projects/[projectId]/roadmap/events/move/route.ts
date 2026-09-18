@@ -5,6 +5,8 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 import {
   isValidRoadmapEventMovePayload,
@@ -63,5 +65,30 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ ok: true });
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId: params.projectId,
+    domain: "roadmap",
+    action: "moved",
+    entityId: payload.eventId,
+    payload: {
+      eventId: payload.eventId,
+      targetPhaseId: payload.targetPhaseId,
+      targetIndex: payload.targetIndex,
+    },
+    agentAccess,
+    entityDisplayNameSnapshot: result.data.title,
+    changes: [
+      {
+        field: "phase",
+        before: result.data.fromPhaseTitle,
+        after: result.data.toPhaseTitle,
+      },
+    ],
+  });
+
+  return NextResponse.json(
+    { ok: true },
+    { headers: withProjectActivityVersionHeader(undefined, version) }
+  );
 }

@@ -1390,7 +1390,7 @@ export async function deleteTaskAttachmentForProject(input: {
   taskId: string;
   attachmentId: string;
   agentAccess?: AgentProjectAccessContext;
-}): Promise<ServiceResult<{ ok: true }>> {
+}): Promise<ServiceResult<{ ok: true; name: string }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -1422,6 +1422,7 @@ export async function deleteTaskAttachmentForProject(input: {
         select: {
           id: true,
           kind: true,
+          name: true,
           storageKey: true,
           uploadedByUserId: true,
           commentId: true,
@@ -1478,7 +1479,7 @@ export async function deleteTaskAttachmentForProject(input: {
 
       return {
         ok: true,
-        data: { ok: true },
+        data: { ok: true, name: attachment.name },
       };
     } catch (error) {
       logServerError("deleteTaskAttachmentForProject", error);
@@ -1493,7 +1494,7 @@ export async function deleteContextAttachmentForProject(input: {
   cardId: string;
   attachmentId: string;
   agentAccess?: AgentProjectAccessContext;
-}): Promise<ServiceResult<{ ok: true }>> {
+}): Promise<ServiceResult<{ ok: true; name: string }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -1524,6 +1525,7 @@ export async function deleteContextAttachmentForProject(input: {
         where: { id: input.attachmentId },
         select: {
           id: true,
+          name: true,
           kind: true,
           storageKey: true,
           uploadedByUserId: true,
@@ -1574,7 +1576,7 @@ export async function deleteContextAttachmentForProject(input: {
 
       return {
         ok: true,
-        data: { ok: true },
+        data: { ok: true, name: attachment.name },
       };
     } catch (error) {
       logServerError("deleteContextAttachmentForProject", error);

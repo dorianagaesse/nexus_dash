@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { logServerError } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import {
   createProject,
   deleteProject,
@@ -41,10 +42,20 @@ export async function createProjectAction(formData: FormData): Promise<void> {
   }
 
   try {
-    await createProject({
+    const project = await createProject({
       actorUserId,
       name,
       description: descriptionText.length > 0 ? descriptionText : null,
+    });
+
+    await recordProjectActivityEventVersion({
+      actorUserId,
+      projectId: project.id,
+      domain: "project",
+      action: "created",
+      entityId: project.id,
+      payload: { projectId: project.id },
+      entityDisplayNameSnapshot: project.name,
     });
   } catch (error) {
     logServerError("createProjectAction", error);
@@ -71,11 +82,29 @@ export async function updateProjectAction(formData: FormData): Promise<void> {
   }
 
   try {
-    await updateProject({
+    const { project, previous } = await updateProject({
       actorUserId,
       projectId,
       name,
       description: descriptionText.length > 0 ? descriptionText : null,
+    });
+
+    await recordProjectActivityEventVersion({
+      actorUserId,
+      projectId,
+      domain: "project",
+      action: "updated",
+      entityId: projectId,
+      payload: { projectId },
+      entityDisplayNameSnapshot: project.name,
+      changes: [
+        { field: "name", before: previous.name, after: project.name },
+        {
+          field: "description",
+          before: previous.description,
+          after: project.description,
+        },
+      ],
     });
   } catch (error) {
     logServerError("updateProjectAction", error);

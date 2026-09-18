@@ -416,13 +416,29 @@ export async function updateProject(input: ProjectUpdateInput) {
       throw new Error(access.error);
     }
 
-    return db.project.update({
+    const previous = await db.project.findUnique({
+      where: { id: input.projectId },
+      select: {
+        name: true,
+        description: true,
+      },
+    });
+
+    const project = await db.project.update({
       where: { id: input.projectId },
       data: {
         name,
         description,
       },
     });
+
+    return {
+      project,
+      previous: {
+        name: previous?.name ?? "",
+        description: previous?.description ?? null,
+      },
+    };
   });
 }
 

@@ -1583,7 +1583,9 @@ export async function updateProjectMeetingNote(
 
 export async function setProjectMeetingNoteActionCompletion(
   input: MeetingNoteActionCompletionInput
-): Promise<ServiceResult<{ note: ProjectMeetingNoteSummary }>> {
+): Promise<
+  ServiceResult<{ note: ProjectMeetingNoteSummary; previousCompleted: boolean }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   const noteId = normalizeText(input.noteId);
   const actionId = normalizeText(input.actionId);
@@ -1629,6 +1631,7 @@ export async function setProjectMeetingNoteActionCompletion(
       },
       select: {
         id: true,
+        completedAt: true,
         meetingNote: {
           select: {
             status: true,
@@ -1693,7 +1696,7 @@ export async function setProjectMeetingNoteActionCompletion(
 
       return {
         ok: true,
-        data: { note },
+        data: { note, previousCompleted: action.completedAt !== null },
       };
     } catch (error) {
       logServerError("setProjectMeetingNoteActionCompletion", error);
@@ -1704,7 +1707,12 @@ export async function setProjectMeetingNoteActionCompletion(
 
 export async function setProjectMeetingNoteActionAssignee(
   input: MeetingNoteActionAssigneeInput
-): Promise<ServiceResult<{ note: ProjectMeetingNoteSummary }>> {
+): Promise<
+  ServiceResult<{
+    note: ProjectMeetingNoteSummary;
+    previousAssigneeDisplayName: string | null;
+  }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   const noteId = normalizeText(input.noteId);
   const actionId = normalizeText(input.actionId);
@@ -1868,7 +1876,13 @@ export async function setProjectMeetingNoteActionAssignee(
         return createError(404, "meeting-note-not-found");
       }
       await touchProjectActivity({ db, projectId: input.projectId });
-      return { ok: true, data: { note } };
+      return {
+        ok: true,
+        data: {
+          note,
+          previousAssigneeDisplayName: action.assigneeDisplayNameSnapshot,
+        },
+      };
     } catch (error) {
       logServerError("setProjectMeetingNoteActionAssignee", error);
       return createError(500, "meeting-note-action-update-failed");
@@ -1878,7 +1892,12 @@ export async function setProjectMeetingNoteActionAssignee(
 
 export async function setProjectMeetingNoteSteward(
   input: MeetingNoteStewardInput
-): Promise<ServiceResult<{ note: ProjectMeetingNoteSummary }>> {
+): Promise<
+  ServiceResult<{
+    note: ProjectMeetingNoteSummary;
+    previousStewardDisplayName: string | null;
+  }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   const noteId = normalizeText(input.noteId);
   if (!actorUserId) {
@@ -1914,6 +1933,7 @@ export async function setProjectMeetingNoteSteward(
       where: { id: noteId, projectId: input.projectId },
       select: {
         id: true,
+        stewardDisplayNameSnapshot: true,
         participants: {
           where: { userId: null },
           orderBy: [{ position: "asc" }, { createdAt: "asc" }],
@@ -1981,7 +2001,13 @@ export async function setProjectMeetingNoteSteward(
         return createError(404, "meeting-note-not-found");
       }
       await touchProjectActivity({ db, projectId: input.projectId });
-      return { ok: true, data: { note } };
+      return {
+        ok: true,
+        data: {
+          note,
+          previousStewardDisplayName: existing.stewardDisplayNameSnapshot,
+        },
+      };
     } catch (error) {
       logServerError("setProjectMeetingNoteSteward", error);
       return createError(500, "meeting-note-steward-update-failed");
@@ -1994,7 +2020,7 @@ export async function deleteProjectMeetingNote(input: {
   projectId: string;
   noteId: string;
   agentAccess?: AgentProjectAccessContext;
-}): Promise<ServiceResult<{ ok: true }>> {
+}): Promise<ServiceResult<{ ok: true; title: string }>> {
   const actorUserId = normalizeText(input.actorUserId);
   const noteId = normalizeText(input.noteId);
   if (!actorUserId) {
@@ -2020,7 +2046,7 @@ export async function deleteProjectMeetingNote(input: {
         id: noteId,
         projectId: input.projectId,
       },
-      select: { id: true },
+      select: { id: true, title: true },
     });
     if (!existing) {
       return createError(404, "meeting-note-not-found");
@@ -2035,7 +2061,7 @@ export async function deleteProjectMeetingNote(input: {
 
       return {
         ok: true,
-        data: { ok: true },
+        data: { ok: true, title: existing.title },
       };
     } catch (error) {
       logServerError("deleteProjectMeetingNote", error);

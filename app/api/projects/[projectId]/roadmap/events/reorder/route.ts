@@ -5,6 +5,8 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 import {
   isValidRoadmapEventReorderPayload,
@@ -62,5 +64,18 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ ok: true });
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId: params.projectId,
+    domain: "roadmap",
+    action: "reordered",
+    entityId: payload.phaseId,
+    payload: { phaseId: payload.phaseId, eventIds: payload.eventIds },
+    agentAccess,
+  });
+
+  return NextResponse.json(
+    { ok: true },
+    { headers: withProjectActivityVersionHeader(undefined, version) }
+  );
 }

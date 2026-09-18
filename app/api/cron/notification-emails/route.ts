@@ -8,6 +8,7 @@ import {
 } from "@/lib/env.server";
 import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 import { logServerWarning } from "@/lib/observability/logger";
+import { pruneProjectActivityHistory } from "@/lib/services/project-activity-service";
 import { dispatchProjectNotificationEmails } from "@/lib/services/project-notification-email-service";
 
 export const dynamic = "force-dynamic";
@@ -78,5 +79,20 @@ export async function GET(request: NextRequest) {
     appOrigin: resolveDispatchOrigin(request),
   });
 
-  return NextResponse.json({ ok: true, summary });
+  let historyPrune: { deleted: number; batches: number } | null = null;
+  try {
+    const pruneResult = await pruneProjectActivityHistory();
+    historyPrune = {
+      deleted: pruneResult.deleted,
+      batches: pruneResult.batches,
+    };
+  } catch (error) {
+    logServerWarning(
+      "GET /api/cron/notification-emails.historyPruneFailed",
+      "Could not prune expired project activity history.",
+      { error }
+    );
+  }
+
+  return NextResponse.json({ ok: true, summary, historyPrune });
 }

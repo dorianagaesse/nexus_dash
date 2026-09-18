@@ -65,6 +65,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     action: "reordered",
     entityId: projectId,
     payload: { reorder: body },
+    agentAccess,
   });
 
   return NextResponse.json(

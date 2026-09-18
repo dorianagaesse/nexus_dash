@@ -114,6 +114,15 @@ export async function PATCH(
         ? { kind: steward.kind, id: steward.id }
         : null,
     },
+    agentAccess: getAgentProjectAccessContext(principal),
+    entityDisplayNameSnapshot: result.data.note.title,
+    changes: [
+      {
+        field: "steward",
+        before: result.data.previousStewardDisplayName,
+        after: result.data.note.steward?.displayName ?? null,
+      },
+    ],
   });
 
   return NextResponse.json(

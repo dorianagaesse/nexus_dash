@@ -8,6 +8,7 @@ import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
+import { richTextToPreviewText } from "@/lib/rich-text";
 import {
   createTaskCommentForProject,
   listTaskCommentsForProject,
@@ -215,6 +216,8 @@ export async function POST(
       taskId: params.taskId,
       comment,
     },
+    agentAccess: getAgentProjectAccessContext(principalResult.principal),
+    entityDisplayNameSnapshot: richTextToPreviewText(comment.content),
   });
 
   return NextResponse.json(

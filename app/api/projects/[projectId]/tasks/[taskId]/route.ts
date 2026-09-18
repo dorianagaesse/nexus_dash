@@ -12,6 +12,7 @@ import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-ser
 import { loadProjectActorRegistryForActor } from "@/lib/services/project-actor-service";
 import { getProjectKanbanTaskById } from "@/lib/services/project-service";
 import {
+  buildTaskUpdateActivityChanges,
   deleteTaskForProject,
   type UpdateTaskPayload,
   updateTaskForProject,
@@ -125,6 +126,9 @@ export async function PATCH(
     action: "updated",
     entityId: taskId,
     payload: { task },
+    agentAccess,
+    entityDisplayNameSnapshot: rawTask.title,
+    changes: buildTaskUpdateActivityChanges(payload, result.data.previous, rawTask),
   });
 
   return NextResponse.json(
@@ -167,6 +171,8 @@ export async function DELETE(
     action: "deleted",
     entityId: taskId,
     payload: { taskId },
+    agentAccess,
+    entityDisplayNameSnapshot: result.data.title,
   });
 
   return NextResponse.json(

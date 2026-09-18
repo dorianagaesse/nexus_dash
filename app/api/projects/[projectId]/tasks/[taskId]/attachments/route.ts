@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { createTaskAttachmentFromForm } from "@/lib/services/project-attachment-service";
 
@@ -45,8 +46,18 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
+  const version = await recordProjectActivityEventVersion({
+    actorUserId,
+    projectId,
+    domain: "attachment",
+    action: "created",
+    entityId: result.data.id,
+    payload: { taskId, attachment: result.data },
+    entityDisplayNameSnapshot: result.data.name,
+  });
+
   return NextResponse.json(
     { attachment: result.data },
-    { headers: withProjectActivityVersionHeader() }
+    { headers: withProjectActivityVersionHeader(undefined, version) }
   );
 }
