@@ -2,7 +2,6 @@ import { Suspense } from "react";
 
 import { AutoDismissingAlert } from "@/components/auto-dismissing-alert";
 import { CreateProjectDialog } from "@/components/create-project-dialog";
-import { Badge } from "@/components/ui/badge";
 
 import { createProjectAction } from "./actions";
 import { ProjectsGrid, ProjectsGridSkeleton } from "./projects-grid";
@@ -50,15 +49,10 @@ export default async function ProjectsPage({
   return (
     <main className="container py-10 sm:py-16">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <Badge variant="secondary" className="w-fit">
-          Project management
-        </Badge>
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Project workspace
-          </h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Projects</h1>
           <p className="text-sm text-muted-foreground">
-            Create, update, and delete projects from one place.
+            Plan, track, and deliver work in one place.
           </p>
         </div>
 
