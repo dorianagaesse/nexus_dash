@@ -8374,13 +8374,16 @@ Low-value entries to avoid going forward:
   caching, cursor forwarding, unauthorized calls, and preview-origin
   dispatch; component tests cover the collapsed state, entry rendering,
   paging, and error retry; cron tests cover the prune summary and prune
-  failure tolerance.
+  failure tolerance; and `tests/e2e/nd-181-project-timeline.spec.ts` covers
+  the view end to end (UI task creation, collapsed-by-default panel, entry
+  rendering with actor and summary, and the durable API contract without
+  transport payloads).
 - Validation: `npm run lint`, `npm run rls:check`, full suite 215 files /
   1,769 tests passed (2 files / 2 tests skipped), coverage thresholds met
   (93.81% statements, 84.46% branches, 95.42% functions, 94.11% lines),
   production `npm run build` with local-safe placeholder secrets, the real
   PostgreSQL RLS matrix against local Postgres, and the full local Playwright
-  suite 95 passed / 1 skipped / 0 failed on port 3210 with outbound email
+  suite 98 passed / 1 skipped / 0 failed on port 3210 with outbound email
   disabled; `git diff --check` clean.
 - Decision record: `adr/task-181-durable-collaboration-history.md` (option A:
   extend `ProjectActivityEvent` rather than per-domain audit tables or event
