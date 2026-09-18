@@ -8375,3 +8375,10 @@ Low-value entries to avoid going forward:
   translucent thumb visible on the dark `bg-slate-950` block, layout gutter
   accounted for. Component test now asserts both standard properties are
   present on the `pre`; no markup or copy changed.
+- Second merge-forward: `origin/main` advanced to e3281a1 (ND-486, PR #543,
+  privacy policy entry in account settings). The only conflict was the
+  journal.md append again, resolved the same way (main's file, then this
+  entry re-appended); ND-486's component change, page test, and e2e spec
+  merged cleanly. Re-validated on the merged tree: `npm run lint`,
+  `npm run rls:check`, full unit suite (213 files / 1744 tests passed, 2
+  skipped), production build - all green. Merge commit 8011df1.
