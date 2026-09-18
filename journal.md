@@ -28,6 +28,18 @@ Use it for important implementation milestones, blockers, validation runs, and r
   is green on main at both merged commits, and the flow renders no links, so
   ND-464's link work cannot reach it). ND-464's titled-link specs and the
   ND-399 attachment spec both pass locally.
+- Third merge-forward the same day: merged `origin/main` (ND-131 #531,
+  dependabot safe-production-utilities #536 — lucide-react 1.42.0 → 1.46.0,
+  tailwind-merge). Conflict was `journal.md` only; merge commit `703acdd`.
+- CI on `703acdd` went red once: E2E Smoke failed on the long-documented
+  nd-408 pointer-drag flake (`nd-408-kanban-search-filter.spec.ts:285`
+  "pointer drag under a label filter keeps hidden tasks in order"), which
+  previously failed the same way on PRs #504 and #519 and passed on rerun
+  both times. Re-ran the failed job on the identical head: green. Confirmed
+  locally with `--repeat-each=3` (3/3 passed) on the merged tree; the only
+  changes since the last green E2E run of this PR are the ND-131 auth pages
+  and the dependency bumps, none of which touch the kanban drag path.
+  `mergeStateStatus` CLEAN afterwards.
 
 # 2026-09-17 - ND-399: Move the comment attachment trigger inside the composer
 
