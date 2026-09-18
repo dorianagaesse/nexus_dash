@@ -140,6 +140,7 @@ export interface PendingAttachmentUpload {
   id: string;
   name: string;
   sizeBytes: number;
+  mimeType?: string | null;
 }
 
 export interface TaskCreateOptimisticDraft {

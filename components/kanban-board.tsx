@@ -58,6 +58,7 @@ import {
   DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_ATTACHMENT_FILE_SIZE_LABEL,
+  resolveAttachmentMimeType,
 } from "@/lib/task-attachment";
 import { uploadFileAttachmentDirect } from "@/lib/direct-upload-client";
 import {
@@ -71,6 +72,7 @@ import {
   type ProjectEpicsReconciledDetail,
 } from "@/lib/project-epic-client";
 import type { ProjectActivityEventPayload } from "@/lib/project-activity-event-types";
+import { MAX_TASK_COMMENT_ATTACHMENTS } from "@/lib/task-comment";
 import {
   getTaskDeadlineUrgency,
 } from "@/lib/task-deadline";
@@ -444,12 +446,12 @@ export function KanbanBoard({
   const [isLoadingTaskComments, setIsLoadingTaskComments] = useState(false);
   const [newTaskComment, setNewTaskComment] = useState("");
   const [isSubmittingTaskComment, setIsSubmittingTaskComment] = useState(false);
-  const [commentScreenshotAttachments, setCommentScreenshotAttachments] = useState<
+  const [commentAttachments, setCommentAttachments] = useState<
     TaskAttachment[]
   >([]);
-  const [pendingCommentScreenshotUploads, setPendingCommentScreenshotUploads] =
+  const [pendingCommentAttachmentUploads, setPendingCommentAttachmentUploads] =
     useState<PendingAttachmentUpload[]>([]);
-  const [commentScreenshotInputKey, setCommentScreenshotInputKey] = useState(0);
+  const [commentAttachmentInputKey, setCommentAttachmentInputKey] = useState(0);
   const maxAttachmentFileSizeBytes =
     storageProvider === "r2"
       ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES
@@ -533,9 +535,9 @@ export function KanbanBoard({
     }
 
     commentDraftTaskIdRef.current = selectedTask.id;
-    setCommentScreenshotAttachments([]);
-    setPendingCommentScreenshotUploads([]);
-    setCommentScreenshotInputKey((previous) => previous + 1);
+    setCommentAttachments([]);
+    setPendingCommentAttachmentUploads([]);
+    setCommentAttachmentInputKey((previous) => previous + 1);
     setNewTaskComment("");
     setIsEditMode(shouldOpenTaskInEditModeRef.current);
     shouldOpenTaskInEditModeRef.current = false;
@@ -1253,9 +1255,9 @@ export function KanbanBoard({
     setRelatedTaskSearch("");
     setPreviewAttachment(null);
     setTaskComments([]);
-    setCommentScreenshotAttachments([]);
-    setPendingCommentScreenshotUploads([]);
-    setCommentScreenshotInputKey((previous) => previous + 1);
+    setCommentAttachments([]);
+    setPendingCommentAttachmentUploads([]);
+    setCommentAttachmentInputKey((previous) => previous + 1);
     setNewTaskComment("");
   }, [restoreTaskCardFocus]);
 
@@ -1265,9 +1267,9 @@ export function KanbanBoard({
     shouldOpenTaskInEditModeRef.current = false;
     setTaskComments([]);
     setTaskCommentsError(null);
-    setCommentScreenshotAttachments([]);
-    setPendingCommentScreenshotUploads([]);
-    setCommentScreenshotInputKey((previous) => previous + 1);
+    setCommentAttachments([]);
+    setPendingCommentAttachmentUploads([]);
+    setCommentAttachmentInputKey((previous) => previous + 1);
     setNewTaskComment("");
     setSelectedTask(task);
   }, []);
@@ -1282,9 +1284,9 @@ export function KanbanBoard({
     shouldOpenTaskInEditModeRef.current = true;
     setTaskComments([]);
     setTaskCommentsError(null);
-    setCommentScreenshotAttachments([]);
-    setPendingCommentScreenshotUploads([]);
-    setCommentScreenshotInputKey((previous) => previous + 1);
+    setCommentAttachments([]);
+    setPendingCommentAttachmentUploads([]);
+    setCommentAttachmentInputKey((previous) => previous + 1);
     setNewTaskComment("");
     setSelectedTask(task);
   }, [canEdit]);
@@ -1301,9 +1303,9 @@ export function KanbanBoard({
       taskCardReturnFocusRef.current = findTaskCardElement(relatedTask.id);
       setTaskComments([]);
       setTaskCommentsError(null);
-      setCommentScreenshotAttachments([]);
-      setPendingCommentScreenshotUploads([]);
-      setCommentScreenshotInputKey((previous) => previous + 1);
+      setCommentAttachments([]);
+      setPendingCommentAttachmentUploads([]);
+      setCommentAttachmentInputKey((previous) => previous + 1);
       setNewTaskComment("");
       setSelectedTask(relatedTask);
     },
@@ -2534,7 +2536,7 @@ export function KanbanBoard({
             kind: "user",
           },
           reactions: [],
-          attachments: commentScreenshotAttachments,
+          attachments: commentAttachments,
         }
       : null;
 
@@ -2582,7 +2584,9 @@ export function KanbanBoard({
               ? "Comment must be 4000 characters or fewer."
               : message === "task-comment-agent-mention-invalid"
                 ? "The agent mention could not be saved. Mention the agent again."
-                : message
+                : message === "task-comment-attachment-invalid"
+                  ? "One or more attachments could not be added to this comment."
+                  : message
         );
       }
 
@@ -2598,8 +2602,8 @@ export function KanbanBoard({
         )
       );
       setNewTaskComment("");
-      setCommentScreenshotAttachments([]);
-      setCommentScreenshotInputKey((previous) => previous + 1);
+      setCommentAttachments([]);
+      setCommentAttachmentInputKey((previous) => previous + 1);
       if (attachmentIds.length > 0) {
         const commentAttachmentIds = new Set(attachmentIds);
         applyTaskMutation(selectedTask.id, (task) => ({
@@ -2644,7 +2648,7 @@ export function KanbanBoard({
           )
         );
         setNewTaskComment(content);
-        setCommentScreenshotAttachments(commentScreenshotAttachments);
+        setCommentAttachments(commentAttachments);
       }
       setTaskCommentsError(message);
       pushToast({
@@ -2658,7 +2662,7 @@ export function KanbanBoard({
     applyTaskMutation,
     canEdit,
     currentActorSummary,
-    commentScreenshotAttachments,
+    commentAttachments,
     newTaskComment,
     projectId,
     pushToast,
@@ -2817,41 +2821,52 @@ export function KanbanBoard({
     ]
   );
 
-  const handleAddCommentScreenshots = useCallback(
+  const handleAddCommentAttachments = useCallback(
     async (files: File[]) => {
       if (!canEdit || !selectedTask || files.length === 0) {
         return;
       }
 
-      const imageFiles = files.filter((file) => file.type.startsWith("image/"));
-      if (imageFiles.length !== files.length) {
-        setTaskCommentsError("Only image files can be attached inline to a comment.");
+      const unsupportedFile = files.find(
+        (file) => resolveAttachmentMimeType(file.type, file.name) === null
+      );
+      if (unsupportedFile) {
+        setTaskCommentsError(
+          "Unsupported file type. Use PDF, image, text, CSV, or JSON."
+        );
         return;
       }
       if (
-        commentScreenshotAttachments.length +
-          pendingCommentScreenshotUploads.length +
-          imageFiles.length >
-        10
+        commentAttachments.length +
+          pendingCommentAttachmentUploads.length +
+          files.length >
+        MAX_TASK_COMMENT_ATTACHMENTS
       ) {
-        setTaskCommentsError("A comment can include up to 10 screenshots.");
+        setTaskCommentsError(
+          `A comment can include up to ${MAX_TASK_COMMENT_ATTACHMENTS} attachments.`
+        );
         return;
       }
-      if (imageFiles.some((file) => file.size > maxAttachmentFileSizeBytes)) {
+      if (files.some((file) => file.size > maxAttachmentFileSizeBytes)) {
         setTaskCommentsError(attachmentFileSizeErrorMessage);
         return;
       }
 
       setTaskCommentsError(null);
-      setCommentScreenshotInputKey((previous) => previous + 1);
+      setCommentAttachmentInputKey((previous) => previous + 1);
       const taskId = selectedTask.id;
 
       await Promise.all(
-        imageFiles.map(async (file) => {
+        files.map(async (file) => {
           const pendingUploadId = createLocalUploadId();
-          setPendingCommentScreenshotUploads((previous) => [
+          setPendingCommentAttachmentUploads((previous) => [
             ...previous,
-            { id: pendingUploadId, name: file.name, sizeBytes: file.size },
+            {
+              id: pendingUploadId,
+              name: file.name,
+              sizeBytes: file.size,
+              mimeType: file.type,
+            },
           ]);
 
           try {
@@ -2860,7 +2875,7 @@ export function KanbanBoard({
               taskId,
               file,
               useDirectUpload: storageProvider === "r2",
-              fallbackErrorMessage: "Could not upload screenshot.",
+              fallbackErrorMessage: "Could not upload attachment.",
             });
 
             if (commentDraftTaskIdRef.current !== taskId) {
@@ -2876,20 +2891,20 @@ export function KanbanBoard({
               ...task,
               attachments: [attachment, ...task.attachments],
             }));
-            setCommentScreenshotAttachments((previous) => [
+            setCommentAttachments((previous) => [
               ...previous,
               attachment,
             ]);
           } catch (error) {
-            console.error("[KanbanBoard.handleAddCommentScreenshots]", error);
+            console.error("[KanbanBoard.handleAddCommentAttachments]", error);
             const message =
-              error instanceof Error ? error.message : "Could not upload screenshot.";
+              error instanceof Error ? error.message : "Could not upload attachment.";
             if (commentDraftTaskIdRef.current === taskId) {
               setTaskCommentsError(message);
               pushToast({ variant: "error", message });
             }
           } finally {
-            setPendingCommentScreenshotUploads((previous) =>
+            setPendingCommentAttachmentUploads((previous) =>
               previous.filter((upload) => upload.id !== pendingUploadId)
             );
           }
@@ -2900,9 +2915,9 @@ export function KanbanBoard({
       applyTaskMutation,
       attachmentFileSizeErrorMessage,
       canEdit,
-      commentScreenshotAttachments.length,
+      commentAttachments.length,
       maxAttachmentFileSizeBytes,
-      pendingCommentScreenshotUploads.length,
+      pendingCommentAttachmentUploads.length,
       projectId,
       pushToast,
       selectedTask,
@@ -2971,11 +2986,11 @@ export function KanbanBoard({
     [applyTaskMutation, canEdit, currentActorSummary, projectId, pushToast, selectedTask]
   );
 
-  const handleRemoveCommentScreenshot = useCallback(
+  const handleRemoveCommentAttachment = useCallback(
     async (attachmentId: string) => {
       const deleted = await handleDeleteAttachment(attachmentId);
       if (deleted) {
-        setCommentScreenshotAttachments((previous) =>
+        setCommentAttachments((previous) =>
           previous.filter((attachment) => attachment.id !== attachmentId)
         );
       }
@@ -3138,9 +3153,9 @@ export function KanbanBoard({
         isLoadingTaskComments={isLoadingTaskComments}
         newTaskComment={newTaskComment}
         isSubmittingTaskComment={isSubmittingTaskComment}
-        commentScreenshotAttachments={commentScreenshotAttachments}
-        pendingCommentScreenshotUploads={pendingCommentScreenshotUploads}
-        commentScreenshotInputKey={commentScreenshotInputKey}
+        commentAttachments={commentAttachments}
+        pendingCommentAttachmentUploads={pendingCommentAttachmentUploads}
+        commentAttachmentInputKey={commentAttachmentInputKey}
         onClose={closeTaskModal}
         onActivateEditMode={handleActivateTaskEditMode}
         onToggleEditMode={handleToggleTaskEditMode}
@@ -3178,8 +3193,8 @@ export function KanbanBoard({
         onPreviewAttachmentChange={setPreviewAttachment}
         onNewTaskCommentChange={setNewTaskComment}
         onSubmitTaskComment={handleSubmitTaskComment}
-        onAddCommentScreenshots={handleAddCommentScreenshots}
-        onRemoveCommentScreenshot={handleRemoveCommentScreenshot}
+        onAddCommentAttachments={handleAddCommentAttachments}
+        onRemoveCommentAttachment={handleRemoveCommentAttachment}
         onMoveTask={(nextStatus) => {
           if (!selectedTask) {
             return;

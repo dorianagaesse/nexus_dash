@@ -229,7 +229,7 @@ test.describe("critical UI smoke flows", () => {
         /\/attachments\//.test(response.url()) &&
         response.ok()
     );
-    await page.getByRole("button", { name: "Delete attachment" }).first().click();
+    await page.getByRole("button", { name: /^Remove file / }).first().click();
     await deleteAttachmentRequest;
     await expect(page.getByText("example.com")).toHaveCount(0);
     await page.getByRole("button", { name: "Cancel" }).click();

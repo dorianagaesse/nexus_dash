@@ -15,6 +15,7 @@ interface EmojiFieldShellProps {
   disabled?: boolean;
   className?: string;
   buttonPlacement?: "center" | "top";
+  buttonClassName?: string;
 }
 
 function assignRef<T>(ref: React.ForwardedRef<T>, value: T | null) {
@@ -34,6 +35,7 @@ export function EmojiFieldShell({
   disabled = false,
   className,
   buttonPlacement = "center",
+  buttonClassName,
 }: EmojiFieldShellProps) {
   const [isPickerOpen, setIsPickerOpen] = React.useState(false);
 
@@ -52,7 +54,8 @@ export function EmojiFieldShell({
           "pointer-events-none absolute z-10 opacity-0 transition-opacity group-focus-within/emoji:pointer-events-auto group-focus-within/emoji:opacity-100 group-data-[picker-open=true]/emoji:pointer-events-auto group-data-[picker-open=true]/emoji:opacity-100",
           buttonPlacement === "center"
             ? "right-2 top-1/2 -translate-y-1/2"
-            : "right-2 top-2"
+            : "right-2 top-2",
+          buttonClassName
         )}
         onSelectEmoji={(emoji) => insertEmojiAtCursor(targetRef.current, emoji)}
         disabled={disabled}

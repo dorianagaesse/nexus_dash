@@ -3,6 +3,155 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-09-18 - ND-399: Handoff merge-forward and re-validation
+
+- Merged `origin/main` (ND-396 #528, ND-465 #527) into
+  `feature/nd-399-comment-file-attachments`; the only conflict was the ADR
+  log, where both sides had added a 2026-09-17 entry — resolved by keeping
+  both, ND-399 above ND-396. Merge commit `0994ebe` pushed.
+- Re-validated the merged tree: lint, rls:check, release:check (0.73.0 = 0.73.0),
+  209 test files / 1710 tests passed (2 skipped), coverage thresholds met
+  (93.77% statements, 84.79% branches, 95.42% functions, 94.08% lines),
+  production build, and the full Playwright suite 90 passed / 1 skipped /
+  0 failed on isolated port 3399, including the ND-465 cancel flows and the
+  ND-399 attachment spec. All CI checks green; `mergeStateStatus` CLEAN.
+- Second merge-forward the same day: merged `origin/main` (ND-464 #524,
+  ND-432 #529). Conflicts were `adr/decisions.md` and `journal.md` — both
+  kept-both resolutions, with ND-399 entries first. Merge commit `34fd6fc`.
+- Re-validated again on the combined tree: lint, rls:check, release:check
+  (0.73.0 = 0.73.0), 209 test files / 1723 tests passed (2 skipped),
+  coverage thresholds met (93.78% statements, 84.46% branches, 95.42%
+  functions, 94.08% lines), production build, and the full Playwright suite
+  91 passed / 1 skipped with the one long-documented local zoom-geometry
+  flake in the smoke meeting-notes flow (`inputZoomBottomInset` -4.84px and
+  ~3.8px right-edge overshoot signatures; 1 of 3 isolated reruns passed, CI
+  is green on main at both merged commits, and the flow renders no links, so
+  ND-464's link work cannot reach it). ND-464's titled-link specs and the
+  ND-399 attachment spec both pass locally.
+- Third merge-forward the same day: merged `origin/main` (ND-131 #531,
+  dependabot safe-production-utilities #536 — lucide-react 1.42.0 → 1.46.0,
+  tailwind-merge). Conflict was `journal.md` only; merge commit `703acdd`.
+- CI on `703acdd` went red once: E2E Smoke failed on the long-documented
+  nd-408 pointer-drag flake (`nd-408-kanban-search-filter.spec.ts:285`
+  "pointer drag under a label filter keeps hidden tasks in order"), which
+  previously failed the same way on PRs #504 and #519 and passed on rerun
+  both times. Re-ran the failed job on the identical head: green. Confirmed
+  locally with `--repeat-each=3` (3/3 passed) on the merged tree; the only
+  changes since the last green E2E run of this PR are the ND-131 auth pages
+  and the dependency bumps, none of which touch the kanban drag path.
+  `mergeStateStatus` CLEAN afterwards.
+
+# 2026-09-17 - ND-399: Move the comment attachment trigger inside the composer
+
+- Follow-up refinement on the same card, branch, and PR: the paperclip left the
+  composer's action row and now lives inside the comment input, appearing only
+  while the user is writing in it.
+- Placement (owner decision): the paperclip shares the input's top-right corner
+  with the existing emoji picker, sitting to its right. The composer keeps its
+  compact height because both actions are overlays rather than a row, and the
+  editor grows to `pr-20` so text never runs underneath them.
+- `components/ui/emoji-field.tsx` now accepts `buttonClassName`, and
+  `components/rich-text-editor.tsx` gained an `editorCornerActions` slot
+  rendered above the editor; when that slot is used the emoji button moves to
+  `right-12`, so the two triggers occupy disjoint boxes with no overlap.
+- Visibility is CSS-only and mirrors `EmojiFieldShell`'s existing
+  `group-focus-within/emoji` reveal: the composer is `group/composer` and the
+  trigger is `opacity-0` + `pointer-events-none` until the input holds focus.
+  No React focus state, so no re-render and no blur race with the native file
+  dialog. `onMouseDown` on the label prevents default, keeping the caret in the
+  editor so the trigger does not flicker out while the OS picker opens.
+- Once the composer holds draft or in-flight attachments (owner decision), the
+  trigger stays visible without re-focusing, so a second file can be added in
+  the same pass.
+- The tap target stays 44x44: an invisible 44px box carries the hit area and
+  the visible 28px chip inside it matches the emoji field button. ND-144's
+  existing `>= 44px` assertion on "Add files to comment" therefore still passes
+  unchanged rather than being weakened. The hidden file input stays always
+  mounted so both specs keep driving it through `setInputFiles`.
+- Coverage: two component tests (corner placement plus focus gating, and the
+  draft-attachment bypass) compare exact class tokens, because the shared
+  Button base classes contain `disabled:pointer-events-none` and a substring
+  check would false-positive. The ND-399 e2e spec now asserts the computed
+  `opacity` / `pointer-events` in both states, the 44x44 trigger box, and that
+  a draft attachment keeps the trigger reachable while the input is blurred.
+  It also proves the moved label still opens the picker (a `filechooser` event
+  — both specs otherwise drive the input directly and would miss a broken
+  label/input pairing) and that the paperclip and the emoji button stay on one
+  row with disjoint boxes; the overlap guard was mutation-checked by shifting
+  the emoji button back to `right-0`, which fails it as intended.
+- Validation on the final tree: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, `npm test` (209 files passed / 2 skipped; 1692 tests
+  passed / 2 skipped), coverage thresholds met (93.77% statements, 84.79%
+  branches, 95.42% functions, 94.08% lines), production build, and the full
+  Playwright suite 82 passed / 1 skipped / 0 failed on port 3100.
+- CI on `9d4e44f`: Quality Gates green on all four jobs (Quality Core, E2E
+  Smoke, Tenant Isolation RLS, Container Image) via a dispatched run. The
+  `pull_request` run again did not queue promptly after the push — the same
+  delay seen on ND-466 — so a `workflow_dispatch` run provided the immediate
+  signal. The Copilot reviewer returned the quota-limit notice seen on PR
+  #519 and #525 instead of a review, so a substitute pass was run over the
+  new commit: no correctness, authorization, or accessibility findings.
+- Environment note: this worktree has no `.env` (gitignored, so never copied by
+  `worktree:create`). Vitest fails 17 files at import time with "Missing
+  required environment variable: DATABASE_URL" unless the CI job env is
+  exported (`DATABASE_URL`, `DIRECT_URL`, `AGENT_TOKEN_SIGNING_SECRET`,
+  `RESEND_API_KEY`) — those failures are environmental, not regressions.
+- Known gap, deliberately not widened here: the file input is `display: none`,
+  so the picker is pointer-only. That is unchanged from before this commit and
+  is flagged as an optional follow-up.
+
+# 2026-09-17 - ND-399: Enable image and file attachments in task comments
+
+- Claimed live Nexus Dash card ND-399 (`cmtkjmdbr000904leef5mheq5`) and built
+  it in the dedicated `../nexus_dash_task399` worktree on
+  `feature/nd-399-comment-file-attachments` from `origin/main` at 8f7faf1
+  (v0.73.0), with an isolated Postgres container on port 55399 and the
+  Playwright suite on port 3399.
+- ND-144 shipped the image half of the card (comment screenshots bound to
+  comments through the nullable `TaskAttachment.commentId`). ND-399
+  generalizes the same pipeline to every supported attachment type (PDF,
+  images, text, Markdown, CSV, JSON) without a schema change.
+- `lib/services/project-task-comment-service.ts`: binding now accepts any
+  caller-uploaded, unbound `kind = "file"` attachment whose MIME type passes
+  `isAllowedAttachmentMimeType`; link attachments stay task-level only and
+  the ten-attachment cap moved to the shared `MAX_TASK_COMMENT_ATTACHMENTS`
+  in `lib/task-comment.ts`. The `task-comment-attachment-invalid` and
+  `too-many-comment-attachments` error contracts are unchanged.
+- `lib/task-attachment.ts` gained `isImageAttachment(kind, mimeType)` as the
+  single image/file split used by the modal, the board state, and the
+  agent-facing API docs (`lib/agent-onboarding.ts`).
+- Client: the comment composer file input accepts the full MIME allowlist and
+  multiple files, mirrors the unsupported-type and cap copy, and shows draft
+  rows with name, size, and a 44px remove target; posted comments render
+  images through the renamed `ImageAttachmentGrid` (was
+  `ScreenshotAttachmentGrid`) and everything else through the new shared
+  `AttachmentFileList`, which the task detail panel and its edit rows now
+  reuse instead of three inline copies of the row markup. Pending uploads
+  carry `mimeType` so the draft can split images from files before the
+  server responds.
+- Coverage: API route tests (bind a PDF, reject unsupported MIME types,
+  reject link attachments, reject a foreign/unbound id, reject more than
+  ten), a new `attachment-file-list` component suite, the renamed
+  `image-attachment-grid` suite, a modal composer regression test over a
+  mixed image + PDF draft, an `isImageAttachment` unit test, and a new
+  end-to-end spec (`nd-399-comment-file-attachments`) that rejects a zip with
+  the visible copy, uploads a text report, posts it, asserts the posted size
+  label and a working authorized download, and re-checks after reload. The
+  ND-144 spec and the smoke spec follow the new "Add files to comment" /
+  "Preview image ..." / "Remove file ..." accessible names.
+- Validation on the final tree: `git diff --check`, `npm run lint`,
+  `npm run rls:check`, `npm run release:check` (head = base = 0.73.0),
+  `npm test` (209 files passed / 2 skipped; 1690 tests passed / 2 skipped),
+  coverage thresholds met (93.77% statements, 84.79% branches, 95.42%
+  functions, 94.08% lines), production build, and the full Playwright suite
+  82 passed / 1 skipped / 0 failed on isolated port 3399.
+- No Prisma schema, migration, or RLS change: comment file attachments ride
+  the nullable `commentId` column shipped in ND-144, so the PostgreSQL RLS
+  isolation matrix was not required; `npm run rls:check` ran clean.
+- ADR entry added (`adr/decisions.md`) recording the binding rule, the
+  link-attachment exclusion, and the shared rendering components. No version
+  metadata touched (release-boundary model, ND-457).
+
 # 2026-09-18 - ND-131 review round: terminal status responses redirect to sign in
 
 - Reviewer inline comment on PR #531 (watcher line 84): every non-2xx response

@@ -59,7 +59,7 @@ test.describe("ND-144 screenshot attachments", () => {
     await descriptionUpload;
     await expect(
       page.getByRole("button", {
-        name: "Preview screenshot description-evidence.png",
+        name: "Preview image description-evidence.png",
       })
     ).toBeVisible();
 
@@ -92,16 +92,16 @@ test.describe("ND-144 screenshot attachments", () => {
     await commentUpload;
 
     const draftPreview = page.getByRole("button", {
-      name: "Preview screenshot comment-paste.png",
+      name: "Preview image comment-paste.png",
     });
     await expect(draftPreview).toBeVisible();
     const commentComposer = page.getByTestId("task-comment-composer");
     await expect(commentComposer.locator("#task-comment-input")).toBeVisible();
     await expect(commentComposer.getByRole("button", {
-      name: "Preview screenshot comment-paste.png",
+      name: "Preview image comment-paste.png",
     })).toBeVisible();
     await expect(page.getByRole("button", { name: "Bold" })).toHaveCount(0);
-    const uploadButton = page.getByLabel("Upload screenshots to comment");
+    const uploadButton = page.getByLabel("Add files to comment");
     expect((await uploadButton.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(44);
     expect((await uploadButton.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
 
@@ -119,7 +119,7 @@ test.describe("ND-144 screenshot attachments", () => {
     await page.reload();
     await page.getByRole("button", { name: new RegExp(taskTitle) }).first().click();
     await expect(
-      page.getByRole("button", { name: "Preview screenshot comment-paste.png" })
+      page.getByRole("button", { name: "Preview image comment-paste.png" })
     ).toBeVisible();
     await expect(page.locator("[role='dialog']")).toHaveCSS("overflow-x", "hidden");
   });

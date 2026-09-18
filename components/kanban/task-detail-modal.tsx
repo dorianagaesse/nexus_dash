@@ -15,7 +15,6 @@ import {
   TriangleAlert,
   Undo2,
   Upload,
-  ImagePlus,
   UserRound,
   X,
 } from "lucide-react";
@@ -36,7 +35,6 @@ import {
 } from "@/components/kanban-board-types";
 import {
   formatFollowUpTimestamp,
-  resolveAttachmentHref,
   readApiError,
 } from "@/components/kanban-board-utils";
 import {
@@ -45,7 +43,8 @@ import {
   type RelatedTaskOption,
 } from "@/components/kanban/related-task-field";
 import { TaskCommentBody } from "@/components/kanban/task-comment-body";
-import { ScreenshotAttachmentGrid } from "@/components/kanban/screenshot-attachment-grid";
+import { AttachmentFileList } from "@/components/kanban/attachment-file-list";
+import { ImageAttachmentGrid } from "@/components/kanban/image-attachment-grid";
 import { TaskDeadlineField } from "@/components/kanban/task-deadline-field";
 import { AttachmentPreviewModal } from "@/components/attachment-preview-modal";
 import { RichTextContent } from "@/components/rich-text-content";
@@ -89,10 +88,8 @@ import {
 } from "@/lib/mention";
 import { formatProjectCollaboratorRole } from "@/lib/project-collaborator-role";
 import {
-  ATTACHMENT_KIND_FILE,
-  ATTACHMENT_KIND_LINK,
-  formatAttachmentFileSize,
-  isAttachmentPreviewable,
+  ALLOWED_ATTACHMENT_MIME_TYPES,
+  isImageAttachment,
 } from "@/lib/task-attachment";
 import {
   MAX_TASK_COMMENT_LENGTH,
@@ -145,9 +142,9 @@ interface TaskDetailModalProps {
   isLoadingTaskComments: boolean;
   newTaskComment: string;
   isSubmittingTaskComment: boolean;
-  commentScreenshotAttachments?: TaskAttachment[];
-  pendingCommentScreenshotUploads?: PendingAttachmentUpload[];
-  commentScreenshotInputKey?: number;
+  commentAttachments?: TaskAttachment[];
+  pendingCommentAttachmentUploads?: PendingAttachmentUpload[];
+  commentAttachmentInputKey?: number;
   onClose: () => void;
   onActivateEditMode: () => void;
   onToggleEditMode: (nextValue: boolean) => void;
@@ -185,8 +182,8 @@ interface TaskDetailModalProps {
     agentMentionSelections?: TaskCommentAgentMentionSelection[],
     attachmentIds?: string[]
   ) => void | Promise<void>;
-  onAddCommentScreenshots?: (files: File[]) => void | Promise<void>;
-  onRemoveCommentScreenshot?: (attachmentId: string) => void | Promise<void>;
+  onAddCommentAttachments?: (files: File[]) => void | Promise<void>;
+  onRemoveCommentAttachment?: (attachmentId: string) => void | Promise<void>;
   onMoveTask: (nextStatus: TaskStatus) => void;
   onArchiveTask: () => void | Promise<void>;
   onUnarchiveTask: () => void | Promise<void>;
@@ -227,9 +224,9 @@ export function TaskDetailModal({
   isLoadingTaskComments,
   newTaskComment,
   isSubmittingTaskComment,
-  commentScreenshotAttachments = [],
-  pendingCommentScreenshotUploads = [],
-  commentScreenshotInputKey = 0,
+  commentAttachments = [],
+  pendingCommentAttachmentUploads = [],
+  commentAttachmentInputKey = 0,
   onClose,
   onActivateEditMode,
   onToggleEditMode,
@@ -263,8 +260,8 @@ export function TaskDetailModal({
   onPreviewAttachmentChange,
   onNewTaskCommentChange,
   onSubmitTaskComment,
-  onAddCommentScreenshots = () => undefined,
-  onRemoveCommentScreenshot = () => undefined,
+  onAddCommentAttachments = () => undefined,
+  onRemoveCommentAttachment = () => undefined,
   onMoveTask,
   onArchiveTask,
   onUnarchiveTask,
@@ -491,9 +488,9 @@ export function TaskDetailModal({
                     isLoadingTaskComments={isLoadingTaskComments}
                     newTaskComment={newTaskComment}
                     isSubmittingTaskComment={isSubmittingTaskComment}
-                    commentScreenshotAttachments={commentScreenshotAttachments}
-                    pendingCommentScreenshotUploads={pendingCommentScreenshotUploads}
-                    commentScreenshotInputKey={commentScreenshotInputKey}
+                    commentAttachments={commentAttachments}
+                    pendingCommentAttachmentUploads={pendingCommentAttachmentUploads}
+                    commentAttachmentInputKey={commentAttachmentInputKey}
                     onPreviewAttachment={onPreviewAttachmentChange}
                     onActivateEditMode={onActivateEditMode}
                     onOpenRelatedTask={onOpenRelatedTask}
@@ -501,8 +498,8 @@ export function TaskDetailModal({
                     mentionUsers={mentionUsers}
                     onNewTaskCommentChange={onNewTaskCommentChange}
                     onSubmitTaskComment={onSubmitTaskComment}
-                    onAddCommentScreenshots={onAddCommentScreenshots}
-                    onRemoveCommentScreenshot={onRemoveCommentScreenshot}
+                    onAddCommentAttachments={onAddCommentAttachments}
+                    onRemoveCommentAttachment={onRemoveCommentAttachment}
                     taskCommentReactions={taskCommentReactions}
                     toggleReaction={toggleReaction}
                     handleAddReaction={handleAddReaction}
@@ -1398,9 +1395,9 @@ function TaskReadOnlyContent({
   isLoadingTaskComments,
   newTaskComment,
   isSubmittingTaskComment,
-  commentScreenshotAttachments,
-  pendingCommentScreenshotUploads,
-  commentScreenshotInputKey,
+  commentAttachments,
+  pendingCommentAttachmentUploads,
+  commentAttachmentInputKey,
   onPreviewAttachment,
   onActivateEditMode,
   onOpenRelatedTask,
@@ -1408,8 +1405,8 @@ function TaskReadOnlyContent({
   mentionUsers,
   onNewTaskCommentChange,
   onSubmitTaskComment,
-  onAddCommentScreenshots,
-  onRemoveCommentScreenshot,
+  onAddCommentAttachments,
+  onRemoveCommentAttachment,
   taskCommentReactions,
   toggleReaction,
   handleAddReaction,
@@ -1421,9 +1418,9 @@ function TaskReadOnlyContent({
   isLoadingTaskComments: boolean;
   newTaskComment: string;
   isSubmittingTaskComment: boolean;
-  commentScreenshotAttachments: TaskAttachment[];
-  pendingCommentScreenshotUploads: PendingAttachmentUpload[];
-  commentScreenshotInputKey: number;
+  commentAttachments: TaskAttachment[];
+  pendingCommentAttachmentUploads: PendingAttachmentUpload[];
+  commentAttachmentInputKey: number;
   onPreviewAttachment: (attachment: TaskAttachment | null) => void;
   onActivateEditMode: () => void;
   onOpenRelatedTask: (taskId: string) => void;
@@ -1435,27 +1432,41 @@ function TaskReadOnlyContent({
     agentMentionSelections?: TaskCommentAgentMentionSelection[],
     attachmentIds?: string[]
   ) => void | Promise<void>;
-  onAddCommentScreenshots: (files: File[]) => void | Promise<void>;
-  onRemoveCommentScreenshot: (attachmentId: string) => void | Promise<void>;
+  onAddCommentAttachments: (files: File[]) => void | Promise<void>;
+  onRemoveCommentAttachment: (attachmentId: string) => void | Promise<void>;
   taskCommentReactions: Map<string, TaskCommentReaction[]>;
   toggleReaction: (commentId: string, emoji: string) => void;
   handleAddReaction: (commentId: string) => (emoji: string) => void;
 }) {
   const commentDraftAttachmentIds = new Set(
-    commentScreenshotAttachments.map((attachment) => attachment.id)
+    commentAttachments.map((attachment) => attachment.id)
   );
   const taskAttachments = selectedTask.attachments.filter(
     (attachment) =>
       !attachment.commentId && !commentDraftAttachmentIds.has(attachment.id)
   );
-  const descriptionScreenshots = taskAttachments.filter(
-    (attachment) => attachment.mimeType?.startsWith("image/")
+  const descriptionImages = taskAttachments.filter(
+    (attachment) => isImageAttachment(attachment.kind, attachment.mimeType)
   );
   const supplementaryAttachments = taskAttachments.filter(
-    (attachment) => !attachment.mimeType?.startsWith("image/")
+    (attachment) => !isImageAttachment(attachment.kind, attachment.mimeType)
+  );
+  const commentImages = commentAttachments.filter((attachment) =>
+    isImageAttachment(attachment.kind, attachment.mimeType)
+  );
+  const commentFiles = commentAttachments.filter(
+    (attachment) => !isImageAttachment(attachment.kind, attachment.mimeType)
+  );
+  const pendingCommentImages = pendingCommentAttachmentUploads.filter((upload) =>
+    upload.mimeType?.startsWith("image/")
+  );
+  const pendingCommentFiles = pendingCommentAttachmentUploads.filter(
+    (upload) => !upload.mimeType?.startsWith("image/")
   );
   const hasAttachments = supplementaryAttachments.length > 0;
   const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
+  const hasCommentDraftAttachments =
+    commentAttachments.length > 0 || pendingCommentAttachmentUploads.length > 0;
   const [commentMentionSelections, setCommentMentionSelections] = useState<
     TaskCommentMentionSelection[]
   >([]);
@@ -1563,8 +1574,8 @@ function TaskReadOnlyContent({
           onActivateEditMode();
         }}
       />
-      <ScreenshotAttachmentGrid
-        attachments={descriptionScreenshots}
+      <ImageAttachmentGrid
+        attachments={descriptionImages}
         onPreview={onPreviewAttachment}
       />
       <section className="pt-4">
@@ -1621,11 +1632,15 @@ function TaskReadOnlyContent({
                         content={comment.content}
                         mentionUsers={mentionUsers}
                       />
-                      <div className="mt-2">
-                        <ScreenshotAttachmentGrid
-                          attachments={comment.attachments ?? []}
+                      <div className="mt-2 space-y-2">
+                        <ImageAttachmentGrid
+                          attachments={getCommentImageAttachments(comment)}
                           onPreview={onPreviewAttachment}
                           compact
+                        />
+                        <AttachmentFileList
+                          attachments={getCommentFileAttachments(comment)}
+                          onPreview={onPreviewAttachment}
                         />
                       </div>
                       {canEdit ? (
@@ -1673,7 +1688,7 @@ function TaskReadOnlyContent({
               </label>
               <div
                 data-testid="task-comment-composer"
-                className="rounded-md border border-input bg-background transition-colors focus-within:border-ring/60"
+                className="group/composer rounded-md border border-input bg-background transition-colors focus-within:border-ring/60"
               >
                 <RichTextEditor
                   id="task-comment-input"
@@ -1686,18 +1701,59 @@ function TaskReadOnlyContent({
                   onMentionSelect={handleCommentMentionSelect}
                   className="space-y-0"
                   editorClassName="min-h-11 border-0 focus-visible:border-transparent"
-                  onPasteFiles={onAddCommentScreenshots}
+                  onPasteFiles={onAddCommentAttachments}
+                  editorCornerActions={
+                    <>
+                      <input
+                        key={commentAttachmentInputKey}
+                        id="task-comment-attachment-file"
+                        type="file"
+                        accept={ALLOWED_ATTACHMENT_MIME_TYPES.join(",")}
+                        multiple
+                        onChange={(event) =>
+                          void onAddCommentAttachments(
+                            Array.from(event.target.files ?? [])
+                          )
+                        }
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="task-comment-attachment-file"
+                        aria-label="Add files to comment"
+                        // Keeps the caret in the comment input so the corner
+                        // actions stay visible while the picker opens.
+                        onMouseDown={(event) => event.preventDefault()}
+                        className={cn(
+                          // The 44px box is the tap target; the chip inside
+                          // matches the emoji field button next to it.
+                          "flex h-11 w-11 cursor-pointer items-center justify-center text-muted-foreground transition-opacity hover:text-foreground",
+                          hasCommentDraftAttachments
+                            ? "opacity-100"
+                            : "pointer-events-none opacity-0 group-focus-within/composer:pointer-events-auto group-focus-within/composer:opacity-100"
+                        )}
+                      >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full border border-border/70 bg-background/90 shadow-sm backdrop-blur">
+                          <Paperclip className="h-3.5 w-3.5" />
+                        </span>
+                      </label>
+                    </>
+                  }
                   hideToolbar
                 />
-                {(commentScreenshotAttachments.length > 0 ||
-                  pendingCommentScreenshotUploads.length > 0) ? (
-                  <div className="border-t border-border/60 px-3 py-2.5">
-                    <ScreenshotAttachmentGrid
-                      attachments={commentScreenshotAttachments}
-                      pendingUploads={pendingCommentScreenshotUploads}
+                {hasCommentDraftAttachments ? (
+                  <div className="space-y-2 border-t border-border/60 px-3 py-2.5">
+                    <ImageAttachmentGrid
+                      attachments={commentImages}
+                      pendingUploads={pendingCommentImages}
                       onPreview={onPreviewAttachment}
-                      onRemove={onRemoveCommentScreenshot}
+                      onRemove={onRemoveCommentAttachment}
                       compact
+                    />
+                    <AttachmentFileList
+                      attachments={commentFiles}
+                      pendingUploads={pendingCommentFiles}
+                      onPreview={onPreviewAttachment}
+                      onRemove={onRemoveCommentAttachment}
                     />
                   </div>
                 ) : null}
@@ -1729,26 +1785,6 @@ function TaskReadOnlyContent({
                   ) : null}
                 </div>
                 <div className="flex items-center gap-2">
-                  <input
-                    key={commentScreenshotInputKey}
-                    id="task-comment-screenshot-file"
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(event) =>
-                      void onAddCommentScreenshots(Array.from(event.target.files ?? []))
-                    }
-                    className="hidden"
-                  />
-                  <Button type="button" variant="outline" size="icon" asChild>
-                    <label
-                      htmlFor="task-comment-screenshot-file"
-                      aria-label="Upload screenshots to comment"
-                      className="h-11 w-11 cursor-pointer"
-                    >
-                      <ImagePlus className="h-4 w-4" />
-                    </label>
-                  </Button>
                   <Button
                     type="button"
                     size="sm"
@@ -1758,13 +1794,13 @@ function TaskReadOnlyContent({
                         commentAgentMentionSelections.map((selection) => ({
                           credentialId: selection.credentialId,
                         })),
-                        commentScreenshotAttachments.map((attachment) => attachment.id)
+                        commentAttachments.map((attachment) => attachment.id)
                       )
                     }
                     disabled={
                       isSubmittingTaskComment ||
-                      pendingCommentScreenshotUploads.length > 0 ||
-                      (!commentDraftText && commentScreenshotAttachments.length === 0) ||
+                      pendingCommentAttachmentUploads.length > 0 ||
+                      (!commentDraftText && commentAttachments.length === 0) ||
                       commentDraftTooLong
                     }
                     className="min-h-11 flex-1 sm:flex-none"
@@ -1795,52 +1831,10 @@ function TaskReadOnlyContent({
       {hasAttachments ? (
         <div className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-3">
           <p className="text-sm font-medium">Attachments</p>
-          <div className="space-y-2">
-            {supplementaryAttachments.map((attachment) => {
-              const href = resolveAttachmentHref(attachment);
-              const canPreview =
-                isAttachmentPreviewable(attachment.kind, attachment.mimeType) &&
-                Boolean(attachment.downloadUrl);
-
-              return (
-                <div
-                  key={attachment.id}
-                  className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5"
-                >
-                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    {canPreview ? (
-                      <button
-                        type="button"
-                        onClick={() => onPreviewAttachment(attachment)}
-                        className="truncate text-left text-xs font-medium text-foreground underline underline-offset-2"
-                      >
-                        {attachment.name}
-                      </button>
-                    ) : href ? (
-                      <a
-                        href={href}
-                        target={attachment.kind === ATTACHMENT_KIND_LINK ? "_blank" : undefined}
-                        rel={attachment.kind === ATTACHMENT_KIND_LINK ? "noreferrer" : undefined}
-                        className="truncate text-xs font-medium text-foreground underline underline-offset-2"
-                      >
-                        {attachment.name}
-                      </a>
-                    ) : (
-                      <p className="truncate text-xs font-medium text-foreground">
-                        {attachment.name}
-                      </p>
-                    )}
-                    {attachment.kind === ATTACHMENT_KIND_FILE ? (
-                      <p className="text-[11px] text-muted-foreground">
-                        {formatAttachmentFileSize(attachment.sizeBytes)}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <AttachmentFileList
+            attachments={supplementaryAttachments}
+            onPreview={onPreviewAttachment}
+          />
         </div>
       ) : null}
       {hasRelatedTasks ? (
@@ -1957,8 +1951,17 @@ function TaskEditContent({
   const taskAttachments = selectedTask.attachments.filter(
     (attachment) => !attachment.commentId
   );
+  const descriptionImages = taskAttachments.filter((attachment) =>
+    isImageAttachment(attachment.kind, attachment.mimeType)
+  );
   const supplementaryAttachments = taskAttachments.filter(
-    (attachment) => !attachment.mimeType?.startsWith("image/")
+    (attachment) => !isImageAttachment(attachment.kind, attachment.mimeType)
+  );
+  const pendingImages = pendingAttachmentUploads.filter((upload) =>
+    upload.mimeType?.startsWith("image/")
+  );
+  const pendingFiles = pendingAttachmentUploads.filter(
+    (upload) => !upload.mimeType?.startsWith("image/")
   );
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -2045,12 +2048,9 @@ function TaskEditContent({
               }
             }}
           />
-          <ScreenshotAttachmentGrid
-            attachments={selectedTask.attachments.filter(
-              (attachment) =>
-                !attachment.commentId && attachment.mimeType?.startsWith("image/")
-            )}
-            pendingUploads={pendingAttachmentUploads}
+          <ImageAttachmentGrid
+            attachments={descriptionImages}
+            pendingUploads={pendingImages}
             onPreview={onPreviewAttachment}
             onRemove={onDeleteAttachment}
           />
@@ -2162,85 +2162,16 @@ function TaskEditContent({
         ) : null}
 
         <div className="space-y-2">
-          {taskAttachments.length === 0 ? (
+          {taskAttachments.length === 0 && pendingAttachmentUploads.length === 0 ? (
             <p className="text-xs text-muted-foreground">No attachments yet.</p>
-          ) : supplementaryAttachments.length > 0 ? (
-            <div className="space-y-2">
-              {supplementaryAttachments.map((attachment) => {
-                const href = resolveAttachmentHref(attachment);
-                const canPreview =
-                  isAttachmentPreviewable(attachment.kind, attachment.mimeType) &&
-                  Boolean(attachment.downloadUrl);
-
-                return (
-                  <div
-                    key={attachment.id}
-                    className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5"
-                  >
-                    <div className="min-w-0">
-                      {canPreview ? (
-                        <button
-                          type="button"
-                          onClick={() => onPreviewAttachment(attachment)}
-                          className="truncate text-left text-xs font-medium text-foreground underline underline-offset-2"
-                        >
-                          {attachment.name}
-                        </button>
-                      ) : href ? (
-                        <a
-                          href={href}
-                          target={attachment.kind === ATTACHMENT_KIND_LINK ? "_blank" : undefined}
-                          rel={attachment.kind === ATTACHMENT_KIND_LINK ? "noreferrer" : undefined}
-                          className="truncate text-xs font-medium text-foreground underline underline-offset-2"
-                        >
-                          {attachment.name}
-                        </a>
-                      ) : (
-                        <p className="truncate text-xs font-medium text-foreground">
-                          {attachment.name}
-                        </p>
-                      )}
-                      {attachment.kind === ATTACHMENT_KIND_FILE ? (
-                        <p className="text-[11px] text-muted-foreground">
-                          {formatAttachmentFileSize(attachment.sizeBytes)}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => void onDeleteAttachment(attachment.id)}
-                        disabled={isSubmittingAttachment || hasPendingAttachmentUploads}
-                        aria-label="Delete attachment"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           ) : null}
-          {pendingAttachmentUploads.length > 0 ? (
-            <div className="space-y-2">
-              {pendingAttachmentUploads.map((upload) => (
-                <div
-                  key={upload.id}
-                  className="flex items-center justify-between gap-2 rounded-md border border-dashed border-border/70 bg-muted/20 px-2 py-1.5"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-medium text-foreground">{upload.name}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Uploading... {formatAttachmentFileSize(upload.sizeBytes)}
-                    </p>
-                  </div>
-                  <Upload className="h-4 w-4 animate-pulse text-muted-foreground" />
-                </div>
-              ))}
-            </div>
-          ) : null}
+          <AttachmentFileList
+            attachments={supplementaryAttachments}
+            pendingUploads={pendingFiles}
+            onPreview={onPreviewAttachment}
+            onRemove={onDeleteAttachment}
+            removeDisabled={isSubmittingAttachment || hasPendingAttachmentUploads}
+          />
 
           <div className="flex items-center gap-2">
             <Button
@@ -2308,6 +2239,18 @@ function TaskEditContent({
         </div>
       </div>
     </div>
+  );
+}
+
+function getCommentImageAttachments(comment: TaskComment): TaskAttachment[] {
+  return (comment.attachments ?? []).filter((attachment) =>
+    isImageAttachment(attachment.kind, attachment.mimeType)
+  );
+}
+
+function getCommentFileAttachments(comment: TaskComment): TaskAttachment[] {
+  return (comment.attachments ?? []).filter(
+    (attachment) => !isImageAttachment(attachment.kind, attachment.mimeType)
   );
 }
 
