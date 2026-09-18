@@ -38,4 +38,19 @@ test.describe("public privacy policy", () => {
     }));
     expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth + 1);
   });
+
+  test("documents what feedback reports include and never include", async ({
+    page,
+  }) => {
+    const response = await page.goto("/privacy");
+
+    expect(response?.status()).toBe(200);
+    const informationWeCollect = page.locator("#information-we-collect");
+    await expect(informationWeCollect).toContainText(
+      "Product feedback and bug reports you choose to send"
+    );
+    await expect(informationWeCollect).toContainText(
+      "Diagnostics never include page content, cookies, form data, or identifiers."
+    );
+  });
 });
