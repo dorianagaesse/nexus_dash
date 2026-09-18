@@ -8385,6 +8385,19 @@ Low-value entries to avoid going forward:
   PostgreSQL RLS matrix against local Postgres, and the full local Playwright
   suite 98 passed / 1 skipped / 0 failed on port 3210 with outbound email
   disabled; `git diff --check` clean.
+- Preview verification: dispatched `deploy-vercel.yml` with
+  `action=deploy-preview` and `git_ref=feature/nd-181-durable-collaboration-history`
+  (run 35345628272); the job checked out the branch head `df73875`, deployed
+  `https://nexus-dash-n5d6q1b5v-dorian-agaesses-projects.vercel.app`, and
+  `/api/health/ready` reported revision `df73875` with database readiness.
+  `tests/e2e/nd-181-project-timeline.spec.ts` then passed live against that
+  immutable deployment (preview database seeded through the current pooled
+  credential obtained with `vercel env pull`), which automates the ADR's
+  manual preview check: expand the Timeline panel and confirm an entry for a
+  UI mutation.
+- CI: PR #545 checks green on `df73875` - Quality Core, E2E Smoke (full
+  Playwright suite), Tenant Isolation (real PostgreSQL RLS), Container Image,
+  and check-name.
 - Decision record: `adr/task-181-durable-collaboration-history.md` (option A:
   extend `ProjectActivityEvent` rather than per-domain audit tables or event
   sourcing), summarized in `adr/decisions.md`.
