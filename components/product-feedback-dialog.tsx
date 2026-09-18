@@ -327,8 +327,8 @@ export function ProductFeedbackDialog({
             <span>
               <span className="block text-sm font-medium">Include diagnostics</span>
               <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
-                Browser, screen size, language, and time zone. No page content,
-                cookies, or form data.
+                Adds your browser, screen size, language, and time zone to the
+                report. No page content, cookies, form data, or identifiers.
               </span>
             </span>
           </label>
