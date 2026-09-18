@@ -81,7 +81,12 @@ describe("product feedback dialog", () => {
 
     const dialog = document.body.querySelector<HTMLElement>("[role='dialog']");
     expect(dialog?.textContent).toContain("Report a bug or share feedback");
-    expect(dialog?.textContent).toContain("No page content, cookies, or form data.");
+    expect(dialog?.textContent).toContain(
+      "Adds your browser, screen size, language, and time zone to the report."
+    );
+    expect(dialog?.textContent).toContain(
+      "No page content, cookies, form data, or identifiers."
+    );
 
     const feedbackRadio = document.body.querySelector<HTMLInputElement>(
       "input[type='radio'][value='feedback']"
