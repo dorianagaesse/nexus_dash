@@ -47,6 +47,10 @@ import {
   ProjectRoadmapPanelSection,
   ProjectRoadmapPanelSkeleton,
 } from "./project-roadmap-panel-section";
+import {
+  ProjectTimelinePanelSection,
+  ProjectTimelinePanelSkeleton,
+} from "./project-timeline-panel-section";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -313,6 +317,10 @@ export default async function ProjectDashboardPage({
 
       <Suspense fallback={<ProjectCalendarPanelSkeleton />}>
         <ProjectCalendarPanelSection projectId={project.id} />
+      </Suspense>
+
+      <Suspense fallback={<ProjectTimelinePanelSkeleton />}>
+        <ProjectTimelinePanelSection projectId={project.id} />
       </Suspense>
     </main>
   );

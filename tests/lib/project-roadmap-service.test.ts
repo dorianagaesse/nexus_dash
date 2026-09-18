@@ -406,10 +406,16 @@ describe("project-roadmap-service", () => {
     dbMock.roadmapEvent.findFirst.mockResolvedValueOnce({
       id: "event-2",
       phaseId: "phase-1",
+      title: "Ship beta",
     });
-    dbMock.roadmapPhase.findFirst.mockResolvedValueOnce({
-      id: "phase-2",
-    });
+    dbMock.roadmapPhase.findFirst
+      .mockResolvedValueOnce({
+        id: "phase-2",
+        title: "Phase 2",
+      })
+      .mockResolvedValueOnce({
+        title: "Phase 1",
+      });
     dbMock.roadmapEvent.findMany
       .mockResolvedValueOnce([{ id: "event-1" }, { id: "event-2" }])
       .mockResolvedValueOnce([{ id: "event-3" }]);
@@ -427,6 +433,9 @@ describe("project-roadmap-service", () => {
       ok: true,
       data: {
         ok: true,
+        title: "Ship beta",
+        fromPhaseTitle: "Phase 1",
+        toPhaseTitle: "Phase 2",
       },
     });
     expect(dbMock.$transaction).toHaveBeenCalled();

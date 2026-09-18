@@ -364,24 +364,33 @@ model ProjectMeetingNoteActionAssigneeChange {
 }
 
 model ProjectActivityEvent {
-  id          String   @id @default(cuid())
-  projectId   String
-  actorUserId String?
-  domain      String   @db.VarChar(40)
-  action      String   @db.VarChar(40)
-  entityId    String   @db.VarChar(128)
-  version     DateTime @default(now())
-  payload     Json?
-  createdAt   DateTime @default(now())
+  id                        String           @id @default(cuid())
+  projectId                 String
+  actorUserId               String?
+  actorCredentialId         String?
+  actorKind                 ProjectActorKind?
+  actorDisplayNameSnapshot  String?          @db.VarChar(80)
+  domain                    String           @db.VarChar(40)
+  action                    String           @db.VarChar(40)
+  entityId                  String           @db.VarChar(128)
+  entityDisplayNameSnapshot String?          @db.VarChar(160)
+  summary                   String?          @db.VarChar(280)
+  changes                   Json?
+  version                   DateTime         @default(now())
+  payload                   Json?
+  createdAt                 DateTime         @default(now())
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  actor   User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  project         Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor           User?          @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorCredential ApiCredential? @relation("ProjectActivityEventActorCredential", fields: [actorCredentialId], references: [id], onDelete: SetNull)
 
   @@index([projectId, version])
   @@index([projectId, version, createdAt, id])
   @@index([projectId, createdAt])
   @@index([domain, action])
   @@index([actorUserId])
+  @@index([actorCredentialId])
+  @@index([createdAt])
 }
 
 model ProjectMembership {
@@ -966,6 +975,7 @@ model ApiCredential {
   meetingTodoAssigneeChangesPrevious  ProjectMeetingNoteActionAssigneeChange[] @relation("MeetingTodoAssigneeChangePreviousCredential")
   meetingTodoAssigneeChangesNext      ProjectMeetingNoteActionAssigneeChange[] @relation("MeetingTodoAssigneeChangeNextCredential")
   meetingTodoAssigneeChangesPerformed ProjectMeetingNoteActionAssigneeChange[] @relation("MeetingTodoAssigneeChangeActorCredential")
+  activityEventsPerformed             ProjectActivityEvent[]                    @relation("ProjectActivityEventActorCredential")
 
   @@index([projectId])
   @@index([createdByUserId])

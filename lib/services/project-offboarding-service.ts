@@ -519,6 +519,9 @@ export async function transferProjectOwnership(input: {
   ServiceResult<{
     projectId: string;
     newOwnerUserId: string;
+    newOwnerDisplayName: string;
+    previousOwnerDisplayName: string;
+    projectName: string;
     previousOwnerLeft: boolean;
     resolvedInventory: ProjectResponsibilityInventory;
   }>
@@ -543,10 +546,36 @@ export async function transferProjectOwnership(input: {
       return createError(access.status, access.error);
     }
 
-    const target = await db.projectMembership.findUnique({
-      where: { id: membershipId },
-      select: { projectId: true, userId: true },
-    });
+    const [target, actor, project] = await Promise.all([
+      db.projectMembership.findUnique({
+        where: { id: membershipId },
+        select: {
+          projectId: true,
+          userId: true,
+          user: {
+            select: {
+              name: true,
+              username: true,
+              usernameDiscriminator: true,
+              email: true,
+            },
+          },
+        },
+      }),
+      db.user.findUnique({
+        where: { id: actorUserId },
+        select: {
+          name: true,
+          username: true,
+          usernameDiscriminator: true,
+          email: true,
+        },
+      }),
+      db.project.findUnique({
+        where: { id: input.projectId },
+        select: { name: true },
+      }),
+    ]);
     if (!target || target.projectId !== input.projectId) {
       return createError(404, "new-owner-not-member");
     }
@@ -591,6 +620,9 @@ export async function transferProjectOwnership(input: {
     return createSuccess(200, {
       projectId: input.projectId,
       newOwnerUserId: target.userId,
+      newOwnerDisplayName: buildDisplayName(target.user),
+      previousOwnerDisplayName: actor ? buildDisplayName(actor) : "Unknown user",
+      projectName: project?.name ?? "",
       previousOwnerLeft: input.previousOwnerLeaves,
       resolvedInventory,
     });

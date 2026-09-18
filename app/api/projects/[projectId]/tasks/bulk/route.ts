@@ -317,6 +317,7 @@ export async function POST(
         taskId: result.taskId,
       })),
     },
+    agentAccess,
   });
 
   return NextResponse.json(

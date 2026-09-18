@@ -140,6 +140,30 @@ export async function PATCH(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
+  const updatedAction = result.data.note.actions.find(
+    (entry) => entry.id === params.actionId
+  );
+  const changes = hasCompleted
+    ? [
+        {
+          field: "todo",
+          before:
+            "previousCompleted" in result.data && result.data.previousCompleted
+              ? "done"
+              : "open",
+          after: payload.completed ? "done" : "open",
+        },
+      ]
+    : [
+        {
+          field: "todo-assignee",
+          before:
+            "previousAssigneeDisplayName" in result.data
+              ? result.data.previousAssigneeDisplayName
+              : null,
+          after: updatedAction?.assignee?.displayName ?? null,
+        },
+      ];
   const version = await recordProjectActivityEventVersion({
     actorUserId: principal.actorUserId,
     projectId: params.projectId,
@@ -152,6 +176,9 @@ export async function PATCH(
       actorCredentialId:
         principal.kind === "agent" ? principal.credentialId : null,
     },
+    agentAccess: commonInput.agentAccess,
+    entityDisplayNameSnapshot: result.data.note.title,
+    changes,
   });
 
   return NextResponse.json(

@@ -339,7 +339,12 @@ export async function createContextCardForProject(
 
 export async function updateContextCardForProject(
   input: UpdateContextCardInput
-): Promise<ServiceResult<ContextCardResponse>> {
+): Promise<
+  ServiceResult<{
+    card: ContextCardResponse;
+    previous: { title: string; content: string; color: string | null };
+  }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -407,7 +412,7 @@ export async function updateContextCardForProject(
           projectId: input.projectId,
           type: RESOURCE_TYPE_CONTEXT_CARD,
         },
-        select: { id: true },
+        select: { id: true, name: true, content: true, color: true },
       });
 
       if (!existingCard) {
@@ -463,19 +468,26 @@ export async function updateContextCardForProject(
 
       return {
         ok: true,
-        data: mapContextCardResponse({
-          projectId: input.projectId,
-          card: {
-            id: updatedCard.id,
-            name: title,
-            content,
-            color,
-            createdAt: updatedCard.createdAt,
-            updatedAt: updatedCard.updatedAt,
+        data: {
+          card: mapContextCardResponse({
+            projectId: input.projectId,
+            card: {
+              id: updatedCard.id,
+              name: title,
+              content,
+              color,
+              createdAt: updatedCard.createdAt,
+              updatedAt: updatedCard.updatedAt,
+            },
+            attachments: updatedCard.attachments,
+            projection,
+          }),
+          previous: {
+            title: existingCard.name,
+            content: existingCard.content,
+            color: existingCard.color,
           },
-          attachments: updatedCard.attachments,
-          projection,
-        }),
+        },
       };
     } catch (error) {
       logServerError("updateContextCardForProject", error);
@@ -486,7 +498,7 @@ export async function updateContextCardForProject(
 
 export async function deleteContextCardForProject(
   input: DeleteContextCardInput
-): Promise<ServiceResult<{ ok: true }>> {
+): Promise<ServiceResult<{ ok: true; title: string }>> {
   const actorUserId = normalizeText(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -525,7 +537,7 @@ export async function deleteContextCardForProject(
           projectId: input.projectId,
           type: RESOURCE_TYPE_CONTEXT_CARD,
         },
-        select: { id: true },
+        select: { id: true, name: true },
       });
 
       if (!existingCard) {
@@ -540,7 +552,7 @@ export async function deleteContextCardForProject(
 
       return {
         ok: true,
-        data: { ok: true },
+        data: { ok: true, title: existingCard.name },
       };
     } catch (error) {
       logServerError("deleteContextCardForProject", error);

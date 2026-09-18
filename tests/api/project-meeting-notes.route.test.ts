@@ -253,6 +253,7 @@ describe("project meeting notes routes", () => {
       action: "created",
       entityId: "note-1",
       payload: { noteId: "note-1" },
+      entityDisplayNameSnapshot: "Weekly execution review",
     });
   });
 
@@ -383,6 +384,9 @@ describe("project meeting notes routes", () => {
         actionId: "action-1",
         actorCredentialId: null,
       },
+      agentAccess: undefined,
+      entityDisplayNameSnapshot: "Weekly execution review",
+      changes: [{ field: "todo", before: "open", after: "done" }],
     });
   });
 

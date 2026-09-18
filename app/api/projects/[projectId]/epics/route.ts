@@ -5,6 +5,8 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   createProjectEpic,
   listProjectEpics,
@@ -76,10 +78,22 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
+  const epic = result.data.epic;
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId: params.projectId,
+    domain: "epic",
+    action: "created",
+    entityId: epic.id,
+    payload: { epic: serializeProjectEpicResponse(epic) },
+    agentAccess: getAgentProjectAccessContext(principalResult.principal),
+    entityDisplayNameSnapshot: epic.name,
+  });
+
   return NextResponse.json(
     {
-      epic: serializeProjectEpicResponse(result.data.epic),
+      epic: serializeProjectEpicResponse(epic),
     },
-    { status: 201 }
+    { status: 201, headers: withProjectActivityVersionHeader(undefined, version) }
   );
 }

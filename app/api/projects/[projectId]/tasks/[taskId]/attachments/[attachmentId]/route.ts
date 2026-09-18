@@ -4,6 +4,7 @@ import {
   getAgentProjectAccessContext,
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { deleteTaskAttachmentForProject } from "@/lib/services/project-attachment-service";
 
@@ -38,8 +39,19 @@ export async function DELETE(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
+  const version = await recordProjectActivityEventVersion({
+    actorUserId,
+    projectId,
+    domain: "attachment",
+    action: "deleted",
+    entityId: attachmentId,
+    payload: { taskId, attachmentId },
+    agentAccess,
+    entityDisplayNameSnapshot: result.data.name,
+  });
+
   return NextResponse.json(
     { ok: true },
-    { headers: withProjectActivityVersionHeader() }
+    { headers: withProjectActivityVersionHeader(undefined, version) }
   );
 }

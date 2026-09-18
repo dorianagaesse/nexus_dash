@@ -644,7 +644,17 @@ export async function createProjectRoadmapPhase(
 
 export async function updateProjectRoadmapPhase(
   input: UpdateRoadmapPhaseInput
-): Promise<ServiceResult<{ phase: ProjectRoadmapPhase }>> {
+): Promise<
+  ServiceResult<{
+    phase: ProjectRoadmapPhase;
+    previous: {
+      title: string;
+      description: string | null;
+      targetDate: string | null;
+      status: string;
+    };
+  }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   const phaseId = normalizeText(input.phaseId);
   const titleProvided = Object.prototype.hasOwnProperty.call(input, "title");
@@ -699,6 +709,9 @@ export async function updateProjectRoadmapPhase(
         },
         select: {
           id: true,
+          title: true,
+          description: true,
+          targetDate: true,
           status: true,
         },
       });
@@ -742,6 +755,12 @@ export async function updateProjectRoadmapPhase(
         ok: true,
         data: {
           phase,
+          previous: {
+            title: existingPhase.title,
+            description: existingPhase.description,
+            targetDate: formatRoadmapTargetDate(existingPhase.targetDate),
+            status: existingPhase.status,
+          },
         },
       };
     } catch (error) {
@@ -760,7 +779,7 @@ export async function deleteProjectRoadmapPhase(input: {
   projectId: string;
   agentAccess?: AgentProjectAccessContext;
   phaseId: string;
-}): Promise<ServiceResult<{ ok: true }>> {
+}): Promise<ServiceResult<{ ok: true; title: string }>> {
   const actorUserId = normalizeText(input.actorUserId);
   const phaseId = normalizeText(input.phaseId);
   if (!actorUserId) {
@@ -791,6 +810,7 @@ export async function deleteProjectRoadmapPhase(input: {
         },
         select: {
           id: true,
+          title: true,
         },
       });
       if (!existingPhase) {
@@ -809,6 +829,7 @@ export async function deleteProjectRoadmapPhase(input: {
         ok: true,
         data: {
           ok: true,
+          title: existingPhase.title,
         },
       };
     } catch (error) {
@@ -947,7 +968,18 @@ export async function createProjectRoadmapEvent(
 
 export async function updateProjectRoadmapEvent(
   input: UpdateRoadmapEventInput
-): Promise<ServiceResult<{ event: ProjectRoadmapEvent; phase: ProjectRoadmapPhase }>> {
+): Promise<
+  ServiceResult<{
+    event: ProjectRoadmapEvent;
+    phase: ProjectRoadmapPhase;
+    previous: {
+      title: string;
+      description: string | null;
+      targetDate: string | null;
+      status: string;
+    };
+  }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   const eventId = normalizeText(input.eventId);
   const titleProvided = Object.prototype.hasOwnProperty.call(input, "title");
@@ -1003,6 +1035,9 @@ export async function updateProjectRoadmapEvent(
         select: {
           id: true,
           phaseId: true,
+          title: true,
+          description: true,
+          targetDate: true,
           status: true,
         },
       });
@@ -1052,6 +1087,12 @@ export async function updateProjectRoadmapEvent(
         data: {
           event,
           phase,
+          previous: {
+            title: existingEvent.title,
+            description: existingEvent.description,
+            targetDate: formatRoadmapTargetDate(existingEvent.targetDate),
+            status: existingEvent.status,
+          },
         },
       };
     } catch (error) {
@@ -1070,7 +1111,7 @@ export async function deleteProjectRoadmapEvent(input: {
   projectId: string;
   agentAccess?: AgentProjectAccessContext;
   eventId: string;
-}): Promise<ServiceResult<{ ok: true; phaseId: string }>> {
+}): Promise<ServiceResult<{ ok: true; phaseId: string; title: string }>> {
   const actorUserId = normalizeText(input.actorUserId);
   const eventId = normalizeText(input.eventId);
   if (!actorUserId) {
@@ -1102,6 +1143,7 @@ export async function deleteProjectRoadmapEvent(input: {
         select: {
           id: true,
           phaseId: true,
+          title: true,
         },
       });
       if (!existingEvent) {
@@ -1121,6 +1163,7 @@ export async function deleteProjectRoadmapEvent(input: {
         data: {
           ok: true,
           phaseId: existingEvent.phaseId,
+          title: existingEvent.title,
         },
       };
     } catch (error) {
@@ -1294,7 +1337,14 @@ export async function reorderProjectRoadmapEvents(
 
 export async function moveProjectRoadmapEvent(
   input: MoveRoadmapEventInput
-): Promise<ServiceResult<{ ok: true }>> {
+): Promise<
+  ServiceResult<{
+    ok: true;
+    title: string;
+    fromPhaseTitle: string | null;
+    toPhaseTitle: string;
+  }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   const eventId = normalizeText(input.eventId);
   const targetPhaseId = normalizeText(input.targetPhaseId);
@@ -1334,6 +1384,7 @@ export async function moveProjectRoadmapEvent(
         select: {
           id: true,
           phaseId: true,
+          title: true,
         },
       });
       if (!existingEvent) {
@@ -1347,11 +1398,27 @@ export async function moveProjectRoadmapEvent(
         },
         select: {
           id: true,
+          title: true,
         },
       });
       if (!targetPhase) {
         return createError(404, "roadmap-phase-not-found");
       }
+
+      const sourcePhaseTitle =
+        existingEvent.phaseId === targetPhaseId
+          ? targetPhase.title
+          : (
+              await db.roadmapPhase.findFirst({
+                where: {
+                  id: existingEvent.phaseId,
+                  projectId: input.projectId,
+                },
+                select: {
+                  title: true,
+                },
+              })
+            )?.title ?? null;
 
       const sourceEvents = await db.roadmapEvent.findMany({
         where: {
@@ -1445,6 +1512,9 @@ export async function moveProjectRoadmapEvent(
         ok: true,
         data: {
           ok: true,
+          title: existingEvent.title,
+          fromPhaseTitle: sourcePhaseTitle,
+          toPhaseTitle: targetPhase.title,
         },
       };
     } catch (error) {

@@ -5,6 +5,8 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 import {
   deleteProjectRoadmapEvent,
@@ -103,10 +105,46 @@ export async function PATCH(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({
-    event: result.data.event,
-    phase: result.data.phase,
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId: params.projectId,
+    domain: "roadmap",
+    action: "updated",
+    entityId: result.data.event.id,
+    payload: { event: result.data.event, phaseId: result.data.event.phaseId },
+    agentAccess,
+    entityDisplayNameSnapshot: result.data.event.title,
+    changes: [
+      {
+        field: "title",
+        before: result.data.previous.title,
+        after: result.data.event.title,
+      },
+      {
+        field: "description",
+        before: result.data.previous.description,
+        after: result.data.event.description,
+      },
+      {
+        field: "targetDate",
+        before: result.data.previous.targetDate,
+        after: result.data.event.targetDate,
+      },
+      {
+        field: "status",
+        before: result.data.previous.status,
+        after: result.data.event.status,
+      },
+    ],
   });
+
+  return NextResponse.json(
+    {
+      event: result.data.event,
+      phase: result.data.phase,
+    },
+    { headers: withProjectActivityVersionHeader(undefined, version) }
+  );
 }
 
 export async function DELETE(
@@ -143,8 +181,22 @@ export async function DELETE(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({
-    ok: true,
-    phaseId: result.data.phaseId,
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId: params.projectId,
+    domain: "roadmap",
+    action: "deleted",
+    entityId: params.eventId,
+    payload: { eventId: params.eventId, phaseId: result.data.phaseId },
+    agentAccess,
+    entityDisplayNameSnapshot: result.data.title,
   });
+
+  return NextResponse.json(
+    {
+      ok: true,
+      phaseId: result.data.phaseId,
+    },
+    { headers: withProjectActivityVersionHeader(undefined, version) }
+  );
 }

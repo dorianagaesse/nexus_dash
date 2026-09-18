@@ -6,6 +6,8 @@ import {
   requireAuthenticatedApiUser,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   requireAgentProjectScopes,
 } from "@/lib/services/project-access-service";
@@ -86,7 +88,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ pro
       return NextResponse.json({ error: "name-too-short" }, { status: 400 });
     }
 
-    const project = await updateProject({
+    const { project, previous } = await updateProject({
       actorUserId: authenticatedUser.userId,
       projectId: params.projectId,
       name,
@@ -96,7 +98,28 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ pro
           : null,
     });
 
-    return NextResponse.json({ project });
+    const version = await recordProjectActivityEventVersion({
+      actorUserId: authenticatedUser.userId,
+      projectId: params.projectId,
+      domain: "project",
+      action: "updated",
+      entityId: params.projectId,
+      payload: { projectId: params.projectId },
+      entityDisplayNameSnapshot: project.name,
+      changes: [
+        { field: "name", before: previous.name, after: project.name },
+        {
+          field: "description",
+          before: previous.description,
+          after: project.description,
+        },
+      ],
+    });
+
+    return NextResponse.json(
+      { project },
+      { headers: withProjectActivityVersionHeader(undefined, version) }
+    );
   } catch (error) {
     if (
       error instanceof Error &&

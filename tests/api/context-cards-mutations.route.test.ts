@@ -61,7 +61,24 @@ describe("context cards mutation routes", () => {
   test("POST creates context card from form payload", async () => {
     contextCardServiceMock.createContextCardForProject.mockResolvedValueOnce({
       ok: true,
-      data: { id: "card-1" },
+      data: {
+        id: "card-1",
+        card: {
+          id: "card-1",
+          title: "Sprint notes",
+          content: "<p>Context body</p>",
+          color: "#abc",
+          createdAt: new Date("2026-08-15T09:00:00.000Z"),
+          updatedAt: new Date("2026-08-16T12:00:00.000Z"),
+          attachments: [],
+          projection: {
+            id: "card-1",
+            creator: null,
+            lastEditor: null,
+            attachments: [],
+          },
+        },
+      },
     });
 
     const formData = new FormData();
@@ -84,7 +101,24 @@ describe("context cards mutation routes", () => {
     });
 
     expect(response.status).toBe(201);
-    await expect(readJson(response)).resolves.toEqual({ cardId: "card-1" });
+    await expect(readJson(response)).resolves.toEqual({
+      cardId: "card-1",
+      card: {
+        id: "card-1",
+        title: "Sprint notes",
+        content: "<p>Context body</p>",
+        color: "#abc",
+        createdAt: "2026-08-15T09:00:00.000Z",
+        updatedAt: "2026-08-16T12:00:00.000Z",
+        attachments: [],
+        projection: {
+          id: "card-1",
+          creator: null,
+          lastEditor: null,
+          attachments: [],
+        },
+      },
+    });
     expect(contextCardServiceMock.createContextCardForProject).toHaveBeenCalledWith({
       actorUserId: "test-user",
       projectId: "p1",
@@ -148,14 +182,21 @@ describe("context cards mutation routes", () => {
     contextCardServiceMock.updateContextCardForProject.mockResolvedValueOnce({
       ok: true,
       data: {
-        id: "c1",
-        title: "Updated title",
-        content: "<p>Updated content</p>",
-        color: "#def",
-        createdAt: new Date("2026-08-15T09:00:00.000Z"),
-        updatedAt: new Date("2026-08-16T12:00:00.000Z"),
-        attachments: [],
-        projection,
+        card: {
+          id: "c1",
+          title: "Updated title",
+          content: "<p>Updated content</p>",
+          color: "#def",
+          createdAt: new Date("2026-08-15T09:00:00.000Z"),
+          updatedAt: new Date("2026-08-16T12:00:00.000Z"),
+          attachments: [],
+          projection,
+        },
+        previous: {
+          title: "Original title",
+          content: "<p>Original content</p>",
+          color: "#abc",
+        },
       },
     });
 
@@ -210,14 +251,21 @@ describe("context cards mutation routes", () => {
     contextCardServiceMock.updateContextCardForProject.mockResolvedValueOnce({
       ok: true,
       data: {
-        id: "c1",
-        title: "Updated from JSON",
-        content: "<p>JSON body</p>",
-        color: "#def",
-        createdAt: new Date("2026-08-15T09:00:00.000Z"),
-        updatedAt: new Date("2026-08-16T12:00:00.000Z"),
-        attachments: [],
-        projection,
+        card: {
+          id: "c1",
+          title: "Updated from JSON",
+          content: "<p>JSON body</p>",
+          color: "#def",
+          createdAt: new Date("2026-08-15T09:00:00.000Z"),
+          updatedAt: new Date("2026-08-16T12:00:00.000Z"),
+          attachments: [],
+          projection,
+        },
+        previous: {
+          title: "Original title",
+          content: "<p>Original content</p>",
+          color: "#abc",
+        },
       },
     });
 
@@ -264,7 +312,7 @@ describe("context cards mutation routes", () => {
   test("DELETE removes context card via service", async () => {
     contextCardServiceMock.deleteContextCardForProject.mockResolvedValueOnce({
       ok: true,
-      data: { ok: true },
+      data: { ok: true, title: "Deleted card" },
     });
 
     const request = new Request(

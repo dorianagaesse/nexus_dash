@@ -5,6 +5,8 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { finalizeContextAttachmentDirectUpload } from "@/lib/services/project-attachment-service";
 
 interface FinalizeDirectUploadRequestBody {
@@ -59,5 +61,19 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ attachment: result.data });
+  const version = await recordProjectActivityEventVersion({
+    actorUserId,
+    projectId,
+    domain: "attachment",
+    action: "created",
+    entityId: result.data.id,
+    payload: { cardId, attachment: result.data },
+    agentAccess,
+    entityDisplayNameSnapshot: result.data.name,
+  });
+
+  return NextResponse.json(
+    { attachment: result.data },
+    { headers: withProjectActivityVersionHeader(undefined, version) }
+  );
 }

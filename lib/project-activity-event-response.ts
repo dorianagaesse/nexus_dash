@@ -3,9 +3,11 @@ import {
   type ProjectActivityEventAction,
   type ProjectActivityEventDomain,
 } from "@/lib/project-activity-event-types";
+import type { AgentProjectAccessContext } from "@/lib/services/project-access-service";
 import {
   recordProjectActivityEventAsActor,
   touchProjectActivityAsActor,
+  type ProjectActivityChangeEntry,
 } from "@/lib/services/project-activity-service";
 
 export async function recordProjectActivityEventVersion(input: {
@@ -15,6 +17,9 @@ export async function recordProjectActivityEventVersion(input: {
   action: ProjectActivityEventAction;
   entityId: string;
   payload?: unknown;
+  agentAccess?: AgentProjectAccessContext;
+  entityDisplayNameSnapshot?: string | null;
+  changes?: ProjectActivityChangeEntry[] | null;
 }): Promise<Date> {
   async function touchFallback(): Promise<Date> {
     let fallback: Awaited<ReturnType<typeof touchProjectActivityAsActor>>;

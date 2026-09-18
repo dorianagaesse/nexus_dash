@@ -504,7 +504,12 @@ export async function createProjectEpic(
 
 export async function updateProjectEpic(
   input: UpdateProjectEpicInput
-): Promise<ServiceResult<{ epic: ProjectEpicSummary }>> {
+): Promise<
+  ServiceResult<{
+    epic: ProjectEpicSummary;
+    previous: { name: string; description: string };
+  }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   const epicId = normalizeText(input.epicId);
   const name = normalizeText(input.name);
@@ -549,6 +554,8 @@ export async function updateProjectEpic(
       },
       select: {
         id: true,
+        name: true,
+        description: true,
       },
     });
     if (!existingEpic) {
@@ -591,6 +598,10 @@ export async function updateProjectEpic(
         ok: true,
         data: {
           epic,
+          previous: {
+            name: existingEpic.name,
+            description: existingEpic.description,
+          },
         },
       };
     } catch (error) {
@@ -609,7 +620,7 @@ export async function deleteProjectEpic(input: {
   projectId: string;
   epicId: string;
   agentAccess?: AgentProjectAccessContext;
-}): Promise<ServiceResult<{ ok: true }>> {
+}): Promise<ServiceResult<{ ok: true; name: string }>> {
   const actorUserId = normalizeText(input.actorUserId);
   const epicId = normalizeText(input.epicId);
   if (!actorUserId) {
@@ -646,6 +657,7 @@ export async function deleteProjectEpic(input: {
       },
       select: {
         id: true,
+        name: true,
       },
     });
     if (!existingEpic) {
@@ -665,6 +677,7 @@ export async function deleteProjectEpic(input: {
         ok: true,
         data: {
           ok: true,
+          name: existingEpic.name,
         },
       };
     } catch (error) {

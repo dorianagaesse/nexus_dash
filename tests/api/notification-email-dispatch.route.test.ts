@@ -10,6 +10,10 @@ const dispatchMock = vi.hoisted(() => ({
   dispatchProjectNotificationEmails: vi.fn(),
 }));
 
+const projectActivityMock = vi.hoisted(() => ({
+  pruneProjectActivityHistory: vi.fn(),
+}));
+
 const requestOriginMock = vi.hoisted(() => ({
   resolveRequestOriginFromHeaders: vi.fn(),
 }));
@@ -31,6 +35,10 @@ vi.mock("@/lib/observability/logger", () => ({
 vi.mock("@/lib/services/project-notification-email-service", () => ({
   dispatchProjectNotificationEmails:
     dispatchMock.dispatchProjectNotificationEmails,
+}));
+
+vi.mock("@/lib/services/project-activity-service", () => ({
+  pruneProjectActivityHistory: projectActivityMock.pruneProjectActivityHistory,
 }));
 
 import { GET } from "@/app/api/cron/notification-emails/route";
@@ -66,6 +74,11 @@ describe("notification email dispatch route", () => {
       groupsFailed: 0,
       errors: 0,
     });
+    projectActivityMock.pruneProjectActivityHistory.mockResolvedValue({
+      deleted: 4,
+      batches: 2,
+      cutoff: new Date("2025-09-18T00:00:00.000Z"),
+    });
   });
 
   test("rejects requests when dispatch secret is missing", async () => {
@@ -94,6 +107,9 @@ describe("notification email dispatch route", () => {
     expect(response.status).toBe(401);
     await expect(readJson(response)).resolves.toEqual({ error: "unauthorized" });
     expect(dispatchMock.dispatchProjectNotificationEmails).not.toHaveBeenCalled();
+    expect(
+      projectActivityMock.pruneProjectActivityHistory
+    ).not.toHaveBeenCalled();
   });
 
   test("rejects requests with the wrong dispatch secret header", async () => {
@@ -172,9 +188,31 @@ describe("notification email dispatch route", () => {
         groupsFailed: 0,
         errors: 0,
       },
+      historyPrune: { deleted: 4, batches: 2 },
     });
     expect(dispatchMock.dispatchProjectNotificationEmails).toHaveBeenCalledWith({
       appOrigin: "https://nexus-dash.app",
+    });
+    expect(projectActivityMock.pruneProjectActivityHistory).toHaveBeenCalled();
+  });
+
+  test("keeps dispatching when history pruning fails", async () => {
+    projectActivityMock.pruneProjectActivityHistory.mockRejectedValueOnce(
+      new Error("prune failed")
+    );
+
+    const response = await GET(
+      new NextRequest("https://nexus-dash.app/api/cron/notification-emails", {
+        headers: {
+          authorization: "Bearer dispatch-secret-0123456789abcdef",
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toMatchObject({
+      ok: true,
+      historyPrune: null,
     });
   });
 

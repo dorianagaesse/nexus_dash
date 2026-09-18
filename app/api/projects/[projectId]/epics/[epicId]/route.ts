@@ -5,6 +5,8 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   deleteProjectEpic,
   updateProjectEpic,
@@ -51,9 +53,35 @@ export async function PATCH(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({
-    epic: serializeProjectEpicResponse(result.data.epic),
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId: params.projectId,
+    domain: "epic",
+    action: "updated",
+    entityId: result.data.epic.id,
+    payload: { epic: serializeProjectEpicResponse(result.data.epic) },
+    agentAccess: getAgentProjectAccessContext(principalResult.principal),
+    entityDisplayNameSnapshot: result.data.epic.name,
+    changes: [
+      {
+        field: "name",
+        before: result.data.previous.name,
+        after: result.data.epic.name,
+      },
+      {
+        field: "description",
+        before: result.data.previous.description,
+        after: result.data.epic.description,
+      },
+    ],
   });
+
+  return NextResponse.json(
+    {
+      epic: serializeProjectEpicResponse(result.data.epic),
+    },
+    { headers: withProjectActivityVersionHeader(undefined, version) }
+  );
 }
 
 export async function DELETE(
@@ -77,5 +105,19 @@ export async function DELETE(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ ok: true });
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId: params.projectId,
+    domain: "epic",
+    action: "deleted",
+    entityId: params.epicId,
+    payload: { epicId: params.epicId },
+    agentAccess: getAgentProjectAccessContext(principalResult.principal),
+    entityDisplayNameSnapshot: result.data.name,
+  });
+
+  return NextResponse.json(
+    { ok: true },
+    { headers: withProjectActivityVersionHeader(undefined, version) }
+  );
 }

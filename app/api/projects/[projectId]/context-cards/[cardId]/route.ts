@@ -8,6 +8,7 @@ import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
+import { richTextToPreviewText } from "@/lib/rich-text";
 import {
   deleteContextCardForProject,
   updateContextCardForProject,
@@ -30,6 +31,10 @@ function readText(formData: FormData, key: string): string {
 
 function isJsonRequest(request: NextRequest): boolean {
   return request.headers.get("content-type")?.includes("application/json") ?? false;
+}
+
+function toPreviewText(value: string | null): string | null {
+  return value ? richTextToPreviewText(value) : null;
 }
 
 function serializeContextCard(card: ContextCardResponse) {
@@ -119,7 +124,7 @@ export async function PATCH(
     );
   }
 
-  const serializedCard = serializeContextCard(result.data);
+  const serializedCard = serializeContextCard(result.data.card);
   const version = await recordProjectActivityEventVersion({
     actorUserId,
     projectId,
@@ -129,6 +134,25 @@ export async function PATCH(
     payload: {
       card: serializedCard,
     },
+    agentAccess,
+    entityDisplayNameSnapshot: serializedCard.title,
+    changes: [
+      {
+        field: "title",
+        before: result.data.previous.title,
+        after: serializedCard.title,
+      },
+      {
+        field: "content",
+        before: toPreviewText(result.data.previous.content),
+        after: toPreviewText(serializedCard.content),
+      },
+      {
+        field: "color",
+        before: result.data.previous.color,
+        after: serializedCard.color,
+      },
+    ],
   });
 
   return NextResponse.json(
@@ -177,6 +201,8 @@ export async function DELETE(
     action: "deleted",
     entityId: cardId,
     payload: { cardId },
+    agentAccess,
+    entityDisplayNameSnapshot: result.data.title,
   });
 
   return NextResponse.json(

@@ -262,6 +262,10 @@ describe("project epic routes", () => {
           createdAt: new Date("2026-04-20T08:00:00.000Z"),
           updatedAt: new Date("2026-04-22T10:00:00.000Z"),
         },
+        previous: {
+          name: "Workspace launch",
+          description: "Original description.",
+        },
       },
     });
 

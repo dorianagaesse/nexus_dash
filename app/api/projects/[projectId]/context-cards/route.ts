@@ -203,6 +203,8 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     action: "created",
     entityId: result.data.id,
     payload: { card: result.data.card },
+    agentAccess,
+    entityDisplayNameSnapshot: result.data.card.title,
   });
 
   return NextResponse.json(

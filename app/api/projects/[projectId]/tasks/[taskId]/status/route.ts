@@ -81,6 +81,15 @@ export async function POST(
     action: "moved",
     entityId: taskId,
     payload: { task },
+    agentAccess,
+    entityDisplayNameSnapshot: rawTask.title,
+    changes: [
+      {
+        field: "status",
+        before: result.data.previousStatus,
+        after: rawTask.status,
+      },
+    ],
   });
 
   return NextResponse.json(

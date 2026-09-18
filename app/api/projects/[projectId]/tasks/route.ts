@@ -257,6 +257,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
       action: "created",
       entityId: resultData.id ?? projectId,
       payload: { taskId: resultData.id },
+      agentAccess,
     });
 
     return NextResponse.json(
@@ -281,6 +282,8 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     action: "created",
     entityId: task.id,
     payload: { task: responseTask },
+    agentAccess,
+    entityDisplayNameSnapshot: task.title,
   });
 
   return NextResponse.json(

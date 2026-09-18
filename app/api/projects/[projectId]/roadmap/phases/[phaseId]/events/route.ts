@@ -5,6 +5,8 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 import { createProjectRoadmapEvent } from "@/lib/services/project-roadmap-service";
 
@@ -65,11 +67,22 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId: params.projectId,
+    domain: "roadmap",
+    action: "created",
+    entityId: result.data.event.id,
+    payload: { event: result.data.event, phaseId: params.phaseId },
+    agentAccess,
+    entityDisplayNameSnapshot: result.data.event.title,
+  });
+
   return NextResponse.json(
     {
       event: result.data.event,
       phase: result.data.phase,
     },
-    { status: 201 }
+    { status: 201, headers: withProjectActivityVersionHeader(undefined, version) }
   );
 }
