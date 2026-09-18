@@ -30,7 +30,10 @@ function resolveBaseUrl(): URL {
   return new URL(configuredBaseUrl || fallbackBaseUrl);
 }
 
-export async function signInAsVerifiedUser(page: Page): Promise<string> {
+async function signInAsUser(
+  page: Page,
+  options: { verified: boolean }
+): Promise<string> {
   const suffix = uniqueSuffix();
   const usernameBase = toSafeUsernameBase(suffix);
   const usernameDiscriminator = toUsernameDiscriminator(suffix);
@@ -40,7 +43,7 @@ export async function signInAsVerifiedUser(page: Page): Promise<string> {
       name: "E2E Smoke User",
       username: usernameBase,
       usernameDiscriminator,
-      emailVerified: new Date(),
+      emailVerified: options.verified ? new Date() : null,
     },
     select: {
       id: true,
@@ -72,4 +75,12 @@ export async function signInAsVerifiedUser(page: Page): Promise<string> {
   ]);
 
   return user.id;
+}
+
+export async function signInAsVerifiedUser(page: Page): Promise<string> {
+  return signInAsUser(page, { verified: true });
+}
+
+export async function signInAsUnverifiedUser(page: Page): Promise<string> {
+  return signInAsUser(page, { verified: false });
 }
