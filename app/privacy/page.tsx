@@ -106,6 +106,13 @@ export default function PrivacyPolicyPage() {
                     browser or device information when serving requests.
                   </li>
                   <li>
+                    Product feedback and bug reports you choose to send, including your
+                    message, account details, the page you reported from, and optional
+                    diagnostics (browser, screen size, language, and time zone).
+                    Diagnostics never include page content, cookies, form data, or
+                    identifiers.
+                  </li>
+                  <li>
                     Information from Google or GitHub when you choose social sign-in,
                     such as your provider account identifier, name, email address, and
                     profile image made available by that provider.

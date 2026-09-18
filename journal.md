@@ -8243,13 +8243,52 @@ Low-value entries to avoid going forward:
   runs, and a rerun of the failed job (`gh run rerun --failed`) finished
   green across all four jobs.
 
+# 2026-09-18 - ND-135: Feedback diagnostics copy clarity
+
+- Claimed live Nexus Dash card ND-135 (external UX feedback task TASK-361,
+  `cmth7enft002k04ju2dnu5pt6`) and moved it to In Progress. Built in the
+  dedicated `../nexus_dash_task135` worktree on
+  `fix/nd-135-feedback-diagnostics-copy`, branched from `origin/main` at
+  dfd5f15 (v0.73.0).
+- Validity check before implementation: the feedback still applies. The
+  diagnostics help text still read exactly the copy quoted in the card
+  ("Browser, screen size, language, and time zone. No page content,
+  cookies, or form data.") and the file was untouched since TASK-333. No
+  privacy/feedback FAQ entry exists anywhere in the product, so the card's
+  AC2 surface was tightened from the non-existent "FAQ entry" to the public
+  privacy policy page (added later by TASK-407), the product's only privacy
+  reference surface, before implementation started.
+- Dialog copy now reads "Adds your browser, screen size, language, and time
+  zone to the report. No page content, cookies, form data, or identifiers."
+  - the sentence is explicitly bound to the report, which addresses the
+  reviewer concern about collection elsewhere, and adds the missing
+  "identifiers" exclusion.
+- The privacy policy "Information we collect" section gained a feedback
+  bullet listing what a report includes (message, account details, page,
+  optional diagnostics) plus the same exclusion list: "Diagnostics never
+  include page content, cookies, form data, or identifiers."
+- Coverage: the dialog component test asserts both new sentences, and a new
+  Playwright test in `privacy-policy.spec.ts` locks the privacy bullet and
+  its exclusion list.
+- Validation: `npm run lint`, `npm run rls:check`, `npm test` (211 files /
+  1737 tests passed, 2 skipped), `npm run test:coverage` (thresholds met:
+  statements 93.78%, branches 84.46%, functions 95.42%, lines 94.08%),
+  `npm run build`, full local Playwright suite on an own verified production
+  server (port 3135, listener PID checked against this worktree, `CI=1`):
+  96 passed / 0 failed, `git diff --check` clean. No schema, service, or RLS
+  change.
+- Copilot review: not expected (project owner reports the Copilot quota is
+  reached); the PR carries the validation evidence for manual review
+  instead.
+
 # 2026-09-18 - ND-134 account Settings Developers collapsible sections
 
 - Claimed live Nexus Dash card ND-134 (`cmth7elgk002h04jucytspvdw`) from the
   External UX feedback refinement epic and built it in the dedicated
   `../nexus_dash_task134` worktree on
   `feature/nd-134-account-settings-developers-sections`, branched from
-  `origin/main` at dfd5f15.
+  `origin/main` at dfd5f15 and merge-forwarded past a2a5d45 (ND-135, PR
+  #540) before handoff.
 - Unlike ND-133 and ND-153 (closed as outdated the same day), the card
   premise held at HEAD: `/account/settings/developers` still mixed
   full-width cards with side-by-side `xl:grid-cols` pairs and had no
@@ -8290,3 +8329,6 @@ Low-value entries to avoid going forward:
   varying overshoots (-8.42px, -4.86px) and 1/3 repeats passing on the
   identical build; the spec shares no files with this diff. No schema,
   service, or RLS change.
+- Copilot review: not expected (project owner reports the Copilot quota is
+  reached); the PR carries the validation evidence for manual review
+  instead.
