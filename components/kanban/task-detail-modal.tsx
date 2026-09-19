@@ -566,12 +566,12 @@ export function TaskDetailModal({
                 ) : null}
 
                 {isEditing ? (
-                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                  <div className="flex w-full gap-2">
                     <Button
                       type="button"
                       onClick={() => void onSaveTask()}
                       disabled={isUpdatingTask}
-                      className="w-full sm:w-auto"
+                      className="flex-1"
                     >
                       {isUpdatingTask ? "Saving..." : "Save changes"}
                     </Button>
@@ -580,7 +580,7 @@ export function TaskDetailModal({
                       variant="outline"
                       onClick={onClose}
                       disabled={isUpdatingTask}
-                      className="w-full sm:w-auto"
+                      className="flex-1"
                     >
                       Cancel
                     </Button>
@@ -591,7 +591,7 @@ export function TaskDetailModal({
                     variant="outline"
                     onClick={onClose}
                     disabled={isUpdatingTask}
-                    className="w-full sm:w-auto"
+                    className="w-full"
                   >
                     Close
                   </Button>

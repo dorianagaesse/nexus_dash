@@ -8344,3 +8344,47 @@ Low-value entries to avoid going forward:
 - Copilot review: not expected (project owner reports the Copilot quota is
   reached); the PR carries the validation evidence for manual review
   instead.
+
+## 2026-09-19 - ND-484 revision: uniform footer split at every breakpoint
+
+- Product-owner review of the open PR asked for one layout rule instead
+  of the breakpoint-specific treatment: the Close control should take the
+  whole footer width, and a two-button row should divide the footer in
+  two. Confirmed via question that the even split applies on mobile as
+  well -- the stacked mobile rows are gone.
+- Implementation: the edit row and the create row are now a single
+  `flex w-full gap-2` row with both buttons `flex-1` (even halves); the
+  view-mode Close is `w-full` unconditionally. The responsive
+  `flex-col-reverse sm:flex-row` geometry and the `w-full sm:w-auto`
+  breakpoint switches are gone; every width renders `[primary][dismissal]`
+  as 50/50 halves separated by the 8px gap.
+- Save changes / Create task already rendered the theme-inverted fill
+  (dark on light, light on dark) through the `default` variant -- the
+  existing spec assertions confirmed it, so no change was needed there.
+- Spec: the geometry test now asserts the uniform rule at desktop AND
+  mobile via shared helpers -- a lone control spans the footer's content
+  width (padding-inset on both sides, 40px tall); a two-button row is one
+  row with the dismissal after the primary, the 8px gap, and both halves
+  at `(contentWidth - 8) / 2`.
+- Screenshot verification: 36 fresh shots (tag `rev2`) across
+  view/edit/create x desktop/mobile x light/dark; all show the even split
+  (mobile included) and the full-width Close. Same PR branch, revision
+  commit on top of the original.
+- Validation rerun on the port-3484 production server: `npm run lint`,
+  `npm run rls:check`, `npm test` (1737 passed, 2 skipped),
+  `npm run test:coverage` (93.78/84.46/95.42/94.08, thresholds met),
+  `npm run build`, full Playwright suite 97 passed / 1 skipped / 0
+  failed, `git diff --check` clean.
+- Env gotcha found while rerunning the unit suite: sourcing the worktree
+  `.env` exports the e2e-server-only `TRUSTED_ORIGINS` and
+  `OUTBOUND_EMAIL_DELIVERY_MODE` into vitest, which flips origin/email
+  paths and fails 8 route tests (auth-google x2, auth-google-callback,
+  home-auth-actions x2, project-sharing x2, account-profile) with
+  `http://localhost:3000` vs `http://127.0.0.1:3484` mismatches. Unset
+  both before `npm test`; they are only needed by the manually started
+  production server used for e2e.
+- Local run note: after the 2026-09-19 machine/Docker restart the shared
+  Postgres container (`nexus_dash_task448-postgres-1`, hosting 5432) was
+  stopped; the e2e server also had to be restarted because the previous
+  day's `next start` (PID 26884) had survived its TaskStop and held
+  port 3484.

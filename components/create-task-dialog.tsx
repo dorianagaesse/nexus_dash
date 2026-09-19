@@ -770,8 +770,8 @@ export function CreateTaskDialog({
                           {submitError}
                         </p>
                       ) : null}
-                      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-                        <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+                      <div className="flex w-full gap-2">
+                        <Button type="submit" disabled={isSubmitting} className="flex-1">
                           {isSubmitting ? "Creating..." : "Create task"}
                         </Button>
                         <Button
@@ -779,7 +779,7 @@ export function CreateTaskDialog({
                           variant="outline"
                           onClick={closeDialog}
                           disabled={isSubmitting}
-                          className="w-full sm:w-auto"
+                          className="flex-1"
                         >
                           Cancel
                         </Button>

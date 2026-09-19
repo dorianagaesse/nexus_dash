@@ -212,6 +212,44 @@ async function expectFilledPrimary(locator: Locator, theme: "light" | "dark") {
   });
 }
 
+// One rule at every width: a lone control spans the footer's content width,
+// inset by the footer padding on both sides.
+async function expectFullWidthFooterControl(page: Page, control: Locator) {
+  const footerBox = await readBox(footer(page));
+  const box = await readBox(control);
+  expect(
+    Math.abs(box.width - (footerBox.width - 2 * FOOTER_PADDING))
+  ).toBeLessThanOrEqual(1);
+  expect(Math.abs(box.x - (footerBox.x + FOOTER_PADDING))).toBeLessThanOrEqual(1);
+  expect(Math.abs(box.height - 40)).toBeLessThanOrEqual(1);
+}
+
+// Two controls split the footer row evenly: primary then dismissal, same row,
+// each taking half the content width minus the shared row gap.
+async function expectTwoButtonRow(
+  page: Page,
+  primary: Locator,
+  dismissal: Locator
+) {
+  const footerBox = await readBox(footer(page));
+  const primaryBox = await readBox(primary);
+  const dismissalBox = await readBox(dismissal);
+  const halfWidth = (footerBox.width - 2 * FOOTER_PADDING - ROW_GAP) / 2;
+
+  expect(Math.abs(primaryBox.y - dismissalBox.y)).toBeLessThanOrEqual(1);
+  expect(primaryBox.x).toBeLessThan(dismissalBox.x);
+  expect(
+    Math.abs(dismissalBox.x - (primaryBox.x + primaryBox.width) - ROW_GAP)
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(primaryBox.x - (footerBox.x + FOOTER_PADDING))
+  ).toBeLessThanOrEqual(1);
+  expect(Math.abs(primaryBox.width - halfWidth)).toBeLessThanOrEqual(1);
+  expect(Math.abs(dismissalBox.width - halfWidth)).toBeLessThanOrEqual(1);
+  expect(Math.abs(primaryBox.height - 40)).toBeLessThanOrEqual(1);
+  expect(Math.abs(dismissalBox.height - 40)).toBeLessThanOrEqual(1);
+}
+
 test.describe("ND-484 task modal footer actions", () => {
   test("view, edit, and create dismissals share the outlined treatment across themes", async ({
     page,
@@ -262,7 +300,7 @@ test.describe("ND-484 task modal footer actions", () => {
     }
   });
 
-  test("footer rows: inline auto-width on desktop, full-width stacked in the mobile sheet", async ({
+  test("footer actions: one control spans the footer, two split it evenly at every breakpoint", async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
@@ -270,111 +308,35 @@ test.describe("ND-484 task modal footer actions", () => {
     await applyTheme(page, "light");
 
     const card = await createTask(page, "nd484 geometry target");
-    const contentWidth = async () =>
-      (await readBox(footer(page))).width - 2 * FOOTER_PADDING;
 
-    // View flow on desktop: the lone Close keeps the full-width dismissal
-    // stance, inset by the footer padding on both sides.
-    await openTaskModal(page, card);
-    {
-      const footerBox = await readBox(footer(page));
-      const closeBox = await readBox(modalButton(page, "Close"));
-      expect(
-        Math.abs(closeBox.width - (footerBox.width - 2 * FOOTER_PADDING))
-      ).toBeLessThanOrEqual(1);
-      expect(Math.abs(closeBox.height - 40)).toBeLessThanOrEqual(1);
-    }
-    await closeDialog(page);
+    for (const viewport of [DESKTOP_VIEWPORT, MOBILE_VIEWPORT]) {
+      await page.setViewportSize(viewport);
+      // Park the pointer so hover fills never leak into the reads.
+      await page.mouse.move(2, 2);
 
-    // Edit flow on desktop: primary then dismissal inline, left-aligned, on
-    // one row with auto widths.
-    await openTaskModal(page, card);
-    await enterEditMode(page);
-    {
-      const footerBox = await readBox(footer(page));
-      const saveBox = await readBox(modalButton(page, "Save changes"));
-      const cancelBox = await readBox(modalButton(page, "Cancel"));
-      expect(Math.abs(saveBox.y - cancelBox.y)).toBeLessThanOrEqual(1);
-      expect(saveBox.x).toBeLessThan(cancelBox.x);
-      expect(
-        Math.abs(cancelBox.x - (saveBox.x + saveBox.width) - ROW_GAP)
-      ).toBeLessThanOrEqual(1);
-      expect(
-        Math.abs(saveBox.x - (footerBox.x + FOOTER_PADDING))
-      ).toBeLessThanOrEqual(1);
-      expect(saveBox.width).toBeLessThan((await contentWidth()) / 2);
-      expect(cancelBox.width).toBeLessThan((await contentWidth()) / 2);
-    }
-    await closeDialog(page);
+      // View flow: the lone Close spans the footer at any width.
+      await openTaskModal(page, card);
+      await expectFullWidthFooterControl(page, modalButton(page, "Close"));
+      await closeDialog(page);
 
-    // Create flow on desktop mirrors the edit row.
-    await openCreateDialog(page);
-    {
-      const footerBox = await readBox(footer(page));
-      const createBox = await readBox(modalButton(page, "Create task"));
-      const cancelBox = await readBox(modalButton(page, "Cancel"));
-      expect(Math.abs(createBox.y - cancelBox.y)).toBeLessThanOrEqual(1);
-      expect(createBox.x).toBeLessThan(cancelBox.x);
-      expect(
-        Math.abs(cancelBox.x - (createBox.x + createBox.width) - ROW_GAP)
-      ).toBeLessThanOrEqual(1);
-      expect(
-        Math.abs(createBox.x - (footerBox.x + FOOTER_PADDING))
-      ).toBeLessThanOrEqual(1);
-      expect(createBox.width).toBeLessThan((await contentWidth()) / 2);
-    }
-    await closeDialog(page);
+      // Edit flow: Save changes and Cancel split the row evenly.
+      await openTaskModal(page, card);
+      await enterEditMode(page);
+      await expectTwoButtonRow(
+        page,
+        modalButton(page, "Save changes"),
+        modalButton(page, "Cancel")
+      );
+      await closeDialog(page);
 
-    // Mobile sheet: controls fill the padded footer width in every flow.
-    await page.setViewportSize(MOBILE_VIEWPORT);
-    await page.mouse.move(2, 2);
-
-    await openTaskModal(page, card);
-    {
-      const mobileContentWidth = await contentWidth();
-      const footerBox = await readBox(footer(page));
-      const closeBox = await readBox(modalButton(page, "Close"));
-      expect(Math.abs(closeBox.width - mobileContentWidth)).toBeLessThanOrEqual(1);
-      expect(
-        Math.abs(closeBox.x - (footerBox.x + FOOTER_PADDING))
-      ).toBeLessThanOrEqual(1);
-    }
-    await closeDialog(page);
-
-    // Edit flow on mobile: the dismissal stacks full-width above the primary.
-    await openTaskModal(page, card);
-    await enterEditMode(page);
-    {
-      const mobileContentWidth = await contentWidth();
-      const footerBox = await readBox(footer(page));
-      const cancelBox = await readBox(modalButton(page, "Cancel"));
-      const saveBox = await readBox(modalButton(page, "Save changes"));
-      expect(cancelBox.y).toBeLessThan(saveBox.y);
-      expect(
-        Math.abs(saveBox.y - (cancelBox.y + cancelBox.height) - ROW_GAP)
-      ).toBeLessThanOrEqual(1);
-      expect(cancelBox.width).toBeGreaterThanOrEqual(mobileContentWidth - 1);
-      expect(saveBox.width).toBeGreaterThanOrEqual(mobileContentWidth - 1);
-      expect(
-        Math.abs(cancelBox.x - (footerBox.x + FOOTER_PADDING))
-      ).toBeLessThanOrEqual(1);
-      expect(cancelBox.height).toBeGreaterThanOrEqual(40);
-      expect(saveBox.height).toBeGreaterThanOrEqual(40);
-    }
-    await closeDialog(page);
-
-    // Create flow on mobile mirrors the edit stack.
-    await openCreateDialog(page);
-    {
-      const mobileContentWidth = await contentWidth();
-      const cancelBox = await readBox(modalButton(page, "Cancel"));
-      const createBox = await readBox(modalButton(page, "Create task"));
-      expect(cancelBox.y).toBeLessThan(createBox.y);
-      expect(
-        Math.abs(createBox.y - (cancelBox.y + cancelBox.height) - ROW_GAP)
-      ).toBeLessThanOrEqual(1);
-      expect(cancelBox.width).toBeGreaterThanOrEqual(mobileContentWidth - 1);
-      expect(createBox.width).toBeGreaterThanOrEqual(mobileContentWidth - 1);
+      // Create flow mirrors the edit row.
+      await openCreateDialog(page);
+      await expectTwoButtonRow(
+        page,
+        modalButton(page, "Create task"),
+        modalButton(page, "Cancel")
+      );
+      await closeDialog(page);
     }
   });
 
