@@ -68,4 +68,17 @@ describe("agent onboarding pages", () => {
       "NEXUSDASH_AGENT_DOCS_URL=https://account-preview.nexusdash.test/docs/agent/v1"
     );
   });
+
+  test("renders account onboarding as one single-column stack with only the first section open", async () => {
+    resolveRequestOriginFromHeadersMock.mockReturnValue("https://account-preview.nexusdash.test");
+
+    const page = await AccountDeveloperSettingsPage();
+    const result = renderToStaticMarkup(page);
+
+    expect(result).not.toContain("xl:grid-cols");
+    expect(result).toContain('aria-expanded="true"');
+    expect(result).toContain('aria-expanded="false"');
+    expect(result).toContain("Where credentials live");
+    expect(result).toContain("Open any project as an owner");
+  });
 });

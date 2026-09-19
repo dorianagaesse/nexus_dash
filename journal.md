@@ -8311,3 +8311,74 @@ Low-value entries to avoid going forward:
   bottom of the settings column, unobtrusive under the About card.
 - Copilot review: not expected (quota reached per the project owner); the PR
   carries the validation evidence for manual review.
+# 2026-09-18 - ND-134 account Settings Developers collapsible sections
+
+- Claimed live Nexus Dash card ND-134 (`cmth7elgk002h04jucytspvdw`) from the
+  External UX feedback refinement epic and built it in the dedicated
+  `../nexus_dash_task134` worktree on
+  `feature/nd-134-account-settings-developers-sections`, branched from
+  `origin/main` at dfd5f15 and merge-forwarded past a2a5d45 (ND-135, PR
+  #540) before handoff.
+- Unlike ND-133 and ND-153 (closed as outdated the same day), the card
+  premise held at HEAD: `/account/settings/developers` still mixed
+  full-width cards with side-by-side `xl:grid-cols` pairs and had no
+  disclosure pattern, so the task was implemented normally.
+- New shared client component `AgentOnboardingSection`: a Card whose header
+  toggle button carries `aria-expanded`/`aria-controls` (stable `useId`) and
+  an up/down chevron, with the body kept mounted and hidden via the `hidden`
+  class when collapsed, matching the page-level epic panel disclosure idiom
+  (min-h-11 target, hover surface, focus-visible ring).
+- The account surface is now one uniform single-column stack: "Where
+  credentials live" is the first section and open by default; every guide
+  section is collapsed; the three intro mini-cards are folded into a
+  dedicated "How agent access works" section so no disclosure hides an
+  empty body. Guide copy and code examples are defined once and rendered by
+  two paths: the unchanged flat grid on the public `/docs/agent/v1` page
+  (no `collapsible` prop) and the collapsible stack on the settings page.
+  Consequence: the Quickstart "Rendered docs"/"OpenAPI JSON" buttons moved
+  from the card header into the section body (same buttons, one source).
+- Tests: component tests for the disclosure semantics (collapsed default +
+  matching aria-controls id + `hidden` class; open default renders no
+  `hidden`), a guide test asserting collapsible mode has no `xl:grid-cols`
+  and every section starts collapsed, a flat-mode assertion that no
+  aria-expanded leaks onto the docs page, and page-test assertions that the
+  account surface renders exactly one open first section. New e2e spec
+  `nd-134-account-developers-sections.spec.ts` (3 tests, all green in the
+  full local run): only the first section open in one column with no
+  `xl:grid-cols` present, toggle click reveals/hides the region, and the
+  hosted docs surface stays flat.
+- Validation: `npm run lint`, `npm run rls:check`, full unit suite (212
+  files / 1742 tests passed, 2 skipped), coverage thresholds met
+  (statements 93.78%, branches 84.46%, functions 95.42%, lines 94.08%),
+  production build (BUILD_ID BCSy-VIfam7B1JmoQ4qZ6), and the full
+  Playwright suite on an own verified production server (port 3134, PID
+  cwd checked, `NEXUSDASH_TEST_RLS_CONTEXT=enabled`): 97 passed / 1 skipped
+  / 1 failed. The single failure is the documented local
+  `inputZoomBottomInset` geometry flake in
+  `smoke-project-task-calendar.spec.ts:452` (meeting-notes flow) with
+  varying overshoots (-8.42px, -4.86px) and 1/3 repeats passing on the
+  identical build; the spec shares no files with this diff. No schema,
+  service, or RLS change.
+- Copilot review: not expected (project owner reports the Copilot quota is
+  reached); the PR carries the validation evidence for manual review
+  instead.
+- Review polish (owner request): the guide's `CodeBlock` was the only scroll
+  container on this surface, so it now carries the project's slim scrollbar
+  treatment (`SLIM_SCROLLBAR_CLASSES`, copied from
+  `meeting-todo-assignee-chip.tsx`; the same string is inlined in
+  `task-detail-modal.tsx`): 8px rounded thumb in
+  `rgba(148,163,184,0.52)` over a transparent track via the
+  `::-webkit-scrollbar` arbitrary variants, plus `scrollbar-width: thin` and
+  `scrollbar-color` for the standard path. Verified in a real browser
+  (`next start` on port 3134, 375px viewport, real Chromium without
+  Playwright's `--hide-scrollbars` default): 8px rendered scrollbar, rounded
+  translucent thumb visible on the dark `bg-slate-950` block, layout gutter
+  accounted for. Component test now asserts both standard properties are
+  present on the `pre`; no markup or copy changed.
+- Second merge-forward: `origin/main` advanced to e3281a1 (ND-486, PR #543,
+  privacy policy entry in account settings). The only conflict was the
+  journal.md append again, resolved the same way (main's file, then this
+  entry re-appended); ND-486's component change, page test, and e2e spec
+  merged cleanly. Re-validated on the merged tree: `npm run lint`,
+  `npm run rls:check`, full unit suite (213 files / 1744 tests passed, 2
+  skipped), production build - all green. Merge commit 8011df1.
