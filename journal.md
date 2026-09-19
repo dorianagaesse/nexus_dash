@@ -8382,3 +8382,61 @@ Low-value entries to avoid going forward:
   merged cleanly. Re-validated on the merged tree: `npm run lint`,
   `npm run rls:check`, full unit suite (213 files / 1744 tests passed, 2
   skipped), production build - all green. Merge commit 8011df1.
+
+# 2026-09-19 - ND-138: Modal title and primary button label differentiation
+
+- Claimed live Nexus Dash card ND-138 (external UX feedback task TASK-364,
+  `cmth7eti1002t04juby2lxbk8`) from the "External UX feedback refinement
+  program" epic and checked currency first: the flagged anti-pattern (the
+  Create Project modal using "Create project" as both its title and primary
+  button) is still present in the shipped code, so the task was implemented
+  normally rather than closed as outdated.
+- Audited every app dialog that renders `DialogTitle` (13 dialog surfaces
+  across 15 component files). The roadmap event dialog already followed the
+  target grammar ("New event" / "Create event"); edit dialogs ("Edit X" /
+  "Save X" / "Save changes"), read-only viewers (object title + "Close"),
+  question-titled confirmations (ConfirmDialog, offboarding), and the
+  feedback/settings/meeting-note surfaces were already compliant, and
+  secondary labels were already uniform ("Cancel" dismisses forms, "Close"
+  dismisses viewers).
+- Four titles renamed so the title names the object while the primary button
+  keeps naming the action:
+  - create-project-dialog: "Create project" -> "New project"
+  - create-task-dialog: "Create task" -> "New task"
+  - calendar-event-modal (create mode): "Create calendar event" ->
+    "New calendar event"
+  - context-create-modal: "Add context card" -> "New context card"
+  Primary button labels are unchanged ("Create project" / "Create task" /
+  "Create event" / "Create card") and edit-mode/view-mode titles are
+  unchanged.
+- Deliberately out of scope: the epics panel "Create epic" heading + button
+  duplication is an inline section, not a modal/dialog, so it stays with the
+  panel-level refinement work; the meeting prepare dialog titles the flow
+  ("Prepare meeting" / "Edit preparation") with a distinct "Save
+  preparation" action, so it does not repeat the flagged anti-pattern.
+- Tests: `tests/e2e/accessible-overlays.spec.ts` located the create-task
+  dialog by accessible name and now expects "New task" (2 assertions).
+  Existing "Create task" / "Create project" button-name locators in e2e
+  specs are unaffected because the buttons keep their labels. No schema,
+  service, or RLS change; no version bump (release-boundary model).
+- Validation (worktree `nexus_dash_task138`, branch
+  `feature/nd-138-modal-title-button-labels` off `origin/main` 87af654,
+  CI-equivalent env on the local Postgres on 5432): `npm run db:migrate` (no
+  pending migrations), `npm run lint`, `npm run rls:check`, full unit suite
+  (213 files / 1744 tests passed, 2 skipped), coverage thresholds met
+  (statements 93.78%, branches 84.46%, functions 95.42%, lines 94.08%),
+  production build (BUILD_ID `ChdSM9qIsSc5j03C1KArQ`), and the full
+  Playwright suite on an own verified production server (port 3145, PID cwd
+  checked, `NEXUSDASH_TEST_RLS_CONTEXT=enabled`,
+  `OUTBOUND_EMAIL_DELIVERY_MODE=disabled`, `PLAYWRIGHT_BASE_URL`): 100
+  passed / 1 skipped / 0 failed.
+- Browser verification of the renamed dialogs on that server (temporary
+  Playwright check, removed after the run): the create project, create task,
+  and new context card dialogs each expose the object-naming dialog name and
+  keep their action button labels. The calendar create modal requires a
+  connected writable Google Calendar, which the local run cannot provision,
+  so its title change is covered by the code diff, type check, and build
+  only.
+- Copilot review: not expected (project owner reports the Copilot quota is
+  reached); the PR carries the validation evidence for manual review
+  instead.
