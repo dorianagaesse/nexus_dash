@@ -41,8 +41,8 @@ const WORKSPACE_NAVIGATION_ITEMS: Array<
   },
   {
     href: "/account/notifications",
-    label: "Inbox",
-    mobileLabel: "Inbox",
+    label: "Notifications",
+    mobileLabel: "Notifications",
     icon: Bell,
   },
 ];

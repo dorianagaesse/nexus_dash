@@ -8382,3 +8382,38 @@ Low-value entries to avoid going forward:
   merged cleanly. Re-validated on the merged tree: `npm run lint`,
   `npm run rls:check`, full unit suite (213 files / 1744 tests passed, 2
   skipped), production build - all green. Merge commit 8011df1.
+
+# 2026-09-19 - ND-136 Inbox vs Notifications naming unification
+
+- Validity assessment: kept open and implemented rather than closed as
+  outdated. The originally reported avatar-menu mismatch ("Inbox" item vs
+  "Notifications" page) was already resolved by TASK-324, but the primary
+  workspace navigation (desktop sidebar and mobile bottom bar) still labeled
+  the `/account/notifications` destination "Inbox" while the page heading,
+  user hub navigation, avatar menu, unread-count accessible names, route,
+  and notification emails all read "Notifications".
+- Standardized on the canonical label "Notifications": `label` and
+  `mobileLabel` in the shell workspace navigation now match every other
+  surface. Long label verified to fit the 390px bottom navigation through the
+  existing responsive shell scenario (no page-level horizontal overflow,
+  44px targets, two-link contract intact).
+- Verified no other user-facing surface carries the alternate label. The
+  remaining repository matches are the user's email-inbox copy on
+  verify-email ("check your inbox", a different semantic, intentionally
+  kept), generic prose in the historical multi-user-collaboration audit,
+  and unrelated test-fixture return paths.
+- Updated shell unit tests, todo-badge test names, the shell e2e selector,
+  and `docs/ui/authenticated-app-shell.md` to the canonical label.
+- Validation (worktree `../nexus_dash_task136`, isolated local Postgres on
+  port 55432, `OUTBOUND_EMAIL_DELIVERY_MODE=disabled`): `npm run lint`,
+  `npm run rls:check`, full unit suite (213 files / 1744 tests passed, 2
+  skipped), coverage at 93.78% statements / 84.46% branches / 95.42%
+  functions / 94.08% lines, production build, and the full Playwright suite
+  (100 passed, 1 skipped) including the 390px shell fit check and the
+  label-based notification detour flows. No schema, service, or RLS change.
+- Copilot review: not expected (project owner reports the Copilot quota is
+  reached); the PR carries the validation evidence for manual review
+  instead.
+- Committed the implementation as `8745c1a`, pushed
+  `fix/nd-136-inbox-notifications-naming`, and opened ready-for-review
+  [PR #547](https://github.com/dorianagaesse/nexus_dash/pull/547).
