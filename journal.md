@@ -8414,3 +8414,6 @@ Low-value entries to avoid going forward:
 - Copilot review: not expected (project owner reports the Copilot quota is
   reached); the PR carries the validation evidence for manual review
   instead.
+- Committed the implementation as `8745c1a`, pushed
+  `fix/nd-136-inbox-notifications-naming`, and opened ready-for-review
+  [PR #547](https://github.com/dorianagaesse/nexus_dash/pull/547).
