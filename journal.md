@@ -8388,3 +8388,43 @@ Low-value entries to avoid going forward:
   stopped; the e2e server also had to be restarted because the previous
   day's `next start` (PID 26884) had survived its TaskStop and held
   port 3484.
+
+## 2026-09-19 - ND-484 revision 3: full-bleed inverse action strip
+
+- Second product-owner review asked to try: Close with the inverse color,
+  taking the whole horizontal bottom space of the task modal, no padding
+  around it -- touching the edges -- and two-button views split in half.
+- Implementation in both dialogs (task detail modal + create task dialog):
+  footer padding removed (`p-0`), so the action row touches the dialog
+  edges; the view-mode Close drops its variant and becomes the inverse
+  (`default`) full-bleed bar (`w-full rounded-none`); the edit/create rows
+  are one `flex w-full` row with both actions `flex-1 rounded-none` and no
+  gap, the dismissal keeping a 1px leading divider (`border-0 border-l`) as
+  its seam. Error banners keep an inner margin (`mx-6 mt-4`). DialogContent
+  already clips overflow, so the square strip corners follow the dialog's
+  rounded corners.
+- Spec rework: geometry helpers now assert the strip rule -- a lone control
+  matches the footer box (width, left edge, flush under the 1px top border,
+  flush to the bottom edge, 40px tall); a two-button row asserts exact
+  halves of the footer width, one shared seam with no gap, flush
+  left/right/bottom. `expectFilledPrimary` pins no border + square corners;
+  the outlined-dismissal helper asserts the divider-only leading edge
+  (borderTopWidth 0px, borderLeftWidth 1px, radius 0px). The view Close
+  moved from the outlined to the filled assertion in all three tests.
+- Chromium reports the `primary/90` hover fill as `oklab(...)` (color-mix
+  output), which the spec's rgb luminance parser could not read. The first
+  targeted run caught this (1 failed / 7 passed). `readControlStyles` now
+  normalizes every computed color through a 1x1 canvas in the page
+  (fillStyle + getImageData -> sRGB rgba string), so luminance checks and
+  the raw idle/hover comparisons keep working across serialized color
+  spaces.
+- Screenshot verification (tag `rev3`): 36 shots across view/edit/create x
+  desktop/mobile x light/dark show the inverse Close bar and the exact-half
+  split strips touching the dialog edges, desktop and mobile alike; the
+  revision is back with the product owner for review.
+- Validation rerun on the port-3484 production server: `npm run lint`,
+  `npm run rls:check`, `npm test` (1737 passed, 2 skipped;
+  `TRUSTED_ORIGINS` / `OUTBOUND_EMAIL_DELIVERY_MODE` unset for vitest),
+  `npm run test:coverage` (93.78/84.46/95.42/94.08, thresholds met),
+  `npm run build`, full local Playwright suite 97 passed / 1 skipped / 0
+  failed, `git diff --check` clean.

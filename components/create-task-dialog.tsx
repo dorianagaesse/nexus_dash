@@ -762,16 +762,16 @@ export function CreateTaskDialog({
                   </CardContent>
                   <CardFooter
                     data-calendar-popover-footer-boundary="true"
-                    className="shrink-0 border-t border-border/60 bg-card/95 px-6 pb-6 pt-4 backdrop-blur supports-[backdrop-filter]:bg-card/90"
+                    className="shrink-0 border-t border-border/60 bg-card/95 p-0 backdrop-blur supports-[backdrop-filter]:bg-card/90"
                   >
-                    <div className="flex w-full flex-col gap-3">
+                    <div className="flex w-full flex-col gap-2">
                       {submitError ? (
-                        <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                        <p className="mx-6 mt-4 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                           {submitError}
                         </p>
                       ) : null}
-                      <div className="flex w-full gap-2">
-                        <Button type="submit" disabled={isSubmitting} className="flex-1">
+                      <div className="flex w-full">
+                        <Button type="submit" disabled={isSubmitting} className="flex-1 rounded-none">
                           {isSubmitting ? "Creating..." : "Create task"}
                         </Button>
                         <Button
@@ -779,7 +779,7 @@ export function CreateTaskDialog({
                           variant="outline"
                           onClick={closeDialog}
                           disabled={isSubmitting}
-                          className="flex-1"
+                          className="flex-1 rounded-none border-0 border-l"
                         >
                           Cancel
                         </Button>
