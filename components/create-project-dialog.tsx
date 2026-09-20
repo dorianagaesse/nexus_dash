@@ -29,7 +29,7 @@ export function CreateProjectDialog({ action }: CreateProjectDialogProps) {
         className="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)]"
       >
             <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0">
-              <DialogTitle className="text-lg">Create project</DialogTitle>
+              <DialogTitle className="text-lg">New project</DialogTitle>
               <Button type="button" variant="ghost" size="icon" onClick={() => setIsOpen(false)} aria-label="Close create project">
                 <X className="h-4 w-4" />
               </Button>
