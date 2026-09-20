@@ -15,7 +15,10 @@ import {
 } from "@/lib/meeting-todo-actor";
 import { type ProjectActorKind } from "@/lib/project-actor";
 import { coerceRichTextHtml, richTextToPlainText } from "@/lib/rich-text";
-import { touchProjectActivity } from "@/lib/services/project-activity-service";
+import {
+  recordProjectActivityEvent,
+  touchProjectActivity,
+} from "@/lib/services/project-activity-service";
 import {
   requireProjectRole,
   requireAgentProjectScopes,
@@ -724,6 +727,7 @@ async function readMeetingNoteById(input: {
   db: DbClient;
   projectId: string;
   noteId: string;
+  actorRegistry?: MeetingTodoActorRegistry | null;
 }): Promise<ProjectMeetingNoteSummary | null> {
   const [note, registry] = await Promise.all([
     input.db.projectMeetingNote.findFirst({
@@ -747,10 +751,12 @@ async function readMeetingNoteById(input: {
       },
     },
     }),
-    loadMeetingNoteActorRegistry({
-      db: input.db,
-      projectId: input.projectId,
-    }),
+    input.actorRegistry === undefined
+      ? loadMeetingNoteActorRegistry({
+          db: input.db,
+          projectId: input.projectId,
+        })
+      : Promise.resolve(input.actorRegistry),
   ]);
 
   return note ? mapMeetingNote(note, registry) : null;
@@ -1138,7 +1144,9 @@ export async function listProjectMeetingNotes(input: {
 
 export async function createProjectMeetingNote(
   input: MeetingNoteMutationInput
-): Promise<ServiceResult<{ note: ProjectMeetingNoteSummary }>> {
+): Promise<
+  ServiceResult<{ note: ProjectMeetingNoteSummary; activityVersion: Date }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -1294,16 +1302,27 @@ export async function createProjectMeetingNote(
         db,
         projectId: input.projectId,
         noteId: created.id,
+        actorRegistry,
       });
       if (!note) {
         return createError(500, "meeting-note-create-failed");
       }
 
-      await touchProjectActivity({ db, projectId: input.projectId });
+      const activityVersion = new Date();
+      await recordProjectActivityEvent({
+        db,
+        projectId: input.projectId,
+        actorUserId,
+        domain: "meeting-note",
+        action: "created",
+        entityId: created.id,
+        payload: { noteId: created.id },
+        occurredAt: activityVersion,
+      });
 
       return {
         ok: true,
-        data: { note },
+        data: { note, activityVersion },
       };
     } catch (error) {
       logServerError("createProjectMeetingNote", error);
@@ -1314,7 +1333,9 @@ export async function createProjectMeetingNote(
 
 export async function updateProjectMeetingNote(
   input: MeetingNoteUpdateInput
-): Promise<ServiceResult<{ note: ProjectMeetingNoteSummary }>> {
+): Promise<
+  ServiceResult<{ note: ProjectMeetingNoteSummary; activityVersion: Date }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   const noteId = normalizeText(input.noteId);
   if (!actorUserId) {
@@ -1362,9 +1383,19 @@ export async function updateProjectMeetingNote(
       },
       select: {
         id: true,
+        participants: {
+          orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+          select: {
+            userId: true,
+            displayName: true,
+            position: true,
+          },
+        },
         actions: {
           select: {
             id: true,
+            content: true,
+            position: true,
             assigneeKind: true,
             assigneeUserId: true,
             assigneeCredentialId: true,
@@ -1376,31 +1407,43 @@ export async function updateProjectMeetingNote(
     if (!existing) {
       return createError(404, "meeting-note-not-found");
     }
+    const existingActions = existing.actions ?? [];
     const existingActionById = new Map(
-      existing.actions.map((action) => [action.id, action])
+      existingActions.map((action) => [action.id, action])
     );
+    const existingParticipants = existing.participants ?? [];
+    const participantsAlreadyMatch =
+      existingParticipants.length === draft.participants.length &&
+      existingParticipants.every((participant, index) => {
+        const nextParticipant = draft.participants[index];
+        return (
+          nextParticipant !== undefined &&
+          participant.userId === nextParticipant.userId &&
+          participant.displayName === nextParticipant.displayName &&
+          participant.position === index
+        );
+      });
 
     try {
-      const [participantResolution, mutationActor, actorRegistry] =
-        await Promise.all([
-          resolveMeetingParticipants({
-            db,
-            projectId: input.projectId,
-            participants: draft.participants,
-          }),
-          resolveMeetingTodoMutationActor({
-            db,
-            actorUserId,
-            projectId: input.projectId,
-            agentAccess: input.agentAccess,
-          }),
-          loadMeetingNoteActorRegistry({ db, projectId: input.projectId }),
-        ]);
+      const [participantResolution, actorRegistry] = await Promise.all([
+        participantsAlreadyMatch
+          ? Promise.resolve({
+              ok: true as const,
+              participants: existingParticipants.map((participant) => ({
+                userId: participant.userId,
+                displayName: participant.displayName,
+                position: participant.position,
+              })),
+            })
+          : resolveMeetingParticipants({
+              db,
+              projectId: input.projectId,
+              participants: draft.participants,
+            }),
+        loadMeetingNoteActorRegistry({ db, projectId: input.projectId }),
+      ]);
       if (!participantResolution.ok) {
         return participantResolution;
-      }
-      if (!mutationActor.ok) {
-        return createError(mutationActor.status, mutationActor.error);
       }
       const assignmentResolution = resolveDraftActionAssignees({
         actions: draft.actions,
@@ -1411,7 +1454,7 @@ export async function updateProjectMeetingNote(
         return assignmentResolution;
       }
 
-      const existingActionIds = new Set(existing.actions.map((action) => action.id));
+      const existingActionIds = new Set(existingActions.map((action) => action.id));
       const retainedActionIds = draft.actions.flatMap((action) =>
         action.id ? [action.id] : []
       );
@@ -1419,28 +1462,11 @@ export async function updateProjectMeetingNote(
         return createError(400, "meeting-note-action-invalid");
       }
 
-      const assignedAt = new Date();
-      const assignmentProvenance: MeetingActionAssignmentProvenance = {
-        kind: mutationActor.actor.summary.kind,
-        userId: mutationActor.actor.userId,
-        credentialId: mutationActor.actor.credentialId,
-        displayNameSnapshot: mutationActor.actor.displayNameSnapshot,
-        assignedAt,
-      };
-      const pendingRetainedChanges: Array<
-        ReturnType<typeof buildMeetingActionAssigneeChangeData>
-      > = [];
-      const pendingCreationChanges: Array<{
-        position: number;
-        next: MeetingActionAssigneeFields;
-      }> = [];
-
-      const updates = draft.actions.flatMap((action, index) => {
-        if (!action.id) {
-          return [];
-        }
+      const actionPlans = draft.actions.map((action, index) => {
         const assignment = assignmentResolution.assignments[index];
-        const existingAction = existingActionById.get(action.id);
+        const existingAction = action.id
+          ? existingActionById.get(action.id)
+          : undefined;
         const assignmentChanged =
           assignment !== undefined &&
           existingAction !== undefined &&
@@ -1449,16 +1475,74 @@ export async function updateProjectMeetingNote(
             next: assignment,
           });
 
-        if (assignmentChanged && existingAction && assignment) {
+        return { action, assignment, existingAction, assignmentChanged };
+      });
+      const needsMutationActor = actionPlans.some(
+        ({ action, assignmentChanged }) => !action.id || assignmentChanged
+      );
+      const mutationActorResolution = needsMutationActor
+        ? await resolveMeetingTodoMutationActor({
+            db,
+            actorUserId,
+            projectId: input.projectId,
+            agentAccess: input.agentAccess,
+          })
+        : null;
+      if (mutationActorResolution && !mutationActorResolution.ok) {
+        return createError(
+          mutationActorResolution.status,
+          mutationActorResolution.error
+        );
+      }
+      const mutationActor =
+        mutationActorResolution?.ok === true
+          ? mutationActorResolution.actor
+          : null;
+
+      const assignedAt = new Date();
+      const assignmentProvenance: MeetingActionAssignmentProvenance | null =
+        mutationActor
+          ? {
+              kind: mutationActor.summary.kind,
+              userId: mutationActor.userId,
+              credentialId: mutationActor.credentialId,
+              displayNameSnapshot: mutationActor.displayNameSnapshot,
+              assignedAt,
+            }
+          : null;
+      const pendingRetainedChanges: Array<
+        ReturnType<typeof buildMeetingActionAssigneeChangeData>
+      > = [];
+      const pendingCreationChanges: Array<{
+        position: number;
+        next: MeetingActionAssigneeFields;
+      }> = [];
+
+      const updates = actionPlans.flatMap(
+        ({ action, assignment, existingAction, assignmentChanged }) => {
+        if (!action.id) {
+          return [];
+        }
+
+        if (assignmentChanged && existingAction && assignment && mutationActor) {
           pendingRetainedChanges.push(
             buildMeetingActionAssigneeChangeData({
               actionId: action.id,
               previous: existingAction,
               next: assignment,
-              changedBy: mutationActor.actor,
+              changedBy: mutationActor,
               changedAt: assignedAt,
             })
           );
+        }
+
+        if (
+          existingAction &&
+          existingAction.content === action.content &&
+          existingAction.position === action.position &&
+          !assignmentChanged
+        ) {
+          return [];
         }
 
         return [
@@ -1468,7 +1552,7 @@ export async function updateProjectMeetingNote(
               content: action.content,
               position: action.position,
               ...(assignment ?? {}),
-              ...(assignmentChanged
+              ...(assignmentChanged && assignmentProvenance
                 ? buildMeetingActionAssignmentProvenanceData(
                     assignmentProvenance
                   )
@@ -1476,12 +1560,12 @@ export async function updateProjectMeetingNote(
             },
           },
         ];
-      });
-      const creates = draft.actions.flatMap((action, index) => {
+        }
+      );
+      const creates = actionPlans.flatMap(({ action, assignment }) => {
         if (action.id) {
           return [];
         }
-        const assignment = assignmentResolution.assignments[index];
         const assignmentFields: MeetingActionAssigneeFields = assignment ?? {
           assigneeKind: null,
           assigneeUserId: null,
@@ -1500,49 +1584,72 @@ export async function updateProjectMeetingNote(
             content: action.content,
             completedAt: action.completedAt,
             position: action.position,
-            ...buildCreatorPersistence(mutationActor.actor),
+            ...buildCreatorPersistence(mutationActor!),
             ...assignmentFields,
-            ...(assigned
+            ...(assigned && assignmentProvenance
               ? buildMeetingActionAssignmentProvenanceData(
                   assignmentProvenance
                 )
               : {}),
             ...(action.completedAt
               ? {
-                  completedByKind: mutationActor.actor.summary.kind,
-                  completedByUserId: mutationActor.actor.userId,
-                  completedByCredentialId: mutationActor.actor.credentialId,
+                  completedByKind: mutationActor!.summary.kind,
+                  completedByUserId: mutationActor!.userId,
+                  completedByCredentialId: mutationActor!.credentialId,
                   completedByDisplayNameSnapshot:
-                    mutationActor.actor.displayNameSnapshot,
+                    mutationActor!.displayNameSnapshot,
                 }
               : {}),
           },
         ];
       });
+      const retainedActionIdSet = new Set(retainedActionIds);
+      const deletedActionIds = existingActions.flatMap((action) =>
+        retainedActionIdSet.has(action.id) ? [] : [action.id]
+      );
+      const participantsChanged =
+        existingParticipants.length !==
+          participantResolution.participants.length ||
+        existingParticipants.some((participant, index) => {
+          const nextParticipant = participantResolution.participants[index];
+          return (
+            !nextParticipant ||
+            participant.userId !== nextParticipant.userId ||
+            participant.displayName !== nextParticipant.displayName ||
+            participant.position !== nextParticipant.position
+          );
+        });
 
       await db.projectMeetingNote.update({
         where: { id: noteId },
         data: {
           title: draft.title,
           scheduledAt: draft.scheduledAt,
-          participants: {
-            deleteMany: {},
-            create: participantResolution.participants,
-          },
+          ...(participantsChanged
+            ? {
+                participants: {
+                  deleteMany: {},
+                  create: participantResolution.participants,
+                },
+              }
+            : {}),
           labelsJson: serializeTaskLabels(draft.labels),
           status: draft.status,
           inputNotes: draft.inputNotes,
           outputNotes: draft.outputNotes,
           decisions: draft.decisions,
           updatedByUserId: actorUserId,
-          actions: {
-            deleteMany:
-              retainedActionIds.length > 0
-                ? { id: { notIn: retainedActionIds } }
-                : {},
-            update: updates,
-            create: creates,
-          },
+          ...(deletedActionIds.length > 0 || updates.length > 0 || creates.length > 0
+            ? {
+                actions: {
+                  ...(deletedActionIds.length > 0
+                    ? { deleteMany: { id: { in: deletedActionIds } } }
+                    : {}),
+                  ...(updates.length > 0 ? { update: updates } : {}),
+                  ...(creates.length > 0 ? { create: creates } : {}),
+                },
+              }
+            : {}),
         },
       });
 
@@ -1551,28 +1658,41 @@ export async function updateProjectMeetingNote(
           data: change,
         });
       }
-      await recordMeetingActionAssigneeChanges({
-        db,
-        noteId,
-        changes: pendingCreationChanges,
-        changedBy: mutationActor.actor,
-        changedAt: assignedAt,
-      });
+      if (pendingCreationChanges.length > 0 && mutationActor) {
+        await recordMeetingActionAssigneeChanges({
+          db,
+          noteId,
+          changes: pendingCreationChanges,
+          changedBy: mutationActor,
+          changedAt: assignedAt,
+        });
+      }
 
       const note = await readMeetingNoteById({
         db,
         projectId: input.projectId,
         noteId,
+        actorRegistry,
       });
       if (!note) {
         return createError(404, "meeting-note-not-found");
       }
 
-      await touchProjectActivity({ db, projectId: input.projectId });
+      const activityVersion = new Date();
+      await recordProjectActivityEvent({
+        db,
+        projectId: input.projectId,
+        actorUserId,
+        domain: "meeting-note",
+        action: "updated",
+        entityId: noteId,
+        payload: { noteId },
+        occurredAt: activityVersion,
+      });
 
       return {
         ok: true,
-        data: { note },
+        data: { note, activityVersion },
       };
     } catch (error) {
       logServerError("updateProjectMeetingNote", error);

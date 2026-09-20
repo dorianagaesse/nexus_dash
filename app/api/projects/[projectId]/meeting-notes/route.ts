@@ -6,7 +6,7 @@ import {
   requireAuthenticatedApiUser,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
-import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
+import { startServerTiming } from "@/lib/observability/server-timing";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import type { ProjectMeetingParticipantInput } from "@/lib/meeting-participant";
 import { isMeetingTodoActorReference } from "@/lib/meeting-todo-actor";
@@ -163,6 +163,7 @@ export async function POST(
   request: NextRequest,
   props: { params: Promise<{ projectId: string }> }
 ) {
+  const timing = startServerTiming("meeting-note.create");
   const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
@@ -192,23 +193,20 @@ export async function POST(
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status, headers: timing.headers() }
+    );
   }
-
-  const version = await recordProjectActivityEventVersion({
-    actorUserId: authenticatedUser.userId,
-    projectId: params.projectId,
-    domain: "meeting-note",
-    action: "created",
-    entityId: result.data.note.id,
-    payload: { noteId: result.data.note.id },
-  });
 
   return NextResponse.json(
     { note: serializeMeetingNote(result.data.note) },
     {
       status: 201,
-      headers: withProjectActivityVersionHeader(new Headers(), version),
+      headers: withProjectActivityVersionHeader(
+        timing.headers(),
+        result.data.activityVersion
+      ),
     }
   );
 }

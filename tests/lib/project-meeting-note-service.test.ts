@@ -10,6 +10,7 @@ const rlsContextMock = vi.hoisted(() => ({
 }));
 
 const projectActivityServiceMock = vi.hoisted(() => ({
+  recordProjectActivityEvent: vi.fn(),
   touchProjectActivity: vi.fn(),
 }));
 
@@ -132,6 +133,8 @@ vi.mock("@/lib/services/rls-context", () => ({
 }));
 
 vi.mock("@/lib/services/project-activity-service", () => ({
+  recordProjectActivityEvent:
+    projectActivityServiceMock.recordProjectActivityEvent,
   touchProjectActivity: projectActivityServiceMock.touchProjectActivity,
 }));
 
@@ -253,6 +256,7 @@ describe("project-meeting-note-service", () => {
     projectActivityServiceMock.touchProjectActivity.mockResolvedValue(
       new Date("2026-06-08T15:00:00.000Z")
     );
+    projectActivityServiceMock.recordProjectActivityEvent.mockResolvedValue(null);
   });
 
   test("lists notes and filters search across participants, outputs, and actions", async () => {
@@ -456,9 +460,15 @@ describe("project-meeting-note-service", () => {
       },
       select: { id: true },
     });
-    expect(projectActivityServiceMock.touchProjectActivity).toHaveBeenCalledWith({
+    expect(projectActivityServiceMock.recordProjectActivityEvent).toHaveBeenCalledWith({
       db: dbMock,
       projectId: "project-1",
+      actorUserId: "user-1",
+      domain: "meeting-note",
+      action: "created",
+      entityId: "note-1",
+      payload: { noteId: "note-1" },
+      occurredAt: expect.any(Date),
     });
   });
 
@@ -718,22 +728,58 @@ describe("project-meeting-note-service", () => {
       where: { id: "note-1" },
       data: expect.objectContaining({
         title: "Updated review",
-        participants: {
-          deleteMany: {},
-          create: [],
-        },
         actions: {
-          deleteMany: { id: { notIn: ["action-1"] } },
           update: [
             {
               where: { id: "action-1" },
               data: { content: "Updated action", position: 0 },
             },
           ],
-          create: [],
         },
       }),
     });
+    const updateData = dbMock.projectMeetingNote.update.mock.calls[0]?.[0]?.data;
+    expect(updateData).not.toHaveProperty("participants");
+    expect(updateData?.actions).not.toHaveProperty("deleteMany");
+    expect(updateData?.actions).not.toHaveProperty("create");
+  });
+
+  test("skips unchanged participants and persisted actions during a note save", async () => {
+    dbMock.projectMeetingNote.findFirst
+      .mockResolvedValueOnce({
+        id: "note-1",
+        participants: [externalParticipant("Dorian", 0)],
+        actions: [
+          {
+            ...unassignedActionRow(),
+            content: "Send recap",
+            position: 0,
+          },
+        ],
+      })
+      .mockResolvedValueOnce(baseMeetingNoteRecord);
+    dbMock.projectMeetingNote.update.mockResolvedValueOnce({ id: "note-1" });
+
+    const result = await updateProjectMeetingNote({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      noteId: "note-1",
+      title: "Weekly execution review",
+      participants: ["Dorian"],
+      actions: [{ id: "action-1", content: "Send recap" }],
+    });
+
+    expect(result.ok).toBe(true);
+    const updateData = dbMock.projectMeetingNote.update.mock.calls[0]?.[0]?.data;
+    expect(updateData).not.toHaveProperty("participants");
+    expect(updateData).not.toHaveProperty("actions");
+    expect(projectActivityServiceMock.recordProjectActivityEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "project-1",
+        action: "updated",
+        entityId: "note-1",
+      })
+    );
   });
 
   test("validates titles before entering the database boundary", async () => {
