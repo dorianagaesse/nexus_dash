@@ -8474,3 +8474,10 @@ Low-value entries to avoid going forward:
 - Committed the implementation as `8745c1a`, pushed
   `fix/nd-136-inbox-notifications-naming`, and opened ready-for-review
   [PR #547](https://github.com/dorianagaesse/nexus_dash/pull/547).
+- Merge-forward: `origin/main` advanced to 18d2e78 (ND-138, PR #546, modal
+  title vs button label separation). The only conflict was this journal
+  append, resolved by taking main's file and re-appending this entry;
+  ND-138's modal component and e2e spec changes merged cleanly and do not
+  overlap this diff. Merge commit `85a9932`. Re-validated on the merged
+  tree: `npm run lint`, `npm run rls:check`, full unit suite (213 files /
+  1744 tests passed, 2 skipped), production build - all green.
