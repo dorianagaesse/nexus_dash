@@ -20,8 +20,14 @@ import {
   validateAttachmentFiles,
 } from "@/lib/services/attachment-input-service";
 import { logServerError } from "@/lib/observability/logger";
-import { touchProjectActivity } from "@/lib/services/project-activity-service";
-import { createTaskAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
+import {
+  recordProjectActivityEvent,
+  touchProjectActivity,
+} from "@/lib/services/project-activity-service";
+import {
+  createTaskAttachmentsFromDraft,
+  mapTaskAttachmentResponse,
+} from "@/lib/services/project-attachment-service";
 import {
   formatTaskDeadlineDate,
   parseTaskDeadlineDate,
@@ -964,7 +970,9 @@ export function isValidReorderPayload(payload: unknown): payload is ReorderPaylo
 
 export async function createTaskForProject(
   input: CreateTaskForProjectInput
-): Promise<ServiceResult<{ task: UpdatedTaskPayload }>> {
+): Promise<
+  ServiceResult<{ task: UpdatedTaskPayload; activityVersion: Date }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -1174,17 +1182,37 @@ export async function createTaskForProject(
         });
       }
 
-      await touchProjectActivity({ db, projectId: input.projectId });
-
       const task = await loadTaskMutationPayload(db, input.projectId, createdTask.id);
       if (!task) {
         return createError(500, "create-failed");
       }
 
+      const activityVersion = new Date();
+      await recordProjectActivityEvent({
+        db,
+        projectId: input.projectId,
+        actorUserId,
+        domain: "task",
+        action: "created",
+        entityId: task.id,
+        payload: {
+          task: {
+            ...task,
+            attachments: Array.isArray(task.attachments)
+              ? task.attachments.map((attachment) =>
+                  mapTaskAttachmentResponse(input.projectId, task.id, attachment)
+                )
+              : task.attachments,
+          },
+        },
+        occurredAt: activityVersion,
+      });
+
       return {
         ok: true,
         data: {
           task,
+          activityVersion,
         },
       };
     } catch (error) {
@@ -1557,7 +1585,9 @@ export async function updateTaskForProject(
   payload: UpdateTaskPayload,
   actorUserId: string,
   agentAccess?: AgentProjectAccessContext
-): Promise<ServiceResult<{ task: UpdatedTaskPayload }>> {
+): Promise<
+  ServiceResult<{ task: UpdatedTaskPayload; activityVersion: Date }>
+> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
     return createError(401, "unauthorized");
@@ -1887,12 +1917,32 @@ export async function updateTaskForProject(
         });
       }
 
-      await touchProjectActivity({ db, projectId });
+      const activityVersion = new Date();
+      await recordProjectActivityEvent({
+        db,
+        projectId,
+        actorUserId: normalizedActorUserId,
+        domain: "task",
+        action: "updated",
+        entityId: taskId,
+        payload: {
+          task: {
+            ...updatedTask,
+            attachments: Array.isArray(updatedTask.attachments)
+              ? updatedTask.attachments.map((attachment) =>
+                  mapTaskAttachmentResponse(projectId, taskId, attachment)
+                )
+              : updatedTask.attachments,
+          },
+        },
+        occurredAt: activityVersion,
+      });
 
       return {
         ok: true,
         data: {
           task: updatedTask,
+          activityVersion,
         },
       };
     } catch (error) {

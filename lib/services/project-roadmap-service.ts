@@ -549,7 +549,7 @@ export async function listProjectRoadmapPhases(
 
 export async function createProjectRoadmapPhase(
   input: CreateRoadmapPhaseInput
-): Promise<ServiceResult<{ phase: ProjectRoadmapPhase }>> {
+): Promise<ServiceResult<{ phase: ProjectRoadmapPhase; activityVersion: Date }>> {
   const actorUserId = normalizeText(input.actorUserId);
   const title = normalizeText(input.title);
   const description = normalizeOptionalDescription(input.description);
@@ -624,12 +624,16 @@ export async function createProjectRoadmapPhase(
         return createError(500, "roadmap-phase-create-failed");
       }
 
-      await touchProjectActivity({ db, projectId: input.projectId });
+      const activityVersion = await touchProjectActivity({
+        db,
+        projectId: input.projectId,
+      });
 
       return {
         ok: true,
         data: {
           phase,
+          activityVersion,
         },
       };
     } catch (error) {
@@ -644,7 +648,7 @@ export async function createProjectRoadmapPhase(
 
 export async function updateProjectRoadmapPhase(
   input: UpdateRoadmapPhaseInput
-): Promise<ServiceResult<{ phase: ProjectRoadmapPhase }>> {
+): Promise<ServiceResult<{ phase: ProjectRoadmapPhase; activityVersion: Date }>> {
   const actorUserId = normalizeText(input.actorUserId);
   const phaseId = normalizeText(input.phaseId);
   const titleProvided = Object.prototype.hasOwnProperty.call(input, "title");
@@ -736,12 +740,16 @@ export async function updateProjectRoadmapPhase(
         return createError(404, "roadmap-phase-not-found");
       }
 
-      await touchProjectActivity({ db, projectId: input.projectId });
+      const activityVersion = await touchProjectActivity({
+        db,
+        projectId: input.projectId,
+      });
 
       return {
         ok: true,
         data: {
           phase,
+          activityVersion,
         },
       };
     } catch (error) {
@@ -824,7 +832,13 @@ export async function deleteProjectRoadmapPhase(input: {
 
 export async function createProjectRoadmapEvent(
   input: CreateRoadmapEventInput
-): Promise<ServiceResult<{ event: ProjectRoadmapEvent; phase: ProjectRoadmapPhase }>> {
+): Promise<
+  ServiceResult<{
+    event: ProjectRoadmapEvent;
+    phase: ProjectRoadmapPhase;
+    activityVersion: Date;
+  }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   const phaseId = normalizeText(input.phaseId);
   const title = normalizeText(input.title);
@@ -925,13 +939,17 @@ export async function createProjectRoadmapEvent(
         return createError(500, "roadmap-event-create-failed");
       }
 
-      await touchProjectActivity({ db, projectId: input.projectId });
+      const activityVersion = await touchProjectActivity({
+        db,
+        projectId: input.projectId,
+      });
 
       return {
         ok: true,
         data: {
           event,
           phase,
+          activityVersion,
         },
       };
     } catch (error) {
@@ -947,7 +965,13 @@ export async function createProjectRoadmapEvent(
 
 export async function updateProjectRoadmapEvent(
   input: UpdateRoadmapEventInput
-): Promise<ServiceResult<{ event: ProjectRoadmapEvent; phase: ProjectRoadmapPhase }>> {
+): Promise<
+  ServiceResult<{
+    event: ProjectRoadmapEvent;
+    phase: ProjectRoadmapPhase;
+    activityVersion: Date;
+  }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   const eventId = normalizeText(input.eventId);
   const titleProvided = Object.prototype.hasOwnProperty.call(input, "title");
@@ -1045,13 +1069,17 @@ export async function updateProjectRoadmapEvent(
         return createError(404, "roadmap-event-not-found");
       }
 
-      await touchProjectActivity({ db, projectId: input.projectId });
+      const activityVersion = await touchProjectActivity({
+        db,
+        projectId: input.projectId,
+      });
 
       return {
         ok: true,
         data: {
           event,
           phase,
+          activityVersion,
         },
       };
     } catch (error) {

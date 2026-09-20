@@ -198,7 +198,10 @@ describe("project meeting notes routes", () => {
   test("POST creates a structured meeting note", async () => {
     meetingNoteServiceMock.createProjectMeetingNote.mockResolvedValueOnce({
       ok: true,
-      data: { note: sampleNote() },
+      data: {
+        note: sampleNote(),
+        activityVersion: new Date("2026-06-08T15:00:00.000Z"),
+      },
     });
 
     const response = await createMeetingNote(
@@ -246,20 +249,18 @@ describe("project meeting notes routes", () => {
         },
       ],
     });
-    expect(activityEventResponseMock.recordProjectActivityEventVersion).toHaveBeenCalledWith({
-      actorUserId: "user-1",
-      projectId: "project-1",
-      domain: "meeting-note",
-      action: "created",
-      entityId: "note-1",
-      payload: { noteId: "note-1" },
-    });
+    expect(
+      activityEventResponseMock.recordProjectActivityEventVersion
+    ).not.toHaveBeenCalled();
   });
 
   test("PATCH updates a meeting note", async () => {
     meetingNoteServiceMock.updateProjectMeetingNote.mockResolvedValueOnce({
       ok: true,
-      data: { note: sampleNote() },
+      data: {
+        note: sampleNote(),
+        activityVersion: new Date("2026-06-08T15:00:00.000Z"),
+      },
     });
 
     const response = await updateMeetingNote(

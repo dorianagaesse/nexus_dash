@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import type { ProjectMeetingParticipantInput } from "@/lib/meeting-participant";
@@ -122,6 +123,7 @@ export async function PATCH(
   request: NextRequest,
   props: { params: Promise<{ projectId: string; noteId: string }> }
 ) {
+  const timing = startServerTiming("meeting-note.update");
   const params = await props.params;
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
@@ -152,22 +154,19 @@ export async function PATCH(
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status, headers: timing.headers() }
+    );
   }
-
-  const version = await recordProjectActivityEventVersion({
-    actorUserId: authenticatedUser.userId,
-    projectId: params.projectId,
-    domain: "meeting-note",
-    action: "updated",
-    entityId: result.data.note.id,
-    payload: { noteId: result.data.note.id },
-  });
 
   return NextResponse.json(
     { note: serializeMeetingNote(result.data.note) },
     {
-      headers: withProjectActivityVersionHeader(new Headers(), version),
+      headers: withProjectActivityVersionHeader(
+        timing.headers(),
+        result.data.activityVersion
+      ),
     }
   );
 }

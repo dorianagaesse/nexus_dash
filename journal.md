@@ -8440,3 +8440,26 @@ Low-value entries to avoid going forward:
 - Copilot review: not expected (project owner reports the Copilot quota is
   reached); the PR carries the validation evidence for manual review
   instead.
+
+# 2026-09-20 - ND-429 save-latency remediation
+
+- Kept task and meeting-note typed activity writes inside the already
+  authorized RLS save transaction, removing the second authorization/touch
+  transaction while preserving the canonical activity event and response
+  version header used by realtime clients.
+- Meeting-note updates now compare persisted participants and actions, skip
+  unchanged nested writes, reuse the loaded actor registry for the response,
+  and resolve the mutation actor only when an action is created or reassigned.
+  The 10-persisted-todo path fell from 62 to 28 SQL statements.
+- Roadmap phase/event mutations now return `x-nexusdash-project-version` and
+  `Server-Timing`; the client acknowledges those responses and keeps its local
+  phase projection instead of issuing an unconditional `router.refresh()`.
+- Production-build local rerun (PostgreSQL 16, RLS enabled, three warmups plus
+  20 samples): p95 task create/edit 50.0/42.8 ms; meeting create/preparation/
+  10-persisted-todo edit 50.1/46.8/46.9 ms; roadmap phase create/edit
+  31.7/30.8 ms; roadmap event create/edit 25.6/23.7 ms. Task create/edit SQL
+  fell from 27/28 to 22/23; roadmap remained within its 9-11 statement budget.
+- Validation: lint, RLS inventory, release policy, focused service/API/UI
+  tests, full unit and coverage suites, production build, the 10-test task/
+  meeting/roadmap browser suite, and the temporary benchmark/query harnesses.
+  Temporary instrumentation and fixtures were removed afterward.

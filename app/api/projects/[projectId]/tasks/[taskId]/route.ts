@@ -118,18 +118,14 @@ export async function PATCH(
         }
       : rawTask;
 
-  const version = await recordProjectActivityEventVersion({
-    actorUserId,
-    projectId,
-    domain: "task",
-    action: "updated",
-    entityId: taskId,
-    payload: { task },
-  });
-
   return NextResponse.json(
     { task },
-    { headers: withProjectActivityVersionHeader(timing.headers(), version) }
+    {
+      headers: withProjectActivityVersionHeader(
+        timing.headers(),
+        result.data.activityVersion
+      ),
+    }
   );
 }
 
