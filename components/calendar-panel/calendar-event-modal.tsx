@@ -106,7 +106,7 @@ export function CalendarEventModal({
         <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0">
           <DialogTitle className="text-lg">
             {eventModalMode === "create"
-              ? "Create calendar event"
+              ? "New calendar event"
               : eventModalMode === "edit"
                 ? "Edit calendar event"
                 : "Calendar event"}
