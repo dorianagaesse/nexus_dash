@@ -165,6 +165,41 @@ describe("NotificationLiveUpdates", () => {
     });
   });
 
+  test("does not open a stream when streamEnabled is false", async () => {
+    vi.stubGlobal("EventSource", MockEventSource);
+    const { root } = createTestRenderer();
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: vi.fn().mockResolvedValue(initialSnapshot),
+    });
+
+    await renderWithRoot(
+      root,
+      React.createElement(NotificationLiveUpdates, {
+        initialSnapshot,
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    expect(MockEventSource.instances).toHaveLength(0);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/account/notifications/summary",
+      {
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
+      }
+    );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("falls back to polling when the stream fails before opening", async () => {
     vi.stubGlobal("EventSource", MockEventSource);
     const { root } = createTestRenderer();

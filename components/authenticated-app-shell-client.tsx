@@ -84,6 +84,7 @@ interface AuthenticatedAppShellClientProps {
   usernameTag: string | null;
   avatarSeed: string | null;
   initialNotificationSnapshot: NotificationRealtimeSnapshot;
+  streamEnabled: boolean;
   appVersionLabel: string;
   appEnvironment: AppRuntimeEnvironment;
   appDiagnosticLabel: string;
@@ -96,6 +97,7 @@ export function AuthenticatedAppShellClient({
   usernameTag,
   avatarSeed,
   initialNotificationSnapshot,
+  streamEnabled,
   appVersionLabel,
   appEnvironment,
   appDiagnosticLabel,
@@ -225,7 +227,10 @@ export function AuthenticatedAppShellClient({
 
   return (
     <div className="min-h-dvh bg-muted/20 pb-[calc(6.5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64">
-      <NotificationLiveUpdates initialSnapshot={initialNotificationSnapshot} />
+      <NotificationLiveUpdates
+        initialSnapshot={initialNotificationSnapshot}
+        streamEnabled={streamEnabled}
+      />
       <a
         href="#app-main-content"
         className="fixed left-4 top-2 z-[var(--layer-skip-link)] -translate-y-20 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-lg focus:translate-y-0"
