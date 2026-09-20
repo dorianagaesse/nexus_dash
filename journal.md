@@ -8382,3 +8382,56 @@ Low-value entries to avoid going forward:
   merged cleanly. Re-validated on the merged tree: `npm run lint`,
   `npm run rls:check`, full unit suite (213 files / 1744 tests passed, 2
   skipped), production build - all green. Merge commit 8011df1.
+
+# 2026-09-20 - ND-368: Realtime transport kill switch and Preview polling default
+- Claim: ND-368 (epic "Realtime Efficiency and Vercel Cost Control"), implementing
+  the 2026-09-01 ADR (adr/decisions.md) that fixes the design: a runtime
+  transport kill switch plus Preview defaulting away from persistent DB-polled
+  SSE, which is the dominant Vercel Fluid compute cost driver.
+- Implementation: `lib/env.server.ts` gains `getRealtimeTransport()` (values
+  `stream` | `polling`; unset defaults to `polling` on Vercel Preview and
+  `stream` everywhere else; invalid values fail startup through
+  `validateServerRuntimeConfig()`) and `isRealtimeStreamEnabled()`. Both SSE
+  routes (`/api/account/notifications/stream`,
+  `/api/projects/[projectId]/activity/stream`) refuse with a logged 404
+  (`{"error":"not_found"}`, `cache-control: no-store`,
+  `stream.transportDisabled` info record) before auth or database work when
+  the transport resolves to polling. EventSource treats a non-200 response as
+  a permanent failure, so stale client bundles fall back to bounded polling.
+  The resolved transport is plumbed as `streamEnabled` into
+  `AuthenticatedAppShellClient` -> `NotificationLiveUpdates` and the project
+  dashboard -> `ProjectLiveRefresh`, so fresh clients never open a stream.
+- Docs: `.env.example` documents the optional `REALTIME_TRANSPORT`; the Vercel
+  env contract runbook gains a "Realtime Transport" section covering the
+  defaults, the 404 kill-switch behavior, preview validation, and the
+  production rollback steps (set `REALTIME_TRANSPORT=polling` on Production,
+  redeploy or promote, then revert).
+- Tests: resolver defaults/override/invalid-value cases in
+  `tests/lib/env.server.test.ts`; route refusal tests (status, body, headers,
+  no auth or service work, structured log) in both route specs; client gating
+  in `tests/components/notification-live-updates.test.tsx`; new mount-point
+  wiring tests `tests/components/authenticated-app-shell-transport.test.ts`
+  and `tests/app/project-dashboard-live-transport.test.ts`.
+- Validation: `npm run lint`, `npm run rls:check`, unit suite (215 files /
+  1758 tests passed, 2 skipped), coverage thresholds met (statements 93.78%,
+  branches 84.46%, functions 95.42%, lines 94.08%), production build, and the
+  full Playwright suite on an owned verified local server (100 passed / 1
+  skipped). `git diff --check` clean.
+- Preview validation: workflow run 35516773660 (`action=deploy-preview`,
+  explicit `git_ref=fix/nd-368-realtime-transport-kill-switch`); the run log
+  shows the job fetched and checked out that branch ref. Artifact
+  `preview-deployment` URL:
+  `https://nexus-dash-g84aeu81f-dorian-agaesses-projects.vercel.app`.
+  `/api/health/ready` reports environment `preview`, revision `713a27f`; both
+  stream routes return HTTP 404 with `{"error":"not_found"}` and
+  `cache-control: no-store`.
+- Browser validation (Playwright Chromium against the immutable preview URL
+  with a session created directly in the preview database): authenticated
+  shell HTTP 200, project dashboard HTTP 200, zero stream-route requests,
+  zero `text/event-stream` requests, 6 notification-summary polls and 2
+  project-activity polls observed - freshness flows entirely through bounded
+  polling on Preview. Temporary user and project rows cleaned up after the
+  run.
+- Copilot review: not expected (project owner reports the Copilot quota is
+  reached); PR #549 carries the validation evidence for manual review.
+- Commit: 713a27f.
