@@ -8494,3 +8494,9 @@ Low-value entries to avoid going forward:
 - Copilot review: not expected (project owner reports the Copilot quota is
   reached); PR #549 carries the validation evidence for manual review.
 - Commit: 713a27f.
+- Merge-forward: `origin/main` advanced to 18d2e78 (ND-138, PR #546). The only
+  conflict was the journal.md append again, resolved the same way (main's file,
+  then this entry re-appended); ND-138's modal changes and overlay e2e spec
+  merged cleanly. Re-validated on the merged tree: `npm run lint`,
+  `npm run rls:check`, unit suite (1758 passed, 2 skipped), production build -
+  all green. Merge commit 9a3d451.
