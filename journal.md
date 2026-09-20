@@ -8500,3 +8500,10 @@ Low-value entries to avoid going forward:
   merged cleanly. Re-validated on the merged tree: `npm run lint`,
   `npm run rls:check`, unit suite (1758 passed, 2 skipped), production build -
   all green. Merge commit 9a3d451.
+- Follow-up preview validation on the merged head: workflow run 35517465328
+  redeployed the branch ref (log confirms the `git_ref` checkout) at revision
+  61e7547. `/api/health/ready` reports environment `preview`, revision
+  `61e7547`; both stream routes return 404; the browser check on
+  https://nexus-dash-9u17t7uhd-dorian-agaesses-projects.vercel.app again shows
+  zero stream-route and zero `text/event-stream` requests with 6 notification
+  and 3 project-activity polls. Temporary rows cleaned up.
