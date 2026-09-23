@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   AtSign,
   BookOpenText,
@@ -9,6 +9,7 @@ import {
   KeyRound,
   Layers3,
   ShieldCheck,
+  type LucideIcon,
 } from "lucide-react";
 
 import { AGENT_SCOPE_DEFINITIONS } from "@/lib/agent-access";
@@ -33,13 +34,79 @@ import {
   buildAgentTaskUpdateExample,
   buildAgentContextCreateExample,
 } from "@/lib/agent-onboarding";
+import { AgentOnboardingSection } from "@/components/agent-onboarding/agent-onboarding-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
+const SLIM_SCROLLBAR_CLASSES = [
+  "[scrollbar-color:rgba(148,163,184,0.52)_transparent]",
+  "[scrollbar-width:thin]",
+  "[&::-webkit-scrollbar]:w-2",
+  "[&::-webkit-scrollbar-track]:rounded-full",
+  "[&::-webkit-scrollbar-track]:bg-transparent",
+  "[&::-webkit-scrollbar-thumb]:rounded-full",
+  "[&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]",
+].join(" ");
 
 interface AgentOnboardingGuideProps {
   initialAppOrigin?: string | null;
+  collapsible?: boolean;
 }
+
+interface AgentGuideSection {
+  title: string;
+  description: ReactNode;
+  icon?: LucideIcon;
+  content: ReactNode;
+  contentClassName?: string;
+}
+
+const introItems: ReadonlyArray<{
+  icon: LucideIcon;
+  title: string;
+  description: ReactNode;
+}> = [
+  {
+    icon: Bot,
+    title: "Provision per project",
+    description:
+      "Create credentials from Project Settings > Agent access. Each credential stays scoped to one project and one explicit scope set.",
+  },
+  {
+    icon: KeyRound,
+    title: "Exchange before calling",
+    description: (
+      <>
+        Agents do not use browser login. They exchange the one-time API key for a short-lived
+        bearer token at <code>/api/auth/agent/token</code>.
+      </>
+    ),
+  },
+  {
+    icon: ShieldCheck,
+    title: "Call only the stable surface",
+    description:
+      "This v1 guide covers the supported agent routes only: project read, epics, roadmap phases and events, task routes, context-card routes, attention reads for your own mentions and assignments, and the documented attachment upload flow already validated in preview-like environments.",
+  },
+];
+
+const guideSectionOrder = [
+  "quickstart",
+  "authenticationFlow",
+  "scopeModel",
+  "endpoints",
+  "attention",
+  "readExample",
+  "createExamples",
+  "updateLifecycleExamples",
+  "binaryUploadExamples",
+  "limitations",
+  "smokeTest",
+] as const;
+
+type GuideSectionId = (typeof guideSectionOrder)[number];
 
 function buildMethodTone(method: string): string {
   switch (method) {
@@ -58,173 +125,105 @@ function buildMethodTone(method: string): string {
 
 function CodeBlock({ value }: { value: string }) {
   return (
-    <pre className="min-w-0 max-w-full overflow-x-auto rounded-xl border border-border/70 bg-slate-950 px-3 py-3 text-[11px] leading-6 text-slate-50 sm:px-4 sm:text-xs">
+    <pre
+      className={cn(
+        "min-w-0 max-w-full overflow-x-auto rounded-xl border border-border/70 bg-slate-950 px-3 py-3 text-[11px] leading-6 text-slate-50 sm:px-4 sm:text-xs",
+        SLIM_SCROLLBAR_CLASSES
+      )}
+    >
       <code className="block min-w-max">{value}</code>
     </pre>
   );
 }
 
-export function AgentOnboardingGuide({
-  initialAppOrigin = AGENT_BASE_URL_PLACEHOLDER,
-}: AgentOnboardingGuideProps) {
-  const [runtimeAppOrigin, setRuntimeAppOrigin] = useState(initialAppOrigin);
+function buildGuideSections({
+  docsLinks,
+  envBlock,
+  tokenExchangeExample,
+}: {
+  docsLinks: ReturnType<typeof buildAgentDocumentationUrls>;
+  envBlock: string;
+  tokenExchangeExample: string;
+}): Record<GuideSectionId, AgentGuideSection> {
+  const documentationActions = (
+    <>
+      <Button asChild variant="outline" className="rounded-full px-4">
+        <a href={docsLinks.docsUrl}>Rendered docs</a>
+      </Button>
+      <Button asChild variant="outline" className="rounded-full px-4">
+        <a href={docsLinks.openApiUrl}>OpenAPI JSON</a>
+      </Button>
+    </>
+  );
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    setRuntimeAppOrigin(window.location.origin);
-  }, []);
-
-  const docsLinks = buildAgentDocumentationUrls(runtimeAppOrigin);
-  const envBlock = buildAgentProjectEnvBlock({
-    appOrigin: runtimeAppOrigin,
-  });
-  const tokenExchangeExample = buildAgentTokenExchangeExample(runtimeAppOrigin);
-
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="min-w-0 border-border/60 bg-card/70">
-          <CardHeader className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Bot className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base">Provision per project</CardTitle>
-            </div>
-            <CardDescription>
-              Create credentials from Project Settings &gt; Agent access. Each credential stays
-              scoped to one project and one explicit scope set.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-
-        <Card className="min-w-0 border-border/60 bg-card/70">
-          <CardHeader className="space-y-2">
-            <div className="flex items-center gap-2">
-              <KeyRound className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base">Exchange before calling</CardTitle>
-            </div>
-            <CardDescription>
-              Agents do not use browser login. They exchange the one-time API key for a
-              short-lived bearer token at <code>/api/auth/agent/token</code>.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-
-        <Card className="min-w-0 border-border/60 bg-card/70">
-          <CardHeader className="space-y-2">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base">Call only the stable surface</CardTitle>
-            </div>
-            <CardDescription>
-              This v1 guide covers the supported agent routes only: project read, epics,
-              roadmap phases and events, task routes, context-card routes, attention reads
-              for your own mentions and assignments, and the documented attachment upload
-              flow already validated in preview-like environments.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-
-      <Card className="min-w-0 border-border/60 bg-background/70">
-        <CardHeader className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <BookOpenText className="h-4 w-4 text-muted-foreground" />
-                <CardTitle className="text-xl">Quickstart environment</CardTitle>
-              </div>
-              <CardDescription>
-                Give external agents a small, explicit bootstrap block instead of making users
-                clone the repository.
-              </CardDescription>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button asChild variant="outline" className="rounded-full px-4">
-                <a href={docsLinks.docsUrl}>Rendered docs</a>
-              </Button>
-              <Button asChild variant="outline" className="rounded-full px-4">
-                <a href={docsLinks.openApiUrl}>OpenAPI JSON</a>
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
+  return {
+    quickstart: {
+      title: "Quickstart environment",
+      icon: BookOpenText,
+      description:
+        "Give external agents a small, explicit bootstrap block instead of making users clone the repository.",
+      contentClassName: "space-y-3",
+      content: (
+        <>
+          <div className="flex flex-wrap gap-2">{documentationActions}</div>
           <CodeBlock value={envBlock} />
           <p className="text-xs text-muted-foreground">
             Replace <code>NEXUSDASH_PROJECT_ID</code> and <code>NEXUSDASH_API_KEY</code> with
             project-specific values copied from the owner-facing agent access panel.
           </p>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-        <Card className="min-w-0 border-border/60 bg-background/70">
-          <CardHeader className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-xl">Authentication flow</CardTitle>
-            </div>
-            <CardDescription>
-              Exchange once per runtime session, then send the bearer token on each project,
-              roadmap, task, context-card, or attention request.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p>1. Owner creates a project-scoped credential.</p>
-              <p>2. Agent receives the one-time raw API key out of band.</p>
-              <p>3. Agent exchanges that key for a short-lived bearer token.</p>
-              <p>4. Agent sends bearer auth on the scoped project routes.</p>
-              <p>5. Binary files use the direct-upload attachment routes instead of inline HTML.</p>
-            </div>
-            <CodeBlock value={tokenExchangeExample} />
-          </CardContent>
-        </Card>
-
-        <Card className="min-w-0 border-border/60 bg-background/70">
-          <CardHeader className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Layers3 className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-xl">Scope model</CardTitle>
-            </div>
-            <CardDescription>
-              Keep credentials narrow. Delete scopes stay separate from read and write.
-              The project credential form offers one-click presets; the recommended
-              preset grants read + write without any delete scope.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            {AGENT_SCOPE_DEFINITIONS.map((definition) => (
-              <div
-                key={definition.scope}
-                className="rounded-xl border border-border/60 bg-card/70 px-4 py-3"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-medium">{definition.label}</p>
-                  <Badge variant="outline" className="rounded-full">
-                    {definition.scope}
-                  </Badge>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {definition.description}
-                </p>
+        </>
+      ),
+    },
+    authenticationFlow: {
+      title: "Authentication flow",
+      icon: Globe,
+      description:
+        "Exchange once per runtime session, then send the bearer token on each project, roadmap, task, context-card, or attention request.",
+      contentClassName: "space-y-4",
+      content: (
+        <>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>1. Owner creates a project-scoped credential.</p>
+            <p>2. Agent receives the one-time raw API key out of band.</p>
+            <p>3. Agent exchanges that key for a short-lived bearer token.</p>
+            <p>4. Agent sends bearer auth on the scoped project routes.</p>
+            <p>5. Binary files use the direct-upload attachment routes instead of inline HTML.</p>
+          </div>
+          <CodeBlock value={tokenExchangeExample} />
+        </>
+      ),
+    },
+    scopeModel: {
+      title: "Scope model",
+      icon: Layers3,
+      description:
+        "Keep credentials narrow. Delete scopes stay separate from read and write. The project credential form offers one-click presets; the recommended preset grants read + write without any delete scope.",
+      contentClassName: "grid gap-3",
+      content: (
+        <>
+          {AGENT_SCOPE_DEFINITIONS.map((definition) => (
+            <div
+              key={definition.scope}
+              className="rounded-xl border border-border/60 bg-card/70 px-4 py-3"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium">{definition.label}</p>
+                <Badge variant="outline" className="rounded-full">
+                  {definition.scope}
+                </Badge>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="min-w-0 border-border/60 bg-background/70">
-        <CardHeader className="space-y-2">
-          <CardTitle className="text-xl">Supported endpoints</CardTitle>
-          <CardDescription>
-            Only these routes are documented as stable for agent callers in v1.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3">
+              <p className="mt-1 text-xs text-muted-foreground">{definition.description}</p>
+            </div>
+          ))}
+        </>
+      ),
+    },
+    endpoints: {
+      title: "Supported endpoints",
+      description: "Only these routes are documented as stable for agent callers in v1.",
+      contentClassName: "grid gap-3",
+      content: (
+        <>
           {AGENT_API_ENDPOINTS.map((endpoint) => (
             <div
               key={`${endpoint.method}-${endpoint.path}`}
@@ -274,21 +273,17 @@ export function AgentOnboardingGuide({
               ) : null}
             </div>
           ))}
-        </CardContent>
-      </Card>
-
-      <Card className="min-w-0 border-border/60 bg-background/70">
-        <CardHeader className="space-y-2">
-          <div className="flex items-center gap-2">
-            <AtSign className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-xl">Attention discovery</CardTitle>
-          </div>
-          <CardDescription>
-            Discover when you are mentioned or assigned with the attention:read scope. Both
-            routes return only the calling credential&apos;s own events.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        </>
+      ),
+    },
+    attention: {
+      title: "Attention discovery",
+      icon: AtSign,
+      description:
+        "Discover when you are mentioned or assigned with the attention:read scope. Both routes return only the calling credential's own events.",
+      contentClassName: "space-y-4",
+      content: (
+        <>
           <div className="space-y-1 text-sm text-muted-foreground">
             <p>
               1. List mentions and assignments; filter with eventType, artifactType,
@@ -311,106 +306,205 @@ export function AgentOnboardingGuide({
             </p>
           </div>
           <CodeBlock value={buildAgentAttentionExample()} />
-        </CardContent>
-      </Card>
+        </>
+      ),
+    },
+    readExample: {
+      title: "Read example",
+      description:
+        "Once you hold a bearer token, use it against the project-scoped read routes.",
+      content: <CodeBlock value={buildAgentProjectReadExample()} />,
+    },
+    createExamples: {
+      title: "Create examples",
+      description: (
+        <>
+          Use <code>application/json</code> for agent-first write flows unless you are
+          intentionally using a browser-oriented multipart form.
+        </>
+      ),
+      contentClassName: "space-y-4",
+      content: (
+        <>
+          <CodeBlock value={buildAgentTaskCreateExample()} />
+          <CodeBlock value={buildAgentRoadmapCreateExample()} />
+          <CodeBlock value={buildAgentContextCreateExample()} />
+        </>
+      ),
+    },
+    updateLifecycleExamples: {
+      title: "Update and lifecycle examples",
+      description: "Task status changes happen through reorder, not task patch.",
+      contentClassName: "space-y-4",
+      content: (
+        <>
+          <CodeBlock value={buildAgentTaskUpdateExample()} />
+          <CodeBlock value={buildAgentTaskCommentExample()} />
+          <CodeBlock value={buildAgentTaskReorderExample()} />
+          <CodeBlock value={buildAgentTaskArchiveExample()} />
+          <CodeBlock value={buildAgentContextUpdateExample()} />
+        </>
+      ),
+    },
+    binaryUploadExamples: {
+      title: "Binary upload examples",
+      description:
+        "Tasks and context cards both use the signed direct-upload flow for images and other binary files.",
+      contentClassName: "space-y-4",
+      content: (
+        <>
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              Task attachment
+            </p>
+            <CodeBlock value={buildAgentAttachmentUploadExample()} />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              Context-card attachment
+            </p>
+            <CodeBlock value={buildAgentContextAttachmentUploadExample()} />
+          </div>
+        </>
+      ),
+    },
+    limitations: {
+      title: "Agent limitations",
+      description: "These sharp edges are intentional v1 boundaries, not hidden behavior.",
+      contentClassName: "space-y-2 text-sm text-muted-foreground",
+      content: (
+        <>
+          {AGENT_LIMITATIONS.map((item) => (
+            <p key={item}>{item}</p>
+          ))}
+        </>
+      ),
+    },
+    smokeTest: {
+      title: "Copy-paste smoke test",
+      description: "Use this as a first validation pass in a fresh external agent runtime.",
+      content: <CodeBlock value={buildAgentSmokeTestExample()} />,
+    },
+  };
+}
+
+function FlatGuideSectionCard({ section }: { section: AgentGuideSection }) {
+  const { title, description, icon: Icon, content, contentClassName } = section;
+
+  return (
+    <Card className="min-w-0 border-border/60 bg-background/70">
+      <CardHeader className="space-y-2">
+        <div className="flex items-center gap-2">
+          {Icon ? <Icon className="h-4 w-4 text-muted-foreground" /> : null}
+          <CardTitle className="text-xl">{title}</CardTitle>
+        </div>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className={contentClassName}>{content}</CardContent>
+    </Card>
+  );
+}
+
+export function AgentOnboardingGuide({
+  initialAppOrigin = AGENT_BASE_URL_PLACEHOLDER,
+  collapsible = false,
+}: AgentOnboardingGuideProps) {
+  const [runtimeAppOrigin, setRuntimeAppOrigin] = useState(initialAppOrigin);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    setRuntimeAppOrigin(window.location.origin);
+  }, []);
+
+  const docsLinks = buildAgentDocumentationUrls(runtimeAppOrigin);
+  const envBlock = buildAgentProjectEnvBlock({
+    appOrigin: runtimeAppOrigin,
+  });
+  const tokenExchangeExample = buildAgentTokenExchangeExample(runtimeAppOrigin);
+  const sections = buildGuideSections({ docsLinks, envBlock, tokenExchangeExample });
+
+  if (collapsible) {
+    return (
+      <div className="space-y-6">
+        <AgentOnboardingSection title="How agent access works" icon={Bot}>
+          <div className="grid gap-3">
+            {introItems.map(({ icon: Icon, title, description }) => (
+              <div
+                key={title}
+                className="rounded-xl border border-border/60 bg-card/70 px-4 py-3"
+              >
+                <div className="flex items-center gap-2">
+                  <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <p className="text-sm font-medium">{title}</p>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+              </div>
+            ))}
+          </div>
+        </AgentOnboardingSection>
+
+        {guideSectionOrder.map((id) => {
+          const section = sections[id];
+
+          return (
+            <AgentOnboardingSection
+              key={id}
+              title={section.title}
+              description={section.description}
+              icon={section.icon}
+              contentClassName={section.contentClassName}
+            >
+              {section.content}
+            </AgentOnboardingSection>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 lg:grid-cols-3">
+        {introItems.map(({ icon: Icon, title, description }) => (
+          <Card key={title} className="min-w-0 border-border/60 bg-card/70">
+            <CardHeader className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Icon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">{title}</CardTitle>
+              </div>
+              <CardDescription>{description}</CardDescription>
+            </CardHeader>
+          </Card>
+        ))}
+      </div>
+
+      <FlatGuideSectionCard section={sections.quickstart} />
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <FlatGuideSectionCard section={sections.authenticationFlow} />
+        <FlatGuideSectionCard section={sections.scopeModel} />
+      </div>
+
+      <FlatGuideSectionCard section={sections.endpoints} />
+
+      <FlatGuideSectionCard section={sections.attention} />
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Card className="min-w-0 border-border/60 bg-background/70">
-          <CardHeader>
-            <CardTitle className="text-xl">Read example</CardTitle>
-            <CardDescription>
-              Once you hold a bearer token, use it against the project-scoped read routes.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CodeBlock value={buildAgentProjectReadExample()} />
-          </CardContent>
-        </Card>
-
-        <Card className="min-w-0 border-border/60 bg-background/70">
-          <CardHeader>
-            <CardTitle className="text-xl">Create examples</CardTitle>
-            <CardDescription>
-              Use <code>application/json</code> for agent-first write flows unless you are
-              intentionally using a browser-oriented multipart form.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <CodeBlock value={buildAgentTaskCreateExample()} />
-            <CodeBlock value={buildAgentRoadmapCreateExample()} />
-            <CodeBlock value={buildAgentContextCreateExample()} />
-          </CardContent>
-        </Card>
+        <FlatGuideSectionCard section={sections.readExample} />
+        <FlatGuideSectionCard section={sections.createExamples} />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Card className="min-w-0 border-border/60 bg-background/70">
-          <CardHeader>
-            <CardTitle className="text-xl">Update and lifecycle examples</CardTitle>
-            <CardDescription>
-              Task status changes happen through reorder, not task patch.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <CodeBlock value={buildAgentTaskUpdateExample()} />
-            <CodeBlock value={buildAgentTaskCommentExample()} />
-            <CodeBlock value={buildAgentTaskReorderExample()} />
-            <CodeBlock value={buildAgentTaskArchiveExample()} />
-            <CodeBlock value={buildAgentContextUpdateExample()} />
-          </CardContent>
-        </Card>
-
-        <Card className="min-w-0 border-border/60 bg-background/70">
-          <CardHeader>
-            <CardTitle className="text-xl">Binary upload examples</CardTitle>
-            <CardDescription>
-              Tasks and context cards both use the signed direct-upload flow for images and
-              other binary files.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                Task attachment
-              </p>
-              <CodeBlock value={buildAgentAttachmentUploadExample()} />
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                Context-card attachment
-              </p>
-              <CodeBlock value={buildAgentContextAttachmentUploadExample()} />
-            </div>
-          </CardContent>
-        </Card>
+        <FlatGuideSectionCard section={sections.updateLifecycleExamples} />
+        <FlatGuideSectionCard section={sections.binaryUploadExamples} />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <Card className="min-w-0 border-border/60 bg-background/70">
-          <CardHeader>
-            <CardTitle className="text-xl">Agent limitations</CardTitle>
-            <CardDescription>
-              These sharp edges are intentional v1 boundaries, not hidden behavior.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            {AGENT_LIMITATIONS.map((item) => (
-              <p key={item}>{item}</p>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card className="min-w-0 border-border/60 bg-background/70">
-          <CardHeader>
-            <CardTitle className="text-xl">Copy-paste smoke test</CardTitle>
-            <CardDescription>
-              Use this as a first validation pass in a fresh external agent runtime.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CodeBlock value={buildAgentSmokeTestExample()} />
-          </CardContent>
-        </Card>
+        <FlatGuideSectionCard section={sections.limitations} />
+        <FlatGuideSectionCard section={sections.smokeTest} />
       </div>
     </div>
   );

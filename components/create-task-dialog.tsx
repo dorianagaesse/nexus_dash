@@ -443,7 +443,7 @@ export function CreateTaskDialog({
           className="flex max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl"
         >
                 <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0">
-                  <DialogTitle className="text-lg">Create task</DialogTitle>
+                  <DialogTitle className="text-lg">New task</DialogTitle>
                   <Button type="button" variant="ghost" size="icon" onClick={closeDialog} aria-label="Close task creation" disabled={isSubmitting}>
                     <X className="h-4 w-4" />
                   </Button>

@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { AgentOnboardingGuide } from "@/components/agent-onboarding/agent-onboarding-guide";
+import { AgentOnboardingSection } from "@/components/agent-onboarding/agent-onboarding-section";
 import { AccountSettingsShell } from "@/components/account/account-settings-shell";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { resolveRequestOriginFromHeaders } from "@/lib/http/request-origin";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -30,22 +30,18 @@ export default async function AccountDeveloperSettingsPage({
       description="Use hosted docs and project-scoped credentials to connect external agents to NexusDash."
       returnTo={readQueryValue(resolvedSearchParams?.returnTo)}
     >
-      <Card className="border-border/60 bg-background/70">
-        <CardHeader>
-          <CardTitle className="text-xl">Where credentials live</CardTitle>
-          <CardDescription>
-            Account settings teaches the model, while each project still owns the actual
-            credential lifecycle.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>1. Open any project as an owner.</p>
-          <p>2. Go to Project settings &gt; Agent access.</p>
-          <p>3. Create a credential, copy the one-time key, and place it in your agent runtime.</p>
-        </CardContent>
-      </Card>
+      <AgentOnboardingSection
+        title="Where credentials live"
+        description="Account settings teaches the model, while each project still owns the actual credential lifecycle."
+        defaultOpen
+        contentClassName="space-y-2 text-sm text-muted-foreground"
+      >
+        <p>1. Open any project as an owner.</p>
+        <p>2. Go to Project settings &gt; Agent access.</p>
+        <p>3. Create a credential, copy the one-time key, and place it in your agent runtime.</p>
+      </AgentOnboardingSection>
 
-      <AgentOnboardingGuide initialAppOrigin={requestOrigin} />
+      <AgentOnboardingGuide collapsible initialAppOrigin={requestOrigin} />
     </AccountSettingsShell>
   );
 }
