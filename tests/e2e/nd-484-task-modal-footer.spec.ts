@@ -9,6 +9,11 @@ import {
 const DESKTOP_VIEWPORT = { width: 1440, height: 900 };
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
 const TRANSPARENT = "rgba(0, 0, 0, 0)";
+// Tailwind `px-6` and `gap-2` on the redesigned footer rows.
+const FOOTER_PADDING = 24;
+const ROW_GAP = 8;
+// Shadcn Button base `rounded-md`, i.e. calc(var(--radius) - 2px) at 0.75rem.
+const BUTTON_RADIUS = "10px";
 
 function openDialog(page: Page) {
   return page.locator('[role="dialog"][data-state="open"]').first();
@@ -147,7 +152,7 @@ function readControlStyles(locator: Locator) {
       text: toRgb(styles.color),
       borderTopWidth: styles.borderTopWidth,
       borderLeftWidth: styles.borderLeftWidth,
-      borderLeftColor: toRgb(styles.borderLeftColor),
+      borderTopColor: toRgb(styles.borderTopColor),
       borderRadius: styles.borderRadius,
     };
   });
@@ -195,7 +200,7 @@ async function readBox(locator: Locator) {
 }
 
 // A dismissal keeps the footer surface: theme-appropriate fill, foreground
-// label, square corners, and a visible 1px divider on its leading edge.
+// label, and a visible 1px border with the rounded control shape.
 async function expectOutlinedDismissal(
   locator: Locator,
   theme: "light" | "dark"
@@ -206,43 +211,36 @@ async function expectOutlinedDismissal(
   });
 
   const styles = await readControlStyles(locator);
-  expect(styles.borderTopWidth).toBe("0px");
+  expect(styles.borderTopWidth).toBe("1px");
   expect(styles.borderLeftWidth).toBe("1px");
-  expect(styles.borderLeftColor).not.toBe(TRANSPARENT);
-  expect(styles.borderLeftColor).not.toBe(styles.background);
-  expect(styles.borderRadius).toBe("0px");
+  expect(styles.borderTopColor).not.toBe(TRANSPARENT);
+  expect(styles.borderTopColor).not.toBe(styles.background);
+  expect(styles.borderRadius).toBe(BUTTON_RADIUS);
 }
 
-// The primary action is the only inverted (filled) surface in its row: no
-// border and square corners, so it reads as part of the footer strip.
+// A control carrying the theme-inverted (filled) surface -- the primary action
+// in a two-button row, or the view-mode Close.
 async function expectFilledPrimary(locator: Locator, theme: "light" | "dark") {
   await expectSettledControl(locator).toEqual({
     background: theme === "light" ? "dark" : "light",
     text: theme === "light" ? "light" : "dark",
   });
-
-  const styles = await readControlStyles(locator);
-  expect(styles.borderTopWidth).toBe("0px");
-  expect(styles.borderLeftWidth).toBe("0px");
-  expect(styles.borderRadius).toBe("0px");
 }
 
-// One rule at every width: the lone action fills the footer strip edge to
-// edge, flush under the footer's 1px top border and its bottom edge.
+// One rule at every width: a lone control spans the footer's content width,
+// inset by the footer padding on both sides.
 async function expectFullWidthFooterControl(page: Page, control: Locator) {
   const footerBox = await readBox(footer(page));
   const box = await readBox(control);
-  expect(Math.abs(box.width - footerBox.width)).toBeLessThanOrEqual(1);
-  expect(Math.abs(box.x - footerBox.x)).toBeLessThanOrEqual(1);
-  expect(Math.abs(box.y - (footerBox.y + 1))).toBeLessThanOrEqual(1);
   expect(
-    Math.abs(box.y + box.height - (footerBox.y + footerBox.height))
+    Math.abs(box.width - (footerBox.width - 2 * FOOTER_PADDING))
   ).toBeLessThanOrEqual(1);
+  expect(Math.abs(box.x - (footerBox.x + FOOTER_PADDING))).toBeLessThanOrEqual(1);
   expect(Math.abs(box.height - 40)).toBeLessThanOrEqual(1);
 }
 
-// Two controls split the strip into exact halves: primary flush to the left
-// edge, dismissal flush to the right, sharing one seamless boundary.
+// Two controls split the footer row evenly: primary then dismissal, same row,
+// each taking half the content width minus the shared row gap.
 async function expectTwoButtonRow(
   page: Page,
   primary: Locator,
@@ -251,25 +249,20 @@ async function expectTwoButtonRow(
   const footerBox = await readBox(footer(page));
   const primaryBox = await readBox(primary);
   const dismissalBox = await readBox(dismissal);
-  const halfWidth = footerBox.width / 2;
+  const halfWidth = (footerBox.width - 2 * FOOTER_PADDING - ROW_GAP) / 2;
 
   expect(Math.abs(primaryBox.y - dismissalBox.y)).toBeLessThanOrEqual(1);
-  expect(Math.abs(primaryBox.x - footerBox.x)).toBeLessThanOrEqual(1);
+  expect(primaryBox.x).toBeLessThan(dismissalBox.x);
   expect(
-    Math.abs(dismissalBox.x - (primaryBox.x + primaryBox.width))
+    Math.abs(dismissalBox.x - (primaryBox.x + primaryBox.width) - ROW_GAP)
   ).toBeLessThanOrEqual(1);
   expect(
-    Math.abs(
-      dismissalBox.x + dismissalBox.width - (footerBox.x + footerBox.width)
-    )
+    Math.abs(primaryBox.x - (footerBox.x + FOOTER_PADDING))
   ).toBeLessThanOrEqual(1);
   expect(Math.abs(primaryBox.width - halfWidth)).toBeLessThanOrEqual(1);
   expect(Math.abs(dismissalBox.width - halfWidth)).toBeLessThanOrEqual(1);
   expect(Math.abs(primaryBox.height - 40)).toBeLessThanOrEqual(1);
   expect(Math.abs(dismissalBox.height - 40)).toBeLessThanOrEqual(1);
-  expect(
-    Math.abs(primaryBox.y + primaryBox.height - (footerBox.y + footerBox.height))
-  ).toBeLessThanOrEqual(1);
 }
 
 test.describe("ND-484 task modal footer actions", () => {
@@ -322,7 +315,7 @@ test.describe("ND-484 task modal footer actions", () => {
     }
   });
 
-  test("footer actions: the lone action fills the strip, two split it in half at every breakpoint", async ({
+  test("footer actions: one control spans the footer, two split it evenly at every breakpoint", async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
@@ -336,12 +329,12 @@ test.describe("ND-484 task modal footer actions", () => {
       // Park the pointer so hover fills never leak into the reads.
       await page.mouse.move(2, 2);
 
-      // View flow: the lone Close fills the strip at any width.
+      // View flow: the lone Close spans the footer at any width.
       await openTaskModal(page, card);
       await expectFullWidthFooterControl(page, modalButton(page, "Close"));
       await closeDialog(page);
 
-      // Edit flow: Save changes and Cancel split the strip in half.
+      // Edit flow: Save changes and Cancel split the row evenly.
       await openTaskModal(page, card);
       await enterEditMode(page);
       await expectTwoButtonRow(
@@ -351,7 +344,7 @@ test.describe("ND-484 task modal footer actions", () => {
       );
       await closeDialog(page);
 
-      // Create flow mirrors the edit strip.
+      // Create flow mirrors the edit row.
       await openCreateDialog(page);
       await expectTwoButtonRow(
         page,
@@ -362,7 +355,7 @@ test.describe("ND-484 task modal footer actions", () => {
     }
   });
 
-  test("dismissal hover fills with the accent surface; filled primaries keep their stance", async ({
+  test("dismissal hover fills with the accent surface; the filled Close keeps its stance", async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
@@ -376,7 +369,7 @@ test.describe("ND-484 task modal footer actions", () => {
       await page.mouse.move(2, 2);
 
       // View flow: hovering Close only shifts the fill (primary at 90%); the
-      // inverted stance, label, and square corners stay put.
+      // inverted stance, label, and rounded corners stay put.
       await openTaskModal(page, card);
       const close = modalButton(page, "Close");
       await expectFilledPrimary(close, theme);
@@ -388,7 +381,7 @@ test.describe("ND-484 task modal footer actions", () => {
       // light under the dark theme.
       expect(isDark(closeHovered.background)).toBe(theme === "light");
       expect(isDark(closeHovered.text)).toBe(theme === "dark");
-      expect(closeHovered.borderRadius).toBe("0px");
+      expect(closeHovered.borderRadius).toBe(BUTTON_RADIUS);
       await closeDialog(page);
 
       // Edit flow: hovering Cancel leaves the filled primary beside it as the

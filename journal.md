@@ -8428,3 +8428,33 @@ Low-value entries to avoid going forward:
   `npm run test:coverage` (93.78/84.46/95.42/94.08, thresholds met),
   `npm run build`, full local Playwright suite 97 passed / 1 skipped / 0
   failed, `git diff --check` clean.
+
+## 2026-09-24 - ND-484 revision 4: revert the strip, invert the Close
+
+- Product review of revision 3 rejected the full-bleed strip ("let's get
+  back to previous design that was way better (previous deploy I mean)")
+  and asked for one change on top of it: the view Close in the inverse
+  color, like Save changes. The strip experiment is out.
+- The three touched files were restored to the revision-2 content
+  (`git restore --source=73d7d8d -- components/kanban/task-detail-modal.tsx
+  components/create-task-dialog.tsx tests/e2e/nd-484-task-modal-footer.spec.ts`),
+  then the single Close color change was applied: the view-mode Close
+  drops the `outline` variant, so it renders the theme-inverted `default`
+  fill as a full-width button inside the padded footer. Two-button rows,
+  padding, gaps, radii, and the outlined Cancel are unchanged from
+  revision 2.
+- Spec: back to the revision-2 geometry helpers (`FOOTER_PADDING` /
+  `ROW_GAP` / `BUTTON_RADIUS`), with the view Close moved from the
+  outlined to the filled assertions (idle + hover; the `primary/90` shift
+  stays on the theme side and the label stays put). The canvas color
+  normalization added in revision 3 is kept -- oklab serialization of
+  opacity-modifier fills is independent of the layout.
+- Screenshot verification (tag `rev4`): 36 shots across view/edit/create x
+  desktop/mobile x light/dark; the view Close shows the inverse fill in
+  the rounded full-width button and the edit/create rows match revision 2
+  exactly.
+- Validation on the port-3484 production server: `npm run lint`,
+  `npm run rls:check`, `npm test` (1737 passed, 2 skipped),
+  `npm run test:coverage` (93.78/84.46/95.42/94.08, thresholds met),
+  `npm run build`, full local Playwright suite 97 passed / 1 skipped / 0
+  failed, `git diff --check` clean.
