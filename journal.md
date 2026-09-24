@@ -8618,3 +8618,14 @@ Low-value entries to avoid going forward:
   `npm run test:coverage` (93.78/84.46/95.42/94.08, thresholds met),
   `npm run build`, full local Playwright suite 97 passed / 1 skipped / 0
   failed, `git diff --check` clean.
+- The PR branch had gone stale against `main` (ND-138 / ND-134 / ND-486
+  landed). Merged `origin/main` in (merge commit daf69b1): the only
+  conflict was `journal.md`, resolved by interleaving main's new entries
+  with the ND-484 revision entries in date order; `create-task-dialog.tsx`
+  auto-merged, picking up ND-138's dialog title rename to "New task" with
+  the ND-484 footer markup intact. Validation re-run on the merge: lint,
+  rls:check, unit 1744 passed / 2 skipped, coverage unchanged, build,
+  full Playwright suite 101 passed / 1 skipped / 0 failed, `git diff
+  --check` clean. (A first unit run immediately after the merge reported
+  2 failures with 4 collection errors under heavy machine contention;
+  it did not reproduce in two straight reruns.)
