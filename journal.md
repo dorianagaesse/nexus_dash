@@ -8671,3 +8671,13 @@ Low-value entries to avoid going forward:
   --check` clean. (A first unit run immediately after the merge reported
   2 failures with 4 collection errors under heavy machine contention;
   it did not reproduce in two straight reruns.)
+- `main` advanced again while the PR sat in review (ND-136, PR #547).
+  Merge-forward (merge commit 87d15c9): again only this journal append
+  conflicted, resolved the same way (main's and the ND-484 entries
+  interleaved in date order); the ND-136 shell-navigation label changes
+  auto-merged. Validation re-run on the merged tree: lint, rls:check, unit
+  1744 passed / 2 skipped, coverage unchanged (93.78/84.46/95.42/94.08),
+  build, `git diff --check` clean. Full Playwright suite: a first run hit
+  the known nd-179 offboarding sub-pixel flake (44px target measured
+  43.99994); the file passes in isolation and the suite rerun is green at
+  101 passed / 1 skipped / 0 failed.
