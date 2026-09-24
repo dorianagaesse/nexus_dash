@@ -59,7 +59,7 @@ describe("authenticated app shell", () => {
 
     expect(result).toContain('aria-label="Primary navigation"');
     expect(result).toContain("Projects");
-    expect(result).toContain("Inbox");
+    expect(result).toContain("Notifications");
     expect(result).not.toContain("Todos");
     expect(result).toContain('aria-label="Workspace navigation"');
     expect(result).not.toContain('aria-label="Project navigation"');
