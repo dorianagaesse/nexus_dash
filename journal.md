@@ -8281,6 +8281,70 @@ Low-value entries to avoid going forward:
   reached); the PR carries the validation evidence for manual review
   instead.
 
+# 2026-09-18 - ND-484: Task modal footer action redesign
+
+- Claimed Nexus Dash card ND-484 (GitHub issue #532 attached), moved to In
+  Progress. Built in `../nexus_dash_task484` on
+  `feature/nd-484-task-modal-footer-actions`, branched from `origin/main`
+  at a2a5d45.
+- One visual language now covers the footer actions in all three flows:
+  the dismissals (view-mode Close, edit-mode Cancel, create-dialog Cancel)
+  share the `outline` variant -- 1px `--input` border, `--background`
+  fill, foreground label, shared radius -- and the primary action (Save
+  changes / Create task) stays the only filled, inverted surface in its
+  row (`default` variant).
+- Deleted the `mobile-inverted` and `mobile-inverted-outline` cva variants
+  added as ND-465 review follow-ups; no other call sites existed. The
+  task-modal footer is always padded (`px-6 pb-6 pt-4`) under its top
+  border, so the full-bleed view-mode Close bar and the desktop borderless
+  ghost Cancel are gone.
+- Breakpoint/flow treatment (AC3, intentional): mobile sheets stack
+  full-width with the dismissal above the primary (`flex-col-reverse` over
+  DOM order primary-then-dismissal); desktop rows are inline, auto-width,
+  left-aligned `[primary][dismissal]` with the same 8px gap. The view-mode
+  Close keeps its full-width dismissal stance at every width -- it is the
+  footer's only control and this preserves the ND-465 close-bar affordance
+  -- now outlined and padded instead of full-bleed ghost. Edit and create
+  footers are structurally identical.
+- Behavior unchanged: the five ND-465 semantics tests (draft discard,
+  no-persist, focus return, keyboard activation, mobile tap) pass
+  unmodified.
+- Coverage: the two ND-465 theme tests that encoded the old look
+  ("dismissals stay ghost on desktop across themes", "dismissals invert
+  with the theme on mobile") were superseded by the new
+  `tests/e2e/nd-484-task-modal-footer.spec.ts`: three tests assert the
+  shared outlined treatment plus only-filled-primary across view, edit,
+  and create in both themes, the settled geometry (desktop inline
+  auto-width; mobile full-width stacked), and the hover accent fill that
+  stays on the theme's side of the palette. Geometry reads wait for the
+  dialog entrance animation via `getAnimations` (mid-flight reads mixed
+  scales between boxes: a settled footer next to a 0.967-scaled button);
+  hover reads poll the raw fill because idle and hover sit on the same
+  luminance side.
+- Screenshot verification (AC6): 36 shots via a temporary harness (view,
+  edit, create x desktop 1440x900 / mobile 390x844 x light/dark, captured
+  before and after the redesign for comparison). All 12 after-shots show
+  the settled shared treatment. Harness and shots live in the worktree's
+  gitignored `.tmp/`, not committed.
+- Local env note for the full suite on a fresh worktree: `.env` needs
+  `OUTBOUND_EMAIL_DELIVERY_MODE=disabled` (a local `next start` counts as
+  live production, so password-reset attempts real Resend delivery with a
+  placeholder key and the service deletes the token when the send fails)
+  and `TRUSTED_ORIGINS=http://127.0.0.1:3484` (production origin
+  resolution throws without it, so forgot-password short-circuits before
+  creating a token). Both are gitignored local config; with them the full
+  suite is green.
+- Validation on an own verified production server (port 3484, listener
+  PID checked against this worktree): `npm run lint`, `npm run
+  rls:check`, `npm test` (211 files / 1737 tests passed, 2 skipped),
+  `npm run test:coverage` (thresholds met: statements 93.78%, branches
+  84.46%, functions 95.42%, lines 94.08%), `npm run build`, full local
+  Playwright suite 97 passed / 1 skipped / 0 failed, `git diff --check`
+  clean. No schema, service, or RLS change.
+- Copilot review: not expected (project owner reports the Copilot quota is
+  reached); the PR carries the validation evidence for manual review
+  instead.
+
 # 2026-09-18 - ND-486: Privacy policy entry point in account settings
 
 - Claimed ND-486, the follow-up from the ND-135 privacy-copy thread (GitHub
@@ -8383,6 +8447,90 @@ Low-value entries to avoid going forward:
   `npm run rls:check`, full unit suite (213 files / 1744 tests passed, 2
   skipped), production build - all green. Merge commit 8011df1.
 
+## 2026-09-19 - ND-484 revision: uniform footer split at every breakpoint
+
+- Product-owner review of the open PR asked for one layout rule instead
+  of the breakpoint-specific treatment: the Close control should take the
+  whole footer width, and a two-button row should divide the footer in
+  two. Confirmed via question that the even split applies on mobile as
+  well -- the stacked mobile rows are gone.
+- Implementation: the edit row and the create row are now a single
+  `flex w-full gap-2` row with both buttons `flex-1` (even halves); the
+  view-mode Close is `w-full` unconditionally. The responsive
+  `flex-col-reverse sm:flex-row` geometry and the `w-full sm:w-auto`
+  breakpoint switches are gone; every width renders `[primary][dismissal]`
+  as 50/50 halves separated by the 8px gap.
+- Save changes / Create task already rendered the theme-inverted fill
+  (dark on light, light on dark) through the `default` variant -- the
+  existing spec assertions confirmed it, so no change was needed there.
+- Spec: the geometry test now asserts the uniform rule at desktop AND
+  mobile via shared helpers -- a lone control spans the footer's content
+  width (padding-inset on both sides, 40px tall); a two-button row is one
+  row with the dismissal after the primary, the 8px gap, and both halves
+  at `(contentWidth - 8) / 2`.
+- Screenshot verification: 36 fresh shots (tag `rev2`) across
+  view/edit/create x desktop/mobile x light/dark; all show the even split
+  (mobile included) and the full-width Close. Same PR branch, revision
+  commit on top of the original.
+- Validation rerun on the port-3484 production server: `npm run lint`,
+  `npm run rls:check`, `npm test` (1737 passed, 2 skipped),
+  `npm run test:coverage` (93.78/84.46/95.42/94.08, thresholds met),
+  `npm run build`, full Playwright suite 97 passed / 1 skipped / 0
+  failed, `git diff --check` clean.
+- Env gotcha found while rerunning the unit suite: sourcing the worktree
+  `.env` exports the e2e-server-only `TRUSTED_ORIGINS` and
+  `OUTBOUND_EMAIL_DELIVERY_MODE` into vitest, which flips origin/email
+  paths and fails 8 route tests (auth-google x2, auth-google-callback,
+  home-auth-actions x2, project-sharing x2, account-profile) with
+  `http://localhost:3000` vs `http://127.0.0.1:3484` mismatches. Unset
+  both before `npm test`; they are only needed by the manually started
+  production server used for e2e.
+- Local run note: after the 2026-09-19 machine/Docker restart the shared
+  Postgres container (`nexus_dash_task448-postgres-1`, hosting 5432) was
+  stopped; the e2e server also had to be restarted because the previous
+  day's `next start` (PID 26884) had survived its TaskStop and held
+  port 3484.
+
+## 2026-09-19 - ND-484 revision 3: full-bleed inverse action strip
+
+- Second product-owner review asked to try: Close with the inverse color,
+  taking the whole horizontal bottom space of the task modal, no padding
+  around it -- touching the edges -- and two-button views split in half.
+- Implementation in both dialogs (task detail modal + create task dialog):
+  footer padding removed (`p-0`), so the action row touches the dialog
+  edges; the view-mode Close drops its variant and becomes the inverse
+  (`default`) full-bleed bar (`w-full rounded-none`); the edit/create rows
+  are one `flex w-full` row with both actions `flex-1 rounded-none` and no
+  gap, the dismissal keeping a 1px leading divider (`border-0 border-l`) as
+  its seam. Error banners keep an inner margin (`mx-6 mt-4`). DialogContent
+  already clips overflow, so the square strip corners follow the dialog's
+  rounded corners.
+- Spec rework: geometry helpers now assert the strip rule -- a lone control
+  matches the footer box (width, left edge, flush under the 1px top border,
+  flush to the bottom edge, 40px tall); a two-button row asserts exact
+  halves of the footer width, one shared seam with no gap, flush
+  left/right/bottom. `expectFilledPrimary` pins no border + square corners;
+  the outlined-dismissal helper asserts the divider-only leading edge
+  (borderTopWidth 0px, borderLeftWidth 1px, radius 0px). The view Close
+  moved from the outlined to the filled assertion in all three tests.
+- Chromium reports the `primary/90` hover fill as `oklab(...)` (color-mix
+  output), which the spec's rgb luminance parser could not read. The first
+  targeted run caught this (1 failed / 7 passed). `readControlStyles` now
+  normalizes every computed color through a 1x1 canvas in the page
+  (fillStyle + getImageData -> sRGB rgba string), so luminance checks and
+  the raw idle/hover comparisons keep working across serialized color
+  spaces.
+- Screenshot verification (tag `rev3`): 36 shots across view/edit/create x
+  desktop/mobile x light/dark show the inverse Close bar and the exact-half
+  split strips touching the dialog edges, desktop and mobile alike; the
+  revision is back with the product owner for review.
+- Validation rerun on the port-3484 production server: `npm run lint`,
+  `npm run rls:check`, `npm test` (1737 passed, 2 skipped;
+  `TRUSTED_ORIGINS` / `OUTBOUND_EMAIL_DELIVERY_MODE` unset for vitest),
+  `npm run test:coverage` (93.78/84.46/95.42/94.08, thresholds met),
+  `npm run build`, full local Playwright suite 97 passed / 1 skipped / 0
+  failed, `git diff --check` clean.
+
 # 2026-09-19 - ND-138: Modal title and primary button label differentiation
 
 - Claimed live Nexus Dash card ND-138 (external UX feedback task TASK-364,
@@ -8441,6 +8589,98 @@ Low-value entries to avoid going forward:
   reached); the PR carries the validation evidence for manual review
   instead.
 
+# 2026-09-19 - ND-136 Inbox vs Notifications naming unification
+
+- Validity assessment: kept open and implemented rather than closed as
+  outdated. The originally reported avatar-menu mismatch ("Inbox" item vs
+  "Notifications" page) was already resolved by TASK-324, but the primary
+  workspace navigation (desktop sidebar and mobile bottom bar) still labeled
+  the `/account/notifications` destination "Inbox" while the page heading,
+  user hub navigation, avatar menu, unread-count accessible names, route,
+  and notification emails all read "Notifications".
+- Standardized on the canonical label "Notifications": `label` and
+  `mobileLabel` in the shell workspace navigation now match every other
+  surface. Long label verified to fit the 390px bottom navigation through the
+  existing responsive shell scenario (no page-level horizontal overflow,
+  44px targets, two-link contract intact).
+- Verified no other user-facing surface carries the alternate label. The
+  remaining repository matches are the user's email-inbox copy on
+  verify-email ("check your inbox", a different semantic, intentionally
+  kept), generic prose in the historical multi-user-collaboration audit,
+  and unrelated test-fixture return paths.
+- Updated shell unit tests, todo-badge test names, the shell e2e selector,
+  and `docs/ui/authenticated-app-shell.md` to the canonical label.
+- Validation (worktree `../nexus_dash_task136`, isolated local Postgres on
+  port 55432, `OUTBOUND_EMAIL_DELIVERY_MODE=disabled`): `npm run lint`,
+  `npm run rls:check`, full unit suite (213 files / 1744 tests passed, 2
+  skipped), coverage at 93.78% statements / 84.46% branches / 95.42%
+  functions / 94.08% lines, production build, and the full Playwright suite
+  (100 passed, 1 skipped) including the 390px shell fit check and the
+  label-based notification detour flows. No schema, service, or RLS change.
+- Copilot review: not expected (project owner reports the Copilot quota is
+  reached); the PR carries the validation evidence for manual review
+  instead.
+- Committed the implementation as `8745c1a`, pushed
+  `fix/nd-136-inbox-notifications-naming`, and opened ready-for-review
+  [PR #547](https://github.com/dorianagaesse/nexus_dash/pull/547).
+- Merge-forward: `origin/main` advanced to 18d2e78 (ND-138, PR #546, modal
+  title vs button label separation). The only conflict was this journal
+  append, resolved by taking main's file and re-appending this entry;
+  ND-138's modal component and e2e spec changes merged cleanly and do not
+  overlap this diff. Merge commit `85a9932`. Re-validated on the merged
+  tree: `npm run lint`, `npm run rls:check`, full unit suite (213 files /
+  1744 tests passed, 2 skipped), production build - all green.
+
+## 2026-09-24 - ND-484 revision 4: revert the strip, invert the Close
+
+- Product review of revision 3 rejected the full-bleed strip ("let's get
+  back to previous design that was way better (previous deploy I mean)")
+  and asked for one change on top of it: the view Close in the inverse
+  color, like Save changes. The strip experiment is out.
+- The three touched files were restored to the revision-2 content
+  (`git restore --source=73d7d8d -- components/kanban/task-detail-modal.tsx
+  components/create-task-dialog.tsx tests/e2e/nd-484-task-modal-footer.spec.ts`),
+  then the single Close color change was applied: the view-mode Close
+  drops the `outline` variant, so it renders the theme-inverted `default`
+  fill as a full-width button inside the padded footer. Two-button rows,
+  padding, gaps, radii, and the outlined Cancel are unchanged from
+  revision 2.
+- Spec: back to the revision-2 geometry helpers (`FOOTER_PADDING` /
+  `ROW_GAP` / `BUTTON_RADIUS`), with the view Close moved from the
+  outlined to the filled assertions (idle + hover; the `primary/90` shift
+  stays on the theme side and the label stays put). The canvas color
+  normalization added in revision 3 is kept -- oklab serialization of
+  opacity-modifier fills is independent of the layout.
+- Screenshot verification (tag `rev4`): 36 shots across view/edit/create x
+  desktop/mobile x light/dark; the view Close shows the inverse fill in
+  the rounded full-width button and the edit/create rows match revision 2
+  exactly.
+- Validation on the port-3484 production server: `npm run lint`,
+  `npm run rls:check`, `npm test` (1737 passed, 2 skipped),
+  `npm run test:coverage` (93.78/84.46/95.42/94.08, thresholds met),
+  `npm run build`, full local Playwright suite 97 passed / 1 skipped / 0
+  failed, `git diff --check` clean.
+- The PR branch had gone stale against `main` (ND-138 / ND-134 / ND-486
+  landed). Merged `origin/main` in (merge commit daf69b1): the only
+  conflict was `journal.md`, resolved by interleaving main's new entries
+  with the ND-484 revision entries in date order; `create-task-dialog.tsx`
+  auto-merged, picking up ND-138's dialog title rename to "New task" with
+  the ND-484 footer markup intact. Validation re-run on the merge: lint,
+  rls:check, unit 1744 passed / 2 skipped, coverage unchanged, build,
+  full Playwright suite 101 passed / 1 skipped / 0 failed, `git diff
+  --check` clean. (A first unit run immediately after the merge reported
+  2 failures with 4 collection errors under heavy machine contention;
+  it did not reproduce in two straight reruns.)
+- `main` advanced again while the PR sat in review (ND-136, PR #547).
+  Merge-forward (merge commit 87d15c9): again only this journal append
+  conflicted, resolved the same way (main's and the ND-484 entries
+  interleaved in date order); the ND-136 shell-navigation label changes
+  auto-merged. Validation re-run on the merged tree: lint, rls:check, unit
+  1744 passed / 2 skipped, coverage unchanged (93.78/84.46/95.42/94.08),
+  build, `git diff --check` clean. Full Playwright suite: a first run hit
+  the known nd-179 offboarding sub-pixel flake (44px target measured
+  43.99994); the file passes in isolation and the suite rerun is green at
+  101 passed / 1 skipped / 0 failed.
 
 # 2026-09-20 - ND-368: Realtime transport kill switch and Preview polling default
 - Claim: ND-368 (epic "Realtime Efficiency and Vercel Cost Control"), implementing

@@ -108,7 +108,7 @@ test.describe("responsive authenticated app shell", () => {
     ).not.toHaveAttribute("aria-current", "page");
 
     const notificationsHref = await desktopNavigation
-      .locator("a", { hasText: "Inbox" })
+      .locator("a", { hasText: "Notifications" })
       .getAttribute("href");
     expect(notificationsHref).toBeTruthy();
     await page.goto(notificationsHref!);

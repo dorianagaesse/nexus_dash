@@ -64,14 +64,14 @@ describe("authenticated shell todo badge", () => {
     todoSummaryMock.value = { activeCount: 0, hasOverdue: false };
   });
 
-  test("hides the todo badge at zero without affecting Inbox", () => {
+  test("hides the todo badge at zero without affecting notifications", () => {
     const result = renderShell();
 
     expect(result).not.toContain("active todos");
     expect(result).toContain("2 unread notifications");
   });
 
-  test("preserves the Inbox visual cap while announcing its exact count", () => {
+  test("preserves the notifications visual cap while announcing its exact count", () => {
     const result = renderShell(128);
 
     expect(result).toContain("128 unread notifications");
