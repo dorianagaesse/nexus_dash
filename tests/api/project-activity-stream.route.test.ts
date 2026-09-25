@@ -1,9 +1,11 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const apiGuardMock = vi.hoisted(() => ({
   getAgentProjectAccessContext: vi.fn(),
   requireApiPrincipal: vi.fn(),
 }));
+
+const logServerInfoMock = vi.hoisted(() => vi.fn());
 
 const projectAccessServiceMock = vi.hoisted(() => ({
   requireAgentProjectScopes: vi.fn(),
@@ -21,6 +23,10 @@ vi.mock("@/lib/auth/api-guard", () => ({
 
 vi.mock("@/lib/services/project-access-service", () => ({
   requireAgentProjectScopes: projectAccessServiceMock.requireAgentProjectScopes,
+}));
+
+vi.mock("@/lib/observability/logger", () => ({
+  logServerInfo: logServerInfoMock,
 }));
 
 vi.mock("@/lib/services/project-activity-service", () => ({
@@ -66,6 +72,33 @@ describe("project activity stream route", () => {
       ok: true,
       data: [],
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  test("refuses to open the stream when the transport is polling", async () => {
+    vi.stubEnv("REALTIME_TRANSPORT", "polling");
+
+    const response = await streamProjectActivity(
+      new Request("http://localhost/api/projects/project-1/activity/stream") as never,
+      projectParams("project-1")
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(response.json()).resolves.toEqual({ error: "not_found" });
+    expect(apiGuardMock.requireApiPrincipal).not.toHaveBeenCalled();
+    expect(
+      projectActivityServiceMock.getProjectActivitySnapshot
+    ).not.toHaveBeenCalled();
+    expect(logServerInfoMock).toHaveBeenCalledWith(
+      "GET /api/projects/[projectId]/activity/stream.transportDisabled",
+      expect.any(String),
+      { transport: "polling" }
+    );
   });
 
   test("streams the authorized project activity version as an SSE event", async () => {

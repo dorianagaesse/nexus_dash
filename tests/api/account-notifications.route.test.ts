@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 
 const apiGuardMock = vi.hoisted(() => ({
@@ -18,12 +18,14 @@ const collaborationServiceMock = vi.hoisted(() => ({
 }));
 
 const logServerWarningMock = vi.hoisted(() => vi.fn());
+const logServerInfoMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/api-guard", () => ({
   requireAuthenticatedApiUser: apiGuardMock.requireAuthenticatedApiUser,
 }));
 
 vi.mock("@/lib/observability/logger", () => ({
+  logServerInfo: logServerInfoMock,
   logServerWarning: logServerWarningMock,
 }));
 
@@ -81,6 +83,10 @@ describe("account notification and invitation routes", () => {
       ok: true,
       userId: "user-1",
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   test("GET notifications returns auth failure response when unauthenticated", async () => {
@@ -292,6 +298,28 @@ describe("account notification and invitation routes", () => {
     expect(chunk).toContain("event: notification-snapshot");
     expect(chunk).toContain('"unreadCount":1');
     expect(chunk).toContain('"Project invitation: Alpha"');
+  });
+
+  test("notification stream refuses to open when the transport is polling", async () => {
+    vi.stubEnv("REALTIME_TRANSPORT", "polling");
+
+    const response = await streamNotifications(
+      new NextRequest("http://localhost/api/account/notifications/stream")
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(readJson(response)).resolves.toEqual({ error: "not_found" });
+    expect(apiGuardMock.requireAuthenticatedApiUser).not.toHaveBeenCalled();
+    expect(
+      notificationServiceMock.getNotificationRealtimeSnapshotForUser
+    ).not.toHaveBeenCalled();
+    expect(logServerInfoMock).toHaveBeenCalledWith(
+      "GET /api/account/notifications/stream.transportDisabled",
+      expect.any(String),
+      { transport: "polling" }
+    );
   });
 
   test("notification stream reports changed snapshots", () => {

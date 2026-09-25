@@ -177,6 +177,38 @@ If Google OAuth is enabled:
   environment where Google Calendar OAuth is enabled, including local
   development, preview, and production.
 
+## Realtime Transport
+
+`REALTIME_TRANSPORT` selects how authenticated browsers receive live
+project-activity and notification updates.
+
+- `stream`: persistent SSE connection through
+  `/api/projects/[projectId]/activity/stream` and
+  `/api/account/notifications/stream`. The server polls PostgreSQL every
+  second per open tab, which is the dominant Vercel Fluid compute cost driver.
+- `polling`: bounded client polling against the existing activity and
+  notification summary endpoints with no persistent connection.
+- Optional. When unset, Vercel Preview defaults to `polling` and every other
+  environment defaults to `stream`. An invalid value fails startup validation.
+
+The stream routes are the runtime kill switch: when the transport resolves to
+`polling`, both routes return `404` without opening a database-backed stream
+and log a `stream.transportDisabled` info record with the transport mode. Any
+client that still requests a stream falls back to polling on that error, so a
+stale client bundle cannot keep a stream alive.
+
+Production rollback from stream to polling:
+
+1. Set `REALTIME_TRANSPORT=polling` on the Vercel Production environment.
+2. Redeploy or promote a staged deployment so the runtime picks up the
+   environment change (values are read from the deployment environment).
+3. Revert by removing the variable or setting `REALTIME_TRANSPORT=stream` the
+   same way.
+
+Preview validation can prove the kill switch by confirming the dashboard loads
+with no `text/event-stream` requests and that activity/notification freshness
+still flows through polling.
+
 ## Sensitivity Policy
 
 Set as sensitive in Vercel (Preview + Production):
@@ -207,6 +239,7 @@ Can stay non-sensitive:
 - `SUPABASE_PUBLISHABLE_KEY`
 - `EXPECTED_SUPABASE_PROJECT_REF`
 - `PREVIEW_AUTH_ORIGIN`
+- `REALTIME_TRANSPORT`
 
 Important:
 

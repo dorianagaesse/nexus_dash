@@ -47,6 +47,7 @@ function renderShell(unreadCount = notificationSnapshot.unreadCount) {
           ...notificationSnapshot,
           unreadCount,
         }}
+        streamEnabled={true}
         appVersionLabel="v1.2.3"
         appEnvironment="production"
         appDiagnosticLabel="v1.2.3 | production | build abc1234"
