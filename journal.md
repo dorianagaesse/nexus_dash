@@ -8747,3 +8747,15 @@ Low-value entries to avoid going forward:
   https://nexus-dash-9u17t7uhd-dorian-agaesses-projects.vercel.app again shows
   zero stream-route and zero `text/event-stream` requests with 6 notification
   and 3 project-activity polls. Temporary rows cleaned up.
+- Second merge-forward: `origin/main` advanced to d05e298 (ND-484 task modal
+  footer redesign, ND-136 notification label, two dependency bumps). The only
+  conflict was the journal.md append again, resolved the same way; the shell
+  client and shell test auto-merges were verified to keep both sides intact.
+  Local re-validation on the merged tree (lint, rls:check, 1758 tests passed,
+  production build) is green. Preview re-validated on the merged head:
+  workflow run 36198258398 checked out the branch `git_ref`;
+  `/api/health/ready` reports `preview` / `bdae25a` at
+  https://nexus-dash-4hd96j4qy-dorian-agaesses-projects.vercel.app; both stream
+  routes return 404 and the browser check again shows zero stream-route and
+  zero `text/event-stream` requests with 6 notification and 3 activity polls.
+  Merge commit bdae25a.
