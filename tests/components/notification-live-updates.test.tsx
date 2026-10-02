@@ -99,6 +99,7 @@ describe("NotificationLiveUpdates", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     document.body.innerHTML = "";
   });
 
@@ -238,6 +239,250 @@ describe("NotificationLiveUpdates", () => {
         signal: expect.any(AbortSignal),
       }
     );
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("uses the bounded visible default cadence while polling", async () => {
+    const { root } = createTestRenderer();
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: vi.fn().mockResolvedValue(initialSnapshot),
+    });
+
+    await renderWithRoot(
+      root,
+      React.createElement(NotificationLiveUpdates, {
+        initialSnapshot,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(19999);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("pauses notification checks while the document is hidden and resumes on visibility", async () => {
+    const hiddenSpy = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    const { root } = createTestRenderer();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(initialSnapshot),
+    });
+
+    await renderWithRoot(
+      root,
+      React.createElement(NotificationLiveUpdates, {
+        initialSnapshot,
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    hiddenSpy.mockReturnValue(false);
+
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    hiddenSpy.mockReturnValue(true);
+
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    hiddenSpy.mockReturnValue(false);
+
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("backs off repeated notification-check failures instead of retrying tightly", async () => {
+    const { root } = createTestRenderer();
+    fetchMock.mockResolvedValue({ ok: false, json: vi.fn() });
+
+    await renderWithRoot(
+      root,
+      React.createElement(NotificationLiveUpdates, {
+        initialSnapshot,
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(99);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: vi.fn().mockResolvedValue(initialSnapshot),
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("escalates the failure backoff when the payload cannot be parsed", async () => {
+    const { root } = createTestRenderer();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockRejectedValue(new Error("invalid payload")),
+    });
+
+    await renderWithRoot(
+      root,
+      React.createElement(NotificationLiveUpdates, {
+        initialSnapshot,
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("does not fire the queued immediate check while the document is hidden", async () => {
+    const hiddenSpy = vi.spyOn(document, "hidden", "get").mockReturnValue(false);
+    const { root } = createTestRenderer();
+
+    let resolveFetch: ((value: unknown) => void) | null = null;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve;
+        })
+    );
+
+    await renderWithRoot(
+      root,
+      React.createElement(NotificationLiveUpdates, {
+        initialSnapshot,
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    hiddenSpy.mockReturnValue(true);
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    await act(async () => {
+      resolveFetch?.({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          version: "2026-06-04T10:01:00.000Z",
+          unreadCount: 1,
+          latestUnreadNotification: { title: "Assigned: Ship realtime" },
+          serverTime: "2026-06-04T10:01:00.000Z",
+        }),
+      });
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    hiddenSpy.mockReturnValue(false);
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
 
     await act(async () => {
       root.unmount();

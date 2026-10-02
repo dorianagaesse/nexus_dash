@@ -11,9 +11,9 @@ import {
   type ProjectActivityMutationDetail,
 } from "@/lib/project-activity-client";
 import type { ProjectActivityEventPayload } from "@/lib/project-activity-event-types";
+import { resolveAdaptivePollDelayMs } from "@/lib/adaptive-live-polling";
 
-const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 2000;
-const BACKGROUND_POLL_INTERVAL_MS = 15000;
+const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 10000;
 const PENDING_REFRESH_CHECK_INTERVAL_MS = 500;
 
 interface ProjectLiveRefreshProps {
@@ -32,14 +32,6 @@ function parseVersion(value: string): number {
 
 function isNewerVersion(nextVersion: string, currentVersion: string): boolean {
   return parseVersion(nextVersion) > parseVersion(currentVersion);
-}
-
-function resolveNextPollIntervalMs(activePollIntervalMs: number): number {
-  if (typeof document !== "undefined" && document.hidden) {
-    return Math.max(BACKGROUND_POLL_INTERVAL_MS, activePollIntervalMs * 4);
-  }
-
-  return activePollIntervalMs;
 }
 
 function canUseActivityStream(): boolean {
@@ -333,6 +325,7 @@ export function ProjectLiveRefresh({
     let controller: AbortController | null = null;
     let isPolling = false;
     let pollAgainAfterCurrent = false;
+    let consecutiveFailures = 0;
 
     function clearScheduledPoll() {
       if (!timeoutId) {
@@ -343,13 +336,32 @@ export function ProjectLiveRefresh({
       timeoutId = null;
     }
 
-    function schedulePoll(delayMs = resolveNextPollIntervalMs(pollIntervalMs)) {
+    function isDocumentHidden() {
+      return typeof document !== "undefined" && document.hidden;
+    }
+
+    function schedulePoll(delayMs: number) {
       clearScheduledPoll();
       timeoutId = setTimeout(pollActivity, delayMs);
     }
 
+    function scheduleNextPoll() {
+      const delayMs = resolveAdaptivePollDelayMs({
+        activeIntervalMs: pollIntervalMs,
+        isHidden: isDocumentHidden(),
+        consecutiveFailures,
+      });
+
+      if (delayMs === null) {
+        clearScheduledPoll();
+        return;
+      }
+
+      schedulePoll(delayMs);
+    }
+
     function requestImmediatePoll() {
-      if (typeof document !== "undefined" && document.hidden) {
+      if (isDocumentHidden()) {
         return;
       }
 
@@ -359,6 +371,15 @@ export function ProjectLiveRefresh({
       }
 
       schedulePoll(0);
+    }
+
+    function handleVisibilityChange() {
+      if (isDocumentHidden()) {
+        clearScheduledPoll();
+        return;
+      }
+
+      requestImmediatePoll();
     }
 
     async function pollActivity() {
@@ -377,39 +398,45 @@ export function ProjectLiveRefresh({
         );
 
         if (!response.ok) {
+          consecutiveFailures += 1;
           return;
         }
 
         const payload = (await response.json()) as ProjectActivityResponse;
+        consecutiveFailures = 0;
         handleActivitySnapshot(payload);
       } catch (error) {
         if ((error as { name?: string }).name === "AbortError") {
           return;
         }
 
+        consecutiveFailures += 1;
         console.warn("[ProjectLiveRefresh.pollActivity]", error);
       } finally {
         isPolling = false;
         if (!cancelled) {
-          if (pollAgainAfterCurrent) {
-            pollAgainAfterCurrent = false;
+          const shouldPollImmediately =
+            pollAgainAfterCurrent && !isDocumentHidden();
+          pollAgainAfterCurrent = false;
+
+          if (shouldPollImmediately) {
             schedulePoll(0);
           } else {
-            schedulePoll();
+            scheduleNextPoll();
           }
         }
       }
     }
 
-    schedulePoll();
-    document.addEventListener("visibilitychange", requestImmediatePoll);
+    scheduleNextPoll();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", requestImmediatePoll);
 
     return () => {
       cancelled = true;
       clearScheduledPoll();
       controller?.abort();
-      document.removeEventListener("visibilitychange", requestImmediatePoll);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", requestImmediatePoll);
     };
   }, [handleActivitySnapshot, isPollingFallbackActive, pollIntervalMs, projectId]);
@@ -461,5 +488,4 @@ export const projectLiveRefreshInternals = {
   isNewerVersion,
   markProjectActivityTiming,
   parseVersion,
-  resolveNextPollIntervalMs,
 };

@@ -172,8 +172,10 @@ Stale-tab hygiene:
 - Preview browsers use bounded polling (`REALTIME_TRANSPORT` defaults to
   `polling` in Preview), so there are no persistent SSE connections
   generating per-second server-side database work.
-- Client polling backs off in background tabs: roughly every 2 seconds while
-  the tab is focused and every 15 seconds once it is hidden.
+- Client polling is bounded and adaptive: project activity every 10s and
+  notifications every 20s while the tab is visible, no periodic requests while
+  the tab is hidden, an immediate check when it becomes visible again, and
+  exponential backoff (capped at 60s) on consecutive failures.
 - Practical policy: treat Preview sessions as disposable. Close them when a
   testing pass ends, do not leave Preview dashboards pinned in a browser for
   days, and let the retention policy age out the deployments themselves.

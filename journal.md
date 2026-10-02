@@ -8797,3 +8797,95 @@ Low-value entries to avoid going forward:
   production, and the credit section said the budget "caps" on-demand
   exposure although the agreed action is notify-only. Both fixed in the
   runbook on this branch.
+
+## 2026-10-02 - ND-369: Adaptive client polling for live updates
+
+- Claim: ND-369 (epic "Realtime Efficiency and Vercel Cost Control"), following
+  the ND-368 kill switch: with Preview on the polling transport, the client
+  fallback cadence itself (2s focused / 15s hidden per component) is the
+  remaining recurring cost driver, so it is replaced with a bounded adaptive
+  cadence.
+- Design: new shared pure module `lib/adaptive-live-polling.ts`
+  (`MAX_LIVE_POLL_BACKOFF_MS = 60_000`,
+  `resolveAdaptivePollDelayMs({ activeIntervalMs, isHidden, consecutiveFailures })`)
+  returns `null` while the document is hidden (pausing periodic work entirely -
+  the card allows a stop or a 60-120s ceiling), the active interval when
+  healthy, and an exponential backoff on consecutive failures (interval x 2^n)
+  capped at 60s and never below the active interval.
+- Cadences: project activity 10s while visible, notifications 20s while
+  visible (both were 2s before); hidden tabs schedule nothing and resume with
+  an immediate check on `visibilitychange`; the existing `focus` immediate
+  check is unchanged.
+- Both components (`components/project-live-refresh.tsx`,
+  `components/notification-live-updates.tsx`) swap
+  `resolveNextPollIntervalMs` / `BACKGROUND_POLL_INTERVAL_MS` for a shared
+  `scheduleNextPoll()` driven by the resolver, count `consecutiveFailures`
+  (non-ok responses and thrown network errors; aborts excluded; reset on
+  success), and route `visibilitychange` through `handleVisibilityChange`
+  (clear when hidden, immediate poll when visible). Edit-lock deferral,
+  mutation acknowledgement, and typed remote-event reconciliation are
+  untouched; the stream transport path is unaffected (the resolver only drives
+  the polling fallback).
+- Server side: baseline (polling) mode has no server loop - no `setInterval`
+  exists in `app/api` or `lib`; the 1s stream poll constants live only in the
+  SSE routes, which return 404 under the polling transport (ND-368), so the
+  "no server-side 1s loop in baseline mode" criterion holds structurally.
+- Tests: new `tests/lib/adaptive-live-polling.test.ts` (visible / hidden /
+  backoff cap / floor cases); both component specs gain a bounded
+  visible-default-cadence case, a hidden-pause-and-resume case, and a
+  failure-backoff case (23/23 targeted tests pass). Validation: `npm run lint`,
+  `npm run rls:check`, full unit suite (1767 passed, 2 skipped), coverage
+  thresholds met (93.78/84.46/95.42/94.08), production build,
+  `git diff --check` clean.
+- E2E: the local run is blocked by the environment - Docker Desktop's engine is
+  down (`docker ps` fails with "Docker Desktop is unable to start",
+  `com.docker.service` is stopped and needs an elevated start, direct pg
+  connections to 127.0.0.1:5432 time out), so the local Postgres is
+  unreachable and every spec times out in `beforeEach` signing in. The same
+  full suite runs in CI (`e2e-smoke` job runs `npm run test:e2e`); the PR CI
+  result is the E2E evidence.
+- Preview validation: workflow run 37039131338 (`action=deploy-preview`,
+  explicit `git_ref=feature/nd-369-adaptive-client-polling`); artifact
+  `preview-deployment` URL
+  `https://nexus-dash-e4u63bjlj-dorian-agaesses-projects.vercel.app`.
+  `/api/health/ready` reports environment `preview`, revision `451e85d`; both
+  stream routes return 404 under the polling transport default.
+- Browser telemetry (Playwright Chromium against the immutable preview URL,
+  session seeded directly in the preview DB): authenticated shell HTTP 200 and
+  project dashboard HTTP 200; 4 project-activity polls in a 45s visible window
+  (intervals 10.8 / 11.2 / 11.2s); 2 notification polls (interval 22.7s); zero
+  requests during a 25s hidden window (document.hidden and visibilityState
+  overridden plus a dispatched `visibilitychange`, exercising the component
+  handler); 2 immediate requests within 2.5s of returning visible; zero
+  stream-route and zero `text/event-stream` requests. Temporary user and
+  project rows cleaned up and verified absent afterwards.
+- Commit `451e85d`, PR #558.
+- Merge-forward after ND-367 (PR #557) merged as `b5ee135`: only `journal.md`
+  conflicted, resolved by taking main's file and re-appending this entry. The
+  merged-in runbook stated the old cadence ("every 2 seconds while the tab is
+  focused and every 15 seconds once it is hidden"); that sentence now reads the
+  adaptive numbers (10s activity / 20s notifications visible, nothing hidden,
+  immediate resume, backoff capped at 60s). The merge is docs-only, so the code
+  tree and its validation are unchanged.
+- Copilot review on #558 (four comments, two findings present in both
+  components): (1) a queued immediate check could still fire after the
+  in-flight request settled if the tab had gone hidden meanwhile - the settle
+  path now evaluates `pollAgainAfterCurrent && !isDocumentHidden()`, so a
+  hidden tab schedules nothing while the next visible `visibilitychange`
+  still polls immediately; (2) a thrown `response.json()` reset the failure
+  counter before the catch incremented it, pinning the backoff at the first
+  level instead of escalating - the counter now resets only after the parse
+  resolves. Regression tests added for both findings in both component specs
+  (27/27 targeted tests pass); the four threads were answered and resolved.
+  Fix commit `766c7db`.
+- Re-validation on the fix head: `npm run test:coverage` (1771 passed, 2
+  skipped; thresholds met at 93.78/84.46/95.42/94.08) and `npm run build` -
+  green.
+- Final-head preview validation: workflow run 37040070112 (same explicit
+  `git_ref`), revision `766c7db` at
+  `https://nexus-dash-ccbrkjnvb-dorian-agaesses-projects.vercel.app`. The
+  telemetry rerun matches the first pass: 4 project-activity polls in 45s
+  (intervals 10.8 / 10.8 / 11.3s), 2 notification polls (interval 21s), zero
+  requests in the 25s hidden window, 2 immediate requests within 2.5s of
+  returning visible, zero stream-route and zero `text/event-stream` requests.
+  Temporary rows cleaned up.
