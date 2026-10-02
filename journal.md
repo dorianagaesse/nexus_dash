@@ -8867,3 +8867,25 @@ Low-value entries to avoid going forward:
   adaptive numbers (10s activity / 20s notifications visible, nothing hidden,
   immediate resume, backoff capped at 60s). The merge is docs-only, so the code
   tree and its validation are unchanged.
+- Copilot review on #558 (four comments, two findings present in both
+  components): (1) a queued immediate check could still fire after the
+  in-flight request settled if the tab had gone hidden meanwhile - the settle
+  path now evaluates `pollAgainAfterCurrent && !isDocumentHidden()`, so a
+  hidden tab schedules nothing while the next visible `visibilitychange`
+  still polls immediately; (2) a thrown `response.json()` reset the failure
+  counter before the catch incremented it, pinning the backoff at the first
+  level instead of escalating - the counter now resets only after the parse
+  resolves. Regression tests added for both findings in both component specs
+  (27/27 targeted tests pass); the four threads were answered and resolved.
+  Fix commit `766c7db`.
+- Re-validation on the fix head: `npm run test:coverage` (1771 passed, 2
+  skipped; thresholds met at 93.78/84.46/95.42/94.08) and `npm run build` -
+  green.
+- Final-head preview validation: workflow run 37040070112 (same explicit
+  `git_ref`), revision `766c7db` at
+  `https://nexus-dash-ccbrkjnvb-dorian-agaesses-projects.vercel.app`. The
+  telemetry rerun matches the first pass: 4 project-activity polls in 45s
+  (intervals 10.8 / 10.8 / 11.3s), 2 notification polls (interval 21s), zero
+  requests in the 25s hidden window, 2 immediate requests within 2.5s of
+  returning visible, zero stream-route and zero `text/event-stream` requests.
+  Temporary rows cleaned up.
