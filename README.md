@@ -563,8 +563,13 @@ Copilot repair-lane prerequisite:
 
 ## Project Documentation Map
 
-- `project.md`: current architecture/product blueprint
-- `agent.md`: repository-specific execution contract
-- `tasks/backlog.md`: pending/completed task queue
-- `journal.md`: execution log
+- `AGENTS.md`: shared repository instructions for Codex and Claude Code
+- `project.md`: architecture and product orientation; task status lives on the Nexus Dash board
+- `docs/runbooks/agent-workflow.md`: detailed board, branch, PR, and handoff procedures
+- `tasks/backlog.md`: record of the backlog migration to Nexus Dash
+- `journal.md`: searchable execution history
 - `adr/decisions.md` + `adr/*.md`: architecture decisions
+
+Claude Code v2.1.277+ loads `AGENTS.md` by default when no project
+`CLAUDE.md` is present; older versions need a `CLAUDE.md` import. See the
+[Claude Code project-instructions documentation](https://code.claude.com/docs/en/memory).
