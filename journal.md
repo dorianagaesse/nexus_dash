@@ -3,6 +3,14 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-03 - Per-client Nexus Dash credential instructions
+
+- Documented separate Codex, Claude Code/DeepSeek, and Gemini credential files
+  in `AGENTS.md` and the agent workflow runbook; Gemini imports the shared
+  instructions through `GEMINI.md`.
+- The three local credential files are present but empty. Live attribution
+  verification remains dependent on creating the named project keys.
+
 # 2026-10-02 - ND-453: Consolidate agent context instructions
 
 - Renamed `agent.md` to `AGENTS.md` as the shared Codex and Claude Code entry

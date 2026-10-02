@@ -13,12 +13,6 @@ active card description is its brief; `tasks/current.md` was retired and
 check In Progress first, then Backlog in lane order. A direct user request may
 also define a small cardless docs or maintenance change.
 
-Agent credentials belong in `.config/.nd-nexus-dash.env` (gitignored); use
-`.nd-nexus-dash.example.env` as the contract template. Copy it to the
-gitignored path and fill in real values when first needed. Exchange the API
-key at `/api/auth/agent/token` for a short-lived bearer token at runtime.
-Never commit or print a key or token.
-
 For a board task, read its description and acceptance criteria before
 implementation. Consult `project.md` for architectural orientation and
 `README.md` for runtime, environment, or test details as the task requires.
@@ -37,6 +31,32 @@ result and relevant PR, validation, decision, blocker, or follow-up. Write
 plain English, as short as possible, one topic per comment; do not repeat the
 task description. Never move the card to Done: the reviewer or PR merger does
 that, even if an older brief or generated quickstart says otherwise.
+
+## Agent credential setup
+
+The client-to-file mapping is in `AGENTS.md`. Create separate Nexus Dash
+project credentials labeled Codex, DeepSeek, and Gemini for the corresponding
+clients.
+Copy `.nd-nexus-dash.example.env` to each matching file under `.config/` and
+fill in the same project ID with that client's own API key. The directory is
+gitignored. The legacy `.config/.nd-nexus-dash.env` is not a fallback.
+
+Codex loads the repository `AGENTS.md` at session start. Current Claude Code
+loads it when no project `CLAUDE.md` or `CLAUDE.local.md` takes precedence;
+check `/context` if unsure. This project's Claude Code setup runs DeepSeek,
+so it uses the DeepSeek file. If that setup changes provider, give it a new
+identity before using Nexus Dash. Gemini CLI loads `GEMINI.md`, which imports
+`AGENTS.md`; check `/memory show`. If a client does not load the mapping, fix
+its instruction setup before using Nexus Dash.
+
+For each client, confirm that its selected file has a project ID and its own
+API key without displaying the key. Exchange that key at
+`/api/auth/agent/token` for a short-lived bearer token at runtime. Make a
+small authorized Nexus Dash request, then check the credential label in the
+project's agent activity or audit view. A missing or empty file must stop
+Nexus Dash API work; do not try the legacy file or another client's key.
+Never commit or print keys or tokens. These instructions guide selection but
+do not isolate secrets when clients can read the same filesystem.
 
 ## Creating and refining tasks
 
