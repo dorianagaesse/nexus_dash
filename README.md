@@ -569,3 +569,7 @@ Copilot repair-lane prerequisite:
 - `tasks/backlog.md`: record of the backlog migration to Nexus Dash
 - `journal.md`: searchable execution history
 - `adr/decisions.md` + `adr/*.md`: architecture decisions
+
+Claude Code v2.1.277+ loads `AGENTS.md` by default when no project
+`CLAUDE.md` is present; older versions need a `CLAUDE.md` import. See the
+[Claude Code project-instructions documentation](https://code.claude.com/docs/en/memory).
