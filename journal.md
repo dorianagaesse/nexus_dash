@@ -8760,6 +8760,44 @@ Low-value entries to avoid going forward:
   zero `text/event-stream` requests with 6 notification and 3 activity polls.
   Merge commit bdae25a.
 
+# 2026-10-02 - ND-367: Configure Vercel Pro spend guardrails and environment usage controls
+- Claim: ND-367 (epic "Realtime Efficiency and Vercel Cost Control"), the
+  settings-plus-runbook companion to ND-368. Work split: the Vercel dashboard
+  changes are owner-only (single deploying seat), the repository deliverable
+  is the runbook.
+- Owner settings applied and CLI-verified: a team-level on-demand budget is
+  configured in Vercel Spend Management with notifications at 50/75/100%, and
+  the agreed action is notify-only - auto-pause stays off because pausing
+  production is a hard outage and remains a human decision. Verified with
+  `npx vercel budgets inspect` from the linked main checkout (CLI 62.2.0).
+- Owner-confirmed dashboard settings: Spend Management notifications enabled;
+  deployment retention policy set so pre-production (Preview) deployments
+  expire after one month, applied to existing deployments. Retention is not
+  readable through the CLI or API (arbitrary `vercel api` probes are
+  rejected), so verification is the owner's confirmation under Team Settings,
+  Security & Privacy, Deployment Retention Policy - recorded per the card's
+  Definition Of Done.
+- Deliverable: new `docs/runbooks/vercel-usage-and-spend-guardrails.md` -
+  budget commands and threshold response, usage inspection (`npx vercel usage`
+  grouping and breakdowns, per-route logs), credit behavior on Pro, single
+  deploying seat, taxes/on-demand exposure pointing at Billing settings as the
+  source of truth, Production/Preview operational filtering (including the
+  ND-368 `stream.transportDisabled` signature), and Preview retention plus
+  stale-tab hygiene. Cross-linked from the realtime transport section of
+  `docs/runbooks/vercel-env-contract-and-secrets.md`.
+- Billing hygiene: neither the runbook nor this entry records billing amounts,
+  account identifiers, or secret values; the Vercel dashboard and CLI remain
+  the source of truth for figures.
+- Docs-only change: the lint/test/build baseline is not applicable per
+  agent.md section 6; `git diff --check` is clean.
+- PR: #557 (docs-only, ready for review).
+- Copilot review on #557 (one medium finding): the threshold-response ladder
+  skipped the documented Production rollback (`REALTIME_TRANSPORT=polling`
+  plus redeploy/promote) as the intermediate mitigation before pausing
+  production, and the credit section said the budget "caps" on-demand
+  exposure although the agreed action is notify-only. Both fixed in the
+  runbook on this branch.
+
 ## 2026-10-02 - ND-369: Adaptive client polling for live updates
 
 - Claim: ND-369 (epic "Realtime Efficiency and Vercel Cost Control"), following
@@ -8806,7 +8844,26 @@ Low-value entries to avoid going forward:
   unreachable and every spec times out in `beforeEach` signing in. The same
   full suite runs in CI (`e2e-smoke` job runs `npm run test:e2e`); the PR CI
   result is the E2E evidence.
-- Follow-up: once ND-367 (PR #557) merges, the runbook cadence text ("every 2
-  seconds while the tab is focused and every 15 seconds once it is hidden") is
-  stale and must be updated to the adaptive numbers; that file is not on
-  `main` yet, so it cannot be edited here.
+- Preview validation: workflow run 37039131338 (`action=deploy-preview`,
+  explicit `git_ref=feature/nd-369-adaptive-client-polling`); artifact
+  `preview-deployment` URL
+  `https://nexus-dash-e4u63bjlj-dorian-agaesses-projects.vercel.app`.
+  `/api/health/ready` reports environment `preview`, revision `451e85d`; both
+  stream routes return 404 under the polling transport default.
+- Browser telemetry (Playwright Chromium against the immutable preview URL,
+  session seeded directly in the preview DB): authenticated shell HTTP 200 and
+  project dashboard HTTP 200; 4 project-activity polls in a 45s visible window
+  (intervals 10.8 / 11.2 / 11.2s); 2 notification polls (interval 22.7s); zero
+  requests during a 25s hidden window (document.hidden and visibilityState
+  overridden plus a dispatched `visibilitychange`, exercising the component
+  handler); 2 immediate requests within 2.5s of returning visible; zero
+  stream-route and zero `text/event-stream` requests. Temporary user and
+  project rows cleaned up and verified absent afterwards.
+- Commit `451e85d`, PR #558.
+- Merge-forward after ND-367 (PR #557) merged as `b5ee135`: only `journal.md`
+  conflicted, resolved by taking main's file and re-appending this entry. The
+  merged-in runbook stated the old cadence ("every 2 seconds while the tab is
+  focused and every 15 seconds once it is hidden"); that sentence now reads the
+  adaptive numbers (10s activity / 20s notifications visible, nothing hidden,
+  immediate resume, backoff capped at 60s). The merge is docs-only, so the code
+  tree and its validation are unchanged.
