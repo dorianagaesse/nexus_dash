@@ -8759,3 +8759,54 @@ Low-value entries to avoid going forward:
   routes return 404 and the browser check again shows zero stream-route and
   zero `text/event-stream` requests with 6 notification and 3 activity polls.
   Merge commit bdae25a.
+
+## 2026-10-02 - ND-369: Adaptive client polling for live updates
+
+- Claim: ND-369 (epic "Realtime Efficiency and Vercel Cost Control"), following
+  the ND-368 kill switch: with Preview on the polling transport, the client
+  fallback cadence itself (2s focused / 15s hidden per component) is the
+  remaining recurring cost driver, so it is replaced with a bounded adaptive
+  cadence.
+- Design: new shared pure module `lib/adaptive-live-polling.ts`
+  (`MAX_LIVE_POLL_BACKOFF_MS = 60_000`,
+  `resolveAdaptivePollDelayMs({ activeIntervalMs, isHidden, consecutiveFailures })`)
+  returns `null` while the document is hidden (pausing periodic work entirely -
+  the card allows a stop or a 60-120s ceiling), the active interval when
+  healthy, and an exponential backoff on consecutive failures (interval x 2^n)
+  capped at 60s and never below the active interval.
+- Cadences: project activity 10s while visible, notifications 20s while
+  visible (both were 2s before); hidden tabs schedule nothing and resume with
+  an immediate check on `visibilitychange`; the existing `focus` immediate
+  check is unchanged.
+- Both components (`components/project-live-refresh.tsx`,
+  `components/notification-live-updates.tsx`) swap
+  `resolveNextPollIntervalMs` / `BACKGROUND_POLL_INTERVAL_MS` for a shared
+  `scheduleNextPoll()` driven by the resolver, count `consecutiveFailures`
+  (non-ok responses and thrown network errors; aborts excluded; reset on
+  success), and route `visibilitychange` through `handleVisibilityChange`
+  (clear when hidden, immediate poll when visible). Edit-lock deferral,
+  mutation acknowledgement, and typed remote-event reconciliation are
+  untouched; the stream transport path is unaffected (the resolver only drives
+  the polling fallback).
+- Server side: baseline (polling) mode has no server loop - no `setInterval`
+  exists in `app/api` or `lib`; the 1s stream poll constants live only in the
+  SSE routes, which return 404 under the polling transport (ND-368), so the
+  "no server-side 1s loop in baseline mode" criterion holds structurally.
+- Tests: new `tests/lib/adaptive-live-polling.test.ts` (visible / hidden /
+  backoff cap / floor cases); both component specs gain a bounded
+  visible-default-cadence case, a hidden-pause-and-resume case, and a
+  failure-backoff case (23/23 targeted tests pass). Validation: `npm run lint`,
+  `npm run rls:check`, full unit suite (1767 passed, 2 skipped), coverage
+  thresholds met (93.78/84.46/95.42/94.08), production build,
+  `git diff --check` clean.
+- E2E: the local run is blocked by the environment - Docker Desktop's engine is
+  down (`docker ps` fails with "Docker Desktop is unable to start",
+  `com.docker.service` is stopped and needs an elevated start, direct pg
+  connections to 127.0.0.1:5432 time out), so the local Postgres is
+  unreachable and every spec times out in `beforeEach` signing in. The same
+  full suite runs in CI (`e2e-smoke` job runs `npm run test:e2e`); the PR CI
+  result is the E2E evidence.
+- Follow-up: once ND-367 (PR #557) merges, the runbook cadence text ("every 2
+  seconds while the tab is focused and every 15 seconds once it is hidden") is
+  stale and must be updated to the adaptive numbers; that file is not on
+  `main` yet, so it cannot be edited here.

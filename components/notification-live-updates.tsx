@@ -6,9 +6,9 @@ import {
   publishNotificationRealtimeSnapshot,
 } from "@/lib/notification-realtime-client";
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
+import { resolveAdaptivePollDelayMs } from "@/lib/adaptive-live-polling";
 
-const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 2000;
-const BACKGROUND_POLL_INTERVAL_MS = 15000;
+const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 20000;
 
 interface NotificationLiveUpdatesProps {
   initialSnapshot: NotificationRealtimeSnapshot;
@@ -21,14 +21,6 @@ function canUseNotificationStream(): boolean {
     typeof window !== "undefined" &&
     typeof window.EventSource === "function"
   );
-}
-
-function resolveNextPollIntervalMs(activePollIntervalMs: number): number {
-  if (typeof document !== "undefined" && document.hidden) {
-    return Math.max(BACKGROUND_POLL_INTERVAL_MS, activePollIntervalMs * 4);
-  }
-
-  return activePollIntervalMs;
 }
 
 function isSnapshotChanged(
@@ -131,6 +123,7 @@ export function NotificationLiveUpdates({
     let controller: AbortController | null = null;
     let isPolling = false;
     let pollAgainAfterCurrent = false;
+    let consecutiveFailures = 0;
 
     function clearScheduledPoll() {
       if (!timeoutId) {
@@ -141,13 +134,32 @@ export function NotificationLiveUpdates({
       timeoutId = null;
     }
 
-    function schedulePoll(delayMs = resolveNextPollIntervalMs(pollIntervalMs)) {
+    function isDocumentHidden() {
+      return typeof document !== "undefined" && document.hidden;
+    }
+
+    function schedulePoll(delayMs: number) {
       clearScheduledPoll();
       timeoutId = setTimeout(pollNotifications, delayMs);
     }
 
+    function scheduleNextPoll() {
+      const delayMs = resolveAdaptivePollDelayMs({
+        activeIntervalMs: pollIntervalMs,
+        isHidden: isDocumentHidden(),
+        consecutiveFailures,
+      });
+
+      if (delayMs === null) {
+        clearScheduledPoll();
+        return;
+      }
+
+      schedulePoll(delayMs);
+    }
+
     function requestImmediatePoll() {
-      if (typeof document !== "undefined" && document.hidden) {
+      if (isDocumentHidden()) {
         return;
       }
 
@@ -157,6 +169,15 @@ export function NotificationLiveUpdates({
       }
 
       schedulePoll(0);
+    }
+
+    function handleVisibilityChange() {
+      if (isDocumentHidden()) {
+        clearScheduledPoll();
+        return;
+      }
+
+      requestImmediatePoll();
     }
 
     async function pollNotifications() {
@@ -172,15 +193,18 @@ export function NotificationLiveUpdates({
         });
 
         if (!response.ok) {
+          consecutiveFailures += 1;
           return;
         }
 
+        consecutiveFailures = 0;
         handleSnapshot((await response.json()) as NotificationRealtimeSnapshot);
       } catch (error) {
         if ((error as { name?: string }).name === "AbortError") {
           return;
         }
 
+        consecutiveFailures += 1;
         console.warn("[NotificationLiveUpdates.poll]", error);
       } finally {
         isPolling = false;
@@ -189,21 +213,21 @@ export function NotificationLiveUpdates({
             pollAgainAfterCurrent = false;
             schedulePoll(0);
           } else {
-            schedulePoll();
+            scheduleNextPoll();
           }
         }
       }
     }
 
-    schedulePoll();
-    document.addEventListener("visibilitychange", requestImmediatePoll);
+    scheduleNextPoll();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", requestImmediatePoll);
 
     return () => {
       cancelled = true;
       clearScheduledPoll();
       controller?.abort();
-      document.removeEventListener("visibilitychange", requestImmediatePoll);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", requestImmediatePoll);
     };
   }, [handleSnapshot, isPollingFallbackActive, pollIntervalMs]);
@@ -214,5 +238,4 @@ export function NotificationLiveUpdates({
 export const notificationLiveUpdatesInternals = {
   canUseNotificationStream,
   isSnapshotChanged,
-  resolveNextPollIntervalMs,
 };

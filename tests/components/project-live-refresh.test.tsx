@@ -112,6 +112,7 @@ describe("ProjectLiveRefresh", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     document.body.innerHTML = "";
   });
 
@@ -282,7 +283,7 @@ describe("ProjectLiveRefresh", () => {
     );
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1999);
+      await vi.advanceTimersByTimeAsync(9999);
     });
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -323,6 +324,111 @@ describe("ProjectLiveRefresh", () => {
       signal: expect.any(AbortSignal),
     });
     expect(routerRefreshMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("pauses activity checks while the document is hidden and resumes on visibility", async () => {
+    const hiddenSpy = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    const { root } = createTestRenderer();
+    mockActivityVersion("2026-05-30T10:01:00.000Z");
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    hiddenSpy.mockReturnValue(false);
+
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    mockActivityVersion("2026-05-30T10:03:00.000Z");
+    hiddenSpy.mockReturnValue(true);
+
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    hiddenSpy.mockReturnValue(false);
+
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("backs off repeated activity-check failures instead of retrying tightly", async () => {
+    const { root } = createTestRenderer();
+    fetchMock.mockResolvedValue({ ok: false, json: vi.fn() });
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(99);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    mockActivityVersion("2026-05-30T10:01:00.000Z");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
 
     await act(async () => {
       root.unmount();
