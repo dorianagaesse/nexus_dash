@@ -8759,3 +8759,34 @@ Low-value entries to avoid going forward:
   routes return 404 and the browser check again shows zero stream-route and
   zero `text/event-stream` requests with 6 notification and 3 activity polls.
   Merge commit bdae25a.
+
+# 2026-10-02 - ND-367: Configure Vercel Pro spend guardrails and environment usage controls
+- Claim: ND-367 (epic "Realtime Efficiency and Vercel Cost Control"), the
+  settings-plus-runbook companion to ND-368. Work split: the Vercel dashboard
+  changes are owner-only (single deploying seat), the repository deliverable
+  is the runbook.
+- Owner settings applied and CLI-verified: a team-level on-demand budget is
+  configured in Vercel Spend Management with notifications at 50/75/100%, and
+  the agreed action is notify-only - auto-pause stays off because pausing
+  production is a hard outage and remains a human decision. Verified with
+  `npx vercel budgets inspect` from the linked main checkout (CLI 62.2.0).
+- Owner-confirmed dashboard settings: Spend Management notifications enabled;
+  deployment retention policy set so pre-production (Preview) deployments
+  expire after one month, applied to existing deployments. Retention is not
+  readable through the CLI or API (arbitrary `vercel api` probes are
+  rejected), so verification is the owner's confirmation under Team Settings,
+  Security & Privacy, Deployment Retention Policy - recorded per the card's
+  Definition Of Done.
+- Deliverable: new `docs/runbooks/vercel-usage-and-spend-guardrails.md` -
+  budget commands and threshold response, usage inspection (`npx vercel usage`
+  grouping and breakdowns, per-route logs), credit behavior on Pro, single
+  deploying seat, taxes/on-demand exposure pointing at Billing settings as the
+  source of truth, Production/Preview operational filtering (including the
+  ND-368 `stream.transportDisabled` signature), and Preview retention plus
+  stale-tab hygiene. Cross-linked from the realtime transport section of
+  `docs/runbooks/vercel-env-contract-and-secrets.md`.
+- Billing hygiene: neither the runbook nor this entry records billing amounts,
+  account identifiers, or secret values; the Vercel dashboard and CLI remain
+  the source of truth for figures.
+- Docs-only change: the lint/test/build baseline is not applicable per
+  agent.md section 6; `git diff --check` is clean.
