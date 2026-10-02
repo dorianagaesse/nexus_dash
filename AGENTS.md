@@ -13,6 +13,8 @@ documentation when the task calls for it:
 | Historical decisions | `adr/decisions.md` and focused ADRs in `adr/` |
 | Past execution details | Search `journal.md` for the relevant task or date |
 
+`journal.md` is a reference, not a startup read.
+
 ## Work and delivery
 
 - The Nexus Dash project at <https://nexus-dash.app> owns task status,
@@ -24,14 +26,20 @@ documentation when the task calls for it:
   `origin/main`; use a separate worktree when the checkout is dirty or agents
   are working concurrently. Use the matching `feature/`, `fix/`, `docs/`,
   `refactor/`, or `chore/` prefix. For cardless work, use a descriptive slug.
+- For a board task, move the card to In Progress and leave a pickup comment
+  when work starts. Leave a completion comment when the job is done. Make both
+  comments as short as possible, in plain English; state the next step or
+  handoff evidence, one topic per comment, without repeating the card. The
+  reviewer or PR merger moves the card to Done.
 - Push the branch and open a reviewable PR for repository changes unless the
   user explicitly asks otherwise. Handle applicable review feedback and
-  report the delivered commit SHA. For board tasks, move the card to In
-  Progress when work starts; the reviewer or PR merger moves it to Done.
-  See the agent workflow runbook for status, review, and handoff details.
+  report the delivered commit SHA. See the agent workflow runbook for status,
+  review, and handoff details.
 
 ## Code boundaries
 
+- Follow established patterns; prefer reusable, focused code and separated
+  responsibilities over duplication.
 - Keep `@/lib/prisma` access in `lib/services/**`. API routes and server
   actions parse input, call services, and map the response or redirect.
 - Enforce project authorization in services.

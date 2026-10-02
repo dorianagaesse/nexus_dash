@@ -10,6 +10,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   procedures into `docs/runbooks/agent-workflow.md` for on-demand reading.
 - Updated the README and project context maps, and removed dated task status
   and pending-gap claims from `project.md`; the Nexus Dash board owns live work.
+- Follow-up: made brief pickup and completion comments mandatory in
+  `AGENTS.md`; restored detailed workflow rules to the on-demand runbook.
 - Documentation-only validation: `git diff --check` and current-reference
   review.
 
