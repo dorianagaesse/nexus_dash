@@ -8790,3 +8790,4 @@ Low-value entries to avoid going forward:
   the source of truth for figures.
 - Docs-only change: the lint/test/build baseline is not applicable per
   agent.md section 6; `git diff --check` is clean.
+- PR: #557 (docs-only, ready for review).
