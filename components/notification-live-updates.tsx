@@ -197,8 +197,9 @@ export function NotificationLiveUpdates({
           return;
         }
 
+        const snapshot = (await response.json()) as NotificationRealtimeSnapshot;
         consecutiveFailures = 0;
-        handleSnapshot((await response.json()) as NotificationRealtimeSnapshot);
+        handleSnapshot(snapshot);
       } catch (error) {
         if ((error as { name?: string }).name === "AbortError") {
           return;
@@ -209,8 +210,11 @@ export function NotificationLiveUpdates({
       } finally {
         isPolling = false;
         if (!cancelled) {
-          if (pollAgainAfterCurrent) {
-            pollAgainAfterCurrent = false;
+          const shouldPollImmediately =
+            pollAgainAfterCurrent && !isDocumentHidden();
+          pollAgainAfterCurrent = false;
+
+          if (shouldPollImmediately) {
             schedulePoll(0);
           } else {
             scheduleNextPoll();

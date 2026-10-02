@@ -402,8 +402,8 @@ export function ProjectLiveRefresh({
           return;
         }
 
-        consecutiveFailures = 0;
         const payload = (await response.json()) as ProjectActivityResponse;
+        consecutiveFailures = 0;
         handleActivitySnapshot(payload);
       } catch (error) {
         if ((error as { name?: string }).name === "AbortError") {
@@ -415,8 +415,11 @@ export function ProjectLiveRefresh({
       } finally {
         isPolling = false;
         if (!cancelled) {
-          if (pollAgainAfterCurrent) {
-            pollAgainAfterCurrent = false;
+          const shouldPollImmediately =
+            pollAgainAfterCurrent && !isDocumentHidden();
+          pollAgainAfterCurrent = false;
+
+          if (shouldPollImmediately) {
             schedulePoll(0);
           } else {
             scheduleNextPoll();

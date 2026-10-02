@@ -570,4 +570,109 @@ describe("ProjectLiveRefresh", () => {
       root.unmount();
     });
   });
+
+  test("escalates the failure backoff when the payload cannot be parsed", async () => {
+    const { root } = createTestRenderer();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockRejectedValue(new Error("invalid payload")),
+    });
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("does not fire the queued immediate check while the document is hidden", async () => {
+    const hiddenSpy = vi.spyOn(document, "hidden", "get").mockReturnValue(false);
+    const { root } = createTestRenderer();
+
+    let resolveFetch: ((value: unknown) => void) | null = null;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve;
+        })
+    );
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    hiddenSpy.mockReturnValue(true);
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    await act(async () => {
+      resolveFetch?.({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          projectId: "project-1",
+          version: "2026-05-30T10:01:00.000Z",
+          serverTime: "2026-05-30T10:01:00.000Z",
+        }),
+      });
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    hiddenSpy.mockReturnValue(false);
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });
