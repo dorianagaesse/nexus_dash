@@ -209,6 +209,9 @@ Preview validation can prove the kill switch by confirming the dashboard loads
 with no `text/event-stream` requests and that activity/notification freshness
 still flows through polling.
 
+Spend budgets, usage inspection, retention, and the realtime cost context are
+documented in `docs/runbooks/vercel-usage-and-spend-guardrails.md`.
+
 ## Sensitivity Policy
 
 Set as sensitive in Vercel (Preview + Production):
