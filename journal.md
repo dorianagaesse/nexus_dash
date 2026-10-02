@@ -8940,3 +8940,19 @@ Low-value entries to avoid going forward:
 - E2E: the local run is still blocked by the down Docker engine (same
   environment limitation as ND-369); the PR's CI `e2e-smoke` result is the E2E
   evidence.
+- Preview validation: workflow run 37066010878 (`action=deploy-preview`,
+  explicit `git_ref=feature/nd-370-cross-tab-coordination`); artifact
+  `preview-deployment` URL
+  `https://nexus-dash-oa0ciwib4-dorian-agaesses-projects.vercel.app`;
+  `/api/health/ready` reports environment `preview`, revision `dc3d7d6`.
+- Multi-tab browser telemetry (Playwright Chromium, two tabs against the
+  immutable preview URL, session seeded directly in the preview DB): both
+  dashboards load HTTP 200; in a 45s steady window the leading tab polls
+  project activity 4 times (intervals 11.2 / 10.9 / 11.2s) and notifications
+  twice while the follower tab polls neither (0 / 0); a task created through
+  the API triggers the shared refresh - 0 follower activity polls but 1
+  follower router refresh in the following 15s; closing the leader tab hands
+  activity polling over (2 polls in 20s, interval 10.8s); the remaining tab
+  makes 0 requests during a 25s hidden window and resumes within 2.5s of
+  becoming visible; zero stream-route requests from either tab; temporary
+  rows cleaned up and verified absent.
