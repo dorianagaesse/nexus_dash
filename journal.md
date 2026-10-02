@@ -3,6 +3,16 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-02 - ND-453: Consolidate agent context instructions
+
+- Renamed `agent.md` to `AGENTS.md` as the shared Codex and Claude Code entry
+  point, removed duplicated `CLAUDE.md`, and moved detailed task and delivery
+  procedures into `docs/runbooks/agent-workflow.md` for on-demand reading.
+- Updated the README and project context maps, and removed dated task status
+  and pending-gap claims from `project.md`; the Nexus Dash board owns live work.
+- Documentation-only validation: `git diff --check` and current-reference
+  review.
+
 # 2026-09-18 - ND-399: Handoff merge-forward and re-validation
 
 - Merged `origin/main` (ND-396 #528, ND-465 #527) into

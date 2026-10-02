@@ -1,12 +1,13 @@
-# NexusDash Project Blueprint (Current State)
+# NexusDash Project Overview
 
-Last verified: 2026-07-05
+This file is an orientation map. Check the implementation and `README.md` for
+current behavior and runtime details; the Nexus Dash board owns active work.
 
 ## 1. Vision
 
 NexusDash is a personal/team execution workspace that keeps project planning, delivery tracking, contextual notes, file attachments, and calendar execution in one place.
 
-## 2. Current Product Scope (Implemented)
+## 2. Product Areas
 
 - Email/password sign-up and sign-in from `/`.
 - Email verification and password recovery lifecycle for credentials accounts.
@@ -123,25 +124,11 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
   - promote
   - rollback
 
-## 6. Known Gaps (Intentionally Pending)
-
-- Agent v1 intentionally excludes calendar access and MCP-based tool transport.
-- App-managed invite email delivery is not implemented yet.
-- Broader security hardening and verification phases remain pending.
-
-## 7. Active Priorities
-
-Task management lives in the Nexus Dash project kanban ("Nexus Dash" at
-<https://nexus-dash.app>), the source of truth for status, sequencing, labels,
-epics, and relationships since the 2026-08-31 backlog migration (see
-`tasks/backlog.md`). Currently in progress: TASK-100 (mobile core-flow
-remediation) and TASK-406 (stable Preview OAuth alias); the Backlog lane
-holds the remaining queue in priority order.
-
-## 8. Source-of-Truth Docs
+## 6. Source-of-Truth Docs
 
 - Product/runtime overview: `README.md`
-- Agent workflow rules: `agent.md`
+- Shared agent rules: `AGENTS.md`
+- Detailed agent workflow: `docs/runbooks/agent-workflow.md`
 - Task queue, status, and sequencing: the Nexus Dash project kanban — the
   active task's card is also its brief (credentials in
   `.config/.nd-nexus-dash.env`; template in `.nd-nexus-dash.example.env`)
