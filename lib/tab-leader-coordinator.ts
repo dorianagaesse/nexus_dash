@@ -104,7 +104,7 @@ function parseTabLeaderMessage(value: unknown): TabLeaderMessageEnvelope | null 
   }
 
   if (kind !== "probe" && kind !== "request-refresh") {
-    if (typeof candidate.term !== "number") {
+    if (typeof candidate.term !== "number" || !Number.isInteger(candidate.term)) {
       return null;
     }
   }

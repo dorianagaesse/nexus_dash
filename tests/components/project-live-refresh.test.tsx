@@ -879,4 +879,50 @@ describe("ProjectLiveRefresh", () => {
       tabA.root.unmount();
     });
   });
+
+  test("stays silent on the bus when mounted in an already-hidden document", async () => {
+    vi.stubGlobal("BroadcastChannel", MockBroadcastChannel);
+    MockBroadcastChannel.reset();
+    const observer = new MockBroadcastChannel(
+      "nexusdash-tab-leader:project:project-1"
+    );
+    const heardKinds: string[] = [];
+    observer.addEventListener("message", (event) => {
+      heardKinds.push(
+        ((event.data as { kind?: string }).kind ?? "unknown") as string
+      );
+    });
+
+    const hiddenSpy = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    const { root } = createTestRenderer();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        projectId: "project-1",
+        version: "2026-05-30T10:01:00.000Z",
+        serverTime: "2026-05-30T10:00:01.000Z",
+      }),
+    });
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(heardKinds).not.toContain("heartbeat");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });

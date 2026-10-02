@@ -682,4 +682,45 @@ describe("NotificationLiveUpdates", () => {
       tabA.root.unmount();
     });
   });
+
+  test("stays silent on the bus when mounted in an already-hidden document", async () => {
+    vi.stubGlobal("BroadcastChannel", MockBroadcastChannel);
+    MockBroadcastChannel.reset();
+    const observer = new MockBroadcastChannel(
+      "nexusdash-tab-leader:notifications"
+    );
+    const heardKinds: string[] = [];
+    observer.addEventListener("message", (event) => {
+      heardKinds.push(
+        ((event.data as { kind?: string }).kind ?? "unknown") as string
+      );
+    });
+
+    const hiddenSpy = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    const { root } = createTestRenderer();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(initialSnapshot),
+    });
+
+    await renderWithRoot(
+      root,
+      React.createElement(NotificationLiveUpdates, {
+        initialSnapshot,
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(heardKinds).not.toContain("heartbeat");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });

@@ -240,6 +240,14 @@ describe("createTabLeaderCoordinator", () => {
     injectMessage({ kind: "heartbeat", scope: "other-scope", tabId: "aaa", term: 5 });
     injectMessage({ kind: "heartbeat", scope: SCOPE, tabId: "mmm", term: 5 });
     injectMessage({ kind: "heartbeat", scope: SCOPE, tabId: "aaa" });
+    injectMessage({ kind: "heartbeat", scope: SCOPE, tabId: "zzz", term: Number.NaN });
+    injectMessage({
+      kind: "heartbeat",
+      scope: SCOPE,
+      tabId: "zzz",
+      term: Number.POSITIVE_INFINITY,
+    });
+    injectMessage({ kind: "heartbeat", scope: SCOPE, tabId: "zzz", term: 1.5 });
     injectMessage({ kind: "data", scope: SCOPE, tabId: "aaa", term: 0, payload: { version: "stale" } });
     await advance(0);
 

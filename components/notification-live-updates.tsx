@@ -262,6 +262,7 @@ export function NotificationLiveUpdates({
     }
 
     coordinator.start();
+    coordinator.setVisible(!isDocumentHidden());
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", requestImmediatePoll);
 

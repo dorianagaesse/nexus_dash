@@ -8956,3 +8956,20 @@ Low-value entries to avoid going forward:
   makes 0 requests during a 25s hidden window and resumes within 2.5s of
   becoming visible; zero stream-route requests from either tab; temporary
   rows cleaned up and verified absent.
+- Copilot review on #560 (three findings): (1) both components started the
+  coordinator without syncing the current visibility, so a component mounted
+  into an already-hidden document could win the lease and keep heartbeating
+  while its own scheduler suppressed polls - the start path now calls
+  `coordinator.setVisible(!isDocumentHidden())` right after `start()`
+  (no-op when visible; silences and clears the claim when hidden);
+  (2) `parseTabLeaderMessage` accepted any `typeof term === "number"`, so
+  `NaN` slipped past both term comparisons (reaching the tie-break path) and
+  `Infinity` could poison `knownTerm` - the boundary check now requires
+  `Number.isInteger`. Regression tests: the malformed-message lib case gains
+  `NaN` / `Infinity` / `1.5` heartbeats with a higher tab id, and each
+  component spec gains a hidden-at-mount case that observes the leader bus and
+  asserts no heartbeat is ever posted (mutation-checked: both tests fail with
+  the component fix reverted).
+- Re-validation on the fix head: `npm run lint`, `npm run rls:check`, full
+  unit suite (1789 passed, 2 skipped), coverage thresholds met
+  (93.78/84.46/95.42/94.08), production build, `git diff --check` clean.
