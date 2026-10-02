@@ -8791,3 +8791,9 @@ Low-value entries to avoid going forward:
 - Docs-only change: the lint/test/build baseline is not applicable per
   agent.md section 6; `git diff --check` is clean.
 - PR: #557 (docs-only, ready for review).
+- Copilot review on #557 (one medium finding): the threshold-response ladder
+  skipped the documented Production rollback (`REALTIME_TRANSPORT=polling`
+  plus redeploy/promote) as the intermediate mitigation before pausing
+  production, and the credit section said the budget "caps" on-demand
+  exposure although the agreed action is notify-only. Both fixed in the
+  runbook on this branch.

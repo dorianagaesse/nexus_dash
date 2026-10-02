@@ -51,12 +51,16 @@ When a spend notification fires:
    infrastructure total, with Fluid Active CPU second.
 3. Apply the cheapest mitigation first:
    - Realtime/stream traffic: confirm Preview resolves to polling
-     (`REALTIME_TRANSPORT`, see the env contract runbook), and review whether
-     the remaining server-side polling cadence can be reduced. Adaptive
-     polling and cross-tab coordination are tracked on the board
+     (`REALTIME_TRANSPORT`, see the env contract runbook). If Production
+     streams are the driver, apply the same documented Production rollback
+     (`REALTIME_TRANSPORT=polling` plus redeploy or promote) before
+     considering a production pause: it stops the per-second stream work
+     without taking the site down.
+   - Review whether the remaining server-side polling cadence can be reduced.
+     Adaptive polling and cross-tab coordination are tracked on the board
      (ND-369, ND-370).
-   - Only then consider lowering the budget or deliberately pausing
-     production.
+   - Only then consider deliberately pausing production deployments, which is
+     a hard outage and requires manual per-project resume.
 4. Record what fired and what was changed on the relevant task card.
 
 ### Notifications
@@ -112,9 +116,10 @@ Credit behavior (Pro plan, current team shape):
   infrastructure usage before any on-demand charges accrue.
 - Unused credit does not roll over; it expires at the end of the month and
   resets with the next cycle.
-- On-demand exposure is exactly what the budget caps: whatever metered usage
-  exceeds the included credit. Subscriptions (seats) and add-ons are billed
-  separately from on-demand usage.
+- On-demand exposure is whatever metered usage exceeds the included credit.
+  Under the notify-only action above, the budget alerts but does not cap or
+  stop that usage. Subscriptions (seats) and add-ons are billed separately
+  from on-demand usage.
 
 Taxes:
 
