@@ -12,6 +12,7 @@ import {
 } from "@/lib/project-activity-client";
 import type { ProjectActivityEventPayload } from "@/lib/project-activity-event-types";
 import { resolveAdaptivePollDelayMs } from "@/lib/adaptive-live-polling";
+import { createTabLeaderCoordinator } from "@/lib/tab-leader-coordinator";
 
 const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 10000;
 const PENDING_REFRESH_CHECK_INTERVAL_MS = 500;
@@ -325,6 +326,7 @@ export function ProjectLiveRefresh({
     let controller: AbortController | null = null;
     let isPolling = false;
     let pollAgainAfterCurrent = false;
+    let isPollingLeader = false;
     let consecutiveFailures = 0;
 
     function clearScheduledPoll() {
@@ -360,7 +362,7 @@ export function ProjectLiveRefresh({
       schedulePoll(delayMs);
     }
 
-    function requestImmediatePoll() {
+    function requestLeaderPoll() {
       if (isDocumentHidden()) {
         return;
       }
@@ -373,12 +375,45 @@ export function ProjectLiveRefresh({
       schedulePoll(0);
     }
 
+    const coordinator = createTabLeaderCoordinator<ProjectActivityResponse>({
+      scope: `project:${projectId}`,
+      onRoleChange(isLeader) {
+        isPollingLeader = isLeader;
+        if (isLeader) {
+          scheduleNextPoll();
+        } else {
+          clearScheduledPoll();
+        }
+      },
+      onData(payload) {
+        handleActivitySnapshot(payload);
+      },
+      onRefreshRequest() {
+        requestLeaderPoll();
+      },
+    });
+
+    function requestImmediatePoll() {
+      if (isDocumentHidden()) {
+        return;
+      }
+
+      if (!isPollingLeader) {
+        coordinator.requestRefresh();
+        return;
+      }
+
+      requestLeaderPoll();
+    }
+
     function handleVisibilityChange() {
       if (isDocumentHidden()) {
+        coordinator.setVisible(false);
         clearScheduledPoll();
         return;
       }
 
+      coordinator.setVisible(true);
       requestImmediatePoll();
     }
 
@@ -405,6 +440,7 @@ export function ProjectLiveRefresh({
         const payload = (await response.json()) as ProjectActivityResponse;
         consecutiveFailures = 0;
         handleActivitySnapshot(payload);
+        coordinator.publish(payload);
       } catch (error) {
         if ((error as { name?: string }).name === "AbortError") {
           return;
@@ -416,24 +452,27 @@ export function ProjectLiveRefresh({
         isPolling = false;
         if (!cancelled) {
           const shouldPollImmediately =
-            pollAgainAfterCurrent && !isDocumentHidden();
+            pollAgainAfterCurrent && !isDocumentHidden() && isPollingLeader;
           pollAgainAfterCurrent = false;
 
           if (shouldPollImmediately) {
             schedulePoll(0);
-          } else {
+          } else if (isPollingLeader) {
             scheduleNextPoll();
+          } else {
+            clearScheduledPoll();
           }
         }
       }
     }
 
-    scheduleNextPoll();
+    coordinator.start();
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", requestImmediatePoll);
 
     return () => {
       cancelled = true;
+      coordinator.stop();
       clearScheduledPoll();
       controller?.abort();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
