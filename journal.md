@@ -9088,3 +9088,16 @@ Low-value entries to avoid going forward:
   tests, full unit and coverage suites, production build, the 10-test task/
   meeting/roadmap browser suite, and the temporary benchmark/query harnesses.
   Temporary instrumentation and fixtures were removed afterward.
+
+# 2026-10-03 - ND-429 preview follow-up
+
+- On the `b1ee8c1` preview, the user still found saves slow. Browser checks on
+  the supplied immutable deployment reproduced about 3.5 seconds from meeting
+  output save click to success toast, about 3.9 seconds to create a milestone
+  and event, and about 1.8 seconds to edit an event. These are browser UI
+  observations, not server timing samples. Test content was restored and the
+  temporary event was deleted.
+- Roadmap event create/edit read the saved event separately before reading its
+  containing phase, which already includes the event. Both paths now derive
+  the response event from the phase read, eliminating one duplicate database
+  query per event save while retaining the same response shape.

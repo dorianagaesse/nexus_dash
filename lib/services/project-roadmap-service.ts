@@ -319,32 +319,6 @@ async function readRoadmapPhaseById(input: {
   return phase ? mapRoadmapPhase(phase) : null;
 }
 
-async function readRoadmapEventById(input: {
-  db: DbClient;
-  projectId: string;
-  eventId: string;
-}): Promise<ProjectRoadmapEvent | null> {
-  const event = await input.db.roadmapEvent.findFirst({
-    where: {
-      id: input.eventId,
-      projectId: input.projectId,
-    },
-    select: {
-      id: true,
-      phaseId: true,
-      title: true,
-      description: true,
-      targetDate: true,
-      status: true,
-      position: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
-
-  return event ? mapRoadmapEvent(event) : null;
-}
-
 async function requireRoadmapAccess(input: {
   actorUserId: string;
   projectId: string;
@@ -925,16 +899,12 @@ export async function createProjectRoadmapEvent(
         },
       });
 
-      const event = await readRoadmapEventById({
-        db,
-        projectId: input.projectId,
-        eventId: createdEvent.id,
-      });
       const phase = await readRoadmapPhaseById({
         db,
         projectId: input.projectId,
         phaseId,
       });
+      const event = phase?.events.find((item) => item.id === createdEvent.id);
       if (!event || !phase) {
         return createError(500, "roadmap-event-create-failed");
       }
@@ -1055,16 +1025,12 @@ export async function updateProjectRoadmapEvent(
         },
       });
 
-      const event = await readRoadmapEventById({
-        db,
-        projectId: input.projectId,
-        eventId,
-      });
       const phase = await readRoadmapPhaseById({
         db,
         projectId: input.projectId,
         phaseId: existingEvent.phaseId,
       });
+      const event = phase?.events.find((item) => item.id === eventId);
       if (!event || !phase) {
         return createError(404, "roadmap-event-not-found");
       }
