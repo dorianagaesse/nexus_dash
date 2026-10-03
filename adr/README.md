@@ -17,10 +17,16 @@ This folder contains architecture decision records.
 ## Current Detailed ADRs
 
 - `adr/task-020-modern-auth-authorization-adr.md`
+- `adr/task-050-security-remediation-adr.md`
 - `adr/task-056-data-platform-adr.md`
 - `adr/task-057-supabase-environment-strategy.md`
 - `adr/task-076-supabase-r2-google-calendar-boundaries.md`
+- `adr/task-105-convex-migration-assessment.md`
 - `adr/task-327-calendar-connections.md`
+- `adr/task-338-project-ownership-continuity.md`
+- `adr/task-348-shared-schedule-contract.md`
+- `adr/task-372-supabase-realtime-authorization.md`
+- `adr/task-432-autosave-contract.md`
 
 ## Usage Rule
 

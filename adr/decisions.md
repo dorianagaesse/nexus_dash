@@ -975,3 +975,39 @@ Keep UI-only or task-only notes in `journal.md`.
   within the app route's 4 MB limit through the authenticated multipart route.
   Larger files retain the actionable CORS error because proxying them would
   exceed the serverless request-size contract.
+
+## 2026-10-03 - Private Supabase Realtime Broadcast channels (ND-372)
+
+- Status: Accepted.
+
+- Context: The SSE transport polls PostgreSQL every second per open tab and is
+  the dominant Vercel Fluid compute cost driver (the remediation epic's
+  ND-373..375 targets it). The replacement must not widen the authorization
+  surface: today every read goes through membership-scoped RLS, no
+  service-role key exists anywhere, and clients must never be able to forge
+  activity or notification messages.
+
+- Decision: Design-only contract (implementation is ND-373): browsers join
+  two private Broadcast topic families, `project:<projectId>:activity` and
+  `user:<userId>:notifications`, authorized by SELECT-only RLS policies on
+  `realtime.messages` that mirror the canonical owner-OR-membership
+  predicate through strict-shape `app` helpers. All messages are published
+  from durable database triggers via `realtime.send()` (no INSERT policies
+  exist, so clients cannot publish), with trigger failures swallowed so a
+  broadcast can never abort a business transaction. Browsers authenticate
+  with short-lived (<=10 min) HS256 Supabase JWTs minted from authenticated
+  human sessions (PII-free claims, TTL is the revocation SLA); app runtime
+  keeps its GUC-based `app.current_user_id()` with a JWT-claims fallback so
+  one predicate serves both contexts. Payload contracts stay byte-identical
+  to the SSE payloads (`ProjectActivityEventPayload`,
+  `NotificationRealtimeSnapshot`) and adaptive polling stays the fallback.
+
+- Consequences: Idle tabs stop generating database queries entirely once
+  ND-374 retires SSE; live-socket revocation is bounded by the token TTL; a
+  single WebSocket per browser profile (leader tab) keeps connection counts
+  near one per user; Postgres Changes and client-published Broadcast were
+  both rejected (privilege widening / forgeable messages).
+
+- Links: `adr/task-372-supabase-realtime-authorization.md`,
+  `docs/runbooks/vercel-env-contract-and-secrets.md`,
+  `docs/runbooks/vercel-usage-and-spend-guardrails.md`.

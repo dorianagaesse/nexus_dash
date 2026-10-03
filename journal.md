@@ -9170,3 +9170,31 @@ Low-value entries to avoid going forward:
   build all green, and the PR is MERGEABLE again. Local Playwright could not
   run - Docker Desktop failed to start, leaving the local Postgres container
   unreachable - so e2e coverage for the merge head is delegated to CI.
+
+## 2026-10-03 - ND-372: Private Supabase Realtime authorization and channel contracts
+
+- Deliverable (design-only, no runtime code): added
+  `adr/task-372-supabase-realtime-authorization.md` with the threat model,
+  option analysis, channel/payload/policy/token/client contracts, rollout and
+  rollback plan, validation requirements, and the ND-373 implementation
+  brief; logged the decision in `adr/decisions.md` and refreshed the stale
+  detailed-ADR list in `adr/README.md`.
+- Decision: private Supabase Realtime Broadcast published exclusively from
+  durable database triggers (`realtime.send()`), two topic families
+  (`project:<id>:activity`, `user:<id>:notifications`), SELECT-only RLS on
+  `realtime.messages` reusing the owner-OR-membership predicate via `app`
+  helpers, an `app.current_user_id()` JWT-claims fallback so one predicate
+  serves both the GUC and Realtime evaluation contexts, and <=10-minute
+  HS256 user JWTs minted from authenticated human sessions as the revocation
+  SLA. Postgres Changes was rejected (publication/privilege widening,
+  payload-shape break, per-row authenticated RLS) and client-published
+  Broadcast was rejected (forgeable messages). Payload contracts stay
+  identical to the SSE payloads, so the existing client handlers, version
+  guards, and tab-leader coordinator are reused; adaptive polling remains the
+  fallback and `REALTIME_TRANSPORT` extends to `broadcast`.
+- Supabase platform facts (private-channel policy caching, DB broadcast
+  semantics and partition caveat, no-INSERT-policy denial, quotas, locked
+  `realtime` schema) were verified against the official docs on 2026-10-03
+  and are cited in the ADR.
+- Validation: docs-only change; `git diff --check` clean, no code touched so
+  the lint/test/build baseline is not applicable.
