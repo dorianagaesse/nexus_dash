@@ -9198,3 +9198,4 @@ Low-value entries to avoid going forward:
   and are cited in the ADR.
 - Validation: docs-only change; `git diff --check` clean, no code touched so
   the lint/test/build baseline is not applicable.
+- PR: #563.
