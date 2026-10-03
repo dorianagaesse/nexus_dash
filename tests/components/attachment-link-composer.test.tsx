@@ -113,6 +113,32 @@ describe("AttachmentLinkComposer", () => {
     expect(onSubmit).toHaveBeenCalledWith("https://example.com/pasted-doc");
   });
 
+  test("submits the overridden pasted URL rather than stale captured state", async () => {
+    let capturedSubmittedUrl = "";
+    const onSubmit = vi.fn((urlOverride?: string) => {
+      capturedSubmittedUrl = urlOverride ?? "";
+    });
+
+    await act(async () => {
+      root.render(<Harness initialValue="https://stale.example.com" onSubmit={onSubmit} />);
+    });
+
+    const input = container.querySelector("input") as HTMLInputElement;
+
+    await act(async () => {
+      const pasteEvent = new Event("paste", { bubbles: true, cancelable: true });
+      Object.defineProperty(pasteEvent, "clipboardData", {
+        value: {
+          getData: (type: string) => (type === "text" ? "https://fresh-pasted.example.com" : ""),
+        },
+      });
+      input.dispatchEvent(pasteEvent);
+    });
+
+    expect(onSubmit).toHaveBeenCalledWith("https://fresh-pasted.example.com/");
+    expect(capturedSubmittedUrl).toBe("https://fresh-pasted.example.com/");
+  });
+
   test("does not auto-confirm on blur when focus moves to explicit '+' button (avoids double submit)", async () => {
     const onSubmit = vi.fn();
 
@@ -126,7 +152,7 @@ describe("AttachmentLinkComposer", () => {
     // Blur where relatedTarget is the add button
     await act(async () => {
       input.dispatchEvent(
-        new FocusEvent("blur", { bubbles: true, relatedTarget: button })
+        new FocusEvent("focusout", { bubbles: true, relatedTarget: button })
       );
     });
 
@@ -145,13 +171,13 @@ describe("AttachmentLinkComposer", () => {
     const onSubmit = vi.fn();
 
     await act(async () => {
-      root.render(<Harness initialValue="not-a-valid-url" onSubmit={onSubmit} />);
+      root.render(<Harness initialValue="ftp://example.com" onSubmit={onSubmit} />);
     });
 
     const input = container.querySelector("input") as HTMLInputElement;
 
     await act(async () => {
-      input.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
+      input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
     });
 
     expect(onSubmit).not.toHaveBeenCalled();
