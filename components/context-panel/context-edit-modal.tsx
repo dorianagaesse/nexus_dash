@@ -45,7 +45,7 @@ interface ContextEditModalProps {
   onToggleEditLinkComposer: () => void;
   onAddFileAttachment: (file: File | null) => void | Promise<void>;
   onEditLinkUrlChange: (value: string) => void;
-  onAddLinkAttachment: () => void | Promise<void>;
+  onAddLinkAttachment: (urlOverride?: string) => void | Promise<void>;
 }
 
 export function ContextEditModal({
@@ -217,8 +217,8 @@ export function ContextEditModal({
               onValueChange={onEditLinkUrlChange}
               onSubmit={onAddLinkAttachment}
               isSubmitDisabled={isSubmittingAttachment || !editLinkUrl.trim()}
-              className={`rounded-md border border-input bg-background ring-0 ${FORM_FOCUS_BORDER_SHELL_CLASS}`}
-              inputClassName="text-sm"
+              className={`w-full min-w-0 max-w-full rounded-md border border-input bg-background ring-0 ${FORM_FOCUS_BORDER_SHELL_CLASS}`}
+              inputClassName="min-w-0 text-sm"
             />
           ) : null}
 

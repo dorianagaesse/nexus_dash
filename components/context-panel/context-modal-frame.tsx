@@ -44,7 +44,9 @@ export function ContextModalFrame({
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="min-h-0 flex-1 overflow-y-auto">{children}</CardContent>
+        <CardContent className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
+          {children}
+        </CardContent>
       </DialogContent>
     </Dialog>
   );

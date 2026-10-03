@@ -3,6 +3,20 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-03 - ND-140: Context card link attachment auto-confirm and mobile composer tightening
+
+- Task TASK-366 (card `cmth7exkc002z04ju03hwavi7`) under epic "External UX feedback refinement program":
+  - Streamlined context card link attachment flow: supported auto-confirming valid link URLs on Enter, on blur, and on paste in `AttachmentLinkComposer` without requiring a secondary tap or click.
+  - Kept the link composer open after staging links in both create and edit modals to allow adding multiple links in succession.
+  - Hardened create form submission against unconfirmed link inputs in progress.
+  - Fixed mobile dialog layout in `context-modal-frame.tsx`, `context-create-modal.tsx`, `context-edit-modal.tsx`, and `attachment-link-composer.tsx` to eliminate horizontal scrollbar issues on narrow screens by applying proper truncation, responsive padding, and `min-w-0` / `w-full` width constraints.
+  - Added unit test suite in `tests/components/attachment-link-composer.test.tsx` and integration test in `tests/components/project-context-panel.test.tsx`.
+- Validations:
+  - `git diff --check`, `npm run lint`, `npm run rls:check` passed clean.
+  - `npm test`: 222 files passed, 1820 tests passed.
+  - `npm run test:coverage`: met all threshold targets (statements 93.78%, branch 84.46%, funcs 95.42%, lines 94.08%).
+  - `npx next build --webpack`: compiled and generated all 27 static routes cleanly.
+
 # 2026-10-03 - React 19.3 repair PR #551
 
 - Brought the TASK-116 replacement for Dependabot #537 onto current main. Kept React, React DOM, and their type packages aligned at 19.3.0; regenerated the lockfile. The old E2E failure was the meeting-notes geometry assertion fixed in #556. Final CI is pending.

@@ -172,7 +172,7 @@ interface TaskDetailModalProps {
   onQuickAssigneeChange: (value: ProjectActorReference | null) => void | Promise<void>;
   onToggleLinkComposer: () => void;
   onLinkUrlChange: (value: string) => void;
-  onAddLinkAttachment: () => void | Promise<void>;
+  onAddLinkAttachment: (urlOverride?: string) => void | Promise<void>;
   onAddFileAttachment: (file: File | null) => void | Promise<void>;
   onDeleteAttachment: (attachmentId: string) => void | Promise<void>;
   onPreviewAttachmentChange: (attachment: TaskAttachment | null) => void;
@@ -1889,7 +1889,7 @@ interface TaskEditContentProps {
   onToggleLinkComposer: () => void;
   onAddFileAttachment: (file: File | null) => void | Promise<void>;
   onLinkUrlChange: (value: string) => void;
-  onAddLinkAttachment: () => void | Promise<void>;
+  onAddLinkAttachment: (urlOverride?: string) => void | Promise<void>;
   onSaveTask: () => void | Promise<void>;
 }
 
