@@ -9218,3 +9218,20 @@ Low-value entries to avoid going forward:
   is defined on parsed values rather than bytes, and the typo was fixed.
   Ordering/suppression, cardinality, and tier-demotion tests were added to
   the validation requirements.
+- Codex review round on #563 (findings delivered as a PR comment): all three
+  confirmed against the code and fixed in the ADR. (1) The promised stream
+  tier was unreachable under `REALTIME_TRANSPORT=broadcast` because
+  `isRealtimeStreamEnabled()` is exactly `transport === "stream"` and both
+  stream routes 404 otherwise; ND-373 now widens the helper to
+  `transport !== "polling"` and the validation plan covers a Broadcast
+  failure reaching a working SSE stream. (2) The claim that a Broadcast
+  leader keeps its socket open while hidden contradicted
+  `lib/tab-leader-coordinator.ts` (`setVisible(false)` resigns leadership);
+  the contract now follows the existing coordinator semantics - hidden tabs
+  resign and close their channels (throttled heartbeat timers would make a
+  hidden leader's lease racy), and a visible tab re-probes, resubscribes,
+  and reconciles. (3) The `accessToken` callback needs a client-side token
+  cache (supabase-js invokes it on connect and every ~25 s heartbeat);
+  re-mint is now specified as cached-token reuse with a ~60 s margin and
+  single-flight deduplication. Component, env, and E2E tests updated
+  accordingly.

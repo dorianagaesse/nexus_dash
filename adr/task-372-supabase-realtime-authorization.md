@@ -404,17 +404,23 @@ databases without a `realtime` schema, e.g. local test databases):
   `lib/env.server.ts` pattern. The TTL is the revocation SLA: a user removed
   from a project keeps receiving until their token expires or their
   connection re-authenticates.
-- Re-mint: the client fetches a fresh token before expiry (supabase-js
-  `accessToken` callback); a signed-out or expired session gets `401` and the
-  client drops one tier in the transport precedence (5.5), ultimately
-  reaching polling.
+- Re-mint: the client fetches a fresh token before expiry through the cached
+  supabase-js `accessToken` callback (5.5); a signed-out or expired session
+  gets `401` and the client drops one tier in the transport precedence (5.5),
+  ultimately reaching polling.
 
 ### 5.5 Client contract
 
 - New `lib/realtime/supabase-realtime-client.ts` wraps a lazily created
   supabase-js client (`@supabase/supabase-js`, dynamic import so it stays out
   of the initial bundle; `accessToken` callback wired to
-  `POST /api/realtime/token`).
+  `POST /api/realtime/token` through a client-side token cache).
+- Token cache: supabase-js invokes `accessToken` on connect and on every
+  heartbeat (default 25 s), so the callback returns the cached token while it
+  is more than ~60 s from expiry and re-mints only inside that margin, with
+  single-flight deduplication so concurrent invocations share one request.
+  Without the cache, a direct wiring would hit the token route every
+  heartbeat, far more often than the <=10-minute TTL requires.
 - `REALTIME_TRANSPORT` gains a `broadcast` value. Client precedence:
   broadcast -> stream -> adaptive polling. Each tier is entered only when the
   one above it is unavailable or has failed: a Broadcast failure (token
@@ -425,6 +431,15 @@ databases without a `realtime` schema, e.g. local test databases):
   silent, and a demoted tab retries the higher tier on the next
   visibility/online event. ND-374 removes the middle tier and the precedence
   collapses to broadcast -> polling.
+- The stream tier must actually be reachable under
+  `REALTIME_TRANSPORT=broadcast`: today both stream routes 404 unless
+  `isRealtimeStreamEnabled()` is true, and that helper is exactly
+  `transport === "stream"` (`lib/env.server.ts`). ND-373 widens the helper
+  (or the route guards) to serve streams whenever the transport is `stream`
+  or `broadcast` (equivalently, `!== "polling"`), so a Broadcast failure
+  truly reaches SSE instead of skipping straight to polling; `polling` still
+  disables the routes. ND-374 deletes the routes and the widened helper
+  together.
 - On subscribe success (`SUBSCRIBED`), run one reconciliation fetch through
   the existing polling endpoints before trusting the channel; version guards
   make late/replayed messages harmless. This is the missed-event
@@ -438,9 +453,16 @@ databases without a `realtime` schema, e.g. local test databases):
   same tab leads both scopes (the common case) and at most two when
   leadership splits across tabs; per-scope elections do not guarantee a
   single profile-wide socket, and section 5.7 quotes the resulting bound.
-  Unlike the polling leader, the Broadcast leader keeps the socket open
-  while the tab is hidden (no server-side cost), so a hidden-then-focused tab
-  is already current; follower tabs never open sockets.
+  Visibility follows the coordinator's existing contract: when a leader tab
+  hides, `setVisible(false)` resigns leadership for its scopes and the
+  transport layer unsubscribes those channels (closing the underlying client
+  once it holds none). Background tabs therefore never lead - their
+  throttled heartbeat timers would make a hidden leader's lease racy against
+  lease takeover - and ND-373 needs no coordinator change. When the tab
+  becomes visible it re-probes; if re-elected it resubscribes through the
+  shared client and runs the subscribe-time reconciliation fetch, and until
+  then it is a follower fed by the coordinator bus. Follower tabs never open
+  sockets.
 - Sign-out: close channels, drop the token cache; the fallback polling path
   then hits `401` and the existing app-shell behavior applies.
 - Observability: reuse `recordRealtimeCounter` with new counters (e.g.
@@ -476,9 +498,11 @@ real scale.
   statement (coalesced), negligible beside activity volume.
 - Connections: per-scope tab leadership with one multiplexed RealtimeClient
   per tab yields one WebSocket per browser profile when the same tab leads
-  both scopes and at most two when leadership splits across tabs (5.5),
-  versus one SSE function connection per tab today; well inside the 200/500
-  concurrent connection ceilings at our expected team scale.
+  both scopes and at most two when leadership splits across tabs; elections
+  only run among visible tabs (5.5), so hidden tabs hold no sockets. This
+  compares to one SSE function connection per tab today (hidden tabs
+  included) and stays well inside the 200/500 concurrent connection ceilings
+  at our expected team scale.
 - Payloads are small (well under 1 KB typical) against the 256 KB / 3 MB
   Broadcast payload limits.
 
@@ -591,11 +615,19 @@ Automated (ND-373 PR):
 - Component tests mirroring the existing live-refresh suites: transport
   precedence with tiered demotion (broadcast failure -> stream -> polling),
   fallback activation on token/channel failure, leader-only subscription,
-  single multiplexed client per tab, reconciliation fetch on subscribe.
+  hidden-leader resignation closing its channels, re-subscribe and
+  reconciliation fetch after the tab becomes visible again, single
+  multiplexed client per tab, and the token cache (the `accessToken` callback
+  reuses the cached token across heartbeat invocations and re-mints with
+  single-flight only inside the expiry margin).
+- Env unit test: with `REALTIME_TRANSPORT=broadcast`, the stream guard
+  serves the routes (no 404), and with `=polling` it still 404s.
 - E2E (`npm run test:e2e`, UI touch): two-browser collaboration — activity
   and notification updates flow without SSE requests when broadcast is
-  enabled; blocking WebSocket/token requests degrades one tier at a time and
-  freshness still converges.
+  enabled; with `REALTIME_TRANSPORT=broadcast`, blocking WebSocket/token
+  requests degrades to SSE stream requests (the stream routes stay served
+  under the broadcast transport), then blocking streams degrades to polling,
+  and freshness still converges.
 
 Manual / environment:
 
@@ -623,17 +655,21 @@ Work items, in dependency order:
 2. `lib/env.server.ts`: `getSupabaseRealtimeRuntimeConfig()` (URL +
    publishable key + JWT secret + TTL clamped to 60..600), extend
    `RealtimeTransport` to `broadcast | stream | polling`, keep
-   invalid-value startup failure and fail startup when the transport is
-   `broadcast` without a JWT secret.
+   invalid-value startup failure, fail startup when the transport is
+   `broadcast` without a JWT secret, and widen `isRealtimeStreamEnabled()`
+   to `transport !== "polling"` so the stream routes keep serving during the
+   broadcast migration window (ND-374 deletes routes and helper together).
 3. `lib/services/realtime-token-service.ts` + tests (HS256 mint, no
    dependency).
 4. `app/api/realtime/token/route.ts` + tests (`requireAuthenticatedApiUser`,
    no-store, response shape).
 5. Client: `lib/realtime/supabase-realtime-client.ts` (one multiplexed
-   RealtimeClient per tab); update `components/project-live-refresh.tsx` and
+   RealtimeClient per tab, cached `accessToken` callback); update
+   `components/project-live-refresh.tsx` and
    `components/notification-live-updates.tsx` to select transport
    broadcast -> stream -> polling with tiered demotion, wire leader-only
-   subscription and reconciliation fetch, and feed the unchanged handlers;
+   subscription (including the coordinator's visibility resignation),
+   subscribe-time reconciliation fetch, and feed the unchanged handlers;
    add `broadcast.*` counters via `recordRealtimeCounter`.
 6. Dependency: add `@supabase/supabase-js` (dynamic import); note
    `@supabase/realtime-js` as the leaner alternative if bundle size is a
