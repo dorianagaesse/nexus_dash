@@ -263,6 +263,7 @@ describe("project-roadmap-service", () => {
     expect(result).toEqual({
       ok: true,
       data: {
+        activityVersion: expect.any(Date),
         phase: {
           id: "phase-3",
           title: "Public launch",

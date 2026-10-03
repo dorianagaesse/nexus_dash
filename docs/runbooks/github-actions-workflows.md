@@ -67,6 +67,11 @@ reach its database. The workflow then assigns `PREVIEW_AUTH_ORIGIN` to that
 exact deployment and verifies the alias target and readiness. Use the immutable
 URL as deployment evidence and the stable URL for interactive OAuth smoke.
 
+Preview and staged production deploys derive their Vercel Function region from
+the runtime Supabase transaction-pooler hostname. An unmapped database region
+stops deployment. On a dynamic response, the second code in `x-vercel-id`
+identifies the function region; compare it with the database's AWS region.
+
 ### Staged Production Deploy
 
 Automatic path:
