@@ -9266,6 +9266,76 @@ Low-value entries to avoid going forward:
   PostgreSQL isolation matrix successfully; its core and E2E result are in
   [37153565491](https://github.com/dorianagaesse/nexus_dash/actions/runs/37153565491).
 
+## 2026-10-03 - ND-372: Private Supabase Realtime authorization and channel contracts
+
+- Deliverable (design-only, no runtime code): added
+  `adr/task-372-supabase-realtime-authorization.md` with the threat model,
+  option analysis, channel/payload/policy/token/client contracts, rollout and
+  rollback plan, validation requirements, and the ND-373 implementation
+  brief; logged the decision in `adr/decisions.md` and refreshed the stale
+  detailed-ADR list in `adr/README.md`.
+- Decision: private Supabase Realtime Broadcast published exclusively from
+  durable database triggers (`realtime.send()`), two topic families
+  (`project:<id>:activity`, `user:<id>:notifications`), SELECT-only RLS on
+  `realtime.messages` reusing the owner-OR-membership predicate via `app`
+  helpers, an `app.current_user_id()` JWT-claims fallback so one predicate
+  serves both the GUC and Realtime evaluation contexts, and <=10-minute
+  HS256 user JWTs minted from authenticated human sessions as the revocation
+  SLA. Postgres Changes was rejected (publication/privilege widening,
+  payload-shape break, per-row authenticated RLS) and client-published
+  Broadcast was rejected (forgeable messages). Payload contracts stay
+  identical to the SSE payloads, so the existing client handlers, version
+  guards, and tab-leader coordinator are reused; adaptive polling remains the
+  fallback and `REALTIME_TRANSPORT` extends to `broadcast`.
+- Supabase platform facts (private-channel policy caching, DB broadcast
+  semantics and partition caveat, no-INSERT-policy denial, quotas, locked
+  `realtime` schema) were verified against the official docs on 2026-10-03
+  and are cited in the ADR.
+- Validation: docs-only change; `git diff --check` clean, no code touched so
+  the lint/test/build baseline is not applicable.
+- PR: #563.
+- Copilot review round on #563: all eight findings were confirmed against
+  the code and fixed in the ADR (no declines). The typed-event ordering
+  finding was the substantive one: `recordProjectActivityEvent` touches
+  `Project.updatedAt` before inserting the event, so an immediate
+  `AFTER UPDATE` bare signal would arrive first with the same version and
+  the client's version guard would discard the typed event that follows,
+  killing the in-place patch. The contract now uses a deferred constraint
+  trigger that suppresses the bare signal when the matching event row
+  exists, yielding exactly one message per mutation (the typed event) and
+  keeping touch-only flows covered. Also fixed: topic validation now checks
+  `string_to_array` cardinality (trailing-colon topics were accepted),
+  the token contract is pinned to HS256 with startup failure and a 60..600
+  TTL clamp (asymmetric keys are explicitly out of scope), the client
+  fallback demotes tier by tier (broadcast -> stream -> polling), the
+  connection model is restated as per-scope leaders with one multiplexed
+  client per tab (at most two sockets per profile), payload compatibility
+  is defined on parsed values rather than bytes, and the typo was fixed.
+  Ordering/suppression, cardinality, and tier-demotion tests were added to
+  the validation requirements.
+- Codex review round on #563 (findings delivered as a PR comment): all three
+  confirmed against the code and fixed in the ADR. (1) The promised stream
+  tier was unreachable under `REALTIME_TRANSPORT=broadcast` because
+  `isRealtimeStreamEnabled()` is exactly `transport === "stream"` and both
+  stream routes 404 otherwise; ND-373 now widens the helper to
+  `transport !== "polling"` and the validation plan covers a Broadcast
+  failure reaching a working SSE stream. (2) The claim that a Broadcast
+  leader keeps its socket open while hidden contradicted
+  `lib/tab-leader-coordinator.ts` (`setVisible(false)` resigns leadership);
+  the contract now follows the existing coordinator semantics - hidden tabs
+  resign and close their channels (throttled heartbeat timers would make a
+  hidden leader's lease racy), and a visible tab re-probes, resubscribes,
+  and reconciles. (3) The `accessToken` callback needs a client-side token
+  cache (supabase-js invokes it on connect and every ~25 s heartbeat);
+  re-mint is now specified as cached-token reuse with a ~60 s margin and
+  single-flight deduplication. Component, env, and E2E tests updated
+  accordingly.
+- Merge-forward (2026-10-03): merged `origin/main` (ND-429 #550, `2bb5499`)
+  after the PR went CONFLICTING. Only `journal.md` conflicted (both sides had
+  appended entries); resolved by keeping main's ND-429 entry above the ND-372
+  entry. Merge commit `5f32ac7`; docs-only branch, so the local code baseline
+  is not applicable and the merge head re-validates via CI.
+
 ## 2026-10-03 - ND-139: In-card edit and create Cancel controls secondary button affordance
 
 - Addressed external UX feedback on Cancel button affordance across project edit and epic management surfaces.
@@ -9274,4 +9344,4 @@ Low-value entries to avoid going forward:
 - Extracted helper internals from Next.js route handlers (`app/api/account/notifications/stream/route.ts` and `app/api/projects/[projectId]/activity/stream/route.ts`) to `lib/realtime/notification-stream.ts` and `lib/realtime/project-activity-stream.ts` to adhere to Next.js route export restrictions during build TypeScript check. Adjusted `app/account/settings/developers/page.tsx` props type.
 - Unit and component tests: added `tests/components/projects-grid-client.test.tsx` (4 tests) and updated `tests/components/project-epic-panel.test.tsx` (20 tests) asserting secondary button classes and interactions.
 - Full validation: `git diff --check`, `npm run lint`, `npm run rls:check`, full unit test suite (222 files passed, 1818 tests passed), `npm run test:coverage` (93.78% statements, 84.46% branches, 95.42% functions, 94.08% lines), and Next.js production build (`npx next build --webpack`) all passed. Local Playwright E2E is delegated to GitHub Actions CI quality gates due to local Postgres container requirement.
-- Merge-forward (2026-10-03): merged latest `origin/main` (ND-429 #550 `2bb5499`), resolved conflict in `journal.md`, addressed and resolved Copilot review threads on GitHub.
+- Merge-forward (2026-10-03): merged latest `origin/main` (ND-372 #563 `0713511`), resolved conflict in `journal.md`, addressed and resolved Copilot review threads on GitHub.
