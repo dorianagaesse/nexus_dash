@@ -18,7 +18,7 @@ export default async function AccountDeveloperSettingsPage({
   searchParams,
 }: {
   searchParams?: Promise<SearchParams>;
-} = {}) {
+}) {
   await requireSessionUserIdFromServer();
   const resolvedSearchParams = await searchParams;
   const requestOrigin = resolveRequestOriginFromHeaders(await headers());
