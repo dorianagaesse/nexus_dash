@@ -68,6 +68,7 @@ import {
 } from "@/lib/project-activity-client";
 import {
   PROJECT_EPICS_RECONCILED_EVENT,
+  reconcileProjectEpics,
   reconcileProjectEpicsAfterTaskMutation,
   type ProjectEpicsReconciledDetail,
 } from "@/lib/project-epic-client";
@@ -2433,17 +2434,38 @@ export function KanbanBoard({
       if (activity.domain === "task") {
         if (activity.action === "created" || activity.action === "updated") {
           const remoteTask = readRemoteTaskPayload(activity);
-          if (!remoteTask) {
+          if (remoteTask) {
+            upsertRemoteTask(remoteTask);
+            void reconcileProjectEpics(projectId);
+            detail.markHandled();
             return;
           }
 
-          upsertRemoteTask(remoteTask);
-          detail.markHandled();
+          if (
+            isRecord(activity.payload) &&
+            isRecord(activity.payload.task) &&
+            typeof activity.payload.task.id === "string" &&
+            "archivedAt" in activity.payload.task
+          ) {
+            const taskId = activity.payload.task.id;
+            const archivedAt =
+              typeof activity.payload.task.archivedAt === "string"
+                ? activity.payload.task.archivedAt
+                : null;
+            applyTaskMutation(taskId, (task) => ({
+              ...task,
+              archivedAt,
+            }));
+            void reconcileProjectEpics(projectId);
+            detail.markHandled();
+            return;
+          }
           return;
         }
 
         if (activity.action === "deleted" && activity.entityId) {
           removeLocalTask(activity.entityId);
+          void reconcileProjectEpics(projectId);
           detail.markHandled();
           return;
         }

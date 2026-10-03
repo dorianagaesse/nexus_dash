@@ -3,6 +3,14 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-03 - ND-141: Epic live refresh on task and epic mutations
+
+- Added `"epic"` domain to `ProjectActivityDomain` and wired `recordProjectActivityEventVersion` into epic creation, update, delete, archive, and restore endpoints, as well as task archive/unarchive routes.
+- Updated `ProjectEpicPanel` to execute mutations through `fetchProjectActivityMutation`, listen for `PROJECT_ACTIVITY_REMOTE_EVENT` (`epic` and `task` domains), and reconcile epics without full page reloads while marking `epic` activity handled.
+- Updated `KanbanBoard` to trigger epic reconciliation on remote task lifecycle mutations (`created`, `updated`, `deleted`).
+- Protected active inline editing in `ProjectEpicPanel`: draft inputs and live refresh locks are preserved across background reconciliations, and cleanly dismissed if the epic is remotely deleted.
+- Validation: `git diff --check`, `npm run lint`, `npm run rls:check`, 221 test files / 1818 tests passed, 93.78% statement coverage, and `npx next build --webpack` succeeded.
+
 # 2026-10-03 - ND-143: Roadmap section first-time discoverability affordance
 
 - Task TASK-369 (card `cmth7f3h6003804ju1ytsasqh`) under epic "External UX feedback refinement program":

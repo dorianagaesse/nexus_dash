@@ -4,6 +4,7 @@ import {
   getAgentProjectAccessContext,
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   archiveProjectEpic,
@@ -36,12 +37,22 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
+  const serializedEpic = serializeProjectEpicResponse(result.data.epic);
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId,
+    domain: "epic",
+    action: "updated",
+    entityId: epicId,
+    payload: { epic: serializedEpic },
+  });
+
   return NextResponse.json(
     {
-      epic: serializeProjectEpicResponse(result.data.epic),
+      epic: serializedEpic,
     },
     {
-      headers: withProjectActivityVersionHeader(),
+      headers: withProjectActivityVersionHeader(undefined, version),
     }
   );
 }
@@ -71,12 +82,22 @@ export async function DELETE(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
+  const serializedEpic = serializeProjectEpicResponse(result.data.epic);
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId,
+    domain: "epic",
+    action: "updated",
+    entityId: epicId,
+    payload: { epic: serializedEpic },
+  });
+
   return NextResponse.json(
     {
-      epic: serializeProjectEpicResponse(result.data.epic),
+      epic: serializedEpic,
     },
     {
-      headers: withProjectActivityVersionHeader(),
+      headers: withProjectActivityVersionHeader(undefined, version),
     }
   );
 }

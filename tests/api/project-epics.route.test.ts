@@ -29,6 +29,15 @@ vi.mock("@/lib/services/project-epic-service", () => ({
   unarchiveProjectEpic: projectEpicServiceMock.unarchiveProjectEpic,
 }));
 
+const activityEventResponseMock = vi.hoisted(() => ({
+  recordProjectActivityEventVersion: vi.fn(),
+}));
+
+vi.mock("@/lib/project-activity-event-response", () => ({
+  recordProjectActivityEventVersion:
+    activityEventResponseMock.recordProjectActivityEventVersion,
+}));
+
 import {
   GET as getEpics,
   POST as createEpic,
@@ -66,6 +75,9 @@ describe("project epic routes", () => {
       },
     });
     apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
+    activityEventResponseMock.recordProjectActivityEventVersion.mockResolvedValue(
+      new Date("2026-10-01T12:00:00.000Z")
+    );
   });
 
   test("GET /api/projects/:projectId/epics returns serialized epic data", async () => {
@@ -243,6 +255,16 @@ describe("project epic routes", () => {
       description: "Deliver the first launch slice.",
       agentAccess: undefined,
     });
+    expect(
+      activityEventResponseMock.recordProjectActivityEventVersion
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "p1",
+        domain: "epic",
+        action: "created",
+        entityId: "epic-1",
+      })
+    );
   });
 
   test("PATCH /api/projects/:projectId/epics/:epicId updates an epic", async () => {
@@ -295,6 +317,16 @@ describe("project epic routes", () => {
         updatedAt: "2026-04-22T10:00:00.000Z",
       },
     });
+    expect(
+      activityEventResponseMock.recordProjectActivityEventVersion
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "p1",
+        domain: "epic",
+        action: "updated",
+        entityId: "epic-1",
+      })
+    );
   });
 
   test("DELETE /api/projects/:projectId/epics/:epicId deletes an epic", async () => {
@@ -318,6 +350,16 @@ describe("project epic routes", () => {
       epicId: "epic-1",
       agentAccess: undefined,
     });
+    expect(
+      activityEventResponseMock.recordProjectActivityEventVersion
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "p1",
+        domain: "epic",
+        action: "deleted",
+        entityId: "epic-1",
+      })
+    );
   });
 
   test("POST /api/projects/:projectId/epics/:epicId/archive archives an epic", async () => {
@@ -358,6 +400,16 @@ describe("project epic routes", () => {
       epicId: "epic-1",
       agentAccess: undefined,
     });
+    expect(
+      activityEventResponseMock.recordProjectActivityEventVersion
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "p1",
+        domain: "epic",
+        action: "updated",
+        entityId: "epic-1",
+      })
+    );
   });
 
   test("DELETE /api/projects/:projectId/epics/:epicId/archive restores an epic", async () => {
@@ -398,6 +450,16 @@ describe("project epic routes", () => {
       epicId: "epic-1",
       agentAccess: undefined,
     });
+    expect(
+      activityEventResponseMock.recordProjectActivityEventVersion
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "p1",
+        domain: "epic",
+        action: "updated",
+        entityId: "epic-1",
+      })
+    );
   });
 
   test("POST /api/projects/:projectId/epics/:epicId/archive forwards service errors", async () => {
