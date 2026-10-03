@@ -5,13 +5,19 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-const routerRefreshMock = vi.hoisted(() => vi.fn());
+const { routerRefreshMock, useRouterMock } = vi.hoisted(() => {
+  const routerRefreshMock = vi.fn();
+  const router = { refresh: routerRefreshMock };
+
+  return {
+    routerRefreshMock,
+    useRouterMock: () => router,
+  };
+});
 const fetchMock = vi.hoisted(() => vi.fn());
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    refresh: routerRefreshMock,
-  }),
+  useRouter: useRouterMock,
 }));
 
 import { ProjectLiveRefresh } from "@/components/project-live-refresh";
@@ -20,6 +26,7 @@ import {
   beginProjectActivityMutation,
   PROJECT_ACTIVITY_REMOTE_EVENT,
 } from "@/lib/project-activity-client";
+import { MockBroadcastChannel } from "../helpers/mock-broadcast-channel";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -38,6 +45,15 @@ async function renderWithRoot(root: Root, ui: React.ReactElement) {
   await act(async () => {
     root.render(ui);
   });
+}
+
+// Claim jitter is consumed in mount order: the first tab waits the longest,
+// so the second tab wins the election deterministically.
+function stubJitterSequence(values: number[]) {
+  let index = 0;
+  vi.spyOn(Math, "random").mockImplementation(() =>
+    index < values.length ? values[index++] : 0
+  );
 }
 
 function mockActivityVersion(version: string) {
@@ -107,6 +123,7 @@ describe("ProjectLiveRefresh", () => {
     vi.clearAllMocks();
     MockEventSource.instances = [];
     vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("BroadcastChannel", undefined);
   });
 
   afterEach(() => {
@@ -670,6 +687,239 @@ describe("ProjectLiveRefresh", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("coordinates activity polling across tabs so only one tab checks", async () => {
+    vi.stubGlobal("BroadcastChannel", MockBroadcastChannel);
+    MockBroadcastChannel.reset();
+    stubJitterSequence([1, 0]);
+
+    const tabA = createTestRenderer();
+    const tabB = createTestRenderer();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        projectId: "project-1",
+        version: "2026-05-30T10:01:00.000Z",
+        serverTime: "2026-05-30T10:00:01.000Z",
+      }),
+    });
+
+    await renderWithRoot(
+      tabA.root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+    await renderWithRoot(
+      tabB.root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    const settledCalls = fetchMock.mock.calls.length;
+    expect(settledCalls).toBeGreaterThan(0);
+    // once per tab for the first shared version: the leader applies it locally,
+    // the follower applies the broadcast
+    expect(routerRefreshMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    const coordinatedCalls = fetchMock.mock.calls.length - settledCalls;
+    expect(coordinatedCalls).toBeGreaterThanOrEqual(9);
+    expect(coordinatedCalls).toBeLessThanOrEqual(11);
+
+    await act(async () => {
+      tabB.root.unmount();
+    });
+    await act(async () => {
+      tabA.root.unmount();
+    });
+  });
+
+  test("keeps checking project activity when the current leader tab closes", async () => {
+    vi.stubGlobal("BroadcastChannel", MockBroadcastChannel);
+    MockBroadcastChannel.reset();
+    stubJitterSequence([1, 0, 0]);
+
+    const tabA = createTestRenderer();
+    const tabB = createTestRenderer();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        projectId: "project-1",
+        version: "2026-05-30T10:01:00.000Z",
+        serverTime: "2026-05-30T10:00:01.000Z",
+      }),
+    });
+
+    await renderWithRoot(
+      tabA.root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+    await renderWithRoot(
+      tabB.root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    await act(async () => {
+      tabB.root.unmount();
+    });
+
+    const beforeTakeover = fetchMock.mock.calls.length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    const takeoverCalls = fetchMock.mock.calls.length - beforeTakeover;
+    expect(takeoverCalls).toBeGreaterThanOrEqual(15);
+
+    await act(async () => {
+      tabA.root.unmount();
+    });
+  });
+
+  test("pauses all tabs while hidden and resumes a single checker", async () => {
+    vi.stubGlobal("BroadcastChannel", MockBroadcastChannel);
+    MockBroadcastChannel.reset();
+    stubJitterSequence([1, 0, 1, 0]);
+
+    const tabA = createTestRenderer();
+    const tabB = createTestRenderer();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        projectId: "project-1",
+        version: "2026-05-30T10:01:00.000Z",
+        serverTime: "2026-05-30T10:00:01.000Z",
+      }),
+    });
+
+    await renderWithRoot(
+      tabA.root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+    await renderWithRoot(
+      tabB.root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    const hiddenSpy = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    const pollsWhileHidden = fetchMock.mock.calls.length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(fetchMock.mock.calls.length).toBe(pollsWhileHidden);
+
+    hiddenSpy.mockReturnValue(false);
+    const beforeResume = fetchMock.mock.calls.length;
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+
+    const resumedCalls = fetchMock.mock.calls.length - beforeResume;
+    expect(resumedCalls).toBeGreaterThanOrEqual(25);
+    expect(resumedCalls).toBeLessThanOrEqual(45);
+
+    await act(async () => {
+      tabB.root.unmount();
+    });
+    await act(async () => {
+      tabA.root.unmount();
+    });
+  });
+
+  test("stays silent on the bus when mounted in an already-hidden document", async () => {
+    vi.stubGlobal("BroadcastChannel", MockBroadcastChannel);
+    MockBroadcastChannel.reset();
+    const observer = new MockBroadcastChannel(
+      "nexusdash-tab-leader:project:project-1"
+    );
+    const heardKinds: string[] = [];
+    observer.addEventListener("message", (event) => {
+      heardKinds.push(
+        ((event.data as { kind?: string }).kind ?? "unknown") as string
+      );
+    });
+
+    const hiddenSpy = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    const { root } = createTestRenderer();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        projectId: "project-1",
+        version: "2026-05-30T10:01:00.000Z",
+        serverTime: "2026-05-30T10:00:01.000Z",
+      }),
+    });
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+        streamEnabled: false,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(heardKinds).toEqual([]);
 
     await act(async () => {
       root.unmount();

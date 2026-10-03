@@ -7,6 +7,7 @@ import {
 } from "@/lib/notification-realtime-client";
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 import { resolveAdaptivePollDelayMs } from "@/lib/adaptive-live-polling";
+import { createTabLeaderCoordinator } from "@/lib/tab-leader-coordinator";
 
 const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 20000;
 
@@ -123,6 +124,7 @@ export function NotificationLiveUpdates({
     let controller: AbortController | null = null;
     let isPolling = false;
     let pollAgainAfterCurrent = false;
+    let isPollingLeader = false;
     let consecutiveFailures = 0;
 
     function clearScheduledPoll() {
@@ -158,7 +160,7 @@ export function NotificationLiveUpdates({
       schedulePoll(delayMs);
     }
 
-    function requestImmediatePoll() {
+    function requestLeaderPoll() {
       if (isDocumentHidden()) {
         return;
       }
@@ -171,12 +173,46 @@ export function NotificationLiveUpdates({
       schedulePoll(0);
     }
 
+    const coordinator = createTabLeaderCoordinator<NotificationRealtimeSnapshot>({
+      scope: "notifications",
+      initialVisible: !isDocumentHidden(),
+      onRoleChange(isLeader) {
+        isPollingLeader = isLeader;
+        if (isLeader) {
+          scheduleNextPoll();
+        } else {
+          clearScheduledPoll();
+        }
+      },
+      onData(snapshot) {
+        handleSnapshot(snapshot);
+      },
+      onRefreshRequest() {
+        requestLeaderPoll();
+      },
+    });
+
+    function requestImmediatePoll() {
+      if (isDocumentHidden()) {
+        return;
+      }
+
+      if (!isPollingLeader) {
+        coordinator.requestRefresh();
+        return;
+      }
+
+      requestLeaderPoll();
+    }
+
     function handleVisibilityChange() {
       if (isDocumentHidden()) {
+        coordinator.setVisible(false);
         clearScheduledPoll();
         return;
       }
 
+      coordinator.setVisible(true);
       requestImmediatePoll();
     }
 
@@ -200,6 +236,7 @@ export function NotificationLiveUpdates({
         const snapshot = (await response.json()) as NotificationRealtimeSnapshot;
         consecutiveFailures = 0;
         handleSnapshot(snapshot);
+        coordinator.publish(snapshot);
       } catch (error) {
         if ((error as { name?: string }).name === "AbortError") {
           return;
@@ -211,24 +248,27 @@ export function NotificationLiveUpdates({
         isPolling = false;
         if (!cancelled) {
           const shouldPollImmediately =
-            pollAgainAfterCurrent && !isDocumentHidden();
+            pollAgainAfterCurrent && !isDocumentHidden() && isPollingLeader;
           pollAgainAfterCurrent = false;
 
           if (shouldPollImmediately) {
             schedulePoll(0);
-          } else {
+          } else if (isPollingLeader) {
             scheduleNextPoll();
+          } else {
+            clearScheduledPoll();
           }
         }
       }
     }
 
-    scheduleNextPoll();
+    coordinator.start();
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", requestImmediatePoll);
 
     return () => {
       cancelled = true;
+      coordinator.stop();
       clearScheduledPoll();
       controller?.abort();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
