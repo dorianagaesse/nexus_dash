@@ -221,14 +221,14 @@ function ProjectCard({ project, onUpdateProject, onDeleteProject }: ProjectCardP
             {isEditMode && project.role === "owner" ? (
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 {canSave ? (
-                  <Button type="submit" variant="secondary" className="w-full sm:w-auto">
+                  <Button type="submit" className="w-full sm:w-auto">
                     <Pencil className="h-4 w-4" />
                     Save changes
                   </Button>
                 ) : null}
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="secondary"
                   onClick={handleCancelEdit}
                   className="w-full sm:w-auto"
                 >

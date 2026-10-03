@@ -701,7 +701,7 @@ export function ProjectEpicPanel({
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="secondary"
                   onClick={() => closeCreate()}
                   disabled={isCreating}
                   className="w-full sm:w-auto"
@@ -815,7 +815,7 @@ export function ProjectEpicPanel({
                         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="secondary"
                             onClick={() => cancelEdit()}
                             disabled={isSavingEdit}
                             className="w-full sm:w-auto"

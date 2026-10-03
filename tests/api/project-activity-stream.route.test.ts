@@ -35,14 +35,12 @@ vi.mock("@/lib/services/project-activity-service", () => ({
     projectActivityServiceMock.listProjectActivityEventsSince,
 }));
 
-import {
-  GET as streamProjectActivity,
-  projectActivityStreamRouteInternals,
-} from "@/app/api/projects/[projectId]/activity/stream/route";
+import { GET as streamProjectActivity } from "@/app/api/projects/[projectId]/activity/stream/route";
 import {
   getRealtimeMetricsSnapshot,
   resetRealtimeMetricsForTests,
 } from "@/lib/observability/realtime-metrics";
+import { createActivityEventPayload } from "@/lib/realtime/project-activity-stream";
 
 function projectParams(projectId: string) {
   return { params: Promise.resolve({ projectId }) };
@@ -145,7 +143,7 @@ describe("project activity stream route", () => {
   });
 
   test("serializes typed activity events for targeted client reconciliation", () => {
-    const payload = projectActivityStreamRouteInternals.createActivityEventPayload({
+    const payload = createActivityEventPayload({
       id: "event-1",
       projectId: "project-1",
       actorUserId: "user-2",

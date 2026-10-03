@@ -11,11 +11,15 @@ import {
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 import { getNotificationRealtimeSnapshotForUser } from "@/lib/services/notification-service";
 
+import {
+  NOTIFICATION_STREAM_EVENT,
+  isSnapshotChanged,
+} from "@/lib/realtime/notification-stream";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const NOTIFICATION_STREAM_EVENT = "notification-snapshot";
 const NOTIFICATION_STREAM_RETRY_MS = 2_000;
 const NOTIFICATION_STREAM_POLL_INTERVAL_MS = 1_000;
 const NOTIFICATION_STREAM_HEARTBEAT_INTERVAL_MS = 15_000;
@@ -28,18 +32,6 @@ function streamHeaders(): HeadersInit {
     "Content-Type": "text/event-stream; charset=utf-8",
     "X-Accel-Buffering": "no",
   };
-}
-
-function isSnapshotChanged(
-  next: NotificationRealtimeSnapshot,
-  previous: NotificationRealtimeSnapshot
-): boolean {
-  return (
-    next.version !== previous.version ||
-    next.unreadCount !== previous.unreadCount ||
-    next.latestUnreadNotification?.title !==
-      previous.latestUnreadNotification?.title
-  );
 }
 
 export async function GET(request: NextRequest) {
@@ -173,9 +165,3 @@ export async function GET(request: NextRequest) {
     headers: streamHeaders(),
   });
 }
-
-export const notificationStreamRouteInternals = {
-  encodeServerSentEvent,
-  isSnapshotChanged,
-  NOTIFICATION_STREAM_EVENT,
-};
