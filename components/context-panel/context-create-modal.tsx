@@ -73,7 +73,7 @@ export function ContextCreateModal({
 
   return (
     <ContextModalFrame
-      title="Add context card"
+      title="New context card"
       onClose={onClose}
       dismissible={!isCreatingCard}
     >

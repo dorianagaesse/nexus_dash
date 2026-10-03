@@ -20,7 +20,7 @@ test.describe("accessible overlay foundation", () => {
     await trigger.focus();
     await trigger.click();
 
-    const dialog = page.getByRole("dialog", { name: "Create task" });
+    const dialog = page.getByRole("dialog", { name: "New task" });
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveAttribute("aria-modal", "true");
     await expect(page.locator("body")).toHaveAttribute("data-scroll-locked", "1");
@@ -45,7 +45,7 @@ test.describe("accessible overlay foundation", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.getByRole("button", { name: "New task" }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Create task" });
+    const dialog = page.getByRole("dialog", { name: "New task" });
     await expect(dialog).toBeVisible();
     const geometry = await dialog.boundingBox();
     expect(geometry).not.toBeNull();

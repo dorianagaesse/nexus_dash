@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import { isRealtimeStreamEnabled } from "@/lib/env.server";
+import { logServerInfo } from "@/lib/observability/logger";
 import {
   encodeServerSentEvent,
   sleepWithAbort,
@@ -40,6 +42,18 @@ function isSnapshotChanged(
 }
 
 export async function GET(request: NextRequest) {
+  if (!isRealtimeStreamEnabled()) {
+    logServerInfo(
+      "GET /api/account/notifications/stream.transportDisabled",
+      "Realtime stream refused because the transport is set to polling",
+      { transport: "polling" }
+    );
+    return NextResponse.json(
+      { error: "not_found" },
+      { status: 404, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;

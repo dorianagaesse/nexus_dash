@@ -4,6 +4,10 @@ Date: 2026-09-20
 Status: Complete  
 Follow-up: ND-429
 
+This report records the 2026-09-20 baseline. Statements about the "current"
+implementation refer to the code measured on that date; later changes are
+called out where relevant.
+
 ## Outcome
 
 The slow-save report is not caused by React input handling or by the local
@@ -157,12 +161,14 @@ is compensating for that incomplete mutation contract.
 
 ### Realtime polling and database load
 
-The activity SSE route still polls every second. Each pass reads typed events;
-when none are present it also reads the project snapshot. This background load
-is independent of a single save's response time, but it competes for pooled
-connections and grows with open dashboards. ND-429 should not increase that
-poll rate or add per-keystroke events. Realtime work must stay at one durable
-event per accepted explicit mutation, consistent with ND-432.
+At the time of this audit, the activity SSE route polled every second. Each
+pass read typed events; when none were present it also read the project
+snapshot. That background load was independent of a single save's response
+time, but competed for pooled connections and grew with open dashboards.
+Subsequent transport changes on `main` disabled the SSE route and introduced
+adaptive client polling with cross-tab coordination. ND-429 should not increase
+the current polling load or add per-keystroke events. Realtime work must stay
+at one durable event per accepted explicit mutation, consistent with ND-432.
 
 ## ND-429 targets
 

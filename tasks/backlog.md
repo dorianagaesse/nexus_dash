@@ -3,10 +3,11 @@
 **This file is no longer the source of truth for task management.**
 
 On 2026-08-31 the full backlog was migrated to the Nexus Dash project
-**"Nexus Dash"** at <https://nexus-dash.app>. Credentials for agent access live
-in `.config/.nd-nexus-dash.env` (gitignored; contract template at
-`.nd-nexus-dash.example.env`). All backlog planning, sequencing, status
-tracking, and task relationships now happen in the Nexus Dash kanban.
+**"Nexus Dash"** at <https://nexus-dash.app>. Agent credentials use the
+client-specific mapping in [AGENTS.md](../AGENTS.md) (contract template at
+[.nd-nexus-dash.example.env](../.nd-nexus-dash.example.env)). All backlog
+planning, sequencing, status, and task relationships now happen in the Nexus
+Dash kanban.
 
 ## What was migrated
 

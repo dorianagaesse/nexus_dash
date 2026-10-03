@@ -266,6 +266,27 @@ export function getStorageRuntimeConfig(): StorageRuntimeConfig {
   };
 }
 
+export type RealtimeTransport = "stream" | "polling";
+
+export function getRealtimeTransport(): RealtimeTransport {
+  const transportRaw = getOptionalServerEnv("REALTIME_TRANSPORT");
+  if (transportRaw) {
+    if (transportRaw !== "stream" && transportRaw !== "polling") {
+      throw new Error("REALTIME_TRANSPORT must be one of: stream, polling.");
+    }
+
+    return transportRaw;
+  }
+
+  // Persistent DB-polled SSE is the dominant Vercel Fluid compute cost driver,
+  // so Preview defaults to bounded polling unless explicitly overridden.
+  return isPreviewDeployment() ? "polling" : "stream";
+}
+
+export function isRealtimeStreamEnabled(): boolean {
+  return getRealtimeTransport() === "stream";
+}
+
 export function getAgentTokenRuntimeConfig(): AgentTokenRuntimeConfig {
   const signingSecret = getRequiredServerEnv("AGENT_TOKEN_SIGNING_SECRET");
   if (signingSecret.length < MIN_AGENT_TOKEN_SIGNING_SECRET_LENGTH) {
@@ -906,4 +927,5 @@ export function validateServerRuntimeConfig(
   }
 
   getStorageRuntimeConfig();
+  getRealtimeTransport();
 }
