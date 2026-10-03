@@ -20,10 +20,6 @@ import {
 } from "@/lib/services/project-activity-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-export const maxDuration = 300;
-
 import {
   PROJECT_ACTIVITY_STREAM_EVENT,
   compareActivityEventCursor,
@@ -33,6 +29,10 @@ import {
   isNewerVersion,
   serializeActivityCursor,
 } from "@/lib/realtime/project-activity-stream";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const PROJECT_ACTIVITY_STREAM_RETRY_MS = 2_000;
 const PROJECT_ACTIVITY_STREAM_POLL_INTERVAL_MS = 1_000;

@@ -136,6 +136,33 @@ describe("project-epic-panel", () => {
     });
   });
 
+  test("renders secondary button styling for the create-panel Cancel button", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [],
+      })
+    );
+
+    const newEpicButton = findButton(container, "New epic");
+    await act(async () => {
+      newEpicButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const cancelButton = findButton(container, "Cancel");
+    expect(cancelButton).not.toBeUndefined();
+    expect(cancelButton?.className).toContain("bg-secondary");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("keeps the header aligned with other section UIs by omitting the subtitle copy", async () => {
     projectSectionExpandedMock.isExpanded = true;
     const { container, root } = createTestRenderer();
