@@ -113,8 +113,10 @@ export function getRealtimeMetricsSnapshot(): RealtimeMetricsSnapshot {
   };
 }
 
-// Aggregates are per server instance and in-memory; the throttled structured
-// log line is the durable evidence that survives instance recycling.
+// Aggregates are per server instance and in-memory. The structured log line is
+// a sampled snapshot (first event, then at most once per interval) that
+// survives instance recycling; counts accumulated between samples on an
+// instance recycled before the next sample are lost.
 export function maybeFlushRealtimeMetrics(nowMs = Date.now()): void {
   if (getRuntimeEnvironment() !== "production") {
     return;

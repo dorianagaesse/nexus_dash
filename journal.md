@@ -9109,4 +9109,17 @@ Low-value entries to avoid going forward:
   the log record; the observability route test stubs all revision sources
   empty for a deterministic `null`. Full suite re-run with `GITHUB_SHA` set
   to simulate CI: 1812 passed, 2 skipped.
+- Owner review finding on #562 addressed: the `realtime.metrics` log records
+  were overclaimed as durable volume evidence. They are throttled cumulative
+  samples (one at the instance's first recorded event, then at most one per
+  minute at the next event), so a burst inside the interval undercounts, and
+  a sample can be written before its own request's database work is counted.
+  Kept the sampling design (a shared export path would add cost against the
+  epic's purpose), relabeled the runbook and PR as sampled evidence with the
+  undercount caveats, aligned the `maybeFlushRealtimeMetrics` comment,
+  narrowed the `database.queryCalls` recipe to instance-wide volume (it
+  includes auth and session lookups, so it cannot be attributed to the poll
+  endpoints alone), and added a burst-shorter-than-the-interval regression
+  test that pins the sampling (single record per interval, cumulative totals
+  at the next sample).
 - PR: #562.

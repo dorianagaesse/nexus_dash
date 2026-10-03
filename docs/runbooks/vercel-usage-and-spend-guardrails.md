@@ -187,11 +187,19 @@ Counters:
 - `stream.refused`: stream attempts refused because the transport resolves to
   `polling` (stale bundles or clients ignoring the transport flag).
 
-Durable evidence: on deployment runtimes the same aggregates are emitted as a
-structured log record (scope `realtime.metrics`) at most once per instance per
-minute, tagged with environment and revision. These lines survive instance
-recycling; the endpoint snapshot is per instance and resets with it, so sample
-the endpoint while reproducing, and use the log records for history.
+Sampled evidence: on deployment runtimes the aggregates are emitted as a
+structured log record (scope `realtime.metrics`) - one sample at the
+instance's first recorded event, then at most one more per minute, at the
+next event after each interval. Each record is a cumulative sample at that
+instant, tagged with environment and revision. Two limitations matter before
+making volume claims from these records: the sample is written when its
+triggering event is recorded, so work from that same request (including its
+database queries) can land after the record, and counts accumulated between
+samples on an instance recycled before the next sample are lost. Treat the
+records as per-instance samples for attribution and order-of-magnitude
+comparison across environments and revisions, not as exact accounting. The
+endpoint snapshot is the live view while reproducing; the log records are the
+history.
 
 Counters are also per serverless function. On Vercel the stream routes deploy
 as their own function, separate from the function serving the poll routes and
@@ -210,15 +218,16 @@ Attribution recipes:
 - Stream counters (`stream.connections`, `stream.refused`) come from the
   stream function's `realtime.metrics` log records; the endpoint snapshot
   carries the poll counters, service timing, and `database.queryCalls`.
-
 - High compute on the activity route with `stream.connections` near zero in
   Production: clients are stuck in polling fallback - check
   `activity.pollingFallbacks` and the `stream.refused` / `transportDisabled`
   signatures.
 - High stream route compute with many `stream.connections`: reconnect churn;
   confirm the transport kill-switch state before changing cadences.
-- High `database.queryCalls` relative to served checks: the poll paths are
-  issuing more statements per request than expected.
+- `database.queryCalls` is instance-wide driver volume, not per route: it
+  counts every query the instance issues, including auth and session lookups.
+  Use it to compare environments or revisions at similar traffic; do not read
+  it as statements issued by the poll endpoints alone.
 
 ## Environments in Operational Review
 

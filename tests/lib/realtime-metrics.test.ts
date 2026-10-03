@@ -122,6 +122,36 @@ describe("realtime metrics registry", () => {
     );
   });
 
+  test("a burst shorter than the flush interval yields one sampled snapshot that can undercount", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+
+    recordRealtimeCounter("activity.snapshotChecks");
+    recordRealtimeCounter("stream.connections", 4);
+    recordDatabaseQueryCalls(3);
+
+    expect(loggerMock.logServerInfo).toHaveBeenCalledTimes(1);
+    const sampledRecord = loggerMock.logServerInfo.mock.calls[0]?.[2] as {
+      counters: Record<string, number>;
+      database: { queryCalls: number };
+    };
+    expect(sampledRecord.counters["activity.snapshotChecks"]).toBe(1);
+    expect(sampledRecord.counters["stream.connections"]).toBe(0);
+    expect(sampledRecord.database.queryCalls).toBe(0);
+
+    vi.setSystemTime(new Date(Date.now() + REALTIME_METRICS_FLUSH_INTERVAL_MS));
+    recordRealtimeCounter("activity.snapshotChecks");
+
+    expect(loggerMock.logServerInfo).toHaveBeenCalledTimes(2);
+    const nextRecord = loggerMock.logServerInfo.mock.calls[1]?.[2] as {
+      counters: Record<string, number>;
+      database: { queryCalls: number };
+    };
+    expect(nextRecord.counters["activity.snapshotChecks"]).toBe(2);
+    expect(nextRecord.counters["stream.connections"]).toBe(4);
+    expect(nextRecord.database.queryCalls).toBe(3);
+  });
+
   test("does not flush in local and test runtimes", () => {
     recordRealtimeCounter("activity.snapshotChecks");
     recordServiceTiming("task.status", 10);
