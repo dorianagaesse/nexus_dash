@@ -9113,3 +9113,32 @@ Low-value entries to avoid going forward:
   app server time from network and infrastructure time. The preview function
   deployment is in `iad1`; the preview database region remains unverified.
   The branch-preview latency acceptance targets are still unmet.
+
+## ND-429 final preview remediation
+
+- Existing timing headers separated an old-preview event edit into 805 ms
+  server, 268 ms fetch remainder, and 22 ms browser work (1,094 ms UI total).
+  A meeting output edit with ten todos was 2,143 / 388 / 24 ms (2,555 ms
+  total). The `x-vercel-id` function region was `iad1`, while the Preview
+  Supabase runtime pooler hostname identified AWS `eu-west-1`.
+- Commit `5eabb12` made branch-preview and staged-production deployment select
+  the Vercel Function region from that environment's runtime pooler hostname,
+  failing deployment for an unmapped region. The first colocated Preview run
+  [37151643429](https://github.com/dorianagaesse/nexus_dash/actions/runs/37151643429)
+  used `dub1`; its 20-sample event-edit and meeting-output UI p95 values were
+  285 and 358 ms. Its 160 samples across eight surfaces all succeeded.
+- Commits `031da7b` and `1f6a78f` removed unused task mutation reads, with
+  the latter fixing an omitted call-site argument after a failed intermediate
+  build/deploy. A live RLS-enabled SQL count was 20 statements for task create
+  and 20 for edit, within the ND-428 budget.
+- Workflow [37152881897](https://github.com/dorianagaesse/nexus_dash/actions/runs/37152881897)
+  checked out `1f6a78fd0be12c7ca50ba32e171791afadb61ab2` and deployed
+  `https://nexus-dash-2c23ucjvf-dorian-agaesses-projects.vercel.app`.
+  All 200 post-warmup saves across ten surfaces succeeded, with three warmups
+  and 20 measured saves per surface. `x-vercel-id` reported `fra1::dub1`.
+  Event edit click-to-close p50/p95 was 197/224 ms; meeting output edit with
+  ten todos was 262/288 ms. Every surface met its p95 target. Full timing
+  splits and the method are in `docs/reports/nd-429-preview-save-latency.md`.
+- Final-head lint, RLS inventory, 1,791 unit/API tests, coverage, and build
+  passed. The GitHub Quality Gates workflow was dispatched on the final code
+  head for the PostgreSQL RLS matrix and E2E; local Docker was unavailable.
