@@ -9082,4 +9082,24 @@ Low-value entries to avoid going forward:
   counters. The runbook now states counters are per serverless function and
   that stream counters are read from the log records; the harness keeps a
   tripwire check for that split.
+- Copilot review follow-up on #562 (three findings): (1) the notification
+  poll counters and timing moved from `/api/account/notifications` to
+  `/api/account/notifications/summary` - the summary route is what the
+  fallback poll loop actually fetches, while the list route is a
+  reconciliation fetch, so the previous wiring both missed real fallback
+  polls and misattributed reconciliation fetches as fallbacks; a regression
+  test now asserts the list route records nothing. (2) The observability
+  endpoint switched from `requireApiPrincipal` to `requireAuthenticatedApiUser`
+  so project-scoped agent tokens can no longer read deployment-wide telemetry;
+  it is a human-session operator endpoint. (3) The snapshot and the
+  `realtime.metrics` log records now declare `scope: "instance"` so consumers
+  know the counters are per serverless instance, not deployment-wide.
+- Re-validation on the review-fix head: lint, rls:check, unit suite
+  (1812 passed, 2 skipped), coverage thresholds met (93.78/84.46/95.42/94.08),
+  production build, `git diff --check` clean.
+- Review-fix preview validation: workflow run 37084621102, revision `883ad61`
+  at `https://nexus-dash-3c5xvnqr1-dorian-agaesses-projects.vercel.app`;
+  harness 20/20 (notification counters attributed to the summary route,
+  `scope: instance` present, `stream.refused` still carried by the stream
+  function's own `realtime.metrics` record).
 - PR: #562.
