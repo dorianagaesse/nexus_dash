@@ -9101,3 +9101,15 @@ Low-value entries to avoid going forward:
   containing phase, which already includes the event. Both paths now derive
   the response event from the phase read, eliminating one duplicate database
   query per event save while retaining the same response shape.
+- Workflow `37122553332` deployed commit `4c1eb3a` to
+  `https://nexus-dash-pojfe861l-dorian-agaesses-projects.vercel.app`; its
+  checkout log confirms the full SHA. The PR quality, browser E2E, RLS, and
+  container checks passed. On the stable preview alias, an isolated probe
+  project was created because the user's original fixture was inaccessible to
+  the signed-in account. Twenty consecutive event edits measured from Save
+  click to dialog close had p50 1,382 ms and p95 2,306 ms. Four successful
+  meeting output edits measured 2,595-2,800 ms; a fifth attempt did not close
+  within 15 seconds and succeeded on retry. These UI timings do not isolate
+  app server time from network and infrastructure time. The preview function
+  deployment is in `iad1`; the preview database region remains unverified.
+  The branch-preview latency acceptance targets are still unmet.
