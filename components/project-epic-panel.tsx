@@ -342,6 +342,21 @@ export function ProjectEpicPanel({
       }
 
       if (activity.domain === "epic") {
+        if (activity.action === "deleted" && activity.entityId) {
+          const deletedId = activity.entityId;
+          setLocalEpics((previousEpics) =>
+            previousEpics.filter((epic) => epic.id !== deletedId)
+          );
+          if (editingEpicId === deletedId) {
+            setEditingEpicId(null);
+            setEditName("");
+            setEditDescription("");
+            setEditError(null);
+          }
+          if (pendingDeleteEpicId === deletedId) {
+            setPendingDeleteEpicId(null);
+          }
+        }
         void reconcileProjectEpics(projectId);
         detail.markHandled();
         return;

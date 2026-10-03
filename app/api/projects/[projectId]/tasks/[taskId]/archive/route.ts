@@ -47,6 +47,7 @@ export async function POST(
     payload: {
       task: {
         id: taskId,
+        status: "Done",
         archivedAt: archivedAtIso,
       },
     },
@@ -98,6 +99,7 @@ export async function DELETE(
     payload: {
       task: {
         id: taskId,
+        status: "Done",
         archivedAt: null,
       },
     },

@@ -182,15 +182,15 @@ export function ProjectLiveRefresh({
 
       markProjectActivityTiming("received");
 
-      if (hasRefreshLock() || isRefreshingRef.current) {
-        pendingVersionRef.current = payload.version;
-        setPendingVersion(payload.version);
-        return;
-      }
-
       if (payload.eventId && dispatchProjectActivityRemoteEvent(payload)) {
         markProjectActivityTiming("patched");
         acknowledgeVersion(payload.version);
+        return;
+      }
+
+      if (hasRefreshLock() || isRefreshingRef.current) {
+        pendingVersionRef.current = payload.version;
+        setPendingVersion(payload.version);
         return;
       }
 
