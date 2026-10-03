@@ -9162,3 +9162,11 @@ Low-value entries to avoid going forward:
   test that pins the sampling (single record per interval, cumulative totals
   at the next sample).
 - PR: #562.
+- Merge-forward (2026-10-03): merged `origin/main` (ND-428 #548, `5ee1b99`)
+  after the PR went CONFLICTING. Only `journal.md` conflicted (both sides had
+  appended entries); resolved by keeping main's ND-428 entry above the ND-371
+  entry. Merge commit `4d5af78`; the merged tree re-validated locally with
+  lint, `rls:check`, 1813 unit tests, coverage thresholds, and the production
+  build all green, and the PR is MERGEABLE again. Local Playwright could not
+  run - Docker Desktop failed to start, leaving the local Postgres container
+  unreachable - so e2e coverage for the merge head is delegated to CI.
