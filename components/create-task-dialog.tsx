@@ -330,8 +330,8 @@ export function CreateTaskDialog({
     })();
   };
 
-  const handleAddLink = () => {
-    const nextUrl = linkUrl.trim();
+  const handleAddLink = (urlOverride?: string) => {
+    const nextUrl = (urlOverride ?? linkUrl).trim();
     if (!nextUrl) {
       return;
     }

@@ -22,14 +22,18 @@ import {
   ChevronUp,
   Eye,
   GripVertical,
+  Layers,
   Map,
+  Milestone,
   Pencil,
   PlusSquare,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 
 import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
+import { SectionHelpAffordance } from "@/components/project-dashboard/section-help-affordance";
 import {
   PROJECT_SECTION_CARD_CLASS,
   PROJECT_SECTION_CONTENT_CLASS,
@@ -51,6 +55,7 @@ import {
   type RoadmapStatus,
 } from "@/lib/roadmap-milestone";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
+import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
 import { cn } from "@/lib/utils";
 
 export type ProjectRoadmapPanelPhase = ProjectRoadmapPhase;
@@ -1699,18 +1704,22 @@ export function ProjectRoadmapPanel({
     sourceDraft: { targetDate: string | null; status: RoadmapStatus },
     milestoneIndex: number
   ): Promise<ProjectRoadmapPanelPhase> {
-    const response = await fetch(`/api/projects/${projectId}/roadmap`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        title: getMilestoneLabel(milestoneIndex),
-        description: "",
-        targetDate: sourceDraft.targetDate,
-        status: sourceDraft.status,
-      }),
-    });
+    const response = await fetchProjectActivityMutation(
+      projectId,
+      `/api/projects/${projectId}/roadmap`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          title: getMilestoneLabel(milestoneIndex),
+          description: "",
+          targetDate: sourceDraft.targetDate,
+          status: sourceDraft.status,
+        }),
+      }
+    );
 
     if (!response.ok) {
       throw new Error(mapRoadmapMutationError(await readApiError(response)));
@@ -1757,7 +1766,7 @@ export function ProjectRoadmapPanel({
           : `/api/projects/${projectId}/roadmap/events/${eventDialog.eventId}`;
       const method = eventDialog.mode === "create" ? "POST" : "PATCH";
 
-      const response = await fetch(endpoint, {
+      const response = await fetchProjectActivityMutation(projectId, endpoint, {
         method,
         headers: {
           "content-type": "application/json",
@@ -1798,7 +1807,6 @@ export function ProjectRoadmapPanel({
       });
 
       closeEventDialog();
-      router.refresh();
     } catch (error) {
       console.error("[ProjectRoadmapPanel.submitEvent]", error);
       if (createdPhase) {
@@ -2179,12 +2187,54 @@ export function ProjectRoadmapPanel({
             </span>
           </button>
 
-          {canEdit ? (
-            <Button type="button" size="sm" className="w-full sm:w-auto" onClick={openCreateEvent}>
-              <PlusSquare className="h-4 w-4" />
-              New event
-            </Button>
-          ) : null}
+          <div className="flex items-center gap-2">
+            <SectionHelpAffordance
+              title="Roadmap guide"
+              description="Milestones, events, and execution flow"
+              ariaLabel="Roadmap help"
+            >
+              <div className="space-y-4">
+                <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                  <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-foreground">
+                    <Milestone className="h-3.5 w-3.5 text-sky-500" />
+                    What is a milestone?
+                  </h4>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Milestones (phases) represent macro delivery horizons, release chapters, or execution stages (e.g. <span className="font-medium text-foreground">Private Beta</span>, <span className="font-medium text-foreground">GA Launch</span>, or <span className="font-medium text-foreground">Q4 Hardening</span>).
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                  <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-foreground">
+                    <Layers className="h-3.5 w-3.5 text-emerald-500" />
+                    How phases &amp; events relate
+                  </h4>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Each milestone phase acts as a timeline lane grouping scheduled events. Events are the specific deliveries, releases, or checkpoints within that milestone. You can drag events between lanes or drop between milestones to create a new phase.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                  <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-foreground">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    What good inputs look like
+                  </h4>
+                  <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+                    <li><strong className="text-foreground">Milestones:</strong> High-level thematic goals (e.g., &quot;Customer Onboarding Wave 1&quot;).</li>
+                    <li><strong className="text-foreground">Events:</strong> Concrete, dated deliverables (e.g., &quot;Deploy API v2 to staging&quot; with target date).</li>
+                    <li><strong className="text-foreground">Statuses:</strong> Track progress with Planned, Active, and Completed indicators.</li>
+                  </ul>
+                </div>
+              </div>
+            </SectionHelpAffordance>
+
+            {canEdit ? (
+              <Button type="button" size="sm" className="w-full sm:w-auto" onClick={openCreateEvent}>
+                <PlusSquare className="h-4 w-4" />
+                New event
+              </Button>
+            ) : null}
+          </div>
         </div>
       </CardHeader>
 
@@ -2197,14 +2247,58 @@ export function ProjectRoadmapPanel({
           ) : null}
 
           {roadmapPhases.length === 0 ? (
-            <div className="rounded-[1.9rem] border border-dashed border-border/60 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.12),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.08),transparent_30%)] px-5 py-10 text-center">
-              <p className="text-lg font-semibold text-foreground">No roadmap yet</p>
+            <div
+              data-roadmap-empty-container="true"
+              className="rounded-[1.9rem] border border-dashed border-border/60 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.12),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.08),transparent_30%)] px-5 py-8 sm:px-8 sm:py-10 text-center"
+            >
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-sky-500/20 bg-sky-500/10 text-sky-500">
+                <Map className="h-6 w-6" />
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-foreground">No roadmap yet</h3>
               <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Start with the first event. Each new event creates the next milestone unless you
-                place it into an existing lane.
+                Map out milestones and deliverables to give your team clear execution sight from planning to launch.
               </p>
+
+              <div className="mx-auto mt-8 grid max-w-4xl gap-4 text-left sm:grid-cols-3">
+                <div className="rounded-2xl border border-border/60 bg-background/60 p-4 shadow-sm backdrop-blur-sm">
+                  <div className="flex items-center gap-2 font-medium text-foreground">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/10 text-sky-500">
+                      <Milestone className="h-4 w-4" />
+                    </div>
+                    <span className="text-sm font-semibold">What is a milestone?</span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                    A milestone (phase) represents a major stage or target horizon in your product journey—such as <span className="font-medium text-foreground">Private Beta</span>, <span className="font-medium text-foreground">MVP Launch</span>, or <span className="font-medium text-foreground">Security Audit</span>.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-border/60 bg-background/60 p-4 shadow-sm backdrop-blur-sm">
+                  <div className="flex items-center gap-2 font-medium text-foreground">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
+                      <Layers className="h-4 w-4" />
+                    </div>
+                    <span className="text-sm font-semibold">Phases &amp; events</span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                    Each milestone phase acts as a lane grouping scheduled events. Events are the specific deliverables, releases, or checkpoints within that milestone. Drag events across lanes or drop between milestones to reorganize.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-border/60 bg-background/60 p-4 shadow-sm backdrop-blur-sm">
+                  <div className="flex items-center gap-2 font-medium text-foreground">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                    <span className="text-sm font-semibold">Good input examples</span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                    Name milestones by outcome (e.g. &quot;Q4 Beta Launch&quot;) and events by deliverable (e.g. &quot;Complete auth hardening&quot;). Add target dates and track statuses (<span className="font-medium text-foreground">Planned</span>, <span className="font-medium text-foreground">Active</span>, <span className="font-medium text-foreground">Completed</span>).
+                  </p>
+                </div>
+              </div>
+
               {canEdit ? (
-                <Button type="button" className="mt-5 rounded-full px-4" onClick={openCreateEvent}>
+                <Button type="button" className="mt-7 rounded-full px-5" onClick={openCreateEvent}>
                   <PlusSquare className="h-4 w-4" />
                   Create the first event
                 </Button>

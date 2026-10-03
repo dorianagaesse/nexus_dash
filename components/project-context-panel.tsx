@@ -43,6 +43,7 @@ import {
   DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_LABEL,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
   MAX_ATTACHMENT_FILE_SIZE_LABEL,
+  normalizeAttachmentUrl,
 } from "@/lib/task-attachment";
 import {
   uploadFileAttachmentDirect,
@@ -448,12 +449,14 @@ export function ProjectContextPanel({
     setEditingCardId(cardId);
   };
 
-  const handleStageCreateLink = () => {
-    const normalizedUrl = createLinkUrl.trim();
-    if (!normalizedUrl) {
+  const handleStageCreateLink = (urlOverride?: string) => {
+    const rawUrl = typeof urlOverride === "string" ? urlOverride : createLinkUrl;
+    const trimmed = rawUrl.trim();
+    if (!trimmed) {
       return;
     }
 
+    const normalizedUrl = normalizeAttachmentUrl(trimmed) || trimmed;
     setCreateAttachmentLinks((previous) => [
       {
         id: createLocalId(),
@@ -462,7 +465,6 @@ export function ProjectContextPanel({
       ...previous,
     ]);
     setCreateLinkUrl("");
-    setIsCreateLinkComposerOpen(false);
   };
 
   const handleRemoveCreateLink = (linkId: string) => {
@@ -544,8 +546,22 @@ export function ProjectContextPanel({
       formData.get("content")?.toString().trim() || createContent;
     const optimisticColor =
       formData.get("color")?.toString().trim() || createColor;
+    const pendingUrl = createLinkUrl.trim();
+    const normalizedPendingUrl = pendingUrl ? (normalizeAttachmentUrl(pendingUrl) || pendingUrl) : null;
+    const effectiveLinks =
+      normalizedPendingUrl && !createAttachmentLinks.some((l) => l.url === normalizedPendingUrl)
+        ? [{ id: createLocalId(), url: normalizedPendingUrl }, ...createAttachmentLinks]
+        : createAttachmentLinks;
+
+    if (effectiveLinks !== createAttachmentLinks) {
+      formData.set(
+        "attachmentLinks",
+        JSON.stringify(effectiveLinks.map((l) => ({ name: "", url: l.url })))
+      );
+    }
+
     const optimisticAttachments: ProjectContextAttachment[] =
-      createAttachmentLinks.map((link) => ({
+      effectiveLinks.map((link) => ({
         id: `optimistic-context-link-${link.id}`,
         kind: ATTACHMENT_KIND_LINK,
         name: "",
@@ -919,11 +935,14 @@ export function ProjectContextPanel({
     }
   };
 
-  const handleAddLinkAttachment = async () => {
-    if (!editingCard || !editLinkUrl.trim()) {
+  const handleAddLinkAttachment = async (urlOverride?: string) => {
+    const rawUrl = typeof urlOverride === "string" ? urlOverride : editLinkUrl;
+    const trimmed = rawUrl.trim();
+    if (!editingCard || !trimmed) {
       return;
     }
 
+    const normalizedUrl = normalizeAttachmentUrl(trimmed) || trimmed;
     setIsSubmittingAttachment(true);
     setAttachmentError(null);
 
@@ -931,7 +950,7 @@ export function ProjectContextPanel({
       const formData = new FormData();
       formData.append("kind", ATTACHMENT_KIND_LINK);
       formData.append("name", "");
-      formData.append("url", editLinkUrl.trim());
+      formData.append("url", normalizedUrl);
 
       const response = await fetchProjectActivityMutation(
         projectId,

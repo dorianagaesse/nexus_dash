@@ -31,7 +31,7 @@ interface ContextCreateModalProps {
   onCreateContentChange: (value: string) => void;
   onCreateLinkUrlChange: (value: string) => void;
   onToggleCreateLinkComposer: () => void;
-  onStageCreateLink: () => void;
+  onStageCreateLink: (urlOverride?: string) => void;
   onRemoveCreateLink: (linkId: string) => void;
   onCreateFilesSelected: (files: File[]) => void;
   onClearCreateFiles: () => void;
@@ -154,8 +154,8 @@ export function ContextCreateModal({
               onValueChange={onCreateLinkUrlChange}
               onSubmit={onStageCreateLink}
               isSubmitDisabled={!createLinkUrl.trim()}
-              className={`rounded-md border border-input bg-background ring-0 ${FORM_FOCUS_BORDER_SHELL_CLASS}`}
-              inputClassName="text-sm"
+              className={`w-full min-w-0 max-w-full rounded-md border border-input bg-background ring-0 ${FORM_FOCUS_BORDER_SHELL_CLASS}`}
+              inputClassName="min-w-0 text-sm"
             />
           ) : null}
 

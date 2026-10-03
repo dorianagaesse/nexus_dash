@@ -2691,12 +2691,13 @@ export function KanbanBoard({
     selectedTask,
   ]);
 
-  const handleAddLinkAttachment = useCallback(async () => {
+  const handleAddLinkAttachment = useCallback(async (urlOverride?: string) => {
     if (!canEdit) {
       return;
     }
 
-    if (!selectedTask || !linkUrl.trim()) {
+    const targetUrl = (urlOverride ?? linkUrl).trim();
+    if (!selectedTask || !targetUrl) {
       return;
     }
 
@@ -2707,7 +2708,7 @@ export function KanbanBoard({
       const formData = new FormData();
       formData.append("kind", ATTACHMENT_KIND_LINK);
       formData.append("name", "");
-      formData.append("url", linkUrl.trim());
+      formData.append("url", targetUrl);
 
       const response = await fetchProjectActivityMutation(
         projectId,
