@@ -65,7 +65,7 @@ No meeting save stalled in the 20 measured output edits. Task create had one
 both p95 values remained below their targets. These samples establish the
 specified p95 gate, not a guarantee against rare long-tail delays.
 
-## Final-head verification
+## Pre-merge code head
 
 Workflow [37152881897](https://github.com/dorianagaesse/nexus_dash/actions/runs/37152881897)
 successfully checked out and deployed commit `1f6a78fd0be12c7ca50ba32e171791afadb61ab2`.
@@ -96,9 +96,48 @@ ND-429 targets. The largest final-head UI save was 300 ms for meeting output
 and 260 ms for event edit; the largest two-request milestone-plus-event save
 was 394 ms. The earlier >15-second retry was not reproduced in these samples.
 
-Final-head local validation: `npm run lint`, `npm run rls:check`, `npm test`
+Local validation on this code head: `npm run lint`, `npm run rls:check`, `npm test`
 (217 files passed, two skipped; 1,791 tests passed, two skipped),
 `npm run test:coverage` (93.77% statements, 84.46% branches, 95.42% functions,
 94.07% lines), and `npm run build` passed. The temporary live RLS-enabled SQL
 count measured 20 statements for each task mutation. The browser E2E result is
 recorded in the journal and PR handoff.
+
+## Merged PR head
+
+Current `main` was merged into the PR branch to resolve a `journal.md` conflict.
+The merge added ND-371 realtime observability code, including a database-query
+counter, so the timing check was repeated on the reviewable tree. Workflow
+[37153541585](https://github.com/dorianagaesse/nexus_dash/actions/runs/37153541585)
+checked out and deployed `a8e2686d4b93760ad0a5b5bda52a69bda3655af8` at
+`https://nexus-dash-kuf5x6o43-dorian-agaesses-projects.vercel.app`.
+The workflow verified the revision and Preview database readiness. Every
+measured response reported `fra1::dub1` and used the same `eu-west-1` runtime
+pooler. Three warmups preceded each 20-sample surface; all 200 post-warmup
+saves succeeded.
+
+| Surface | Samples | Preview wall p50 / p95 | Server p50 / p95 | Fetch remainder p50 / p95 | Browser p50 / p95 | Target p95 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Roadmap event edit, UI | 20 | 205 / 241 ms | 53 / 59 ms | 126 / 150 ms | 22 / 39 ms | 750 ms |
+| Meeting output edit, ten existing todos, UI | 20 | 280 / 324 ms | 133 / 142 ms | 126 / 166 ms | 17 / 26 ms | 1,000 ms |
+| Task create, browser API | 20 | 217 / 352 ms | 96 / 191 ms | 125 / 162 ms | — | 1,000 ms |
+| Task edit, browser API | 20 | 202 / 417 ms | 75 / 283 ms | 126 / 168 ms | — | 1,000 ms |
+| Meeting create, browser API | 20 | 275 / 387 ms | 143 / 201 ms | 126 / 202 ms | — | 1,000 ms |
+| Meeting preparation edit, browser API | 20 | 255 / 348 ms | 130 / 174 ms | 122 / 210 ms | — | 1,000 ms |
+| Roadmap phase create, browser API | 20 | 170 / 188 ms | 48 / 50 ms | 124 / 141 ms | — | 750 ms |
+| Roadmap phase edit, browser API | 20 | 177 / 216 ms | 51 / 82 ms | 125 / 140 ms | — | 750 ms |
+| Roadmap event create, browser API | 20 | 173 / 202 ms | 54 / 79 ms | 120 / 138 ms | — | 750 ms |
+| New milestone plus event, two browser API requests | 20 | 353 / 371 ms | 105 / 124 ms | 244 / 268 ms | — | 1,000 ms |
+
+The worst observed UI save took 297 ms for event edit and 397 ms for meeting
+output. Task create/edit had isolated 657/615 ms maxima; phase edit had one
+772 ms sample. Their p95 values still pass the defined gates. No save failed or
+needed a retry. The browser, fetch remainder, and server columns retain the
+measurement boundaries described above; fetch remainder is not solely network
+propagation time.
+
+On the merged head, `npm run lint`, `npm run rls:check`, `npm test` (221 files
+passed, two skipped; 1,814 tests passed, two skipped), and
+`npm run test:coverage` (93.77% statements, 84.46% branches, 95.42% functions,
+94.07% lines) passed locally. The production build and merged-head GitHub
+Quality Gates results are recorded in the PR handoff.

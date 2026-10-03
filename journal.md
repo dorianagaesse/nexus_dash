@@ -9247,3 +9247,21 @@ Low-value entries to avoid going forward:
   build all green, and the PR is MERGEABLE again. Local Playwright could not
   run - Docker Desktop failed to start, leaving the local Postgres container
   unreachable - so e2e coverage for the merge head is delegated to CI.
+
+## ND-429 merge-forward and final review head
+
+- Merged current `origin/main` into PR #550, resolving its `journal.md` conflict
+  by retaining both task histories. Merge commit `a8e2686` is mergeable.
+- Preview workflow [37153541585](https://github.com/dorianagaesse/nexus_dash/actions/runs/37153541585)
+  deployed that exact commit at
+  `https://nexus-dash-kuf5x6o43-dorian-agaesses-projects.vercel.app`.
+  The final 200 post-warmup saves across ten surfaces all succeeded, and
+  `x-vercel-id` stayed `fra1::dub1` beside the `eu-west-1` runtime pooler.
+  Event edit UI p50/p95 was 205/241 ms; meeting output with ten existing todos
+  was 280/324 ms. All surface p95s met ND-429 targets, including task
+  create/edit at 352/417 ms. Full splits and tails are in the preview report.
+- Merged-head local lint, RLS inventory, 1,814 unit/API tests, and coverage
+  passed. The pre-merge preview also passed all 101 runnable browser E2E tests
+  (one intentional skip). Final merged-head GitHub Quality Gates ran the
+  PostgreSQL isolation matrix successfully; its core and E2E result are in
+  [37153565491](https://github.com/dorianagaesse/nexus_dash/actions/runs/37153565491).
