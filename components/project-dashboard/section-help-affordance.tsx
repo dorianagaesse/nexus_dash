@@ -21,7 +21,8 @@ interface SectionHelpAffordanceProps {
 }
 
 interface PopoverLayout {
-  top: number;
+  top?: number;
+  bottom?: number;
   left: number;
   width: number;
   maxHeight: number;
@@ -86,16 +87,19 @@ export function SectionHelpAffordance({
         MIN_PANEL_HEIGHT
       );
 
-      const top = shouldOpenAbove
-        ? Math.max(VIEWPORT_MARGIN, triggerRect.top - PANEL_GAP - maxHeight)
-        : Math.min(
-            viewportHeight - VIEWPORT_MARGIN - maxHeight,
-            triggerRect.bottom + PANEL_GAP
-          );
+      const bottom = Math.max(
+        VIEWPORT_MARGIN,
+        viewportHeight - triggerRect.top + PANEL_GAP
+      );
+      const top = Math.min(
+        viewportHeight - VIEWPORT_MARGIN - maxHeight,
+        triggerRect.bottom + PANEL_GAP
+      );
 
       setLayout({
         left,
-        top,
+        top: shouldOpenAbove ? undefined : top,
+        bottom: shouldOpenAbove ? bottom : undefined,
         width,
         maxHeight,
       });
@@ -175,6 +179,7 @@ export function SectionHelpAffordance({
               style={{
                 left: layout.left,
                 top: layout.top,
+                bottom: layout.bottom,
                 width: layout.width,
                 maxHeight: layout.maxHeight,
               }}

@@ -22,7 +22,6 @@ import {
   ChevronUp,
   Eye,
   GripVertical,
-  HelpCircle,
   Layers,
   Map,
   Milestone,
