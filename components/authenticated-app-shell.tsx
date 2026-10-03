@@ -4,6 +4,7 @@ import { AuthenticatedAppShellClient } from "@/components/authenticated-app-shel
 import { NotificationAwarenessBanner } from "@/components/notification-awareness-banner";
 import { getAppMetadataSummary } from "@/lib/app-metadata";
 import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
+import { isRealtimeStreamEnabled } from "@/lib/env.server";
 import { getInitialNotificationRealtimeSnapshotForUser } from "@/lib/notification-realtime-server";
 import { getAccountIdentitySummary } from "@/lib/services/account-identity-service";
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
@@ -47,6 +48,7 @@ export async function AuthenticatedAppShell({
       usernameTag={identity?.usernameTag ?? null}
       avatarSeed={identity?.avatarSeed ?? null}
       initialNotificationSnapshot={notificationSnapshot}
+      streamEnabled={isRealtimeStreamEnabled()}
       appVersionLabel={appMetadata.versionLabel}
       appEnvironment={appMetadata.environment}
       appDiagnosticLabel={appMetadata.diagnosticLabel}

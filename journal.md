@@ -3,6 +3,35 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-03 - React 19.3 repair PR #551
+
+- Brought the TASK-116 replacement for Dependabot #537 onto current main. Kept React, React DOM, and their type packages aligned at 19.3.0; regenerated the lockfile. The old E2E failure was the meeting-notes geometry assertion fixed in #556. Final CI is pending.
+
+# 2026-10-03 - Dependabot queue cleanup
+
+- Merged Prisma CLI #553 and Playwright #539 after green Quality Gates runs.
+- Updated eslint-config-next #556. Fixed two browser-test geometry assertions: the documented meeting-notes editor-shell offset and a 43.99994px button measurement caused by subpixel rounding. Quality Gates passed on commit 6553e89 (run 37082724415); merging newer main for final validation.
+
+# 2026-10-03 - Per-client Nexus Dash credential instructions
+
+- Documented separate Codex, Claude Code/DeepSeek, and Gemini credential files
+  in `AGENTS.md` and the agent workflow runbook; Gemini imports the shared
+  instructions through `GEMINI.md`.
+- The three local credential files are present but empty. Live attribution
+  verification remains dependent on creating the named project keys.
+
+# 2026-10-02 - ND-453: Consolidate agent context instructions
+
+- Renamed `agent.md` to `AGENTS.md` as the shared Codex and Claude Code entry
+  point, removed duplicated `CLAUDE.md`, and moved detailed task and delivery
+  procedures into `docs/runbooks/agent-workflow.md` for on-demand reading.
+- Updated the README and project context maps, and removed dated task status
+  and pending-gap claims from `project.md`; the Nexus Dash board owns live work.
+- Follow-up: made brief pickup and completion comments mandatory in
+  `AGENTS.md`; restored detailed workflow rules to the on-demand runbook.
+- Documentation-only validation: `git diff --check` and current-reference
+  review.
+
 # 2026-09-18 - ND-399: Handoff merge-forward and re-validation
 
 - Merged `origin/main` (ND-396 #528, ND-465 #527) into
@@ -8281,6 +8310,70 @@ Low-value entries to avoid going forward:
   reached); the PR carries the validation evidence for manual review
   instead.
 
+# 2026-09-18 - ND-484: Task modal footer action redesign
+
+- Claimed Nexus Dash card ND-484 (GitHub issue #532 attached), moved to In
+  Progress. Built in `../nexus_dash_task484` on
+  `feature/nd-484-task-modal-footer-actions`, branched from `origin/main`
+  at a2a5d45.
+- One visual language now covers the footer actions in all three flows:
+  the dismissals (view-mode Close, edit-mode Cancel, create-dialog Cancel)
+  share the `outline` variant -- 1px `--input` border, `--background`
+  fill, foreground label, shared radius -- and the primary action (Save
+  changes / Create task) stays the only filled, inverted surface in its
+  row (`default` variant).
+- Deleted the `mobile-inverted` and `mobile-inverted-outline` cva variants
+  added as ND-465 review follow-ups; no other call sites existed. The
+  task-modal footer is always padded (`px-6 pb-6 pt-4`) under its top
+  border, so the full-bleed view-mode Close bar and the desktop borderless
+  ghost Cancel are gone.
+- Breakpoint/flow treatment (AC3, intentional): mobile sheets stack
+  full-width with the dismissal above the primary (`flex-col-reverse` over
+  DOM order primary-then-dismissal); desktop rows are inline, auto-width,
+  left-aligned `[primary][dismissal]` with the same 8px gap. The view-mode
+  Close keeps its full-width dismissal stance at every width -- it is the
+  footer's only control and this preserves the ND-465 close-bar affordance
+  -- now outlined and padded instead of full-bleed ghost. Edit and create
+  footers are structurally identical.
+- Behavior unchanged: the five ND-465 semantics tests (draft discard,
+  no-persist, focus return, keyboard activation, mobile tap) pass
+  unmodified.
+- Coverage: the two ND-465 theme tests that encoded the old look
+  ("dismissals stay ghost on desktop across themes", "dismissals invert
+  with the theme on mobile") were superseded by the new
+  `tests/e2e/nd-484-task-modal-footer.spec.ts`: three tests assert the
+  shared outlined treatment plus only-filled-primary across view, edit,
+  and create in both themes, the settled geometry (desktop inline
+  auto-width; mobile full-width stacked), and the hover accent fill that
+  stays on the theme's side of the palette. Geometry reads wait for the
+  dialog entrance animation via `getAnimations` (mid-flight reads mixed
+  scales between boxes: a settled footer next to a 0.967-scaled button);
+  hover reads poll the raw fill because idle and hover sit on the same
+  luminance side.
+- Screenshot verification (AC6): 36 shots via a temporary harness (view,
+  edit, create x desktop 1440x900 / mobile 390x844 x light/dark, captured
+  before and after the redesign for comparison). All 12 after-shots show
+  the settled shared treatment. Harness and shots live in the worktree's
+  gitignored `.tmp/`, not committed.
+- Local env note for the full suite on a fresh worktree: `.env` needs
+  `OUTBOUND_EMAIL_DELIVERY_MODE=disabled` (a local `next start` counts as
+  live production, so password-reset attempts real Resend delivery with a
+  placeholder key and the service deletes the token when the send fails)
+  and `TRUSTED_ORIGINS=http://127.0.0.1:3484` (production origin
+  resolution throws without it, so forgot-password short-circuits before
+  creating a token). Both are gitignored local config; with them the full
+  suite is green.
+- Validation on an own verified production server (port 3484, listener
+  PID checked against this worktree): `npm run lint`, `npm run
+  rls:check`, `npm test` (211 files / 1737 tests passed, 2 skipped),
+  `npm run test:coverage` (thresholds met: statements 93.78%, branches
+  84.46%, functions 95.42%, lines 94.08%), `npm run build`, full local
+  Playwright suite 97 passed / 1 skipped / 0 failed, `git diff --check`
+  clean. No schema, service, or RLS change.
+- Copilot review: not expected (project owner reports the Copilot quota is
+  reached); the PR carries the validation evidence for manual review
+  instead.
+
 # 2026-09-18 - ND-486: Privacy policy entry point in account settings
 
 - Claimed ND-486, the follow-up from the ND-135 privacy-copy thread (GitHub
@@ -8383,6 +8476,90 @@ Low-value entries to avoid going forward:
   `npm run rls:check`, full unit suite (213 files / 1744 tests passed, 2
   skipped), production build - all green. Merge commit 8011df1.
 
+## 2026-09-19 - ND-484 revision: uniform footer split at every breakpoint
+
+- Product-owner review of the open PR asked for one layout rule instead
+  of the breakpoint-specific treatment: the Close control should take the
+  whole footer width, and a two-button row should divide the footer in
+  two. Confirmed via question that the even split applies on mobile as
+  well -- the stacked mobile rows are gone.
+- Implementation: the edit row and the create row are now a single
+  `flex w-full gap-2` row with both buttons `flex-1` (even halves); the
+  view-mode Close is `w-full` unconditionally. The responsive
+  `flex-col-reverse sm:flex-row` geometry and the `w-full sm:w-auto`
+  breakpoint switches are gone; every width renders `[primary][dismissal]`
+  as 50/50 halves separated by the 8px gap.
+- Save changes / Create task already rendered the theme-inverted fill
+  (dark on light, light on dark) through the `default` variant -- the
+  existing spec assertions confirmed it, so no change was needed there.
+- Spec: the geometry test now asserts the uniform rule at desktop AND
+  mobile via shared helpers -- a lone control spans the footer's content
+  width (padding-inset on both sides, 40px tall); a two-button row is one
+  row with the dismissal after the primary, the 8px gap, and both halves
+  at `(contentWidth - 8) / 2`.
+- Screenshot verification: 36 fresh shots (tag `rev2`) across
+  view/edit/create x desktop/mobile x light/dark; all show the even split
+  (mobile included) and the full-width Close. Same PR branch, revision
+  commit on top of the original.
+- Validation rerun on the port-3484 production server: `npm run lint`,
+  `npm run rls:check`, `npm test` (1737 passed, 2 skipped),
+  `npm run test:coverage` (93.78/84.46/95.42/94.08, thresholds met),
+  `npm run build`, full Playwright suite 97 passed / 1 skipped / 0
+  failed, `git diff --check` clean.
+- Env gotcha found while rerunning the unit suite: sourcing the worktree
+  `.env` exports the e2e-server-only `TRUSTED_ORIGINS` and
+  `OUTBOUND_EMAIL_DELIVERY_MODE` into vitest, which flips origin/email
+  paths and fails 8 route tests (auth-google x2, auth-google-callback,
+  home-auth-actions x2, project-sharing x2, account-profile) with
+  `http://localhost:3000` vs `http://127.0.0.1:3484` mismatches. Unset
+  both before `npm test`; they are only needed by the manually started
+  production server used for e2e.
+- Local run note: after the 2026-09-19 machine/Docker restart the shared
+  Postgres container (`nexus_dash_task448-postgres-1`, hosting 5432) was
+  stopped; the e2e server also had to be restarted because the previous
+  day's `next start` (PID 26884) had survived its TaskStop and held
+  port 3484.
+
+## 2026-09-19 - ND-484 revision 3: full-bleed inverse action strip
+
+- Second product-owner review asked to try: Close with the inverse color,
+  taking the whole horizontal bottom space of the task modal, no padding
+  around it -- touching the edges -- and two-button views split in half.
+- Implementation in both dialogs (task detail modal + create task dialog):
+  footer padding removed (`p-0`), so the action row touches the dialog
+  edges; the view-mode Close drops its variant and becomes the inverse
+  (`default`) full-bleed bar (`w-full rounded-none`); the edit/create rows
+  are one `flex w-full` row with both actions `flex-1 rounded-none` and no
+  gap, the dismissal keeping a 1px leading divider (`border-0 border-l`) as
+  its seam. Error banners keep an inner margin (`mx-6 mt-4`). DialogContent
+  already clips overflow, so the square strip corners follow the dialog's
+  rounded corners.
+- Spec rework: geometry helpers now assert the strip rule -- a lone control
+  matches the footer box (width, left edge, flush under the 1px top border,
+  flush to the bottom edge, 40px tall); a two-button row asserts exact
+  halves of the footer width, one shared seam with no gap, flush
+  left/right/bottom. `expectFilledPrimary` pins no border + square corners;
+  the outlined-dismissal helper asserts the divider-only leading edge
+  (borderTopWidth 0px, borderLeftWidth 1px, radius 0px). The view Close
+  moved from the outlined to the filled assertion in all three tests.
+- Chromium reports the `primary/90` hover fill as `oklab(...)` (color-mix
+  output), which the spec's rgb luminance parser could not read. The first
+  targeted run caught this (1 failed / 7 passed). `readControlStyles` now
+  normalizes every computed color through a 1x1 canvas in the page
+  (fillStyle + getImageData -> sRGB rgba string), so luminance checks and
+  the raw idle/hover comparisons keep working across serialized color
+  spaces.
+- Screenshot verification (tag `rev3`): 36 shots across view/edit/create x
+  desktop/mobile x light/dark show the inverse Close bar and the exact-half
+  split strips touching the dialog edges, desktop and mobile alike; the
+  revision is back with the product owner for review.
+- Validation rerun on the port-3484 production server: `npm run lint`,
+  `npm run rls:check`, `npm test` (1737 passed, 2 skipped;
+  `TRUSTED_ORIGINS` / `OUTBOUND_EMAIL_DELIVERY_MODE` unset for vitest),
+  `npm run test:coverage` (93.78/84.46/95.42/94.08, thresholds met),
+  `npm run build`, full local Playwright suite 97 passed / 1 skipped / 0
+  failed, `git diff --check` clean.
+
 # 2026-09-19 - ND-138: Modal title and primary button label differentiation
 
 - Claimed live Nexus Dash card ND-138 (external UX feedback task TASK-364,
@@ -8440,6 +8617,454 @@ Low-value entries to avoid going forward:
 - Copilot review: not expected (project owner reports the Copilot quota is
   reached); the PR carries the validation evidence for manual review
   instead.
+
+# 2026-09-19 - ND-136 Inbox vs Notifications naming unification
+
+- Validity assessment: kept open and implemented rather than closed as
+  outdated. The originally reported avatar-menu mismatch ("Inbox" item vs
+  "Notifications" page) was already resolved by TASK-324, but the primary
+  workspace navigation (desktop sidebar and mobile bottom bar) still labeled
+  the `/account/notifications` destination "Inbox" while the page heading,
+  user hub navigation, avatar menu, unread-count accessible names, route,
+  and notification emails all read "Notifications".
+- Standardized on the canonical label "Notifications": `label` and
+  `mobileLabel` in the shell workspace navigation now match every other
+  surface. Long label verified to fit the 390px bottom navigation through the
+  existing responsive shell scenario (no page-level horizontal overflow,
+  44px targets, two-link contract intact).
+- Verified no other user-facing surface carries the alternate label. The
+  remaining repository matches are the user's email-inbox copy on
+  verify-email ("check your inbox", a different semantic, intentionally
+  kept), generic prose in the historical multi-user-collaboration audit,
+  and unrelated test-fixture return paths.
+- Updated shell unit tests, todo-badge test names, the shell e2e selector,
+  and `docs/ui/authenticated-app-shell.md` to the canonical label.
+- Validation (worktree `../nexus_dash_task136`, isolated local Postgres on
+  port 55432, `OUTBOUND_EMAIL_DELIVERY_MODE=disabled`): `npm run lint`,
+  `npm run rls:check`, full unit suite (213 files / 1744 tests passed, 2
+  skipped), coverage at 93.78% statements / 84.46% branches / 95.42%
+  functions / 94.08% lines, production build, and the full Playwright suite
+  (100 passed, 1 skipped) including the 390px shell fit check and the
+  label-based notification detour flows. No schema, service, or RLS change.
+- Copilot review: not expected (project owner reports the Copilot quota is
+  reached); the PR carries the validation evidence for manual review
+  instead.
+- Committed the implementation as `8745c1a`, pushed
+  `fix/nd-136-inbox-notifications-naming`, and opened ready-for-review
+  [PR #547](https://github.com/dorianagaesse/nexus_dash/pull/547).
+- Merge-forward: `origin/main` advanced to 18d2e78 (ND-138, PR #546, modal
+  title vs button label separation). The only conflict was this journal
+  append, resolved by taking main's file and re-appending this entry;
+  ND-138's modal component and e2e spec changes merged cleanly and do not
+  overlap this diff. Merge commit `85a9932`. Re-validated on the merged
+  tree: `npm run lint`, `npm run rls:check`, full unit suite (213 files /
+  1744 tests passed, 2 skipped), production build - all green.
+
+## 2026-09-24 - ND-484 revision 4: revert the strip, invert the Close
+
+- Product review of revision 3 rejected the full-bleed strip ("let's get
+  back to previous design that was way better (previous deploy I mean)")
+  and asked for one change on top of it: the view Close in the inverse
+  color, like Save changes. The strip experiment is out.
+- The three touched files were restored to the revision-2 content
+  (`git restore --source=73d7d8d -- components/kanban/task-detail-modal.tsx
+  components/create-task-dialog.tsx tests/e2e/nd-484-task-modal-footer.spec.ts`),
+  then the single Close color change was applied: the view-mode Close
+  drops the `outline` variant, so it renders the theme-inverted `default`
+  fill as a full-width button inside the padded footer. Two-button rows,
+  padding, gaps, radii, and the outlined Cancel are unchanged from
+  revision 2.
+- Spec: back to the revision-2 geometry helpers (`FOOTER_PADDING` /
+  `ROW_GAP` / `BUTTON_RADIUS`), with the view Close moved from the
+  outlined to the filled assertions (idle + hover; the `primary/90` shift
+  stays on the theme side and the label stays put). The canvas color
+  normalization added in revision 3 is kept -- oklab serialization of
+  opacity-modifier fills is independent of the layout.
+- Screenshot verification (tag `rev4`): 36 shots across view/edit/create x
+  desktop/mobile x light/dark; the view Close shows the inverse fill in
+  the rounded full-width button and the edit/create rows match revision 2
+  exactly.
+- Validation on the port-3484 production server: `npm run lint`,
+  `npm run rls:check`, `npm test` (1737 passed, 2 skipped),
+  `npm run test:coverage` (93.78/84.46/95.42/94.08, thresholds met),
+  `npm run build`, full local Playwright suite 97 passed / 1 skipped / 0
+  failed, `git diff --check` clean.
+- The PR branch had gone stale against `main` (ND-138 / ND-134 / ND-486
+  landed). Merged `origin/main` in (merge commit daf69b1): the only
+  conflict was `journal.md`, resolved by interleaving main's new entries
+  with the ND-484 revision entries in date order; `create-task-dialog.tsx`
+  auto-merged, picking up ND-138's dialog title rename to "New task" with
+  the ND-484 footer markup intact. Validation re-run on the merge: lint,
+  rls:check, unit 1744 passed / 2 skipped, coverage unchanged, build,
+  full Playwright suite 101 passed / 1 skipped / 0 failed, `git diff
+  --check` clean. (A first unit run immediately after the merge reported
+  2 failures with 4 collection errors under heavy machine contention;
+  it did not reproduce in two straight reruns.)
+- `main` advanced again while the PR sat in review (ND-136, PR #547).
+  Merge-forward (merge commit 87d15c9): again only this journal append
+  conflicted, resolved the same way (main's and the ND-484 entries
+  interleaved in date order); the ND-136 shell-navigation label changes
+  auto-merged. Validation re-run on the merged tree: lint, rls:check, unit
+  1744 passed / 2 skipped, coverage unchanged (93.78/84.46/95.42/94.08),
+  build, `git diff --check` clean. Full Playwright suite: a first run hit
+  the known nd-179 offboarding sub-pixel flake (44px target measured
+  43.99994); the file passes in isolation and the suite rerun is green at
+  101 passed / 1 skipped / 0 failed.
+
+# 2026-09-20 - ND-368: Realtime transport kill switch and Preview polling default
+- Claim: ND-368 (epic "Realtime Efficiency and Vercel Cost Control"), implementing
+  the 2026-09-01 ADR (adr/decisions.md) that fixes the design: a runtime
+  transport kill switch plus Preview defaulting away from persistent DB-polled
+  SSE, which is the dominant Vercel Fluid compute cost driver.
+- Implementation: `lib/env.server.ts` gains `getRealtimeTransport()` (values
+  `stream` | `polling`; unset defaults to `polling` on Vercel Preview and
+  `stream` everywhere else; invalid values fail startup through
+  `validateServerRuntimeConfig()`) and `isRealtimeStreamEnabled()`. Both SSE
+  routes (`/api/account/notifications/stream`,
+  `/api/projects/[projectId]/activity/stream`) refuse with a logged 404
+  (`{"error":"not_found"}`, `cache-control: no-store`,
+  `stream.transportDisabled` info record) before auth or database work when
+  the transport resolves to polling. EventSource treats a non-200 response as
+  a permanent failure, so stale client bundles fall back to bounded polling.
+  The resolved transport is plumbed as `streamEnabled` into
+  `AuthenticatedAppShellClient` -> `NotificationLiveUpdates` and the project
+  dashboard -> `ProjectLiveRefresh`, so fresh clients never open a stream.
+- Docs: `.env.example` documents the optional `REALTIME_TRANSPORT`; the Vercel
+  env contract runbook gains a "Realtime Transport" section covering the
+  defaults, the 404 kill-switch behavior, preview validation, and the
+  production rollback steps (set `REALTIME_TRANSPORT=polling` on Production,
+  redeploy or promote, then revert).
+- Tests: resolver defaults/override/invalid-value cases in
+  `tests/lib/env.server.test.ts`; route refusal tests (status, body, headers,
+  no auth or service work, structured log) in both route specs; client gating
+  in `tests/components/notification-live-updates.test.tsx`; new mount-point
+  wiring tests `tests/components/authenticated-app-shell-transport.test.ts`
+  and `tests/app/project-dashboard-live-transport.test.ts`.
+- Validation: `npm run lint`, `npm run rls:check`, unit suite (215 files /
+  1758 tests passed, 2 skipped), coverage thresholds met (statements 93.78%,
+  branches 84.46%, functions 95.42%, lines 94.08%), production build, and the
+  full Playwright suite on an owned verified local server (100 passed / 1
+  skipped). `git diff --check` clean.
+- Preview validation: workflow run 35516773660 (`action=deploy-preview`,
+  explicit `git_ref=fix/nd-368-realtime-transport-kill-switch`); the run log
+  shows the job fetched and checked out that branch ref. Artifact
+  `preview-deployment` URL:
+  `https://nexus-dash-g84aeu81f-dorian-agaesses-projects.vercel.app`.
+  `/api/health/ready` reports environment `preview`, revision `713a27f`; both
+  stream routes return HTTP 404 with `{"error":"not_found"}` and
+  `cache-control: no-store`.
+- Browser validation (Playwright Chromium against the immutable preview URL
+  with a session created directly in the preview database): authenticated
+  shell HTTP 200, project dashboard HTTP 200, zero stream-route requests,
+  zero `text/event-stream` requests, 6 notification-summary polls and 2
+  project-activity polls observed - freshness flows entirely through bounded
+  polling on Preview. Temporary user and project rows cleaned up after the
+  run.
+- Copilot review: not expected (project owner reports the Copilot quota is
+  reached); PR #549 carries the validation evidence for manual review.
+- Commit: 713a27f.
+- Merge-forward: `origin/main` advanced to 18d2e78 (ND-138, PR #546). The only
+  conflict was the journal.md append again, resolved the same way (main's file,
+  then this entry re-appended); ND-138's modal changes and overlay e2e spec
+  merged cleanly. Re-validated on the merged tree: `npm run lint`,
+  `npm run rls:check`, unit suite (1758 passed, 2 skipped), production build -
+  all green. Merge commit 9a3d451.
+- Follow-up preview validation on the merged head: workflow run 35517465328
+  redeployed the branch ref (log confirms the `git_ref` checkout) at revision
+  61e7547. `/api/health/ready` reports environment `preview`, revision
+  `61e7547`; both stream routes return 404; the browser check on
+  https://nexus-dash-9u17t7uhd-dorian-agaesses-projects.vercel.app again shows
+  zero stream-route and zero `text/event-stream` requests with 6 notification
+  and 3 project-activity polls. Temporary rows cleaned up.
+- Second merge-forward: `origin/main` advanced to d05e298 (ND-484 task modal
+  footer redesign, ND-136 notification label, two dependency bumps). The only
+  conflict was the journal.md append again, resolved the same way; the shell
+  client and shell test auto-merges were verified to keep both sides intact.
+  Local re-validation on the merged tree (lint, rls:check, 1758 tests passed,
+  production build) is green. Preview re-validated on the merged head:
+  workflow run 36198258398 checked out the branch `git_ref`;
+  `/api/health/ready` reports `preview` / `bdae25a` at
+  https://nexus-dash-4hd96j4qy-dorian-agaesses-projects.vercel.app; both stream
+  routes return 404 and the browser check again shows zero stream-route and
+  zero `text/event-stream` requests with 6 notification and 3 activity polls.
+  Merge commit bdae25a.
+
+# 2026-10-02 - ND-367: Configure Vercel Pro spend guardrails and environment usage controls
+- Claim: ND-367 (epic "Realtime Efficiency and Vercel Cost Control"), the
+  settings-plus-runbook companion to ND-368. Work split: the Vercel dashboard
+  changes are owner-only (single deploying seat), the repository deliverable
+  is the runbook.
+- Owner settings applied and CLI-verified: a team-level on-demand budget is
+  configured in Vercel Spend Management with notifications at 50/75/100%, and
+  the agreed action is notify-only - auto-pause stays off because pausing
+  production is a hard outage and remains a human decision. Verified with
+  `npx vercel budgets inspect` from the linked main checkout (CLI 62.2.0).
+- Owner-confirmed dashboard settings: Spend Management notifications enabled;
+  deployment retention policy set so pre-production (Preview) deployments
+  expire after one month, applied to existing deployments. Retention is not
+  readable through the CLI or API (arbitrary `vercel api` probes are
+  rejected), so verification is the owner's confirmation under Team Settings,
+  Security & Privacy, Deployment Retention Policy - recorded per the card's
+  Definition Of Done.
+- Deliverable: new `docs/runbooks/vercel-usage-and-spend-guardrails.md` -
+  budget commands and threshold response, usage inspection (`npx vercel usage`
+  grouping and breakdowns, per-route logs), credit behavior on Pro, single
+  deploying seat, taxes/on-demand exposure pointing at Billing settings as the
+  source of truth, Production/Preview operational filtering (including the
+  ND-368 `stream.transportDisabled` signature), and Preview retention plus
+  stale-tab hygiene. Cross-linked from the realtime transport section of
+  `docs/runbooks/vercel-env-contract-and-secrets.md`.
+- Billing hygiene: neither the runbook nor this entry records billing amounts,
+  account identifiers, or secret values; the Vercel dashboard and CLI remain
+  the source of truth for figures.
+- Docs-only change: the lint/test/build baseline is not applicable per
+  agent.md section 6; `git diff --check` is clean.
+- PR: #557 (docs-only, ready for review).
+- Copilot review on #557 (one medium finding): the threshold-response ladder
+  skipped the documented Production rollback (`REALTIME_TRANSPORT=polling`
+  plus redeploy/promote) as the intermediate mitigation before pausing
+  production, and the credit section said the budget "caps" on-demand
+  exposure although the agreed action is notify-only. Both fixed in the
+  runbook on this branch.
+
+## 2026-10-02 - ND-369: Adaptive client polling for live updates
+
+- Claim: ND-369 (epic "Realtime Efficiency and Vercel Cost Control"), following
+  the ND-368 kill switch: with Preview on the polling transport, the client
+  fallback cadence itself (2s focused / 15s hidden per component) is the
+  remaining recurring cost driver, so it is replaced with a bounded adaptive
+  cadence.
+- Design: new shared pure module `lib/adaptive-live-polling.ts`
+  (`MAX_LIVE_POLL_BACKOFF_MS = 60_000`,
+  `resolveAdaptivePollDelayMs({ activeIntervalMs, isHidden, consecutiveFailures })`)
+  returns `null` while the document is hidden (pausing periodic work entirely -
+  the card allows a stop or a 60-120s ceiling), the active interval when
+  healthy, and an exponential backoff on consecutive failures (interval x 2^n)
+  capped at 60s and never below the active interval.
+- Cadences: project activity 10s while visible, notifications 20s while
+  visible (both were 2s before); hidden tabs schedule nothing and resume with
+  an immediate check on `visibilitychange`; the existing `focus` immediate
+  check is unchanged.
+- Both components (`components/project-live-refresh.tsx`,
+  `components/notification-live-updates.tsx`) swap
+  `resolveNextPollIntervalMs` / `BACKGROUND_POLL_INTERVAL_MS` for a shared
+  `scheduleNextPoll()` driven by the resolver, count `consecutiveFailures`
+  (non-ok responses and thrown network errors; aborts excluded; reset on
+  success), and route `visibilitychange` through `handleVisibilityChange`
+  (clear when hidden, immediate poll when visible). Edit-lock deferral,
+  mutation acknowledgement, and typed remote-event reconciliation are
+  untouched; the stream transport path is unaffected (the resolver only drives
+  the polling fallback).
+- Server side: baseline (polling) mode has no server loop - no `setInterval`
+  exists in `app/api` or `lib`; the 1s stream poll constants live only in the
+  SSE routes, which return 404 under the polling transport (ND-368), so the
+  "no server-side 1s loop in baseline mode" criterion holds structurally.
+- Tests: new `tests/lib/adaptive-live-polling.test.ts` (visible / hidden /
+  backoff cap / floor cases); both component specs gain a bounded
+  visible-default-cadence case, a hidden-pause-and-resume case, and a
+  failure-backoff case (23/23 targeted tests pass). Validation: `npm run lint`,
+  `npm run rls:check`, full unit suite (1767 passed, 2 skipped), coverage
+  thresholds met (93.78/84.46/95.42/94.08), production build,
+  `git diff --check` clean.
+- E2E: the local run is blocked by the environment - Docker Desktop's engine is
+  down (`docker ps` fails with "Docker Desktop is unable to start",
+  `com.docker.service` is stopped and needs an elevated start, direct pg
+  connections to 127.0.0.1:5432 time out), so the local Postgres is
+  unreachable and every spec times out in `beforeEach` signing in. The same
+  full suite runs in CI (`e2e-smoke` job runs `npm run test:e2e`); the PR CI
+  result is the E2E evidence.
+- Preview validation: workflow run 37039131338 (`action=deploy-preview`,
+  explicit `git_ref=feature/nd-369-adaptive-client-polling`); artifact
+  `preview-deployment` URL
+  `https://nexus-dash-e4u63bjlj-dorian-agaesses-projects.vercel.app`.
+  `/api/health/ready` reports environment `preview`, revision `451e85d`; both
+  stream routes return 404 under the polling transport default.
+- Browser telemetry (Playwright Chromium against the immutable preview URL,
+  session seeded directly in the preview DB): authenticated shell HTTP 200 and
+  project dashboard HTTP 200; 4 project-activity polls in a 45s visible window
+  (intervals 10.8 / 11.2 / 11.2s); 2 notification polls (interval 22.7s); zero
+  requests during a 25s hidden window (document.hidden and visibilityState
+  overridden plus a dispatched `visibilitychange`, exercising the component
+  handler); 2 immediate requests within 2.5s of returning visible; zero
+  stream-route and zero `text/event-stream` requests. Temporary user and
+  project rows cleaned up and verified absent afterwards.
+- Commit `451e85d`, PR #558.
+- Merge-forward after ND-367 (PR #557) merged as `b5ee135`: only `journal.md`
+  conflicted, resolved by taking main's file and re-appending this entry. The
+  merged-in runbook stated the old cadence ("every 2 seconds while the tab is
+  focused and every 15 seconds once it is hidden"); that sentence now reads the
+  adaptive numbers (10s activity / 20s notifications visible, nothing hidden,
+  immediate resume, backoff capped at 60s). The merge is docs-only, so the code
+  tree and its validation are unchanged.
+- Copilot review on #558 (four comments, two findings present in both
+  components): (1) a queued immediate check could still fire after the
+  in-flight request settled if the tab had gone hidden meanwhile - the settle
+  path now evaluates `pollAgainAfterCurrent && !isDocumentHidden()`, so a
+  hidden tab schedules nothing while the next visible `visibilitychange`
+  still polls immediately; (2) a thrown `response.json()` reset the failure
+  counter before the catch incremented it, pinning the backoff at the first
+  level instead of escalating - the counter now resets only after the parse
+  resolves. Regression tests added for both findings in both component specs
+  (27/27 targeted tests pass); the four threads were answered and resolved.
+  Fix commit `766c7db`.
+- Re-validation on the fix head: `npm run test:coverage` (1771 passed, 2
+  skipped; thresholds met at 93.78/84.46/95.42/94.08) and `npm run build` -
+  green.
+- Final-head preview validation: workflow run 37040070112 (same explicit
+  `git_ref`), revision `766c7db` at
+  `https://nexus-dash-ccbrkjnvb-dorian-agaesses-projects.vercel.app`. The
+  telemetry rerun matches the first pass: 4 project-activity polls in 45s
+  (intervals 10.8 / 10.8 / 11.3s), 2 notification polls (interval 21s), zero
+  requests in the 25s hidden window, 2 immediate requests within 2.5s of
+  returning visible, zero stream-route and zero `text/event-stream` requests.
+  Temporary rows cleaned up.
+
+## 2026-10-02 - ND-370: Coordinate live refresh across browser tabs
+
+- Claim: ND-370 (epic "Realtime Efficiency and Vercel Cost Control"), following
+  ND-369: with Preview on the polling transport, every open tab still runs its
+  own poll loop, so a user with the dashboard open in three tabs pays three
+  times. The card asks for at most one active poller per scope, snapshot
+  sharing across same-origin tabs, per-project coordination, leader handoff,
+  and a safe path for browsers without tab-coordination APIs.
+- Design: new `lib/tab-leader-coordinator.ts` - a leader/lease coordinator over
+  `BroadcastChannel("nexusdash-tab-leader:" + scope)`. Messages are
+  `probe` / `heartbeat` / `resign` / `request-refresh` / `data`; a leader
+  heartbeats every 4s and holds a 12s lease, followers wait a 200-600ms jitter
+  before claiming a free lease, higher terms win and equal terms are broken by
+  tab id (loser steps down). Followers receive snapshots through `data`
+  messages instead of fetching; `requestRefresh()` routes focus-driven
+  refreshes to the leader. Hidden tabs resign leadership, stop all timers, and
+  ignore every message; becoming visible again probes and claims. Browsers
+  without `BroadcastChannel` become standalone leaders immediately, so the
+  feature fails safe into the pre-ND-370 behavior.
+- Scope: the project dashboard coordinates per `project:${projectId}` and the
+  notification bell uses the `notifications` scope, so unrelated surfaces never
+  contend for one leader. Only the polling-fallback path is coordinated - the
+  SSE stream path is untouched (and retired by ND-373/374 in any case).
+- Integration: both `components/project-live-refresh.tsx` and
+  `components/notification-live-updates.tsx` create the coordinator inside the
+  polling-fallback effect; a `isPollingLeader` closure gates
+  `scheduleNextPoll()` / `clearScheduledPoll()`, successful polls call
+  `coordinator.publish(...)`, `visibilitychange` calls
+  `coordinator.setVisible(...)`, and focus-driven immediate polls delegate to
+  `coordinator.requestRefresh()` when the tab is a follower. Visible behavior
+  change: a lone tab now starts polling after its election jitter (~0.2-0.6s)
+  instead of waiting a full interval; in exchange, extra tabs add no polling
+  traffic and apply shared snapshots immediately.
+- Tests: new `tests/lib/tab-leader-coordinator.test.ts` (10 cases: standalone
+  leadership, lone-tab claim timing, two-tab election and data flow, heartbeat
+  lease persistence, resign handoff on stop, silence-driven re-election after
+  lease expiry, visibility suspend/resume, malformed/foreign/own/stale message
+  rejection, same-term tie-break, stop cleanup) with a new deterministic
+  `tests/helpers/mock-broadcast-channel.ts` bus. Both component specs gain
+  three multi-tab cases each (single coordinated cadence, takeover when the
+  leader tab closes, hidden pause and single resumed checker) using mocked
+  `Math.random` jitter sequences; the standalone specs pin
+  `BroadcastChannel` to `undefined` because the vitest/jsdom environment leaks
+  Node's implementation.
+- Validation: `npm run lint`, `npm run rls:check`, full unit suite (1787
+  passed, 2 skipped - 16 new tests over ND-369's 1771), coverage thresholds
+  met (93.78/84.46/95.42/94.08), production build, `git diff --check` clean.
+- E2E: the local run is still blocked by the down Docker engine (same
+  environment limitation as ND-369); the PR's CI `e2e-smoke` result is the E2E
+  evidence.
+- Preview validation: workflow run 37066010878 (`action=deploy-preview`,
+  explicit `git_ref=feature/nd-370-cross-tab-coordination`); artifact
+  `preview-deployment` URL
+  `https://nexus-dash-oa0ciwib4-dorian-agaesses-projects.vercel.app`;
+  `/api/health/ready` reports environment `preview`, revision `dc3d7d6`.
+- Multi-tab browser telemetry (Playwright Chromium, two tabs against the
+  immutable preview URL, session seeded directly in the preview DB): both
+  dashboards load HTTP 200; in a 45s steady window the leading tab polls
+  project activity 4 times (intervals 11.2 / 10.9 / 11.2s) and notifications
+  twice while the follower tab polls neither (0 / 0); a task created through
+  the API triggers the shared refresh - 0 follower activity polls but 1
+  follower router refresh in the following 15s; closing the leader tab hands
+  activity polling over (2 polls in 20s, interval 10.8s); the remaining tab
+  makes 0 requests during a 25s hidden window and resumes within 2.5s of
+  becoming visible; zero stream-route requests from either tab; temporary
+  rows cleaned up and verified absent.
+- Copilot review on #560 (three findings): (1) both components started the
+  coordinator without syncing the current visibility, so a component mounted
+  into an already-hidden document could win the lease and keep heartbeating
+  while its own scheduler suppressed polls - the start path now calls
+  `coordinator.setVisible(!isDocumentHidden())` right after `start()`
+  (no-op when visible; silences and clears the claim when hidden);
+  (2) `parseTabLeaderMessage` accepted any `typeof term === "number"`, so
+  `NaN` slipped past both term comparisons (reaching the tie-break path) and
+  `Infinity` could poison `knownTerm` - the boundary check now requires
+  `Number.isInteger`. Regression tests: the malformed-message lib case gains
+  `NaN` / `Infinity` / `1.5` heartbeats with a higher tab id, and each
+  component spec gains a hidden-at-mount case that observes the leader bus and
+  asserts no heartbeat is ever posted (mutation-checked: both tests fail with
+  the component fix reverted).
+- Re-validation on the fix head: `npm run lint`, `npm run rls:check`, full
+  unit suite (1789 passed, 2 skipped), coverage thresholds met
+  (93.78/84.46/95.42/94.08), production build, `git diff --check` clean.
+- Final-head preview validation: workflow run 37068013539 (same explicit
+  `git_ref`), revision `1a4b5d6` at
+  `https://nexus-dash-i1egdzq8w-dorian-agaesses-projects.vercel.app`. The
+  multi-tab telemetry rerun matches the first pass: 4 leader activity polls in
+  45s (intervals 11.4 / 10.9 / 11.2s) and 2 notification polls against 0 on
+  the follower, the follower applied the shared refresh after a task mutation
+  with 0 polls, takeover after the leader tab closed (interval 11.3s),
+  0 requests in the 25s hidden window, immediate resume, zero stream-route
+  requests, temporary rows cleaned up.
+- Owner review follow-up on #560: a tab mounted while already hidden still
+  broadcast one `probe` from `start()` before its visibility was synced, and a
+  live leader answers a probe with an immediate poll - so the hidden tab made
+  the leader spend one extra request. Fixed by making startup visibility
+  declarative: the coordinator options gain `initialVisible` and `start()`
+  only probes/claims when visible (both components pass
+  `initialVisible: !isDocumentHidden()` and drop the post-start `setVisible`
+  call). Regression tests: a new lib case asserts that a hidden tab starting
+  beside a live leader leaves the leader's `onRefreshRequest` count and the
+  bus untouched, and the two hidden-at-mount component tests now assert the
+  bus hears nothing at all (previously they only ruled out heartbeats); all
+  three fail with the start-time guard reverted.
+- Re-validation on this head: `npm run lint`, `npm run rls:check`, full unit
+  suite (1790 passed, 2 skipped), coverage thresholds met
+  (93.78/84.46/95.42/94.08), production build, `git diff --check` clean.
+- Review-fix-head preview validation: workflow run 37081202033 (same explicit
+  `git_ref`), revision `b90a3d0` at
+  `https://nexus-dash-54q0wbltt-dorian-agaesses-projects.vercel.app`. The
+  multi-tab telemetry again matches: 4 leader activity polls in 45s (intervals
+  10.8 / 10.8 / 11.3s) and 2 notification polls against 0 on the follower,
+  follower applied the shared refresh after a task mutation with 0 polls,
+  takeover after the leader closed (interval 10.8s), 0 requests in the 25s
+  hidden window, immediate resume, zero stream-route requests, temporary rows
+  cleaned up.
+
+# 2026-09-20 - ND-428 save-latency audit
+
+- Moved ND-428 to In Progress and created the dedicated
+  `chore/nd-428-save-latency-audit` worktree from `origin/main` after reviewing
+  the full save-performance/autosave epic. ND-432 is the only completed epic
+  task; its accepted ADR gates network live save on ND-428/ND-429 latency,
+  database-load, revision, and coalescing evidence.
+- Captured a repeatable production-build baseline with Playwright Chromium,
+  RLS-enabled application transactions, local PostgreSQL 16, three warm-ups,
+  and 20 measured saves per path. Local p95 results: task create 86.1 ms, task
+  edit 62.2 ms, meeting create 73.9 ms, meeting preparation 70.2 ms, meeting
+  output with ten new todos 82.2 ms, meeting output with ten existing todos
+  149.3 ms, roadmap phase create/edit 34.6/32.8 ms, roadmap event create/edit
+  31.5/26.1 ms, and new-milestone-plus-event create 45.5 ms.
+- An instrumented RLS service pass counted the mutation and activity SQL work:
+  task create/edit 27/28 statements; meeting create/preparation 36/42;
+  meeting output with ten new/existing todos 43/62; roadmap phase create/edit
+  9/9; roadmap event create/edit 11/10. Temporary measurement instrumentation
+  and audit specs were removed after recording the results.
+- Root cause: task and meeting saves amplify remote database RTT through
+  serialized aggregate reads/writes plus a second RLS transaction for typed
+  activity. Meeting-note updates also rewrite unchanged persisted todos and
+  load actor data repeatedly. Roadmap mutations are already cheap locally;
+  their dominant user-perceived cost is the unconditional broad
+  `router.refresh()` after local response reconciliation.
+- Added `docs/audits/nd-428-save-latency-audit.md` with per-surface findings,
+  local and preview p95 targets, SQL budgets, an ordered ND-429 fix plan, and
+  the conclusion that ND-432 network live save remains gated pending revisions
+  and coalescing in addition to performance remediation.
 
 # 2026-09-20 - ND-429 save-latency remediation
 

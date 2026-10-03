@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 import {
@@ -7,7 +7,6 @@ import {
 } from "./helpers/project-helpers";
 
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
-const TRANSPARENT = "rgba(0, 0, 0, 0)";
 
 function openDialog(page: Page) {
   return page.locator('[role="dialog"][data-state="open"]').first();
@@ -68,63 +67,6 @@ async function expectFocusOnCard(page: Page, taskId: string) {
       )
     )
     .toBe(taskId);
-}
-
-async function applyTheme(page: Page, theme: "light" | "dark") {
-  await page.evaluate((nextTheme) => {
-    window.localStorage.setItem("nexusdash-theme", nextTheme);
-    document.documentElement.classList.toggle("dark", nextTheme === "dark");
-  }, theme);
-}
-
-function relativeLuminance(color: string) {
-  const match = color.match(/rgba?\(([^)]+)\)/i);
-  expect(match, `expected an rgb color, received "${color}"`).not.toBeNull();
-
-  const [r, g, b] = match![1]
-    .split(",")
-    .slice(0, 3)
-    .map((channel) => {
-      const normalized = Number.parseFloat(channel) / 255;
-      return normalized <= 0.03928
-        ? normalized / 12.92
-        : ((normalized + 0.055) / 1.055) ** 2.4;
-    });
-
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-function readControlStyles(locator: Locator) {
-  return locator.evaluate((element) => {
-    const styles = window.getComputedStyle(element);
-    return {
-      background: styles.backgroundColor,
-      text: styles.color,
-      borderTopWidth: styles.borderTopWidth,
-      borderTopColor: styles.borderTopColor,
-    };
-  });
-}
-
-function isDark(color: string) {
-  return relativeLuminance(color) < 0.1;
-}
-
-// The buttons animate their colors, so the settled fill is polled rather than
-// sampled once right after a theme or hover change.
-function expectSettledControl(locator: Locator) {
-  return expect.poll(async () => {
-    const { background, text } = await readControlStyles(locator);
-    return {
-      background:
-        background === TRANSPARENT
-          ? "transparent"
-          : isDark(background)
-            ? "dark"
-            : "light",
-      text: isDark(text) ? "dark" : "light",
-    };
-  });
 }
 
 test.describe("ND-465 Kanban task Cancel", () => {
@@ -218,148 +160,6 @@ test.describe("ND-465 Kanban task Cancel", () => {
 
     await expect(page.locator('[role="dialog"][data-state="open"]')).toHaveCount(0);
     await expectFocusOnCard(page, taskId);
-  });
-
-  test("dismissals stay ghost on desktop across themes", async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await setupProject(page, "desktop-theme");
-    await applyTheme(page, "light");
-
-    // The create dialog's Cancel is a plain ghost button on desktop.
-    await page.getByRole("button", { name: "New task" }).first().click();
-    const createCancel = modalButton(page, "Cancel");
-    await expect(createCancel).toBeVisible();
-    const createCancelStyles = await readControlStyles(createCancel);
-    expect(createCancelStyles.background).toBe(TRANSPARENT);
-    expect(createCancelStyles.borderTopWidth).toBe("0px");
-    await createCancel.click();
-    await expect(page.locator('[role="dialog"][data-state="open"]')).toHaveCount(0);
-
-    const card = await createTask(page, "nd465 desktop theme target");
-    await card.click();
-
-    const closeBar = modalButton(page, "Close");
-    await expect(closeBar).toBeVisible();
-    await expect(modalButton(page, "Cancel")).toHaveCount(0);
-
-    // The view-mode dismissal is still a full-bleed bar across the dialog
-    // footer; only its fill is breakpoint-bound.
-    const dialogBox = await openDialog(page).boundingBox();
-    const barBox = await closeBar.boundingBox();
-    expect(dialogBox).not.toBeNull();
-    expect(barBox).not.toBeNull();
-    expect(barBox!.width / dialogBox!.width).toBeGreaterThan(0.98);
-
-    for (const theme of ["light", "dark"] as const) {
-      await applyTheme(page, theme);
-      // Park the pointer so the idle fill is measured, not the hover fill.
-      await page.mouse.move(2, 2);
-
-      // Idle: unfilled, with the theme's foreground label.
-      await expectSettledControl(closeBar).toEqual({
-        background: "transparent",
-        text: theme === "light" ? "dark" : "light",
-      });
-
-      // Hover: the subtle accent fill, not the inverted foreground surface.
-      await closeBar.hover();
-      await expectSettledControl(closeBar).toEqual({
-        background: theme === "light" ? "light" : "dark",
-        text: theme === "light" ? "dark" : "light",
-      });
-    }
-
-    await applyTheme(page, "light");
-    await page.mouse.move(2, 2);
-    await enterEditMode(page);
-    const cancel = modalButton(page, "Cancel");
-    await expect(cancel).toBeVisible();
-
-    // Cancel stays ghost, so the filled primary action beside it is the only
-    // solid surface in the row.
-    const saveStyles = await readControlStyles(modalButton(page, "Save changes"));
-    expect(isDark(saveStyles.background)).toBe(true);
-
-    for (const theme of ["light", "dark"] as const) {
-      await applyTheme(page, theme);
-      await page.mouse.move(2, 2);
-
-      // Idle: unfilled and borderless on desktop.
-      await expectSettledControl(cancel).toEqual({
-        background: "transparent",
-        text: theme === "light" ? "dark" : "light",
-      });
-      const idle = await readControlStyles(cancel);
-      expect(idle.borderTopWidth).toBe("0px");
-
-      await cancel.hover();
-      await expectSettledControl(cancel).toEqual({
-        background: theme === "light" ? "light" : "dark",
-        text: theme === "light" ? "dark" : "light",
-      });
-    }
-  });
-
-  test("dismissals invert with the theme on mobile", async ({ page }) => {
-    await page.setViewportSize(MOBILE_VIEWPORT);
-    await setupProject(page, "mobile-theme");
-    await applyTheme(page, "light");
-
-    // The create dialog's Cancel becomes an outlined dismissal in the sheet.
-    await page.getByRole("button", { name: "New task" }).first().click();
-    const createCancel = modalButton(page, "Cancel");
-    await expect(createCancel).toBeVisible();
-    const createCancelStyles = await readControlStyles(createCancel);
-    expect(createCancelStyles.background).toBe(TRANSPARENT);
-    expect(createCancelStyles.borderTopWidth).toBe("1px");
-    await createCancel.click();
-    await expect(page.locator('[role="dialog"][data-state="open"]')).toHaveCount(0);
-
-    const card = await createTask(page, "nd465 mobile theme target");
-    await card.click();
-
-    const closeBar = modalButton(page, "Close");
-    await expect(closeBar).toBeVisible();
-
-    for (const theme of ["light", "dark"] as const) {
-      await applyTheme(page, theme);
-
-      // Dark bar with a light label in the light theme, and the reverse in
-      // the dark theme.
-      await expectSettledControl(closeBar).toEqual({
-        background: theme === "light" ? "dark" : "light",
-        text: theme === "light" ? "light" : "dark",
-      });
-    }
-
-    await applyTheme(page, "light");
-    await enterEditMode(page);
-    const cancel = modalButton(page, "Cancel");
-    await expect(cancel).toBeVisible();
-
-    for (const theme of ["light", "dark"] as const) {
-      await applyTheme(page, theme);
-      // Park the pointer so the idle fill is measured, not the hover fill.
-      await page.mouse.move(2, 2);
-
-      // Idle: unfilled outline with the theme's foreground label and a
-      // visible border.
-      await expectSettledControl(cancel).toEqual({
-        background: "transparent",
-        text: theme === "light" ? "dark" : "light",
-      });
-
-      const idle = await readControlStyles(cancel);
-      expect(idle.borderTopWidth).toBe("1px");
-      expect(idle.borderTopColor).not.toBe(TRANSPARENT);
-
-      // Hover: fills with the same inverted surface as the Close bar.
-      await cancel.hover();
-      await expectSettledControl(cancel).toEqual({
-        background: theme === "light" ? "dark" : "light",
-        text: theme === "light" ? "light" : "dark",
-      });
-    }
   });
 
   test("mobile sheet Cancel closes the task UI on tap in create and edit flows", async ({

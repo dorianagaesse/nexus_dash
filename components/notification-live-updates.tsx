@@ -6,9 +6,10 @@ import {
   publishNotificationRealtimeSnapshot,
 } from "@/lib/notification-realtime-client";
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
+import { resolveAdaptivePollDelayMs } from "@/lib/adaptive-live-polling";
+import { createTabLeaderCoordinator } from "@/lib/tab-leader-coordinator";
 
-const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 2000;
-const BACKGROUND_POLL_INTERVAL_MS = 15000;
+const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 20000;
 
 interface NotificationLiveUpdatesProps {
   initialSnapshot: NotificationRealtimeSnapshot;
@@ -21,14 +22,6 @@ function canUseNotificationStream(): boolean {
     typeof window !== "undefined" &&
     typeof window.EventSource === "function"
   );
-}
-
-function resolveNextPollIntervalMs(activePollIntervalMs: number): number {
-  if (typeof document !== "undefined" && document.hidden) {
-    return Math.max(BACKGROUND_POLL_INTERVAL_MS, activePollIntervalMs * 4);
-  }
-
-  return activePollIntervalMs;
 }
 
 function isSnapshotChanged(
@@ -131,6 +124,8 @@ export function NotificationLiveUpdates({
     let controller: AbortController | null = null;
     let isPolling = false;
     let pollAgainAfterCurrent = false;
+    let isPollingLeader = false;
+    let consecutiveFailures = 0;
 
     function clearScheduledPoll() {
       if (!timeoutId) {
@@ -141,13 +136,32 @@ export function NotificationLiveUpdates({
       timeoutId = null;
     }
 
-    function schedulePoll(delayMs = resolveNextPollIntervalMs(pollIntervalMs)) {
+    function isDocumentHidden() {
+      return typeof document !== "undefined" && document.hidden;
+    }
+
+    function schedulePoll(delayMs: number) {
       clearScheduledPoll();
       timeoutId = setTimeout(pollNotifications, delayMs);
     }
 
-    function requestImmediatePoll() {
-      if (typeof document !== "undefined" && document.hidden) {
+    function scheduleNextPoll() {
+      const delayMs = resolveAdaptivePollDelayMs({
+        activeIntervalMs: pollIntervalMs,
+        isHidden: isDocumentHidden(),
+        consecutiveFailures,
+      });
+
+      if (delayMs === null) {
+        clearScheduledPoll();
+        return;
+      }
+
+      schedulePoll(delayMs);
+    }
+
+    function requestLeaderPoll() {
+      if (isDocumentHidden()) {
         return;
       }
 
@@ -157,6 +171,49 @@ export function NotificationLiveUpdates({
       }
 
       schedulePoll(0);
+    }
+
+    const coordinator = createTabLeaderCoordinator<NotificationRealtimeSnapshot>({
+      scope: "notifications",
+      initialVisible: !isDocumentHidden(),
+      onRoleChange(isLeader) {
+        isPollingLeader = isLeader;
+        if (isLeader) {
+          scheduleNextPoll();
+        } else {
+          clearScheduledPoll();
+        }
+      },
+      onData(snapshot) {
+        handleSnapshot(snapshot);
+      },
+      onRefreshRequest() {
+        requestLeaderPoll();
+      },
+    });
+
+    function requestImmediatePoll() {
+      if (isDocumentHidden()) {
+        return;
+      }
+
+      if (!isPollingLeader) {
+        coordinator.requestRefresh();
+        return;
+      }
+
+      requestLeaderPoll();
+    }
+
+    function handleVisibilityChange() {
+      if (isDocumentHidden()) {
+        coordinator.setVisible(false);
+        clearScheduledPoll();
+        return;
+      }
+
+      coordinator.setVisible(true);
+      requestImmediatePoll();
     }
 
     async function pollNotifications() {
@@ -172,38 +229,49 @@ export function NotificationLiveUpdates({
         });
 
         if (!response.ok) {
+          consecutiveFailures += 1;
           return;
         }
 
-        handleSnapshot((await response.json()) as NotificationRealtimeSnapshot);
+        const snapshot = (await response.json()) as NotificationRealtimeSnapshot;
+        consecutiveFailures = 0;
+        handleSnapshot(snapshot);
+        coordinator.publish(snapshot);
       } catch (error) {
         if ((error as { name?: string }).name === "AbortError") {
           return;
         }
 
+        consecutiveFailures += 1;
         console.warn("[NotificationLiveUpdates.poll]", error);
       } finally {
         isPolling = false;
         if (!cancelled) {
-          if (pollAgainAfterCurrent) {
-            pollAgainAfterCurrent = false;
+          const shouldPollImmediately =
+            pollAgainAfterCurrent && !isDocumentHidden() && isPollingLeader;
+          pollAgainAfterCurrent = false;
+
+          if (shouldPollImmediately) {
             schedulePoll(0);
+          } else if (isPollingLeader) {
+            scheduleNextPoll();
           } else {
-            schedulePoll();
+            clearScheduledPoll();
           }
         }
       }
     }
 
-    schedulePoll();
-    document.addEventListener("visibilitychange", requestImmediatePoll);
+    coordinator.start();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", requestImmediatePoll);
 
     return () => {
       cancelled = true;
+      coordinator.stop();
       clearScheduledPoll();
       controller?.abort();
-      document.removeEventListener("visibilitychange", requestImmediatePoll);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", requestImmediatePoll);
     };
   }, [handleSnapshot, isPollingFallbackActive, pollIntervalMs]);
@@ -214,5 +282,4 @@ export function NotificationLiveUpdates({
 export const notificationLiveUpdatesInternals = {
   canUseNotificationStream,
   isSnapshotChanged,
-  resolveNextPollIntervalMs,
 };

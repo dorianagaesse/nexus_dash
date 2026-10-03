@@ -556,39 +556,31 @@ export function TaskDetailModal({
             </CardContent>
             <CardFooter
               data-calendar-popover-footer-boundary="true"
-              className={cn(
-                "shrink-0 border-t border-border/60 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/90",
-                isEditing ? "px-6 pb-6 pt-4" : "p-0"
-              )}
+              className="shrink-0 border-t border-border/60 bg-card/95 px-6 pb-6 pt-4 backdrop-blur supports-[backdrop-filter]:bg-card/90"
             >
-              <div className={cn("flex w-full flex-col", isEditing ? "gap-3" : "gap-2")}>
+              <div className="flex w-full flex-col gap-3">
                 {taskModalError ? (
-                  <div
-                    className={cn(
-                      "rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive",
-                      !isEditing && "mx-6 mt-4"
-                    )}
-                  >
+                  <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                     {taskModalError}
                   </div>
                 ) : null}
 
                 {isEditing ? (
-                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                  <div className="flex w-full gap-2">
                     <Button
                       type="button"
                       onClick={() => void onSaveTask()}
                       disabled={isUpdatingTask}
-                      className="w-full sm:w-auto"
+                      className="flex-1"
                     >
                       {isUpdatingTask ? "Saving..." : "Save changes"}
                     </Button>
                     <Button
                       type="button"
-                      variant="mobile-inverted-outline"
+                      variant="outline"
                       onClick={onClose}
                       disabled={isUpdatingTask}
-                      className="w-full sm:w-auto"
+                      className="flex-1"
                     >
                       Cancel
                     </Button>
@@ -596,10 +588,9 @@ export function TaskDetailModal({
                 ) : (
                   <Button
                     type="button"
-                    variant="mobile-inverted"
                     onClick={onClose}
                     disabled={isUpdatingTask}
-                    className="w-full rounded-none"
+                    className="w-full"
                   >
                     Close
                   </Button>

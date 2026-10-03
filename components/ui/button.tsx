@@ -17,18 +17,6 @@ const buttonVariants = cva(
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
-        // Dismissal surfaces that invert against the theme (dark in the light
-        // theme, light in the dark theme) on mobile widths only: the bottom
-        // sheet reads as a native action row there, while the same fill
-        // across a desktop dialog footer is too heavy -- above `sm` both
-        // variants fall back to `ghost`. `mobile-inverted` is the solid
-        // surface (full-bleed close rows); `mobile-inverted-outline` fills in
-        // only on hover so a dismissal beside a filled primary action never
-        // reads as a second primary.
-        "mobile-inverted":
-          "hover:bg-accent hover:text-accent-foreground max-sm:bg-foreground max-sm:text-background max-sm:hover:bg-foreground/90",
-        "mobile-inverted-outline":
-          "hover:bg-accent hover:text-accent-foreground max-sm:border max-sm:border-foreground/40 max-sm:bg-transparent max-sm:text-foreground max-sm:hover:bg-foreground max-sm:hover:text-background",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

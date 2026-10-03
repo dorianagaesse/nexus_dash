@@ -4,6 +4,8 @@ import {
   getAgentProjectAccessContext,
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
+import { isRealtimeStreamEnabled } from "@/lib/env.server";
+import { logServerInfo } from "@/lib/observability/logger";
 import {
   encodeServerSentEvent,
   sleepWithAbort,
@@ -116,6 +118,18 @@ export async function GET(
   request: NextRequest,
   props: { params: Promise<{ projectId: string }> }
 ) {
+  if (!isRealtimeStreamEnabled()) {
+    logServerInfo(
+      "GET /api/projects/[projectId]/activity/stream.transportDisabled",
+      "Realtime stream refused because the transport is set to polling",
+      { transport: "polling" }
+    );
+    return NextResponse.json(
+      { error: "not_found" },
+      { status: 404, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
   const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {

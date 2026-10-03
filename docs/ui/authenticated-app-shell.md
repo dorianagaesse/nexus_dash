@@ -1,7 +1,7 @@
 # Authenticated App Shell
 
 The shared shell wraps all `/projects/**` and `/account/**` routes. It provides
-the primary workspace destinations (Projects and Inbox), semantic
+the primary workspace destinations (Projects and Notifications), semantic
 current-location state, theme/account utilities, safe contextual returns, and
 reserved mobile space for fixed navigation. Account, Settings, logout, and
 diagnostics remain available from the user avatar menu instead of competing with
