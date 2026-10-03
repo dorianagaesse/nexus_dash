@@ -200,10 +200,10 @@ as zero in the endpoint snapshot even while stream requests are being refused.
 The stream function's own `realtime.metrics` records carry those counters (a
 refusal logs one attributed to the stream request path, with stream-only
 counters and zero poll counters), so read stream counters from the log
-records, not the snapshot. Verified on Preview revision `009ead9`: a refused
-stream request returned 404, the API function's snapshot stayed at
-`stream.refused 0`, and the stream function logged
-`realtime.metrics ... stream.refused 1`.
+records, not the snapshot. Observed on Preview: a refused stream request
+returned 404, the API function's snapshot stayed at `stream.refused 0`, while
+the stream function's log record showed `realtime.metrics ... stream.refused
+1`.
 
 Attribution recipes:
 
