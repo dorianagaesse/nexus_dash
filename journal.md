@@ -9102,4 +9102,11 @@ Low-value entries to avoid going forward:
   harness 20/20 (notification counters attributed to the summary route,
   `scope: instance` present, `stream.refused` still carried by the stream
   function's own `realtime.metrics` record).
+- CI-only test failure fixed on the review-fix head: GitHub Actions exports
+  `GITHUB_SHA`, so `getAppMetadataSummary()` resolves a revision there and
+  the two tests that asserted `revision: null` failed only in CI. The flush
+  test now stubs `COMMIT_SHA` and asserts the shortened revision flows into
+  the log record; the observability route test stubs all revision sources
+  empty for a deterministic `null`. Full suite re-run with `GITHUB_SHA` set
+  to simulate CI: 1812 passed, 2 skipped.
 - PR: #562.

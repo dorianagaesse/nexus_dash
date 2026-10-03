@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { NextResponse } from "next/server";
 
 const apiGuardMock = vi.hoisted(() => ({
@@ -25,10 +25,17 @@ describe("observability realtime metrics route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetRealtimeMetricsForTests();
+    vi.stubEnv("COMMIT_SHA", "");
+    vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "");
+    vi.stubEnv("GITHUB_SHA", "");
     apiGuardMock.requireAuthenticatedApiUser.mockResolvedValue({
       ok: true,
       userId: "user-1",
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   test("returns the aggregate telemetry snapshot for authorized principals", async () => {

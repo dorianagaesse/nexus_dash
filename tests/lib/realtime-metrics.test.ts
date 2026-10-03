@@ -83,6 +83,7 @@ describe("realtime metrics registry", () => {
   test("flushes a throttled structured snapshot on deployments", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("COMMIT_SHA", "abc1234def5678");
 
     recordRealtimeCounter("activity.snapshotChecks");
 
@@ -92,7 +93,7 @@ describe("realtime metrics registry", () => {
       "Realtime metrics snapshot",
       {
         environment: "preview",
-        revision: null,
+        revision: "abc1234",
         transport: "polling",
         scope: "instance",
         counters: expect.objectContaining({ "activity.snapshotChecks": 1 }),
