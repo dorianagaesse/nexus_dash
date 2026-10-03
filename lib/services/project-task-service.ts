@@ -346,7 +346,7 @@ async function loadTaskMutationPayload(
   db: DbClient,
   projectId: string,
   taskId: string,
-  hasEpic: boolean
+  hasEpic = true
 ): Promise<UpdatedTaskPayload | null> {
   const task = await db.task.findUnique({
     where: { id: taskId },
