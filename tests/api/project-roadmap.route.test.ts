@@ -258,6 +258,7 @@ describe("project roadmap routes", () => {
     roadmapServiceMock.createProjectRoadmapPhase.mockResolvedValueOnce({
       ok: true,
       data: {
+        activityVersion: new Date("2026-04-23T08:00:00.000Z"),
         phase: {
           id: "phase-1",
           title: "Launch",
@@ -288,6 +289,9 @@ describe("project roadmap routes", () => {
     );
 
     expect(response.status).toBe(201);
+    expect(response.headers.get("x-nexusdash-project-version")).toBe(
+      "2026-04-23T08:00:00.000Z"
+    );
     await expect(readJson(response)).resolves.toEqual({
       phase: {
         id: "phase-1",
@@ -308,6 +312,7 @@ describe("project roadmap routes", () => {
     roadmapServiceMock.createProjectRoadmapPhase.mockResolvedValueOnce({
       ok: true,
       data: {
+        activityVersion: new Date("2026-04-23T08:00:00.000Z"),
         phase: {
           id: "phase-agent",
           title: "Agent phase",
@@ -411,6 +416,7 @@ describe("project roadmap routes", () => {
     roadmapServiceMock.createProjectRoadmapEvent.mockResolvedValueOnce({
       ok: true,
       data: {
+        activityVersion: new Date("2026-04-23T08:00:00.000Z"),
         event: {
           id: "event-1",
           phaseId: "phase-1",
@@ -450,6 +456,9 @@ describe("project roadmap routes", () => {
     );
 
     expect(response.status).toBe(201);
+    expect(response.headers.get("x-nexusdash-project-version")).toBe(
+      "2026-04-23T08:00:00.000Z"
+    );
     await expect(readJson(response)).resolves.toEqual({
       event: {
         id: "event-1",

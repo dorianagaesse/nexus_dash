@@ -5,6 +5,8 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { startServerTiming } from "@/lib/observability/server-timing";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 import { createProjectRoadmapEvent } from "@/lib/services/project-roadmap-service";
 
@@ -19,6 +21,7 @@ export async function POST(
   request: NextRequest,
   props: { params: Promise<{ projectId: string; phaseId: string }> }
 ) {
+  const timing = startServerTiming("roadmap.event.create");
   const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
@@ -62,7 +65,10 @@ export async function POST(
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status, headers: timing.headers() }
+    );
   }
 
   return NextResponse.json(
@@ -70,6 +76,12 @@ export async function POST(
       event: result.data.event,
       phase: result.data.phase,
     },
-    { status: 201 }
+    {
+      status: 201,
+      headers: withProjectActivityVersionHeader(
+        timing.headers(),
+        result.data.activityVersion
+      ),
+    }
   );
 }
