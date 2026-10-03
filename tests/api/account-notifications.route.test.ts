@@ -54,10 +54,8 @@ import {
 } from "@/lib/observability/realtime-metrics";
 import { POST as markAllRead } from "@/app/api/account/notifications/mark-all-read/route";
 import { GET as getNotificationSummary } from "@/app/api/account/notifications/summary/route";
-import {
-  GET as streamNotifications,
-  notificationStreamRouteInternals,
-} from "@/app/api/account/notifications/stream/route";
+import { GET as streamNotifications } from "@/app/api/account/notifications/stream/route";
+import { isSnapshotChanged } from "@/lib/realtime/notification-stream";
 import { GET as listInvitations } from "@/app/api/account/invitations/route";
 import { POST as respondToInvitation } from "@/app/api/account/invitations/[invitationId]/respond/route";
 
@@ -407,7 +405,7 @@ describe("account notification and invitation routes", () => {
 
   test("notification stream reports changed snapshots", () => {
     expect(
-      notificationStreamRouteInternals.isSnapshotChanged(
+      isSnapshotChanged(
         {
           version: "2026-06-04T10:01:00.000Z",
           unreadCount: 1,
