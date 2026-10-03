@@ -5,6 +5,8 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { startServerTiming } from "@/lib/observability/server-timing";
+import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 import {
   deleteProjectRoadmapEvent,
@@ -26,6 +28,7 @@ export async function PATCH(
   request: NextRequest,
   props: { params: Promise<{ projectId: string; eventId: string }> }
 ) {
+  const timing = startServerTiming("roadmap.event.update");
   const params = await props.params;
   const principalResult = await requireApiPrincipal(request);
   if (!principalResult.ok) {
@@ -100,13 +103,24 @@ export async function PATCH(
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status, headers: timing.headers() }
+    );
   }
 
-  return NextResponse.json({
-    event: result.data.event,
-    phase: result.data.phase,
-  });
+  return NextResponse.json(
+    {
+      event: result.data.event,
+      phase: result.data.phase,
+    },
+    {
+      headers: withProjectActivityVersionHeader(
+        timing.headers(),
+        result.data.activityVersion
+      ),
+    }
+  );
 }
 
 export async function DELETE(

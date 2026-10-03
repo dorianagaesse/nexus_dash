@@ -6,7 +6,6 @@ import {
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
-import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
 import { loadProjectActorRegistryForActor } from "@/lib/services/project-actor-service";
@@ -243,6 +242,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
   const resultData = result.data as {
     id?: string;
     task?: typeof result.data.task;
+    activityVersion: Date;
   };
   const task = resultData.task ?? null;
 
@@ -250,20 +250,14 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
   // created task, so this branch is unreachable in practice and kept only so
   // a payload-shaped regression still yields a usable taskId.
   if (!task) {
-    const version = await recordProjectActivityEventVersion({
-      actorUserId,
-      projectId,
-      domain: "task",
-      action: "created",
-      entityId: resultData.id ?? projectId,
-      payload: { taskId: resultData.id },
-    });
-
     return NextResponse.json(
       { taskId: resultData.id },
       {
         status: 201,
-        headers: withProjectActivityVersionHeader(timing.headers(), version),
+        headers: withProjectActivityVersionHeader(
+          timing.headers(),
+          resultData.activityVersion
+        ),
       }
     );
   }
@@ -274,15 +268,6 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
       mapTaskAttachmentResponse(projectId, task.id, attachment)
     ),
   };
-  const version = await recordProjectActivityEventVersion({
-    actorUserId,
-    projectId,
-    domain: "task",
-    action: "created",
-    entityId: task.id,
-    payload: { task: responseTask },
-  });
-
   return NextResponse.json(
     {
       taskId: task.id,
@@ -290,7 +275,10 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     },
     {
       status: 201,
-      headers: withProjectActivityVersionHeader(timing.headers(), version),
+      headers: withProjectActivityVersionHeader(
+        timing.headers(),
+        result.data.activityVersion
+      ),
     }
   );
 }
