@@ -24,10 +24,12 @@ Supabase Realtime **Broadcast** over two families of private channels:
   minted only from authenticated human sessions at `POST /api/realtime/token`.
   The token carries `sub` (NexusDash user id), `role: authenticated`, `iat`,
   and `exp` only — no PII claims. The TTL is the access-revocation SLA.
-- Payload contracts remain **identical to the current SSE payloads**
-  (`ProjectActivityEventPayload`, `NotificationRealtimeSnapshot`), so the
-  existing client handlers and version-guard/reconciliation logic are reused
-  unchanged.
+- Payload contracts remain **schema- and value-compatible with the current
+  SSE payloads** (`ProjectActivityEventPayload`,
+  `NotificationRealtimeSnapshot`): the parsed JSON is deeply equal, while
+  `jsonb` serialization may reorder object keys, so compatibility is defined
+  on parsed values rather than on bytes. The existing client handlers and
+  version-guard/reconciliation logic are reused unchanged.
 - Adaptive client polling remains the degraded-mode fallback, and the
   existing `REALTIME_TRANSPORT` kill switch extends to the new transport.
 
@@ -39,7 +41,7 @@ ND-374 retires the SSE routes, ND-375 measures cost.
 ### 2.1 Why this decision is needed now
 
 The realtime efficiency program (epic "Realtime Efficiency and Vercel Cost
-Control") identifed the SSE transport as the dominant Vercel Fluid compute
+Control") identified the SSE transport as the dominant Vercel Fluid compute
 cost driver: each open tab holds a server function that polls PostgreSQL
 every second. ND-369/ND-370 already bounded client polling cadence, and
 ND-371 instrumented the current transport, but the primary path is still
@@ -239,12 +241,22 @@ strategy.
   - Row trigger `AFTER INSERT ON "ProjectActivityEvent"` builds the typed
     payload and calls `realtime.send(payload, 'project-activity', topic,
     true)`.
-  - Row trigger `AFTER UPDATE ON "Project"` emits the bare signal when
-    `NEW."updatedAt" IS DISTINCT FROM OLD."updatedAt"` (covers
-    touch-only membership flows). A mutation that both touches the project
-    and appends an event produces both messages; the client's version guard
-    drops the duplicate (equal `version` is not "newer"). Total volume is
-    two messages per project mutation (section 5.7).
+  - Constraint trigger `AFTER UPDATE ON "Project" DEFERRABLE INITIALLY
+    DEFERRED` with `WHEN (NEW."updatedAt" IS DISTINCT FROM
+    OLD."updatedAt")` emits the bare signal at commit time, but only when no
+    `ProjectActivityEvent` exists for that project with
+    `version = NEW."updatedAt"`. The production touch-and-record paths write
+    both rows with the same timestamp, so typed mutations emit exactly one
+    message - the typed event - and the bare signal is suppressed. This is
+    load-bearing: if the bare signal were emitted first (the immediate
+    `AFTER UPDATE` order), its equal `version` would advance the client's
+    version guard and the typed event that arrives second would be discarded
+    as "not newer", defeating the in-place patch and forcing a full refresh
+    for every change. Deferring to commit lets the trigger see the event row
+    written earlier in the same transaction. Touch-only flows (membership
+    activity) have no matching event and still emit the bare signal.
+    Ordering and suppression are pinned by tests (section 8), and total
+    volume is one message per project mutation (section 5.7).
   - Both trigger functions are SECURITY DEFINER with `SET search_path = ''`
     and wrap the `PERFORM realtime.send(...)` in an exception handler that
     raises a warning and continues, so a broadcast failure can never abort
@@ -294,9 +306,9 @@ databases without a `realtime` schema, e.g. local test databases):
 
    ```sql
    -- project:<projectId>:activity
-   split_part(topic, ':', 1) = 'project'
+   array_length(string_to_array(topic, ':'), 1) = 3
+   and split_part(topic, ':', 1) = 'project'
    and split_part(topic, ':', 3) = 'activity'
-   and split_part(topic, ':', 4) = ''
    and exists (
      select 1 from "Project" p
      where p.id = split_part(topic, ':', 2)
@@ -311,11 +323,19 @@ databases without a `realtime` schema, e.g. local test databases):
    );
 
    -- user:<userId>:notifications
-   split_part(topic, ':', 1) = 'user'
+   array_length(string_to_array(topic, ':'), 1) = 3
+   and split_part(topic, ':', 1) = 'user'
    and split_part(topic, ':', 3) = 'notifications'
-   and split_part(topic, ':', 4) = ''
    and split_part(topic, ':', 2) = app.current_user_id();
    ```
+
+   The cardinality check is required: `split_part(topic, ':', 4)` alone
+   returns `''` both when the fourth segment is absent and when it is
+   explicitly empty, so it would accept `project:<id>:activity:` despite the
+   strict-shape contract (`string_to_array` keeps the trailing empty element,
+   so the length check rejects it). Empty segments that survive the
+   cardinality check cannot pass the `EXISTS`/identity comparisons, and a
+   `NULL` topic fails the length check (deny).
 
    The project helper is SECURITY DEFINER (same ownership pattern as
    `app.is_project_owner`, whose owner reads bypass RLS), STABLE. No LIKE
@@ -366,20 +386,28 @@ databases without a `realtime` schema, e.g. local test databases):
 - Claims: `sub` = NexusDash user id, `role: 'authenticated'`,
   `aud: 'authenticated'`, `iat`, `exp`. Nothing else (no email, no name, no
   project ids).
-- Signing: HS256 with `SUPABASE_JWT_SECRET` (the Supabase project's JWT
-  secret), implemented in a new
+- Signing: HS256 with `SUPABASE_JWT_SECRET` (the Supabase project's legacy
+  JWT secret), implemented in a new
   `lib/services/realtime-token-service.ts` mirroring the existing hand-rolled
   HS256 pattern in `lib/auth/agent-token-service.ts` (no new dependency).
-  If the Supabase project has migrated off the legacy shared secret to
-  asymmetric signing keys, the implementation uses the project's signing key
-  instead; the contract (claims, TTL, route) is unchanged.
+  When `REALTIME_TRANSPORT=broadcast` and the secret is missing, startup
+  validation in `lib/env.server.ts` fails - the deployment must not come up
+  with a half-configured transport. Asymmetric Supabase signing keys are
+  **out of scope** for ND-373: they need their own algorithm/private-key
+  configuration and signing path, so no partial fallback is specified here.
+  The rollout precondition (section 7) verifies that both projects still
+  expose the legacy secret; if one has revoked it, stop and revise this ADR
+  with a fully specified asymmetric path instead of improvising one.
 - TTL: `SUPABASE_REALTIME_TOKEN_TTL_SECONDS`, default `600`, clamped to
-  `60..3600`; startup validation follows the `lib/env.server.ts` pattern.
-  The TTL is the revocation SLA: a user removed from a project keeps
-  receiving until their token expires or their connection re-authenticates.
+  `60..600` so the configured maximum can never exceed the 10-minute
+  guarantee stated throughout this ADR; startup validation follows the
+  `lib/env.server.ts` pattern. The TTL is the revocation SLA: a user removed
+  from a project keeps receiving until their token expires or their
+  connection re-authenticates.
 - Re-mint: the client fetches a fresh token before expiry (supabase-js
   `accessToken` callback); a signed-out or expired session gets `401` and the
-  client falls back to polling.
+  client drops one tier in the transport precedence (5.5), ultimately
+  reaching polling.
 
 ### 5.5 Client contract
 
@@ -388,22 +416,31 @@ databases without a `realtime` schema, e.g. local test databases):
   of the initial bundle; `accessToken` callback wired to
   `POST /api/realtime/token`).
 - `REALTIME_TRANSPORT` gains a `broadcast` value. Client precedence:
-  broadcast -> stream -> adaptive polling; each step down is silent and
-  driven by existing fallback state (`isPollingFallbackActive`).
+  broadcast -> stream -> adaptive polling. Each tier is entered only when the
+  one above it is unavailable or has failed: a Broadcast failure (token
+  fetch, `CHANNEL_ERROR`, `TIMED_OUT`, or `CLOSED` after bounded reconnect
+  attempts by supabase-js) demotes to **stream** for as long as the
+  deployment serves streams (ND-373's migration window), and a stream
+  failure demotes to polling (`isPollingFallbackActive`). Each step down is
+  silent, and a demoted tab retries the higher tier on the next
+  visibility/online event. ND-374 removes the middle tier and the precedence
+  collapses to broadcast -> polling.
 - On subscribe success (`SUBSCRIBED`), run one reconciliation fetch through
   the existing polling endpoints before trusting the channel; version guards
   make late/replayed messages harmless. This is the missed-event
   reconciliation path.
-- Fallback triggers: token fetch failure, `CHANNEL_ERROR`, `TIMED_OUT`, or
-  `CLOSED` after bounded reconnect attempts -> activate polling fallback;
-  retry Broadcast on the next visibility/online event. supabase-js owns
-  WebSocket reconnect/backoff.
-- Tab leadership: reuse `createTabLeaderCoordinator`; only the leader tab
-  holds the WebSocket, and it re-publishes payloads to follower tabs through
-  the existing coordinator bus. Unlike the polling leader, the Broadcast
-  leader keeps the socket open while the tab is hidden (no server-side cost),
-  so a hidden-then-focused tab is already current; follower tabs do not open
-  sockets.
+- Connection model and tab leadership: one lazily created RealtimeClient per
+  tab (a single WebSocket multiplexing the channels that tab holds); reuse
+  `createTabLeaderCoordinator`, whose elections are per scope
+  (`project:<id>` and `notifications`), so only the leading tab for a scope
+  opens that channel and re-publishes payloads to follower tabs through the
+  existing coordinator bus. A profile therefore holds one socket when the
+  same tab leads both scopes (the common case) and at most two when
+  leadership splits across tabs; per-scope elections do not guarantee a
+  single profile-wide socket, and section 5.7 quotes the resulting bound.
+  Unlike the polling leader, the Broadcast leader keeps the socket open
+  while the tab is hidden (no server-side cost), so a hidden-then-focused tab
+  is already current; follower tabs never open sockets.
 - Sign-out: close channels, drop the token cache; the fallback polling path
   then hits `401` and the existing app-shell behavior applies.
 - Observability: reuse `recordRealtimeCounter` with new counters (e.g.
@@ -430,16 +467,18 @@ real scale.
   reconnect churn per tab.
 - After (Broadcast), steady state idle: **zero** messages and zero database
   queries for liveness.
-- Project activity: 2 delivered messages per project mutation per connected
-  leader tab (typed event + project touch signal). Example: 30 mutations/min
-  in a project with 10 connected members -> 600 delivered messages/min
-  (~10/s) — versus the documented ceiling of 100 msg/s (Free) / 500 msg/s
-  (Pro).
+- Project activity: 1 delivered message per project mutation per connected
+  leader tab, because the deferred trigger suppresses the bare signal when
+  the typed event is present (5.1). Example: 30 mutations/min in a project
+  with 10 connected members -> 300 delivered messages/min (~5/s) — versus
+  the documented ceiling of 100 msg/s (Free) / 500 msg/s (Pro).
 - Notifications: 1 message per affected recipient per notification-mutating
   statement (coalesced), negligible beside activity volume.
-- Connections: one WebSocket per browser profile (leader tab), versus one
-  SSE function connection per tab today; well inside the 200/500 concurrent
-  connection ceilings at our expected team scale.
+- Connections: per-scope tab leadership with one multiplexed RealtimeClient
+  per tab yields one WebSocket per browser profile when the same tab leads
+  both scopes and at most two when leadership splits across tabs (5.5),
+  versus one SSE function connection per tab today; well inside the 200/500
+  concurrent connection ceilings at our expected team scale.
 - Payloads are small (well under 1 KB typical) against the 256 KB / 3 MB
   Broadcast payload limits.
 
@@ -488,10 +527,10 @@ real scale.
 
 1. **Supabase prerequisites (Preview, then Production).** Confirm Realtime
    is enabled, turn "Allow public access" off, and confirm the project JWT
-   secret/signing key used for minting. Add `SUPABASE_JWT_SECRET` (sensitive)
-   and optionally `SUPABASE_REALTIME_TOKEN_TTL_SECONDS` to the Vercel
-   environments; update the env contract runbook and `.env.example` in the
-   same PR as ND-373.
+   secret is available for minting (precondition per 5.4). Add
+   `SUPABASE_JWT_SECRET` (sensitive) and optionally
+   `SUPABASE_REALTIME_TOKEN_TTL_SECONDS` to the Vercel environments; update
+   the env contract runbook and `.env.example` in the same PR as ND-373.
 2. **Ship ND-373 on Preview.** Migration (helpers, policies, triggers,
    grants), token route/service, client transport selection with fallback,
    metrics counters. Triggers are additive and exception-swallowing, so
@@ -528,27 +567,34 @@ real scale.
 
 Automated (ND-373 PR):
 
-- Unit: realtime token service (claims, base64url encoding, TTL clamping,
-  missing-secret failure) and token route (401 for agents/anonymous, 200
-  shape, no-store).
+- Unit: realtime token service (claims, base64url encoding, TTL clamping
+  capped at 600, missing-secret startup failure) and token route (401 for
+  agents/anonymous, 200 shape, no-store).
 - RLS matrix (`npm run test:rls:setup && npm run test:rls`): extend the
   harness with a minimal `realtime` stub (schema, `messages` table with
   `extension`/`topic` columns, `realtime.topic()` reading a test GUC,
   `authenticated` role) created **before** the guarded policy migration is
   replayed, plus cases: owner allowed, member allowed, non-member denied,
-  cross-user notification topic denied, malformed topics denied, no INSERT
-  policy (client publish denied), and the `request.jwt.claims` fallback of
-  `app.current_user_id()` exercised without the `app.user_id` GUC.
+  cross-user notification topic denied, malformed and trailing-colon topics
+  denied (cardinality check), no INSERT policy (client publish denied), and
+  the `request.jwt.claims` fallback of `app.current_user_id()` exercised
+  without the `app.user_id` GUC.
 - Trigger behavior: with a stub `realtime.send` writing into the stub
-  `realtime.messages`, assert typed payload shape/ISO versions, bare signal
-  on touch-only flows, statement-level coalescing for bulk notification
-  writes, and that a failing send never aborts the business transaction.
+  `realtime.messages`, assert typed payload shape/ISO versions and
+  deep-equality (key-order-insensitive) with the SSE payload shape, bare
+  signal on touch-only flows, statement-level coalescing for bulk
+  notification writes, and that a failing send never aborts the business
+  transaction. Ordering/suppression test: a touch-and-record transaction
+  emits exactly one message (the typed event, no bare signal), a touch-only
+  transaction emits exactly one bare signal, and the deferred trigger's
+  suppression check sees the event row written earlier in the transaction.
 - Component tests mirroring the existing live-refresh suites: transport
-  precedence, fallback activation on token/channel failure, leader-only
-  subscription, reconciliation fetch on subscribe.
+  precedence with tiered demotion (broadcast failure -> stream -> polling),
+  fallback activation on token/channel failure, leader-only subscription,
+  single multiplexed client per tab, reconciliation fetch on subscribe.
 - E2E (`npm run test:e2e`, UI touch): two-browser collaboration — activity
   and notification updates flow without SSE requests when broadcast is
-  enabled; blocking WebSocket/token requests degrades to polling and
+  enabled; blocking WebSocket/token requests degrades one tier at a time and
   freshness still converges.
 
 Manual / environment:
@@ -567,24 +613,28 @@ Manual / environment:
 Work items, in dependency order:
 
 1. Migration `prisma/migrations/<timestamp>_nd372_realtime_broadcast/`:
-   `app.current_user_id()` replacement, topic helpers + grants, guarded
-   `realtime.messages` policies, trigger functions (exception-swallowing,
-   SECURITY DEFINER, empty search_path), the four triggers, and
+   `app.current_user_id()` replacement, topic helpers (cardinality-checked)
+   + grants, guarded `realtime.messages` policies, trigger functions
+   (exception-swallowing, SECURITY DEFINER, empty search_path), the
+   `ProjectActivityEvent` row trigger, the deferred constraint trigger on
+   `Project`, the two statement-level `Notification` triggers, and
    `GRANT USAGE ON SCHEMA app TO authenticated`. Idempotent guards so the
    file is replayable in the matrix harness.
 2. `lib/env.server.ts`: `getSupabaseRealtimeRuntimeConfig()` (URL +
-   publishable key + JWT secret + TTL), extend `RealtimeTransport` to
-   `broadcast | stream | polling`, keep invalid-value startup failure.
+   publishable key + JWT secret + TTL clamped to 60..600), extend
+   `RealtimeTransport` to `broadcast | stream | polling`, keep
+   invalid-value startup failure and fail startup when the transport is
+   `broadcast` without a JWT secret.
 3. `lib/services/realtime-token-service.ts` + tests (HS256 mint, no
    dependency).
 4. `app/api/realtime/token/route.ts` + tests (`requireAuthenticatedApiUser`,
    no-store, response shape).
-5. Client: `lib/realtime/supabase-realtime-client.ts`; update
-   `components/project-live-refresh.tsx` and
+5. Client: `lib/realtime/supabase-realtime-client.ts` (one multiplexed
+   RealtimeClient per tab); update `components/project-live-refresh.tsx` and
    `components/notification-live-updates.tsx` to select transport
-   broadcast -> stream -> polling, wire leader-only subscription and
-   reconciliation fetch, and feed the unchanged handlers; add
-   `broadcast.*` counters via `recordRealtimeCounter`.
+   broadcast -> stream -> polling with tiered demotion, wire leader-only
+   subscription and reconciliation fetch, and feed the unchanged handlers;
+   add `broadcast.*` counters via `recordRealtimeCounter`.
 6. Dependency: add `@supabase/supabase-js` (dynamic import); note
    `@supabase/realtime-js` as the leaner alternative if bundle size is a
    concern.

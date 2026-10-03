@@ -998,9 +998,10 @@ Keep UI-only or task-only notes in `journal.md`.
   with short-lived (<=10 min) HS256 Supabase JWTs minted from authenticated
   human sessions (PII-free claims, TTL is the revocation SLA); app runtime
   keeps its GUC-based `app.current_user_id()` with a JWT-claims fallback so
-  one predicate serves both contexts. Payload contracts stay byte-identical
-  to the SSE payloads (`ProjectActivityEventPayload`,
-  `NotificationRealtimeSnapshot`) and adaptive polling stays the fallback.
+  one predicate serves both contexts. Payload contracts stay schema- and
+  value-compatible with the SSE payloads (`ProjectActivityEventPayload`,
+  `NotificationRealtimeSnapshot`; parsed values are deeply equal, key order
+  may differ) and adaptive polling stays the fallback.
 
 - Consequences: Idle tabs stop generating database queries entirely once
   ND-374 retires SSE; live-socket revocation is bounded by the token TTL; a

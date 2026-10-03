@@ -9199,3 +9199,22 @@ Low-value entries to avoid going forward:
 - Validation: docs-only change; `git diff --check` clean, no code touched so
   the lint/test/build baseline is not applicable.
 - PR: #563.
+- Copilot review round on #563: all eight findings were confirmed against
+  the code and fixed in the ADR (no declines). The typed-event ordering
+  finding was the substantive one: `recordProjectActivityEvent` touches
+  `Project.updatedAt` before inserting the event, so an immediate
+  `AFTER UPDATE` bare signal would arrive first with the same version and
+  the client's version guard would discard the typed event that follows,
+  killing the in-place patch. The contract now uses a deferred constraint
+  trigger that suppresses the bare signal when the matching event row
+  exists, yielding exactly one message per mutation (the typed event) and
+  keeping touch-only flows covered. Also fixed: topic validation now checks
+  `string_to_array` cardinality (trailing-colon topics were accepted),
+  the token contract is pinned to HS256 with startup failure and a 60..600
+  TTL clamp (asymmetric keys are explicitly out of scope), the client
+  fallback demotes tier by tier (broadcast -> stream -> polling), the
+  connection model is restated as per-scope leaders with one multiplexed
+  client per tab (at most two sockets per profile), payload compatibility
+  is defined on parsed values rather than bytes, and the typo was fixed.
+  Ordering/suppression, cardinality, and tier-demotion tests were added to
+  the validation requirements.
