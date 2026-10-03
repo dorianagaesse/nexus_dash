@@ -39,6 +39,10 @@ import {
   GET as streamProjectActivity,
   projectActivityStreamRouteInternals,
 } from "@/app/api/projects/[projectId]/activity/stream/route";
+import {
+  getRealtimeMetricsSnapshot,
+  resetRealtimeMetricsForTests,
+} from "@/lib/observability/realtime-metrics";
 
 function projectParams(projectId: string) {
   return { params: Promise.resolve({ projectId }) };
@@ -58,6 +62,7 @@ async function readFirstChunk(response: Response): Promise<string> {
 describe("project activity stream route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRealtimeMetricsForTests();
     apiGuardMock.requireApiPrincipal.mockResolvedValue({
       ok: true,
       principal: {
@@ -99,6 +104,10 @@ describe("project activity stream route", () => {
       expect.any(String),
       { transport: "polling" }
     );
+
+    const snapshot = getRealtimeMetricsSnapshot();
+    expect(snapshot.counters["stream.refused"]).toBe(1);
+    expect(snapshot.counters["stream.connections"]).toBe(0);
   });
 
   test("streams the authorized project activity version as an SSE event", async () => {
@@ -129,6 +138,10 @@ describe("project activity stream route", () => {
       actorUserId: "user-1",
       projectId: "project-1",
     });
+
+    const snapshot = getRealtimeMetricsSnapshot();
+    expect(snapshot.counters["stream.connections"]).toBe(1);
+    expect(snapshot.counters["stream.refused"]).toBe(0);
   });
 
   test("serializes typed activity events for targeted client reconciliation", () => {

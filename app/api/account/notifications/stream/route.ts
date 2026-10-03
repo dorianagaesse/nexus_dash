@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { isRealtimeStreamEnabled } from "@/lib/env.server";
 import { logServerInfo } from "@/lib/observability/logger";
+import { recordRealtimeCounter } from "@/lib/observability/realtime-metrics";
 import {
   encodeServerSentEvent,
   sleepWithAbort,
@@ -43,6 +44,7 @@ function isSnapshotChanged(
 
 export async function GET(request: NextRequest) {
   if (!isRealtimeStreamEnabled()) {
+    recordRealtimeCounter("stream.refused");
     logServerInfo(
       "GET /api/account/notifications/stream.transportDisabled",
       "Realtime stream refused because the transport is set to polling",
@@ -73,6 +75,8 @@ export async function GET(request: NextRequest) {
       }
     );
   }
+
+  recordRealtimeCounter("stream.connections");
 
   const encoder = new TextEncoder();
   let streamCancelled = false;
