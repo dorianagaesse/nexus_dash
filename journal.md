@@ -3,6 +3,22 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-03 - ND-143: Roadmap section first-time discoverability affordance
+
+- Task TASK-369 (card `cmth7f3h6003804ju1ytsasqh`) under epic "External UX feedback refinement program":
+  - Created reusable `SectionHelpAffordance` component (`components/project-dashboard/section-help-affordance.tsx`) rendering an opt-in question-mark help affordance with accessible trigger and responsive floating popover guide (`createPortal`, `data-overlay-popover="true"`, Escape key and outside pointer down dismissal).
+  - Integrated the help affordance into `ProjectRoadmapPanel` header to give users an immediate, opt-in explanation of milestones, phases, and events regardless of whether milestones exist.
+  - Redesigned and enriched the Roadmap empty state (`data-roadmap-empty-container="true"`) with dedicated cards explaining:
+    - What is a milestone (macro delivery horizon/chapter).
+    - How phases and events relate (milestone lanes grouping scheduled events, drag and drop behavior).
+    - What good inputs look like (outcome-oriented milestone names, concrete dated events, and status tracking).
+  - Added unit test suite in `tests/components/section-help-affordance.test.tsx` (5 tests) and integration tests in `tests/components/project-roadmap-panel.test.tsx` (6 tests).
+- Validations:
+  - `git diff --check`, `npm run lint`, `npm run rls:check` passed clean.
+  - `npm test`: 222 files passed, 1820 tests passed.
+  - `npm run test:coverage`: met all threshold targets (statements 93.78%, branch 84.46%, funcs 95.42%, lines 94.08%).
+  - `npx next build --webpack`: compiled and generated all 27 static routes cleanly.
+
 # 2026-10-03 - React 19.3 repair PR #551
 
 - Brought the TASK-116 replacement for Dependabot #537 onto current main. Kept React, React DOM, and their type packages aligned at 19.3.0; regenerated the lockfile. The old E2E failure was the meeting-notes geometry assertion fixed in #556. Final CI is pending.

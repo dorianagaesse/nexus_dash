@@ -58,7 +58,7 @@ describe("agent onboarding pages", () => {
   test("renders account onboarding with concrete SSR URLs", async () => {
     resolveRequestOriginFromHeadersMock.mockReturnValue("https://account-preview.nexusdash.test");
 
-    const page = await AccountDeveloperSettingsPage();
+    const page = await AccountDeveloperSettingsPage({});
     const result = renderToStaticMarkup(page);
 
     expect(requireSessionUserIdFromServerMock).toHaveBeenCalledOnce();
@@ -72,7 +72,7 @@ describe("agent onboarding pages", () => {
   test("renders account onboarding as one single-column stack with only the first section open", async () => {
     resolveRequestOriginFromHeadersMock.mockReturnValue("https://account-preview.nexusdash.test");
 
-    const page = await AccountDeveloperSettingsPage();
+    const page = await AccountDeveloperSettingsPage({});
     const result = renderToStaticMarkup(page);
 
     expect(result).not.toContain("xl:grid-cols");

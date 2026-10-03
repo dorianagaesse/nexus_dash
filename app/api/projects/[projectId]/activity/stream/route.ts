@@ -24,87 +24,20 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const PROJECT_ACTIVITY_STREAM_EVENT = "project-activity";
+import {
+  PROJECT_ACTIVITY_STREAM_EVENT,
+  compareActivityEventCursor,
+  createActivityEventPayload,
+  createActivityPayload,
+  createEventCursor,
+  isNewerVersion,
+  serializeActivityCursor,
+} from "@/lib/realtime/project-activity-stream";
+
 const PROJECT_ACTIVITY_STREAM_RETRY_MS = 2_000;
 const PROJECT_ACTIVITY_STREAM_POLL_INTERVAL_MS = 1_000;
 const PROJECT_ACTIVITY_STREAM_HEARTBEAT_INTERVAL_MS = 15_000;
 const PROJECT_ACTIVITY_STREAM_MAX_DURATION_MS = 280_000;
-
-function isNewerVersion(nextVersion: string, currentVersion: string): boolean {
-  return Date.parse(nextVersion) > Date.parse(currentVersion);
-}
-
-function compareActivityEventCursor(
-  event: ProjectActivityEventRecord,
-  cursor: ProjectActivityEventCursor
-): number {
-  const versionDiff = event.version.getTime() - cursor.version.getTime();
-  if (versionDiff !== 0 || !cursor.createdAt || !cursor.id) {
-    return versionDiff;
-  }
-
-  const createdAtDiff = event.createdAt.getTime() - cursor.createdAt.getTime();
-  if (createdAtDiff !== 0) {
-    return createdAtDiff;
-  }
-
-  return event.id.localeCompare(cursor.id);
-}
-
-function createEventCursor(
-  event: ProjectActivityEventRecord
-): ProjectActivityEventCursor {
-  return {
-    version: event.version,
-    createdAt: event.createdAt,
-    id: event.id,
-  };
-}
-
-function serializeActivityCursor(cursor: ProjectActivityEventCursor): string {
-  if (!cursor.createdAt || !cursor.id) {
-    return cursor.version.toISOString();
-  }
-
-  return [
-    cursor.version.toISOString(),
-    cursor.createdAt.toISOString(),
-    cursor.id,
-  ].join("|");
-}
-
-function createActivityPayload(input: {
-  projectId: string;
-  version: Date;
-}): ProjectActivityEventPayload {
-  return {
-    eventId: null,
-    projectId: input.projectId,
-    version: input.version.toISOString(),
-    serverTime: new Date().toISOString(),
-    actorUserId: null,
-    domain: null,
-    action: null,
-    entityId: null,
-    payload: null,
-  };
-}
-
-function createActivityEventPayload(
-  event: ProjectActivityEventRecord
-): ProjectActivityEventPayload {
-  return {
-    eventId: event.id,
-    projectId: event.projectId,
-    version: event.version.toISOString(),
-    serverTime: new Date().toISOString(),
-    actorUserId: event.actorUserId,
-    domain: event.domain,
-    action: event.action,
-    entityId: event.entityId,
-    payload: event.payload,
-  };
-}
 
 function streamHeaders(): HeadersInit {
   return {
@@ -311,13 +244,3 @@ export async function GET(
     headers: streamHeaders(),
   });
 }
-
-export const projectActivityStreamRouteInternals = {
-  createActivityEventPayload,
-  createActivityPayload,
-  compareActivityEventCursor,
-  encodeServerSentEvent,
-  isNewerVersion,
-  PROJECT_ACTIVITY_STREAM_EVENT,
-  serializeActivityCursor,
-};
