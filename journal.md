@@ -9330,3 +9330,8 @@ Low-value entries to avoid going forward:
   re-mint is now specified as cached-token reuse with a ~60 s margin and
   single-flight deduplication. Component, env, and E2E tests updated
   accordingly.
+- Merge-forward (2026-10-03): merged `origin/main` (ND-429 #550, `2bb5499`)
+  after the PR went CONFLICTING. Only `journal.md` conflicted (both sides had
+  appended entries); resolved by keeping main's ND-429 entry above the ND-372
+  entry. Merge commit `5f32ac7`; docs-only branch, so the local code baseline
+  is not applicable and the merge head re-validates via CI.
