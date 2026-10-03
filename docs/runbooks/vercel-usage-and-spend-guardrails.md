@@ -42,6 +42,24 @@ decision. If auto-pause is ever enabled, remember that it only pauses
 production deployments, does not stop other metered products, and requires
 manual per-project resumption that is not undone by raising the budget later.
 
+### Weekly CPU and memory targets
+
+Post-remediation targets for a representative seven-day window (as agreed in
+the realtime efficiency program):
+
+- Fluid Active CPU: below 30 CPU minutes per seven-day window.
+- Fluid Provisioned Memory: below 40 GB-hours per seven-day window.
+
+Read the current window with `npx vercel usage` (see "Inspecting Usage"). A
+window that exceeds either target is acceptable only when documented workload
+growth explains the difference; record that evidence (traffic/user counts,
+feature additions) on the active task card rather than assuming it.
+
+Investigation threshold: when a seven-day window crosses 80% of either target
+(24 CPU minutes or 32 GB-hours), treat it as an early-warning signal and
+investigate with "Realtime Telemetry" plus `npx vercel usage` before the
+target itself is breached.
+
 ### Threshold response
 
 When a spend notification fires:
@@ -128,6 +146,59 @@ Taxes:
   country and is not configured in this repository. Check Billing settings and
   the invoice for the authoritative figures.
 
+## Realtime Telemetry
+
+The application owns a small realtime telemetry surface so abnormal compute
+can be attributed to a route and transport mode instead of being inferred from
+billing totals alone.
+
+On-demand snapshot (authenticated like the rest of the API):
+
+```bash
+curl -s <deployment-url>/api/observability/realtime \
+  -H "cookie: nexusdash.session-token=<session>" | jq .metrics
+```
+
+The snapshot reports the deployment `environment` (Production and Preview are
+distinguishable), `revision`, the resolved `transport`, per-route counters,
+aggregated service timing, and the database query volume measured at the
+PostgreSQL driver. It contains aggregate numbers and fixed metric names only:
+no user IDs, emails, project IDs, or request payloads.
+
+Counters:
+
+- `activity.snapshotChecks` / `notifications.snapshotChecks`: poll requests
+  served by `/api/projects/:id/activity` and `/api/account/notifications`.
+- `activity.changesEmitted`: project activity change events persisted; these
+  are the payloads realtime clients refresh for.
+- `activity.pollingFallbacks` / `notifications.pollingFallbacks`: human poll
+  requests received while the transport resolves to `stream` - the client
+  could not hold an SSE connection (browser without EventSource, or the
+  connection failed) and is in polling fallback.
+- `stream.connections`: accepted SSE connections
+  (`activity/stream`, `notifications/stream`). The stream route closes
+  periodically by design, so EventSource reconnects arrive as new connections
+  and are counted here.
+- `stream.refused`: stream attempts refused because the transport resolves to
+  `polling` (stale bundles or clients ignoring the transport flag).
+
+Durable evidence: on deployment runtimes the same aggregates are emitted as a
+structured log record (scope `realtime.metrics`) at most once per instance per
+minute, tagged with environment and revision. These lines survive instance
+recycling; the endpoint snapshot is per instance and resets with it, so sample
+the endpoint while reproducing, and use the log records for history.
+
+Attribution recipes:
+
+- High compute on the activity route with `stream.connections` near zero in
+  Production: clients are stuck in polling fallback - check
+  `activity.pollingFallbacks` and the `stream.refused` / `transportDisabled`
+  signatures.
+- High stream route compute with many `stream.connections`: reconnect churn;
+  confirm the transport kill-switch state before changing cadences.
+- High `database.queryCalls` relative to served checks: the poll paths are
+  issuing more statements per request than expected.
+
 ## Environments in Operational Review
 
 Production and Preview can be reviewed independently:
@@ -141,6 +212,10 @@ Production and Preview can be reviewed independently:
   (`stream.transportDisabled`) only appears where the transport resolves to
   polling, which by default is Preview. Presence on Preview and absence on
   Production is the expected operational signature.
+- Realtime telemetry (ND-371): the `realtime.metrics` log records and the
+  `/api/observability/realtime` snapshot carry an `environment` field, so the
+  same counters can be compared per environment without consulting billing
+  attribution.
 
 ## One Deploying Seat
 
@@ -183,6 +258,11 @@ Stale-tab hygiene:
 ## Verification Checklist
 
 - Budget and cycle spend: `npx vercel budgets inspect`.
+- Weekly CPU/memory targets: `npx vercel usage` against the 30 CPU-minute and
+  40 GB-hour seven-day targets; investigate at 80%.
+- Realtime telemetry: `GET /api/observability/realtime` returns an
+  environment-tagged snapshot, and `realtime.metrics` log records appear on
+  deployment runtimes.
 - Notifications: account notification settings show Spend Management enabled.
 - Retention: Team Settings, Security & Privacy, Deployment Retention Policy
   shows the pre-production period in effect.

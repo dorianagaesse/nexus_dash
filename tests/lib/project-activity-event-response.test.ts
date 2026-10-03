@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const loggerMock = vi.hoisted(() => ({
   logServerWarning: vi.fn(),
@@ -19,8 +19,17 @@ vi.mock("@/lib/services/project-activity-service", () => ({
 }));
 
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
+import {
+  getRealtimeMetricsSnapshot,
+  resetRealtimeMetricsForTests,
+} from "@/lib/observability/realtime-metrics";
 
 describe("recordProjectActivityEventVersion", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetRealtimeMetricsForTests();
+  });
+
   test("falls back to a durable activity touch when typed event recording fails", async () => {
     const fallbackVersion = new Date("2026-05-30T10:00:00.000Z");
     serviceMock.recordProjectActivityEventAsActor.mockResolvedValueOnce({
@@ -47,5 +56,52 @@ describe("recordProjectActivityEventVersion", () => {
       actorUserId: "user-1",
       projectId: "project-1",
     });
+    expect(
+      getRealtimeMetricsSnapshot().counters["activity.changesEmitted"]
+    ).toBe(1);
+  });
+
+  test("counts a typed activity event as an emitted change", async () => {
+    const version = new Date("2026-05-30T10:00:00.000Z");
+    serviceMock.recordProjectActivityEventAsActor.mockResolvedValueOnce({
+      ok: true,
+      data: { event: null, version },
+    });
+
+    const result = await recordProjectActivityEventVersion({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      domain: "task",
+      action: "updated",
+      entityId: "task-1",
+    });
+
+    expect(result).toBe(version);
+    expect(
+      getRealtimeMetricsSnapshot().counters["activity.changesEmitted"]
+    ).toBe(1);
+  });
+
+  test("does not count changes when no activity write succeeds", async () => {
+    serviceMock.recordProjectActivityEventAsActor.mockRejectedValueOnce(
+      new Error("event-store-down")
+    );
+    serviceMock.touchProjectActivityAsActor.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      error: "touch-failed",
+    });
+
+    await recordProjectActivityEventVersion({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      domain: "task",
+      action: "updated",
+      entityId: "task-1",
+    });
+
+    expect(
+      getRealtimeMetricsSnapshot().counters["activity.changesEmitted"]
+    ).toBe(0);
   });
 });

@@ -48,6 +48,10 @@ import {
   GET as listNotifications,
   PATCH as updateNotification,
 } from "@/app/api/account/notifications/route";
+import {
+  getRealtimeMetricsSnapshot,
+  resetRealtimeMetricsForTests,
+} from "@/lib/observability/realtime-metrics";
 import { POST as markAllRead } from "@/app/api/account/notifications/mark-all-read/route";
 import { GET as getNotificationSummary } from "@/app/api/account/notifications/summary/route";
 import {
@@ -79,6 +83,7 @@ async function readFirstChunk(response: Response): Promise<string> {
 describe("account notification and invitation routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRealtimeMetricsForTests();
     apiGuardMock.requireAuthenticatedApiUser.mockResolvedValue({
       ok: true,
       userId: "user-1",
@@ -136,6 +141,46 @@ describe("account notification and invitation routes", () => {
     expect(notificationServiceMock.listNotificationsForUser).toHaveBeenCalledWith(
       "user-1"
     );
+  });
+
+  test("GET notifications counts snapshot checks and reports service timing", async () => {
+    vi.stubEnv("REALTIME_TRANSPORT", "polling");
+    notificationServiceMock.listNotificationsForUser.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      data: { notifications: [] },
+    });
+
+    const response = await listNotifications(
+      new NextRequest("http://localhost/api/account/notifications")
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("server-timing")).toMatch(
+      /^account.notifications.poll;dur=\d+\.\d$/
+    );
+
+    const snapshot = getRealtimeMetricsSnapshot();
+    expect(snapshot.counters["notifications.snapshotChecks"]).toBe(1);
+    expect(snapshot.counters["notifications.pollingFallbacks"]).toBe(0);
+    expect(snapshot.serviceTiming["account.notifications.poll"]?.count).toBe(1);
+  });
+
+  test("GET notifications counts polling fallbacks while the stream transport is active", async () => {
+    vi.stubEnv("REALTIME_TRANSPORT", "stream");
+    notificationServiceMock.listNotificationsForUser.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      data: { notifications: [] },
+    });
+
+    await listNotifications(
+      new NextRequest("http://localhost/api/account/notifications")
+    );
+
+    const snapshot = getRealtimeMetricsSnapshot();
+    expect(snapshot.counters["notifications.snapshotChecks"]).toBe(1);
+    expect(snapshot.counters["notifications.pollingFallbacks"]).toBe(1);
   });
 
   test("PATCH notification read state validates payload shape", async () => {
@@ -298,6 +343,10 @@ describe("account notification and invitation routes", () => {
     expect(chunk).toContain("event: notification-snapshot");
     expect(chunk).toContain('"unreadCount":1');
     expect(chunk).toContain('"Project invitation: Alpha"');
+
+    const snapshot = getRealtimeMetricsSnapshot();
+    expect(snapshot.counters["stream.connections"]).toBe(1);
+    expect(snapshot.counters["stream.refused"]).toBe(0);
   });
 
   test("notification stream refuses to open when the transport is polling", async () => {
@@ -320,6 +369,10 @@ describe("account notification and invitation routes", () => {
       expect.any(String),
       { transport: "polling" }
     );
+
+    const snapshot = getRealtimeMetricsSnapshot();
+    expect(snapshot.counters["stream.refused"]).toBe(1);
+    expect(snapshot.counters["stream.connections"]).toBe(0);
   });
 
   test("notification stream reports changed snapshots", () => {

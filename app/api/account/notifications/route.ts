@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import { isRealtimeStreamEnabled } from "@/lib/env.server";
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordRealtimeCounter } from "@/lib/observability/realtime-metrics";
+import { startServerTiming } from "@/lib/observability/server-timing";
 import {
   listNotificationsForUser,
   setNotificationReadState,
@@ -13,17 +16,29 @@ interface UpdateNotificationRequestBody {
 }
 
 export async function GET(request: NextRequest) {
+  const timing = startServerTiming("account.notifications.poll");
   const authenticatedUser = await requireAuthenticatedApiUser(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;
   }
 
-  const result = await listNotificationsForUser(authenticatedUser.userId);
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+  recordRealtimeCounter("notifications.snapshotChecks");
+  if (isRealtimeStreamEnabled()) {
+    recordRealtimeCounter("notifications.pollingFallbacks");
   }
 
-  return NextResponse.json(result.data, { status: result.status });
+  const result = await listNotificationsForUser(authenticatedUser.userId);
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status, headers: timing.headers() }
+    );
+  }
+
+  return NextResponse.json(result.data, {
+    status: result.status,
+    headers: timing.headers(),
+  });
 }
 
 export async function PATCH(request: NextRequest) {
