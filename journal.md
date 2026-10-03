@@ -9066,6 +9066,83 @@ Low-value entries to avoid going forward:
   the conclusion that ND-432 network live save remains gated pending revisions
   and coalescing in addition to performance remediation.
 
+# 2026-09-20 - ND-429 save-latency remediation
+
+- Kept task and meeting-note typed activity writes inside the already
+  authorized RLS save transaction, removing the second authorization/touch
+  transaction while preserving the canonical activity event and response
+  version header used by realtime clients.
+- Meeting-note updates now compare persisted participants and actions, skip
+  unchanged nested writes, reuse the loaded actor registry for the response,
+  and resolve the mutation actor only when an action is created or reassigned.
+  The 10-persisted-todo path fell from 62 to 28 SQL statements.
+- Roadmap phase/event mutations now return `x-nexusdash-project-version` and
+  `Server-Timing`; the client acknowledges those responses and keeps its local
+  phase projection instead of issuing an unconditional `router.refresh()`.
+- Production-build local rerun (PostgreSQL 16, RLS enabled, three warmups plus
+  20 samples): p95 task create/edit 50.0/42.8 ms; meeting create/preparation/
+  10-persisted-todo edit 50.1/46.8/46.9 ms; roadmap phase create/edit
+  31.7/30.8 ms; roadmap event create/edit 25.6/23.7 ms. Task create/edit SQL
+  fell from 27/28 to 22/23; roadmap remained within its 9-11 statement budget.
+- Validation: lint, RLS inventory, release policy, focused service/API/UI
+  tests, full unit and coverage suites, production build, the 10-test task/
+  meeting/roadmap browser suite, and the temporary benchmark/query harnesses.
+  Temporary instrumentation and fixtures were removed afterward.
+
+# 2026-10-03 - ND-429 preview follow-up
+
+- On the `b1ee8c1` preview, the user still found saves slow. Browser checks on
+  the supplied immutable deployment reproduced about 3.5 seconds from meeting
+  output save click to success toast, about 3.9 seconds to create a milestone
+  and event, and about 1.8 seconds to edit an event. These are browser UI
+  observations, not server timing samples. Test content was restored and the
+  temporary event was deleted.
+- Roadmap event create/edit read the saved event separately before reading its
+  containing phase, which already includes the event. Both paths now derive
+  the response event from the phase read, eliminating one duplicate database
+  query per event save while retaining the same response shape.
+- Workflow `37122553332` deployed commit `4c1eb3a` to
+  `https://nexus-dash-pojfe861l-dorian-agaesses-projects.vercel.app`; its
+  checkout log confirms the full SHA. The PR quality, browser E2E, RLS, and
+  container checks passed. On the stable preview alias, an isolated probe
+  project was created because the user's original fixture was inaccessible to
+  the signed-in account. Twenty consecutive event edits measured from Save
+  click to dialog close had p50 1,382 ms and p95 2,306 ms. Four successful
+  meeting output edits measured 2,595-2,800 ms; a fifth attempt did not close
+  within 15 seconds and succeeded on retry. These UI timings do not isolate
+  app server time from network and infrastructure time. The preview function
+  deployment is in `iad1`; the preview database region remains unverified.
+  The branch-preview latency acceptance targets are still unmet.
+
+## ND-429 final preview remediation
+
+- Existing timing headers separated an old-preview event edit into 805 ms
+  server, 268 ms fetch remainder, and 22 ms browser work (1,094 ms UI total).
+  A meeting output edit with ten todos was 2,143 / 388 / 24 ms (2,555 ms
+  total). The `x-vercel-id` function region was `iad1`, while the Preview
+  Supabase runtime pooler hostname identified AWS `eu-west-1`.
+- Commit `5eabb12` made branch-preview and staged-production deployment select
+  the Vercel Function region from that environment's runtime pooler hostname,
+  failing deployment for an unmapped region. The first colocated Preview run
+  [37151643429](https://github.com/dorianagaesse/nexus_dash/actions/runs/37151643429)
+  used `dub1`; its 20-sample event-edit and meeting-output UI p95 values were
+  285 and 358 ms. Its 160 samples across eight surfaces all succeeded.
+- Commits `031da7b` and `1f6a78f` removed unused task mutation reads, with
+  the latter fixing an omitted call-site argument after a failed intermediate
+  build/deploy. A live RLS-enabled SQL count was 20 statements for task create
+  and 20 for edit, within the ND-428 budget.
+- Workflow [37152881897](https://github.com/dorianagaesse/nexus_dash/actions/runs/37152881897)
+  checked out `1f6a78fd0be12c7ca50ba32e171791afadb61ab2` and deployed
+  `https://nexus-dash-2c23ucjvf-dorian-agaesses-projects.vercel.app`.
+  All 200 post-warmup saves across ten surfaces succeeded, with three warmups
+  and 20 measured saves per surface. `x-vercel-id` reported `fra1::dub1`.
+  Event edit click-to-close p50/p95 was 197/224 ms; meeting output edit with
+  ten todos was 262/288 ms. Every surface met its p95 target. Full timing
+  splits and the method are in `docs/reports/nd-429-preview-save-latency.md`.
+- Final-head lint, RLS inventory, 1,791 unit/API tests, coverage, and build
+  passed. The GitHub Quality Gates workflow was dispatched on the final code
+  head for the PostgreSQL RLS matrix and E2E; local Docker was unavailable.
+
 ## 2026-10-03 - ND-371: Realtime compute, query volume, and fallback telemetry
 
 - Added an in-process telemetry registry (`lib/observability/realtime-metrics.ts`)
@@ -9170,6 +9247,24 @@ Low-value entries to avoid going forward:
   build all green, and the PR is MERGEABLE again. Local Playwright could not
   run - Docker Desktop failed to start, leaving the local Postgres container
   unreachable - so e2e coverage for the merge head is delegated to CI.
+
+## ND-429 merge-forward and final review head
+
+- Merged current `origin/main` into PR #550, resolving its `journal.md` conflict
+  by retaining both task histories. Merge commit `a8e2686` is mergeable.
+- Preview workflow [37153541585](https://github.com/dorianagaesse/nexus_dash/actions/runs/37153541585)
+  deployed that exact commit at
+  `https://nexus-dash-kuf5x6o43-dorian-agaesses-projects.vercel.app`.
+  The final 200 post-warmup saves across ten surfaces all succeeded, and
+  `x-vercel-id` stayed `fra1::dub1` beside the `eu-west-1` runtime pooler.
+  Event edit UI p50/p95 was 205/241 ms; meeting output with ten existing todos
+  was 280/324 ms. All surface p95s met ND-429 targets, including task
+  create/edit at 352/417 ms. Full splits and tails are in the preview report.
+- Merged-head local lint, RLS inventory, 1,814 unit/API tests, and coverage
+  passed. The pre-merge preview also passed all 101 runnable browser E2E tests
+  (one intentional skip). Final merged-head GitHub Quality Gates ran the
+  PostgreSQL isolation matrix successfully; its core and E2E result are in
+  [37153565491](https://github.com/dorianagaesse/nexus_dash/actions/runs/37153565491).
 
 ## 2026-10-03 - ND-372: Private Supabase Realtime authorization and channel contracts
 

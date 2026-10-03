@@ -51,6 +51,7 @@ import {
   type RoadmapStatus,
 } from "@/lib/roadmap-milestone";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
+import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
 import { cn } from "@/lib/utils";
 
 export type ProjectRoadmapPanelPhase = ProjectRoadmapPhase;
@@ -1699,18 +1700,22 @@ export function ProjectRoadmapPanel({
     sourceDraft: { targetDate: string | null; status: RoadmapStatus },
     milestoneIndex: number
   ): Promise<ProjectRoadmapPanelPhase> {
-    const response = await fetch(`/api/projects/${projectId}/roadmap`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        title: getMilestoneLabel(milestoneIndex),
-        description: "",
-        targetDate: sourceDraft.targetDate,
-        status: sourceDraft.status,
-      }),
-    });
+    const response = await fetchProjectActivityMutation(
+      projectId,
+      `/api/projects/${projectId}/roadmap`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          title: getMilestoneLabel(milestoneIndex),
+          description: "",
+          targetDate: sourceDraft.targetDate,
+          status: sourceDraft.status,
+        }),
+      }
+    );
 
     if (!response.ok) {
       throw new Error(mapRoadmapMutationError(await readApiError(response)));
@@ -1757,7 +1762,7 @@ export function ProjectRoadmapPanel({
           : `/api/projects/${projectId}/roadmap/events/${eventDialog.eventId}`;
       const method = eventDialog.mode === "create" ? "POST" : "PATCH";
 
-      const response = await fetch(endpoint, {
+      const response = await fetchProjectActivityMutation(projectId, endpoint, {
         method,
         headers: {
           "content-type": "application/json",
@@ -1798,7 +1803,6 @@ export function ProjectRoadmapPanel({
       });
 
       closeEventDialog();
-      router.refresh();
     } catch (error) {
       console.error("[ProjectRoadmapPanel.submitEvent]", error);
       if (createdPhase) {

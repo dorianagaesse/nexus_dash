@@ -20,8 +20,14 @@ import {
   validateAttachmentFiles,
 } from "@/lib/services/attachment-input-service";
 import { logServerError } from "@/lib/observability/logger";
-import { touchProjectActivity } from "@/lib/services/project-activity-service";
-import { createTaskAttachmentsFromDraft } from "@/lib/services/project-attachment-service";
+import {
+  recordProjectActivityEvent,
+  touchProjectActivity,
+} from "@/lib/services/project-activity-service";
+import {
+  createTaskAttachmentsFromDraft,
+  mapTaskAttachmentResponse,
+} from "@/lib/services/project-attachment-service";
 import {
   formatTaskDeadlineDate,
   parseTaskDeadlineDate,
@@ -339,7 +345,8 @@ const relatedTaskSummarySelect = {
 async function loadTaskMutationPayload(
   db: DbClient,
   projectId: string,
-  taskId: string
+  taskId: string,
+  hasEpic = true
 ): Promise<UpdatedTaskPayload | null> {
   const task = await db.task.findUnique({
     where: { id: taskId },
@@ -375,12 +382,7 @@ async function loadTaskMutationPayload(
           sizeBytes: true,
         },
       },
-      epic: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
+      epic: hasEpic ? { select: { id: true, name: true } } : false,
       createdByCredentialId: true,
       createdByCredentialLabel: true,
       updatedByCredentialId: true,
@@ -435,7 +437,10 @@ async function loadTaskMutationPayload(
     return null;
   }
 
-  const actorRegistry = await loadProjectActorRegistry({ db, projectId });
+  const actorRegistry =
+    task.assigneeKind || task.assigneeAssignedByKind
+      ? await loadProjectActorRegistry({ db, projectId })
+      : null;
 
   return {
     id: task.id,
@@ -452,7 +457,7 @@ async function loadTaskMutationPayload(
     position: task.position,
     completedAt: task.completedAt,
     archivedAt: task.archivedAt,
-    epic: mapTaskEpicSummary(task.epic),
+    epic: mapTaskEpicSummary(task.epic ?? null),
     assignee: mapTaskStoredActor({
       kind: task.assigneeKind,
       userId: task.assigneeUserId,
@@ -964,7 +969,9 @@ export function isValidReorderPayload(payload: unknown): payload is ReorderPaylo
 
 export async function createTaskForProject(
   input: CreateTaskForProjectInput
-): Promise<ServiceResult<{ task: UpdatedTaskPayload }>> {
+): Promise<
+  ServiceResult<{ task: UpdatedTaskPayload; activityVersion: Date }>
+> {
   const actorUserId = normalizeText(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -1135,12 +1142,14 @@ export async function createTaskForProject(
         });
       }
 
-      await replaceTaskRelations({
-        db,
-        projectId: input.projectId,
-        taskId: createdTask.id,
-        relatedTaskIds: relatedTaskValidation.data.relatedTaskIds,
-      });
+      if (relatedTaskValidation.data.relatedTaskIds.length > 0) {
+        await replaceTaskRelations({
+          db,
+          projectId: input.projectId,
+          taskId: createdTask.id,
+          relatedTaskIds: relatedTaskValidation.data.relatedTaskIds,
+        });
+      }
 
       await createTaskAttachmentsFromDraft({
         actorUserId,
@@ -1174,17 +1183,42 @@ export async function createTaskForProject(
         });
       }
 
-      await touchProjectActivity({ db, projectId: input.projectId });
-
-      const task = await loadTaskMutationPayload(db, input.projectId, createdTask.id);
+      const task = await loadTaskMutationPayload(
+        db,
+        input.projectId,
+        createdTask.id,
+        Boolean(epicValidation.data.epicId)
+      );
       if (!task) {
         return createError(500, "create-failed");
       }
+
+      const activityVersion = new Date();
+      await recordProjectActivityEvent({
+        db,
+        projectId: input.projectId,
+        actorUserId,
+        domain: "task",
+        action: "created",
+        entityId: task.id,
+        payload: {
+          task: {
+            ...task,
+            attachments: Array.isArray(task.attachments)
+              ? task.attachments.map((attachment) =>
+                  mapTaskAttachmentResponse(input.projectId, task.id, attachment)
+                )
+              : task.attachments,
+          },
+        },
+        occurredAt: activityVersion,
+      });
 
       return {
         ok: true,
         data: {
           task,
+          activityVersion,
         },
       };
     } catch (error) {
@@ -1557,7 +1591,9 @@ export async function updateTaskForProject(
   payload: UpdateTaskPayload,
   actorUserId: string,
   agentAccess?: AgentProjectAccessContext
-): Promise<ServiceResult<{ task: UpdatedTaskPayload }>> {
+): Promise<
+  ServiceResult<{ task: UpdatedTaskPayload; activityVersion: Date }>
+> {
   const normalizedActorUserId = normalizeText(actorUserId);
   if (!normalizedActorUserId) {
     return createError(401, "unauthorized");
@@ -1666,16 +1702,12 @@ export async function updateTaskForProject(
           assigneeUserId: true,
           assigneeCredentialId: true,
           assigneeDisplayNameSnapshot: true,
-          outgoingRelations: {
-            select: {
-              rightTaskId: true,
-            },
-          },
-          incomingRelations: {
-            select: {
-              leftTaskId: true,
-            },
-          },
+          outgoingRelations: relatedTaskIdsProvided
+            ? { select: { rightTaskId: true } }
+            : false,
+          incomingRelations: relatedTaskIdsProvided
+            ? { select: { leftTaskId: true } }
+            : false,
         },
       });
 
@@ -1683,24 +1715,24 @@ export async function updateTaskForProject(
         return createError(404, "Task not found");
       }
 
+      const existingRelatedTaskIds = relatedTaskIdsProvided
+        ? [
+            ...existingTask.outgoingRelations.map((entry) => entry.rightTaskId),
+            ...existingTask.incomingRelations.map((entry) => entry.leftTaskId),
+          ]
+        : [];
       const relatedTaskValidation = relatedTaskIdsProvided
         ? await validateRelatedTaskIds({
             db,
             projectId,
             taskId,
             relatedTaskIds,
-            allowArchivedTaskIds: [
-              ...existingTask.outgoingRelations.map((entry) => entry.rightTaskId),
-              ...existingTask.incomingRelations.map((entry) => entry.leftTaskId),
-            ],
+            allowArchivedTaskIds: existingRelatedTaskIds,
           })
         : {
             ok: true as const,
             data: {
-              relatedTaskIds: [
-                ...existingTask.outgoingRelations.map((entry) => entry.rightTaskId),
-                ...existingTask.incomingRelations.map((entry) => entry.leftTaskId),
-              ],
+              relatedTaskIds: [],
             },
           };
       if (!relatedTaskValidation.ok) {
@@ -1839,7 +1871,12 @@ export async function updateTaskForProject(
           });
         }
 
-        return loadTaskMutationPayload(tx, projectId, taskId);
+        return loadTaskMutationPayload(
+          tx,
+          projectId,
+          taskId,
+          Boolean(epicValidation.data.epicId)
+        );
       };
 
       const updatedTask = await updateWithClient(db);
@@ -1887,12 +1924,32 @@ export async function updateTaskForProject(
         });
       }
 
-      await touchProjectActivity({ db, projectId });
+      const activityVersion = new Date();
+      await recordProjectActivityEvent({
+        db,
+        projectId,
+        actorUserId: normalizedActorUserId,
+        domain: "task",
+        action: "updated",
+        entityId: taskId,
+        payload: {
+          task: {
+            ...updatedTask,
+            attachments: Array.isArray(updatedTask.attachments)
+              ? updatedTask.attachments.map((attachment) =>
+                  mapTaskAttachmentResponse(projectId, taskId, attachment)
+                )
+              : updatedTask.attachments,
+          },
+        },
+        occurredAt: activityVersion,
+      });
 
       return {
         ok: true,
         data: {
           task: updatedTask,
+          activityVersion,
         },
       };
     } catch (error) {
