@@ -9170,3 +9170,12 @@ Low-value entries to avoid going forward:
   build all green, and the PR is MERGEABLE again. Local Playwright could not
   run - Docker Desktop failed to start, leaving the local Postgres container
   unreachable - so e2e coverage for the merge head is delegated to CI.
+
+## 2026-10-03 - ND-139: In-card edit and create Cancel controls secondary button affordance
+
+- Addressed external UX feedback on Cancel button affordance across project edit and epic management surfaces.
+- Updated Cancel buttons in `app/projects/projects-grid-client.tsx` (project edit form) and `components/project-epic-panel.tsx` (epic create panel and in-card epic edit form) from `variant="ghost"` to `variant="secondary"`, ensuring clear visual affordance and distinct boundary from destructive actions and primary submit buttons.
+- Also promoted project edit form "Save changes" submit button to default primary styling for clear visual hierarchy.
+- Extracted helper internals from Next.js route handlers (`app/api/account/notifications/stream/route.ts` and `app/api/projects/[projectId]/activity/stream/route.ts`) to `lib/realtime/notification-stream.ts` and `lib/realtime/project-activity-stream.ts` to adhere to Next.js route export restrictions during build TypeScript check. Adjusted `app/account/settings/developers/page.tsx` props type.
+- Unit and component tests: added `tests/components/projects-grid-client.test.tsx` (4 tests) and updated `tests/components/project-epic-panel.test.tsx` (20 tests) asserting secondary button classes and interactions.
+- Full validation: `git diff --check`, `npm run lint`, `npm run rls:check`, full unit test suite (222 files passed, 1817 tests passed), `npm run test:coverage` (93.78% statements, 84.46% branches, 95.42% functions, 94.08% lines), and Next.js production build (`npx next build --webpack`) all passed.

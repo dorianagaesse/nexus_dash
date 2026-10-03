@@ -410,6 +410,13 @@ describe("project-epic-panel", () => {
       "Edit epic Launch collaboration beta"
     );
 
+    const cancelButton = Array.from(article?.querySelectorAll("button") ?? []).find(
+      (button) => button.textContent?.trim() === "Cancel"
+    );
+    expect(cancelButton).not.toBeUndefined();
+    expect(cancelButton?.className).toContain("bg-secondary");
+    expect(cancelButton?.className).toContain("text-secondary-foreground");
+
     await act(async () => {
       root.unmount();
     });
