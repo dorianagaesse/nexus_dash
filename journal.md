@@ -9026,3 +9026,60 @@ Low-value entries to avoid going forward:
   takeover after the leader closed (interval 10.8s), 0 requests in the 25s
   hidden window, immediate resume, zero stream-route requests, temporary rows
   cleaned up.
+
+## 2026-10-03 - ND-371: Realtime compute, query volume, and fallback telemetry
+
+- Added an in-process telemetry registry (`lib/observability/realtime-metrics.ts`)
+  with seven fixed counters (`activity`/`notifications`.snapshotChecks,
+  `activity.changesEmitted`, `activity`/`notifications.pollingFallbacks`,
+  `stream.connections`, `stream.refused`), per-route service timing, and a
+  database query counter. The snapshot carries environment, revision, and the
+  resolved transport, and is aggregate-only - no user IDs, emails, project
+  IDs, or payloads; a test locks the exact key set.
+- Database volume is measured at the pg driver
+  (`lib/observability/pg-query-metrics.ts`), wiring `pool.connect` in
+  `lib/prisma.ts` with an idempotent symbol wrapper for both callback and
+  promise styles; every driver query call counts once regardless of the
+  serialized-transaction path.
+- Poll routes record snapshot checks, and count a human poll as a polling
+  fallback only while the transport resolves to stream (agent-scoped API
+  polling is excluded so it is not misattributed); the fallback counters stay
+  0 while polling is the intended transport.
+  `recordProjectActivityEventVersion` counts emitted changes on both the
+  typed-event and durable-touch success paths. Stream routes count accepted
+  connections and refusals at the existing transport kill-switch.
+  `GET /api/observability/realtime` (authenticated) serves the snapshot, and
+  `startServerTiming` now records service timing under the raw route name
+  while the Server-Timing header keeps its sanitized form.
+- Runbook (`docs/runbooks/vercel-usage-and-spend-guardrails.md`): seven-day
+  targets (below 30 CPU minutes and 40 GB-hours Fluid Provisioned Memory) with
+  an 80% investigation threshold (24 CPU-min / 32 GB-h), a Realtime Telemetry
+  section with counter semantics and attribution recipes, and
+  environment-tagged review guidance.
+- Tests: new suites for the registry (including a production-runtime flush
+  case asserting environment and transport tagging), pg metering, server
+  timing, and the observability route; existing route suites extended for
+  poll counters, fallback attribution (human vs agent), stream
+  refusal/connection counts, and emitted-change counting.
+- Validation on this head: lint, rls:check, full unit suite (1811 passed,
+  2 skipped), coverage thresholds met (93.78/84.46/95.42/94.08), production
+  build, `git diff --check` clean. Note: exporting `NEXTAUTH_URL=127.0.0.1`
+  for the whole chain breaks auth/origin tests that expect the `localhost`
+  default - scope it to the build step only.
+- Preview validation: workflow run 37083867583, revision `009ead9` at
+  `https://nexus-dash-evbicq295-dorian-agaesses-projects.vercel.app`. The
+  Playwright/pg harness (19/19) confirms environment `preview`, transport
+  `polling`, activity/notification snapshot checks and service timing,
+  database query volume, no fallback attribution while polling is intended,
+  no stream connections, environment/revision fields, no user identifiers in
+  the snapshot, and temporary rows cleaned up.
+- Discovery: on Vercel the stream routes deploy as their own serverless
+  function, separate from the function serving the poll routes and the
+  observability endpoint, so stream counters live in a different instance and
+  read as 0 on the snapshot. A refused stream request returned 404 while the
+  API function's snapshot stayed at `stream.refused 0`; the stream function's
+  own `realtime.metrics` record showed `stream.refused 4` with zero poll
+  counters. The runbook now states counters are per serverless function and
+  that stream counters are read from the log records; the harness keeps a
+  tripwire check for that split.
+- PR: #562.

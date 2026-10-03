@@ -188,7 +188,23 @@ minute, tagged with environment and revision. These lines survive instance
 recycling; the endpoint snapshot is per instance and resets with it, so sample
 the endpoint while reproducing, and use the log records for history.
 
+Counters are also per serverless function. On Vercel the stream routes deploy
+as their own function, separate from the function serving the poll routes and
+this observability endpoint, so `stream.connections` and `stream.refused` read
+as zero in the endpoint snapshot even while stream requests are being refused.
+The stream function's own `realtime.metrics` records carry those counters (a
+refusal logs one attributed to the stream request path, with stream-only
+counters and zero poll counters), so read stream counters from the log
+records, not the snapshot. Verified on Preview revision `009ead9`: a refused
+stream request returned 404, the API function's snapshot stayed at
+`stream.refused 0`, and the stream function logged
+`realtime.metrics ... stream.refused 1`.
+
 Attribution recipes:
+
+- Stream counters (`stream.connections`, `stream.refused`) come from the
+  stream function's `realtime.metrics` log records; the endpoint snapshot
+  carries the poll counters, service timing, and `database.queryCalls`.
 
 - High compute on the activity route with `stream.connections` near zero in
   Production: clients are stuck in polling fallback - check
@@ -262,7 +278,8 @@ Stale-tab hygiene:
   40 GB-hour seven-day targets; investigate at 80%.
 - Realtime telemetry: `GET /api/observability/realtime` returns an
   environment-tagged snapshot, and `realtime.metrics` log records appear on
-  deployment runtimes.
+  deployment runtimes (stream counters appear in the stream function's log
+  records, not the snapshot).
 - Notifications: account notification settings show Spend Management enabled.
 - Retention: Team Settings, Security & Privacy, Deployment Retention Policy
   shows the pre-production period in effect.
