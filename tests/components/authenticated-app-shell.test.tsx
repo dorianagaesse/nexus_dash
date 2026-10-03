@@ -49,6 +49,7 @@ describe("authenticated app shell", () => {
           usernameTag="dorian#1234"
           avatarSeed="seed"
           initialNotificationSnapshot={notificationSnapshot}
+          streamEnabled={true}
           {...appMetadataProps}
           notificationBanner={<div>Notification banner</div>}
         >
@@ -59,7 +60,7 @@ describe("authenticated app shell", () => {
 
     expect(result).toContain('aria-label="Primary navigation"');
     expect(result).toContain("Projects");
-    expect(result).toContain("Inbox");
+    expect(result).toContain("Notifications");
     expect(result).not.toContain("Todos");
     expect(result).toContain('aria-label="Workspace navigation"');
     expect(result).not.toContain('aria-label="Project navigation"');
@@ -94,6 +95,7 @@ describe("authenticated app shell", () => {
           usernameTag="dorian#1234"
           avatarSeed="seed"
           initialNotificationSnapshot={notificationSnapshot}
+          streamEnabled={true}
           {...appMetadataProps}
           appEnvironment="preview"
           appDiagnosticLabel="v1.2.3 | preview | build abc1234"
@@ -116,6 +118,7 @@ describe("authenticated app shell", () => {
           usernameTag="dorian#1234"
           avatarSeed="seed"
           initialNotificationSnapshot={notificationSnapshot}
+          streamEnabled={true}
           {...appMetadataProps}
           notificationBanner={<div>Notification banner</div>}
         >
@@ -141,6 +144,7 @@ describe("authenticated app shell", () => {
           usernameTag="dorian#1234"
           avatarSeed="seed"
           initialNotificationSnapshot={notificationSnapshot}
+          streamEnabled={true}
           {...appMetadataProps}
           notificationBanner={<div>Notification banner</div>}
         >

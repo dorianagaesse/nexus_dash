@@ -8,6 +8,7 @@ import {
   getOutboundEmailRuntimeConfig,
   getOptionalServerEnv,
   getPrismaPgRuntimeConnectionString,
+  getRealtimeTransport,
   getRequiredServerEnv,
   getRuntimeEnvironment,
   getStorageRuntimeConfig,
@@ -16,6 +17,7 @@ import {
   isLiveProductionDeployment,
   isPreviewDeployment,
   isProductionEnvironment,
+  isRealtimeStreamEnabled,
   validateServerRuntimeConfig,
 } from "@/lib/env.server";
 
@@ -47,6 +49,7 @@ const ENV_KEYS_TO_RESET = [
   "CRON_SECRET",
   "NOTIFICATION_EMAIL_DISPATCH_SECRET",
   "OUTBOUND_EMAIL_DELIVERY_MODE",
+  "REALTIME_TRANSPORT",
   "RESEND_API_KEY",
   "RESEND_FROM_EMAIL",
   "STORAGE_PROVIDER",
@@ -352,6 +355,63 @@ describe("env.server", () => {
 
     expect(() => getStorageRuntimeConfig()).toThrow(
       "Missing required environment variable: R2_ACCESS_KEY_ID"
+    );
+  });
+
+  test("defaults the realtime transport to stream outside preview", () => {
+    vi.stubEnv("NODE_ENV", "production");
+
+    expect(getRealtimeTransport()).toBe("stream");
+    expect(isRealtimeStreamEnabled()).toBe(true);
+  });
+
+  test("defaults the realtime transport to polling in Vercel Preview", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+
+    expect(getRealtimeTransport()).toBe("polling");
+    expect(isRealtimeStreamEnabled()).toBe(false);
+  });
+
+  test("honors an explicit stream transport in Vercel Preview", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("REALTIME_TRANSPORT", "stream");
+
+    expect(getRealtimeTransport()).toBe("stream");
+    expect(isRealtimeStreamEnabled()).toBe(true);
+  });
+
+  test("allows production rollback to polling through configuration", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("REALTIME_TRANSPORT", "polling");
+
+    expect(getRealtimeTransport()).toBe("polling");
+    expect(isRealtimeStreamEnabled()).toBe(false);
+  });
+
+  test("fails when the realtime transport is invalid", () => {
+    vi.stubEnv("REALTIME_TRANSPORT", "websocket");
+
+    expect(() => getRealtimeTransport()).toThrow(
+      "REALTIME_TRANSPORT must be one of: stream, polling."
+    );
+  });
+
+  test("fails runtime validation when the realtime transport is invalid", () => {
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://runtime-user:pwd@runtime-db.example.com:5432/postgres?sslmode=require"
+    );
+    vi.stubEnv(
+      "DIRECT_URL",
+      "postgresql://admin-user:pwd@direct-db.example.com:5432/postgres?sslmode=require"
+    );
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("REALTIME_TRANSPORT", "websocket");
+
+    expect(() => validateServerRuntimeConfig()).toThrow(
+      "REALTIME_TRANSPORT must be one of: stream, polling."
     );
   });
 
