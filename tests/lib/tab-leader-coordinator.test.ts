@@ -227,6 +227,35 @@ describe("createTabLeaderCoordinator", () => {
     second.coordinator.stop();
   });
 
+  test("a hidden tab starting up leaves an existing leader's schedule untouched", async () => {
+    const leader = createTab("aaa");
+    leader.coordinator.start();
+    await advance(CLAIM_JITTER_MS + 50);
+    expect(leader.coordinator.getRole()).toBe("leader");
+    expect(leader.onRefreshRequest).toHaveBeenCalledTimes(1);
+
+    const observer = new MockBroadcastChannel(CHANNEL_NAME);
+    const heardKinds: string[] = [];
+    observer.addEventListener("message", (event) => {
+      heardKinds.push(
+        ((event.data as { kind?: string }).kind ?? "unknown") as string
+      );
+    });
+
+    const hiddenTab = createTab("bbb", { initialVisible: false });
+    hiddenTab.coordinator.start();
+    await advance(CLAIM_JITTER_MS + 50);
+
+    expect(hiddenTab.coordinator.getRole()).toBe("follower");
+    expect(hiddenTab.onRefreshRequest).not.toHaveBeenCalled();
+    expect(heardKinds).toEqual([]);
+    expect(leader.onRefreshRequest).toHaveBeenCalledTimes(1);
+
+    observer.close();
+    leader.coordinator.stop();
+    hiddenTab.coordinator.stop();
+  });
+
   test("ignores malformed, foreign, and stale messages", async () => {
     const tab = createTab("mmm");
 

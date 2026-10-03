@@ -42,6 +42,7 @@ export interface TabLeaderCoordinatorOptions<TPayload> {
   leaseTtlMs?: number;
   claimJitterMs?: () => number;
   tabId?: string;
+  initialVisible?: boolean;
   now?: () => number;
   createChannel?: (name: string) => TabLeaderChannel | null;
 }
@@ -129,7 +130,7 @@ export function createTabLeaderCoordinator<TPayload>(
   let role: TabLeaderRole = channel ? "follower" : "leader";
   let knownTerm = 0;
   let lastLeaderSeenAt: number | null = null;
-  let isVisible = true;
+  let isVisible = options.initialVisible ?? true;
   let started = false;
   let stopped = false;
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -361,6 +362,13 @@ export function createTabLeaderCoordinator<TPayload>(
     channel.addEventListener("message", handleChannelMessage);
     role = "follower";
     onRoleChange(false);
+
+    // A tab that starts hidden must not probe or claim: its probe would make a
+    // live leader schedule an immediate poll that the hidden tab cannot use.
+    if (!isVisible) {
+      return;
+    }
+
     post({ kind: "probe", scope, tabId });
     armClaimTimer();
   }

@@ -919,7 +919,7 @@ describe("ProjectLiveRefresh", () => {
     });
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(heardKinds).not.toContain("heartbeat");
+    expect(heardKinds).toEqual([]);
 
     await act(async () => {
       root.unmount();

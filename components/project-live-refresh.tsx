@@ -377,6 +377,7 @@ export function ProjectLiveRefresh({
 
     const coordinator = createTabLeaderCoordinator<ProjectActivityResponse>({
       scope: `project:${projectId}`,
+      initialVisible: !isDocumentHidden(),
       onRoleChange(isLeader) {
         isPollingLeader = isLeader;
         if (isLeader) {
@@ -467,7 +468,6 @@ export function ProjectLiveRefresh({
     }
 
     coordinator.start();
-    coordinator.setVisible(!isDocumentHidden());
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", requestImmediatePoll);
 

@@ -175,6 +175,7 @@ export function NotificationLiveUpdates({
 
     const coordinator = createTabLeaderCoordinator<NotificationRealtimeSnapshot>({
       scope: "notifications",
+      initialVisible: !isDocumentHidden(),
       onRoleChange(isLeader) {
         isPollingLeader = isLeader;
         if (isLeader) {
@@ -262,7 +263,6 @@ export function NotificationLiveUpdates({
     }
 
     coordinator.start();
-    coordinator.setVisible(!isDocumentHidden());
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", requestImmediatePoll);
 

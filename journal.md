@@ -8982,3 +8982,18 @@ Low-value entries to avoid going forward:
   with 0 polls, takeover after the leader tab closed (interval 11.3s),
   0 requests in the 25s hidden window, immediate resume, zero stream-route
   requests, temporary rows cleaned up.
+- Owner review follow-up on #560: a tab mounted while already hidden still
+  broadcast one `probe` from `start()` before its visibility was synced, and a
+  live leader answers a probe with an immediate poll - so the hidden tab made
+  the leader spend one extra request. Fixed by making startup visibility
+  declarative: the coordinator options gain `initialVisible` and `start()`
+  only probes/claims when visible (both components pass
+  `initialVisible: !isDocumentHidden()` and drop the post-start `setVisible`
+  call). Regression tests: a new lib case asserts that a hidden tab starting
+  beside a live leader leaves the leader's `onRefreshRequest` count and the
+  bus untouched, and the two hidden-at-mount component tests now assert the
+  bus hears nothing at all (previously they only ruled out heartbeats); all
+  three fail with the start-time guard reverted.
+- Re-validation on this head: `npm run lint`, `npm run rls:check`, full unit
+  suite (1790 passed, 2 skipped), coverage thresholds met
+  (93.78/84.46/95.42/94.08), production build, `git diff --check` clean.
