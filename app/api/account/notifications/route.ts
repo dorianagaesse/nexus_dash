@@ -20,7 +20,10 @@ export async function GET(request: NextRequest) {
 
   const result = await listNotificationsForUser(authenticatedUser.userId);
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status }
+    );
   }
 
   return NextResponse.json(result.data, { status: result.status });

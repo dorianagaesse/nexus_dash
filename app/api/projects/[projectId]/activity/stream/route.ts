@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/api-guard";
 import { isRealtimeStreamEnabled } from "@/lib/env.server";
 import { logServerInfo } from "@/lib/observability/logger";
+import { recordRealtimeCounter } from "@/lib/observability/realtime-metrics";
 import {
   encodeServerSentEvent,
   sleepWithAbort,
@@ -119,6 +120,7 @@ export async function GET(
   props: { params: Promise<{ projectId: string }> }
 ) {
   if (!isRealtimeStreamEnabled()) {
+    recordRealtimeCounter("stream.refused");
     logServerInfo(
       "GET /api/projects/[projectId]/activity/stream.transportDisabled",
       "Realtime stream refused because the transport is set to polling",
@@ -170,6 +172,8 @@ export async function GET(
       }
     );
   }
+
+  recordRealtimeCounter("stream.connections");
 
   const encoder = new TextEncoder();
   let streamCancelled = false;

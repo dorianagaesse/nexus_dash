@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const apiGuardMock = vi.hoisted(() => ({
   getAgentProjectAccessContext: vi.fn(),
@@ -27,6 +27,10 @@ vi.mock("@/lib/services/project-activity-service", () => ({
 }));
 
 import { GET as getProjectActivity } from "@/app/api/projects/[projectId]/activity/route";
+import {
+  getRealtimeMetricsSnapshot,
+  resetRealtimeMetricsForTests,
+} from "@/lib/observability/realtime-metrics";
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
@@ -39,6 +43,7 @@ function projectParams(projectId: string) {
 describe("project activity route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRealtimeMetricsForTests();
     apiGuardMock.requireApiPrincipal.mockResolvedValue({
       ok: true,
       principal: {
@@ -49,6 +54,10 @@ describe("project activity route", () => {
     });
     apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
     projectAccessServiceMock.requireAgentProjectScopes.mockReturnValue({ ok: true });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   test("returns the authorized project activity version without caching", async () => {
@@ -91,5 +100,79 @@ describe("project activity route", () => {
 
     expect(response.status).toBe(403);
     await expect(readJson(response)).resolves.toEqual({ error: "forbidden" });
+  });
+
+  test("counts served snapshot checks and reports service timing", async () => {
+    vi.stubEnv("REALTIME_TRANSPORT", "polling");
+    projectActivityServiceMock.getProjectActivitySnapshot.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        projectId: "project-1",
+        version: new Date("2026-05-30T10:00:00.000Z"),
+      },
+    });
+
+    const response = await getProjectActivity(
+      new Request("http://localhost/api/projects/project-1/activity") as never,
+      projectParams("project-1")
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("server-timing")).toMatch(
+      /^project.activity.poll;dur=\d+\.\d$/
+    );
+
+    const snapshot = getRealtimeMetricsSnapshot();
+    expect(snapshot.counters["activity.snapshotChecks"]).toBe(1);
+    expect(snapshot.counters["activity.pollingFallbacks"]).toBe(0);
+    expect(snapshot.serviceTiming["project.activity.poll"]?.count).toBe(1);
+  });
+
+  test("attributes human polls to polling fallbacks while the stream transport is active", async () => {
+    vi.stubEnv("REALTIME_TRANSPORT", "stream");
+    projectActivityServiceMock.getProjectActivitySnapshot.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        projectId: "project-1",
+        version: new Date("2026-05-30T10:00:00.000Z"),
+      },
+    });
+
+    await getProjectActivity(
+      new Request("http://localhost/api/projects/project-1/activity") as never,
+      projectParams("project-1")
+    );
+
+    const snapshot = getRealtimeMetricsSnapshot();
+    expect(snapshot.counters["activity.snapshotChecks"]).toBe(1);
+    expect(snapshot.counters["activity.pollingFallbacks"]).toBe(1);
+  });
+
+  test("does not attribute agent polls to polling fallbacks", async () => {
+    vi.stubEnv("REALTIME_TRANSPORT", "stream");
+    apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
+      ok: true,
+      principal: {
+        kind: "agent",
+        actorUserId: "agent-user-1",
+        requestId: "request-1",
+      },
+    });
+    projectActivityServiceMock.getProjectActivitySnapshot.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        projectId: "project-1",
+        version: new Date("2026-05-30T10:00:00.000Z"),
+      },
+    });
+
+    await getProjectActivity(
+      new Request("http://localhost/api/projects/project-1/activity") as never,
+      projectParams("project-1")
+    );
+
+    const snapshot = getRealtimeMetricsSnapshot();
+    expect(snapshot.counters["activity.snapshotChecks"]).toBe(1);
+    expect(snapshot.counters["activity.pollingFallbacks"]).toBe(0);
   });
 });

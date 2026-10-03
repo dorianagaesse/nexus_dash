@@ -1,4 +1,5 @@
 import { logServerWarning } from "@/lib/observability/logger";
+import { recordRealtimeCounter } from "@/lib/observability/realtime-metrics";
 import {
   type ProjectActivityEventAction,
   type ProjectActivityEventDomain,
@@ -40,6 +41,7 @@ export async function recordProjectActivityEventVersion(input: {
     }
 
     if (fallback.ok) {
+      recordRealtimeCounter("activity.changesEmitted");
       return fallback.data.version;
     }
 
@@ -78,6 +80,7 @@ export async function recordProjectActivityEventVersion(input: {
   }
 
   if (result.ok) {
+    recordRealtimeCounter("activity.changesEmitted");
     return result.data.version;
   }
 

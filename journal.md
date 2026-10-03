@@ -9065,3 +9065,108 @@ Low-value entries to avoid going forward:
   local and preview p95 targets, SQL budgets, an ordered ND-429 fix plan, and
   the conclusion that ND-432 network live save remains gated pending revisions
   and coalescing in addition to performance remediation.
+
+## 2026-10-03 - ND-371: Realtime compute, query volume, and fallback telemetry
+
+- Added an in-process telemetry registry (`lib/observability/realtime-metrics.ts`)
+  with seven fixed counters (`activity`/`notifications`.snapshotChecks,
+  `activity.changesEmitted`, `activity`/`notifications.pollingFallbacks`,
+  `stream.connections`, `stream.refused`), per-route service timing, and a
+  database query counter. The snapshot carries environment, revision, and the
+  resolved transport, and is aggregate-only - no user IDs, emails, project
+  IDs, or payloads; a test locks the exact key set.
+- Database volume is measured at the pg driver
+  (`lib/observability/pg-query-metrics.ts`), wiring `pool.connect` in
+  `lib/prisma.ts` with an idempotent symbol wrapper for both callback and
+  promise styles; every driver query call counts once regardless of the
+  serialized-transaction path.
+- Poll routes record snapshot checks, and count a human poll as a polling
+  fallback only while the transport resolves to stream (agent-scoped API
+  polling is excluded so it is not misattributed); the fallback counters stay
+  0 while polling is the intended transport.
+  `recordProjectActivityEventVersion` counts emitted changes on both the
+  typed-event and durable-touch success paths. Stream routes count accepted
+  connections and refusals at the existing transport kill-switch.
+  `GET /api/observability/realtime` (authenticated) serves the snapshot, and
+  `startServerTiming` now records service timing under the raw route name
+  while the Server-Timing header keeps its sanitized form.
+- Runbook (`docs/runbooks/vercel-usage-and-spend-guardrails.md`): seven-day
+  targets (below 30 CPU minutes and 40 GB-hours Fluid Provisioned Memory) with
+  an 80% investigation threshold (24 CPU-min / 32 GB-h), a Realtime Telemetry
+  section with counter semantics and attribution recipes, and
+  environment-tagged review guidance.
+- Tests: new suites for the registry (including a production-runtime flush
+  case asserting environment and transport tagging), pg metering, server
+  timing, and the observability route; existing route suites extended for
+  poll counters, fallback attribution (human vs agent), stream
+  refusal/connection counts, and emitted-change counting.
+- Validation on this head: lint, rls:check, full unit suite (1811 passed,
+  2 skipped), coverage thresholds met (93.78/84.46/95.42/94.08), production
+  build, `git diff --check` clean. Note: exporting `NEXTAUTH_URL=127.0.0.1`
+  for the whole chain breaks auth/origin tests that expect the `localhost`
+  default - scope it to the build step only.
+- Preview validation: workflow run 37083867583, revision `009ead9` at
+  `https://nexus-dash-evbicq295-dorian-agaesses-projects.vercel.app`. The
+  Playwright/pg harness (19/19) confirms environment `preview`, transport
+  `polling`, activity/notification snapshot checks and service timing,
+  database query volume, no fallback attribution while polling is intended,
+  no stream connections, environment/revision fields, no user identifiers in
+  the snapshot, and temporary rows cleaned up.
+- Discovery: on Vercel the stream routes deploy as their own serverless
+  function, separate from the function serving the poll routes and the
+  observability endpoint, so stream counters live in a different instance and
+  read as 0 on the snapshot. A refused stream request returned 404 while the
+  API function's snapshot stayed at `stream.refused 0`; the stream function's
+  own `realtime.metrics` record showed `stream.refused 4` with zero poll
+  counters. The runbook now states counters are per serverless function and
+  that stream counters are read from the log records; the harness keeps a
+  tripwire check for that split.
+- Copilot review follow-up on #562 (three findings): (1) the notification
+  poll counters and timing moved from `/api/account/notifications` to
+  `/api/account/notifications/summary` - the summary route is what the
+  fallback poll loop actually fetches, while the list route is a
+  reconciliation fetch, so the previous wiring both missed real fallback
+  polls and misattributed reconciliation fetches as fallbacks; a regression
+  test now asserts the list route records nothing. (2) The observability
+  endpoint switched from `requireApiPrincipal` to `requireAuthenticatedApiUser`
+  so project-scoped agent tokens can no longer read deployment-wide telemetry;
+  it is a human-session operator endpoint. (3) The snapshot and the
+  `realtime.metrics` log records now declare `scope: "instance"` so consumers
+  know the counters are per serverless instance, not deployment-wide.
+- Re-validation on the review-fix head: lint, rls:check, unit suite
+  (1812 passed, 2 skipped), coverage thresholds met (93.78/84.46/95.42/94.08),
+  production build, `git diff --check` clean.
+- Review-fix preview validation: workflow run 37084621102, revision `883ad61`
+  at `https://nexus-dash-3c5xvnqr1-dorian-agaesses-projects.vercel.app`;
+  harness 20/20 (notification counters attributed to the summary route,
+  `scope: instance` present, `stream.refused` still carried by the stream
+  function's own `realtime.metrics` record).
+- CI-only test failure fixed on the review-fix head: GitHub Actions exports
+  `GITHUB_SHA`, so `getAppMetadataSummary()` resolves a revision there and
+  the two tests that asserted `revision: null` failed only in CI. The flush
+  test now stubs `COMMIT_SHA` and asserts the shortened revision flows into
+  the log record; the observability route test stubs all revision sources
+  empty for a deterministic `null`. Full suite re-run with `GITHUB_SHA` set
+  to simulate CI: 1812 passed, 2 skipped.
+- Owner review finding on #562 addressed: the `realtime.metrics` log records
+  were overclaimed as durable volume evidence. They are throttled cumulative
+  samples (one at the instance's first recorded event, then at most one per
+  minute at the next event), so a burst inside the interval undercounts, and
+  a sample can be written before its own request's database work is counted.
+  Kept the sampling design (a shared export path would add cost against the
+  epic's purpose), relabeled the runbook and PR as sampled evidence with the
+  undercount caveats, aligned the `maybeFlushRealtimeMetrics` comment,
+  narrowed the `database.queryCalls` recipe to instance-wide volume (it
+  includes auth and session lookups, so it cannot be attributed to the poll
+  endpoints alone), and added a burst-shorter-than-the-interval regression
+  test that pins the sampling (single record per interval, cumulative totals
+  at the next sample).
+- PR: #562.
+- Merge-forward (2026-10-03): merged `origin/main` (ND-428 #548, `5ee1b99`)
+  after the PR went CONFLICTING. Only `journal.md` conflicted (both sides had
+  appended entries); resolved by keeping main's ND-428 entry above the ND-371
+  entry. Merge commit `4d5af78`; the merged tree re-validated locally with
+  lint, `rls:check`, 1813 unit tests, coverage thresholds, and the production
+  build all green, and the PR is MERGEABLE again. Local Playwright could not
+  run - Docker Desktop failed to start, leaving the local Postgres container
+  unreachable - so e2e coverage for the merge head is delegated to CI.
