@@ -141,8 +141,9 @@ test("owners review and unassign active responsibility before removing a collabo
     const confirmButton = dialog.getByRole("button", {
       name: "Remove collaborator",
     });
+    // Browser geometry can land just below 44 due to subpixel rounding.
     expect((await confirmButton.boundingBox())?.height).toBeGreaterThanOrEqual(
-      44
+      43.99
     );
 
     await dialog.getByLabel("Leave active work unassigned").check();

@@ -3,6 +3,15 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-03 - React 19.3 repair PR #551
+
+- Brought the TASK-116 replacement for Dependabot #537 onto current main. Kept React, React DOM, and their type packages aligned at 19.3.0; regenerated the lockfile. The old E2E failure was the meeting-notes geometry assertion fixed in #556. Final CI is pending.
+
+# 2026-10-03 - Dependabot queue cleanup
+
+- Merged Prisma CLI #553 and Playwright #539 after green Quality Gates runs.
+- Updated eslint-config-next #556. Fixed two browser-test geometry assertions: the documented meeting-notes editor-shell offset and a 43.99994px button measurement caused by subpixel rounding. Quality Gates passed on commit 6553e89 (run 37082724415); merging newer main for final validation.
+
 # 2026-10-03 - Per-client Nexus Dash credential instructions
 
 - Documented separate Codex, Claude Code/DeepSeek, and Gemini credential files
@@ -9026,6 +9035,36 @@ Low-value entries to avoid going forward:
   takeover after the leader closed (interval 10.8s), 0 requests in the 25s
   hidden window, immediate resume, zero stream-route requests, temporary rows
   cleaned up.
+
+# 2026-09-20 - ND-428 save-latency audit
+
+- Moved ND-428 to In Progress and created the dedicated
+  `chore/nd-428-save-latency-audit` worktree from `origin/main` after reviewing
+  the full save-performance/autosave epic. ND-432 is the only completed epic
+  task; its accepted ADR gates network live save on ND-428/ND-429 latency,
+  database-load, revision, and coalescing evidence.
+- Captured a repeatable production-build baseline with Playwright Chromium,
+  RLS-enabled application transactions, local PostgreSQL 16, three warm-ups,
+  and 20 measured saves per path. Local p95 results: task create 86.1 ms, task
+  edit 62.2 ms, meeting create 73.9 ms, meeting preparation 70.2 ms, meeting
+  output with ten new todos 82.2 ms, meeting output with ten existing todos
+  149.3 ms, roadmap phase create/edit 34.6/32.8 ms, roadmap event create/edit
+  31.5/26.1 ms, and new-milestone-plus-event create 45.5 ms.
+- An instrumented RLS service pass counted the mutation and activity SQL work:
+  task create/edit 27/28 statements; meeting create/preparation 36/42;
+  meeting output with ten new/existing todos 43/62; roadmap phase create/edit
+  9/9; roadmap event create/edit 11/10. Temporary measurement instrumentation
+  and audit specs were removed after recording the results.
+- Root cause: task and meeting saves amplify remote database RTT through
+  serialized aggregate reads/writes plus a second RLS transaction for typed
+  activity. Meeting-note updates also rewrite unchanged persisted todos and
+  load actor data repeatedly. Roadmap mutations are already cheap locally;
+  their dominant user-perceived cost is the unconditional broad
+  `router.refresh()` after local response reconciliation.
+- Added `docs/audits/nd-428-save-latency-audit.md` with per-surface findings,
+  local and preview p95 targets, SQL budgets, an ordered ND-429 fix plan, and
+  the conclusion that ND-432 network live save remains gated pending revisions
+  and coalescing in addition to performance remediation.
 
 ## 2026-10-03 - ND-371: Realtime compute, query volume, and fallback telemetry
 
