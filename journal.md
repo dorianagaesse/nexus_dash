@@ -8997,3 +8997,12 @@ Low-value entries to avoid going forward:
 - Re-validation on this head: `npm run lint`, `npm run rls:check`, full unit
   suite (1790 passed, 2 skipped), coverage thresholds met
   (93.78/84.46/95.42/94.08), production build, `git diff --check` clean.
+- Review-fix-head preview validation: workflow run 37081202033 (same explicit
+  `git_ref`), revision `b90a3d0` at
+  `https://nexus-dash-54q0wbltt-dorian-agaesses-projects.vercel.app`. The
+  multi-tab telemetry again matches: 4 leader activity polls in 45s (intervals
+  10.8 / 10.8 / 11.3s) and 2 notification polls against 0 on the follower,
+  follower applied the shared refresh after a task mutation with 0 polls,
+  takeover after the leader closed (interval 10.8s), 0 requests in the 25s
+  hidden window, immediate resume, zero stream-route requests, temporary rows
+  cleaned up.
