@@ -3,7 +3,8 @@ export type ProjectActivityDomain =
   | "task-comment"
   | "context-card"
   | "meeting-note"
-  | "project";
+  | "project"
+  | "epic";
 
 export type ProjectActivityAction =
   | "created"

@@ -14,5 +14,5 @@ export function withProjectActivityVersionHeader(
 }
 
 export function readProjectActivityVersionHeader(response: Response): string | null {
-  return response.headers.get(PROJECT_ACTIVITY_VERSION_HEADER);
+  return response.headers?.get ? response.headers.get(PROJECT_ACTIVITY_VERSION_HEADER) : null;
 }

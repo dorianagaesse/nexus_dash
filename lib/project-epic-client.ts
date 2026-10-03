@@ -55,16 +55,10 @@ export function doesTaskMutationAffectProjectEpics(
   );
 }
 
-export async function reconcileProjectEpicsAfterTaskMutation(
-  projectId: string,
-  previousTask: EpicVisibleTaskState | null,
-  nextTask: EpicVisibleTaskState | null
+export async function reconcileProjectEpics(
+  projectId: string
 ): Promise<boolean> {
-  if (
-    typeof window === "undefined" ||
-    !projectId ||
-    !doesTaskMutationAffectProjectEpics(previousTask, nextTask)
-  ) {
+  if (typeof window === "undefined" || !projectId) {
     return false;
   }
 
@@ -113,7 +107,7 @@ export async function reconcileProjectEpicsAfterTaskMutation(
     return true;
   } catch (error) {
     if ((error as { name?: string }).name !== "AbortError") {
-      console.warn("[reconcileProjectEpicsAfterTaskMutation]", error);
+      console.warn("[reconcileProjectEpics]", error);
     }
     return false;
   } finally {
@@ -121,4 +115,20 @@ export async function reconcileProjectEpicsAfterTaskMutation(
       activeRequests.delete(projectId);
     }
   }
+}
+
+export async function reconcileProjectEpicsAfterTaskMutation(
+  projectId: string,
+  previousTask: EpicVisibleTaskState | null,
+  nextTask: EpicVisibleTaskState | null
+): Promise<boolean> {
+  if (
+    typeof window === "undefined" ||
+    !projectId ||
+    !doesTaskMutationAffectProjectEpics(previousTask, nextTask)
+  ) {
+    return false;
+  }
+
+  return reconcileProjectEpics(projectId);
 }

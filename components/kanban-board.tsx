@@ -68,6 +68,7 @@ import {
 } from "@/lib/project-activity-client";
 import {
   PROJECT_EPICS_RECONCILED_EVENT,
+  reconcileProjectEpics,
   reconcileProjectEpicsAfterTaskMutation,
   type ProjectEpicsReconciledDetail,
 } from "@/lib/project-epic-client";
@@ -2438,12 +2439,14 @@ export function KanbanBoard({
           }
 
           upsertRemoteTask(remoteTask);
+          void reconcileProjectEpics(projectId);
           detail.markHandled();
           return;
         }
 
         if (activity.action === "deleted" && activity.entityId) {
           removeLocalTask(activity.entityId);
+          void reconcileProjectEpics(projectId);
           detail.markHandled();
           return;
         }

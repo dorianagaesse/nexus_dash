@@ -4,6 +4,7 @@ import {
   getAgentProjectAccessContext,
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
+import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   archiveTaskForProject,
@@ -36,13 +37,28 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
+  const archivedAtIso = result.data.archivedAt.toISOString();
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId,
+    domain: "task",
+    action: "updated",
+    entityId: taskId,
+    payload: {
+      task: {
+        id: taskId,
+        archivedAt: archivedAtIso,
+      },
+    },
+  });
+
   return NextResponse.json(
     {
       ok: true,
-      archivedAt: result.data.archivedAt.toISOString(),
+      archivedAt: archivedAtIso,
     },
     {
-      headers: withProjectActivityVersionHeader(),
+      headers: withProjectActivityVersionHeader(undefined, version),
     }
   );
 }
@@ -73,10 +89,24 @@ export async function DELETE(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId,
+    domain: "task",
+    action: "updated",
+    entityId: taskId,
+    payload: {
+      task: {
+        id: taskId,
+        archivedAt: null,
+      },
+    },
+  });
+
   return NextResponse.json(
     { ok: true },
     {
-      headers: withProjectActivityVersionHeader(),
+      headers: withProjectActivityVersionHeader(undefined, version),
     }
   );
 }
