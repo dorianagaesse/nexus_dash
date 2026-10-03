@@ -152,7 +152,8 @@ The application owns a small realtime telemetry surface so abnormal compute
 can be attributed to a route and transport mode instead of being inferred from
 billing totals alone.
 
-On-demand snapshot (authenticated like the rest of the API):
+On-demand snapshot (operator endpoint; requires a signed-in human session
+cookie - agent credentials are rejected):
 
 ```bash
 curl -s <deployment-url>/api/observability/realtime \
@@ -160,15 +161,19 @@ curl -s <deployment-url>/api/observability/realtime \
 ```
 
 The snapshot reports the deployment `environment` (Production and Preview are
-distinguishable), `revision`, the resolved `transport`, per-route counters,
-aggregated service timing, and the database query volume measured at the
-PostgreSQL driver. It contains aggregate numbers and fixed metric names only:
-no user IDs, emails, project IDs, or request payloads.
+distinguishable), `revision`, the resolved `transport`, `scope: "instance"`
+(the counters are per serverless instance, not deployment-wide), per-route
+counters, aggregated service timing, and the database query volume measured at
+the PostgreSQL driver. It contains aggregate numbers and fixed metric names
+only: no user IDs, emails, project IDs, or request payloads.
 
 Counters:
 
 - `activity.snapshotChecks` / `notifications.snapshotChecks`: poll requests
-  served by `/api/projects/:id/activity` and `/api/account/notifications`.
+  served by `/api/projects/:id/activity` and
+  `/api/account/notifications/summary` (the endpoints the client fallback
+  loops poll; the full-list `/api/account/notifications` route is a
+  reconciliation fetch and is deliberately not counted).
 - `activity.changesEmitted`: project activity change events persisted; these
   are the payloads realtime clients refresh for.
 - `activity.pollingFallbacks` / `notifications.pollingFallbacks`: human poll

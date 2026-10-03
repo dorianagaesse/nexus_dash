@@ -33,6 +33,7 @@ export interface RealtimeMetricsSnapshot {
   environment: AppRuntimeEnvironment;
   revision: string | null;
   transport: RealtimeTransport;
+  scope: "instance";
   generatedAt: string;
   counters: Record<RealtimeMetricCounter, number>;
   serviceTiming: Record<
@@ -104,6 +105,7 @@ export function getRealtimeMetricsSnapshot(): RealtimeMetricsSnapshot {
     environment: metadata.environment,
     revision: metadata.revision,
     transport: getRealtimeTransport(),
+    scope: "instance",
     generatedAt: new Date().toISOString(),
     counters: counterSnapshot,
     serviceTiming: timingSnapshot,
@@ -128,6 +130,7 @@ export function maybeFlushRealtimeMetrics(nowMs = Date.now()): void {
     environment: snapshot.environment,
     revision: snapshot.revision,
     transport: snapshot.transport,
+    scope: snapshot.scope,
     counters: snapshot.counters,
     serviceTiming: snapshot.serviceTiming,
     database: snapshot.database,

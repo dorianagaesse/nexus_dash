@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { NextResponse } from "next/server";
 
 const apiGuardMock = vi.hoisted(() => ({
-  requireApiPrincipal: vi.fn(),
+  requireAuthenticatedApiUser: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/api-guard", () => ({
-  requireApiPrincipal: apiGuardMock.requireApiPrincipal,
+  requireAuthenticatedApiUser: apiGuardMock.requireAuthenticatedApiUser,
 }));
 
 import { GET as getRealtimeMetrics } from "@/app/api/observability/realtime/route";
@@ -25,13 +25,9 @@ describe("observability realtime metrics route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetRealtimeMetricsForTests();
-    apiGuardMock.requireApiPrincipal.mockResolvedValue({
+    apiGuardMock.requireAuthenticatedApiUser.mockResolvedValue({
       ok: true,
-      principal: {
-        kind: "human",
-        actorUserId: "user-1",
-        requestId: "request-1",
-      },
+      userId: "user-1",
     });
   });
 
@@ -53,6 +49,7 @@ describe("observability realtime metrics route", () => {
         environment: "test",
         revision: null,
         transport: "stream",
+        scope: "instance",
         generatedAt: expect.any(String),
         counters: {
           ...Object.fromEntries(REALTIME_METRIC_COUNTERS.map((name) => [name, 0])),
@@ -66,7 +63,7 @@ describe("observability realtime metrics route", () => {
   });
 
   test("rejects unauthorized requests without exposing telemetry", async () => {
-    apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
+    apiGuardMock.requireAuthenticatedApiUser.mockResolvedValueOnce({
       ok: false,
       response: NextResponse.json({ error: "unauthorized" }, { status: 401 }),
     });

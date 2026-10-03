@@ -143,8 +143,57 @@ describe("account notification and invitation routes", () => {
     );
   });
 
-  test("GET notifications counts snapshot checks and reports service timing", async () => {
+  test("GET notification summary counts snapshot checks and reports service timing", async () => {
     vi.stubEnv("REALTIME_TRANSPORT", "polling");
+    notificationServiceMock.getNotificationRealtimeSnapshotForUser.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      data: {
+        version: "2026-06-04T10:00:00.000Z",
+        unreadCount: 0,
+        serverTime: "2026-06-04T10:00:00.000Z",
+      },
+    });
+
+    const response = await getNotificationSummary(
+      new NextRequest("http://localhost/api/account/notifications/summary")
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("server-timing")).toMatch(
+      /^account.notifications.poll;dur=\d+\.\d$/
+    );
+
+    const snapshot = getRealtimeMetricsSnapshot();
+    expect(snapshot.counters["notifications.snapshotChecks"]).toBe(1);
+    expect(snapshot.counters["notifications.pollingFallbacks"]).toBe(0);
+    expect(snapshot.serviceTiming["account.notifications.poll"]?.count).toBe(1);
+  });
+
+  test("GET notification summary counts polling fallbacks while the stream transport is active", async () => {
+    vi.stubEnv("REALTIME_TRANSPORT", "stream");
+    notificationServiceMock.getNotificationRealtimeSnapshotForUser.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      data: {
+        version: "2026-06-04T10:00:00.000Z",
+        unreadCount: 0,
+        serverTime: "2026-06-04T10:00:00.000Z",
+      },
+    });
+
+    await getNotificationSummary(
+      new NextRequest("http://localhost/api/account/notifications/summary")
+    );
+
+    const snapshot = getRealtimeMetricsSnapshot();
+    expect(snapshot.counters["notifications.snapshotChecks"]).toBe(1);
+    expect(snapshot.counters["notifications.pollingFallbacks"]).toBe(1);
+  });
+
+  test("GET notifications list stays out of poll telemetry (reconciliation fetch)", async () => {
+    vi.stubEnv("REALTIME_TRANSPORT", "stream");
     notificationServiceMock.listNotificationsForUser.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -156,31 +205,12 @@ describe("account notification and invitation routes", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("server-timing")).toMatch(
-      /^account.notifications.poll;dur=\d+\.\d$/
-    );
+    expect(response.headers.get("server-timing")).toBeNull();
 
     const snapshot = getRealtimeMetricsSnapshot();
-    expect(snapshot.counters["notifications.snapshotChecks"]).toBe(1);
+    expect(snapshot.counters["notifications.snapshotChecks"]).toBe(0);
     expect(snapshot.counters["notifications.pollingFallbacks"]).toBe(0);
-    expect(snapshot.serviceTiming["account.notifications.poll"]?.count).toBe(1);
-  });
-
-  test("GET notifications counts polling fallbacks while the stream transport is active", async () => {
-    vi.stubEnv("REALTIME_TRANSPORT", "stream");
-    notificationServiceMock.listNotificationsForUser.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      data: { notifications: [] },
-    });
-
-    await listNotifications(
-      new NextRequest("http://localhost/api/account/notifications")
-    );
-
-    const snapshot = getRealtimeMetricsSnapshot();
-    expect(snapshot.counters["notifications.snapshotChecks"]).toBe(1);
-    expect(snapshot.counters["notifications.pollingFallbacks"]).toBe(1);
+    expect(snapshot.serviceTiming["account.notifications.poll"]).toBeUndefined();
   });
 
   test("PATCH notification read state validates payload shape", async () => {

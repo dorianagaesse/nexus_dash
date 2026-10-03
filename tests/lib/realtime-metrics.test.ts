@@ -69,6 +69,7 @@ describe("realtime metrics registry", () => {
       "environment",
       "generatedAt",
       "revision",
+      "scope",
       "serviceTiming",
       "transport",
     ]);
@@ -93,6 +94,7 @@ describe("realtime metrics registry", () => {
         environment: "preview",
         revision: null,
         transport: "polling",
+        scope: "instance",
         counters: expect.objectContaining({ "activity.snapshotChecks": 1 }),
         serviceTiming: {},
         database: { queryCalls: 0 },
