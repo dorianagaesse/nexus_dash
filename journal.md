@@ -8901,3 +8901,120 @@ Low-value entries to avoid going forward:
   requests in the 25s hidden window, 2 immediate requests within 2.5s of
   returning visible, zero stream-route and zero `text/event-stream` requests.
   Temporary rows cleaned up.
+
+## 2026-10-02 - ND-370: Coordinate live refresh across browser tabs
+
+- Claim: ND-370 (epic "Realtime Efficiency and Vercel Cost Control"), following
+  ND-369: with Preview on the polling transport, every open tab still runs its
+  own poll loop, so a user with the dashboard open in three tabs pays three
+  times. The card asks for at most one active poller per scope, snapshot
+  sharing across same-origin tabs, per-project coordination, leader handoff,
+  and a safe path for browsers without tab-coordination APIs.
+- Design: new `lib/tab-leader-coordinator.ts` - a leader/lease coordinator over
+  `BroadcastChannel("nexusdash-tab-leader:" + scope)`. Messages are
+  `probe` / `heartbeat` / `resign` / `request-refresh` / `data`; a leader
+  heartbeats every 4s and holds a 12s lease, followers wait a 200-600ms jitter
+  before claiming a free lease, higher terms win and equal terms are broken by
+  tab id (loser steps down). Followers receive snapshots through `data`
+  messages instead of fetching; `requestRefresh()` routes focus-driven
+  refreshes to the leader. Hidden tabs resign leadership, stop all timers, and
+  ignore every message; becoming visible again probes and claims. Browsers
+  without `BroadcastChannel` become standalone leaders immediately, so the
+  feature fails safe into the pre-ND-370 behavior.
+- Scope: the project dashboard coordinates per `project:${projectId}` and the
+  notification bell uses the `notifications` scope, so unrelated surfaces never
+  contend for one leader. Only the polling-fallback path is coordinated - the
+  SSE stream path is untouched (and retired by ND-373/374 in any case).
+- Integration: both `components/project-live-refresh.tsx` and
+  `components/notification-live-updates.tsx` create the coordinator inside the
+  polling-fallback effect; a `isPollingLeader` closure gates
+  `scheduleNextPoll()` / `clearScheduledPoll()`, successful polls call
+  `coordinator.publish(...)`, `visibilitychange` calls
+  `coordinator.setVisible(...)`, and focus-driven immediate polls delegate to
+  `coordinator.requestRefresh()` when the tab is a follower. Visible behavior
+  change: a lone tab now starts polling after its election jitter (~0.2-0.6s)
+  instead of waiting a full interval; in exchange, extra tabs add no polling
+  traffic and apply shared snapshots immediately.
+- Tests: new `tests/lib/tab-leader-coordinator.test.ts` (10 cases: standalone
+  leadership, lone-tab claim timing, two-tab election and data flow, heartbeat
+  lease persistence, resign handoff on stop, silence-driven re-election after
+  lease expiry, visibility suspend/resume, malformed/foreign/own/stale message
+  rejection, same-term tie-break, stop cleanup) with a new deterministic
+  `tests/helpers/mock-broadcast-channel.ts` bus. Both component specs gain
+  three multi-tab cases each (single coordinated cadence, takeover when the
+  leader tab closes, hidden pause and single resumed checker) using mocked
+  `Math.random` jitter sequences; the standalone specs pin
+  `BroadcastChannel` to `undefined` because the vitest/jsdom environment leaks
+  Node's implementation.
+- Validation: `npm run lint`, `npm run rls:check`, full unit suite (1787
+  passed, 2 skipped - 16 new tests over ND-369's 1771), coverage thresholds
+  met (93.78/84.46/95.42/94.08), production build, `git diff --check` clean.
+- E2E: the local run is still blocked by the down Docker engine (same
+  environment limitation as ND-369); the PR's CI `e2e-smoke` result is the E2E
+  evidence.
+- Preview validation: workflow run 37066010878 (`action=deploy-preview`,
+  explicit `git_ref=feature/nd-370-cross-tab-coordination`); artifact
+  `preview-deployment` URL
+  `https://nexus-dash-oa0ciwib4-dorian-agaesses-projects.vercel.app`;
+  `/api/health/ready` reports environment `preview`, revision `dc3d7d6`.
+- Multi-tab browser telemetry (Playwright Chromium, two tabs against the
+  immutable preview URL, session seeded directly in the preview DB): both
+  dashboards load HTTP 200; in a 45s steady window the leading tab polls
+  project activity 4 times (intervals 11.2 / 10.9 / 11.2s) and notifications
+  twice while the follower tab polls neither (0 / 0); a task created through
+  the API triggers the shared refresh - 0 follower activity polls but 1
+  follower router refresh in the following 15s; closing the leader tab hands
+  activity polling over (2 polls in 20s, interval 10.8s); the remaining tab
+  makes 0 requests during a 25s hidden window and resumes within 2.5s of
+  becoming visible; zero stream-route requests from either tab; temporary
+  rows cleaned up and verified absent.
+- Copilot review on #560 (three findings): (1) both components started the
+  coordinator without syncing the current visibility, so a component mounted
+  into an already-hidden document could win the lease and keep heartbeating
+  while its own scheduler suppressed polls - the start path now calls
+  `coordinator.setVisible(!isDocumentHidden())` right after `start()`
+  (no-op when visible; silences and clears the claim when hidden);
+  (2) `parseTabLeaderMessage` accepted any `typeof term === "number"`, so
+  `NaN` slipped past both term comparisons (reaching the tie-break path) and
+  `Infinity` could poison `knownTerm` - the boundary check now requires
+  `Number.isInteger`. Regression tests: the malformed-message lib case gains
+  `NaN` / `Infinity` / `1.5` heartbeats with a higher tab id, and each
+  component spec gains a hidden-at-mount case that observes the leader bus and
+  asserts no heartbeat is ever posted (mutation-checked: both tests fail with
+  the component fix reverted).
+- Re-validation on the fix head: `npm run lint`, `npm run rls:check`, full
+  unit suite (1789 passed, 2 skipped), coverage thresholds met
+  (93.78/84.46/95.42/94.08), production build, `git diff --check` clean.
+- Final-head preview validation: workflow run 37068013539 (same explicit
+  `git_ref`), revision `1a4b5d6` at
+  `https://nexus-dash-i1egdzq8w-dorian-agaesses-projects.vercel.app`. The
+  multi-tab telemetry rerun matches the first pass: 4 leader activity polls in
+  45s (intervals 11.4 / 10.9 / 11.2s) and 2 notification polls against 0 on
+  the follower, the follower applied the shared refresh after a task mutation
+  with 0 polls, takeover after the leader tab closed (interval 11.3s),
+  0 requests in the 25s hidden window, immediate resume, zero stream-route
+  requests, temporary rows cleaned up.
+- Owner review follow-up on #560: a tab mounted while already hidden still
+  broadcast one `probe` from `start()` before its visibility was synced, and a
+  live leader answers a probe with an immediate poll - so the hidden tab made
+  the leader spend one extra request. Fixed by making startup visibility
+  declarative: the coordinator options gain `initialVisible` and `start()`
+  only probes/claims when visible (both components pass
+  `initialVisible: !isDocumentHidden()` and drop the post-start `setVisible`
+  call). Regression tests: a new lib case asserts that a hidden tab starting
+  beside a live leader leaves the leader's `onRefreshRequest` count and the
+  bus untouched, and the two hidden-at-mount component tests now assert the
+  bus hears nothing at all (previously they only ruled out heartbeats); all
+  three fail with the start-time guard reverted.
+- Re-validation on this head: `npm run lint`, `npm run rls:check`, full unit
+  suite (1790 passed, 2 skipped), coverage thresholds met
+  (93.78/84.46/95.42/94.08), production build, `git diff --check` clean.
+- Review-fix-head preview validation: workflow run 37081202033 (same explicit
+  `git_ref`), revision `b90a3d0` at
+  `https://nexus-dash-54q0wbltt-dorian-agaesses-projects.vercel.app`. The
+  multi-tab telemetry again matches: 4 leader activity polls in 45s (intervals
+  10.8 / 10.8 / 11.3s) and 2 notification polls against 0 on the follower,
+  follower applied the shared refresh after a task mutation with 0 polls,
+  takeover after the leader closed (interval 10.8s), 0 requests in the 25s
+  hidden window, immediate resume, zero stream-route requests, temporary rows
+  cleaned up.
