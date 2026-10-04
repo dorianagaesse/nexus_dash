@@ -16,6 +16,14 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-10-04 - ND-535: Edit task comments with author-only authorization and audit timestamp
+
+- Status: Accepted.
+- Context: Previously task comments were immutable once posted. Authors could not fix typos, refine instructions, or update agent mentions without posting new comments.
+- Decision: Added `updatedAt DateTime? @updatedAt` to `TaskComment` with matching Postgres RLS update policy. Exposed authenticated `PATCH /api/projects/{projectId}/tasks/{taskId}/comments/{commentId}` endpoint strictly scoped to author identity (matching user ID for humans, active project credential ID for agent tokens). Content undergoes identical rich-text length, non-empty, and agent mention validation as creation while preserving attachments, reactions, and creation order. The UI reveals the edit affordance only to the authenticated author, provides inline editing with save/cancel states, and displays `(edited <timestamp>)`.
+- Consequences: Comment editing is non-destructive to relations: comment identity, attachments, reactions, author provenance, and chronological placement are preserved. Realtime remote updates propagate via `task-comment` domain `updated` action.
+- Links: Nexus Dash card ND-535.
+
 ## 2026-09-17 - ND-399: Comment attachments accept every supported file type
 
 - Status: Accepted; extends the ND-144 comment-attachment model without a

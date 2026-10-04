@@ -646,6 +646,7 @@ model TaskComment {
   authorAgentCredential      ApiCredential? @relation("TaskCommentAgentAuthorCredential", fields: [authorAgentCredentialId], references: [id], onDelete: SetNull)
   content                    String
   createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime?      @updatedAt
 
   reactions     TaskCommentReaction[]
   agentMentions TaskCommentAgentMention[]
