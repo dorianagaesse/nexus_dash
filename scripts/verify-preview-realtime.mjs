@@ -90,7 +90,9 @@ async function clientFor(token) {
 }
 
 function subscribe(client, topic, event, onPayload, privateChannel = true) {
-  const channel = client.channel(topic, { config: { private: privateChannel } });
+  const channel = client.channel(topic, {
+    config: { private: privateChannel, broadcast: { ack: true } },
+  });
   if (onPayload) {
     channel.on("broadcast", { event }, ({ payload }) => onPayload(payload));
   }
