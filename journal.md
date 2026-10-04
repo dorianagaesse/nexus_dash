@@ -30,6 +30,35 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Production still lacks `SUPABASE_JWT_SECRET` in Vercel. Keep the existing
   transport until review, Production secret configuration, and the staged
   rollout checks in the env runbook.
+- Takeover after Codex hit its usage limit: the open Quality Gates failure
+  (run 37187570226, `0d6716d`) was Playwright E2E in
+  `tests/e2e/project-meeting-steward.spec.ts`. Attempts 1-2 raced the test's
+  explicit `page.reload()` against the by-design live-refresh reload
+  (ERR_ABORTED, frame detached). Attempt 3 exposed a real client bug: when an
+  RSC refreshed render landed while a local mutation was still in flight, the
+  `initialVersion` effect cleared the live-refresh deferral state, the
+  mutation's own activity echo was dispatched as a remote change, and the
+  meeting-notes panel hard-reloaded over the open modal.
+- Fixes on this branch: `ProjectLiveRefresh` keeps deferral state when a
+  refreshed render lands mid-mutation (component regression test added, fails
+  before the fix), and the steward E2E waits for the live-refresh document
+  `load` instead of the first `framenavigated` event — same-document history
+  updates from `router.refresh()` also emit `framenavigated` and resolved the
+  wait before the reload ever happened. The Broadcast-to-SSE-to-polling
+  demotion component test is committed alongside.
+- Local E2E reproduction via the Dockerized PostgreSQL harness
+  (`nd373-e2e-pg`, `PORT=3100`): with the old wait the steward spec failed 2
+  of 6 repeats at the orphaned-steward assertion; with the fixes two
+  consecutive 6x repeats passed 24/24.
+- Deviation: the ADR section 8 degradation E2E (broadcast -> stream ->
+  polling with blocked transports) is deferred to ND-374, which already owns
+  the load and interleaving scenarios; unit and component coverage for the
+  demotion tiers is in place.
+- Validation after the fixes: `npm run lint`, `npm run rls:check`, `npm test`
+  (1,855 passed, 2 skipped), `npm run test:coverage` (93.77% statements,
+  84.46% branches), and `npm run build` all passed; the steward E2E passed
+  twice at 6x repeats locally. A fresh Quality Gates run is pending on the
+  pushed head.
 
 # 2026-10-03 - ND-141: Epic live refresh on task and epic mutations
 
