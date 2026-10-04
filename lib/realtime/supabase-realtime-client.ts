@@ -19,7 +19,7 @@ const activeChannels = new Set<RealtimeChannel>();
 export async function getRealtimeToken(): Promise<string> {
   if (
     cachedToken &&
-    Date.parse(cachedToken.expiresAt) - Date.now() > 60_000
+    Date.parse(cachedToken.expiresAt) - Date.now() > 30_000
   ) {
     return cachedToken.token;
   }

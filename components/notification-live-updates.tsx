@@ -54,6 +54,9 @@ export function NotificationLiveUpdates({
   const knownSnapshotRef = useRef(initialSnapshot);
 
   const handleSnapshot = useCallback((snapshot: NotificationRealtimeSnapshot) => {
+    if (Date.parse(snapshot.version) < Date.parse(knownSnapshotRef.current.version)) {
+      return;
+    }
     if (!isSnapshotChanged(snapshot, knownSnapshotRef.current)) {
       return;
     }
@@ -63,6 +66,10 @@ export function NotificationLiveUpdates({
   }, []);
 
   useEffect(() => {
+    if (Date.parse(initialSnapshot.version) <
+        Date.parse(knownSnapshotRef.current.version)) {
+      return;
+    }
     knownSnapshotRef.current = initialSnapshot;
     publishNotificationRealtimeSnapshot(initialSnapshot);
   }, [initialSnapshot]);

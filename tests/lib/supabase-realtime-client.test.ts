@@ -36,11 +36,31 @@ describe("Realtime token cache", () => {
     ]);
     expect(await getRealtimeToken()).toBe("first");
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    vi.spyOn(Date, "now").mockReturnValue(now + 61_000);
+    vi.spyOn(Date, "now").mockReturnValue(now + 91_000);
     expect(await Promise.all([getRealtimeToken(), getRealtimeToken()])).toEqual([
       "second", "second",
     ]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    vi.restoreAllMocks();
+  });
+
+  test("caches valid minimum-TTL tokens between heartbeat callbacks", async () => {
+    const now = Date.now();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        token: "one-minute-token", expiresAt: new Date(now + 60_000).toISOString(),
+        supabaseUrl: "https://preview-ref.supabase.co",
+        supabasePublishableKey: "sb_publishable_preview",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    const { getRealtimeToken } = await import("@/lib/realtime/supabase-realtime-client");
+    expect(await getRealtimeToken()).toBe("one-minute-token");
+    vi.spyOn(Date, "now").mockReturnValue(now + 25_000);
+    expect(await getRealtimeToken()).toBe("one-minute-token");
+    expect(fetchMock).toHaveBeenCalledOnce();
     vi.restoreAllMocks();
   });
 });
