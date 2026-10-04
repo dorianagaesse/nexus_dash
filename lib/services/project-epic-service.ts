@@ -82,7 +82,14 @@ interface CreateProjectEpicInput {
 
 interface UpdateProjectEpicInput extends CreateProjectEpicInput {
   epicId: string;
-  lead?: ProjectActorReference;
+}
+
+interface AssignProjectEpicLeadInput {
+  actorUserId: string;
+  projectId: string;
+  epicId: string;
+  lead: ProjectActorReference;
+  agentAccess?: AgentProjectAccessContext;
 }
 
 interface EpicMutationInput {
@@ -680,7 +687,6 @@ export async function updateProjectEpic(
 ): Promise<
   ServiceResult<{
     epic: ProjectEpicSummary;
-    leadChange: ProjectEpicLeadChange | null;
     actor: ProjectActorSummary;
   }>
 > {
@@ -728,10 +734,6 @@ export async function updateProjectEpic(
       },
       select: {
         id: true,
-        leadKind: true,
-        leadUserId: true,
-        leadCredentialId: true,
-        leadDisplayNameSnapshot: true,
       },
     });
     if (!existingEpic) {
@@ -763,55 +765,6 @@ export async function updateProjectEpic(
       projectId: input.projectId,
     });
 
-    let leadChange: ProjectEpicLeadChange | null = null;
-    let leadWriteData: {
-      leadKind: "human" | "agent";
-      leadUserId: string | null;
-      leadCredentialId: string | null;
-      leadDisplayNameSnapshot: string;
-      leadAssignedByKind: "human" | "agent";
-      leadAssignedByUserId: string | null;
-      leadAssignedByCredentialId: string | null;
-      leadAssignedByDisplayNameSnapshot: string;
-      leadAssignedAt: Date;
-    } | null = null;
-
-    if (input.lead !== undefined) {
-      const leadResolution = resolveAssignableProjectActorFromRegistry({
-        registry,
-        reference: input.lead,
-        assigneeInvalidError: "epic-lead-invalid",
-      });
-      if (!leadResolution.ok) {
-        return createError(leadResolution.status, leadResolution.error);
-      }
-
-      const previousLead = mapEpicLead(existingEpic, registry);
-      const didLeadChange = hasProjectActorChanged(
-        previousLead,
-        leadResolution.actor.summary
-      );
-      if (didLeadChange) {
-        const assignedAt = new Date();
-        leadChange = {
-          previous: previousLead,
-          next: leadResolution.actor.summary,
-        };
-        leadWriteData = {
-          leadKind: leadResolution.actor.summary.kind,
-          leadUserId: leadResolution.actor.userId,
-          leadCredentialId: leadResolution.actor.credentialId,
-          leadDisplayNameSnapshot: leadResolution.actor.displayNameSnapshot,
-          leadAssignedByKind: mutationActor.actor.summary.kind,
-          leadAssignedByUserId: mutationActor.actor.userId,
-          leadAssignedByCredentialId: mutationActor.actor.credentialId,
-          leadAssignedByDisplayNameSnapshot:
-            mutationActor.actor.displayNameSnapshot,
-          leadAssignedAt: assignedAt,
-        };
-      }
-    }
-
     try {
       await db.epic.update({
         where: {
@@ -825,7 +778,6 @@ export async function updateProjectEpic(
           updatedByCredentialLabel: mutationActor.actor.credentialId
             ? mutationActor.actor.displayNameSnapshot
             : null,
-          ...(leadWriteData ?? {}),
         },
       });
 
@@ -845,7 +797,6 @@ export async function updateProjectEpic(
         ok: true,
         data: {
           epic,
-          leadChange,
           actor: mutationActor.actor.summary,
         },
       };
@@ -856,6 +807,153 @@ export async function updateProjectEpic(
 
       logServerError("updateProjectEpic", error);
       return createError(500, "epic-update-failed");
+    }
+  });
+}
+
+// Lead changes go through their own endpoint so a stale client can never
+// clobber concurrently edited name/description fields.
+export async function assignProjectEpicLead(
+  input: AssignProjectEpicLeadInput
+): Promise<
+  ServiceResult<{
+    epic: ProjectEpicSummary;
+    leadChange: ProjectEpicLeadChange | null;
+    actor: ProjectActorSummary;
+  }>
+> {
+  const actorUserId = normalizeText(input.actorUserId);
+  const epicId = normalizeText(input.epicId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+  if (!epicId) {
+    return createError(400, "epic-not-found");
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["task:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
+  }
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
+
+    const existingEpic = await db.epic.findFirst({
+      where: {
+        id: epicId,
+        projectId: input.projectId,
+      },
+      select: {
+        id: true,
+        leadKind: true,
+        leadUserId: true,
+        leadCredentialId: true,
+        leadDisplayNameSnapshot: true,
+      },
+    });
+    if (!existingEpic) {
+      return createError(404, "epic-not-found");
+    }
+
+    const mutationActor = await resolveProjectMutationActor({
+      db,
+      actorUserId,
+      projectId: input.projectId,
+      agentAccess: input.agentAccess,
+    });
+    if (!mutationActor.ok) {
+      return createError(mutationActor.status, mutationActor.error);
+    }
+
+    const registry = await loadProjectActorRegistry({
+      db,
+      projectId: input.projectId,
+    });
+
+    const leadResolution = resolveAssignableProjectActorFromRegistry({
+      registry,
+      reference: input.lead,
+      assigneeInvalidError: "epic-lead-invalid",
+    });
+    if (!leadResolution.ok) {
+      return createError(leadResolution.status, leadResolution.error);
+    }
+
+    const previousLead = mapEpicLead(existingEpic, registry);
+    const didLeadChange = hasProjectActorChanged(
+      previousLead,
+      leadResolution.actor.summary
+    );
+
+    try {
+      if (didLeadChange) {
+        await db.epic.update({
+          where: {
+            id: epicId,
+          },
+          data: {
+            leadKind: leadResolution.actor.summary.kind,
+            leadUserId: leadResolution.actor.userId,
+            leadCredentialId: leadResolution.actor.credentialId,
+            leadDisplayNameSnapshot: leadResolution.actor.displayNameSnapshot,
+            leadAssignedByKind: mutationActor.actor.summary.kind,
+            leadAssignedByUserId: mutationActor.actor.userId,
+            leadAssignedByCredentialId: mutationActor.actor.credentialId,
+            leadAssignedByDisplayNameSnapshot:
+              mutationActor.actor.displayNameSnapshot,
+            leadAssignedAt: new Date(),
+            updatedByUserId: actorUserId,
+            updatedByCredentialId: mutationActor.actor.credentialId,
+            updatedByCredentialLabel: mutationActor.actor.credentialId
+              ? mutationActor.actor.displayNameSnapshot
+              : null,
+          },
+        });
+      }
+
+      const epic = await readEpicSummaryById({
+        db,
+        epicId,
+        projectId: input.projectId,
+        registry,
+      });
+      if (!epic) {
+        return createError(404, "epic-not-found");
+      }
+
+      if (didLeadChange) {
+        await touchProjectActivity({ db, projectId: input.projectId });
+      }
+
+      return {
+        ok: true,
+        data: {
+          epic,
+          leadChange: didLeadChange
+            ? {
+                previous: previousLead,
+                next: leadResolution.actor.summary,
+              }
+            : null,
+          actor: mutationActor.actor.summary,
+        },
+      };
+    } catch (error) {
+      logServerError("assignProjectEpicLead", error);
+      return createError(500, "epic-lead-update-failed");
     }
   });
 }
@@ -933,7 +1031,11 @@ export async function deleteProjectEpic(input: {
 async function setProjectEpicArchivedAt(
   input: EpicMutationInput & { archivedAt: Date | null }
 ): Promise<
-  ServiceResult<{ epic: ProjectEpicSummary; actor: ProjectActorSummary }>
+  ServiceResult<{
+    epic: ProjectEpicSummary;
+    actor: ProjectActorSummary;
+    changed: boolean;
+  }>
 > {
   const actorUserId = normalizeText(input.actorUserId);
   const epicId = normalizeText(input.epicId);
@@ -1046,6 +1148,7 @@ async function setProjectEpicArchivedAt(
         data: {
           epic,
           actor: mutationActor.actor.summary,
+          changed: !isAlreadyInTargetState,
         },
       };
     } catch (error) {
@@ -1058,7 +1161,11 @@ async function setProjectEpicArchivedAt(
 export async function archiveProjectEpic(
   input: EpicMutationInput
 ): Promise<
-  ServiceResult<{ epic: ProjectEpicSummary; actor: ProjectActorSummary }>
+  ServiceResult<{
+    epic: ProjectEpicSummary;
+    actor: ProjectActorSummary;
+    changed: boolean;
+  }>
 > {
   return setProjectEpicArchivedAt({
     ...input,
@@ -1069,7 +1176,11 @@ export async function archiveProjectEpic(
 export async function unarchiveProjectEpic(
   input: EpicMutationInput
 ): Promise<
-  ServiceResult<{ epic: ProjectEpicSummary; actor: ProjectActorSummary }>
+  ServiceResult<{
+    epic: ProjectEpicSummary;
+    actor: ProjectActorSummary;
+    changed: boolean;
+  }>
 > {
   return setProjectEpicArchivedAt({
     ...input,

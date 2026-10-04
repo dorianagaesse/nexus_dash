@@ -9416,3 +9416,35 @@ Low-value entries to avoid going forward:
 - Follow-up filed: the owner-driven offboarding resolution
   (`app.resolve_project_actor_responsibilities`) does not yet include epic
   leads in its responsibility inventory.
+
+## 2026-10-04 - ND-185 review round: Copilot findings, migration invariants, hydration fix
+
+- Lead changes moved to a dedicated `PATCH /api/projects/[projectId]/epics/[epicId]/lead`
+  sub-resource so the generic epic PATCH can never carry a stale lead field
+  that clobbers concurrently edited name/description; a no-op reassignment
+  writes nothing and records no event.
+- Amended migration `20261004120000_nd185_epic_leadership`: backfills
+  lead/provenance invariants for pre-existing rows, tightens
+  `Epic_lead_actor_check` (kind + display-name snapshot always present, at
+  most one actor id, actor id must match kind), and adds the
+  `ProjectActivityEvent(projectId, domain, entityId, version)` composite index
+  backing the epic history query. Applied to the shared local database via a
+  checksum-safe delta instead of a destructive reset.
+- Archive/restore now report `changed`; no-op transitions skip event recording
+  while still returning the current activity version header.
+- Epic panel drops stale history responses that race an invalidation (per-epic
+  generation counter) and refetches after a failed load.
+- Root-caused a local-only E2E flake (~25% on `nd-459`): the new provenance
+  rows rendered `toLocaleDateString()` during SSR, and where the Node locale
+  differs from the browser's (fr-FR vs en-US) React #418 regenerated the page
+  tree after load, eating clicks and racing geometry reads. Fixed with
+  `suppressHydrationWarning` on the provenance `<time>` element; disclosure
+  toggles in the epic-touching specs additionally retry across the hydration
+  window via `tests/e2e/helpers/interaction-helpers.ts`.
+- Agent onboarding docs now cover the lead PATCH and history GET endpoints,
+  lead/provenance fields on `ProjectEpicRecord`, and the new request/response
+  schemas.
+- Validation: `npm run lint`, `npm run rls:check`, full unit suite (225 files,
+  1868 tests passed), `npm run test:coverage`, `NODE_ENV=test` production
+  build, and the five epic-touching E2E specs repeated 4x each (64/64 passed,
+  zero React hydration errors).

@@ -384,6 +384,7 @@ model ProjectActivityEvent {
   @@index([projectId, version])
   @@index([projectId, version, createdAt, id])
   @@index([projectId, createdAt])
+  @@index([projectId, domain, entityId, version])
   @@index([domain, action])
   @@index([actorUserId])
 }

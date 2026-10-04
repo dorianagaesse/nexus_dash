@@ -138,10 +138,13 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     method: "PATCH",
     path: "/api/projects/{projectId}/epics/{epicId}",
     title: "Update epic",
-    description: "Update an existing project epic.",
+    description: "Update an existing project epic's name and description.",
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
-    notes: ["Epic names must stay unique within a project."],
+    notes: [
+      "Epic names must stay unique within a project.",
+      "Lead changes use the dedicated lead endpoint so a stale client cannot clobber concurrently edited name or description fields.",
+    ],
   },
   {
     tag: "Epics",
@@ -173,6 +176,33 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "Restore an archived epic to the default epic list.",
     requiredScopes: ["task:write"],
     notes: ["Restoring an epic that is not archived is a no-op that returns the epic."],
+  },
+  {
+    tag: "Epics",
+    method: "GET",
+    path: "/api/projects/{projectId}/epics/{epicId}/history",
+    title: "Read epic history",
+    description:
+      "Read the epic-scoped activity history, including creation, archive, restore, and lead changes.",
+    requiredScopes: ["task:read"],
+    notes: [
+      "Use take to bound the page (default 20, maximum 50).",
+      "Lead changes carry previous and next actor snapshots so history stays readable after a member or credential leaves the project.",
+    ],
+  },
+  {
+    tag: "Epics",
+    method: "PATCH",
+    path: "/api/projects/{projectId}/epics/{epicId}/lead",
+    title: "Reassign epic lead",
+    description:
+      "Reassign the accountable epic lead to a project member or an active agent credential.",
+    requiredScopes: ["task:write"],
+    requestContentType: "application/json",
+    notes: [
+      "The lead accepts a human or agent reference; the acting member or credential is recorded as the assigner.",
+      "Reassignments append to the epic history; reassigning the current lead is a no-op that records no history entry.",
+    ],
   },
   {
     tag: "Roadmap",
@@ -1359,6 +1389,10 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             "archivedAt",
             "createdAt",
             "updatedAt",
+            "lead",
+            "leadAssignedAt",
+            "createdBy",
+            "updatedBy",
           ],
           properties: {
             id: { type: "string" },
@@ -1390,6 +1424,26 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
+            lead: {
+              anyOf: [
+                { $ref: "#/components/schemas/ProjectActorSummary" },
+                { type: "null" },
+              ],
+              description:
+                "Accountable initiative lead (human member or agent credential). Linked task assignees are never treated as implicit epic leads.",
+            },
+            leadAssignedAt: {
+              type: ["string", "null"],
+              format: "date-time",
+              description:
+                "When the current lead was assigned. Null when the epic predates lead provenance capture.",
+            },
+            createdBy: {
+              $ref: "#/components/schemas/TaskCommentAuthor",
+            },
+            updatedBy: {
+              $ref: "#/components/schemas/TaskCommentAuthor",
+            },
           },
         },
         ProjectEpicListResponse: {
@@ -1444,6 +1498,83 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           properties: {
             epic: {
               $ref: "#/components/schemas/ProjectEpicRecord",
+            },
+          },
+        },
+        ProjectEpicLeadUpdateRequest: {
+          type: "object",
+          required: ["lead"],
+          additionalProperties: false,
+          properties: {
+            lead: {
+              $ref: "#/components/schemas/ProjectActorReferenceInput",
+            },
+          },
+        },
+        ProjectEpicHistoryActorRef: {
+          type: "object",
+          required: ["kind", "id", "displayName"],
+          properties: {
+            kind: { type: "string", enum: ["human", "agent"] },
+            id: { type: "string" },
+            displayName: { type: "string" },
+          },
+        },
+        ProjectEpicHistoryLeadChange: {
+          type: "object",
+          required: ["previous", "next"],
+          properties: {
+            previous: {
+              anyOf: [
+                { $ref: "#/components/schemas/ProjectEpicHistoryActorRef" },
+                { type: "null" },
+              ],
+            },
+            next: {
+              anyOf: [
+                { $ref: "#/components/schemas/ProjectEpicHistoryActorRef" },
+                { type: "null" },
+              ],
+            },
+          },
+        },
+        ProjectEpicHistoryEntry: {
+          type: "object",
+          required: ["id", "action", "actor", "version", "operation", "leadChange"],
+          properties: {
+            id: { type: "string" },
+            action: {
+              type: "string",
+              enum: ["created", "updated", "deleted", "moved", "reordered"],
+            },
+            actor: {
+              anyOf: [
+                { $ref: "#/components/schemas/ProjectActorSummary" },
+                { type: "null" },
+              ],
+            },
+            version: { type: "string", format: "date-time" },
+            operation: {
+              type: ["string", "null"],
+              enum: ["archived", "restored", null],
+            },
+            leadChange: {
+              anyOf: [
+                { $ref: "#/components/schemas/ProjectEpicHistoryLeadChange" },
+                { type: "null" },
+              ],
+            },
+          },
+        },
+        ProjectEpicHistoryResponse: {
+          type: "object",
+          required: ["entries"],
+          properties: {
+            entries: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/ProjectEpicHistoryEntry",
+              },
             },
           },
         },
@@ -3117,6 +3248,75 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "application/json": {
                   schema: {
                     $ref: "#/components/schemas/ProjectEpicArchiveResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/epics/{epicId}/history": {
+        get: {
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/epics/{epicId}/history"),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/EpicId" },
+            {
+              name: "take",
+              in: "query",
+              required: false,
+              schema: {
+                type: "integer",
+                minimum: 1,
+                maximum: 50,
+                default: 20,
+              },
+              description:
+                "Maximum history entries to return (default 20, maximum 50).",
+            },
+          ],
+          responses: {
+            200: {
+              description: "Epic history returned",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/ProjectEpicHistoryResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/epics/{epicId}/lead": {
+        patch: {
+          ...buildOperationMetadata("PATCH", "/api/projects/{projectId}/epics/{epicId}/lead"),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/EpicId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ProjectEpicLeadUpdateRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Epic lead updated",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/ProjectEpicUpdateResponse",
                   },
                 },
               },

@@ -93,6 +93,10 @@ function mapEpicMutationError(errorCode: string): string {
       return "Epic not found.";
     case "epic-lead-invalid":
       return "That lead is unavailable. Pick a current project member or an active project agent.";
+    case "epic-lead-required":
+      return "Pick a current project member or an active project agent.";
+    case "epic-lead-update-failed":
+      return "Could not update the lead. Please retry.";
     case "epic-create-failed":
       return "Could not create epic. Please retry.";
     case "epic-update-failed":
@@ -179,7 +183,13 @@ function EpicAuthorInline({
         <span className="font-medium text-foreground">
           {author.displayName}
         </span>{" "}
-        <time dateTime={timestamp} className="text-muted-foreground/80">
+        {/* Server and browser locales can format the date differently; keep the
+            client's formatting without tripping a hydration mismatch. */}
+        <time
+          dateTime={timestamp}
+          suppressHydrationWarning
+          className="text-muted-foreground/80"
+        >
           {formatEpicActivityDate(timestamp)}
         </time>
       </span>
@@ -368,6 +378,7 @@ export function ProjectEpicPanel({
     Record<string, string | undefined>
   >({});
   const historyRequestsRef = useRef<Set<string>>(new Set());
+  const historyGenerationsRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     if (epics === initialEpicsRef.current) {
@@ -465,6 +476,7 @@ export function ProjectEpicPanel({
         return;
       }
 
+      const generation = historyGenerationsRef.current.get(epicId) ?? 0;
       historyRequestsRef.current.add(epicId);
       setHistoryLoadingEpicIds((previousIds) => {
         const nextIds = new Set(previousIds);
@@ -488,16 +500,24 @@ export function ProjectEpicPanel({
           throw new Error("epic-history-load-failed");
         }
 
+        if ((historyGenerationsRef.current.get(epicId) ?? 0) !== generation) {
+          // An invalidation raced this response; drop the stale payload and
+          // let the retry effect issue a fresh request.
+          return;
+        }
+
         const entries = payload.entries;
         setHistoryByEpicId((previousHistory) => ({
           ...previousHistory,
           [epicId]: entries,
         }));
       } catch {
-        setHistoryErrorByEpicId((previousErrors) => ({
-          ...previousErrors,
-          [epicId]: "Could not load epic history.",
-        }));
+        if ((historyGenerationsRef.current.get(epicId) ?? 0) === generation) {
+          setHistoryErrorByEpicId((previousErrors) => ({
+            ...previousErrors,
+            [epicId]: "Could not load epic history.",
+          }));
+        }
       } finally {
         historyRequestsRef.current.delete(epicId);
         setHistoryLoadingEpicIds((previousIds) => {
@@ -511,6 +531,10 @@ export function ProjectEpicPanel({
   );
 
   const invalidateEpicHistory = useCallback((epicId: string) => {
+    historyGenerationsRef.current.set(
+      epicId,
+      (historyGenerationsRef.current.get(epicId) ?? 0) + 1
+    );
     setHistoryByEpicId((previousHistory) => {
       if (!(epicId in previousHistory)) {
         return previousHistory;
@@ -885,15 +909,13 @@ export function ProjectEpicPanel({
     try {
       const response = await fetchProjectActivityMutation(
         projectId,
-        `/api/projects/${projectId}/epics/${epic.id}`,
+        `/api/projects/${projectId}/epics/${epic.id}/lead`,
         {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            name: epic.name,
-            description: epic.description,
             lead,
           }),
         }
@@ -906,7 +928,7 @@ export function ProjectEpicPanel({
 
       if (!response.ok || !payload?.epic) {
         throw new Error(
-          mapEpicMutationError(payload?.error ?? "epic-update-failed")
+          mapEpicMutationError(payload?.error ?? "epic-lead-update-failed")
         );
       }
 

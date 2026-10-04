@@ -60,6 +60,7 @@ vi.mock("@/lib/observability/logger", () => ({
 
 import {
   archiveProjectEpic,
+  assignProjectEpicLead,
   createProjectEpic,
   listProjectEpicHistory,
   listProjectEpics,
@@ -240,6 +241,7 @@ describe("project-epic-service", () => {
     }
     expect(result.data.epic.archivedAt).toEqual(archivedAt);
     expect(result.data.actor).toMatchObject({ kind: "human", id: "user-1" });
+    expect(result.data.changed).toBe(true);
     expect(dbMock.epic.update).toHaveBeenCalledWith({
       where: { id: "epic-1" },
       data: expect.objectContaining({
@@ -271,6 +273,7 @@ describe("project-epic-service", () => {
       throw new Error("expected archive to succeed");
     }
     expect(result.data.epic.archivedAt).toEqual(archivedAt);
+    expect(result.data.changed).toBe(false);
     expect(dbMock.epic.update).not.toHaveBeenCalled();
     expect(activityMock.touchProjectActivity).not.toHaveBeenCalled();
   });
@@ -294,6 +297,7 @@ describe("project-epic-service", () => {
       throw new Error("expected restore to succeed");
     }
     expect(result.data.epic.archivedAt).toBeNull();
+    expect(result.data.changed).toBe(true);
     expect(dbMock.epic.update).toHaveBeenCalledWith({
       where: { id: "epic-1" },
       data: expect.objectContaining({
@@ -718,7 +722,6 @@ describe("project-epic-service", () => {
         leadCredentialId: null,
         leadDisplayNameSnapshot: "dorian",
       })
-      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(
         epicSummaryFixture({
           leadUserId: "user-2",
@@ -727,17 +730,15 @@ describe("project-epic-service", () => {
       );
     dbMock.epic.update.mockResolvedValueOnce({});
 
-    const result = await updateProjectEpic({
+    const result = await assignProjectEpicLead({
       actorUserId: "user-1",
       projectId: "project-1",
       epicId: "epic-1",
-      name: "Workspace launch",
-      description: "Refine the launch scope.",
       lead: { kind: "human", id: "user-2" },
     });
 
     if (!result.ok) {
-      throw new Error("expected update to succeed");
+      throw new Error("expected lead assignment to succeed");
     }
     expect(dbMock.epic.update).toHaveBeenCalledWith({
       where: { id: "epic-1" },
@@ -751,6 +752,13 @@ describe("project-epic-service", () => {
         updatedByUserId: "user-1",
       }),
     });
+    const updateData = (
+      dbMock.epic.update.mock.calls[0]?.[0] as {
+        data: Record<string, unknown>;
+      }
+    ).data;
+    expect(updateData).not.toHaveProperty("name");
+    expect(updateData).not.toHaveProperty("description");
     expect(result.data.leadChange).toMatchObject({
       previous: { kind: "human", id: "user-1" },
       next: { kind: "human", id: "user-2" },
@@ -759,25 +767,25 @@ describe("project-epic-service", () => {
       id: "user-2",
       isAssignable: true,
     });
+    expect(activityMock.touchProjectActivity).toHaveBeenCalledWith({
+      db: dbMock,
+      projectId: "project-1",
+    });
   });
 
   test("rejects an unassignable lead without writing", async () => {
-    dbMock.epic.findFirst
-      .mockResolvedValueOnce({
-        id: "epic-1",
-        leadKind: "human",
-        leadUserId: "user-1",
-        leadCredentialId: null,
-        leadDisplayNameSnapshot: "dorian",
-      })
-      .mockResolvedValueOnce(null);
+    dbMock.epic.findFirst.mockResolvedValueOnce({
+      id: "epic-1",
+      leadKind: "human",
+      leadUserId: "user-1",
+      leadCredentialId: null,
+      leadDisplayNameSnapshot: "dorian",
+    });
 
-    const result = await updateProjectEpic({
+    const result = await assignProjectEpicLead({
       actorUserId: "user-1",
       projectId: "project-1",
       epicId: "epic-1",
-      name: "Workspace launch",
-      description: "Refine the launch scope.",
       lead: { kind: "human", id: "user-gone" },
     });
 
@@ -789,7 +797,7 @@ describe("project-epic-service", () => {
     expect(dbMock.epic.update).not.toHaveBeenCalled();
   });
 
-  test("keeps the current lead when no lead change is requested", async () => {
+  test("treats an unchanged lead assignment as a no-op", async () => {
     dbMock.epic.findFirst
       .mockResolvedValueOnce({
         id: "epic-1",
@@ -798,29 +806,21 @@ describe("project-epic-service", () => {
         leadCredentialId: null,
         leadDisplayNameSnapshot: "dorian",
       })
-      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(epicSummaryFixture());
-    dbMock.epic.update.mockResolvedValueOnce({});
 
-    const result = await updateProjectEpic({
+    const result = await assignProjectEpicLead({
       actorUserId: "user-1",
       projectId: "project-1",
       epicId: "epic-1",
-      name: "Workspace launch",
-      description: "Refine the launch scope.",
+      lead: { kind: "human", id: "user-1" },
     });
 
     if (!result.ok) {
-      throw new Error("expected update to succeed");
+      throw new Error("expected lead assignment to succeed");
     }
     expect(result.data.leadChange).toBeNull();
-    const updateData = (
-      dbMock.epic.update.mock.calls[0]?.[0] as {
-        data: Record<string, unknown>;
-      }
-    ).data;
-    expect(updateData).not.toHaveProperty("leadKind");
-    expect(updateData).not.toHaveProperty("leadAssignedAt");
+    expect(dbMock.epic.update).not.toHaveBeenCalled();
+    expect(activityMock.touchProjectActivity).not.toHaveBeenCalled();
   });
 
   test("keeps an inactive former lead visible as non-assignable", async () => {

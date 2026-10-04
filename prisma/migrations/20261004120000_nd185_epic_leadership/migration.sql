@@ -2,8 +2,10 @@
 -- Attribute epic create/update mutations to the acting ApiCredential with a
 -- durable label snapshot (mirroring TASK-337 on Task), and add a reassignable
 -- initiative lead (human project member or active project agent credential).
--- Existing epics predate actor capture, so creator, last editor, and lead are
--- backfilled from the project owner; the lead stays visible and reassignable.
+-- Every epic carries a lead: existing epics predate actor capture, so creator,
+-- last editor, lead, and lead provenance are backfilled from the project
+-- owner, and Epic_lead_actor_check rejects rows without a lead (a departed
+-- actor keeps kind and display snapshot while the actor ids clear to null).
 
 ALTER TABLE "Epic"
 ADD COLUMN "createdByUserId" TEXT,
@@ -28,7 +30,15 @@ SET
   "updatedByUserId" = project."ownerId",
   "leadKind" = 'human',
   "leadUserId" = project."ownerId",
-  "leadDisplayNameSnapshot" = COALESCE(
+  "leadDisplayNameSnapshot" = owner_identity."displayName",
+  "leadAssignedByKind" = 'human',
+  "leadAssignedByUserId" = project."ownerId",
+  "leadAssignedByDisplayNameSnapshot" = owner_identity."displayName",
+  "leadAssignedAt" = epic."createdAt"
+FROM "Project" project
+JOIN "User" owner ON owner."id" = project."ownerId"
+CROSS JOIN LATERAL (
+  SELECT COALESCE(
     NULLIF(BTRIM(owner."name"), ''),
     CASE
       WHEN NULLIF(BTRIM(owner."username"), '') IS NOT NULL
@@ -41,9 +51,8 @@ SET
     END,
     NULLIF(BTRIM(owner."email"), ''),
     'Project owner'
-  )
-FROM "Project" project
-JOIN "User" owner ON owner."id" = project."ownerId"
+  ) AS "displayName"
+) owner_identity
 WHERE epic."projectId" = project."id";
 
 ALTER TABLE "Epic"
@@ -69,14 +78,11 @@ ALTER TABLE "Epic"
     FOREIGN KEY ("leadAssignedByCredentialId") REFERENCES "ApiCredential"("id") ON DELETE SET NULL ON UPDATE CASCADE,
   ADD CONSTRAINT "Epic_lead_actor_check"
     CHECK (
-      ("leadKind" IS NULL AND "leadUserId" IS NULL AND "leadCredentialId" IS NULL AND "leadDisplayNameSnapshot" IS NULL)
-      OR (
-        "leadKind" IS NOT NULL
-        AND "leadDisplayNameSnapshot" IS NOT NULL
-        AND num_nonnulls("leadUserId", "leadCredentialId") <= 1
-        AND ("leadKind" = 'human' OR "leadUserId" IS NULL)
-        AND ("leadKind" = 'agent' OR "leadCredentialId" IS NULL)
-      )
+      "leadKind" IS NOT NULL
+      AND "leadDisplayNameSnapshot" IS NOT NULL
+      AND num_nonnulls("leadUserId", "leadCredentialId") <= 1
+      AND ("leadKind" = 'human' OR "leadUserId" IS NULL)
+      AND ("leadKind" = 'agent' OR "leadCredentialId" IS NULL)
     ),
   ADD CONSTRAINT "Epic_lead_provenance_check"
     CHECK (
@@ -95,3 +101,8 @@ CREATE INDEX "Epic_createdByUserId_idx" ON "Epic"("createdByUserId");
 CREATE INDEX "Epic_updatedByUserId_idx" ON "Epic"("updatedByUserId");
 CREATE INDEX "Epic_leadUserId_idx" ON "Epic"("leadUserId");
 CREATE INDEX "Epic_leadCredentialId_idx" ON "Epic"("leadCredentialId");
+
+-- Epic-scoped history reads filter (projectId, domain, entityId) and order by
+-- version; this composite covers both.
+CREATE INDEX "ProjectActivityEvent_projectId_domain_entityId_version_idx"
+  ON "ProjectActivityEvent"("projectId", "domain", "entityId", "version");

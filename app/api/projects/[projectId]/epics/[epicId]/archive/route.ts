@@ -41,18 +41,20 @@ export async function POST(
   }
 
   const serializedEpic = serializeProjectEpicResponse(result.data.epic);
-  const version = await recordProjectActivityEventVersion({
-    actorUserId: principalResult.principal.actorUserId,
-    projectId,
-    domain: "epic",
-    action: "updated",
-    entityId: epicId,
-    payload: {
-      epic: serializedEpic,
-      actor: serializeProjectEpicEventActor(result.data.actor),
-      operation: "archived",
-    },
-  });
+  const version = result.data.changed
+    ? await recordProjectActivityEventVersion({
+        actorUserId: principalResult.principal.actorUserId,
+        projectId,
+        domain: "epic",
+        action: "updated",
+        entityId: epicId,
+        payload: {
+          epic: serializedEpic,
+          actor: serializeProjectEpicEventActor(result.data.actor),
+          operation: "archived",
+        },
+      })
+    : undefined;
 
   return NextResponse.json(
     {
@@ -90,18 +92,20 @@ export async function DELETE(
   }
 
   const serializedEpic = serializeProjectEpicResponse(result.data.epic);
-  const version = await recordProjectActivityEventVersion({
-    actorUserId: principalResult.principal.actorUserId,
-    projectId,
-    domain: "epic",
-    action: "updated",
-    entityId: epicId,
-    payload: {
-      epic: serializedEpic,
-      actor: serializeProjectEpicEventActor(result.data.actor),
-      operation: "restored",
-    },
-  });
+  const version = result.data.changed
+    ? await recordProjectActivityEventVersion({
+        actorUserId: principalResult.principal.actorUserId,
+        projectId,
+        domain: "epic",
+        action: "updated",
+        entityId: epicId,
+        payload: {
+          epic: serializedEpic,
+          actor: serializeProjectEpicEventActor(result.data.actor),
+          operation: "restored",
+        },
+      })
+    : undefined;
 
   return NextResponse.json(
     {

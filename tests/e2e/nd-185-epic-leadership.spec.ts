@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
+import { clickUntilVisible } from "./helpers/interaction-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
 
 async function createLeadershipProject(ownerUserId: string) {
@@ -123,9 +124,10 @@ test("defaults the lead to the creating member and surfaces provenance", async (
   await expect(lastEditedBy).toContainText(fixture.ownerUsername);
 
   // The epic-scoped history lists the creation event.
-  await epicArticle
-    .getByRole("button", { name: `Show details for ${epicName}` })
-    .click();
+  await clickUntilVisible(
+    epicArticle.getByRole("button", { name: `Show details for ${epicName}` }),
+    epicArticle.getByRole("button", { name: `Hide details for ${epicName}` })
+  );
   await expect(epicArticle.getByText("created the epic")).toBeVisible();
 });
 
@@ -158,7 +160,7 @@ test("reassigns the lead through the chip and records the change in history", as
   const assignResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "PATCH" &&
-      response.url().endsWith(`/epics/${epic.id}`) &&
+      response.url().endsWith(`/epics/${epic.id}/lead`) &&
       response.ok()
   );
   await listbox
@@ -197,9 +199,14 @@ test("reassigns the lead through the chip and records the change in history", as
       name: `Change initiative lead, currently ${fixture.secondMember.username}`,
     })
   ).toBeVisible();
-  await reloadedArticle
-    .getByRole("button", { name: `Show details for ${epicName}` })
-    .click();
+  await clickUntilVisible(
+    reloadedArticle.getByRole("button", {
+      name: `Show details for ${epicName}`,
+    }),
+    reloadedArticle.getByRole("button", {
+      name: `Hide details for ${epicName}`,
+    })
+  );
   await expect(
     reloadedArticle.getByText(
       `set the lead to ${fixture.secondMember.username}`

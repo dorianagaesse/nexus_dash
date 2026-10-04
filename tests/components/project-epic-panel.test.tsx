@@ -1530,15 +1530,13 @@ describe("project-epic-panel lead accountability and history", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      `/api/projects/project-1/epics/${epicWithDenseLinkedTasks.id}`,
+      `/api/projects/project-1/epics/${epicWithDenseLinkedTasks.id}/lead`,
       {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: epicWithDenseLinkedTasks.name,
-          description: epicWithDenseLinkedTasks.description,
           lead: { kind: "human", id: secondHumanActor.id },
         }),
       }
@@ -1691,6 +1689,136 @@ describe("project-epic-panel lead accountability and history", () => {
 
     expect(container.textContent).toContain("created the epic");
     expect(container.textContent).not.toContain("Could not load epic history.");
+
+    await act(async () => root.unmount());
+  });
+
+  test("discards a stale history response that races a lead reassignment", async () => {
+    const updatedEpic = {
+      ...epicWithDenseLinkedTasks,
+      lead: secondHumanActor,
+      leadAssignedAt: "2026-10-02T09:00:00.000Z",
+    };
+    let resolveStaleHistory:
+      | ((response: { ok: boolean; json: () => Promise<unknown> }) => void)
+      | null = null;
+    const staleHistoryPromise = new Promise<{
+      ok: boolean;
+      json: () => Promise<unknown>;
+    }>((resolve) => {
+      resolveStaleHistory = resolve;
+    });
+    let historyCallCount = 0;
+    const fetchMock = vi.fn().mockImplementation((input: unknown) => {
+      const url = String(input);
+      if (url.endsWith("/history")) {
+        historyCallCount += 1;
+        if (historyCallCount === 1) {
+          return staleHistoryPromise;
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            entries: [
+              {
+                id: "event-lead-sam",
+                action: "updated",
+                actor: humanLeadActor,
+                version: "2026-10-02T12:00:00.000Z",
+                operation: null,
+                leadChange: {
+                  previous: {
+                    kind: "human",
+                    id: humanLeadActor.id,
+                    displayName: "Dorian Agaesse",
+                  },
+                  next: {
+                    kind: "human",
+                    id: secondHumanActor.id,
+                    displayName: "Sam Second",
+                  },
+                },
+              },
+            ],
+          }),
+        });
+      }
+      if (url.endsWith("/lead")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ epic: updatedEpic }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ epics: [epicWithDenseLinkedTasks] }),
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [epicWithDenseLinkedTasks],
+        actorOptions: [humanLeadActor, secondHumanActor],
+      })
+    );
+
+    const disclosure = container.querySelector<HTMLElement>(
+      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    );
+    await act(async () => {
+      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await act(async () => {});
+    expect(historyCallCount).toBe(1);
+
+    const chipTrigger = container.querySelector(
+      '[data-meeting-todo-assignee-chip="true"]'
+    );
+    await act(async () => {
+      chipTrigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    const option = Array.from(
+      document.body.querySelectorAll('[role="option"]')
+    ).find((element) => element.textContent?.includes("Sam Second"));
+    await act(async () => {
+      option?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await act(async () => {
+      resolveStaleHistory?.({
+        ok: true,
+        json: async () => ({
+          entries: [
+            {
+              id: "event-stale",
+              action: "updated",
+              actor: humanLeadActor,
+              version: "2026-10-01T12:00:00.000Z",
+              operation: null,
+              leadChange: {
+                previous: null,
+                next: {
+                  kind: "human",
+                  id: "user-stale",
+                  displayName: "Stale Lead",
+                },
+              },
+            },
+          ],
+        }),
+      });
+    });
+    await act(async () => {});
+    await act(async () => {});
+
+    expect(historyCallCount).toBe(2);
+    expect(container.textContent).toContain("set the lead to Sam Second");
+    expect(container.textContent).not.toContain("Stale Lead");
 
     await act(async () => root.unmount());
   });

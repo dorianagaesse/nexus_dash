@@ -5,6 +5,7 @@ import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
+import { activateUntilVisible } from "./helpers/interaction-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
 
 const screenshotDirectory = process.env.TASK335_SCREENSHOT_DIR?.trim();
@@ -33,6 +34,9 @@ async function createDenseEpicFixture(userId: string) {
         "Give collaborators the complete rollout narrative, expected outcome, and enough implementation context to make the initiative understandable at a glance.",
       createdByUserId: userId,
       updatedByUserId: userId,
+      leadKind: "human",
+      leadUserId: userId,
+      leadDisplayNameSnapshot: "Project owner",
     },
     select: { id: true },
   });
@@ -45,6 +49,9 @@ async function createDenseEpicFixture(userId: string) {
       description: "Confirm the product is ready for the first invited teams.",
       createdByUserId: userId,
       updatedByUserId: userId,
+      leadKind: "human",
+      leadUserId: userId,
+      leadDisplayNameSnapshot: "Project owner",
     },
   });
   await prisma.task.createMany({
@@ -148,11 +155,12 @@ test.describe("TASK-335 epic detail disclosure", () => {
       });
     }
 
-    await showDetails.focus();
-    await showDetails.press("Enter");
-
     const hideDetails = primaryEpic.getByRole("button", {
       name: `Hide details for ${fixture.primaryEpicName}`,
+    });
+    await activateUntilVisible(hideDetails, async () => {
+      await showDetails.focus({ timeout: 1_000 });
+      await showDetails.press("Enter", { timeout: 1_000 });
     });
     await expect(hideDetails).toHaveAttribute("aria-expanded", "true");
     await expect(description).toBeVisible();
