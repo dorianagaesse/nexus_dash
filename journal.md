@@ -14,6 +14,22 @@ Use it for important implementation milestones, blockers, validation runs, and r
   not start, so the PostgreSQL matrix awaits CI evidence.
 - Local lint, RLS inventory, and unit/API tests passed. Preview rollout still
   depends on the Supabase and Vercel prerequisites in the env runbook.
+- CI PostgreSQL tenant-isolation matrix and Quality Core passed on the
+  `c33f74d` branch head in Quality Gates run 37187234216; Playwright E2E was
+  still running when this entry was updated. The local coverage run passed
+  thresholds with 1,822 tests passing and two skipped; local Docker Desktop
+  could not start for a PostgreSQL/E2E run.
+- Preview workflow run 37187231577 checked out `c33f74d` and deployed it with
+  a deployment-only Broadcast override. Migration, database readiness, revision,
+  and stable auth alias checks passed. Its temporary three-user live smoke
+  confirmed authenticated topic predicates, member access, non-member and
+  cross-user join denial, public-channel refusal, client publish denial with
+  server acknowledgement, and typed project activity delivery. The Preview
+  signing secret is sensitive in Vercel; the prebuilt workflow applies the
+  Broadcast override at runtime so local build does not need that secret.
+- Production still lacks `SUPABASE_JWT_SECRET` in Vercel. Keep the existing
+  transport until review, Production secret configuration, and the staged
+  rollout checks in the env runbook.
 
 # 2026-10-03 - ND-141: Epic live refresh on task and epic mutations
 

@@ -26,13 +26,18 @@ const prisma = new PrismaClient({
 const clients = [];
 const userIds = [];
 
-function deadline(promise, label, ms = 20_000) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out`)), ms)
-    ),
-  ]);
+async function deadline(promise, label, ms = 20_000) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function fixtureUser(label) {
@@ -185,15 +190,12 @@ try {
   clients.push(anonymousClient);
 
   let resolveActivity;
-  const activityReceived = deadline(
-    new Promise((resolve) => { resolveActivity = resolve; }),
-    "typed project activity"
-  );
+  let resolveNotification;
   const memberProject = subscribe(
     memberClient,
     projectTopic,
     "project-activity",
-    resolveActivity
+    (payload) => resolveActivity?.(payload)
   );
   const outsiderProject = subscribe(
     outsiderClient,
@@ -203,7 +205,8 @@ try {
   const memberNotifications = subscribe(
     memberClient,
     notificationTopic,
-    "notification-snapshot"
+    "notification-snapshot",
+    (payload) => resolveNotification?.(payload)
   );
   const outsiderNotifications = subscribe(
     outsiderClient,
@@ -241,6 +244,10 @@ try {
   assert.notEqual(forged, "ok", "client Broadcast publish was allowed");
   console.log("Client publish was denied");
 
+  const activityReceived = deadline(
+    new Promise((resolve) => { resolveActivity = resolve; }),
+    "typed project activity"
+  );
   const event = await prisma.projectActivityEvent.create({
     data: {
       projectId: project.id,
@@ -259,6 +266,32 @@ try {
   assert.equal(payload.action, "updated");
   assert.equal(payload.payload?.smoke, true);
   console.log("Member received typed database-owned project activity");
+
+  const notificationReceived = deadline(
+    new Promise((resolve) => { resolveNotification = resolve; }),
+    "notification snapshot"
+  );
+  await prisma.notification.create({
+    data: {
+      recipientUserId: member.id,
+      type: "system",
+      title: "ND-373 Broadcast smoke",
+      sourceType: "nd373-preview-smoke",
+      sourceId: crypto.randomUUID(),
+    },
+  });
+  const notification = await notificationReceived;
+  assert(notification.unreadCount >= 1);
+  assert.equal(notification.latestUnreadNotification?.title, "ND-373 Broadcast smoke");
+  console.log("Member received database-owned notification snapshot");
+
+  await prisma.session.deleteMany({ where: { userId: member.id } });
+  const signedOut = await fetch(`${baseUrl}/api/realtime/token`, {
+    method: "POST",
+    headers: { Cookie: `nexusdash.session-token=${member.sessionToken}` },
+  });
+  assert.equal(signedOut.status, 401, "signed-out session could mint a token");
+  console.log("Signed-out session token mint was denied");
 } finally {
   await Promise.allSettled(
     clients.map(async (client) => {

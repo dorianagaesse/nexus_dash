@@ -76,7 +76,8 @@ URL as deployment evidence and the stable URL for interactive OAuth smoke.
 With `preview_realtime_transport=broadcast`, the workflow also creates temporary
 owner, member, and non-member sessions in Preview, checks private channel joins,
 public-channel refusal, denied client publishing, and delivery of a
-database-owned activity event, then removes the fixtures.
+database-owned activity event and notification snapshot. It also rejects a
+signed-out token request, then removes the fixtures.
 
 Preview and staged production deploys derive their Vercel Function region from
 the runtime Supabase transaction-pooler hostname. An unmapped database region
