@@ -571,6 +571,8 @@ export function TaskDetailModal({
                       type="button"
                       onClick={() => void onSaveTask()}
                       disabled={isUpdatingTask}
+                      aria-busy={isUpdatingTask ? "true" : undefined}
+                      aria-label={isUpdatingTask ? "Saving changes..." : "Save changes"}
                       className="flex-1"
                     >
                       {isUpdatingTask ? "Saving..." : "Save changes"}
@@ -1569,12 +1571,12 @@ function TaskReadOnlyContent({
         attachments={descriptionImages}
         onPreview={onPreviewAttachment}
       />
-      <section className="pt-4">
+      <section className="pt-4" aria-labelledby="task-comments-heading">
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm font-medium">Comments</p>
+              <MessageSquare className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <h3 id="task-comments-heading" className="text-sm font-medium">Comments</h3>
             </div>
             <span className="text-xs text-muted-foreground">
               {selectedTask.commentCount} comment{selectedTask.commentCount === 1 ? "" : "s"}
@@ -1678,6 +1680,8 @@ function TaskReadOnlyContent({
                 Task comment
               </label>
               <div
+                role="region"
+                aria-label="Comment composer"
                 data-testid="task-comment-composer"
                 className="group/composer rounded-md border border-input bg-background transition-colors focus-within:border-ring/60"
               >
@@ -1794,6 +1798,8 @@ function TaskReadOnlyContent({
                       (!commentDraftText && commentAttachments.length === 0) ||
                       commentDraftTooLong
                     }
+                    aria-busy={isSubmittingTaskComment ? "true" : undefined}
+                    aria-label={isSubmittingTaskComment ? "Posting comment..." : "Add comment"}
                     className="min-h-11 flex-1 sm:flex-none"
                   >
                     {isSubmittingTaskComment ? "Posting..." : "Add comment"}
