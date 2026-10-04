@@ -96,13 +96,18 @@ function subscribe(client, topic, event, onPayload, privateChannel = true) {
   const result = deadline(
     new Promise((resolve) => {
       channel.subscribe((status, error) => {
-        if (status === "SUBSCRIBED") resolve({ allowed: true, error });
+        const result = {
+          allowed: status === "SUBSCRIBED",
+          status,
+          reason: error?.message ?? String(error ?? ""),
+        };
+        if (status === "SUBSCRIBED") resolve(result);
         if (
           status === "CHANNEL_ERROR" ||
           status === "TIMED_OUT" ||
           status === "CLOSED"
         ) {
-          resolve({ allowed: false, error });
+          resolve(result);
         }
       });
     }),
@@ -188,7 +193,12 @@ try {
     false
   );
 
-  assert.equal((await memberProject.result).allowed, true, "member join denied");
+  const memberProjectJoin = await memberProject.result;
+  assert.equal(
+    memberProjectJoin.allowed,
+    true,
+    `member join denied: ${memberProjectJoin.status}: ${memberProjectJoin.reason}`
+  );
   assert.equal((await outsiderProject.result).allowed, false, "non-member join allowed");
   assert.equal((await memberNotifications.result).allowed, true, "own notification join denied");
   assert.equal((await outsiderNotifications.result).allowed, false, "cross-user notification join allowed");
