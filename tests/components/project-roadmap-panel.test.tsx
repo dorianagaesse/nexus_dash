@@ -334,4 +334,71 @@ describe("project-roadmap-panel", () => {
       root.unmount();
     });
   });
+
+  test("provides an opt-in question-mark help affordance that toggles the roadmap guide (ND-143 AC1)", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases: [],
+      })
+    );
+
+    const helpButton = container.querySelector("button[aria-label='Roadmap help']") as HTMLButtonElement;
+    expect(helpButton).not.toBeNull();
+    expect(helpButton.getAttribute("aria-expanded")).toBe("false");
+    expect(document.querySelector("[data-section-help-popover='true']")).toBeNull();
+
+    // Click to open help popover
+    await act(async () => {
+      helpButton.click();
+    });
+
+    expect(helpButton.getAttribute("aria-expanded")).toBe("true");
+    const popover = document.querySelector("[data-section-help-popover='true']");
+    expect(popover).not.toBeNull();
+    expect(popover?.textContent).toContain("Roadmap guide");
+    expect(popover?.textContent).toContain("What is a milestone?");
+    expect(popover?.textContent).toContain("How phases & events relate");
+    expect(popover?.textContent).toContain("What good inputs look like");
+
+    // Close help popover
+    await act(async () => {
+      helpButton.click();
+    });
+    expect(document.querySelector("[data-section-help-popover='true']")).toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("empty state explains what a milestone is, how phases and events relate, and what good inputs look like (ND-143 AC2)", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases: [],
+      })
+    );
+
+    const emptyContainer = container.querySelector("[data-roadmap-empty-container='true']");
+    expect(emptyContainer).not.toBeNull();
+    expect(emptyContainer?.textContent).toContain("No roadmap yet");
+    expect(emptyContainer?.textContent).toContain("What is a milestone?");
+    expect(emptyContainer?.textContent).toContain("Phases & events");
+    expect(emptyContainer?.textContent).toContain("Good input examples");
+    expect(emptyContainer?.textContent).toContain("Create the first event");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });

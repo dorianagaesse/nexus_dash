@@ -5,6 +5,7 @@ import { describe, expect, test, vi } from "vitest";
 import {
   doesTaskMutationAffectProjectEpics,
   getLatestProjectEpicSnapshot,
+  reconcileProjectEpics,
   reconcileProjectEpicsAfterTaskMutation,
 } from "@/lib/project-epic-client";
 
@@ -105,6 +106,39 @@ describe("project epic client reconciliation", () => {
     resolveOlderJson?.({ epics: [olderEpic] });
     await expect(olderRequest).resolves.toBe(false);
     expect(getLatestProjectEpicSnapshot(projectId)).toEqual([newerEpic]);
+
+    vi.unstubAllGlobals();
+  });
+
+  test("reconcileProjectEpics fetches and stores the latest snapshot without requiring task state", async () => {
+    const projectId = "project-direct-reconciliation";
+    const reconciledEpic = {
+      id: "epic-direct",
+      name: "Direct reconciliation",
+      description: "",
+      status: "Ready" as const,
+      progressPercent: 0,
+      taskCount: 1,
+      completedTaskCount: 0,
+      archivedAt: null,
+      linkedTasks: [],
+      createdAt: "2026-10-01T00:00:00.000Z",
+      updatedAt: "2026-10-01T00:00:00.000Z",
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ epics: [reconciledEpic] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await reconcileProjectEpics(projectId);
+
+    expect(result).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/projects/${projectId}/epics?includeArchived=true`,
+      expect.objectContaining({ cache: "no-store" })
+    );
+    expect(getLatestProjectEpicSnapshot(projectId)).toEqual([reconciledEpic]);
 
     vi.unstubAllGlobals();
   });

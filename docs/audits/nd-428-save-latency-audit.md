@@ -1,7 +1,7 @@
 # ND-428 Save-Latency Audit
 
-Date: 2026-09-20  
-Status: Complete  
+Date: 2026-09-20
+Status: Complete
 Follow-up: ND-429
 
 This report records the 2026-09-20 baseline. Statements about the "current"

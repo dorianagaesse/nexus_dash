@@ -471,9 +471,53 @@ describe("project context panel preview options menu", () => {
   test("viewers do not see the preview options menu", async () => {
     await renderPanel(root, { cards: [buildCard({})], canEdit: false });
     const dialog = await openPreview();
-
     expect(
       dialog.querySelector("button[aria-label='Context card options']")
     ).toBeNull();
+  });
+
+  test("stages context-card link attachments with auto-confirm and preserves open composer for multiple links (ND-140)", async () => {
+    await renderPanel(root, { cards: [] });
+    await clickElement(findButton(container, "Add card"));
+
+    // Open link composer
+    const openLinkButton = document.querySelector('button[aria-label="Open attachment link input"]') as HTMLButtonElement;
+    expect(openLinkButton).not.toBeNull();
+    await clickElement(openLinkButton);
+
+    const linkInput = document.querySelector('input[placeholder="https://..."]') as HTMLInputElement;
+    expect(linkInput).not.toBeNull();
+
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value"
+    )?.set;
+
+    // Stage first link via Enter
+    await act(async () => {
+      nativeInputValueSetter?.call(linkInput, "https://example.com/first-link");
+      linkInput.dispatchEvent(new Event("input", { bubbles: true }));
+      linkInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    });
+
+    // The composer should remain open for staging multiple links (AC2)
+    const composer = document.querySelector('input[placeholder="https://..."]');
+    expect(composer).not.toBeNull();
+
+    // The first link is staged
+    expect(document.body.textContent).toContain("https://example.com/first-link");
+
+    // Stage second link via explicit '+' button
+    const addButton = document.querySelector('button[aria-label="Add attachment link"]') as HTMLButtonElement;
+    expect(addButton).not.toBeNull();
+    await act(async () => {
+      nativeInputValueSetter?.call(linkInput, "https://example.com/second-link");
+      linkInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await clickElement(addButton);
+
+    // Both links are staged
+    expect(document.body.textContent).toContain("https://example.com/first-link");
+    expect(document.body.textContent).toContain("https://example.com/second-link");
   });
 });

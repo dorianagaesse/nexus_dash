@@ -35,9 +35,15 @@ import {
 } from "@/lib/epic";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
+  fetchProjectActivityMutation,
+  PROJECT_ACTIVITY_REMOTE_EVENT,
+  type ProjectActivityRemoteEventDetail,
+} from "@/lib/project-activity-client";
+import {
   discardLatestProjectEpicSnapshot,
   getLatestProjectEpicSnapshot,
   PROJECT_EPICS_RECONCILED_EVENT,
+  reconcileProjectEpics,
   type ProjectEpicsReconciledDetail,
 } from "@/lib/project-epic-client";
 import { ListSearchInput } from "@/components/ui/list-search-input";
@@ -222,28 +228,6 @@ export function ProjectEpicPanel({
     setLocalEpics(epics);
   }, [epics, projectId]);
 
-  useEffect(() => {
-    function handleProjectEpicsReconciled(event: Event) {
-      const detail = (event as CustomEvent<ProjectEpicsReconciledDetail>).detail;
-      if (detail?.projectId !== projectId) {
-        return;
-      }
-
-      setLocalEpics(detail.epics);
-    }
-
-    window.addEventListener(
-      PROJECT_EPICS_RECONCILED_EVENT,
-      handleProjectEpicsReconciled
-    );
-
-    return () => {
-      window.removeEventListener(
-        PROJECT_EPICS_RECONCILED_EVENT,
-        handleProjectEpicsReconciled
-      );
-    };
-  }, [projectId]);
 
   const editingEpic = useMemo(
     () => localEpics.find((epic) => epic.id === editingEpicId) ?? null,
@@ -324,6 +308,86 @@ export function ProjectEpicPanel({
     router.refresh();
   };
 
+  useEffect(() => {
+    function handleProjectEpicsReconciled(event: Event) {
+      const detail = (event as CustomEvent<ProjectEpicsReconciledDetail>).detail;
+      if (detail?.projectId !== projectId) {
+        return;
+      }
+
+      setLocalEpics(detail.epics);
+      if (
+        editingEpicId &&
+        !detail.epics.some((epic) => epic.id === editingEpicId)
+      ) {
+        setEditingEpicId(null);
+        setEditName("");
+        setEditDescription("");
+        setEditError(null);
+      }
+      if (
+        pendingDeleteEpicId &&
+        !detail.epics.some((epic) => epic.id === pendingDeleteEpicId)
+      ) {
+        setPendingDeleteEpicId(null);
+      }
+    }
+
+    function handleRemoteProjectActivity(event: Event) {
+      const detail = (event as CustomEvent<ProjectActivityRemoteEventDetail>)
+        .detail;
+      const activity = detail?.activity;
+      if (!activity || activity.projectId !== projectId) {
+        return;
+      }
+
+      if (activity.domain === "epic") {
+        if (activity.action === "deleted" && activity.entityId) {
+          const deletedId = activity.entityId;
+          setLocalEpics((previousEpics) =>
+            previousEpics.filter((epic) => epic.id !== deletedId)
+          );
+          if (editingEpicId === deletedId) {
+            setEditingEpicId(null);
+            setEditName("");
+            setEditDescription("");
+            setEditError(null);
+          }
+          if (pendingDeleteEpicId === deletedId) {
+            setPendingDeleteEpicId(null);
+          }
+        }
+        void reconcileProjectEpics(projectId);
+        detail.markHandled();
+        return;
+      }
+
+      if (activity.domain === "task") {
+        void reconcileProjectEpics(projectId);
+      }
+    }
+
+    window.addEventListener(
+      PROJECT_EPICS_RECONCILED_EVENT,
+      handleProjectEpicsReconciled
+    );
+    window.addEventListener(
+      PROJECT_ACTIVITY_REMOTE_EVENT,
+      handleRemoteProjectActivity
+    );
+
+    return () => {
+      window.removeEventListener(
+        PROJECT_EPICS_RECONCILED_EVENT,
+        handleProjectEpicsReconciled
+      );
+      window.removeEventListener(
+        PROJECT_ACTIVITY_REMOTE_EVENT,
+        handleRemoteProjectActivity
+      );
+    };
+  }, [editingEpicId, pendingDeleteEpicId, projectId]);
+
   const toggleEpicDetails = (epicId: string) => {
     setExpandedEpicIds((previousIds) => {
       const nextIds = new Set(previousIds);
@@ -350,16 +414,20 @@ export function ProjectEpicPanel({
     setCreateError(null);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/epics`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: normalizedName,
-          description: normalizedDescription,
-        }),
-      });
+      const response = await fetchProjectActivityMutation(
+        projectId,
+        `/api/projects/${projectId}/epics`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: normalizedName,
+            description: normalizedDescription,
+          }),
+        }
+      );
 
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
@@ -405,7 +473,8 @@ export function ProjectEpicPanel({
     setEditError(null);
 
     try {
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/epics/${editingEpic.id}`,
         {
           method: "PATCH",
@@ -459,7 +528,8 @@ export function ProjectEpicPanel({
     setIsDeleting(true);
 
     try {
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/epics/${pendingDeleteEpic.id}`,
         {
           method: "DELETE",
@@ -507,7 +577,8 @@ export function ProjectEpicPanel({
     setIsUpdatingArchive(true);
 
     try {
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/epics/${epic.id}/archive`,
         {
           method: archived ? "POST" : "DELETE",
@@ -701,7 +772,7 @@ export function ProjectEpicPanel({
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="secondary"
                   onClick={() => closeCreate()}
                   disabled={isCreating}
                   className="w-full sm:w-auto"
@@ -815,7 +886,7 @@ export function ProjectEpicPanel({
                         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="secondary"
                             onClick={() => cancelEdit()}
                             disabled={isSavingEdit}
                             className="w-full sm:w-auto"

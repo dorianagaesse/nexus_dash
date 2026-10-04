@@ -3,6 +3,44 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-03 - ND-141: Epic live refresh on task and epic mutations
+
+- Added `"epic"` domain to `ProjectActivityDomain` and wired `recordProjectActivityEventVersion` into epic creation, update, delete, archive, and restore endpoints, as well as task archive/unarchive routes.
+- Updated `ProjectEpicPanel` to execute mutations through `fetchProjectActivityMutation`, listen for `PROJECT_ACTIVITY_REMOTE_EVENT` (`epic` and `task` domains), and reconcile epics without full page reloads while marking `epic` activity handled.
+- Updated `KanbanBoard` to trigger epic reconciliation on remote task lifecycle mutations (`created`, `updated`, `deleted`).
+- Protected active inline editing in `ProjectEpicPanel`: draft inputs and live refresh locks are preserved across background reconciliations, and cleanly dismissed if the epic is remotely deleted.
+- Validation: `git diff --check`, `npm run lint`, `npm run rls:check`, 221 test files / 1818 tests passed, 93.78% statement coverage, and `npx next build --webpack` succeeded.
+
+# 2026-10-03 - ND-143: Roadmap section first-time discoverability affordance
+
+- Task TASK-369 (card `cmth7f3h6003804ju1ytsasqh`) under epic "External UX feedback refinement program":
+  - Created reusable `SectionHelpAffordance` component (`components/project-dashboard/section-help-affordance.tsx`) rendering an opt-in question-mark help affordance with accessible trigger and responsive floating popover guide (`createPortal`, `data-overlay-popover="true"`, Escape key and outside pointer down dismissal).
+  - Integrated the help affordance into `ProjectRoadmapPanel` header to give users an immediate, opt-in explanation of milestones, phases, and events regardless of whether milestones exist.
+  - Redesigned and enriched the Roadmap empty state (`data-roadmap-empty-container="true"`) with dedicated cards explaining:
+    - What is a milestone (macro delivery horizon/chapter).
+    - How phases and events relate (milestone lanes grouping scheduled events, drag and drop behavior).
+    - What good inputs look like (outcome-oriented milestone names, concrete dated events, and status tracking).
+  - Added unit test suite in `tests/components/section-help-affordance.test.tsx` (5 tests) and integration tests in `tests/components/project-roadmap-panel.test.tsx` (6 tests).
+- Validations:
+  - `git diff --check`, `npm run lint`, `npm run rls:check` passed clean.
+  - `npm test`: 222 files passed, 1820 tests passed.
+  - `npm run test:coverage`: met all threshold targets (statements 93.78%, branch 84.46%, funcs 95.42%, lines 94.08%).
+  - `npx next build --webpack`: compiled and generated all 27 static routes cleanly.
+
+# 2026-10-03 - ND-140: Context card link attachment auto-confirm and mobile composer tightening
+
+- Task TASK-366 (card `cmth7exkc002z04ju03hwavi7`) under epic "External UX feedback refinement program":
+  - Streamlined context card link attachment flow: supported auto-confirming valid link URLs on Enter, on blur, and on paste in `AttachmentLinkComposer` without requiring a secondary tap or click.
+  - Kept the link composer open after staging links in both create and edit modals to allow adding multiple links in succession.
+  - Hardened create form submission against unconfirmed link inputs in progress.
+  - Fixed mobile dialog layout in `context-modal-frame.tsx`, `context-create-modal.tsx`, `context-edit-modal.tsx`, and `attachment-link-composer.tsx` to eliminate horizontal scrollbar issues on narrow screens by applying proper truncation, responsive padding, and `min-w-0` / `w-full` width constraints.
+  - Added unit test suite in `tests/components/attachment-link-composer.test.tsx` and integration test in `tests/components/project-context-panel.test.tsx`.
+- Validations:
+  - `git diff --check`, `npm run lint`, `npm run rls:check` passed clean.
+  - `npm test`: 222 files passed, 1820 tests passed.
+  - `npm run test:coverage`: met all threshold targets (statements 93.78%, branch 84.46%, funcs 95.42%, lines 94.08%).
+  - `npx next build --webpack`: compiled and generated all 27 static routes cleanly.
+
 # 2026-10-03 - React 19.3 repair PR #551
 
 - Brought the TASK-116 replacement for Dependabot #537 onto current main. Kept React, React DOM, and their type packages aligned at 19.3.0; regenerated the lockfile. The old E2E failure was the meeting-notes geometry assertion fixed in #556. Final CI is pending.
@@ -9066,6 +9104,83 @@ Low-value entries to avoid going forward:
   the conclusion that ND-432 network live save remains gated pending revisions
   and coalescing in addition to performance remediation.
 
+# 2026-09-20 - ND-429 save-latency remediation
+
+- Kept task and meeting-note typed activity writes inside the already
+  authorized RLS save transaction, removing the second authorization/touch
+  transaction while preserving the canonical activity event and response
+  version header used by realtime clients.
+- Meeting-note updates now compare persisted participants and actions, skip
+  unchanged nested writes, reuse the loaded actor registry for the response,
+  and resolve the mutation actor only when an action is created or reassigned.
+  The 10-persisted-todo path fell from 62 to 28 SQL statements.
+- Roadmap phase/event mutations now return `x-nexusdash-project-version` and
+  `Server-Timing`; the client acknowledges those responses and keeps its local
+  phase projection instead of issuing an unconditional `router.refresh()`.
+- Production-build local rerun (PostgreSQL 16, RLS enabled, three warmups plus
+  20 samples): p95 task create/edit 50.0/42.8 ms; meeting create/preparation/
+  10-persisted-todo edit 50.1/46.8/46.9 ms; roadmap phase create/edit
+  31.7/30.8 ms; roadmap event create/edit 25.6/23.7 ms. Task create/edit SQL
+  fell from 27/28 to 22/23; roadmap remained within its 9-11 statement budget.
+- Validation: lint, RLS inventory, release policy, focused service/API/UI
+  tests, full unit and coverage suites, production build, the 10-test task/
+  meeting/roadmap browser suite, and the temporary benchmark/query harnesses.
+  Temporary instrumentation and fixtures were removed afterward.
+
+# 2026-10-03 - ND-429 preview follow-up
+
+- On the `b1ee8c1` preview, the user still found saves slow. Browser checks on
+  the supplied immutable deployment reproduced about 3.5 seconds from meeting
+  output save click to success toast, about 3.9 seconds to create a milestone
+  and event, and about 1.8 seconds to edit an event. These are browser UI
+  observations, not server timing samples. Test content was restored and the
+  temporary event was deleted.
+- Roadmap event create/edit read the saved event separately before reading its
+  containing phase, which already includes the event. Both paths now derive
+  the response event from the phase read, eliminating one duplicate database
+  query per event save while retaining the same response shape.
+- Workflow `37122553332` deployed commit `4c1eb3a` to
+  `https://nexus-dash-pojfe861l-dorian-agaesses-projects.vercel.app`; its
+  checkout log confirms the full SHA. The PR quality, browser E2E, RLS, and
+  container checks passed. On the stable preview alias, an isolated probe
+  project was created because the user's original fixture was inaccessible to
+  the signed-in account. Twenty consecutive event edits measured from Save
+  click to dialog close had p50 1,382 ms and p95 2,306 ms. Four successful
+  meeting output edits measured 2,595-2,800 ms; a fifth attempt did not close
+  within 15 seconds and succeeded on retry. These UI timings do not isolate
+  app server time from network and infrastructure time. The preview function
+  deployment is in `iad1`; the preview database region remains unverified.
+  The branch-preview latency acceptance targets are still unmet.
+
+## ND-429 final preview remediation
+
+- Existing timing headers separated an old-preview event edit into 805 ms
+  server, 268 ms fetch remainder, and 22 ms browser work (1,094 ms UI total).
+  A meeting output edit with ten todos was 2,143 / 388 / 24 ms (2,555 ms
+  total). The `x-vercel-id` function region was `iad1`, while the Preview
+  Supabase runtime pooler hostname identified AWS `eu-west-1`.
+- Commit `5eabb12` made branch-preview and staged-production deployment select
+  the Vercel Function region from that environment's runtime pooler hostname,
+  failing deployment for an unmapped region. The first colocated Preview run
+  [37151643429](https://github.com/dorianagaesse/nexus_dash/actions/runs/37151643429)
+  used `dub1`; its 20-sample event-edit and meeting-output UI p95 values were
+  285 and 358 ms. Its 160 samples across eight surfaces all succeeded.
+- Commits `031da7b` and `1f6a78f` removed unused task mutation reads, with
+  the latter fixing an omitted call-site argument after a failed intermediate
+  build/deploy. A live RLS-enabled SQL count was 20 statements for task create
+  and 20 for edit, within the ND-428 budget.
+- Workflow [37152881897](https://github.com/dorianagaesse/nexus_dash/actions/runs/37152881897)
+  checked out `1f6a78fd0be12c7ca50ba32e171791afadb61ab2` and deployed
+  `https://nexus-dash-2c23ucjvf-dorian-agaesses-projects.vercel.app`.
+  All 200 post-warmup saves across ten surfaces succeeded, with three warmups
+  and 20 measured saves per surface. `x-vercel-id` reported `fra1::dub1`.
+  Event edit click-to-close p50/p95 was 197/224 ms; meeting output edit with
+  ten todos was 262/288 ms. Every surface met its p95 target. Full timing
+  splits and the method are in `docs/reports/nd-429-preview-save-latency.md`.
+- Final-head lint, RLS inventory, 1,791 unit/API tests, coverage, and build
+  passed. The GitHub Quality Gates workflow was dispatched on the final code
+  head for the PostgreSQL RLS matrix and E2E; local Docker was unavailable.
+
 ## 2026-10-03 - ND-371: Realtime compute, query volume, and fallback telemetry
 
 - Added an in-process telemetry registry (`lib/observability/realtime-metrics.ts`)
@@ -9171,6 +9286,104 @@ Low-value entries to avoid going forward:
   run - Docker Desktop failed to start, leaving the local Postgres container
   unreachable - so e2e coverage for the merge head is delegated to CI.
 
+## ND-429 merge-forward and final review head
+
+- Merged current `origin/main` into PR #550, resolving its `journal.md` conflict
+  by retaining both task histories. Merge commit `a8e2686` is mergeable.
+- Preview workflow [37153541585](https://github.com/dorianagaesse/nexus_dash/actions/runs/37153541585)
+  deployed that exact commit at
+  `https://nexus-dash-kuf5x6o43-dorian-agaesses-projects.vercel.app`.
+  The final 200 post-warmup saves across ten surfaces all succeeded, and
+  `x-vercel-id` stayed `fra1::dub1` beside the `eu-west-1` runtime pooler.
+  Event edit UI p50/p95 was 205/241 ms; meeting output with ten existing todos
+  was 280/324 ms. All surface p95s met ND-429 targets, including task
+  create/edit at 352/417 ms. Full splits and tails are in the preview report.
+- Merged-head local lint, RLS inventory, 1,814 unit/API tests, and coverage
+  passed. The pre-merge preview also passed all 101 runnable browser E2E tests
+  (one intentional skip). Final merged-head GitHub Quality Gates ran the
+  PostgreSQL isolation matrix successfully; its core and E2E result are in
+  [37153565491](https://github.com/dorianagaesse/nexus_dash/actions/runs/37153565491).
+
+## 2026-10-03 - ND-372: Private Supabase Realtime authorization and channel contracts
+
+- Deliverable (design-only, no runtime code): added
+  `adr/task-372-supabase-realtime-authorization.md` with the threat model,
+  option analysis, channel/payload/policy/token/client contracts, rollout and
+  rollback plan, validation requirements, and the ND-373 implementation
+  brief; logged the decision in `adr/decisions.md` and refreshed the stale
+  detailed-ADR list in `adr/README.md`.
+- Decision: private Supabase Realtime Broadcast published exclusively from
+  durable database triggers (`realtime.send()`), two topic families
+  (`project:<id>:activity`, `user:<id>:notifications`), SELECT-only RLS on
+  `realtime.messages` reusing the owner-OR-membership predicate via `app`
+  helpers, an `app.current_user_id()` JWT-claims fallback so one predicate
+  serves both the GUC and Realtime evaluation contexts, and <=10-minute
+  HS256 user JWTs minted from authenticated human sessions as the revocation
+  SLA. Postgres Changes was rejected (publication/privilege widening,
+  payload-shape break, per-row authenticated RLS) and client-published
+  Broadcast was rejected (forgeable messages). Payload contracts stay
+  identical to the SSE payloads, so the existing client handlers, version
+  guards, and tab-leader coordinator are reused; adaptive polling remains the
+  fallback and `REALTIME_TRANSPORT` extends to `broadcast`.
+- Supabase platform facts (private-channel policy caching, DB broadcast
+  semantics and partition caveat, no-INSERT-policy denial, quotas, locked
+  `realtime` schema) were verified against the official docs on 2026-10-03
+  and are cited in the ADR.
+- Validation: docs-only change; `git diff --check` clean, no code touched so
+  the lint/test/build baseline is not applicable.
+- PR: #563.
+- Copilot review round on #563: all eight findings were confirmed against
+  the code and fixed in the ADR (no declines). The typed-event ordering
+  finding was the substantive one: `recordProjectActivityEvent` touches
+  `Project.updatedAt` before inserting the event, so an immediate
+  `AFTER UPDATE` bare signal would arrive first with the same version and
+  the client's version guard would discard the typed event that follows,
+  killing the in-place patch. The contract now uses a deferred constraint
+  trigger that suppresses the bare signal when the matching event row
+  exists, yielding exactly one message per mutation (the typed event) and
+  keeping touch-only flows covered. Also fixed: topic validation now checks
+  `string_to_array` cardinality (trailing-colon topics were accepted),
+  the token contract is pinned to HS256 with startup failure and a 60..600
+  TTL clamp (asymmetric keys are explicitly out of scope), the client
+  fallback demotes tier by tier (broadcast -> stream -> polling), the
+  connection model is restated as per-scope leaders with one multiplexed
+  client per tab (at most two sockets per profile), payload compatibility
+  is defined on parsed values rather than bytes, and the typo was fixed.
+  Ordering/suppression, cardinality, and tier-demotion tests were added to
+  the validation requirements.
+- Codex review round on #563 (findings delivered as a PR comment): all three
+  confirmed against the code and fixed in the ADR. (1) The promised stream
+  tier was unreachable under `REALTIME_TRANSPORT=broadcast` because
+  `isRealtimeStreamEnabled()` is exactly `transport === "stream"` and both
+  stream routes 404 otherwise; ND-373 now widens the helper to
+  `transport !== "polling"` and the validation plan covers a Broadcast
+  failure reaching a working SSE stream. (2) The claim that a Broadcast
+  leader keeps its socket open while hidden contradicted
+  `lib/tab-leader-coordinator.ts` (`setVisible(false)` resigns leadership);
+  the contract now follows the existing coordinator semantics - hidden tabs
+  resign and close their channels (throttled heartbeat timers would make a
+  hidden leader's lease racy), and a visible tab re-probes, resubscribes,
+  and reconciles. (3) The `accessToken` callback needs a client-side token
+  cache (supabase-js invokes it on connect and every ~25 s heartbeat);
+  re-mint is now specified as cached-token reuse with a ~60 s margin and
+  single-flight deduplication. Component, env, and E2E tests updated
+  accordingly.
+- Merge-forward (2026-10-03): merged `origin/main` (ND-429 #550, `2bb5499`)
+  after the PR went CONFLICTING. Only `journal.md` conflicted (both sides had
+  appended entries); resolved by keeping main's ND-429 entry above the ND-372
+  entry. Merge commit `5f32ac7`; docs-only branch, so the local code baseline
+  is not applicable and the merge head re-validates via CI.
+
+## 2026-10-03 - ND-139: In-card edit and create Cancel controls secondary button affordance
+
+- Addressed external UX feedback on Cancel button affordance across project edit and epic management surfaces.
+- Updated Cancel buttons in `app/projects/projects-grid-client.tsx` (project edit form) and `components/project-epic-panel.tsx` (epic create panel and in-card epic edit form) from `variant="ghost"` to `variant="secondary"`, ensuring clear visual affordance and distinct boundary from destructive actions and primary submit buttons.
+- Also promoted project edit form "Save changes" submit button to default primary styling for clear visual hierarchy.
+- Extracted helper internals from Next.js route handlers (`app/api/account/notifications/stream/route.ts` and `app/api/projects/[projectId]/activity/stream/route.ts`) to `lib/realtime/notification-stream.ts` and `lib/realtime/project-activity-stream.ts` to adhere to Next.js route export restrictions during build TypeScript check. Adjusted `app/account/settings/developers/page.tsx` props type.
+- Unit and component tests: added `tests/components/projects-grid-client.test.tsx` (4 tests) and updated `tests/components/project-epic-panel.test.tsx` (20 tests) asserting secondary button classes and interactions.
+- Full validation: `git diff --check`, `npm run lint`, `npm run rls:check`, full unit test suite (222 files passed, 1818 tests passed), `npm run test:coverage` (93.78% statements, 84.46% branches, 95.42% functions, 94.08% lines), and Next.js production build (`npx next build --webpack`) all passed. Local Playwright E2E is delegated to GitHub Actions CI quality gates due to local Postgres container requirement.
+- Merge-forward (2026-10-03): merged latest `origin/main` (ND-372 #563 `0713511`), resolved conflict in `journal.md`, addressed and resolved Copilot review threads on GitHub.
+
 ## 2026-10-03 - ND-142: Task modal comment composer vs form save separation and accessibility audit
 
 - Addressed external UX feedback on task detail modal comments and save flow distinction (ND-142 / TASK-368).
@@ -9181,3 +9394,4 @@ Low-value entries to avoid going forward:
   - Added `aria-busy` and explicit `aria-label` attributes to the "Add comment" button (`aria-label="Posting comment..."` during submission) and "Save changes" button (`aria-label="Saving changes..."` during update).
 - Unit and component tests: added 3 new test cases to `tests/components/task-detail-modal-comments.test.tsx` verifying comment submit vs save separation, edit-mode composer exclusion, and the audited accessibility semantics.
 - Full validation: `git diff --check`, `npm run lint`, `npm run rls:check`, full unit test suite (221 files passed, 1816 tests passed), `npm run test:coverage` (93.78% statements, 84.46% branches, 95.42% functions, 94.08% lines), and Next.js production build (`npx next build --webpack`) all passed.
+- Merge-forward (2026-10-04): merged `origin/main` (through ND-141 #568 `b3e072c`), resolved route stream and journal merge conflicts. All automated component and regression tests pass cleanly.

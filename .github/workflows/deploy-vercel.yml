@@ -125,6 +125,9 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      - name: Match function region to production database
+        run: node scripts/resolve-vercel-function-region.mjs >> "$GITHUB_ENV"
+
       # Keep staging from mutating the production database. Applying a migration
       # here can make the live deployment incompatible before the staged build
       # has been reviewed and promoted.
@@ -147,6 +150,7 @@ jobs:
               --prebuilt \
               --prod \
               --skip-domain \
+              --regions "$VERCEL_FUNCTION_REGION" \
               --scope="$VERCEL_SCOPE" \
               --token="$VERCEL_TOKEN" \
               --meta "nexusDashGitCommitSha=$COMMIT_SHA" \
@@ -305,6 +309,10 @@ jobs:
         if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' || inputs.action == 'promote' }}
         run: npx prisma generate
 
+      - name: Match function region to database
+        if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' }}
+        run: node scripts/resolve-vercel-function-region.mjs >> "$GITHUB_ENV"
+
       - name: Validate migration connection secret
         if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'promote' }}
         env:
@@ -365,6 +373,7 @@ jobs:
           deployment_url=$(
             npx vercel@${VERCEL_CLI_VERSION} deploy \
               --prebuilt \
+              --regions "$VERCEL_FUNCTION_REGION" \
               --scope="$VERCEL_SCOPE" \
               --token="$VERCEL_TOKEN" \
               --meta "nexusDashGitCommitSha=$COMMIT_SHA" \
@@ -548,6 +557,7 @@ jobs:
               --prebuilt \
               --prod \
               --skip-domain \
+              --regions "$VERCEL_FUNCTION_REGION" \
               --scope="$VERCEL_SCOPE" \
               --token="$VERCEL_TOKEN" \
               --meta "nexusDashGitCommitSha=$COMMIT_SHA" \

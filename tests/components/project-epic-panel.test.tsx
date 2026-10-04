@@ -30,6 +30,7 @@ vi.mock("@/lib/hooks/use-project-section-expanded", () => ({
 }));
 
 import { ProjectEpicPanel } from "@/components/project-epic-panel";
+import { dispatchProjectActivityRemoteEvent } from "@/lib/project-activity-client";
 import { reconcileProjectEpicsAfterTaskMutation } from "@/lib/project-epic-client";
 import {
   TASK_OPEN_REQUEST_EVENT,
@@ -130,6 +131,33 @@ describe("project-epic-panel", () => {
     });
 
     expect(setIsExpandedMock).toHaveBeenCalledWith(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("renders secondary button styling for the create-panel Cancel button", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        epics: [],
+      })
+    );
+
+    const newEpicButton = findButton(container, "New epic");
+    await act(async () => {
+      newEpicButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const cancelButton = findButton(container, "Cancel");
+    expect(cancelButton).not.toBeUndefined();
+    expect(cancelButton?.className).toContain("bg-secondary");
 
     await act(async () => {
       root.unmount();
@@ -409,6 +437,13 @@ describe("project-epic-panel", () => {
     expect(article?.getAttribute("aria-label")).toBe(
       "Edit epic Launch collaboration beta"
     );
+
+    const cancelButton = Array.from(article?.querySelectorAll("button") ?? []).find(
+      (button) => button.textContent?.trim() === "Cancel"
+    );
+    expect(cancelButton).not.toBeUndefined();
+    expect(cancelButton?.className).toContain("bg-secondary");
+    expect(cancelButton?.className).toContain("text-secondary-foreground");
 
     await act(async () => {
       root.unmount();
@@ -1059,5 +1094,286 @@ describe("project-epic-panel linked-task chip activation", () => {
         root.unmount();
       });
     }
+  });
+
+  test("reconciles epics and marks handled when a remote epic event arrives", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const projectId = "project-remote-epic-test";
+    const initialEpic = {
+      id: "epic-remote-1",
+      name: "Remote epic initial",
+      description: "Initial description",
+      status: "Ready" as const,
+      progressPercent: 0,
+      taskCount: 0,
+      completedTaskCount: 0,
+      linkedTasks: [],
+      archivedAt: null,
+      createdAt: "2026-10-01T00:00:00.000Z",
+      updatedAt: "2026-10-01T00:00:00.000Z",
+    };
+    const updatedEpic = {
+      ...initialEpic,
+      name: "Remote epic updated",
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ epics: [updatedEpic] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container, root } = createTestRenderer();
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId,
+        canEdit: true,
+        epics: [initialEpic],
+      })
+    );
+
+    expect(container.textContent).toContain("Remote epic initial");
+
+    let handled = false;
+    await act(async () => {
+      handled = dispatchProjectActivityRemoteEvent({
+        eventId: "event-epic-1",
+        projectId,
+        domain: "epic",
+        action: "updated",
+        entityId: "epic-remote-1",
+        version: "2026-10-01T12:00:00.000Z",
+        occurredAt: "2026-10-01T12:00:00.000Z",
+      });
+    });
+
+    expect(handled).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/projects/${projectId}/epics?includeArchived=true`,
+      expect.objectContaining({ cache: "no-store" })
+    );
+    expect(container.textContent).toContain("Remote epic updated");
+
+    await act(async () => {
+      root.unmount();
+    });
+    vi.unstubAllGlobals();
+  });
+
+  test("reconciles epics when a remote task event arrives", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const projectId = "project-remote-task-test";
+    const initialEpic = {
+      id: "epic-remote-task-1",
+      name: "Remote task epic",
+      description: "Description",
+      status: "Ready" as const,
+      progressPercent: 0,
+      taskCount: 0,
+      completedTaskCount: 0,
+      linkedTasks: [],
+      archivedAt: null,
+      createdAt: "2026-10-01T00:00:00.000Z",
+      updatedAt: "2026-10-01T00:00:00.000Z",
+    };
+    const updatedEpic = {
+      ...initialEpic,
+      status: "In progress" as const,
+      progressPercent: 50,
+      taskCount: 2,
+      completedTaskCount: 1,
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ epics: [updatedEpic] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container, root } = createTestRenderer();
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId,
+        canEdit: true,
+        epics: [initialEpic],
+      })
+    );
+
+    await act(async () => {
+      dispatchProjectActivityRemoteEvent({
+        eventId: "event-task-1",
+        projectId,
+        domain: "task",
+        action: "updated",
+        entityId: "task-1",
+        version: "2026-10-01T12:00:00.000Z",
+        occurredAt: "2026-10-01T12:00:00.000Z",
+      });
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/projects/${projectId}/epics?includeArchived=true`,
+      expect.objectContaining({ cache: "no-store" })
+    );
+    expect(container.textContent).toContain("1/2");
+
+    await act(async () => {
+      root.unmount();
+    });
+    vi.unstubAllGlobals();
+  });
+
+  test("preserves active inline edit draft when remote reconciliation arrives", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const projectId = "project-edit-preserve-test";
+    const initialEpic = {
+      id: "epic-edit-1",
+      name: "Original epic name",
+      description: "Original description",
+      status: "Ready" as const,
+      progressPercent: 0,
+      taskCount: 0,
+      completedTaskCount: 0,
+      linkedTasks: [],
+      archivedAt: null,
+      createdAt: "2026-10-01T00:00:00.000Z",
+      updatedAt: "2026-10-01T00:00:00.000Z",
+    };
+    const backgroundReconciledEpic = {
+      ...initialEpic,
+      taskCount: 1,
+      linkedTasks: [
+        {
+          id: "task-new",
+          referenceNumber: 201,
+          title: "New linked task",
+          status: "In Progress",
+          archivedAt: null,
+        },
+      ],
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ epics: [backgroundReconciledEpic] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container, root } = createTestRenderer();
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId,
+        canEdit: true,
+        epics: [initialEpic],
+      })
+    );
+
+    const editButton = container.querySelector(
+      `button[aria-label="Edit epic ${initialEpic.name}"]`
+    );
+    expect(editButton).not.toBeNull();
+    await act(async () => {
+      editButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const nameInput = container.querySelector(
+      `#edit-epic-name-${initialEpic.id}`
+    ) as HTMLInputElement | null;
+    expect(nameInput).not.toBeNull();
+    await act(async () => {
+      setInputValue(nameInput!, "User typed draft name");
+    });
+    expect(nameInput?.value).toBe("User typed draft name");
+
+    await act(async () => {
+      dispatchProjectActivityRemoteEvent({
+        eventId: "event-task-bg",
+        projectId,
+        domain: "task",
+        action: "updated",
+        entityId: "task-new",
+        version: "2026-10-01T12:00:00.000Z",
+        occurredAt: "2026-10-01T12:00:00.000Z",
+      });
+    });
+
+    expect(nameInput?.value).toBe("User typed draft name");
+    const card = container.querySelector("[data-project-live-refresh-lock]");
+    expect(card?.getAttribute("data-project-live-refresh-lock")).toBe("true");
+
+    await act(async () => {
+      root.unmount();
+    });
+    vi.unstubAllGlobals();
+  });
+
+  test("cancels edit mode if the epic being edited is deleted remotely", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const projectId = "project-remote-delete-test";
+    const initialEpic = {
+      id: "epic-to-delete",
+      name: "Epic to be deleted",
+      description: "Description",
+      status: "Ready" as const,
+      progressPercent: 0,
+      taskCount: 0,
+      completedTaskCount: 0,
+      linkedTasks: [],
+      archivedAt: null,
+      createdAt: "2026-10-01T00:00:00.000Z",
+      updatedAt: "2026-10-01T00:00:00.000Z",
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ epics: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container, root } = createTestRenderer();
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId,
+        canEdit: true,
+        epics: [initialEpic],
+      })
+    );
+
+    const editButton = container.querySelector(
+      `button[aria-label="Edit epic ${initialEpic.name}"]`
+    );
+    await act(async () => {
+      editButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(
+      container.querySelector(`#edit-epic-name-${initialEpic.id}`)
+    ).not.toBeNull();
+
+    await act(async () => {
+      dispatchProjectActivityRemoteEvent({
+        eventId: "event-epic-del",
+        projectId,
+        domain: "epic",
+        action: "deleted",
+        entityId: "epic-to-delete",
+        version: "2026-10-01T12:00:00.000Z",
+        occurredAt: "2026-10-01T12:00:00.000Z",
+      });
+    });
+
+    expect(
+      container.querySelector(`#edit-epic-name-${initialEpic.id}`)
+    ).toBeNull();
+    expect(container.textContent).toContain("No active epics yet.");
+
+    await act(async () => {
+      root.unmount();
+    });
+    vi.unstubAllGlobals();
   });
 });

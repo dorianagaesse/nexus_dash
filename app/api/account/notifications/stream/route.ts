@@ -11,14 +11,14 @@ import {
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 import { getNotificationRealtimeSnapshotForUser } from "@/lib/services/notification-service";
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-export const maxDuration = 300;
-
 import {
   NOTIFICATION_STREAM_EVENT,
   isSnapshotChanged,
 } from "@/lib/realtime/notification-stream";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const NOTIFICATION_STREAM_RETRY_MS = 2_000;
 const NOTIFICATION_STREAM_POLL_INTERVAL_MS = 1_000;
