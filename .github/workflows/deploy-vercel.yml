@@ -562,6 +562,12 @@ jobs:
 
           echo "$PREVIEW_AUTH_ORIGIN" > preview-auth-alias.txt
 
+      - name: Verify private Preview Broadcast
+        if: inputs.action == 'deploy-preview' && inputs.preview_realtime_transport == 'broadcast'
+        env:
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+        run: node scripts/verify-preview-realtime.mjs
+
       - name: Deploy production (staged)
         if: inputs.action == 'deploy-production-staged'
         id: deploy_prod_staged

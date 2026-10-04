@@ -1,0 +1,208 @@
+import assert from "node:assert/strict";
+import crypto from "node:crypto";
+
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@prisma/client";
+import { createClient } from "@supabase/supabase-js";
+import pg from "pg";
+
+const baseUrl = process.env.PREVIEW_AUTH_ORIGIN;
+const databaseUrl = process.env.MIGRATION_DATABASE_URL;
+assert(baseUrl?.startsWith("https://"), "PREVIEW_AUTH_ORIGIN is required");
+assert(databaseUrl, "MIGRATION_DATABASE_URL is required");
+
+const pool = new pg.Pool({ connectionString: databaseUrl });
+const prisma = new PrismaClient({
+  adapter: new PrismaPg(pool, { disposeExternalPool: true }),
+});
+const clients = [];
+const userIds = [];
+
+function deadline(promise, label, ms = 20_000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out`)), ms)
+    ),
+  ]);
+}
+
+async function fixtureUser(label) {
+  const nonce = crypto.randomBytes(8).toString("hex");
+  const user = await prisma.user.create({
+    data: {
+      email: `nd373-${label}-${nonce}@nexusdash.local`,
+      name: `ND-373 ${label}`,
+      emailVerified: new Date(),
+    },
+    select: { id: true },
+  });
+  userIds.push(user.id);
+  const sessionToken = crypto.randomBytes(32).toString("base64url");
+  await prisma.session.create({
+    data: {
+      userId: user.id,
+      sessionTokenHash: crypto
+        .createHash("sha256")
+        .update(sessionToken)
+        .digest("base64url"),
+      expires: new Date(Date.now() + 30 * 60_000),
+    },
+  });
+  return { id: user.id, sessionToken };
+}
+
+async function tokenFor(user) {
+  const response = await fetch(`${baseUrl}/api/realtime/token`, {
+    method: "POST",
+    headers: {
+      Cookie: `nexusdash.session-token=${user.sessionToken}`,
+    },
+  });
+  assert.equal(response.status, 200, "authenticated token request failed");
+  assert.match(response.headers.get("cache-control") ?? "", /no-store/);
+  const token = await response.json();
+  assert(token.token && token.supabaseUrl && token.supabasePublishableKey);
+  return token;
+}
+
+function clientFor(token) {
+  const client = createClient(token.supabaseUrl, token.supabasePublishableKey, {
+    accessToken: async () => token.token,
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
+    },
+  });
+  clients.push(client);
+  return client;
+}
+
+function subscribe(client, topic, event, onPayload) {
+  const channel = client.channel(topic, { config: { private: true } });
+  if (onPayload) {
+    channel.on("broadcast", { event }, ({ payload }) => onPayload(payload));
+  }
+  const result = deadline(
+    new Promise((resolve) => {
+      channel.subscribe((status, error) => {
+        if (status === "SUBSCRIBED") resolve({ allowed: true, error });
+        if (
+          status === "CHANNEL_ERROR" ||
+          status === "TIMED_OUT" ||
+          status === "CLOSED"
+        ) {
+          resolve({ allowed: false, error });
+        }
+      });
+    }),
+    `Realtime join for ${topic}`
+  );
+  return { channel, result };
+}
+
+try {
+  const anonymous = await fetch(`${baseUrl}/api/realtime/token`, {
+    method: "POST",
+  });
+  assert.equal(anonymous.status, 401);
+
+  const owner = await fixtureUser("owner");
+  const member = await fixtureUser("member");
+  const outsider = await fixtureUser("outsider");
+  const project = await prisma.project.create({
+    data: {
+      name: "ND-373 Preview Broadcast smoke",
+      ownerId: owner.id,
+      memberships: {
+        create: [
+          { userId: owner.id, role: "owner" },
+          { userId: member.id, role: "viewer" },
+        ],
+      },
+    },
+    select: { id: true },
+  });
+
+  const memberToken = await tokenFor(member);
+  const outsiderToken = await tokenFor(outsider);
+  const memberClient = clientFor(memberToken);
+  const outsiderClient = clientFor(outsiderToken);
+  const projectTopic = `project:${project.id}:activity`;
+  const notificationTopic = `user:${member.id}:notifications`;
+
+  let resolveActivity;
+  const activityReceived = deadline(
+    new Promise((resolve) => { resolveActivity = resolve; }),
+    "typed project activity"
+  );
+  const memberProject = subscribe(
+    memberClient,
+    projectTopic,
+    "project-activity",
+    resolveActivity
+  );
+  const outsiderProject = subscribe(
+    outsiderClient,
+    projectTopic,
+    "project-activity"
+  );
+  const memberNotifications = subscribe(
+    memberClient,
+    notificationTopic,
+    "notification-snapshot"
+  );
+  const outsiderNotifications = subscribe(
+    outsiderClient,
+    notificationTopic,
+    "notification-snapshot"
+  );
+
+  assert.equal((await memberProject.result).allowed, true, "member join denied");
+  assert.equal((await outsiderProject.result).allowed, false, "non-member join allowed");
+  assert.equal((await memberNotifications.result).allowed, true, "own notification join denied");
+  assert.equal((await outsiderNotifications.result).allowed, false, "cross-user notification join allowed");
+  console.log("Private project and notification join policies passed");
+
+  const forged = await deadline(
+    memberProject.channel.send({
+      type: "broadcast",
+      event: "project-activity",
+      payload: { forged: true },
+    }),
+    "client publish"
+  );
+  assert.notEqual(forged, "ok", "client Broadcast publish was allowed");
+  console.log("Client publish was denied");
+
+  const event = await prisma.projectActivityEvent.create({
+    data: {
+      projectId: project.id,
+      actorUserId: owner.id,
+      domain: "project",
+      action: "updated",
+      entityId: project.id,
+      payload: { smoke: true },
+    },
+    select: { id: true },
+  });
+  const payload = await activityReceived;
+  assert.equal(payload.eventId, event.id);
+  assert.equal(payload.projectId, project.id);
+  assert.equal(payload.domain, "project");
+  assert.equal(payload.action, "updated");
+  assert.equal(payload.payload?.smoke, true);
+  console.log("Member received typed database-owned project activity");
+} finally {
+  await Promise.allSettled(
+    clients.map(async (client) => {
+      await client.removeAllChannels();
+      client.realtime.disconnect();
+    })
+  );
+  if (userIds.length) {
+    await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+  }
+  await prisma.$disconnect();
+}
