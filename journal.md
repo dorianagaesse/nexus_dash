@@ -9400,8 +9400,9 @@ Low-value entries to avoid going forward:
 
 - Epics now durably record who created and last mutated them: `createdBy*`/
   `updatedBy*` user and ApiCredential columns with display-name label
-  snapshots on the `Epic` model (migration
-  `20261004120000_nd185_epic_attribution`), mirroring the Task model. The
+  snapshots on the `Epic` model (the originally applied
+  `20261004120000_nd185_epic_leadership` migration, followed by
+  `20261004230000_nd185_withdraw_epic_leadership`), mirroring the Task model. The
   create/update/archive service paths resolve the acting actor through
   `resolveProjectMutationActor` and write the user id plus any agent
   credential id/label; pre-existing epics backfill attribution from the
@@ -9448,3 +9449,16 @@ Low-value entries to avoid going forward:
   appended entries), resolved by keeping main's ND-142 entry above this one.
   Main's task-detail-modal changes merged cleanly; CI re-validates the merge
   head.
+
+## 2026-10-05 - ND-185 Preview migration recovery
+
+- The 2026-10-04 20:32 UTC Preview deploy applied the original ND-185
+  leadership migration. The branch subsequently replaced that migration with
+  an attribution-only migration under a new name. Its first deployment attempt
+  failed with P3018 because `Epic.createdByUserId` already existed, and Prisma
+  then blocked ND-185 and ND-402 preview attempts with P3009.
+- Restored the exact applied migration file and added a later forward migration
+  to remove the withdrawn lead/history schema and add the retained credential
+  indexes. Added a Preview-only, record-validated workflow action to resolve
+  the failed replacement migration before redeploying. Production remains
+  separate from this recovery path.

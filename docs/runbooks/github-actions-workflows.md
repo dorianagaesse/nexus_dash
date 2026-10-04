@@ -67,6 +67,27 @@ reach its database. The workflow then assigns `PREVIEW_AUTH_ORIGIN` to that
 exact deployment and verifies the alias target and readiness. Use the immutable
 URL as deployment evidence and the stable URL for interactive OAuth smoke.
 
+### ND-185 Preview Migration Recovery
+
+The 2026-10-04 ND-185 Preview run applied
+`20261004120000_nd185_epic_leadership`. A later branch revision replaced that
+file with `20261004120000_nd185_epic_attribution`; the replacement failed on an
+existing `Epic.createdByUserId` column and left a failed Prisma record that
+blocks every branch using the shared Preview database.
+
+Keep the already-applied leadership migration unchanged in source control. The
+later `20261004230000_nd185_withdraw_epic_leadership` migration moves the schema
+to attribution-only. To clear the failed record, dispatch this workflow from
+the repair commit with `action=resolve-preview-migration` and
+`git_ref=<repair-commit-sha>`. The Preview-only job validates the configured
+Supabase project and exact ND-185 migration records, marks only the failed
+attribution migration rolled back, then verifies the result. It does not deploy
+or touch production. Run a normal `deploy-preview` at the same SHA afterward.
+
+Older branch code that creates epics without attribution values is incompatible
+with this shared Preview schema. Rebase those branches after ND-185 merges or
+use an isolated Preview database before testing epic creation.
+
 Preview and staged production deploys derive their Vercel Function region from
 the runtime Supabase transaction-pooler hostname. An unmapped database region
 stops deployment. On a dynamic response, the second code in `x-vercel-id`
