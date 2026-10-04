@@ -72,12 +72,16 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
+  if (!payload || typeof payload !== "object" || typeof payload.content !== "string") {
+    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+  }
+
   const result = await updateTaskCommentForProject({
     actorUserId: principalResult.principal.actorUserId,
     projectId: params.projectId,
     taskId: params.taskId,
     commentId: params.commentId,
-    content: typeof payload.content === "string" ? payload.content : "",
+    content: payload.content,
     agentMentionSelections: parseAgentMentionSelections(
       payload.agentMentionSelections
     ),
@@ -99,6 +103,9 @@ export async function PATCH(
     author: result.data.comment.author,
     ...(result.data.comment.attachments.length > 0
       ? { attachments: result.data.comment.attachments }
+      : {}),
+    ...(result.data.comment.agentMentions.length > 0
+      ? { agentMentions: result.data.comment.agentMentions }
       : {}),
   };
 

@@ -1477,7 +1477,15 @@ function TaskReadOnlyContent({
   const handleStartEditComment = useCallback((comment: TaskComment) => {
     setEditingCommentId(comment.id);
     setEditingCommentContent(comment.content);
-    setEditingAgentMentionSelections([]);
+    const initialAgentMentions: CommentAgentMentionDraft[] = (
+      comment.agentMentions ?? []
+    ).map((mention) => ({
+      credentialId: mention.credentialId,
+      label: mention.label,
+    }));
+    setEditingAgentMentionSelections(
+      pruneCommentAgentMentionSelections(initialAgentMentions, comment.content)
+    );
     setEditingCommentError(null);
   }, []);
 
@@ -1506,6 +1514,8 @@ function TaskReadOnlyContent({
         return;
       }
 
+      const submittedCommentId = commentId;
+      const submittedContent = editingCommentContent;
       setIsSavingCommentEdit(true);
       setEditingCommentError(null);
       try {
@@ -1516,8 +1526,12 @@ function TaskReadOnlyContent({
             credentialId: selection.credentialId,
           }))
         );
-        setEditingCommentId(null);
-        setEditingCommentContent("");
+        setEditingCommentId((currentId) =>
+          currentId === submittedCommentId ? null : currentId
+        );
+        setEditingCommentContent((currentContent) =>
+          currentContent === submittedContent ? "" : currentContent
+        );
         setEditingAgentMentionSelections([]);
       } catch (error) {
         const message =
@@ -1741,6 +1755,7 @@ function TaskReadOnlyContent({
                             type="button"
                             variant="ghost"
                             size="icon"
+                            disabled={isSavingCommentEdit}
                             className="h-6 w-6 text-muted-foreground hover:text-foreground"
                             onClick={() => handleStartEditComment(comment)}
                             aria-label="Edit comment"
@@ -1756,11 +1771,21 @@ function TaskReadOnlyContent({
                           className="mt-2 space-y-2"
                           data-testid={`edit-comment-form-${comment.id}`}
                         >
-                          <div className="rounded-md border border-input bg-background focus-within:border-ring/60">
+                          <div
+                            className={cn(
+                              "rounded-md border border-input bg-background focus-within:border-ring/60",
+                              isSavingCommentEdit && "pointer-events-none opacity-60"
+                            )}
+                            aria-disabled={isSavingCommentEdit}
+                          >
                             <RichTextEditor
                               id={`edit-comment-input-${comment.id}`}
                               value={editingCommentContent}
-                              onChange={setEditingCommentContent}
+                              onChange={(value) => {
+                                if (!isSavingCommentEdit) {
+                                  setEditingCommentContent(value);
+                                }
+                              }}
                               placeholder="Edit comment..."
                               ariaLabel="Edit task comment"
                               mentionProjectId={projectId}

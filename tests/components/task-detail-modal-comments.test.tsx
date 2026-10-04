@@ -147,7 +147,7 @@ function buildModalProps(comments: TaskComment[]) {
   };
 }
 
-type ModalProps = ReturnType<typeof buildModalProps>;
+type ModalProps = React.ComponentProps<typeof TaskDetailModal>;
 
 async function renderWithRoot(
   root: Root,

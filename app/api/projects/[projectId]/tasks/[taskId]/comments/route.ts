@@ -144,6 +144,9 @@ export async function GET(
         ...(comment.attachments.length > 0
           ? { attachments: comment.attachments }
           : {}),
+        ...(comment.agentMentions.length > 0
+          ? { agentMentions: comment.agentMentions }
+          : {}),
       })),
     },
     { headers: timing.headers() }
@@ -207,6 +210,9 @@ export async function POST(
     author: result.data.comment.author,
     ...(result.data.comment.attachments.length > 0
       ? { attachments: result.data.comment.attachments }
+      : {}),
+    ...(result.data.comment.agentMentions.length > 0
+      ? { agentMentions: result.data.comment.agentMentions }
       : {}),
   };
   const version = await recordProjectActivityEventVersion({

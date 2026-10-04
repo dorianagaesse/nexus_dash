@@ -67,6 +67,7 @@ export interface TaskComment {
   author: TaskCommentAuthor;
   reactions: TaskCommentReaction[];
   attachments?: TaskAttachment[];
+  agentMentions?: Array<{ credentialId: string; label: string }>;
 }
 
 export interface TaskCommentMentionSelection {

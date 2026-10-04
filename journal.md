@@ -18,11 +18,18 @@ Use it for important implementation milestones, blockers, validation runs, and r
     - Added comprehensive API route tests in `tests/api/task-comment-update.route.test.ts` (13 tests covering auth, agent credentials, project/task scoping, empty content, and validation).
     - Added UI component tests in `tests/components/task-detail-modal-comments.test.tsx` (edit button authorization, inline edit form, error state, cancel, save, and edited timestamp rendering).
     - Verified agent OpenAPI specs in `tests/api/agent-openapi.route.test.ts`.
+  - Code review refinement (Copilot review PR #572):
+    - Added payload validation in `PATCH /api/projects/{projectId}/tasks/{taskId}/comments/{commentId}` rejecting missing or non-string body content.
+    - Preserved existing `agentMentions` in `TaskCommentSummary` and `TaskComment` when editing comment text without altering mention tokens.
+    - Explicitly set `updatedAt: null` on new comment creation to prevent premature `@updatedAt` assignment.
+    - Blocked human takeover of comments created by deleted agent credentials by checking credential label and returning 403.
+    - Hardened modal UI: disabled other comments' Edit buttons while saving, guarded against concurrent draft submission, and disabled editor interactions during save.
+    - Updated modal test prop types in `tests/components/task-detail-modal-comments.test.tsx` and added test coverage for payload and deleted credential edge cases.
   - Validation:
     - `npm run lint`: passed (0 warnings, 0 errors).
     - `npm run rls:check`: passed (inventory matched and verified).
-    - `npm test`: 225 test files passed, 1858 tests passed.
-    - `npm run test:coverage`: met all threshold targets (93.77% statements, 84.46% branches, 95.42% functions, 94.07% lines).
+    - `npm test`: 225 test files passed, 1861 tests passed.
+    - `npm run test:coverage`: met all threshold targets.
     - `npx next build --webpack`: successfully compiled and generated all 27 static routes.
 
 # 2026-10-03 - ND-141: Epic live refresh on task and epic mutations

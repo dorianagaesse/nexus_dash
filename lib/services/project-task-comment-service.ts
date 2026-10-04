@@ -74,6 +74,7 @@ export interface TaskCommentSummary {
   updatedAt: Date | null;
   author: TaskCommentAuthorSummary;
   attachments: TaskAttachmentResponsePayload[];
+  agentMentions: Array<{ credentialId: string; label: string }>;
 }
 
 interface PendingMentionNotification {
@@ -166,6 +167,10 @@ function mapTaskComment(input: {
     mimeType: string | null;
     sizeBytes: number | null;
   }>;
+  agentMentions?: Array<{
+    agentCredentialId: string | null;
+    agentLabel: string;
+  }>;
 }, projectId: string, taskId: string): TaskCommentSummary {
   const owner = mapTaskPersonSummary(input.author)!;
   const agentCredentialLabel = normalizeText(input.authorAgentCredentialLabel);
@@ -181,6 +186,14 @@ function mapTaskComment(input: {
     attachments: (input.attachments ?? []).map((attachment) =>
       mapTaskAttachmentResponse(projectId, taskId, attachment)
     ),
+    agentMentions: (input.agentMentions ?? [])
+      .filter((mention): mention is { agentCredentialId: string; agentLabel: string } =>
+        Boolean(mention.agentCredentialId)
+      )
+      .map((mention) => ({
+        credentialId: mention.agentCredentialId,
+        label: mention.agentLabel,
+      })),
     author: isAgentComment
       ? {
           id: input.authorAgentCredentialId ?? input.author.id,
@@ -667,6 +680,12 @@ export async function listTaskCommentsForProject(input: {
               sizeBytes: true,
             },
           },
+          agentMentions: {
+            select: {
+              agentCredentialId: true,
+              agentLabel: true,
+            },
+          },
         },
       });
 
@@ -822,6 +841,7 @@ export async function createTaskCommentForProject(input: {
             authorAgentCredentialId: actorCredentialId,
             authorAgentCredentialLabel: actorCredentialLabel,
             content,
+            updatedAt: null,
           },
           select: {
             id: true,
@@ -928,7 +948,17 @@ export async function createTaskCommentForProject(input: {
         return {
           ok: true,
           data: {
-            comment: mapTaskComment(comment, input.projectId, input.taskId),
+            comment: mapTaskComment(
+              {
+                ...comment,
+                agentMentions: agentMentionResolution.data.map((m) => ({
+                  agentCredentialId: m.credentialId,
+                  agentLabel: m.label,
+                })),
+              },
+              input.projectId,
+              input.taskId
+            ),
             pendingNotifications,
           },
         };
@@ -1023,6 +1053,7 @@ export async function updateTaskCommentForProject(
         taskId: true,
         authorUserId: true,
         authorAgentCredentialId: true,
+        authorAgentCredentialLabel: true,
         attachments: { select: { id: true } },
       },
     });
@@ -1035,9 +1066,15 @@ export async function updateTaskCommentForProject(
       return createError(400, "content-required");
     }
 
-    if (existingComment.authorAgentCredentialId) {
+    const isAgentComment = Boolean(
+      existingComment.authorAgentCredentialId ||
+        normalizeText(existingComment.authorAgentCredentialLabel)
+    );
+
+    if (isAgentComment) {
       if (
         !input.agentAccess ||
+        !existingComment.authorAgentCredentialId ||
         input.agentAccess.credentialId !== existingComment.authorAgentCredentialId
       ) {
         return createError(403, "forbidden");
@@ -1125,7 +1162,17 @@ export async function updateTaskCommentForProject(
       return {
         ok: true,
         data: {
-          comment: mapTaskComment(comment, input.projectId, input.taskId),
+          comment: mapTaskComment(
+            {
+              ...comment,
+              agentMentions: agentMentionResolution.data.map((m) => ({
+                agentCredentialId: m.credentialId,
+                agentLabel: m.label,
+              })),
+            },
+            input.projectId,
+            input.taskId
+          ),
         },
       };
     } catch (error) {

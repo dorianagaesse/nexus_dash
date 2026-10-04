@@ -118,6 +118,48 @@ describe("PATCH /api/projects/[projectId]/tasks/[taskId]/comments/[commentId]", 
     expect(response.status).toBe(400);
   });
 
+  test("returns 400 when body is null or not an object", async () => {
+    const response = await PATCH(
+      new Request("https://nexusdash.test", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: "null",
+      }) as never,
+      {
+        params: Promise.resolve({
+          projectId: "project-1",
+          taskId: "task-1",
+          commentId: "comment-1",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(400);
+    const payload = await readJson(response);
+    expect(payload.error).toBe("Invalid JSON payload");
+  });
+
+  test("returns 400 when content is missing or not a string", async () => {
+    const response = await PATCH(
+      new Request("https://nexusdash.test", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: 123 }),
+      }) as never,
+      {
+        params: Promise.resolve({
+          projectId: "project-1",
+          taskId: "task-1",
+          commentId: "comment-1",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(400);
+    const payload = await readJson(response);
+    expect(payload.error).toBe("Invalid JSON payload");
+  });
+
   test("returns 400 when content is empty and comment has no attachments", async () => {
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "task-1",
@@ -604,5 +646,40 @@ describe("PATCH /api/projects/[projectId]/tasks/[taskId]/comments/[commentId]", 
         agentCredentialId: "cred-agent-1",
       },
     });
+  });
+
+  test("returns 403 when comment was authored by an agent whose credential was deleted", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      title: "Task 1",
+      projectId: "project-1",
+    });
+    prismaMock.taskComment.findUnique.mockResolvedValueOnce({
+      id: "comment-1",
+      taskId: "task-1",
+      authorUserId: "user-1",
+      authorAgentCredentialId: null,
+      authorAgentCredentialLabel: "DeletedAgent",
+      attachments: [],
+    });
+
+    const response = await PATCH(
+      new Request("https://nexusdash.test", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "Human attempting to edit deleted agent comment" }),
+      }) as never,
+      {
+        params: Promise.resolve({
+          projectId: "project-1",
+          taskId: "task-1",
+          commentId: "comment-1",
+        }),
+      }
+    );
+
+    expect(response.status).toBe(403);
+    const payload = await readJson(response);
+    expect(payload.error).toBe("forbidden");
   });
 });
