@@ -75,8 +75,8 @@ exact deployment and verifies the alias target and readiness. Use the immutable
 URL as deployment evidence and the stable URL for interactive OAuth smoke.
 With `preview_realtime_transport=broadcast`, the workflow also creates temporary
 owner, member, and non-member sessions in Preview, checks private channel joins,
-denied client publishing, and delivery of a database-owned activity event, then
-removes the fixtures.
+public-channel refusal, denied client publishing, and delivery of a
+database-owned activity event, then removes the fixtures.
 
 Preview and staged production deploys derive their Vercel Function region from
 the runtime Supabase transaction-pooler hostname. An unmapped database region

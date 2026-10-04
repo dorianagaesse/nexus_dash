@@ -11,7 +11,14 @@ const databaseUrl = process.env.MIGRATION_DATABASE_URL;
 assert(baseUrl?.startsWith("https://"), "PREVIEW_AUTH_ORIGIN is required");
 assert(databaseUrl, "MIGRATION_DATABASE_URL is required");
 
-const pool = new pg.Pool({ connectionString: databaseUrl });
+const connectionUrl = new URL(databaseUrl);
+if (
+  connectionUrl.searchParams.get("sslmode")?.toLowerCase() === "require" &&
+  !connectionUrl.searchParams.has("uselibpqcompat")
+) {
+  connectionUrl.searchParams.set("uselibpqcompat", "true");
+}
+const pool = new pg.Pool({ connectionString: connectionUrl.toString() });
 const prisma = new PrismaClient({
   adapter: new PrismaPg(pool, { disposeExternalPool: true }),
 });
@@ -79,8 +86,8 @@ function clientFor(token) {
   return client;
 }
 
-function subscribe(client, topic, event, onPayload) {
-  const channel = client.channel(topic, { config: { private: true } });
+function subscribe(client, topic, event, onPayload, privateChannel = true) {
+  const channel = client.channel(topic, { config: { private: privateChannel } });
   if (onPayload) {
     channel.on("broadcast", { event }, ({ payload }) => onPayload(payload));
   }
@@ -129,6 +136,18 @@ try {
   const outsiderToken = await tokenFor(outsider);
   const memberClient = clientFor(memberToken);
   const outsiderClient = clientFor(outsiderToken);
+  const anonymousClient = createClient(
+    memberToken.supabaseUrl,
+    memberToken.supabasePublishableKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        persistSession: false,
+      },
+    }
+  );
+  clients.push(anonymousClient);
   const projectTopic = `project:${project.id}:activity`;
   const notificationTopic = `user:${member.id}:notifications`;
 
@@ -158,11 +177,19 @@ try {
     notificationTopic,
     "notification-snapshot"
   );
+  const publicProbe = subscribe(
+    anonymousClient,
+    "nd373-public-access-probe",
+    "probe",
+    undefined,
+    false
+  );
 
   assert.equal((await memberProject.result).allowed, true, "member join denied");
   assert.equal((await outsiderProject.result).allowed, false, "non-member join allowed");
   assert.equal((await memberNotifications.result).allowed, true, "own notification join denied");
   assert.equal((await outsiderNotifications.result).allowed, false, "cross-user notification join allowed");
+  assert.equal((await publicProbe.result).allowed, false, "Supabase public channel access is enabled");
   console.log("Private project and notification join policies passed");
 
   const forged = await deadline(
