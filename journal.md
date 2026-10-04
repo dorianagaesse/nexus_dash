@@ -9400,8 +9400,9 @@ Low-value entries to avoid going forward:
 
 - Epics now durably record who created and last mutated them: `createdBy*`/
   `updatedBy*` user and ApiCredential columns with display-name label
-  snapshots on the `Epic` model (migration
-  `20261004120000_nd185_epic_attribution`), mirroring the Task model. The
+  snapshots on the `Epic` model (the originally applied
+  `20261004120000_nd185_epic_leadership` migration, followed by
+  `20261004230000_nd185_withdraw_epic_leadership`), mirroring the Task model. The
   create/update/archive service paths resolve the acting actor through
   `resolveProjectMutationActor` and write the user id plus any agent
   credential id/label; pre-existing epics backfill attribution from the
@@ -9448,3 +9449,24 @@ Low-value entries to avoid going forward:
   appended entries), resolved by keeping main's ND-142 entry above this one.
   Main's task-detail-modal changes merged cleanly; CI re-validates the merge
   head.
+
+## 2026-10-05 - ND-185 Preview migration recovery
+
+- The 2026-10-04 20:32 UTC Preview deploy applied the original ND-185
+  leadership migration. The branch subsequently replaced that migration with
+  an attribution-only migration under a new name. Its first deployment attempt
+  failed with P3018 because `Epic.createdByUserId` already existed, and Prisma
+  then blocked ND-185 and ND-402 preview attempts with P3009.
+- Restored the exact applied migration file and added a later forward migration
+  to remove the withdrawn lead/history schema and add the retained credential
+  indexes. A temporary Preview-only, record-validated workflow action resolved
+  the failed replacement migration in
+  [run 37242260280](https://github.com/dorianagaesse/nexus_dash/actions/runs/37242260280);
+  it was removed after use. Production was untouched.
+- [Preview run 37242365832](https://github.com/dorianagaesse/nexus_dash/actions/runs/37242365832)
+  checked out `f90f393`, applied the forward migration, and verified the
+  immutable deployment, database readiness, and stable auth alias.
+- Validation: fresh local PostgreSQL migration chain, `npm run lint`,
+  `npm run rls:check`, `npm test` (1847 passed), `npm run test:coverage`
+  (93.77% statements, 84.46% branches), `npm run build`, and the PostgreSQL
+  tenant-isolation matrix passed.
