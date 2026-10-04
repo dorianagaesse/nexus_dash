@@ -528,8 +528,8 @@ try {
       const before = await admin.query("SELECT COALESCE(max(id), 0) AS id FROM realtime.messages");
       await admin.query(
         `INSERT INTO "Notification" (id, "recipientUserId", type, title, "sourceType", "sourceId", "createdAt", "updatedAt")
-         VALUES ($1, $3, 'test', 'First', 'test', $1, NOW() - interval '1 second', NOW()),
-                ($2, $3, 'test', 'Second', 'test', $2, NOW(), NOW())`,
+         VALUES ($1::text, $3, 'test', 'First', 'test', $1::text, NOW() - interval '1 second', NOW()),
+                ($2::text, $3, 'test', 'Second', 'test', $2::text, NOW(), NOW())`,
         [`rls_realtime_notification_1_${suffix}`, `rls_realtime_notification_2_${suffix}`, ids.ownerA]
       );
       const messages = await admin.query(
