@@ -11,6 +11,7 @@ const supabase = vi.hoisted(() => {
     subscribe: ReturnType<typeof vi.fn>;
   }> = [];
   const disconnect = vi.fn();
+  const setAuth = vi.fn().mockResolvedValue(undefined);
   const removeChannel = vi.fn().mockResolvedValue("ok");
   const createClient = vi.fn(() => ({
     channel: (topic: string, config: unknown) => {
@@ -27,9 +28,9 @@ const supabase = vi.hoisted(() => {
       return channel;
     },
     removeChannel,
-    realtime: { disconnect },
+    realtime: { disconnect, setAuth },
   }));
-  return { channels, disconnect, removeChannel, createClient };
+  return { channels, disconnect, setAuth, removeChannel, createClient };
 });
 vi.mock("@supabase/supabase-js", () => ({ createClient: supabase.createClient }));
 
@@ -60,6 +61,7 @@ describe("private Broadcast subscriptions", () => {
     supabase.channels.length = 0;
     supabase.createClient.mockClear();
     supabase.disconnect.mockClear();
+    supabase.setAuth.mockClear();
     supabase.removeChannel.mockClear();
     MockBroadcastChannel.reset();
   });
@@ -83,6 +85,7 @@ describe("private Broadcast subscriptions", () => {
     await vi.waitFor(() => expect(supabase.channels).toHaveLength(2));
     await flush();
     expect(supabase.createClient).toHaveBeenCalledOnce();
+    expect(supabase.setAuth).toHaveBeenCalledOnce();
     expect(supabase.channels.map((channel) => channel.topic)).toEqual([
       "project:p1:activity", "user:u1:notifications",
     ]);

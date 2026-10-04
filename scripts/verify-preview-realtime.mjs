@@ -74,7 +74,7 @@ async function tokenFor(user) {
   return token;
 }
 
-function clientFor(token) {
+async function clientFor(token) {
   const client = createClient(token.supabaseUrl, token.supabasePublishableKey, {
     accessToken: async () => token.token,
     realtime: { transport: WebSocket },
@@ -85,6 +85,7 @@ function clientFor(token) {
     },
   });
   clients.push(client);
+  await client.realtime.setAuth();
   return client;
 }
 
@@ -139,10 +140,34 @@ try {
     select: { id: true },
   });
 
+  const projectTopic = `project:${project.id}:activity`;
+  const notificationTopic = `user:${member.id}:notifications`;
+  const dbClient = await pool.connect();
+  try {
+    await dbClient.query("BEGIN");
+    await dbClient.query("SET LOCAL ROLE authenticated");
+    await dbClient.query("SELECT set_config('request.jwt.claims', $1, true)", [
+      JSON.stringify({ sub: member.id, role: "authenticated" }),
+    ]);
+    const probe = await dbClient.query(
+      `SELECT app.current_user_id() AS user_id,
+              app.can_receive_project_activity_topic($1) AS project_allowed,
+              app.can_receive_user_notifications_topic($2) AS notifications_allowed`,
+      [projectTopic, notificationTopic]
+    );
+    assert.equal(probe.rows[0].user_id, member.id);
+    assert.equal(probe.rows[0].project_allowed, true);
+    assert.equal(probe.rows[0].notifications_allowed, true);
+    console.log("Live Preview topic predicates passed under authenticated role");
+  } finally {
+    await dbClient.query("ROLLBACK");
+    dbClient.release();
+  }
+
   const memberToken = await tokenFor(member);
   const outsiderToken = await tokenFor(outsider);
-  const memberClient = clientFor(memberToken);
-  const outsiderClient = clientFor(outsiderToken);
+  const memberClient = await clientFor(memberToken);
+  const outsiderClient = await clientFor(outsiderToken);
   const anonymousClient = createClient(
     memberToken.supabaseUrl,
     memberToken.supabasePublishableKey,
@@ -156,8 +181,6 @@ try {
     }
   );
   clients.push(anonymousClient);
-  const projectTopic = `project:${project.id}:activity`;
-  const notificationTopic = `user:${member.id}:notifications`;
 
   let resolveActivity;
   const activityReceived = deadline(

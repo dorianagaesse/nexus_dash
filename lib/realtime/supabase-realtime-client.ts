@@ -53,7 +53,7 @@ async function getClient(): Promise<SupabaseClient> {
     if (!config) {
       throw new Error("Realtime token is unavailable");
     }
-    return createClient(config.supabaseUrl, config.supabasePublishableKey, {
+    const client = createClient(config.supabaseUrl, config.supabasePublishableKey, {
       accessToken: getRealtimeToken,
       auth: {
         autoRefreshToken: false,
@@ -61,6 +61,10 @@ async function getClient(): Promise<SupabaseClient> {
         persistSession: false,
       },
     });
+    // Resolve the JWT before joining and keep the callback as the source for
+    // later heartbeat refreshes.
+    await client.realtime.setAuth();
+    return client;
   })().catch((error) => {
     sharedClient = null;
     throw error;
