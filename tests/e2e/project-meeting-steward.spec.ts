@@ -1,7 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
@@ -10,6 +10,16 @@ import {
   openNewestProjectDashboard,
   uniqueProjectName,
 } from "./helpers/project-helpers";
+
+// External meeting-note mutations reach the open dashboard as a live-refresh
+// reload. Waiting for "framenavigated" is not enough: same-document history
+// updates (like the router.refresh() that follows a local steward change) also
+// emit it, resolving the wait before the reload happens. Wait for a real
+// document load instead, and fall back to an explicit reload when the live
+// refresh never arrives.
+function waitForLiveRefreshReload(page: Page) {
+  return page.waitForEvent("load", { timeout: 10_000 }).catch(() => null);
+}
 
 test("defaults steward to creator, supports reassignment, and filters by steward", async ({
   page,
@@ -253,6 +263,7 @@ test("supports external participant stewards through rename and removal", async 
   ).toHaveAttribute("aria-pressed", "true");
 
   // Renaming the guest keeps the snapshot and flags the steward for reassignment.
+  const renameLiveRefresh = waitForLiveRefreshReload(page);
   const renamed = await page.request.patch(noteUrl, {
     data: {
       title: "Guest stewardship review",
@@ -275,7 +286,9 @@ test("supports external participant stewards through rename and removal", async 
     isAssignable: false,
   });
 
-  await page.reload();
+  if ((await renameLiveRefresh) === null) {
+    await page.reload();
+  }
   await page
     .getByRole("button", { name: /Guest stewardship review/i })
     .first()
@@ -296,6 +309,7 @@ test("supports external participant stewards through rename and removal", async 
   await expect(staleFacilitator).toHaveCount(0);
 
   // Removing the guest entirely also leaves the snapshot for reassignment.
+  const removeLiveRefresh = waitForLiveRefreshReload(page);
   const removed = await page.request.patch(noteUrl, {
     data: { title: "Guest stewardship review", participants: [] },
   });
@@ -315,7 +329,9 @@ test("supports external participant stewards through rename and removal", async 
     isAssignable: false,
   });
 
-  await page.reload();
+  if ((await removeLiveRefresh) === null) {
+    await page.reload();
+  }
   await page
     .getByRole("button", { name: /Guest stewardship review/i })
     .first()

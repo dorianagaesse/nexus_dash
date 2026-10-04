@@ -102,9 +102,16 @@ export function ProjectLiveRefresh({
 
   useEffect(() => {
     knownVersionRef.current = initialVersion;
+
+    if (localMutationCountRef.current > 0) {
+      // A refreshed render can arrive while a local mutation is still awaiting
+      // its response; keep deferral state so that mutation's own echo stays
+      // suppressed instead of being dispatched as a remote change.
+      return;
+    }
+
     pendingVersionRef.current = null;
     locallyDeferredVersionRef.current = null;
-    localMutationCountRef.current = 0;
     setPendingVersion(null);
   }, [initialVersion]);
 
