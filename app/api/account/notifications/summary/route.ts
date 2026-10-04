@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
   }
 
   recordRealtimeCounter("notifications.snapshotChecks");
-  if (isRealtimeStreamEnabled()) {
+  if (isRealtimeStreamEnabled() &&
+      request.headers.get("x-realtime-reconcile") !== "1") {
     recordRealtimeCounter("notifications.pollingFallbacks");
   }
 

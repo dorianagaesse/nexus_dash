@@ -542,7 +542,9 @@ try {
 
     await adminTransaction(ids.ownerA, async () => {
       await admin.query(`
-        CREATE OR REPLACE FUNCTION realtime.send(jsonb, text, text, boolean)
+        CREATE OR REPLACE FUNCTION realtime.send(
+          payload jsonb, event text, topic text, is_private boolean
+        )
         RETURNS void LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'send failed'; END $$
       `);
       await admin.query(`UPDATE "Project" SET "updatedAt" = NOW() WHERE id = $1`, [ids.projectA]);

@@ -85,6 +85,7 @@ export function NotificationLiveUpdates({
       async reconcile() {
         const response = await fetch("/api/account/notifications/summary", {
           cache: "no-store",
+          headers: { "x-realtime-reconcile": "1" },
         });
         if (!response.ok) throw new Error("Notification reconciliation failed");
         return (await response.json()) as NotificationRealtimeSnapshot;

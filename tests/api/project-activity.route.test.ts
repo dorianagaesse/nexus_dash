@@ -148,6 +148,19 @@ describe("project activity route", () => {
     expect(snapshot.counters["activity.pollingFallbacks"]).toBe(1);
   });
 
+  test("Broadcast subscribe reconciliation does not count as polling fallback", async () => {
+    vi.stubEnv("REALTIME_TRANSPORT", "broadcast");
+    projectActivityServiceMock.getProjectActivitySnapshot.mockResolvedValueOnce({
+      ok: true,
+      data: { projectId: "project-1", version: new Date("2026-05-30T10:00:00.000Z") },
+    });
+    await getProjectActivity(new Request(
+      "http://localhost/api/projects/project-1/activity",
+      { headers: { "x-realtime-reconcile": "1" } }
+    ) as never, projectParams("project-1"));
+    expect(getRealtimeMetricsSnapshot().counters["activity.pollingFallbacks"]).toBe(0);
+  });
+
   test("does not attribute agent polls to polling fallbacks", async () => {
     vi.stubEnv("REALTIME_TRANSPORT", "stream");
     apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({

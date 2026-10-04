@@ -286,7 +286,7 @@ export function ProjectLiveRefresh({
       async reconcile() {
         const response = await fetch(
           `/api/projects/${encodeURIComponent(projectId)}/activity`,
-          { cache: "no-store" }
+          { cache: "no-store", headers: { "x-realtime-reconcile": "1" } }
         );
         if (!response.ok) throw new Error("Project activity reconciliation failed");
         return (await response.json()) as ProjectActivityResponse;
