@@ -62,6 +62,9 @@ Run `.github/workflows/deploy-vercel.yml` manually:
 
 - `action=deploy-preview`
 - `git_ref=<branch-or-sha>`
+- Optional `preview_realtime_transport=broadcast|stream|polling` overrides the
+  transport only for this deployment. Use it for Broadcast validation without
+  changing the shared Vercel Preview environment or other branches.
 
 The `preview-deployment` artifact contains both the immutable deployment URL
 and the stable Preview auth URL. It is uploaded only after the workflow verifies

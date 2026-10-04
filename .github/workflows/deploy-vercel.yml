@@ -27,6 +27,10 @@ on:
         required: false
         default: "main"
         type: string
+      preview_realtime_transport:
+        description: "Optional per-deployment Preview transport override: broadcast, stream, or polling"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -193,6 +197,7 @@ jobs:
       VERCEL_SCOPE: ${{ secrets.VERCEL_ORG_ID }}
       EXPECTED_SUPABASE_PROJECT_REF: ${{ vars.EXPECTED_SUPABASE_PROJECT_REF }}
       PREVIEW_AUTH_ORIGIN: ${{ vars.PREVIEW_AUTH_ORIGIN }}
+      PREVIEW_REALTIME_TRANSPORT: ${{ inputs.preview_realtime_transport }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
       GOOGLE_TOKEN_ENCRYPTION_KEY: ${{ secrets.GOOGLE_TOKEN_ENCRYPTION_KEY }}
@@ -248,6 +253,16 @@ jobs:
           if [ -z "$RESEND_API_KEY" ]; then
             echo "::warning::RESEND_API_KEY is empty for preview deploy. Using ci-placeholder-resend-key."
             echo "RESEND_API_KEY=ci-placeholder-resend-key" >> "$GITHUB_ENV"
+          fi
+
+      - name: Validate preview realtime override
+        if: inputs.action == 'deploy-preview'
+        run: |
+          if [ -n "$PREVIEW_REALTIME_TRANSPORT" ]; then
+            case "$PREVIEW_REALTIME_TRANSPORT" in
+              broadcast|stream|polling) ;;
+              *) echo "::error::Invalid preview realtime transport override"; exit 1 ;;
+            esac
           fi
 
       - name: Ensure agent signing secret fallback for preview deploys
@@ -364,6 +379,11 @@ jobs:
         id: deploy_preview
         run: |
           npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=preview --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+          deployment_env=()
+          if [ -n "$PREVIEW_REALTIME_TRANSPORT" ]; then
+            export REALTIME_TRANSPORT="$PREVIEW_REALTIME_TRANSPORT"
+            deployment_env=(-e "REALTIME_TRANSPORT=$PREVIEW_REALTIME_TRANSPORT")
+          fi
           APP_VERSION="$APP_VERSION" \
           APP_ENV="$APP_ENV" \
           COMMIT_SHA="$COMMIT_SHA" \
@@ -380,6 +400,7 @@ jobs:
               -e "RESEND_API_KEY=$RESEND_API_KEY" \
               -e "NOTIFICATION_EMAIL_DISPATCH_SECRET=$NOTIFICATION_EMAIL_DISPATCH_SECRET" \
               -e "AGENT_TOKEN_SIGNING_SECRET=$AGENT_TOKEN_SIGNING_SECRET" \
+              "${deployment_env[@]}" \
               -e "APP_VERSION=$APP_VERSION" \
               -e "APP_ENV=$APP_ENV" \
               -e "EXPECTED_SUPABASE_PROJECT_REF=$EXPECTED_SUPABASE_PROJECT_REF" \

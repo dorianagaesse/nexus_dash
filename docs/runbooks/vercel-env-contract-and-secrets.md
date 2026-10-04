@@ -209,6 +209,12 @@ Broadcast prerequisites, separately for Preview and Production:
    `SUPABASE_REALTIME_TOKEN_TTL_SECONDS` is an integer from 60 to 600 (default
    600). Missing secret or invalid TTL fails startup in Broadcast mode.
 
+For a branch Preview smoke, dispatch `deploy-vercel.yml` with
+`action=deploy-preview`, `git_ref=<branch-or-sha>`, and
+`preview_realtime_transport=broadcast`. The workflow applies the migration
+first and injects the transport only into that deployment, leaving other
+Preview branches on their existing setting.
+
 The browser receives only a short-lived, read-only JWT from the authenticated
 session. Project membership and user identity are checked by SELECT-only
 policies on `realtime.messages`. No client INSERT policy or service-role key is
