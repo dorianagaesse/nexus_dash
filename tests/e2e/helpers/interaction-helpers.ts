@@ -1,4 +1,4 @@
-import { expect, type Locator } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 /**
  * Runs `activate` until `result` becomes visible.
@@ -29,4 +29,15 @@ export async function clickUntilVisible(
   await activateUntilVisible(result, () =>
     trigger.click({ timeout: 1_000 })
   );
+}
+
+/**
+ * Reloads the page, retrying when the navigation aborts (ERR_ABORTED, "maybe
+ * frame was detached") because the app started its own reload concurrently -
+ * e.g. the meeting-notes panel hard-reloads on remote activity events.
+ */
+export async function reloadUntilLoaded(page: Page): Promise<void> {
+  await expect(async () => {
+    await page.reload({ timeout: 10_000 });
+  }).toPass({ timeout: 20_000 });
 }

@@ -9418,3 +9418,16 @@ Low-value entries to avoid going forward:
   against the local Postgres, which was realigned to the rescoped migration
   via a checksum-safe delta (lead columns and the composite
   ProjectActivityEvent index removed, credential indexes added).
+- CI unblock: E2E Smoke failed twice on
+  `tests/e2e/project-meeting-steward.spec.ts` at shifting lines. Root cause
+  is a pre-existing app race - the meeting-notes panel runs
+  `window.location.reload()` when a mutation echoes back as a remote activity
+  event, which closes the note dialog mid-assertion or collides with the
+  spec's own `page.reload()` (ERR_ABORTED / maybe frame was detached). Per
+  repo convention the race is fixed in the spec, not rerun: dialog-opening
+  clicks go through `clickUntilVisible`, facilitator toggles retry through a
+  new `toggleFacilitatorUntil` helper that re-opens the dialog when a reload
+  closes it, and reloads use a new retrying `reloadUntilLoaded` helper in
+  `tests/e2e/helpers/interaction-helpers.ts`. Validated locally: both tests
+  three times consecutively (6/6) plus the ND-185 attribution spec (2/2)
+  against a local `next start` build.
