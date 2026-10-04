@@ -1201,7 +1201,7 @@ function RoadmapEventCard({
               "relative min-h-[212px] rounded-[1.55rem] border p-4 shadow-[0_24px_64px_-46px_rgba(15,23,42,0.58)] transition",
               tone.phaseCard,
               snapshot.isDragging &&
-                "z-20 scale-[1.01] shadow-[0_36px_100px_-44px_rgba(15,23,42,0.76)]"
+                "z-20 scale-[1.01] shadow-[0_36px_100px_-44px_rgba(15,23,42,0.76)] dark:shadow-[0_36px_100px_-36px_rgba(0,0,0,0.95),0_0_0_1px_rgba(255,255,255,0.12)]"
             )}
           >
             <div className="space-y-4">
@@ -1380,7 +1380,7 @@ function RoadmapMilestoneLane({
             className={cn(
               "px-1 pb-4 pt-1 transition",
               snapshot.isDraggingOver &&
-                "rounded-[1.8rem] bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.2),transparent_40%)] shadow-[0_30px_80px_-58px_rgba(15,23,42,0.58)] dark:bg-[radial-gradient(circle_at_top_left,rgba(71,85,105,0.34),transparent_40%)]"
+                "rounded-[1.8rem] bg-gradient-to-b from-slate-200/70 via-slate-200/40 to-slate-200/60 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.45),0_0_0_1px_rgba(148,163,184,0.3)] dark:from-slate-800/70 dark:via-slate-800/50 dark:to-slate-800/65 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(148,163,184,0.22)]"
             )}
             style={
               laneMinHeight !== undefined
@@ -1478,7 +1478,7 @@ function RoadmapNewMilestoneDropLane({
                 ? "pointer-events-auto opacity-0"
                 : "pointer-events-none opacity-0",
               snapshot.isDraggingOver &&
-                "opacity-100 bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66)] dark:bg-slate-800/75"
+                "opacity-100 bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66),0_0_0_1px_rgba(148,163,184,0.3)] dark:bg-slate-800/85 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(148,163,184,0.22)]"
             )}
             style={
               isDesktop
