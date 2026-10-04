@@ -872,4 +872,133 @@ describe("project-roadmap-panel", () => {
       root.unmount();
     });
   });
+
+  test("preserves desktop connector branches when dragging and dropping in the same location", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    const phases = [
+      {
+        id: "phase-1",
+        title: "Milestone 1",
+        description: "",
+        targetDate: "2026-05-01",
+        status: "active" as const,
+        position: 0,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [
+          {
+            id: "event-1",
+            phaseId: "phase-1",
+            title: "Task 1",
+            description: "",
+            targetDate: "2026-05-01",
+            status: "active" as const,
+            position: 0,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+        ],
+      },
+      {
+        id: "phase-2",
+        title: "Milestone 2",
+        description: "",
+        targetDate: "2026-06-01",
+        status: "planned" as const,
+        position: 1,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [
+          {
+            id: "event-2",
+            phaseId: "phase-2",
+            title: "Task 2",
+            description: "",
+            targetDate: "2026-06-01",
+            status: "planned" as const,
+            position: 0,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+        ],
+      },
+      {
+        id: "phase-3",
+        title: "Milestone 3",
+        description: "",
+        targetDate: "2026-07-01",
+        status: "planned" as const,
+        position: 2,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [
+          {
+            id: "event-3a",
+            phaseId: "phase-3",
+            title: "Task 3A",
+            description: "",
+            targetDate: "2026-07-01",
+            status: "planned" as const,
+            position: 0,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+          {
+            id: "event-3b",
+            phaseId: "phase-3",
+            title: "Task 3B",
+            description: "",
+            targetDate: "2026-07-01",
+            status: "planned" as const,
+            position: 1,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+        ],
+      },
+    ];
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases,
+      })
+    );
+
+    // Connector svgs between milestones
+    const connectorSvgs = container.querySelectorAll("svg");
+    expect(connectorSvgs.length).toBeGreaterThanOrEqual(2);
+
+    // The connector leading into Milestone 3 (which has 2 events) must have 2 branch paths plus trunk/lead
+    const toPhase3Svg = connectorSvgs[1];
+    expect(toPhase3Svg).toBeDefined();
+    const initialPaths = toPhase3Svg?.querySelectorAll("path") ?? [];
+    // Must render fork connector with lead path + 2 separate event branches = 3 paths (never collapsed to single branch)
+    expect(initialPaths.length).toBe(3);
+
+    // Start dragging event-3b and drop in same position
+    await act(async () => {
+      capturedOnDragStart?.();
+    });
+
+    await act(async () => {
+      await capturedOnDragEnd?.({
+        draggableId: "event-3b",
+        source: { droppableId: "phase-3", index: 1 },
+        destination: { droppableId: "phase-3", index: 1 },
+      });
+    });
+
+    // Connector paths for Milestone 3 must still have all fork branches (never collapsed to 1 single path)
+    const postDropPaths = toPhase3Svg?.querySelectorAll("path") ?? [];
+    expect(postDropPaths.length).toBe(3);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });

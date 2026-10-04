@@ -1088,11 +1088,21 @@ function RoadmapDesktopConnector({
 }) {
   const fallbackHeight = getLaneConnectorHeight(maxEventsCount);
   const width = CONNECTOR_WIDTH;
+  const isCurrentMeasurementValid =
+    currentPhase.events.length === 0
+      ? (currentMeasurement?.centers.length ?? 0) <= 1
+      : currentMeasurement?.centers.length === currentPhase.events.length;
   const startY =
-    currentMeasurement?.anchorY ??
-    getLaneConnectorAnchorY(currentPhase.events.length, maxEventsCount);
+    isCurrentMeasurementValid && currentMeasurement?.anchorY !== undefined
+      ? currentMeasurement.anchorY
+      : getLaneConnectorAnchorY(currentPhase.events.length, maxEventsCount);
+
+  const isNextMeasurementValid =
+    nextPhase.events.length === 0
+      ? (nextMeasurement?.centers.length ?? 0) <= 1
+      : nextMeasurement?.centers.length === nextPhase.events.length;
   const targetYs =
-    nextMeasurement?.centers.length
+    isNextMeasurementValid && nextMeasurement?.centers.length
       ? nextMeasurement.centers
       : (nextPhase.events.length === 0
           ? [getLaneCardCenterY(0, nextPhase.events.length, maxEventsCount)]
@@ -1536,6 +1546,9 @@ export function ProjectRoadmapPanel({
     let animationFrameId = 0;
     const collectMeasurements = () => {
       animationFrameId = 0;
+      if (isDraggingEvent) {
+        return;
+      }
 
       const nextMeasurements: Record<string, RoadmapPhaseLayoutMeasurement> = {};
       const phaseSections = desktopRoot.querySelectorAll<HTMLElement>("[data-roadmap-phase-id]");
@@ -1573,30 +1586,58 @@ export function ProjectRoadmapPanel({
       });
 
       setPhaseLayoutMeasurements((currentMeasurements) => {
-        const currentKeys = Object.keys(currentMeasurements);
         const nextKeys = Object.keys(nextMeasurements);
-        if (currentKeys.length !== nextKeys.length) {
-          return nextMeasurements;
-        }
+        const mergedMeasurements: Record<string, RoadmapPhaseLayoutMeasurement> = {
+          ...currentMeasurements,
+        };
 
         for (const key of nextKeys) {
           const currentMeasurement = currentMeasurements[key];
           const nextMeasurement = nextMeasurements[key];
-          if (!currentMeasurement || !nextMeasurement) {
-            return nextMeasurements;
+          if (!nextMeasurement) {
+            continue;
+          }
+
+          const matchingPhase = roadmapPhases.find((phase) => phase.id === key);
+          const expectedCount = matchingPhase ? matchingPhase.events.length : 0;
+
+          if (
+            expectedCount > 0 &&
+            nextMeasurement.centers.length < expectedCount &&
+            currentMeasurement &&
+            currentMeasurement.centers.length === expectedCount
+          ) {
+            mergedMeasurements[key] = currentMeasurement;
+            continue;
+          }
+
+          mergedMeasurements[key] = nextMeasurement;
+        }
+
+        const currentKeys = Object.keys(currentMeasurements);
+        const mergedKeys = Object.keys(mergedMeasurements);
+        if (currentKeys.length !== mergedKeys.length) {
+          return mergedMeasurements;
+        }
+
+        for (const key of mergedKeys) {
+          const currentMeasurement = currentMeasurements[key];
+          const mergedMeasurement = mergedMeasurements[key];
+          if (!currentMeasurement || !mergedMeasurement) {
+            return mergedMeasurements;
           }
 
           if (
-            currentMeasurement.anchorY !== nextMeasurement.anchorY ||
-            currentMeasurement.height !== nextMeasurement.height ||
-            currentMeasurement.centers.length !== nextMeasurement.centers.length
+            currentMeasurement.anchorY !== mergedMeasurement.anchorY ||
+            currentMeasurement.height !== mergedMeasurement.height ||
+            currentMeasurement.centers.length !== mergedMeasurement.centers.length
           ) {
-            return nextMeasurements;
+            return mergedMeasurements;
           }
 
           for (let index = 0; index < currentMeasurement.centers.length; index += 1) {
-            if (currentMeasurement.centers[index] !== nextMeasurement.centers[index]) {
-              return nextMeasurements;
+            if (currentMeasurement.centers[index] !== mergedMeasurement.centers[index]) {
+              return mergedMeasurements;
             }
           }
         }
@@ -1634,7 +1675,7 @@ export function ProjectRoadmapPanel({
       resizeObserver.disconnect();
       window.removeEventListener("resize", scheduleMeasurements);
     };
-  }, [isDesktopLayout, isExpanded, roadmapPhases]);
+  }, [isDesktopLayout, isExpanded, roadmapPhases, isDraggingEvent]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
