@@ -19,6 +19,7 @@ export default async function AccountLayout({
 
   return (
     <AuthenticatedAppShell
+      userId={actorUserId}
       initialIdentity={identity}
       initialNotificationSnapshot={notificationSnapshot}
     >

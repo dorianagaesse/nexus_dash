@@ -266,13 +266,13 @@ export function getStorageRuntimeConfig(): StorageRuntimeConfig {
   };
 }
 
-export type RealtimeTransport = "stream" | "polling";
+export type RealtimeTransport = "broadcast" | "stream" | "polling";
 
 export function getRealtimeTransport(): RealtimeTransport {
   const transportRaw = getOptionalServerEnv("REALTIME_TRANSPORT");
   if (transportRaw) {
-    if (transportRaw !== "stream" && transportRaw !== "polling") {
-      throw new Error("REALTIME_TRANSPORT must be one of: stream, polling.");
+    if (transportRaw !== "broadcast" && transportRaw !== "stream" && transportRaw !== "polling") {
+      throw new Error("REALTIME_TRANSPORT must be one of: broadcast, stream, polling.");
     }
 
     return transportRaw;
@@ -284,7 +284,20 @@ export function getRealtimeTransport(): RealtimeTransport {
 }
 
 export function isRealtimeStreamEnabled(): boolean {
-  return getRealtimeTransport() === "stream";
+  return getRealtimeTransport() !== "polling";
+}
+
+export function getSupabaseRealtimeTokenRuntimeConfig(): {
+  signingSecret: string;
+  ttlSeconds: number;
+} {
+  const signingSecret = getRequiredServerEnv("SUPABASE_JWT_SECRET");
+  const rawTtl = getOptionalServerEnv("SUPABASE_REALTIME_TOKEN_TTL_SECONDS");
+  const parsedTtl = rawTtl ? Number(rawTtl) : 600;
+  if (!Number.isInteger(parsedTtl) || parsedTtl < 60 || parsedTtl > 600) {
+    throw new Error("SUPABASE_REALTIME_TOKEN_TTL_SECONDS must be between 60 and 600.");
+  }
+  return { signingSecret, ttlSeconds: parsedTtl };
 }
 
 export function getAgentTokenRuntimeConfig(): AgentTokenRuntimeConfig {
@@ -927,5 +940,10 @@ export function validateServerRuntimeConfig(
   }
 
   getStorageRuntimeConfig();
-  getRealtimeTransport();
+  if (getRealtimeTransport() === "broadcast") {
+    getSupabaseRealtimeTokenRuntimeConfig();
+    if (!getSupabaseClientRuntimeConfig()) {
+      throw new Error("SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required for Broadcast.");
+    }
+  }
 }

@@ -16,6 +16,10 @@ because each owns a distinct operational lane.
 | Dependabot Auto Triage | `.github/workflows/dependabot-auto-triage.yml` | Label and approve safe Dependabot lanes, then merge safe green Dependabot PRs. | `pull_request_target` for Dependabot, `workflow_run` after required PR checks | per-job `contents`, `issues`, and `pull-requests` write where needed | `GITHUB_TOKEN` | labels/reviews/merge state; no artifact |
 | Dependabot Repair Agent | `.github/workflows/dependabot-repair-agent.yml` | Scan red Dependabot PRs and use Copilot CLI to open repo-owned repair PRs when possible. | weekly schedule, `workflow_dispatch` | per-job read for scan; write for repair PR creation/status updates | `COPILOT_ACTIONS_TOKEN` to activate Copilot CLI; `GITHUB_TOKEN` | PR comments/branches created by repair script; job summary when skipped |
 
+The Tenant Isolation job creates a minimal `realtime` schema/role/function stub
+before Prisma migrations. This makes the guarded Supabase Broadcast policies
+and triggers testable on the job's plain PostgreSQL instance.
+
 ## Audit Decision
 
 All seven workflows remain necessary:

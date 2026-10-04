@@ -382,6 +382,19 @@ describe("env.server", () => {
     expect(isRealtimeStreamEnabled()).toBe(true);
   });
 
+  test("serves SSE fallback in Broadcast mode and fails startup without its secret", () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5432/nexusdash");
+    vi.stubEnv("DIRECT_URL", "postgresql://postgres:postgres@127.0.0.1:5432/nexusdash");
+    vi.stubEnv("REALTIME_TRANSPORT", "broadcast");
+    vi.stubEnv("SUPABASE_URL", "https://preview-ref.supabase.co");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "sb_publishable_preview");
+    vi.stubEnv("SUPABASE_JWT_SECRET", "");
+
+    expect(isRealtimeStreamEnabled()).toBe(true);
+    expect(() => validateServerRuntimeConfig()).toThrow("SUPABASE_JWT_SECRET");
+  });
+
   test("allows production rollback to polling through configuration", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("REALTIME_TRANSPORT", "polling");
@@ -394,7 +407,7 @@ describe("env.server", () => {
     vi.stubEnv("REALTIME_TRANSPORT", "websocket");
 
     expect(() => getRealtimeTransport()).toThrow(
-      "REALTIME_TRANSPORT must be one of: stream, polling."
+      "REALTIME_TRANSPORT must be one of: broadcast, stream, polling."
     );
   });
 
@@ -411,7 +424,7 @@ describe("env.server", () => {
     vi.stubEnv("REALTIME_TRANSPORT", "websocket");
 
     expect(() => validateServerRuntimeConfig()).toThrow(
-      "REALTIME_TRANSPORT must be one of: stream, polling."
+      "REALTIME_TRANSPORT must be one of: broadcast, stream, polling."
     );
   });
 

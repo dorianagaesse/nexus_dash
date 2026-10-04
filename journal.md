@@ -3,6 +3,18 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-04 - ND-373: Supabase Realtime Broadcast implementation
+
+- Implemented the ND-372 private Broadcast contract with database-owned
+  publishers, SELECT-only topic policies, short-lived session JWTs, a shared
+  leader-tab client, subscribe-time reconciliation, and SSE/polling demotion.
+- Added a plain-PostgreSQL Realtime stub before the CI RLS migration replay and
+  matrix assertions for topic authorization, forged sends, trigger payloads,
+  suppression, coalescing, and failure tolerance. Local Docker Desktop could
+  not start, so the PostgreSQL matrix awaits CI evidence.
+- Local lint, RLS inventory, and unit/API tests passed. Preview rollout still
+  depends on the Supabase and Vercel prerequisites in the env runbook.
+
 # 2026-10-03 - ND-141: Epic live refresh on task and epic mutations
 
 - Added `"epic"` domain to `ProjectActivityDomain` and wired `recordProjectActivityEventVersion` into epic creation, update, delete, archive, and restore endpoints, as well as task archive/unarchive routes.
@@ -40,7 +52,6 @@ Use it for important implementation milestones, blockers, validation runs, and r
   - `npm test`: 222 files passed, 1820 tests passed.
   - `npm run test:coverage`: met all threshold targets (statements 93.78%, branch 84.46%, funcs 95.42%, lines 94.08%).
   - `npx next build --webpack`: compiled and generated all 27 static routes cleanly.
-
 # 2026-10-03 - React 19.3 repair PR #551
 
 - Brought the TASK-116 replacement for Dependabot #537 onto current main. Kept React, React DOM, and their type packages aligned at 19.3.0; regenerated the lockfile. The old E2E failure was the meeting-notes geometry assertion fixed in #556. Final CI is pending.

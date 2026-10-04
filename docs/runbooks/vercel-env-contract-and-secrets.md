@@ -188,8 +188,42 @@ project-activity and notification updates.
   second per open tab, which is the dominant Vercel Fluid compute cost driver.
 - `polling`: bounded client polling against the existing activity and
   notification summary endpoints with no persistent connection.
+- `broadcast`: private Supabase Realtime channels for project activity and
+  personal notifications. A failed channel falls back to `stream`, then
+  `polling`; a visible or online tab retries Broadcast. A channel subscription
+  reconciles once through the existing HTTP snapshot endpoint.
 - Optional. When unset, Vercel Preview defaults to `polling` and every other
   environment defaults to `stream`. An invalid value fails startup validation.
+
+Broadcast prerequisites, separately for Preview and Production:
+
+1. Enable Supabase Realtime and turn **Allow public access** off.
+2. Confirm the project's legacy JWT secret remains available. Configure that
+   value as sensitive `SUPABASE_JWT_SECRET` in the matching Vercel environment.
+   Never expose it through `NEXT_PUBLIC_` or copy it between environments.
+3. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for the same Supabase
+   project as the environment's database URLs. The runtime project-ref guard
+   checks this in production-like deployments.
+4. Set `REALTIME_TRANSPORT=broadcast` only after the migration and private
+   channel policies have been applied. Optional
+   `SUPABASE_REALTIME_TOKEN_TTL_SECONDS` is an integer from 60 to 600 (default
+   600). Missing secret or invalid TTL fails startup in Broadcast mode.
+
+The browser receives only a short-lived, read-only JWT from the authenticated
+session. Project membership and user identity are checked by SELECT-only
+policies on `realtime.messages`. No client INSERT policy or service-role key is
+used. A live socket may retain revoked access until its JWT expires, at most
+ten minutes. Broadcast is silent while idle: there is no per-second database
+poll. At an illustrative 30 project mutations per minute and ten connected
+members, delivery is about five messages per second against Supabase's
+documented 100/500 messages-per-second Free/Pro allowances. One visible tab
+usually holds one multiplexed socket; if separate tabs lead the two channel
+scopes, a profile can hold two. Review actual usage after rollout.
+
+Rollback from Broadcast: set `REALTIME_TRANSPORT=stream` (or `polling`) and
+redeploy/promote. If emission must also stop, disable the four triggers listed
+in `adr/task-372-supabase-realtime-authorization.md` section 7. Keep the SSE
+routes until ND-374 retires them.
 
 The stream routes are the runtime kill switch: when the transport resolves to
 `polling`, both routes return `404` without opening a database-backed stream
@@ -220,6 +254,7 @@ Set as sensitive in Vercel (Preview + Production):
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_TOKEN_ENCRYPTION_KEY`
 - `AGENT_TOKEN_SIGNING_SECRET`
+- `SUPABASE_JWT_SECRET`
 - `CRON_SECRET`
 - `NOTIFICATION_EMAIL_DISPATCH_SECRET`
 - `NEXTAUTH_SECRET`
@@ -243,6 +278,7 @@ Can stay non-sensitive:
 - `EXPECTED_SUPABASE_PROJECT_REF`
 - `PREVIEW_AUTH_ORIGIN`
 - `REALTIME_TRANSPORT`
+- `SUPABASE_REALTIME_TOKEN_TTL_SECONDS`
 
 Important:
 

@@ -92,6 +92,24 @@ async function adminTransaction(actorUserId, operation) {
   }
 }
 
+async function authenticatedRealtimeTransaction(userId, topic, operation) {
+  await admin.query("BEGIN");
+  try {
+    await admin.query("SELECT set_config('app.user_id', '', true)");
+    await admin.query("SELECT set_config('request.jwt.claims', $1, true)", [
+      JSON.stringify({ sub: userId, role: "authenticated" }),
+    ]);
+    await admin.query("SELECT set_config('realtime.topic', $1, true)", [topic]);
+    await admin.query("SET LOCAL ROLE authenticated");
+    const result = await operation();
+    await admin.query("ROLLBACK");
+    return result;
+  } catch (error) {
+    await admin.query("ROLLBACK");
+    throw error;
+  }
+}
+
 async function expectRlsViolation(operation, label) {
   await assert.rejects(operation, (error) => {
     assert.equal(error?.code, "42501", `${label} should fail with RLS denial`);
@@ -420,6 +438,119 @@ try {
   assert.equal(role.rows[0].rolbypassrls, false);
 
   await seed();
+
+  const hasRealtimeStub = await admin.query(
+    "SELECT to_regclass('realtime.messages') IS NOT NULL AS available"
+  );
+  assert.equal(hasRealtimeStub.rows[0].available, true,
+    "Realtime RLS stub must be installed before migrations");
+  if (hasRealtimeStub.rows[0].available) {
+    await admin.query(
+      `INSERT INTO realtime.messages(extension, topic, event, payload, private)
+       VALUES ('broadcast', $1, 'project-activity', '{}'::jsonb, true)`,
+      [`project:${ids.projectA}:activity`]
+    );
+    const canJoin = async (userId, topic) => {
+      const result = await authenticatedRealtimeTransaction(userId, topic, () =>
+        admin.query("SELECT count(*)::int AS count FROM realtime.messages")
+      );
+      return result.rows[0].count > 0;
+    };
+    assert.equal(await canJoin(ids.ownerA, `project:${ids.projectA}:activity`), true);
+    assert.equal(await canJoin(ids.editorB, `project:${ids.projectB}:activity`), true);
+    assert.equal(await canJoin(ids.viewerB, `project:${ids.projectB}:activity`), true);
+    assert.equal(await canJoin(ids.ownerA, `project:${ids.projectB}:activity`), false);
+    assert.equal(await canJoin(ids.outsider, `project:${ids.projectB}:activity`), false);
+    assert.equal(await canJoin(ids.ownerA, `project:missing:activity`), false);
+    assert.equal(await canJoin(ids.ownerA, `project:${ids.projectA}:activity:`), false);
+    assert.equal(await canJoin(ids.ownerA, `project:${ids.projectA}:wrong`), false);
+    assert.equal(await canJoin(ids.ownerA, `user:${ids.ownerA}:notifications`), true);
+    assert.equal(await canJoin(ids.ownerA, `user:${ids.ownerB}:notifications`), false);
+    assert.equal(await canJoin(ids.ownerA, `user:${ids.ownerA}:notifications:`), false);
+    await expectRlsViolation(
+      () => authenticatedRealtimeTransaction(
+        ids.ownerA, `project:${ids.projectA}:activity`,
+        () => admin.query(
+          `INSERT INTO realtime.messages(extension, topic, event, payload)
+           VALUES ('broadcast', $1, 'forged', '{}'::jsonb)`,
+          [`project:${ids.projectA}:activity`]
+        )
+      ),
+      "client Broadcast publish"
+    );
+
+    await adminTransaction(ids.ownerA, async () => {
+      const before = await admin.query("SELECT COALESCE(max(id), 0) AS id FROM realtime.messages");
+      const version = "2026-10-03T12:00:00.000Z";
+      await admin.query(`UPDATE "Project" SET "updatedAt" = $1 WHERE id = $2`, [
+        version, ids.projectA,
+      ]);
+      await admin.query(
+        `INSERT INTO "ProjectActivityEvent"
+         (id, "projectId", "actorUserId", domain, action, "entityId", version, payload)
+         VALUES ($1, $2, $3, 'task', 'updated', $4, $5, $6::jsonb)`,
+        [`rls_realtime_event_${suffix}`, ids.projectA, ids.ownerA, ids.taskA,
+          version, JSON.stringify({ title: "Changed" })]
+      );
+      await admin.query("SET CONSTRAINTS project_realtime_activity_signal IMMEDIATE");
+      const messages = await admin.query(
+        "SELECT payload FROM realtime.messages WHERE id > $1 ORDER BY id", [before.rows[0].id]
+      );
+      assert.equal(messages.rowCount, 1);
+      assert.deepEqual(messages.rows[0].payload, {
+        eventId: `rls_realtime_event_${suffix}`,
+        projectId: ids.projectA,
+        version,
+        serverTime: messages.rows[0].payload.serverTime,
+        actorUserId: ids.ownerA,
+        domain: "task",
+        action: "updated",
+        entityId: ids.taskA,
+        payload: { title: "Changed" },
+      });
+    });
+
+    await adminTransaction(ids.ownerA, async () => {
+      const before = await admin.query("SELECT COALESCE(max(id), 0) AS id FROM realtime.messages");
+      await admin.query(`UPDATE "Project" SET "updatedAt" = $1 WHERE id = $2`, [
+        "2026-10-03T12:01:00.000Z", ids.projectA,
+      ]);
+      await admin.query("SET CONSTRAINTS project_realtime_activity_signal IMMEDIATE");
+      const messages = await admin.query(
+        "SELECT payload FROM realtime.messages WHERE id > $1", [before.rows[0].id]
+      );
+      assert.equal(messages.rowCount, 1);
+      assert.equal(messages.rows[0].payload.eventId, null);
+      assert.equal(messages.rows[0].payload.version, "2026-10-03T12:01:00.000Z");
+    });
+
+    await adminTransaction(ids.ownerA, async () => {
+      const before = await admin.query("SELECT COALESCE(max(id), 0) AS id FROM realtime.messages");
+      await admin.query(
+        `INSERT INTO "Notification" (id, "recipientUserId", type, title, "sourceType", "sourceId", "createdAt", "updatedAt")
+         VALUES ($1, $3, 'test', 'First', 'test', $1, NOW() - interval '1 second', NOW()),
+                ($2, $3, 'test', 'Second', 'test', $2, NOW(), NOW())`,
+        [`rls_realtime_notification_1_${suffix}`, `rls_realtime_notification_2_${suffix}`, ids.ownerA]
+      );
+      const messages = await admin.query(
+        "SELECT payload FROM realtime.messages WHERE id > $1 AND event = 'notification-snapshot'", [before.rows[0].id]
+      );
+      assert.equal(messages.rowCount, 1);
+      assert.equal(messages.rows[0].payload.unreadCount >= 2, true);
+      assert.deepEqual(messages.rows[0].payload.latestUnreadNotification, { title: "Second" });
+    });
+
+    await adminTransaction(ids.ownerA, async () => {
+      await admin.query(`
+        CREATE OR REPLACE FUNCTION realtime.send(jsonb, text, text, boolean)
+        RETURNS void LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'send failed'; END $$
+      `);
+      await admin.query(`UPDATE "Project" SET "updatedAt" = NOW() WHERE id = $1`, [ids.projectA]);
+      await admin.query("SET CONSTRAINTS project_realtime_activity_signal IMMEDIATE");
+      const project = await admin.query(`SELECT id FROM "Project" WHERE id = $1`, [ids.projectA]);
+      assert.equal(project.rowCount, 1);
+    });
+  }
 
   const noActorProjects = await runtimeTransaction(undefined, () =>
     runtime.query(`SELECT "id" FROM "Project" WHERE "id" IN ($1, $2)`, [

@@ -172,6 +172,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Prepare Realtime RLS stub
+        run: npm run test:rls:realtime-stub
+
       - name: Apply Prisma migrations with admin connection
         run: npm run db:migrate
 

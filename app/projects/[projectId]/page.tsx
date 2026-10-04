@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import {
   getStorageRuntimeConfig,
+  getRealtimeTransport,
   isRealtimeStreamEnabled,
 } from "@/lib/env.server";
 import {
@@ -156,6 +157,7 @@ export default async function ProjectDashboardPage({
         projectId={project.id}
         initialVersion={project.updatedAt.toISOString()}
         streamEnabled={isRealtimeStreamEnabled()}
+        broadcastEnabled={getRealtimeTransport() === "broadcast"}
       />
 
       <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/80 px-4 py-4 shadow-[0_20px_64px_-48px_rgba(15,23,42,0.6)] backdrop-blur-sm sm:px-6 sm:py-5 lg:rounded-3xl">
