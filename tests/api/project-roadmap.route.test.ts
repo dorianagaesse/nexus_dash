@@ -375,6 +375,8 @@ describe("project roadmap routes", () => {
       ok: true,
       data: {
         ok: true,
+        phaseId: "phase-1",
+        activityVersion: new Date("2026-05-30T10:00:00.000Z"),
       },
     });
 
@@ -386,7 +388,8 @@ describe("project roadmap routes", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(readJson(response)).resolves.toEqual({ ok: true });
+    expect(response.headers.get("x-nexusdash-project-version")).toBe("2026-05-30T10:00:00.000Z");
+    await expect(readJson(response)).resolves.toEqual({ ok: true, phaseId: "phase-1" });
     expect(roadmapServiceMock.deleteProjectRoadmapPhase).toHaveBeenCalledWith({
       actorUserId: "user-1",
       projectId: "p1",
@@ -512,6 +515,7 @@ describe("project roadmap routes", () => {
       data: {
         ok: true,
         phaseId: "phase-1",
+        activityVersion: new Date("2026-05-30T10:00:00.000Z"),
       },
     });
 
@@ -523,6 +527,7 @@ describe("project roadmap routes", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("x-nexusdash-project-version")).toBe("2026-05-30T10:00:00.000Z");
     await expect(readJson(response)).resolves.toEqual({
       ok: true,
       phaseId: "phase-1",
@@ -557,6 +562,7 @@ describe("project roadmap routes", () => {
       ok: true,
       data: {
         ok: true,
+        activityVersion: new Date("2026-05-30T10:00:00.000Z"),
       },
     });
 
@@ -574,6 +580,7 @@ describe("project roadmap routes", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("x-nexusdash-project-version")).toBe("2026-05-30T10:00:00.000Z");
     await expect(readJson(response)).resolves.toEqual({ ok: true });
     expect(roadmapServiceMock.reorderProjectRoadmapPhases).toHaveBeenCalledWith({
       actorUserId: "user-1",
@@ -589,6 +596,7 @@ describe("project roadmap routes", () => {
       ok: true,
       data: {
         ok: true,
+        activityVersion: new Date("2026-05-30T10:00:00.000Z"),
       },
     });
 
@@ -607,6 +615,7 @@ describe("project roadmap routes", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("x-nexusdash-project-version")).toBe("2026-05-30T10:00:00.000Z");
     await expect(readJson(response)).resolves.toEqual({ ok: true });
     expect(roadmapServiceMock.reorderProjectRoadmapEvents).toHaveBeenCalledWith({
       actorUserId: "user-1",
@@ -622,6 +631,7 @@ describe("project roadmap routes", () => {
       ok: true,
       data: {
         ok: true,
+        activityVersion: new Date("2026-05-30T10:00:00.000Z"),
       },
     });
 
@@ -641,6 +651,7 @@ describe("project roadmap routes", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("x-nexusdash-project-version")).toBe("2026-05-30T10:00:00.000Z");
     await expect(readJson(response)).resolves.toEqual({ ok: true });
     expect(roadmapServiceMock.moveProjectRoadmapEvent).toHaveBeenCalledWith({
       actorUserId: "user-1",

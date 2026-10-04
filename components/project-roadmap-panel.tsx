@@ -1730,9 +1730,13 @@ export function ProjectRoadmapPanel({
   }
 
   async function deletePhaseById(phaseId: string): Promise<void> {
-    const response = await fetch(`/api/projects/${projectId}/roadmap/phases/${phaseId}`, {
-      method: "DELETE",
-    });
+    const response = await fetchProjectActivityMutation(
+      projectId,
+      `/api/projects/${projectId}/roadmap/phases/${phaseId}`,
+      {
+        method: "DELETE",
+      }
+    );
 
     if (!response.ok) {
       throw new Error(mapRoadmapMutationError(await readApiError(response)));
@@ -1828,7 +1832,8 @@ export function ProjectRoadmapPanel({
     setIsDeletingEvent(true);
 
     try {
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/roadmap/events/${pendingDeleteEvent.id}`,
         {
           method: "DELETE",
@@ -1877,7 +1882,6 @@ export function ProjectRoadmapPanel({
         message: `${pendingDeleteEvent.title} has been removed.`,
         variant: "success",
       });
-      router.refresh();
     } catch (error) {
       console.error("[ProjectRoadmapPanel.confirmDeleteEvent]", error);
       pushToast({
@@ -1890,16 +1894,20 @@ export function ProjectRoadmapPanel({
   }
 
   async function persistEventReorder(phaseId: string, eventIds: string[]) {
-    const response = await fetch(`/api/projects/${projectId}/roadmap/events/reorder`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        phaseId,
-        eventIds,
-      }),
-    });
+    const response = await fetchProjectActivityMutation(
+      projectId,
+      `/api/projects/${projectId}/roadmap/events/reorder`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          phaseId,
+          eventIds,
+        }),
+      }
+    );
 
     if (!response.ok) {
       throw new Error(mapRoadmapMutationError(await readApiError(response)));
@@ -1907,17 +1915,21 @@ export function ProjectRoadmapPanel({
   }
 
   async function persistEventMove(eventId: string, targetPhaseId: string, targetIndex: number) {
-    const response = await fetch(`/api/projects/${projectId}/roadmap/events/move`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        eventId,
-        targetPhaseId,
-        targetIndex,
-      }),
-    });
+    const response = await fetchProjectActivityMutation(
+      projectId,
+      `/api/projects/${projectId}/roadmap/events/move`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          eventId,
+          targetPhaseId,
+          targetIndex,
+        }),
+      }
+    );
 
     if (!response.ok) {
       throw new Error(mapRoadmapMutationError(await readApiError(response)));
@@ -1954,15 +1966,19 @@ export function ProjectRoadmapPanel({
     );
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/roadmap/events/${event.id}`, {
-        method: "PATCH",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          status: nextStatus,
-        }),
-      });
+      const response = await fetchProjectActivityMutation(
+        projectId,
+        `/api/projects/${projectId}/roadmap/events/${event.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            status: nextStatus,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(mapRoadmapMutationError(await readApiError(response)));
@@ -2055,7 +2071,6 @@ export function ProjectRoadmapPanel({
         }
 
         setRoadmapPhases(sortRoadmapPhasesForDisplay(nextPhases));
-        router.refresh();
       } catch (error) {
         pushToast({
           message: error instanceof Error ? error.message : mapRoadmapMutationError(),
@@ -2098,8 +2113,6 @@ export function ProjectRoadmapPanel({
           );
         }
       }
-
-      router.refresh();
     } catch (error) {
       setRoadmapPhases(previousPhases);
       pushToast({

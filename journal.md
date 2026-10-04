@@ -3,6 +3,20 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-04 - ND-402: Preserve milestone linkage after dragging onto roadmap
+
+- Task ND-402 (card `cmtkk0uqg000b04l1l4dvtbea`) under epic "Roadmap interaction refinement":
+  - Investigated root cause of roadmap task/event unlinking when dropped onto milestones: roadmap mutations were using raw `fetch` instead of `fetchProjectActivityMutation` and routes were missing `withProjectActivityVersionHeader`, while `handleDragEnd` and `confirmDeleteEvent` called racing `router.refresh()`. Background realtime/polling updates from `ProjectLiveRefresh` interpreted the database update as an external change mid-drag or immediately post-drag, firing a `router.refresh()` race before replication settled and wiping optimistic state.
+  - Updated `lib/services/project-roadmap-service.ts`: `moveProjectRoadmapEvent`, `reorderProjectRoadmapEvents`, `reorderProjectRoadmapPhases`, `deleteProjectRoadmapEvent`, and `deleteProjectRoadmapPhase` now capture `touchProjectActivity` and return `activityVersion`.
+  - Updated roadmap API routes (`/api/projects/[projectId]/roadmap/events/move`, `/api/projects/[projectId]/roadmap/events/reorder`, `/api/projects/[projectId]/roadmap/phases/reorder`, `/api/projects/[projectId]/roadmap/phases/[phaseId]`, and `/api/projects/[projectId]/roadmap/events/[eventId]`) to attach `withProjectActivityVersionHeader(undefined, result.data.activityVersion)` to responses.
+  - Updated `components/project-roadmap-panel.tsx` to execute mutations through `fetchProjectActivityMutation`, suppress background sync during drag operations, eliminate racing `router.refresh()` calls, and reliably rollback optimistic state on failure with user toast feedback.
+  - Added unit/integration coverage for drag/drop persistence, lane count / status badge updates, error rollback, and post-refresh prop reconciliation in `tests/components/project-roadmap-panel.test.tsx`, `tests/lib/project-roadmap-service.test.ts`, and `tests/api/project-roadmap.route.test.ts`.
+- Validations:
+  - `git diff --check`, `npm run lint`, `npm run rls:check` passed clean.
+  - `npm test`: 224 test files / 1842 tests passed (2 skipped).
+  - `npm run test:coverage`: met all threshold targets (statements 93.77%, branches 84.46%, funcs 95.42%, lines 94.07%).
+  - `npx next build --webpack`: compiled and generated all 27 static routes cleanly.
+
 # 2026-10-03 - ND-141: Epic live refresh on task and epic mutations
 
 - Added `"epic"` domain to `ProjectActivityDomain` and wired `recordProjectActivityEventVersion` into epic creation, update, delete, archive, and restore endpoints, as well as task archive/unarchive routes.

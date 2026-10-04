@@ -154,5 +154,13 @@ export async function DELETE(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(
+    { ok: true, phaseId: result.data.phaseId },
+    {
+      headers: withProjectActivityVersionHeader(
+        undefined,
+        result.data.activityVersion
+      ),
+    }
+  );
 }
