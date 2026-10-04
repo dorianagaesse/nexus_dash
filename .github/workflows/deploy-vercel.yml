@@ -15,7 +15,6 @@ on:
         type: choice
         options:
           - deploy-preview
-          - resolve-preview-migration
           - deploy-production-staged
           - promote
           - rollback
@@ -180,50 +179,9 @@ jobs:
           echo "- URL: \`${{ steps.deploy_staged.outputs.deployment_url }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Next step: run workflow dispatch with \`action=promote\`, this URL, and \`git_ref=$COMMIT_SHA\`." >> "$GITHUB_STEP_SUMMARY"
 
-  preview-migration-recovery:
-    name: Resolve failed ND-185 Preview migration
-    if: github.event_name == 'workflow_dispatch' && inputs.action == 'resolve-preview-migration'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: preview
-    env:
-      EXPECTED_SUPABASE_PROJECT_REF: ${{ vars.EXPECTED_SUPABASE_PROJECT_REF }}
-      MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
-    steps:
-      - name: Checkout repair revision
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.git_ref }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Verify Preview database and failed migration
-        run: |
-          if [ -z "$MIGRATION_DATABASE_URL" ] || [ -z "$EXPECTED_SUPABASE_PROJECT_REF" ]; then
-            echo "::error::Preview migration connection or project ref is missing."
-            exit 1
-          fi
-          DATABASE_URL="$MIGRATION_DATABASE_URL" node scripts/validate-supabase-project-ref.mjs
-          node scripts/check-nd185-preview-migrations.mjs failed
-
-      - name: Mark failed attribution migration rolled back
-        run: |
-          DATABASE_URL="$MIGRATION_DATABASE_URL" DIRECT_URL="$MIGRATION_DATABASE_URL" \
-            npx prisma migrate resolve --rolled-back 20261004120000_nd185_epic_attribution
-
-      - name: Verify migration recovery record
-        run: node scripts/check-nd185-preview-migrations.mjs rolled-back
-
   manual-operation:
     name: Manual Deploy/Promote/Rollback
-    if: github.event_name == 'workflow_dispatch' && inputs.action != 'resolve-preview-migration'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: ${{ inputs.action == 'deploy-preview' && 'preview' || 'production' }}
     timeout-minutes: 25

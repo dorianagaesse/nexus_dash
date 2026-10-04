@@ -77,12 +77,13 @@ blocks every branch using the shared Preview database.
 
 Keep the already-applied leadership migration unchanged in source control. The
 later `20261004230000_nd185_withdraw_epic_leadership` migration moves the schema
-to attribution-only. To clear the failed record, dispatch this workflow from
-the repair commit with `action=resolve-preview-migration` and
-`git_ref=<repair-commit-sha>`. The Preview-only job validates the configured
-Supabase project and exact ND-185 migration records, marks only the failed
-attribution migration rolled back, then verifies the result. It does not deploy
-or touch production. Run a normal `deploy-preview` at the same SHA afterward.
+to attribution-only. The failed attribution record was marked rolled back by
+[recovery run 37242260280](https://github.com/dorianagaesse/nexus_dash/actions/runs/37242260280)
+after validating the Preview project and exact migration records. The temporary
+recovery workflow action was removed after use. A normal
+[Preview deploy run 37242365832](https://github.com/dorianagaesse/nexus_dash/actions/runs/37242365832)
+then applied the forward migration, verified runtime readiness, and assigned
+the stable Preview auth alias. Production was untouched.
 
 Older branch code that creates epics without attribution values is incompatible
 with this shared Preview schema. Rebase those branches after ND-185 merges or

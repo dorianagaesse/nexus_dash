@@ -9459,6 +9459,14 @@ Low-value entries to avoid going forward:
   then blocked ND-185 and ND-402 preview attempts with P3009.
 - Restored the exact applied migration file and added a later forward migration
   to remove the withdrawn lead/history schema and add the retained credential
-  indexes. Added a Preview-only, record-validated workflow action to resolve
-  the failed replacement migration before redeploying. Production remains
-  separate from this recovery path.
+  indexes. A temporary Preview-only, record-validated workflow action resolved
+  the failed replacement migration in
+  [run 37242260280](https://github.com/dorianagaesse/nexus_dash/actions/runs/37242260280);
+  it was removed after use. Production was untouched.
+- [Preview run 37242365832](https://github.com/dorianagaesse/nexus_dash/actions/runs/37242365832)
+  checked out `f90f393`, applied the forward migration, and verified the
+  immutable deployment, database readiness, and stable auth alias.
+- Validation: fresh local PostgreSQL migration chain, `npm run lint`,
+  `npm run rls:check`, `npm test` (1847 passed), `npm run test:coverage`
+  (93.77% statements, 84.46% branches), `npm run build`, and the PostgreSQL
+  tenant-isolation matrix passed.
