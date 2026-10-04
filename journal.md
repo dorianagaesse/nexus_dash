@@ -9383,3 +9383,36 @@ Low-value entries to avoid going forward:
 - Unit and component tests: added `tests/components/projects-grid-client.test.tsx` (4 tests) and updated `tests/components/project-epic-panel.test.tsx` (20 tests) asserting secondary button classes and interactions.
 - Full validation: `git diff --check`, `npm run lint`, `npm run rls:check`, full unit test suite (222 files passed, 1818 tests passed), `npm run test:coverage` (93.78% statements, 84.46% branches, 95.42% functions, 94.08% lines), and Next.js production build (`npx next build --webpack`) all passed. Local Playwright E2E is delegated to GitHub Actions CI quality gates due to local Postgres container requirement.
 - Merge-forward (2026-10-03): merged latest `origin/main` (ND-372 #563 `0713511`), resolved conflict in `journal.md`, addressed and resolved Copilot review threads on GitHub.
+
+## 2026-10-04 - ND-185: Epic leadership accountability with event-backed history
+
+- Added an explicit accountable lead to every epic: `leadKind`/`leadUserId`/
+  `leadCredentialId`/`leadDisplayNameSnapshot`/`leadAssignedBy*`/
+  `leadAssignedAt` columns plus durable `createdBy*`/`updatedBy*` provenance on
+  the `Epic` model (migration `20261004120000_nd185_epic_leadership`). The
+  creating actor becomes the default lead on create (including agent
+  credentials acting through the API); PATCH can reassign to a current project
+  member or an active project agent, and there is no clear/unassign path.
+- Epic lifecycle and lead-change events are recorded into the existing
+  `ProjectActivityEvent` table with the durable `actor` payload and a
+  `leadChange {previous, next}` payload, then surfaced through a new
+  epic-scoped endpoint `GET /api/projects/[projectId]/epics/[epicId]/history`
+  (default 20 entries, max 50, task:read for agents, viewer role for humans).
+  Inactive former leads stay attached through the display-name snapshot and
+  render with a needs-reassignment state instead of silently dropping.
+- Linked task assignees remain unrelated to epic leadership; the panel now
+  shows Lead, Created by, and Last edited by rows plus a compact per-epic
+  History list inside the details disclosure.
+- Tests: epic service suite (28), epic route suite (14), epic panel component
+  suite (29), new `tests/e2e/nd-185-epic-leadership.spec.ts` (3 specs covering
+  default lead + provenance, chip reassignment persisted with history, and the
+  inactive-lead state), plus seed updates in `nd-408`, `nd-458`, `nd-459`, and
+  `task-335` E2E specs for the new required provenance columns.
+- Validation: `npm run lint`, `npm run rls:check`, full unit suite (224 files,
+  1860 tests passed), `npm run test:coverage` (93.77% statements, 84.46%
+  branches, 95.42% functions, 94.07% lines), `NODE_ENV=test` production build,
+  and local Playwright E2E for all five epic-touching specs passed against the
+  local Postgres (CI parity env from `quality-gates.yml`).
+- Follow-up filed: the owner-driven offboarding resolution
+  (`app.resolve_project_actor_responsibilities`) does not yet include epic
+  leads in its responsibility inventory.

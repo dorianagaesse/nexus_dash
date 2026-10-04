@@ -27,6 +27,16 @@ const dbMock = vi.hoisted(() => ({
     update: vi.fn(),
     updateMany: vi.fn(),
   },
+  user: {
+    findUnique: vi.fn(),
+  },
+  apiCredential: {
+    findFirst: vi.fn(),
+  },
+  projectActivityEvent: {
+    findMany: vi.fn(),
+  },
+  $queryRaw: vi.fn(),
 }));
 
 vi.mock("@/lib/services/project-access-service", () => ({
@@ -51,12 +61,70 @@ vi.mock("@/lib/observability/logger", () => ({
 import {
   archiveProjectEpic,
   createProjectEpic,
+  listProjectEpicHistory,
   listProjectEpics,
+  PROJECT_EPIC_HISTORY_DEFAULT_LIMIT,
   unarchiveProjectEpic,
   updateProjectEpic,
 } from "@/lib/services/project-epic-service";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const humanUserRecord = {
+  id: "user-1",
+  name: "Dorian Agaesse",
+  email: "dorian@example.com",
+  username: "dorian",
+  usernameDiscriminator: "0001",
+  avatarSeed: "seed-1",
+};
+
+const secondHumanUserRecord = {
+  id: "user-2",
+  name: "Sam Second",
+  email: "sam@example.com",
+  username: "sam",
+  usernameDiscriminator: "0002",
+  avatarSeed: "seed-2",
+};
+
+function humanRegistryRow(user: typeof humanUserRecord) {
+  return {
+    kind: "human",
+    actorId: user.id,
+    name: user.name,
+    email: user.email,
+    username: user.username,
+    usernameDiscriminator: user.usernameDiscriminator,
+    avatarSeed: user.avatarSeed,
+    label: null,
+    revokedAt: null,
+    expiresAt: null,
+  };
+}
+
+const agentCredentialRecord = {
+  id: "cred-1",
+  label: "Release Agent",
+  projectId: "project-1",
+  revokedAt: null,
+  expiresAt: null,
+};
+
+function agentRegistryRow() {
+  return {
+    kind: "agent",
+    actorId: agentCredentialRecord.id,
+    name: null,
+    email: null,
+    username: null,
+    usernameDiscriminator: null,
+    avatarSeed: null,
+    label: agentCredentialRecord.label,
+    revokedAt: null,
+    expiresAt: null,
+  };
+}
 
 function epicSummaryFixture(overrides: Record<string, unknown> = {}) {
   return {
@@ -67,6 +135,17 @@ function epicSummaryFixture(overrides: Record<string, unknown> = {}) {
     createdAt: new Date("2026-04-20T08:00:00.000Z"),
     updatedAt: new Date("2026-04-21T09:00:00.000Z"),
     tasks: [],
+    leadKind: "human",
+    leadUserId: "user-1",
+    leadCredentialId: null,
+    leadDisplayNameSnapshot: "dorian",
+    leadAssignedAt: new Date("2026-04-20T08:00:00.000Z"),
+    createdByCredentialId: null,
+    createdByCredentialLabel: null,
+    updatedByCredentialId: null,
+    updatedByCredentialLabel: null,
+    createdByUser: humanUserRecord,
+    updatedByUser: humanUserRecord,
     ...overrides,
   };
 }
@@ -88,6 +167,14 @@ describe("project-epic-service", () => {
     });
     activityMock.touchProjectActivity.mockResolvedValue(undefined);
     dbMock.epic.findMany.mockResolvedValue([]);
+    dbMock.user.findUnique.mockResolvedValue(humanUserRecord);
+    dbMock.apiCredential.findFirst.mockResolvedValue(agentCredentialRecord);
+    dbMock.projectActivityEvent.findMany.mockResolvedValue([]);
+    dbMock.$queryRaw.mockResolvedValue([
+      humanRegistryRow(humanUserRecord),
+      humanRegistryRow(secondHumanUserRecord),
+      agentRegistryRow(),
+    ]);
     rlsContextMock.withActorRlsContext.mockImplementation(
       async (_actorUserId: string, operation: (db: typeof dbMock) => unknown) =>
         operation(dbMock)
@@ -152,9 +239,15 @@ describe("project-epic-service", () => {
       throw new Error("expected archive to succeed");
     }
     expect(result.data.epic.archivedAt).toEqual(archivedAt);
+    expect(result.data.actor).toMatchObject({ kind: "human", id: "user-1" });
     expect(dbMock.epic.update).toHaveBeenCalledWith({
       where: { id: "epic-1" },
-      data: { archivedAt: expect.any(Date) },
+      data: expect.objectContaining({
+        archivedAt: expect.any(Date),
+        updatedByUserId: "user-1",
+        updatedByCredentialId: null,
+        updatedByCredentialLabel: null,
+      }),
     });
     expect(activityMock.touchProjectActivity).toHaveBeenCalledWith({
       db: dbMock,
@@ -203,7 +296,11 @@ describe("project-epic-service", () => {
     expect(result.data.epic.archivedAt).toBeNull();
     expect(dbMock.epic.update).toHaveBeenCalledWith({
       where: { id: "epic-1" },
-      data: { archivedAt: null, autoArchiveExemptAt: expect.any(Date) },
+      data: expect.objectContaining({
+        archivedAt: null,
+        autoArchiveExemptAt: expect.any(Date),
+        updatedByUserId: "user-1",
+      }),
     });
     expect(activityMock.touchProjectActivity).toHaveBeenCalledWith({
       db: dbMock,
@@ -519,5 +616,410 @@ describe("project-epic-service", () => {
         where: { projectId: "project-1" },
       })
     );
+  });
+
+  test("creates an epic with the creating human as lead and provenance", async () => {
+    dbMock.epic.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(epicSummaryFixture({ id: "epic-new" }));
+    dbMock.epic.create.mockResolvedValueOnce({ id: "epic-new" });
+
+    const result = await createProjectEpic({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      name: "Launch workspace",
+      description: "Deliver the workspace launch slice.",
+    });
+
+    if (!result.ok) {
+      throw new Error("expected create to succeed");
+    }
+    expect(dbMock.epic.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        projectId: "project-1",
+        createdByUserId: "user-1",
+        updatedByUserId: "user-1",
+        createdByCredentialId: null,
+        leadKind: "human",
+        leadUserId: "user-1",
+        leadDisplayNameSnapshot: "dorian",
+        leadAssignedByUserId: "user-1",
+        leadAssignedAt: expect.any(Date),
+      }),
+      select: { id: true },
+    });
+    expect(result.data.actor).toMatchObject({ kind: "human", id: "user-1" });
+    expect(result.data.epic.lead).toMatchObject({
+      kind: "human",
+      id: "user-1",
+      isAssignable: true,
+    });
+    expect(result.data.epic.createdBy).toMatchObject({
+      kind: "user",
+      displayName: "dorian",
+    });
+  });
+
+  test("creates an epic attributed to the acting agent credential", async () => {
+    dbMock.epic.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        epicSummaryFixture({
+          leadKind: "agent",
+          leadUserId: null,
+          leadCredentialId: "cred-1",
+          leadDisplayNameSnapshot: "Release Agent",
+          createdByCredentialId: "cred-1",
+          createdByCredentialLabel: "Release Agent",
+          updatedByCredentialId: "cred-1",
+          updatedByCredentialLabel: "Release Agent",
+        })
+      );
+    dbMock.epic.create.mockResolvedValueOnce({ id: "epic-1" });
+
+    const result = await createProjectEpic({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      name: "Launch workspace",
+      description: "Deliver the workspace launch slice.",
+      agentAccess: {
+        credentialId: "cred-1",
+        projectId: "project-1",
+        scopes: ["task:write"],
+      },
+    });
+
+    if (!result.ok) {
+      throw new Error("expected create to succeed");
+    }
+    expect(dbMock.epic.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        leadKind: "agent",
+        leadUserId: null,
+        leadCredentialId: "cred-1",
+        createdByCredentialId: "cred-1",
+        createdByCredentialLabel: "Release Agent",
+      }),
+      select: { id: true },
+    });
+    expect(result.data.actor).toMatchObject({ kind: "agent", id: "cred-1" });
+    expect(result.data.epic.createdBy).toMatchObject({
+      kind: "agent",
+      displayName: "Release Agent (agent)",
+    });
+  });
+
+  test("reassigns the epic lead and reports the lead change", async () => {
+    dbMock.epic.findFirst
+      .mockResolvedValueOnce({
+        id: "epic-1",
+        leadKind: "human",
+        leadUserId: "user-1",
+        leadCredentialId: null,
+        leadDisplayNameSnapshot: "dorian",
+      })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        epicSummaryFixture({
+          leadUserId: "user-2",
+          leadDisplayNameSnapshot: "sam",
+        })
+      );
+    dbMock.epic.update.mockResolvedValueOnce({});
+
+    const result = await updateProjectEpic({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      epicId: "epic-1",
+      name: "Workspace launch",
+      description: "Refine the launch scope.",
+      lead: { kind: "human", id: "user-2" },
+    });
+
+    if (!result.ok) {
+      throw new Error("expected update to succeed");
+    }
+    expect(dbMock.epic.update).toHaveBeenCalledWith({
+      where: { id: "epic-1" },
+      data: expect.objectContaining({
+        leadKind: "human",
+        leadUserId: "user-2",
+        leadCredentialId: null,
+        leadDisplayNameSnapshot: "sam",
+        leadAssignedByUserId: "user-1",
+        leadAssignedAt: expect.any(Date),
+        updatedByUserId: "user-1",
+      }),
+    });
+    expect(result.data.leadChange).toMatchObject({
+      previous: { kind: "human", id: "user-1" },
+      next: { kind: "human", id: "user-2" },
+    });
+    expect(result.data.epic.lead).toMatchObject({
+      id: "user-2",
+      isAssignable: true,
+    });
+  });
+
+  test("rejects an unassignable lead without writing", async () => {
+    dbMock.epic.findFirst
+      .mockResolvedValueOnce({
+        id: "epic-1",
+        leadKind: "human",
+        leadUserId: "user-1",
+        leadCredentialId: null,
+        leadDisplayNameSnapshot: "dorian",
+      })
+      .mockResolvedValueOnce(null);
+
+    const result = await updateProjectEpic({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      epicId: "epic-1",
+      name: "Workspace launch",
+      description: "Refine the launch scope.",
+      lead: { kind: "human", id: "user-gone" },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "epic-lead-invalid",
+    });
+    expect(dbMock.epic.update).not.toHaveBeenCalled();
+  });
+
+  test("keeps the current lead when no lead change is requested", async () => {
+    dbMock.epic.findFirst
+      .mockResolvedValueOnce({
+        id: "epic-1",
+        leadKind: "human",
+        leadUserId: "user-1",
+        leadCredentialId: null,
+        leadDisplayNameSnapshot: "dorian",
+      })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(epicSummaryFixture());
+    dbMock.epic.update.mockResolvedValueOnce({});
+
+    const result = await updateProjectEpic({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      epicId: "epic-1",
+      name: "Workspace launch",
+      description: "Refine the launch scope.",
+    });
+
+    if (!result.ok) {
+      throw new Error("expected update to succeed");
+    }
+    expect(result.data.leadChange).toBeNull();
+    const updateData = (
+      dbMock.epic.update.mock.calls[0]?.[0] as {
+        data: Record<string, unknown>;
+      }
+    ).data;
+    expect(updateData).not.toHaveProperty("leadKind");
+    expect(updateData).not.toHaveProperty("leadAssignedAt");
+  });
+
+  test("keeps an inactive former lead visible as non-assignable", async () => {
+    dbMock.epic.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        epicSummaryFixture({
+          leadUserId: "user-gone",
+          leadDisplayNameSnapshot: "Gone Member",
+        }),
+      ]);
+
+    const epics = await listProjectEpics("project-1", "user-1");
+
+    expect(epics[0]?.lead).toMatchObject({
+      kind: "human",
+      id: "user-gone",
+      displayName: "Gone Member",
+      status: "inactive",
+      isAssignable: false,
+    });
+  });
+
+  test("lists epic history with durable actor snapshots and lead changes", async () => {
+    dbMock.epic.findFirst.mockResolvedValueOnce({ id: "epic-1" });
+    dbMock.projectActivityEvent.findMany.mockResolvedValueOnce([
+      {
+        id: "event-2",
+        actorUserId: "user-1",
+        action: "updated",
+        version: new Date("2026-10-02T12:00:00.000Z"),
+        payload: {
+          actor: { kind: "agent", id: "cred-1", displayName: "Release Agent" },
+          leadChange: {
+            previous: { kind: "human", id: "user-1", displayName: "dorian" },
+            next: { kind: "agent", id: "cred-1", displayName: "Release Agent" },
+          },
+        },
+      },
+      {
+        id: "event-1",
+        actorUserId: "user-1",
+        action: "updated",
+        version: new Date("2026-10-01T12:00:00.000Z"),
+        payload: {
+          actor: { kind: "human", id: "user-1", displayName: "dorian" },
+          operation: "archived",
+        },
+      },
+    ]);
+
+    const result = await listProjectEpicHistory({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      epicId: "epic-1",
+    });
+
+    if (!result.ok) {
+      throw new Error("expected history to load");
+    }
+    expect(dbMock.projectActivityEvent.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { projectId: "project-1", domain: "epic", entityId: "epic-1" },
+        take: PROJECT_EPIC_HISTORY_DEFAULT_LIMIT,
+      })
+    );
+    expect(result.data.entries).toEqual([
+      {
+        id: "event-2",
+        action: "updated",
+        actor: expect.objectContaining({
+          kind: "agent",
+          id: "cred-1",
+          displayName: "Release Agent",
+        }),
+        version: new Date("2026-10-02T12:00:00.000Z"),
+        operation: null,
+        leadChange: {
+          previous: { kind: "human", id: "user-1", displayName: "dorian" },
+          next: { kind: "agent", id: "cred-1", displayName: "Release Agent" },
+        },
+      },
+      {
+        id: "event-1",
+        action: "updated",
+        actor: expect.objectContaining({ kind: "human", id: "user-1" }),
+        version: new Date("2026-10-01T12:00:00.000Z"),
+        operation: "archived",
+        leadChange: null,
+      },
+    ]);
+  });
+
+  test("falls back to the acting user when a legacy event has no actor snapshot", async () => {
+    dbMock.epic.findFirst.mockResolvedValueOnce({ id: "epic-1" });
+    dbMock.projectActivityEvent.findMany.mockResolvedValueOnce([
+      {
+        id: "event-legacy",
+        actorUserId: "user-1",
+        action: "created",
+        version: new Date("2026-10-01T12:00:00.000Z"),
+        payload: { epicId: "epic-1" },
+      },
+    ]);
+
+    const result = await listProjectEpicHistory({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      epicId: "epic-1",
+    });
+
+    if (!result.ok) {
+      throw new Error("expected history to load");
+    }
+    expect(result.data.entries[0]?.actor).toMatchObject({
+      kind: "human",
+      id: "user-1",
+      isAssignable: true,
+    });
+    expect(result.data.entries[0]?.leadChange).toBeNull();
+    expect(result.data.entries[0]?.operation).toBeNull();
+  });
+
+  test("clamps the epic history take to the server maximum", async () => {
+    dbMock.epic.findFirst.mockResolvedValueOnce({ id: "epic-1" });
+
+    await listProjectEpicHistory({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      epicId: "epic-1",
+      take: 500,
+    });
+
+    expect(dbMock.projectActivityEvent.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 50 })
+    );
+  });
+
+  test("returns 404 for history of an unknown epic", async () => {
+    dbMock.epic.findFirst.mockResolvedValueOnce(null);
+
+    const result = await listProjectEpicHistory({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      epicId: "epic-missing",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 404,
+      error: "epic-not-found",
+    });
+    expect(dbMock.projectActivityEvent.findMany).not.toHaveBeenCalled();
+  });
+
+  test("requires viewer access for epic history", async () => {
+    projectAccessServiceMock.requireProjectRole.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      error: "forbidden",
+    });
+
+    const result = await listProjectEpicHistory({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      epicId: "epic-1",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 403,
+      error: "forbidden",
+    });
+    expect(dbMock.epic.findFirst).not.toHaveBeenCalled();
+  });
+
+  test("forwards agent scope failures from history", async () => {
+    projectAccessServiceMock.requireAgentProjectScopes.mockReturnValueOnce({
+      ok: false,
+      status: 403,
+      error: "missing-agent-scope",
+    });
+
+    const result = await listProjectEpicHistory({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      epicId: "epic-1",
+      agentAccess: {
+        credentialId: "cred-1",
+        projectId: "project-1",
+        scopes: ["task:read"],
+      },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 403,
+      error: "missing-agent-scope",
+    });
+    expect(rlsContextMock.withActorRlsContext).not.toHaveBeenCalled();
   });
 });

@@ -10,7 +10,10 @@ import {
   archiveProjectEpic,
   unarchiveProjectEpic,
 } from "@/lib/services/project-epic-service";
-import { serializeProjectEpicResponse } from "@/lib/services/project-epic-response";
+import {
+  serializeProjectEpicEventActor,
+  serializeProjectEpicResponse,
+} from "@/lib/services/project-epic-response";
 
 export async function POST(
   request: NextRequest,
@@ -44,7 +47,11 @@ export async function POST(
     domain: "epic",
     action: "updated",
     entityId: epicId,
-    payload: { epic: serializedEpic },
+    payload: {
+      epic: serializedEpic,
+      actor: serializeProjectEpicEventActor(result.data.actor),
+      operation: "archived",
+    },
   });
 
   return NextResponse.json(
@@ -89,7 +96,11 @@ export async function DELETE(
     domain: "epic",
     action: "updated",
     entityId: epicId,
-    payload: { epic: serializedEpic },
+    payload: {
+      epic: serializedEpic,
+      actor: serializeProjectEpicEventActor(result.data.actor),
+      operation: "restored",
+    },
   });
 
   return NextResponse.json(

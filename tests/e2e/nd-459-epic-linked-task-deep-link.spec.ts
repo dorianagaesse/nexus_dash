@@ -38,6 +38,8 @@ async function createEpicChipFixture(page: Page): Promise<{
       projectId: project.id,
       name: EPIC_NAME,
       description: "Cover linked-task references and deep links.",
+      createdByUserId: userId,
+      updatedByUserId: userId,
     },
     select: { id: true },
   });

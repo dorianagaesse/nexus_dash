@@ -16,6 +16,32 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-10-04 - ND-185: One accountable epic lead with event-backed history
+
+- Status: Accepted.
+- Context: Epics are partitioned initiatives with derived task progress, but
+  accountability was implicit (whoever created or last edited) and the roster
+  of linked-task assignees could be misread as ownership. The collaboration
+  audit (task-336 program) required an explicit human/agent lead plus
+  initiative-level history without reviving the blocked ND-181 timeline scope.
+- Decision: Every epic carries exactly one lead (human or agent), defaulting
+  to the creating actor; reassignment is a PATCH that accepts a current project
+  human or active project agent and persists a display-name snapshot, assigned
+  actor, and timestamp. There is no unassign path, and linked-task assignees
+  are never treated as leads. Epic lifecycle and lead changes are recorded as
+  ProjectActivityEvent rows with durable actor and leadChange payloads and are
+  read back through an epic-scoped history endpoint rendered as a compact
+  per-epic list; inactive leads stay attached with a needs-reassignment state.
+- Consequences: Epic creation and mutation routes require a resolvable acting
+  actor, and the panel's collapsed card is taller by the lead and provenance
+  rows (the task-335 compactness budget was updated accordingly). Epic history
+  is delivered as merged events, not the ND-181 Timeline UI. The offboarding
+  resolution function does not yet include epic leads, so a departing lead
+  stays attached until manually reassigned (tracked as a follow-up).
+- Links: Nexus Dash card ND-185, migration
+  `20261004120000_nd185_epic_leadership`, `lib/services/project-epic-service.ts`
+  (`mapEpicLead`, `listProjectEpicHistory`).
+
 ## 2026-09-17 - ND-399: Comment attachments accept every supported file type
 
 - Status: Accepted; extends the ND-144 comment-attachment model without a

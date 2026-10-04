@@ -13,6 +13,8 @@ const projectEpicServiceMock = vi.hoisted(() => ({
   deleteProjectEpic: vi.fn(),
   archiveProjectEpic: vi.fn(),
   unarchiveProjectEpic: vi.fn(),
+  listProjectEpicHistory: vi.fn(),
+  PROJECT_EPIC_HISTORY_DEFAULT_LIMIT: 20,
 }));
 
 vi.mock("@/lib/auth/api-guard", () => ({
@@ -27,6 +29,9 @@ vi.mock("@/lib/services/project-epic-service", () => ({
   deleteProjectEpic: projectEpicServiceMock.deleteProjectEpic,
   archiveProjectEpic: projectEpicServiceMock.archiveProjectEpic,
   unarchiveProjectEpic: projectEpicServiceMock.unarchiveProjectEpic,
+  listProjectEpicHistory: projectEpicServiceMock.listProjectEpicHistory,
+  PROJECT_EPIC_HISTORY_DEFAULT_LIMIT:
+    projectEpicServiceMock.PROJECT_EPIC_HISTORY_DEFAULT_LIMIT,
 }));
 
 const activityEventResponseMock = vi.hoisted(() => ({
@@ -50,6 +55,27 @@ import {
   DELETE as restoreEpic,
   POST as archiveEpic,
 } from "@/app/api/projects/[projectId]/epics/[epicId]/archive/route";
+import { GET as getEpicHistory } from "@/app/api/projects/[projectId]/epics/[epicId]/history/route";
+
+const humanActorSummary = {
+  kind: "human",
+  id: "user-1",
+  displayName: "dorian",
+  usernameTag: "dorian#0001",
+  avatarSeed: "seed-1",
+  status: "active",
+  isAssignable: true,
+};
+
+const agentActorSummary = {
+  kind: "agent",
+  id: "cred-1",
+  displayName: "Release Agent",
+  usernameTag: null,
+  avatarSeed: null,
+  status: "active",
+  isAssignable: true,
+};
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
@@ -133,6 +159,7 @@ describe("project epic routes", () => {
           archivedAt: null,
           createdAt: "2026-04-20T08:00:00.000Z",
           updatedAt: "2026-04-21T09:00:00.000Z",
+          leadAssignedAt: null,
         },
       ],
     });
@@ -214,7 +241,10 @@ describe("project epic routes", () => {
           archivedAt: null,
           createdAt: new Date("2026-04-20T08:00:00.000Z"),
           updatedAt: new Date("2026-04-20T08:00:00.000Z"),
+          lead: humanActorSummary,
+          leadAssignedAt: new Date("2026-04-20T08:00:00.000Z"),
         },
+        actor: humanActorSummary,
       },
     });
 
@@ -246,6 +276,8 @@ describe("project epic routes", () => {
         archivedAt: null,
         createdAt: "2026-04-20T08:00:00.000Z",
         updatedAt: "2026-04-20T08:00:00.000Z",
+        lead: humanActorSummary,
+        leadAssignedAt: "2026-04-20T08:00:00.000Z",
       },
     });
     expect(projectEpicServiceMock.createProjectEpic).toHaveBeenCalledWith({
@@ -263,6 +295,13 @@ describe("project epic routes", () => {
         domain: "epic",
         action: "created",
         entityId: "epic-1",
+        payload: expect.objectContaining({
+          actor: {
+            kind: "human",
+            id: "user-1",
+            displayName: "dorian",
+          },
+        }),
       })
     );
   });
@@ -283,7 +322,11 @@ describe("project epic routes", () => {
           archivedAt: null,
           createdAt: new Date("2026-04-20T08:00:00.000Z"),
           updatedAt: new Date("2026-04-22T10:00:00.000Z"),
+          lead: humanActorSummary,
+          leadAssignedAt: new Date("2026-04-20T08:00:00.000Z"),
         },
+        leadChange: null,
+        actor: humanActorSummary,
       },
     });
 
@@ -315,7 +358,18 @@ describe("project epic routes", () => {
         archivedAt: null,
         createdAt: "2026-04-20T08:00:00.000Z",
         updatedAt: "2026-04-22T10:00:00.000Z",
+        lead: humanActorSummary,
+        leadAssignedAt: "2026-04-20T08:00:00.000Z",
       },
+    });
+    expect(projectEpicServiceMock.updateProjectEpic).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      projectId: "p1",
+      epicId: "epic-1",
+      name: "Workspace launch",
+      description: "Refined description.",
+      lead: undefined,
+      agentAccess: undefined,
     });
     expect(
       activityEventResponseMock.recordProjectActivityEventVersion
@@ -325,8 +379,108 @@ describe("project epic routes", () => {
         domain: "epic",
         action: "updated",
         entityId: "epic-1",
+        payload: expect.not.objectContaining({
+          leadChange: expect.anything(),
+        }),
       })
     );
+  });
+
+  test("PATCH /api/projects/:projectId/epics/:epicId forwards lead reassignment", async () => {
+    projectEpicServiceMock.updateProjectEpic.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        epic: {
+          id: "epic-1",
+          name: "Workspace launch",
+          description: "Refined description.",
+          status: "In progress",
+          progressPercent: 25,
+          taskCount: 4,
+          completedTaskCount: 1,
+          linkedTasks: [],
+          archivedAt: null,
+          createdAt: new Date("2026-04-20T08:00:00.000Z"),
+          updatedAt: new Date("2026-04-22T10:00:00.000Z"),
+          lead: agentActorSummary,
+          leadAssignedAt: new Date("2026-04-22T10:00:00.000Z"),
+        },
+        leadChange: {
+          previous: humanActorSummary,
+          next: agentActorSummary,
+        },
+        actor: humanActorSummary,
+      },
+    });
+
+    const response = await updateEpic(
+      new Request("http://localhost/api/projects/p1/epics/epic-1", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Workspace launch",
+          description: "Refined description.",
+          lead: { kind: "agent", id: "cred-1" },
+        }),
+      }) as never,
+      epicParams("p1", "epic-1")
+    );
+
+    expect(response.status).toBe(200);
+    expect(projectEpicServiceMock.updateProjectEpic).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      projectId: "p1",
+      epicId: "epic-1",
+      name: "Workspace launch",
+      description: "Refined description.",
+      lead: { kind: "agent", id: "cred-1" },
+      agentAccess: undefined,
+    });
+    expect(
+      activityEventResponseMock.recordProjectActivityEventVersion
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          leadChange: {
+            previous: {
+              kind: "human",
+              id: "user-1",
+              displayName: "dorian",
+            },
+            next: {
+              kind: "agent",
+              id: "cred-1",
+              displayName: "Release Agent",
+            },
+          },
+        }),
+      })
+    );
+  });
+
+  test("PATCH /api/projects/:projectId/epics/:epicId rejects an invalid lead", async () => {
+    const response = await updateEpic(
+      new Request("http://localhost/api/projects/p1/epics/epic-1", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Workspace launch",
+          description: "Refined description.",
+          lead: { kind: "robot", id: "nope" },
+        }),
+      }) as never,
+      epicParams("p1", "epic-1")
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "epic-lead-invalid",
+    });
+    expect(projectEpicServiceMock.updateProjectEpic).not.toHaveBeenCalled();
   });
 
   test("DELETE /api/projects/:projectId/epics/:epicId deletes an epic", async () => {
@@ -378,7 +532,10 @@ describe("project epic routes", () => {
           archivedAt: new Date("2026-04-22T09:00:00.000Z"),
           createdAt: new Date("2026-04-20T08:00:00.000Z"),
           updatedAt: new Date("2026-04-22T09:00:00.000Z"),
+          lead: humanActorSummary,
+          leadAssignedAt: new Date("2026-04-20T08:00:00.000Z"),
         },
+        actor: humanActorSummary,
       },
     });
 
@@ -408,6 +565,10 @@ describe("project epic routes", () => {
         domain: "epic",
         action: "updated",
         entityId: "epic-1",
+        payload: expect.objectContaining({
+          operation: "archived",
+          actor: { kind: "human", id: "user-1", displayName: "dorian" },
+        }),
       })
     );
   });
@@ -428,7 +589,10 @@ describe("project epic routes", () => {
           archivedAt: null,
           createdAt: new Date("2026-04-20T08:00:00.000Z"),
           updatedAt: new Date("2026-04-22T10:00:00.000Z"),
+          lead: humanActorSummary,
+          leadAssignedAt: new Date("2026-04-20T08:00:00.000Z"),
         },
+        actor: humanActorSummary,
       },
     });
 
@@ -458,6 +622,7 @@ describe("project epic routes", () => {
         domain: "epic",
         action: "updated",
         entityId: "epic-1",
+        payload: expect.objectContaining({ operation: "restored" }),
       })
     );
   });
@@ -478,5 +643,87 @@ describe("project epic routes", () => {
 
     expect(response.status).toBe(403);
     await expect(readJson(response)).resolves.toEqual({ error: "forbidden" });
+  });
+
+  test("GET /api/projects/:projectId/epics/:epicId/history returns serialized entries", async () => {
+    projectEpicServiceMock.listProjectEpicHistory.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        entries: [
+          {
+            id: "event-1",
+            action: "updated",
+            actor: humanActorSummary,
+            version: new Date("2026-10-01T12:00:00.000Z"),
+            operation: "archived",
+            leadChange: null,
+          },
+        ],
+      },
+    });
+
+    const response = await getEpicHistory(
+      new NextRequest("http://localhost/api/projects/p1/epics/epic-1/history"),
+      epicParams("p1", "epic-1")
+    );
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({
+      entries: [
+        {
+          id: "event-1",
+          action: "updated",
+          actor: humanActorSummary,
+          version: "2026-10-01T12:00:00.000Z",
+          operation: "archived",
+          leadChange: null,
+        },
+      ],
+    });
+    expect(projectEpicServiceMock.listProjectEpicHistory).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      projectId: "p1",
+      epicId: "epic-1",
+      agentAccess: undefined,
+      take: 20,
+    });
+  });
+
+  test("GET /api/projects/:projectId/epics/:epicId/history forwards the take param", async () => {
+    projectEpicServiceMock.listProjectEpicHistory.mockResolvedValueOnce({
+      ok: true,
+      data: { entries: [] },
+    });
+
+    const response = await getEpicHistory(
+      new NextRequest(
+        "http://localhost/api/projects/p1/epics/epic-1/history?take=5"
+      ),
+      epicParams("p1", "epic-1")
+    );
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({ entries: [] });
+    expect(projectEpicServiceMock.listProjectEpicHistory).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 5 })
+    );
+  });
+
+  test("GET /api/projects/:projectId/epics/:epicId/history forwards service errors", async () => {
+    projectEpicServiceMock.listProjectEpicHistory.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      error: "epic-not-found",
+    });
+
+    const response = await getEpicHistory(
+      new NextRequest("http://localhost/api/projects/p1/epics/epic-missing/history"),
+      epicParams("p1", "epic-missing")
+    );
+
+    expect(response.status).toBe(404);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "epic-not-found",
+    });
   });
 });

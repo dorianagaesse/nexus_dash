@@ -30,6 +30,8 @@ async function createEpicArchiveFixture(userId: string) {
       projectId: project.id,
       name: completedEpicName,
       description: "Deliver the rollout that has already finished.",
+      createdByUserId: userId,
+      updatedByUserId: userId,
     },
     select: { id: true },
   });
@@ -38,6 +40,8 @@ async function createEpicArchiveFixture(userId: string) {
       projectId: project.id,
       name: activeEpicName,
       description: "Carry the initiative that is still in flight.",
+      createdByUserId: userId,
+      updatedByUserId: userId,
     },
     select: { id: true },
   });

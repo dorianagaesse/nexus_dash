@@ -31,6 +31,8 @@ async function createDenseEpicFixture(userId: string) {
       name: primaryEpicName,
       description:
         "Give collaborators the complete rollout narrative, expected outcome, and enough implementation context to make the initiative understandable at a glance.",
+      createdByUserId: userId,
+      updatedByUserId: userId,
     },
     select: { id: true },
   });
@@ -41,6 +43,8 @@ async function createDenseEpicFixture(userId: string) {
       projectId: project.id,
       name: secondaryEpicName,
       description: "Confirm the product is ready for the first invited teams.",
+      createdByUserId: userId,
+      updatedByUserId: userId,
     },
   });
   await prisma.task.createMany({
@@ -125,7 +129,10 @@ test.describe("TASK-335 epic detail disclosure", () => {
     expect(mobileEpicBounds!.x + mobileEpicBounds!.width).toBeLessThanOrEqual(
       375
     );
-    expect(mobileEpicBounds!.height).toBeLessThan(360);
+    // Compact face = title, status, progress, plus the always-visible lead and
+    // provenance rows (ND-185); the dense description and linked tasks stay
+    // behind the disclosure.
+    expect(mobileEpicBounds!.height).toBeLessThan(440);
     expect(mobileDisclosureBounds!.width).toBeGreaterThanOrEqual(44);
     expect(mobileDisclosureBounds!.height).toBeGreaterThanOrEqual(44);
     expect(mobileEditBounds!.x).toBeGreaterThan(mobileDisclosureBounds!.x);

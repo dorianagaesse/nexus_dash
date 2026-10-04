@@ -33,12 +33,35 @@ const SLIM_SCROLLBAR_CLASSES = [
   "[&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]",
 ].join(" ");
 
+export type ProjectActorChipRole = "assignee" | "steward" | "lead";
+
+const CHIP_ROLE_COPY: Record<
+  ProjectActorChipRole,
+  { roleLabel: string; emptyLabel: string; accountableBadgeLabel: string | null }
+> = {
+  assignee: {
+    roleLabel: "meeting todo assignee",
+    emptyLabel: "Unassigned",
+    accountableBadgeLabel: null,
+  },
+  steward: {
+    roleLabel: "steward / facilitator",
+    emptyLabel: "No facilitator",
+    accountableBadgeLabel: "Steward / facilitator",
+  },
+  lead: {
+    roleLabel: "initiative lead",
+    emptyLabel: "No lead",
+    accountableBadgeLabel: "Initiative lead",
+  },
+};
+
 interface AssigneeChipBaseProps {
   actor: MeetingTodoActorSummary | null;
   needsReassignment?: boolean;
   bordered?: boolean;
   className?: string;
-  identityRole?: "assignee" | "steward";
+  identityRole?: ProjectActorChipRole;
 }
 
 function AssigneeChipBase({
@@ -48,7 +71,8 @@ function AssigneeChipBase({
   className,
   identityRole = "assignee",
 }: AssigneeChipBaseProps) {
-  const isSteward = identityRole === "steward";
+  const copy = CHIP_ROLE_COPY[identityRole];
+  const hasAccountableTreatment = copy.accountableBadgeLabel !== null;
 
   if (!actor) {
     return (
@@ -59,7 +83,7 @@ function AssigneeChipBase({
           bordered
             ? cn(
                 "border border-dashed border-border/70 bg-muted/30",
-                isSteward && "border-amber-400/70 bg-amber-500/[0.08]"
+                hasAccountableTreatment && "border-amber-400/70 bg-amber-500/[0.08]"
               )
             : "bg-transparent",
           className
@@ -70,17 +94,17 @@ function AssigneeChipBase({
           className={cn(
             "relative grid h-6 w-6 shrink-0 place-items-center rounded-full",
             bordered ? "border border-dashed border-border/70" : "bg-muted/50",
-            isSteward && "border-amber-400 ring-2 ring-amber-400/80"
+            hasAccountableTreatment && "border-amber-400 ring-2 ring-amber-400/80"
           )}
         >
           <UserRound className="h-3.5 w-3.5" aria-hidden />
-          {isSteward ? (
+          {hasAccountableTreatment ? (
             <span className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full border border-amber-300 bg-amber-400 text-amber-950 shadow-sm">
               <Crown className="h-2.5 w-2.5" aria-hidden />
             </span>
           ) : null}
         </span>
-        <span className="truncate">{isSteward ? "No facilitator" : "Unassigned"}</span>
+        <span className="truncate">{copy.emptyLabel}</span>
       </span>
     );
   }
@@ -94,7 +118,7 @@ function AssigneeChipBase({
           ? cn(
               "border border-border/70 bg-muted/40",
               needsReassignment && "border-amber-500/45 bg-amber-500/[0.08]",
-              isSteward && "border-amber-400/70 bg-amber-500/[0.08]"
+              hasAccountableTreatment && "border-amber-400/70 bg-amber-500/[0.08]"
             )
           : cn(
               "bg-transparent hover:bg-muted/40",
@@ -106,7 +130,8 @@ function AssigneeChipBase({
       <span
         className={cn(
           "relative inline-flex shrink-0 rounded-full",
-          isSteward && "ring-2 ring-amber-400 ring-offset-1 ring-offset-background"
+          hasAccountableTreatment &&
+            "ring-2 ring-amber-400 ring-offset-1 ring-offset-background"
         )}
       >
         {actor.kind === "agent" ? (
@@ -130,15 +155,17 @@ function AssigneeChipBase({
             {actor.displayName.trim().charAt(0).toUpperCase() || "?"}
           </span>
         )}
-        {isSteward ? (
+        {copy.accountableBadgeLabel ? (
           <span
-            title="Steward / facilitator"
+            title={copy.accountableBadgeLabel}
             className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full border border-amber-300 bg-amber-400 text-amber-950 shadow-sm"
           >
             <Crown className="h-2.5 w-2.5" aria-hidden />
           </span>
         ) : null}
-        {isSteward ? <span className="sr-only">Steward / facilitator</span> : null}
+        {copy.accountableBadgeLabel ? (
+          <span className="sr-only">{copy.accountableBadgeLabel}</span>
+        ) : null}
       </span>
       <span className="max-w-36 truncate sm:max-w-52">
         {actor.displayName}
@@ -173,7 +200,7 @@ export function MeetingTodoAssigneeChipReadonly({
   actor: MeetingTodoActorSummary | null;
   bordered?: boolean;
   className?: string;
-  identityRole?: "assignee" | "steward";
+  identityRole?: ProjectActorChipRole;
 }) {
   const needsReassignment = actor !== null && !actor.isAssignable;
   return (
@@ -242,7 +269,8 @@ interface MeetingTodoAssigneeChipProps {
   triggerClassName?: string;
   pending?: boolean;
   bordered?: boolean;
-  identityRole?: "assignee" | "steward";
+  identityRole?: ProjectActorChipRole;
+  allowClear?: boolean;
 }
 
 export function MeetingTodoAssigneeChip({
@@ -256,7 +284,9 @@ export function MeetingTodoAssigneeChip({
   pending = false,
   bordered = true,
   identityRole = "assignee",
+  allowClear = true,
 }: MeetingTodoAssigneeChipProps) {
+  const copy = CHIP_ROLE_COPY[identityRole];
   const generatedId = useId().replace(/:/g, "");
   const listboxId = `${id}-${generatedId}-listbox`;
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -286,8 +316,7 @@ export function MeetingTodoAssigneeChip({
   const isInactive = Boolean(
     currentActor && !currentActor.isAssignable
   );
-  const roleLabel =
-    identityRole === "steward" ? "steward / facilitator" : "meeting todo assignee";
+  const roleLabel = copy.roleLabel;
 
   useEffect(() => {
     if (!isOpen) {
@@ -304,7 +333,7 @@ export function MeetingTodoAssigneeChip({
       setPopoverPosition(
         resolvePopoverPlacement({
           triggerRect: rect,
-          optionCount: options.length + 1,
+          optionCount: options.length + (allowClear ? 1 : 0),
         })
       );
     };
@@ -341,7 +370,7 @@ export function MeetingTodoAssigneeChip({
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, options.length]);
+  }, [isOpen, options.length, allowClear]);
 
   const selectOption = (option: MeetingTodoActorReference | null) => {
     onChange(option);
@@ -419,26 +448,28 @@ export function MeetingTodoAssigneeChip({
                 maxHeight: popoverPosition.maxHeight,
               }}
             >
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={!currentActor}
-                  className="flex min-h-12 w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
-                  onClick={() => selectOption(null)}
-                >
-                  <span
-                    aria-hidden
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-dashed border-border/70"
+                {allowClear ? (
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={!currentActor}
+                    className="flex min-h-12 w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+                    onClick={() => selectOption(null)}
                   >
-                    <UserRound className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                    {identityRole === "steward" ? "No facilitator" : "Unassigned"}
-                  </span>
-                  {!currentActor ? (
-                    <Check className="h-4 w-4 shrink-0 text-foreground" aria-hidden />
-                  ) : null}
-                </button>
+                    <span
+                      aria-hidden
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-dashed border-border/70"
+                    >
+                      <UserRound className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                      {copy.emptyLabel}
+                    </span>
+                    {!currentActor ? (
+                      <Check className="h-4 w-4 shrink-0 text-foreground" aria-hidden />
+                    ) : null}
+                  </button>
+                ) : null}
 
                 {options.map((actor) => {
                   const key = getMeetingTodoActorKey(actor);

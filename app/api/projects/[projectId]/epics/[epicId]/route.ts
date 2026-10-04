@@ -5,17 +5,29 @@ import {
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
+import { isProjectActorReference, type ProjectActorReference } from "@/lib/project-actor";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   deleteProjectEpic,
   updateProjectEpic,
+  type ProjectEpicLeadChange,
 } from "@/lib/services/project-epic-service";
-import { serializeProjectEpicResponse } from "@/lib/services/project-epic-response";
+import {
+  serializeProjectEpicEventActor,
+  serializeProjectEpicResponse,
+} from "@/lib/services/project-epic-response";
 
 interface ProjectEpicRequestBody {
   name?: unknown;
   description?: unknown;
+  lead?: unknown;
+}
+
+function serializeLeadChangeActor(
+  actor: ProjectEpicLeadChange["previous"]
+) {
+  return actor ? serializeProjectEpicEventActor(actor) : null;
 }
 
 export async function PATCH(
@@ -40,12 +52,24 @@ export async function PATCH(
     return NextResponse.json({ error: "invalid-json" }, { status: 400 });
   }
 
+  let lead: ProjectActorReference | undefined;
+  if (payload.lead !== undefined) {
+    if (!isProjectActorReference(payload.lead)) {
+      return NextResponse.json(
+        { error: "epic-lead-invalid" },
+        { status: 400 }
+      );
+    }
+    lead = { kind: payload.lead.kind, id: payload.lead.id.trim() };
+  }
+
   const result = await updateProjectEpic({
     actorUserId: principalResult.principal.actorUserId,
     projectId: params.projectId,
     epicId: params.epicId,
     name: typeof payload.name === "string" ? payload.name : "",
     description: typeof payload.description === "string" ? payload.description : "",
+    lead,
     agentAccess: getAgentProjectAccessContext(principalResult.principal),
   });
 
@@ -60,7 +84,18 @@ export async function PATCH(
     domain: "epic",
     action: "updated",
     entityId: params.epicId,
-    payload: { epic: serializedEpic },
+    payload: {
+      epic: serializedEpic,
+      actor: serializeProjectEpicEventActor(result.data.actor),
+      ...(result.data.leadChange
+        ? {
+            leadChange: {
+              previous: serializeLeadChangeActor(result.data.leadChange.previous),
+              next: serializeLeadChangeActor(result.data.leadChange.next),
+            },
+          }
+        : {}),
+    },
   });
 
   return NextResponse.json(

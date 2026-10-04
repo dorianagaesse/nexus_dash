@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -12,14 +19,20 @@ import {
   Pencil,
   PlusSquare,
   Trash2,
+  UserRound,
 } from "lucide-react";
 
+import {
+  MeetingTodoAssigneeChip,
+  MeetingTodoAssigneeChipReadonly,
+} from "@/components/meeting-todos/meeting-todo-assignee-chip";
 import {
   PROJECT_SECTION_CARD_CLASS,
   PROJECT_SECTION_CONTENT_CLASS,
   PROJECT_SECTION_HEADER_CLASS,
 } from "@/components/project-dashboard/project-section-chrome";
 import { useToast } from "@/components/toast-provider";
+import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,12 +41,15 @@ import {
   EmojiInputField,
   EmojiTextareaField,
 } from "@/components/ui/emoji-field";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   getEpicColorFromName,
   type EpicTaskSummary,
+  type ProjectEpicHistoryEntrySnapshot,
   type ProjectEpicSnapshot,
 } from "@/lib/epic";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
+import type { ProjectActorSummary } from "@/lib/project-actor";
 import {
   fetchProjectActivityMutation,
   PROJECT_ACTIVITY_REMOTE_EVENT,
@@ -50,6 +66,7 @@ import { ListSearchInput } from "@/components/ui/list-search-input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { requestTaskOpen } from "@/lib/task-open-client";
 import { formatTaskReference } from "@/lib/task-reference";
+import type { TaskAuthorSummary } from "@/lib/task-author";
 import { cn } from "@/lib/utils";
 
 export type ProjectEpicPanelEpic = ProjectEpicSnapshot;
@@ -58,6 +75,7 @@ interface ProjectEpicPanelProps {
   projectId: string;
   canEdit: boolean;
   epics: ProjectEpicPanelEpic[];
+  actorOptions: ProjectActorSummary[];
   loadError?: string | null;
 }
 
@@ -73,6 +91,8 @@ function mapEpicMutationError(errorCode: string): string {
       return "Epic names must stay unique within this project.";
     case "epic-not-found":
       return "Epic not found.";
+    case "epic-lead-invalid":
+      return "That lead is unavailable. Pick a current project member or an active project agent.";
     case "epic-create-failed":
       return "Could not create epic. Please retry.";
     case "epic-update-failed":
@@ -86,6 +106,125 @@ function mapEpicMutationError(errorCode: string): string {
     default:
       return "Could not save epic changes. Please retry.";
   }
+}
+
+function formatEpicActivityDate(value: string): string {
+  return new Date(value).toLocaleDateString();
+}
+
+function formatEpicHistoryTimestamp(value: string): string {
+  return new Date(value).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function describeEpicHistoryAction(
+  entry: ProjectEpicHistoryEntrySnapshot
+): string {
+  if (entry.leadChange) {
+    return entry.leadChange.next
+      ? `set the lead to ${entry.leadChange.next.displayName}`
+      : "cleared the lead";
+  }
+
+  switch (entry.action) {
+    case "created":
+      return "created the epic";
+    case "deleted":
+      return "deleted the epic";
+    case "updated":
+      if (entry.operation === "archived") {
+        return "archived the epic";
+      }
+      if (entry.operation === "restored") {
+        return "restored the epic";
+      }
+      return "updated the epic";
+    default:
+      return "updated the epic";
+  }
+}
+
+function EpicAuthorInline({
+  label,
+  author,
+  timestamp,
+}: {
+  label: string;
+  author: TaskAuthorSummary;
+  timestamp: string;
+}) {
+  return (
+    <span
+      className="inline-flex min-w-0 max-w-full items-center gap-1.5"
+      title={`${label}: ${author.usernameTag ?? author.displayName}`}
+    >
+      {author.kind === "agent" ? (
+        <AgentAvatar
+          displayName={author.displayName}
+          decorative
+          className="h-5 w-5 shrink-0 border-border/70"
+        />
+      ) : (
+        <UserAvatar
+          avatarSeed={author.avatarSeed}
+          displayName={author.displayName}
+          decorative
+          className="h-5 w-5 shrink-0 border-border/70"
+        />
+      )}
+      <span className="min-w-0 truncate">
+        {label}{" "}
+        <span className="font-medium text-foreground">
+          {author.displayName}
+        </span>{" "}
+        <time dateTime={timestamp} className="text-muted-foreground/80">
+          {formatEpicActivityDate(timestamp)}
+        </time>
+      </span>
+    </span>
+  );
+}
+
+function EpicHistoryActorAvatar({ actor }: { actor: ProjectActorSummary | null }) {
+  if (!actor) {
+    return (
+      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-dashed border-border">
+        <UserRound className="h-3 w-3 text-muted-foreground" aria-hidden />
+      </span>
+    );
+  }
+
+  if (actor.kind === "agent") {
+    return (
+      <AgentAvatar
+        displayName={actor.displayName}
+        decorative
+        className="h-5 w-5 shrink-0 border-border/70"
+      />
+    );
+  }
+
+  if (actor.avatarSeed) {
+    return (
+      <UserAvatar
+        avatarSeed={actor.avatarSeed}
+        displayName={actor.displayName}
+        decorative
+        className="h-5 w-5 shrink-0 border-border/70"
+      />
+    );
+  }
+
+  return (
+    <span
+      aria-hidden
+      className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border/60 bg-primary/10 text-[10px] font-semibold text-primary"
+    >
+      {actor.displayName.trim().charAt(0).toUpperCase() || "?"}
+    </span>
+  );
 }
 
 function EpicStatusBadge({
@@ -183,6 +322,7 @@ export function ProjectEpicPanel({
   projectId,
   canEdit,
   epics,
+  actorOptions,
   loadError = null,
 }: ProjectEpicPanelProps) {
   const router = useRouter();
@@ -217,6 +357,17 @@ export function ProjectEpicPanel({
   const [expandedEpicIds, setExpandedEpicIds] = useState<Set<string>>(
     () => new Set()
   );
+  const [leadPendingEpicId, setLeadPendingEpicId] = useState<string | null>(null);
+  const [historyByEpicId, setHistoryByEpicId] = useState<
+    Record<string, ProjectEpicHistoryEntrySnapshot[] | undefined>
+  >({});
+  const [historyLoadingEpicIds, setHistoryLoadingEpicIds] = useState<
+    Set<string>
+  >(() => new Set());
+  const [historyErrorByEpicId, setHistoryErrorByEpicId] = useState<
+    Record<string, string | undefined>
+  >({});
+  const historyRequestsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (epics === initialEpicsRef.current) {
@@ -308,6 +459,94 @@ export function ProjectEpicPanel({
     router.refresh();
   };
 
+  const loadEpicHistory = useCallback(
+    async (epicId: string, force = false) => {
+      if (!force && historyRequestsRef.current.has(epicId)) {
+        return;
+      }
+
+      historyRequestsRef.current.add(epicId);
+      setHistoryLoadingEpicIds((previousIds) => {
+        const nextIds = new Set(previousIds);
+        nextIds.add(epicId);
+        return nextIds;
+      });
+      setHistoryErrorByEpicId((previousErrors) => ({
+        ...previousErrors,
+        [epicId]: undefined,
+      }));
+
+      try {
+        const response = await fetch(
+          `/api/projects/${projectId}/epics/${epicId}/history`
+        );
+        const payload = (await response.json().catch(() => null)) as {
+          entries?: ProjectEpicHistoryEntrySnapshot[];
+        } | null;
+
+        if (!response.ok || !payload?.entries) {
+          throw new Error("epic-history-load-failed");
+        }
+
+        const entries = payload.entries;
+        setHistoryByEpicId((previousHistory) => ({
+          ...previousHistory,
+          [epicId]: entries,
+        }));
+      } catch {
+        setHistoryErrorByEpicId((previousErrors) => ({
+          ...previousErrors,
+          [epicId]: "Could not load epic history.",
+        }));
+      } finally {
+        historyRequestsRef.current.delete(epicId);
+        setHistoryLoadingEpicIds((previousIds) => {
+          const nextIds = new Set(previousIds);
+          nextIds.delete(epicId);
+          return nextIds;
+        });
+      }
+    },
+    [projectId]
+  );
+
+  const invalidateEpicHistory = useCallback((epicId: string) => {
+    setHistoryByEpicId((previousHistory) => {
+      if (!(epicId in previousHistory)) {
+        return previousHistory;
+      }
+      const nextHistory = { ...previousHistory };
+      delete nextHistory[epicId];
+      return nextHistory;
+    });
+    setHistoryErrorByEpicId((previousErrors) => {
+      if (!(epicId in previousErrors)) {
+        return previousErrors;
+      }
+      const nextErrors = { ...previousErrors };
+      delete nextErrors[epicId];
+      return nextErrors;
+    });
+  }, []);
+
+  useEffect(() => {
+    for (const epicId of expandedEpicIds) {
+      if (
+        historyByEpicId[epicId] === undefined &&
+        !historyLoadingEpicIds.has(epicId) &&
+        !historyErrorByEpicId[epicId]
+      ) {
+        void loadEpicHistory(epicId);
+      }
+    }
+  }, [
+    expandedEpicIds,
+    historyByEpicId,
+    historyErrorByEpicId,
+    historyLoadingEpicIds,
+    loadEpicHistory,
+  ]);
+
   useEffect(() => {
     function handleProjectEpicsReconciled(event: Event) {
       const detail = (event as CustomEvent<ProjectEpicsReconciledDetail>).detail;
@@ -342,6 +581,9 @@ export function ProjectEpicPanel({
       }
 
       if (activity.domain === "epic") {
+        if (activity.entityId) {
+          invalidateEpicHistory(activity.entityId);
+        }
         if (activity.action === "deleted" && activity.entityId) {
           const deletedId = activity.entityId;
           setLocalEpics((previousEpics) =>
@@ -386,7 +628,7 @@ export function ProjectEpicPanel({
         handleRemoteProjectActivity
       );
     };
-  }, [editingEpicId, pendingDeleteEpicId, projectId]);
+  }, [editingEpicId, invalidateEpicHistory, pendingDeleteEpicId, projectId]);
 
   const toggleEpicDetails = (epicId: string) => {
     setExpandedEpicIds((previousIds) => {
@@ -505,6 +747,7 @@ export function ProjectEpicPanel({
           epic.id === updatedEpic.id ? updatedEpic : epic
         )
       );
+      invalidateEpicHistory(updatedEpic.id);
       cancelEdit(true);
       refreshProjectData();
       pushToast({
@@ -549,6 +792,7 @@ export function ProjectEpicPanel({
       setLocalEpics((previousEpics) =>
         previousEpics.filter((epic) => epic.id !== pendingDeleteEpic.id)
       );
+      invalidateEpicHistory(pendingDeleteEpic.id);
       setPendingDeleteEpicId(null);
       refreshProjectData();
       pushToast({
@@ -604,6 +848,7 @@ export function ProjectEpicPanel({
           existingEpic.id === updatedEpic.id ? updatedEpic : existingEpic
         )
       );
+      invalidateEpicHistory(updatedEpic.id);
       if (editingEpicId === updatedEpic.id) {
         cancelEdit(true);
       }
@@ -627,6 +872,67 @@ export function ProjectEpicPanel({
     }
   };
 
+  const handleAssignLead = async (
+    epic: ProjectEpicPanelEpic,
+    lead: { kind: "human" | "agent"; id: string }
+  ) => {
+    if (leadPendingEpicId) {
+      return;
+    }
+
+    setLeadPendingEpicId(epic.id);
+
+    try {
+      const response = await fetchProjectActivityMutation(
+        projectId,
+        `/api/projects/${projectId}/epics/${epic.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: epic.name,
+            description: epic.description,
+            lead,
+          }),
+        }
+      );
+
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        epic?: ProjectEpicPanelEpic;
+      } | null;
+
+      if (!response.ok || !payload?.epic) {
+        throw new Error(
+          mapEpicMutationError(payload?.error ?? "epic-update-failed")
+        );
+      }
+
+      const updatedEpic = payload.epic;
+      setLocalEpics((previousEpics) =>
+        previousEpics.map((existingEpic) =>
+          existingEpic.id === updatedEpic.id ? updatedEpic : existingEpic
+        )
+      );
+      invalidateEpicHistory(updatedEpic.id);
+      refreshProjectData();
+      pushToast({
+        variant: "success",
+        message: "Lead updated.",
+      });
+    } catch (error) {
+      pushToast({
+        variant: "error",
+        message:
+          error instanceof Error ? error.message : "Could not update lead.",
+      });
+    } finally {
+      setLeadPendingEpicId(null);
+    }
+  };
+
   return (
     <Card
       className={PROJECT_SECTION_CARD_CLASS}
@@ -637,7 +943,8 @@ export function ProjectEpicPanel({
         isSavingEdit ||
         Boolean(pendingDeleteEpicId) ||
         isDeleting ||
-        isUpdatingArchive
+        isUpdatingArchive ||
+        leadPendingEpicId !== null
           ? "true"
           : undefined
       }
@@ -821,6 +1128,9 @@ export function ProjectEpicPanel({
                 );
                 const titleId = `epic-${epic.id}-title`;
                 const detailsId = `epic-${epic.id}-details`;
+                const epicHistory = historyByEpicId[epic.id];
+                const epicHistoryError = historyErrorByEpicId[epic.id];
+                const isHistoryLoading = historyLoadingEpicIds.has(epic.id);
 
                 return (
                   <article
@@ -1043,7 +1353,48 @@ export function ProjectEpicPanel({
                             </span>{" "}
                             task{epic.taskCount === 1 ? "" : "s"} completed
                           </p>
+                          <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-2">
+                            <h4 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                              Lead
+                            </h4>
+                            {canEdit ? (
+                              <MeetingTodoAssigneeChip
+                                id={`epic-${epic.id}-lead`}
+                                value={epic.lead}
+                                options={actorOptions}
+                                identityRole="lead"
+                                allowClear={false}
+                                pending={leadPendingEpicId === epic.id}
+                                onChange={(nextLead) => {
+                                  if (
+                                    nextLead &&
+                                    nextLead.kind !== "participant"
+                                  ) {
+                                    void handleAssignLead(epic, nextLead);
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <MeetingTodoAssigneeChipReadonly
+                                actor={epic.lead}
+                                identityRole="lead"
+                              />
+                            )}
+                          </div>
                         </section>
+
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                          <EpicAuthorInline
+                            label="Created by"
+                            author={epic.createdBy}
+                            timestamp={epic.createdAt}
+                          />
+                          <EpicAuthorInline
+                            label="Last edited by"
+                            author={epic.updatedBy}
+                            timestamp={epic.updatedAt}
+                          />
+                        </div>
 
                         <div
                           id={detailsId}
@@ -1088,6 +1439,76 @@ export function ProjectEpicPanel({
                               <p className="text-sm text-muted-foreground">
                                 No tasks linked yet.
                               </p>
+                            )}
+                          </section>
+
+                          <section className="min-w-0 space-y-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <h4 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                                History
+                              </h4>
+                              {isHistoryLoading ? (
+                                <span className="shrink-0 text-xs text-muted-foreground">
+                                  Loading...
+                                </span>
+                              ) : null}
+                            </div>
+                            {epicHistoryError ? (
+                              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2">
+                                <p className="text-sm text-destructive">
+                                  {epicHistoryError}
+                                </p>
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() =>
+                                    void loadEpicHistory(epic.id, true)
+                                  }
+                                >
+                                  Retry
+                                </Button>
+                              </div>
+                            ) : epicHistory === undefined ? (
+                              <p className="text-sm text-muted-foreground">
+                                Loading history...
+                              </p>
+                            ) : epicHistory.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">
+                                No history yet.
+                              </p>
+                            ) : (
+                              <ul className="space-y-1.5">
+                                {epicHistory.map((entry) => (
+                                  <li
+                                    key={entry.id}
+                                    className="flex min-w-0 items-center gap-2 text-xs leading-5 text-muted-foreground"
+                                  >
+                                    <EpicHistoryActorAvatar
+                                      actor={entry.actor}
+                                    />
+                                    <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">
+                                      <span className="font-medium text-foreground">
+                                        {entry.actor
+                                          ? entry.actor.displayName
+                                          : "Unknown actor"}
+                                      </span>
+                                      {entry.actor?.kind === "agent" ? (
+                                        <span> (agent)</span>
+                                      ) : null}{" "}
+                                      {describeEpicHistoryAction(entry)}{" "}
+                                      <time
+                                        dateTime={entry.version}
+                                        className="text-muted-foreground/80"
+                                      >
+                                        {formatEpicHistoryTimestamp(
+                                          entry.version
+                                        )}
+                                      </time>
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
                             )}
                           </section>
                         </div>
