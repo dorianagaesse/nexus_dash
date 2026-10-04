@@ -33,9 +33,6 @@ async function createEpicArchiveFixture(userId: string) {
       description: "Deliver the rollout that has already finished.",
       createdByUserId: userId,
       updatedByUserId: userId,
-      leadKind: "human",
-      leadUserId: userId,
-      leadDisplayNameSnapshot: "Project owner",
     },
     select: { id: true },
   });
@@ -46,9 +43,6 @@ async function createEpicArchiveFixture(userId: string) {
       description: "Carry the initiative that is still in flight.",
       createdByUserId: userId,
       updatedByUserId: userId,
-      leadKind: "human",
-      leadUserId: userId,
-      leadDisplayNameSnapshot: "Project owner",
     },
     select: { id: true },
   });

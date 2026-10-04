@@ -41,9 +41,6 @@ async function createEpicChipFixture(page: Page): Promise<{
       description: "Cover linked-task references and deep links.",
       createdByUserId: userId,
       updatedByUserId: userId,
-      leadKind: "human",
-      leadUserId: userId,
-      leadDisplayNameSnapshot: "Project owner",
     },
     select: { id: true },
   });

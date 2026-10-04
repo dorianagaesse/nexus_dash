@@ -11,10 +11,7 @@ import {
   createProjectEpic,
   listProjectEpics,
 } from "@/lib/services/project-epic-service";
-import {
-  serializeProjectEpicEventActor,
-  serializeProjectEpicResponse,
-} from "@/lib/services/project-epic-response";
+import { serializeProjectEpicResponse } from "@/lib/services/project-epic-response";
 
 interface ProjectEpicRequestBody {
   name?: unknown;
@@ -88,10 +85,7 @@ export async function POST(
     domain: "epic",
     action: "created",
     entityId: result.data.epic.id,
-    payload: {
-      epic: serializedEpic,
-      actor: serializeProjectEpicEventActor(result.data.actor),
-    },
+    payload: { epic: serializedEpic },
   });
 
   return NextResponse.json(

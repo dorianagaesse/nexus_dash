@@ -11,11 +11,6 @@ import {
 } from "@/components/project-epic-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { logServerError } from "@/lib/observability/logger";
-import type { ProjectActorSummary } from "@/lib/project-actor";
-import {
-  listProjectActors,
-  loadProjectActorRegistry,
-} from "@/lib/services/project-actor-service";
 import { listProjectEpics } from "@/lib/services/project-epic-service";
 import { serializeProjectEpicResponse } from "@/lib/services/project-epic-response";
 
@@ -31,24 +26,14 @@ export async function ProjectEpicPanelSection({
   canEdit,
 }: ProjectEpicPanelSectionProps) {
   let serializableEpics: ProjectEpicPanelEpic[] = [];
-  let actorOptions: ProjectActorSummary[] = [];
   let loadError: string | null = null;
 
   try {
-    const [epics, assignableActors] = await Promise.all([
-      listProjectEpics(projectId, actorUserId, undefined, {
-        includeArchived: true,
-      }),
-      listProjectActors({
-        actorUserId,
-        projectId,
-        loadRegistry: ({ db, projectId: registryProjectId }) =>
-          loadProjectActorRegistry({ db, projectId: registryProjectId }),
-      }),
-    ]);
+    const epics = await listProjectEpics(projectId, actorUserId, undefined, {
+      includeArchived: true,
+    });
 
     serializableEpics = epics.map(serializeProjectEpicResponse);
-    actorOptions = assignableActors;
   } catch (error) {
     logServerError("ProjectEpicPanelSection", error, {
       actorUserId,
@@ -62,7 +47,6 @@ export async function ProjectEpicPanelSection({
       projectId={projectId}
       canEdit={canEdit}
       epics={serializableEpics}
-      actorOptions={actorOptions}
       loadError={loadError}
     />
   );

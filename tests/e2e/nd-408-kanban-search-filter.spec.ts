@@ -32,9 +32,6 @@ async function createBoardEpic(projectId: string, name: string, userId: string) 
       description: `${name} coverage epic`,
       createdByUserId: userId,
       updatedByUserId: userId,
-      leadKind: "human",
-      leadUserId: userId,
-      leadDisplayNameSnapshot: "Project owner",
     },
     select: {
       id: true,

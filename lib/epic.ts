@@ -1,4 +1,3 @@
-import type { ProjectActorSummary } from "@/lib/project-actor";
 import type { TaskAuthorSummary } from "@/lib/task-author";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
@@ -35,28 +34,8 @@ export interface ProjectEpicSnapshot {
   linkedTasks: EpicTaskSummary[];
   createdAt: string;
   updatedAt: string;
-  lead: ProjectActorSummary | null;
-  leadAssignedAt: string | null;
   createdBy: TaskAuthorSummary;
   updatedBy: TaskAuthorSummary;
-}
-
-export interface ProjectEpicHistoryActorSnapshot {
-  kind: "human" | "agent";
-  id: string;
-  displayName: string;
-}
-
-export interface ProjectEpicHistoryEntrySnapshot {
-  id: string;
-  action: "created" | "updated" | "deleted" | "moved" | "reordered";
-  actor: ProjectActorSummary | null;
-  version: string;
-  operation: "archived" | "restored" | null;
-  leadChange: {
-    previous: ProjectEpicHistoryActorSnapshot | null;
-    next: ProjectEpicHistoryActorSnapshot | null;
-  } | null;
 }
 
 export interface TaskEpicSummary {

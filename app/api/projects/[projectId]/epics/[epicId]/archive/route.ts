@@ -10,10 +10,7 @@ import {
   archiveProjectEpic,
   unarchiveProjectEpic,
 } from "@/lib/services/project-epic-service";
-import {
-  serializeProjectEpicEventActor,
-  serializeProjectEpicResponse,
-} from "@/lib/services/project-epic-response";
+import { serializeProjectEpicResponse } from "@/lib/services/project-epic-response";
 
 export async function POST(
   request: NextRequest,
@@ -41,20 +38,14 @@ export async function POST(
   }
 
   const serializedEpic = serializeProjectEpicResponse(result.data.epic);
-  const version = result.data.changed
-    ? await recordProjectActivityEventVersion({
-        actorUserId: principalResult.principal.actorUserId,
-        projectId,
-        domain: "epic",
-        action: "updated",
-        entityId: epicId,
-        payload: {
-          epic: serializedEpic,
-          actor: serializeProjectEpicEventActor(result.data.actor),
-          operation: "archived",
-        },
-      })
-    : undefined;
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId,
+    domain: "epic",
+    action: "updated",
+    entityId: epicId,
+    payload: { epic: serializedEpic },
+  });
 
   return NextResponse.json(
     {
@@ -92,20 +83,14 @@ export async function DELETE(
   }
 
   const serializedEpic = serializeProjectEpicResponse(result.data.epic);
-  const version = result.data.changed
-    ? await recordProjectActivityEventVersion({
-        actorUserId: principalResult.principal.actorUserId,
-        projectId,
-        domain: "epic",
-        action: "updated",
-        entityId: epicId,
-        payload: {
-          epic: serializedEpic,
-          actor: serializeProjectEpicEventActor(result.data.actor),
-          operation: "restored",
-        },
-      })
-    : undefined;
+  const version = await recordProjectActivityEventVersion({
+    actorUserId: principalResult.principal.actorUserId,
+    projectId,
+    domain: "epic",
+    action: "updated",
+    entityId: epicId,
+    payload: { epic: serializedEpic },
+  });
 
   return NextResponse.json(
     {

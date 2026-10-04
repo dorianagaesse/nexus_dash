@@ -280,8 +280,6 @@ describe("agent-onboarding contract", () => {
       "DELETE /api/projects/{projectId}/epics/{epicId}",
       "POST /api/projects/{projectId}/epics/{epicId}/archive",
       "DELETE /api/projects/{projectId}/epics/{epicId}/archive",
-      "GET /api/projects/{projectId}/epics/{epicId}/history",
-      "PATCH /api/projects/{projectId}/epics/{epicId}/lead",
     ]);
 
     expect(
@@ -307,94 +305,6 @@ describe("agent-onboarding contract", () => {
     expect(
       archivePath.delete.responses[200].content["application/json"].schema.$ref
     ).toBe("#/components/schemas/ProjectEpicArchiveResponse");
-  });
-
-  test("documents the epic leadership and history contract", () => {
-    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
-
-    const historyEndpoint = AGENT_API_ENDPOINTS.find(
-      (entry) =>
-        entry.method === "GET" &&
-        entry.path === "/api/projects/{projectId}/epics/{epicId}/history"
-    );
-    expect(historyEndpoint).toMatchObject({
-      tag: "Epics",
-      requiredScopes: ["task:read"],
-    });
-
-    const leadEndpoint = AGENT_API_ENDPOINTS.find(
-      (entry) =>
-        entry.method === "PATCH" &&
-        entry.path === "/api/projects/{projectId}/epics/{epicId}/lead"
-    );
-    expect(leadEndpoint).toMatchObject({
-      tag: "Epics",
-      requiredScopes: ["task:write"],
-      requestContentType: "application/json",
-    });
-
-    const epicRecord = document.components.schemas.ProjectEpicRecord;
-    expect(epicRecord.required).toEqual(
-      expect.arrayContaining([
-        "lead",
-        "leadAssignedAt",
-        "createdBy",
-        "updatedBy",
-      ])
-    );
-    expect(epicRecord.properties.lead.anyOf[0].$ref).toBe(
-      "#/components/schemas/ProjectActorSummary"
-    );
-    expect(epicRecord.properties.leadAssignedAt.type).toEqual([
-      "string",
-      "null",
-    ]);
-
-    const historyPath =
-      document.paths["/api/projects/{projectId}/epics/{epicId}/history"].get;
-    const takeParameter = historyPath.parameters.find(
-      (parameter: { name?: string }) => parameter.name === "take"
-    ) as unknown as {
-      schema: { minimum: number; maximum: number; default: number };
-    };
-    expect(takeParameter.schema).toMatchObject({
-      minimum: 1,
-      maximum: 50,
-      default: 20,
-    });
-    expect(
-      historyPath.responses[200].content["application/json"].schema.$ref
-    ).toBe("#/components/schemas/ProjectEpicHistoryResponse");
-
-    const historyEntry = document.components.schemas.ProjectEpicHistoryEntry;
-    expect(historyEntry.required).toEqual([
-      "id",
-      "action",
-      "actor",
-      "version",
-      "operation",
-      "leadChange",
-    ]);
-    expect(historyEntry.properties.operation.enum).toEqual([
-      "archived",
-      "restored",
-      null,
-    ]);
-    expect(
-      historyEntry.properties.leadChange.anyOf[0].$ref
-    ).toBe("#/components/schemas/ProjectEpicHistoryLeadChange");
-
-    const leadPath =
-      document.paths["/api/projects/{projectId}/epics/{epicId}/lead"].patch;
-    expect(
-      leadPath.requestBody.content["application/json"].schema.$ref
-    ).toBe("#/components/schemas/ProjectEpicLeadUpdateRequest");
-    expect(
-      leadPath.responses[200].content["application/json"].schema.$ref
-    ).toBe("#/components/schemas/ProjectEpicUpdateResponse");
-    expect(
-      document.components.schemas.ProjectEpicLeadUpdateRequest.required
-    ).toEqual(["lead"]);
   });
 
   test("documents epic linked-task reference contract", () => {

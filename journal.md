@@ -9384,67 +9384,37 @@ Low-value entries to avoid going forward:
 - Full validation: `git diff --check`, `npm run lint`, `npm run rls:check`, full unit test suite (222 files passed, 1818 tests passed), `npm run test:coverage` (93.78% statements, 84.46% branches, 95.42% functions, 94.08% lines), and Next.js production build (`npx next build --webpack`) all passed. Local Playwright E2E is delegated to GitHub Actions CI quality gates due to local Postgres container requirement.
 - Merge-forward (2026-10-03): merged latest `origin/main` (ND-372 #563 `0713511`), resolved conflict in `journal.md`, addressed and resolved Copilot review threads on GitHub.
 
-## 2026-10-04 - ND-185: Epic leadership accountability with event-backed history
+## 2026-10-04 - ND-185: Epic create/update attribution
 
-- Added an explicit accountable lead to every epic: `leadKind`/`leadUserId`/
-  `leadCredentialId`/`leadDisplayNameSnapshot`/`leadAssignedBy*`/
-  `leadAssignedAt` columns plus durable `createdBy*`/`updatedBy*` provenance on
-  the `Epic` model (migration `20261004120000_nd185_epic_leadership`). The
-  creating actor becomes the default lead on create (including agent
-  credentials acting through the API); PATCH can reassign to a current project
-  member or an active project agent, and there is no clear/unassign path.
-- Epic lifecycle and lead-change events are recorded into the existing
-  `ProjectActivityEvent` table with the durable `actor` payload and a
-  `leadChange {previous, next}` payload, then surfaced through a new
-  epic-scoped endpoint `GET /api/projects/[projectId]/epics/[epicId]/history`
-  (default 20 entries, max 50, task:read for agents, viewer role for humans).
-  Inactive former leads stay attached through the display-name snapshot and
-  render with a needs-reassignment state instead of silently dropping.
-- Linked task assignees remain unrelated to epic leadership; the panel now
-  shows Lead, Created by, and Last edited by rows plus a compact per-epic
-  History list inside the details disclosure.
-- Tests: epic service suite (28), epic route suite (14), epic panel component
-  suite (29), new `tests/e2e/nd-185-epic-leadership.spec.ts` (3 specs covering
-  default lead + provenance, chip reassignment persisted with history, and the
-  inactive-lead state), plus seed updates in `nd-408`, `nd-458`, `nd-459`, and
-  `task-335` E2E specs for the new required provenance columns.
-- Validation: `npm run lint`, `npm run rls:check`, full unit suite (224 files,
-  1860 tests passed), `npm run test:coverage` (93.77% statements, 84.46%
-  branches, 95.42% functions, 94.07% lines), `NODE_ENV=test` production build,
-  and local Playwright E2E for all five epic-touching specs passed against the
-  local Postgres (CI parity env from `quality-gates.yml`).
-- Follow-up filed: the owner-driven offboarding resolution
-  (`app.resolve_project_actor_responsibilities`) does not yet include epic
-  leads in its responsibility inventory.
-
-## 2026-10-04 - ND-185 review round: Copilot findings, migration invariants, hydration fix
-
-- Lead changes moved to a dedicated `PATCH /api/projects/[projectId]/epics/[epicId]/lead`
-  sub-resource so the generic epic PATCH can never carry a stale lead field
-  that clobbers concurrently edited name/description; a no-op reassignment
-  writes nothing and records no event.
-- Amended migration `20261004120000_nd185_epic_leadership`: backfills
-  lead/provenance invariants for pre-existing rows, tightens
-  `Epic_lead_actor_check` (kind + display-name snapshot always present, at
-  most one actor id, actor id must match kind), and adds the
-  `ProjectActivityEvent(projectId, domain, entityId, version)` composite index
-  backing the epic history query. Applied to the shared local database via a
-  checksum-safe delta instead of a destructive reset.
-- Archive/restore now report `changed`; no-op transitions skip event recording
-  while still returning the current activity version header.
-- Epic panel drops stale history responses that race an invalidation (per-epic
-  generation counter) and refetches after a failed load.
-- Root-caused a local-only E2E flake (~25% on `nd-459`): the new provenance
-  rows rendered `toLocaleDateString()` during SSR, and where the Node locale
-  differs from the browser's (fr-FR vs en-US) React #418 regenerated the page
-  tree after load, eating clicks and racing geometry reads. Fixed with
-  `suppressHydrationWarning` on the provenance `<time>` element; disclosure
-  toggles in the epic-touching specs additionally retry across the hydration
-  window via `tests/e2e/helpers/interaction-helpers.ts`.
-- Agent onboarding docs now cover the lead PATCH and history GET endpoints,
-  lead/provenance fields on `ProjectEpicRecord`, and the new request/response
-  schemas.
-- Validation: `npm run lint`, `npm run rls:check`, full unit suite (225 files,
-  1868 tests passed), `npm run test:coverage`, `NODE_ENV=test` production
-  build, and the five epic-touching E2E specs repeated 4x each (64/64 passed,
-  zero React hydration errors).
+- Epics now durably record who created and last mutated them: `createdBy*`/
+  `updatedBy*` user and ApiCredential columns with display-name label
+  snapshots on the `Epic` model (migration
+  `20261004120000_nd185_epic_attribution`), mirroring the Task model. The
+  create/update/archive service paths resolve the acting actor through
+  `resolveProjectMutationActor` and write the user id plus any agent
+  credential id/label; pre-existing epics backfill attribution from the
+  project owner, and both user columns are NOT NULL with RESTRICT foreign
+  keys.
+- The epic panel renders "Created by" and "Last edited by" inline rows
+  (avatar, display name, local date) at the end of the epic details
+  disclosure; the compact face keeps its original layout.
+- Scope change before merge: the initially reviewed epic-lead columns and
+  reassignment PATCH, and the epic-scoped history endpoint, were withdrawn by
+  the product owner as workflow-free metadata (epics are "just a group of
+  tasks"); a full epic history stays a future idea. The hydration fix
+  (`suppressHydrationWarning` on the provenance date) and the
+  disclosure-toggle retry helper in `tests/e2e/helpers/interaction-helpers.ts`
+  are retained.
+- Tests: epic service attribution coverage (human create, agent-credential
+  create, update and archive writes, list mapping), epic panel coverage
+  (attribution inside the disclosure, agent label rendering), and
+  `tests/e2e/nd-185-epic-attribution.spec.ts` (UI create/edit lifecycle with
+  DB assertions and agent snapshot rendering); lead/history tests and the
+  `nd-185-epic-leadership` E2E spec removed.
+- Validation: `npm run lint`, `npm run rls:check`, full unit suite (226 files:
+  224 passed, 2 skipped; 1844 tests passed), `npm run test:coverage` (93.77%
+  statements, 84.46% branches, 95.42% functions, 94.07% lines), production
+  build, and the five epic-touching Playwright specs (15/15) passed locally
+  against the local Postgres, which was realigned to the rescoped migration
+  via a checksum-safe delta (lead columns and the composite
+  ProjectActivityEvent index removed, credential indexes added).

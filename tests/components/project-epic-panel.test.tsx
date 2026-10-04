@@ -67,35 +67,31 @@ function setInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-const humanLeadActor = {
-  kind: "human" as const,
-  id: "user-lead",
-  displayName: "Dorian Agaesse",
-  usernameTag: "dorian#0001",
-  avatarSeed: "seed-lead",
-  status: "active" as const,
-  isAssignable: true,
-};
-
-const secondHumanActor = {
-  kind: "human" as const,
-  id: "user-second",
-  displayName: "Sam Second",
-  usernameTag: "sam#0002",
-  avatarSeed: "seed-second",
-  status: "active" as const,
-  isAssignable: true,
-};
-
-const humanTaskAuthor = {
-  id: "user-lead",
+const testEpicAuthor = {
   kind: "user" as const,
-  displayName: "Dorian Agaesse",
+  id: "user-1",
+  displayName: "dorian",
   usernameTag: "dorian#0001",
-  avatarSeed: "seed-lead",
+  avatarSeed: "seed-1",
   agentCredentialId: null,
   agentCredentialLabel: null,
   owner: null,
+};
+
+const testEpicAgentAuthor = {
+  kind: "agent" as const,
+  id: "cred-1",
+  displayName: "Release Agent (agent)",
+  usernameTag: null,
+  avatarSeed: "nexusdash-agent-comment-avatar",
+  agentCredentialId: "cred-1",
+  agentCredentialLabel: "Release Agent",
+  owner: {
+    id: "user-1",
+    displayName: "dorian",
+    usernameTag: "dorian#0001",
+    avatarSeed: "seed-1",
+  },
 };
 
 const epicWithDenseLinkedTasks = {
@@ -120,10 +116,8 @@ const epicWithDenseLinkedTasks = {
   archivedAt: null,
   createdAt: "2026-07-31T08:00:00.000Z",
   updatedAt: "2026-07-31T08:00:00.000Z",
-  lead: humanLeadActor,
-  leadAssignedAt: "2026-07-31T08:00:00.000Z",
-  createdBy: humanTaskAuthor,
-  updatedBy: humanTaskAuthor,
+  createdBy: testEpicAuthor,
+  updatedBy: testEpicAuthor,
 };
 
 function findButton(container: HTMLElement, labelFragment: string) {
@@ -152,7 +146,6 @@ describe("project-epic-panel", () => {
         projectId: "project-1",
         canEdit: true,
         epics: [],
-        actorOptions: [],
       })
     );
 
@@ -183,7 +176,6 @@ describe("project-epic-panel", () => {
         projectId: "project-1",
         canEdit: true,
         epics: [],
-        actorOptions: [],
       })
     );
 
@@ -211,7 +203,6 @@ describe("project-epic-panel", () => {
         projectId: "project-1",
         canEdit: true,
         epics: [],
-        actorOptions: [],
       })
     );
 
@@ -235,7 +226,6 @@ describe("project-epic-panel", () => {
         projectId: "project-1",
         canEdit: false,
         epics: [epicWithDenseLinkedTasks],
-        actorOptions: [],
       })
     );
 
@@ -296,7 +286,6 @@ describe("project-epic-panel", () => {
         projectId: "project-1",
         canEdit: true,
         epics: [epicWithDenseLinkedTasks, secondEpic],
-        actorOptions: [],
       })
     );
 
@@ -397,7 +386,6 @@ describe("project-epic-panel", () => {
         projectId,
         canEdit: true,
         epics: [emptyEpic],
-        actorOptions: [],
       })
     );
 
@@ -449,7 +437,6 @@ describe("project-epic-panel", () => {
         projectId: "project-1",
         canEdit: true,
         epics: [epicWithDenseLinkedTasks],
-        actorOptions: [],
       })
     );
 
@@ -551,7 +538,6 @@ describe("project-epic-panel", () => {
         projectId,
         canEdit: true,
         epics: [emptyEpic],
-        actorOptions: [],
       })
     );
 
@@ -562,6 +548,90 @@ describe("project-epic-panel", () => {
     ).toBe("1 of 1 tasks completed");
 
     await act(async () => root.unmount());
+  });
+});
+
+describe("project-epic-panel attribution", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    projectSectionExpandedMock.isExpanded = true;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.innerHTML = "";
+  });
+
+  test("shows created and last-edited attribution inside the details disclosure", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const details = document.getElementById("epic-epic-1-details");
+    expect(details?.hidden).toBe(true);
+
+    const disclosure = container.querySelector(
+      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    );
+    await act(async () => {
+      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(details?.hidden).toBe(false);
+    expect(details?.textContent).toContain("Created by");
+    expect(details?.textContent).toContain("Last edited by");
+    expect(details?.textContent).toContain("dorian");
+    expect(container.textContent).not.toContain("(agent)");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("labels agent attribution with the durable credential snapshot", async () => {
+    const agentEpic = {
+      ...epicWithDenseLinkedTasks,
+      id: "epic-agent",
+      name: "Agent-authored epic",
+      createdBy: testEpicAgentAuthor,
+      updatedBy: testEpicAgentAuthor,
+    };
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [agentEpic],
+      })
+    );
+
+    await act(async () => {
+      container
+        .querySelector(
+          `button[aria-label="Show details for ${agentEpic.name}"]`
+        )
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const details = document.getElementById("epic-epic-agent-details");
+    expect(details?.textContent).toContain("Created by");
+    expect(details?.textContent).toContain("Release Agent (agent)");
+    expect(
+      details?.querySelector('[data-agent-avatar="true"]')
+    ).not.toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
   });
 });
 
@@ -592,7 +662,6 @@ describe("project-epic-panel archive controls", () => {
         projectId: "project-1",
         canEdit: true,
         epics: [epicWithDenseLinkedTasks, archivedEpic],
-        actorOptions: [],
       })
     );
 
@@ -633,7 +702,6 @@ describe("project-epic-panel archive controls", () => {
         projectId: "project-1",
         canEdit: false,
         epics: [epicWithDenseLinkedTasks, archivedEpic],
-        actorOptions: [],
       })
     );
 
@@ -684,7 +752,6 @@ describe("project-epic-panel archive controls", () => {
         projectId: "project-1",
         canEdit: true,
         epics: [epicWithDenseLinkedTasks],
-        actorOptions: [],
       })
     );
 
@@ -747,7 +814,6 @@ describe("project-epic-panel archive controls", () => {
         projectId: "project-1",
         canEdit: true,
         epics: [epicWithDenseLinkedTasks],
-        actorOptions: [],
       })
     );
 
@@ -796,7 +862,6 @@ describe("project-epic-panel archive controls", () => {
         projectId: "project-1",
         canEdit: true,
         epics: [archivedEpic],
-        actorOptions: [],
       })
     );
 
@@ -849,7 +914,6 @@ describe("project-epic-panel archive controls", () => {
         projectId: "project-1",
         canEdit: false,
         epics: [epicWithDenseLinkedTasks, archivedEpic],
-        actorOptions: [],
       })
     );
 
@@ -908,7 +972,6 @@ describe("project-epic-panel overlong linked-task titles", () => {
         projectId: "project-1",
         canEdit: false,
         epics: [buildEpicWithLongTitle(title)],
-        actorOptions: [],
       })
     ).then(async () => {
       const disclosure = container.querySelector<HTMLElement>(
@@ -967,7 +1030,6 @@ describe("project-epic-panel overlong linked-task titles", () => {
         projectId: "project-1",
         canEdit: false,
         epics: [epicWithDenseLinkedTasks],
-        actorOptions: [],
       })
     );
 
@@ -999,7 +1061,6 @@ describe("project-epic-panel overlong linked-task titles", () => {
         projectId: "project-1",
         canEdit: false,
         epics: [epicWithDenseLinkedTasks],
-        actorOptions: [],
       })
     );
 
@@ -1030,7 +1091,6 @@ describe("project-epic-panel linked-task chip activation", () => {
         projectId: "project-1",
         canEdit: false,
         epics: [epicWithDenseLinkedTasks],
-        actorOptions: [],
       })
     );
 
@@ -1164,10 +1224,8 @@ describe("project-epic-panel linked-task chip activation", () => {
       archivedAt: null,
       createdAt: "2026-10-01T00:00:00.000Z",
       updatedAt: "2026-10-01T00:00:00.000Z",
-      lead: humanLeadActor,
-      leadAssignedAt: "2026-10-01T00:00:00.000Z",
-      createdBy: humanTaskAuthor,
-      updatedBy: humanTaskAuthor,
+      createdBy: testEpicAuthor,
+      updatedBy: testEpicAuthor,
     };
     const updatedEpic = {
       ...initialEpic,
@@ -1187,7 +1245,6 @@ describe("project-epic-panel linked-task chip activation", () => {
         projectId,
         canEdit: true,
         epics: [initialEpic],
-        actorOptions: [],
       })
     );
 
@@ -1234,10 +1291,8 @@ describe("project-epic-panel linked-task chip activation", () => {
       archivedAt: null,
       createdAt: "2026-10-01T00:00:00.000Z",
       updatedAt: "2026-10-01T00:00:00.000Z",
-      lead: humanLeadActor,
-      leadAssignedAt: "2026-10-01T00:00:00.000Z",
-      createdBy: humanTaskAuthor,
-      updatedBy: humanTaskAuthor,
+      createdBy: testEpicAuthor,
+      updatedBy: testEpicAuthor,
     };
     const updatedEpic = {
       ...initialEpic,
@@ -1260,7 +1315,6 @@ describe("project-epic-panel linked-task chip activation", () => {
         projectId,
         canEdit: true,
         epics: [initialEpic],
-        actorOptions: [],
       })
     );
 
@@ -1303,10 +1357,8 @@ describe("project-epic-panel linked-task chip activation", () => {
       archivedAt: null,
       createdAt: "2026-10-01T00:00:00.000Z",
       updatedAt: "2026-10-01T00:00:00.000Z",
-      lead: humanLeadActor,
-      leadAssignedAt: "2026-10-01T00:00:00.000Z",
-      createdBy: humanTaskAuthor,
-      updatedBy: humanTaskAuthor,
+      createdBy: testEpicAuthor,
+      updatedBy: testEpicAuthor,
     };
     const backgroundReconciledEpic = {
       ...initialEpic,
@@ -1335,7 +1387,6 @@ describe("project-epic-panel linked-task chip activation", () => {
         projectId,
         canEdit: true,
         epics: [initialEpic],
-        actorOptions: [],
       })
     );
 
@@ -1393,10 +1444,8 @@ describe("project-epic-panel linked-task chip activation", () => {
       archivedAt: null,
       createdAt: "2026-10-01T00:00:00.000Z",
       updatedAt: "2026-10-01T00:00:00.000Z",
-      lead: humanLeadActor,
-      leadAssignedAt: "2026-10-01T00:00:00.000Z",
-      createdBy: humanTaskAuthor,
-      updatedBy: humanTaskAuthor,
+      createdBy: testEpicAuthor,
+      updatedBy: testEpicAuthor,
     };
 
     const fetchMock = vi.fn().mockResolvedValue({
@@ -1412,7 +1461,6 @@ describe("project-epic-panel linked-task chip activation", () => {
         projectId,
         canEdit: true,
         epics: [initialEpic],
-        actorOptions: [],
       })
     );
 
@@ -1448,378 +1496,5 @@ describe("project-epic-panel linked-task chip activation", () => {
       root.unmount();
     });
     vi.unstubAllGlobals();
-  });
-});
-
-describe("project-epic-panel lead accountability and history", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    projectSectionExpandedMock.isExpanded = true;
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    document.body.innerHTML = "";
-  });
-
-  test("shows the accountable lead to viewers without mutation controls", async () => {
-    const { container, root } = createTestRenderer();
-
-    await renderWithRoot(
-      root,
-      React.createElement(ProjectEpicPanel, {
-        projectId: "project-1",
-        canEdit: false,
-        epics: [epicWithDenseLinkedTasks],
-        actorOptions: [humanLeadActor, secondHumanActor],
-      })
-    );
-
-    const leadRow = container.querySelector('[data-identity-role="lead"]');
-    expect(leadRow?.textContent).toContain("Dorian Agaesse");
-    expect(
-      container.querySelector('[data-meeting-todo-assignee-chip="true"]')
-    ).toBeNull();
-    expect(container.textContent).toContain("Initiative lead");
-    expect(container.textContent).toContain("Created by");
-    expect(container.textContent).toContain("Last edited by");
-
-    await act(async () => root.unmount());
-  });
-
-  test("reassigns the epic lead through the PATCH endpoint", async () => {
-    const updatedEpic = {
-      ...epicWithDenseLinkedTasks,
-      lead: secondHumanActor,
-      leadAssignedAt: "2026-10-02T09:00:00.000Z",
-    };
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ epic: updatedEpic }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    const { container, root } = createTestRenderer();
-
-    await renderWithRoot(
-      root,
-      React.createElement(ProjectEpicPanel, {
-        projectId: "project-1",
-        canEdit: true,
-        epics: [epicWithDenseLinkedTasks],
-        actorOptions: [humanLeadActor, secondHumanActor],
-      })
-    );
-
-    const chipTrigger = container.querySelector(
-      '[data-meeting-todo-assignee-chip="true"]'
-    );
-    expect(chipTrigger).not.toBeNull();
-    expect(chipTrigger?.textContent).toContain("Dorian Agaesse");
-
-    await act(async () => {
-      chipTrigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    const option = Array.from(
-      document.body.querySelectorAll('[role="option"]')
-    ).find((element) => element.textContent?.includes("Sam Second"));
-    expect(option).not.toBeUndefined();
-
-    await act(async () => {
-      option?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      `/api/projects/project-1/epics/${epicWithDenseLinkedTasks.id}/lead`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          lead: { kind: "human", id: secondHumanActor.id },
-        }),
-      }
-    );
-    expect(pushToastMock).toHaveBeenCalledWith({
-      variant: "success",
-      message: "Lead updated.",
-    });
-    expect(routerRefreshMock).toHaveBeenCalled();
-    expect(chipTrigger?.textContent).toContain("Sam Second");
-
-    await act(async () => root.unmount());
-  });
-
-  test("renders epic history when details expand", async () => {
-    const historyEntries = [
-      {
-        id: "event-created",
-        action: "created" as const,
-        actor: humanLeadActor,
-        version: "2026-10-01T12:00:00.000Z",
-        operation: null,
-        leadChange: null,
-      },
-      {
-        id: "event-lead",
-        action: "updated" as const,
-        actor: {
-          kind: "agent" as const,
-          id: "cred-9",
-          displayName: "Release Agent",
-          usernameTag: null,
-          avatarSeed: null,
-          status: "active" as const,
-          isAssignable: true,
-        },
-        version: "2026-10-02T12:00:00.000Z",
-        operation: null,
-        leadChange: {
-          previous: {
-            kind: "human" as const,
-            id: "user-lead",
-            displayName: "Dorian Agaesse",
-          },
-          next: {
-            kind: "agent" as const,
-            id: "cred-9",
-            displayName: "Release Agent",
-          },
-        },
-      },
-    ];
-    const fetchMock = vi.fn().mockImplementation(async (input: unknown) => {
-      const url = String(input);
-      if (url.endsWith("/history")) {
-        return {
-          ok: true,
-          json: async () => ({ entries: historyEntries }),
-        };
-      }
-      return {
-        ok: true,
-        json: async () => ({ epics: [epicWithDenseLinkedTasks] }),
-      };
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    const { container, root } = createTestRenderer();
-
-    await renderWithRoot(
-      root,
-      React.createElement(ProjectEpicPanel, {
-        projectId: "project-1",
-        canEdit: false,
-        epics: [epicWithDenseLinkedTasks],
-        actorOptions: [],
-      })
-    );
-
-    const disclosure = container.querySelector<HTMLElement>(
-      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
-    );
-    await act(async () => {
-      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    await act(async () => {});
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      `/api/projects/project-1/epics/${epicWithDenseLinkedTasks.id}/history`
-    );
-    expect(container.textContent).toContain("History");
-    expect(container.textContent).toContain("created the epic");
-    expect(container.textContent).toContain("set the lead to Release Agent");
-    expect(container.textContent).toContain("(agent)");
-
-    await act(async () => root.unmount());
-  });
-
-  test("recovers from a failed history load via retry", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        json: async () => ({ error: "epic-history-failed" }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          entries: [
-            {
-              id: "event-created",
-              action: "created",
-              actor: humanLeadActor,
-              version: "2026-10-01T12:00:00.000Z",
-              operation: null,
-              leadChange: null,
-            },
-          ],
-        }),
-      });
-    vi.stubGlobal("fetch", fetchMock);
-    const { container, root } = createTestRenderer();
-
-    await renderWithRoot(
-      root,
-      React.createElement(ProjectEpicPanel, {
-        projectId: "project-1",
-        canEdit: false,
-        epics: [epicWithDenseLinkedTasks],
-        actorOptions: [],
-      })
-    );
-
-    const disclosure = container.querySelector<HTMLElement>(
-      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
-    );
-    await act(async () => {
-      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    await act(async () => {});
-
-    expect(container.textContent).toContain("Could not load epic history.");
-
-    await act(async () => {
-      findButton(container, "Retry")?.dispatchEvent(
-        new MouseEvent("click", { bubbles: true })
-      );
-    });
-    await act(async () => {});
-
-    expect(container.textContent).toContain("created the epic");
-    expect(container.textContent).not.toContain("Could not load epic history.");
-
-    await act(async () => root.unmount());
-  });
-
-  test("discards a stale history response that races a lead reassignment", async () => {
-    const updatedEpic = {
-      ...epicWithDenseLinkedTasks,
-      lead: secondHumanActor,
-      leadAssignedAt: "2026-10-02T09:00:00.000Z",
-    };
-    let resolveStaleHistory:
-      | ((response: { ok: boolean; json: () => Promise<unknown> }) => void)
-      | null = null;
-    const staleHistoryPromise = new Promise<{
-      ok: boolean;
-      json: () => Promise<unknown>;
-    }>((resolve) => {
-      resolveStaleHistory = resolve;
-    });
-    let historyCallCount = 0;
-    const fetchMock = vi.fn().mockImplementation((input: unknown) => {
-      const url = String(input);
-      if (url.endsWith("/history")) {
-        historyCallCount += 1;
-        if (historyCallCount === 1) {
-          return staleHistoryPromise;
-        }
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            entries: [
-              {
-                id: "event-lead-sam",
-                action: "updated",
-                actor: humanLeadActor,
-                version: "2026-10-02T12:00:00.000Z",
-                operation: null,
-                leadChange: {
-                  previous: {
-                    kind: "human",
-                    id: humanLeadActor.id,
-                    displayName: "Dorian Agaesse",
-                  },
-                  next: {
-                    kind: "human",
-                    id: secondHumanActor.id,
-                    displayName: "Sam Second",
-                  },
-                },
-              },
-            ],
-          }),
-        });
-      }
-      if (url.endsWith("/lead")) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ epic: updatedEpic }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ epics: [epicWithDenseLinkedTasks] }),
-      });
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    const { container, root } = createTestRenderer();
-
-    await renderWithRoot(
-      root,
-      React.createElement(ProjectEpicPanel, {
-        projectId: "project-1",
-        canEdit: true,
-        epics: [epicWithDenseLinkedTasks],
-        actorOptions: [humanLeadActor, secondHumanActor],
-      })
-    );
-
-    const disclosure = container.querySelector<HTMLElement>(
-      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
-    );
-    await act(async () => {
-      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    await act(async () => {});
-    expect(historyCallCount).toBe(1);
-
-    const chipTrigger = container.querySelector(
-      '[data-meeting-todo-assignee-chip="true"]'
-    );
-    await act(async () => {
-      chipTrigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    const option = Array.from(
-      document.body.querySelectorAll('[role="option"]')
-    ).find((element) => element.textContent?.includes("Sam Second"));
-    await act(async () => {
-      option?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    await act(async () => {
-      resolveStaleHistory?.({
-        ok: true,
-        json: async () => ({
-          entries: [
-            {
-              id: "event-stale",
-              action: "updated",
-              actor: humanLeadActor,
-              version: "2026-10-01T12:00:00.000Z",
-              operation: null,
-              leadChange: {
-                previous: null,
-                next: {
-                  kind: "human",
-                  id: "user-stale",
-                  displayName: "Stale Lead",
-                },
-              },
-            },
-          ],
-        }),
-      });
-    });
-    await act(async () => {});
-    await act(async () => {});
-
-    expect(historyCallCount).toBe(2);
-    expect(container.textContent).toContain("set the lead to Sam Second");
-    expect(container.textContent).not.toContain("Stale Lead");
-
-    await act(async () => root.unmount());
   });
 });
