@@ -654,6 +654,141 @@ describe("TaskDetailModal comments", () => {
     });
   });
 
+  test("separates comment composer submit from task save flow (ND-142)", async () => {
+    const { root } = createTestRenderer();
+    const onSubmitTaskComment = vi.fn();
+    const onSaveTask = vi.fn();
+
+    await renderWithRoot(root, [], {
+      canEdit: true,
+      isEditMode: false,
+      newTaskComment: "Draft comment content",
+      onSubmitTaskComment,
+      onSaveTask,
+    });
+
+    const composer = document.querySelector('[data-testid="task-comment-composer"]');
+    expect(composer).not.toBeNull();
+
+    const addCommentButton = findButtonByText("Add comment");
+    expect(addCommentButton).not.toBeUndefined();
+
+    // Verify Save changes button is NOT rendered in view mode
+    const saveButton = findButtonByText("Save changes");
+    expect(saveButton).toBeUndefined();
+
+    // Verify footer only contains Close
+    const closeButton = findButtonByText("Close");
+    expect(closeButton).not.toBeUndefined();
+
+    // Click Add comment
+    await act(async () => {
+      addCommentButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onSubmitTaskComment).toHaveBeenCalledOnce();
+    expect(onSaveTask).not.toHaveBeenCalled();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("hides comment composer and renders task save flow when in edit mode (ND-142)", async () => {
+    const { root } = createTestRenderer();
+    const onSubmitTaskComment = vi.fn();
+    const onSaveTask = vi.fn();
+
+    await renderWithRoot(root, [], {
+      canEdit: true,
+      isEditMode: true,
+      onSubmitTaskComment,
+      onSaveTask,
+    });
+
+    // In edit mode, comment composer must NOT be rendered
+    const composer = document.querySelector('[data-testid="task-comment-composer"]');
+    expect(composer).toBeNull();
+
+    const addCommentButton = findButtonByText("Add comment");
+    expect(addCommentButton).toBeUndefined();
+
+    // Save changes and Cancel buttons must be present in edit mode footer
+    const saveButton = findButtonByText("Save changes");
+    expect(saveButton).not.toBeUndefined();
+
+    const cancelButton = findButtonByText("Cancel");
+    expect(cancelButton).not.toBeUndefined();
+
+    // Click Save changes
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onSaveTask).toHaveBeenCalledOnce();
+    expect(onSubmitTaskComment).not.toHaveBeenCalled();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("meets comments section accessibility semantics and aria attributes (ND-142)", async () => {
+    const { root } = createTestRenderer();
+
+    await renderWithRoot(root, [], {
+      canEdit: true,
+      isEditMode: false,
+      newTaskComment: "Draft comment",
+      isSubmittingTaskComment: false,
+    });
+
+    // Check section accessibility heading
+    const section = document.querySelector('section[aria-labelledby="task-comments-heading"]');
+    expect(section).not.toBeNull();
+
+    const heading = document.getElementById("task-comments-heading");
+    expect(heading?.tagName.toLowerCase()).toBe("h3");
+    expect(heading?.textContent?.trim()).toBe("Comments");
+
+    // Check composer region role and label
+    const composer = document.querySelector('[data-testid="task-comment-composer"]');
+    expect(composer?.getAttribute("role")).toBe("region");
+    expect(composer?.getAttribute("aria-label")).toBe("Comment composer");
+
+    // Check Add comment button aria-label and idle state
+    const addCommentButton = findButtonByText("Add comment");
+    expect(addCommentButton?.getAttribute("aria-label")).toBe("Add comment");
+    expect(addCommentButton?.hasAttribute("aria-busy")).toBe(false);
+
+    // Re-render in submitting state
+    await renderWithRoot(root, [], {
+      canEdit: true,
+      isEditMode: false,
+      newTaskComment: "Draft comment",
+      isSubmittingTaskComment: true,
+    });
+
+    const postingButton = findButtonByText("Posting...");
+    expect(postingButton?.getAttribute("aria-label")).toBe("Posting comment...");
+    expect(postingButton?.getAttribute("aria-busy")).toBe("true");
+
+    // Re-render in edit mode with isUpdatingTask: true
+    await renderWithRoot(root, [], {
+      canEdit: true,
+      isEditMode: true,
+      isUpdatingTask: true,
+    });
+
+    const savingButton = findButtonByText("Saving...");
+    expect(savingButton?.getAttribute("aria-label")).toBe("Saving changes...");
+    expect(savingButton?.getAttribute("aria-busy")).toBe("true");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   describe("editing comments", () => {
     const user1Comment: TaskComment = {
       id: "comment-1",
@@ -892,3 +1027,4 @@ describe("TaskDetailModal comments", () => {
     });
   });
 });
+
