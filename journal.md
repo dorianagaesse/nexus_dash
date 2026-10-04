@@ -9384,6 +9384,18 @@ Low-value entries to avoid going forward:
 - Full validation: `git diff --check`, `npm run lint`, `npm run rls:check`, full unit test suite (222 files passed, 1818 tests passed), `npm run test:coverage` (93.78% statements, 84.46% branches, 95.42% functions, 94.08% lines), and Next.js production build (`npx next build --webpack`) all passed. Local Playwright E2E is delegated to GitHub Actions CI quality gates due to local Postgres container requirement.
 - Merge-forward (2026-10-03): merged latest `origin/main` (ND-372 #563 `0713511`), resolved conflict in `journal.md`, addressed and resolved Copilot review threads on GitHub.
 
+## 2026-10-03 - ND-142: Task modal comment composer vs form save separation and accessibility audit
+
+- Addressed external UX feedback on task detail modal comments and save flow distinction (ND-142 / TASK-368).
+- Audited the view mode vs edit mode architecture established post-ND-484: confirmed comment composer submission (`onSubmitTaskComment`) is strictly isolated to read-only view mode and publishes comments independently without touching the task save form. In edit mode, the comment composer is absent and the modal footer renders the 50/50 "Save changes" and "Cancel" controls.
+- Enhanced accessibility semantics in `components/kanban/task-detail-modal.tsx`:
+  - Upgraded Comments section heading from a generic `<p>` tag to an `<h3>` with `id="task-comments-heading"`, labeled via `<section aria-labelledby="task-comments-heading">`.
+  - Added `role="region"` and `aria-label="Comment composer"` to the comment composer shell.
+  - Added `aria-busy` and explicit `aria-label` attributes to the "Add comment" button (`aria-label="Posting comment..."` during submission) and "Save changes" button (`aria-label="Saving changes..."` during update).
+- Unit and component tests: added 3 new test cases to `tests/components/task-detail-modal-comments.test.tsx` verifying comment submit vs save separation, edit-mode composer exclusion, and the audited accessibility semantics.
+- Full validation: `git diff --check`, `npm run lint`, `npm run rls:check`, full unit test suite (221 files passed, 1816 tests passed), `npm run test:coverage` (93.78% statements, 84.46% branches, 95.42% functions, 94.08% lines), and Next.js production build (`npx next build --webpack`) all passed.
+- Merge-forward (2026-10-04): merged `origin/main` (through ND-141 #568 `b3e072c`), resolved route stream and journal merge conflicts. All automated component and regression tests pass cleanly.
+
 ## 2026-10-04 - ND-185: Epic create/update attribution
 
 - Epics now durably record who created and last mutated them: `createdBy*`/
@@ -9431,3 +9443,8 @@ Low-value entries to avoid going forward:
   `tests/e2e/helpers/interaction-helpers.ts`. Validated locally: both tests
   three times consecutively (6/6) plus the ND-185 attribution spec (2/2)
   against a local `next start` build.
+- Merge-forward (2026-10-04): merged `origin/main` (ND-142 #565, `f064d7b`)
+  after the PR went CONFLICTING; only `journal.md` conflicted (both sides
+  appended entries), resolved by keeping main's ND-142 entry above this one.
+  Main's task-detail-modal changes merged cleanly; CI re-validates the merge
+  head.
