@@ -5,6 +5,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { createClient } from "@supabase/supabase-js";
 import pg from "pg";
+import WebSocket from "ws";
 
 const baseUrl = process.env.PREVIEW_AUTH_ORIGIN;
 const databaseUrl = process.env.MIGRATION_DATABASE_URL;
@@ -76,6 +77,7 @@ async function tokenFor(user) {
 function clientFor(token) {
   const client = createClient(token.supabaseUrl, token.supabasePublishableKey, {
     accessToken: async () => token.token,
+    realtime: { transport: WebSocket },
     auth: {
       autoRefreshToken: false,
       detectSessionInUrl: false,
@@ -140,6 +142,7 @@ try {
     memberToken.supabaseUrl,
     memberToken.supabasePublishableKey,
     {
+      realtime: { transport: WebSocket },
       auth: {
         autoRefreshToken: false,
         detectSessionInUrl: false,
