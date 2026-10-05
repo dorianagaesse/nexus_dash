@@ -71,8 +71,10 @@ export interface TaskCommentSummary {
   id: string;
   content: string;
   createdAt: Date;
+  updatedAt: Date | null;
   author: TaskCommentAuthorSummary;
   attachments: TaskAttachmentResponsePayload[];
+  agentMentions: Array<{ credentialId: string; label: string }>;
 }
 
 interface PendingMentionNotification {
@@ -145,6 +147,7 @@ function mapTaskComment(input: {
   id: string;
   content: string;
   createdAt: Date;
+  updatedAt?: Date | null;
   authorAgentCredentialId: string | null;
   authorAgentCredentialLabel: string | null;
   author: {
@@ -164,6 +167,10 @@ function mapTaskComment(input: {
     mimeType: string | null;
     sizeBytes: number | null;
   }>;
+  agentMentions?: Array<{
+    agentCredentialId: string | null;
+    agentLabel: string;
+  }>;
 }, projectId: string, taskId: string): TaskCommentSummary {
   const owner = mapTaskPersonSummary(input.author)!;
   const agentCredentialLabel = normalizeText(input.authorAgentCredentialLabel);
@@ -175,9 +182,18 @@ function mapTaskComment(input: {
     id: input.id,
     content: input.content,
     createdAt: input.createdAt,
+    updatedAt: input.updatedAt ?? null,
     attachments: (input.attachments ?? []).map((attachment) =>
       mapTaskAttachmentResponse(projectId, taskId, attachment)
     ),
+    agentMentions: (input.agentMentions ?? [])
+      .filter((mention): mention is { agentCredentialId: string; agentLabel: string } =>
+        Boolean(mention.agentCredentialId)
+      )
+      .map((mention) => ({
+        credentialId: mention.agentCredentialId,
+        label: mention.agentLabel,
+      })),
     author: isAgentComment
       ? {
           id: input.authorAgentCredentialId ?? input.author.id,
@@ -639,6 +655,7 @@ export async function listTaskCommentsForProject(input: {
           id: true,
           content: true,
           createdAt: true,
+          updatedAt: true,
           authorAgentCredentialId: true,
           authorAgentCredentialLabel: true,
           author: {
@@ -661,6 +678,12 @@ export async function listTaskCommentsForProject(input: {
               url: true,
               mimeType: true,
               sizeBytes: true,
+            },
+          },
+          agentMentions: {
+            select: {
+              agentCredentialId: true,
+              agentLabel: true,
             },
           },
         },
@@ -818,11 +841,13 @@ export async function createTaskCommentForProject(input: {
             authorAgentCredentialId: actorCredentialId,
             authorAgentCredentialLabel: actorCredentialLabel,
             content,
+            updatedAt: null,
           },
           select: {
             id: true,
             content: true,
             createdAt: true,
+            updatedAt: true,
             authorAgentCredentialId: true,
             authorAgentCredentialLabel: true,
             author: {
@@ -923,7 +948,17 @@ export async function createTaskCommentForProject(input: {
         return {
           ok: true,
           data: {
-            comment: mapTaskComment(comment, input.projectId, input.taskId),
+            comment: mapTaskComment(
+              {
+                ...comment,
+                agentMentions: agentMentionResolution.data.map((m) => ({
+                  agentCredentialId: m.credentialId,
+                  agentLabel: m.label,
+                })),
+              },
+              input.projectId,
+              input.taskId
+            ),
             pendingNotifications,
           },
         };
@@ -948,6 +983,203 @@ export async function createTaskCommentForProject(input: {
       comment: result.data.comment,
     },
   };
+}
+
+export interface UpdateTaskCommentInput {
+  actorUserId: string;
+  projectId: string;
+  taskId: string;
+  commentId: string;
+  content: string;
+  agentMentionSelections?: TaskCommentAgentMentionSelection[];
+  agentAccess?: AgentProjectAccessContext;
+}
+
+export async function updateTaskCommentForProject(
+  input: UpdateTaskCommentInput
+): Promise<ServiceResult<{ comment: TaskCommentSummary }>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) {
+    return createError(401, "unauthorized");
+  }
+
+  const content =
+    coerceRichTextHtml(
+      typeof input.content === "string" ? input.content : ""
+    ) ?? "";
+  const contentText = richTextToPlainText(content);
+
+  if (contentText.length > MAX_TASK_COMMENT_LENGTH) {
+    return createError(400, "content-too-long");
+  }
+
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess: input.agentAccess,
+    projectId: input.projectId,
+    requiredScopes: ["task:write"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
+  }
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "editor",
+      db,
+    });
+    if (!access.ok) {
+      return createError(access.status, access.error);
+    }
+
+    const task = await db.task.findUnique({
+      where: { id: input.taskId },
+      select: {
+        id: true,
+        title: true,
+        projectId: true,
+      },
+    });
+
+    if (!task || task.projectId !== input.projectId) {
+      return createError(404, "task-not-found");
+    }
+
+    const existingComment = await db.taskComment.findUnique({
+      where: { id: input.commentId },
+      select: {
+        id: true,
+        taskId: true,
+        authorUserId: true,
+        authorAgentCredentialId: true,
+        authorAgentCredentialLabel: true,
+        attachments: { select: { id: true } },
+      },
+    });
+
+    if (!existingComment || existingComment.taskId !== input.taskId) {
+      return createError(404, "comment-not-found");
+    }
+
+    if (!contentText && existingComment.attachments.length === 0) {
+      return createError(400, "content-required");
+    }
+
+    const isAgentComment = Boolean(
+      existingComment.authorAgentCredentialId ||
+        normalizeText(existingComment.authorAgentCredentialLabel)
+    );
+
+    if (isAgentComment) {
+      if (
+        !input.agentAccess ||
+        !existingComment.authorAgentCredentialId ||
+        input.agentAccess.credentialId !== existingComment.authorAgentCredentialId
+      ) {
+        return createError(403, "forbidden");
+      }
+    } else {
+      if (input.agentAccess || existingComment.authorUserId !== actorUserId) {
+        return createError(403, "forbidden");
+      }
+    }
+
+    const agentMentionResolution = await resolveAgentMentionSelections({
+      db,
+      projectId: input.projectId,
+      contentText: decodeRichTextEntities(contentText),
+      selections: input.agentMentionSelections ?? [],
+    });
+    if (!agentMentionResolution.ok) {
+      return agentMentionResolution;
+    }
+
+    try {
+      let actorCredentialId: string | null = null;
+      let actorCredentialLabel: string | null = null;
+
+      if (input.agentAccess) {
+        actorCredentialId = input.agentAccess.credentialId;
+        actorCredentialLabel = await resolveAgentCredentialLabel({
+          db,
+          agentAccess: input.agentAccess,
+        });
+      }
+
+      const comment = await db.taskComment.update({
+        where: { id: input.commentId },
+        data: {
+          content,
+        },
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          updatedAt: true,
+          authorAgentCredentialId: true,
+          authorAgentCredentialLabel: true,
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              username: true,
+              usernameDiscriminator: true,
+              avatarSeed: true,
+            },
+          },
+          attachments: {
+            orderBy: [{ createdAt: "asc" }],
+            select: {
+              id: true,
+              commentId: true,
+              kind: true,
+              name: true,
+              url: true,
+              mimeType: true,
+              sizeBytes: true,
+            },
+          },
+        },
+      });
+
+      await syncTaskCommentAgentMentions({
+        db,
+        commentId: comment.id,
+        taskId: input.taskId,
+        desiredMentions: agentMentionResolution.data,
+        actor: {
+          userId: actorUserId,
+          credentialId: actorCredentialId,
+          credentialLabel: actorCredentialLabel,
+        },
+      });
+
+      await touchTaskActivity(db, input.taskId, actorUserId);
+      await touchProjectActivity({ db, projectId: input.projectId });
+
+      return {
+        ok: true,
+        data: {
+          comment: mapTaskComment(
+            {
+              ...comment,
+              agentMentions: agentMentionResolution.data.map((m) => ({
+                agentCredentialId: m.credentialId,
+                agentLabel: m.label,
+              })),
+            },
+            input.projectId,
+            input.taskId
+          ),
+        },
+      };
+    } catch (error) {
+      logServerError("updateTaskCommentForProject", error);
+      return createError(500, "comment-update-failed");
+    }
+  });
 }
 
 export interface TaskCommentReactionSummary {

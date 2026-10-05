@@ -337,6 +337,7 @@ describe("task comments route", () => {
         authorAgentCredentialId: null,
         authorAgentCredentialLabel: null,
         content: "<p>Ready for review</p>",
+        updatedAt: null,
       },
     }));
     expect(prismaMock.task.update).toHaveBeenCalledWith({

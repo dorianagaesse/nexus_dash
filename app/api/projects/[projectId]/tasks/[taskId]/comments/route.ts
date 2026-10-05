@@ -139,9 +139,13 @@ export async function GET(
         id: comment.id,
         content: comment.content,
         createdAt: comment.createdAt,
+        ...(comment.updatedAt ? { updatedAt: comment.updatedAt } : {}),
         author: comment.author,
         ...(comment.attachments.length > 0
           ? { attachments: comment.attachments }
+          : {}),
+        ...(comment.agentMentions.length > 0
+          ? { agentMentions: comment.agentMentions }
           : {}),
       })),
     },
@@ -200,9 +204,15 @@ export async function POST(
     id: result.data.comment.id,
     content: result.data.comment.content,
     createdAt: result.data.comment.createdAt,
+    ...(result.data.comment.updatedAt
+      ? { updatedAt: result.data.comment.updatedAt }
+      : {}),
     author: result.data.comment.author,
     ...(result.data.comment.attachments.length > 0
       ? { attachments: result.data.comment.attachments }
+      : {}),
+    ...(result.data.comment.agentMentions.length > 0
+      ? { agentMentions: result.data.comment.agentMentions }
       : {}),
   };
   const version = await recordProjectActivityEventVersion({

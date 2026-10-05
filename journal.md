@@ -3,6 +3,35 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-04 - ND-535: Edit task comments in the UI and API
+
+- Card `cmurfq7n8000604l5wl6nhs8u` under epic "Task and Activity Enhancements":
+  - Added nullable `updatedAt DateTime? @updatedAt` to `TaskComment` model in `prisma/schema.prisma` and applied migration `20261004100000_nd535_comment_updated_at` with UPDATE RLS policy `task_comment_update_policy`.
+  - Implemented `updateTaskCommentForProject` in `lib/services/project-task-comment-service.ts` enforcing author-only authorization (human user matching session or agent credential matching bearer token), rich-text length and content validation, agent mentions synchronization via `syncTaskCommentAgentMentions`, task activity stamping, and project activity event tracking.
+  - Added authenticated `PATCH /api/projects/{projectId}/tasks/{taskId}/comments/{commentId}` API endpoint and registered OpenAPI schemas and endpoint docs in `lib/agent-onboarding.ts`.
+  - Updated Kanban board UI and `TaskDetailModal` (`components/kanban/task-detail-modal.tsx`, `components/kanban-board.tsx`):
+    - Added edit button visible only to the comment's author when `canEdit` is true.
+    - Added inline edit form with `RichTextEditor`, Save and Cancel controls, pending state, and error handling.
+    - Formatted and displayed `(edited <timestamp>)` when `updatedAt` is present.
+    - Handled remote project activity events for updated task comments.
+  - Automated tests:
+    - Added comprehensive API route tests in `tests/api/task-comment-update.route.test.ts` (13 tests covering auth, agent credentials, project/task scoping, empty content, and validation).
+    - Added UI component tests in `tests/components/task-detail-modal-comments.test.tsx` (edit button authorization, inline edit form, error state, cancel, save, and edited timestamp rendering).
+    - Verified agent OpenAPI specs in `tests/api/agent-openapi.route.test.ts`.
+  - Code review refinement (Copilot review PR #572):
+    - Added payload validation in `PATCH /api/projects/{projectId}/tasks/{taskId}/comments/{commentId}` rejecting missing or non-string body content.
+    - Preserved existing `agentMentions` in `TaskCommentSummary` and `TaskComment` when editing comment text without altering mention tokens.
+    - Explicitly set `updatedAt: null` on new comment creation to prevent premature `@updatedAt` assignment.
+    - Blocked human takeover of comments created by deleted agent credentials by checking credential label and returning 403.
+    - Hardened modal UI: disabled other comments' Edit buttons while saving, guarded against concurrent draft submission, and disabled editor interactions during save.
+    - Updated modal test prop types in `tests/components/task-detail-modal-comments.test.tsx` and added test coverage for payload and deleted credential edge cases.
+  - Validation:
+    - `npm run lint`: passed (0 warnings, 0 errors).
+    - `npm run rls:check`: passed (inventory matched and verified).
+    - `npm test`: 225 test files passed, 1861 tests passed.
+    - `npm run test:coverage`: met all threshold targets.
+    - `npx next build --webpack`: successfully compiled and generated all 27 static routes.
+
 # 2026-10-04 - ND-402: Preserve milestone linkage after dragging onto roadmap
 
 - Task ND-402 (card `cmtkk0uqg000b04l1l4dvtbea`) under epic "Roadmap interaction refinement":
