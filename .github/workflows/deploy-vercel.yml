@@ -383,6 +383,9 @@ jobs:
           if [ -n "$PREVIEW_REALTIME_TRANSPORT" ]; then
             deployment_env=(-e "REALTIME_TRANSPORT=$PREVIEW_REALTIME_TRANSPORT")
           fi
+          if [ "$PREVIEW_REALTIME_TRANSPORT" = "broadcast" ]; then
+            deployment_env+=(-e "SUPABASE_REALTIME_TOKEN_TTL_SECONDS=60")
+          fi
           APP_VERSION="$APP_VERSION" \
           APP_ENV="$APP_ENV" \
           COMMIT_SHA="$COMMIT_SHA" \

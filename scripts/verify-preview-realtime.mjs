@@ -207,6 +207,9 @@ try {
   }
 
   const memberToken = await tokenFor(member);
+  const tokenLifetimeMs = Date.parse(memberToken.expiresAt) - Date.now();
+  assert(tokenLifetimeMs > 0 && tokenLifetimeMs <= 60_000,
+    `Preview token lifetime must be at most 60 seconds (received ${tokenLifetimeMs} ms)`);
   const outsiderToken = await tokenFor(outsider);
   const memberClient = await clientFor(memberToken);
   const outsiderClient = await clientFor(outsiderToken);
@@ -380,6 +383,18 @@ try {
   assert(!healthyRequests.some((request) => isActivityPoll(request, project.id)),
     "healthy Broadcast browser requested activity polling");
   console.log("Two browser sessions received project and notification changes over Broadcast without SSE or polling");
+
+  await memberPage.waitForRequest((request) =>
+    new URL(request.url()).pathname === "/api/realtime/token" &&
+    request.method() === "POST",
+    { timeout: 95_000 }
+  );
+  const renewedName = "ND-373 Browser renewed token";
+  await renameProject(ownerPage, project.id, renewedName);
+  await waitForProjectName(memberPage, renewedName);
+  assert(!healthyRequests.some(isStreamRequest),
+    "token renewal caused a fallback to SSE");
+  console.log("Short-lived browser token renewed and Broadcast remained live");
 
   const streamContext = await browserContextFor(member);
   await streamContext.route("**/api/realtime/token", (route) => route.abort());
