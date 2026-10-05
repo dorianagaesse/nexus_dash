@@ -357,12 +357,24 @@ try {
       sourceId: crypto.randomUUID(),
     },
   });
-  await memberPage.waitForFunction(() =>
-    [...document.querySelectorAll('a[href="/account/notifications"] .sr-only')]
-      .some((element) => element.textContent?.includes("2 unread notifications")),
-    null,
-    { timeout: 25_000 }
-  );
+  try {
+    await memberPage.waitForFunction(() =>
+      [...document.querySelectorAll('a[href^="/account/notifications"] .sr-only')]
+        .some((element) => element.textContent?.includes("2 unread notifications")),
+      null,
+      { timeout: 25_000 }
+    );
+  } catch (error) {
+    const summary = await memberPage.request.get(`${baseUrl}/api/account/notifications/summary`);
+    const snapshot = summary.ok() ? await summary.json() : null;
+    const badges = await memberPage.locator('a[href^="/account/notifications"] .sr-only').allTextContents();
+    console.error("Browser notification diagnostics", {
+      summaryStatus: summary.status(),
+      unreadCount: snapshot?.unreadCount,
+      badges,
+    });
+    throw error;
+  }
   assert(!healthyRequests.some(isStreamRequest),
     "healthy Broadcast browser requested an SSE stream");
   assert(!healthyRequests.some((request) => isActivityPoll(request, project.id)),
