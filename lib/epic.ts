@@ -1,3 +1,4 @@
+import type { TaskAuthorSummary } from "@/lib/task-author";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 export const EPIC_STATUSES = [
@@ -33,6 +34,8 @@ export interface ProjectEpicSnapshot {
   linkedTasks: EpicTaskSummary[];
   createdAt: string;
   updatedAt: string;
+  createdBy: TaskAuthorSummary;
+  updatedBy: TaskAuthorSummary;
 }
 
 export interface TaskEpicSummary {

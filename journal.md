@@ -9399,3 +9399,90 @@ Low-value entries to avoid going forward:
 - Unit and component tests: added `tests/components/projects-grid-client.test.tsx` (4 tests) and updated `tests/components/project-epic-panel.test.tsx` (20 tests) asserting secondary button classes and interactions.
 - Full validation: `git diff --check`, `npm run lint`, `npm run rls:check`, full unit test suite (222 files passed, 1818 tests passed), `npm run test:coverage` (93.78% statements, 84.46% branches, 95.42% functions, 94.08% lines), and Next.js production build (`npx next build --webpack`) all passed. Local Playwright E2E is delegated to GitHub Actions CI quality gates due to local Postgres container requirement.
 - Merge-forward (2026-10-03): merged latest `origin/main` (ND-372 #563 `0713511`), resolved conflict in `journal.md`, addressed and resolved Copilot review threads on GitHub.
+
+## 2026-10-03 - ND-142: Task modal comment composer vs form save separation and accessibility audit
+
+- Addressed external UX feedback on task detail modal comments and save flow distinction (ND-142 / TASK-368).
+- Audited the view mode vs edit mode architecture established post-ND-484: confirmed comment composer submission (`onSubmitTaskComment`) is strictly isolated to read-only view mode and publishes comments independently without touching the task save form. In edit mode, the comment composer is absent and the modal footer renders the 50/50 "Save changes" and "Cancel" controls.
+- Enhanced accessibility semantics in `components/kanban/task-detail-modal.tsx`:
+  - Upgraded Comments section heading from a generic `<p>` tag to an `<h3>` with `id="task-comments-heading"`, labeled via `<section aria-labelledby="task-comments-heading">`.
+  - Added `role="region"` and `aria-label="Comment composer"` to the comment composer shell.
+  - Added `aria-busy` and explicit `aria-label` attributes to the "Add comment" button (`aria-label="Posting comment..."` during submission) and "Save changes" button (`aria-label="Saving changes..."` during update).
+- Unit and component tests: added 3 new test cases to `tests/components/task-detail-modal-comments.test.tsx` verifying comment submit vs save separation, edit-mode composer exclusion, and the audited accessibility semantics.
+- Full validation: `git diff --check`, `npm run lint`, `npm run rls:check`, full unit test suite (221 files passed, 1816 tests passed), `npm run test:coverage` (93.78% statements, 84.46% branches, 95.42% functions, 94.08% lines), and Next.js production build (`npx next build --webpack`) all passed.
+- Merge-forward (2026-10-04): merged `origin/main` (through ND-141 #568 `b3e072c`), resolved route stream and journal merge conflicts. All automated component and regression tests pass cleanly.
+
+## 2026-10-04 - ND-185: Epic create/update attribution
+
+- Epics now durably record who created and last mutated them: `createdBy*`/
+  `updatedBy*` user and ApiCredential columns with display-name label
+  snapshots on the `Epic` model (the originally applied
+  `20261004120000_nd185_epic_leadership` migration, followed by
+  `20261004230000_nd185_withdraw_epic_leadership`), mirroring the Task model. The
+  create/update/archive service paths resolve the acting actor through
+  `resolveProjectMutationActor` and write the user id plus any agent
+  credential id/label; pre-existing epics backfill attribution from the
+  project owner, and both user columns are NOT NULL with RESTRICT foreign
+  keys.
+- The epic panel renders "Created by" and "Last edited by" inline rows
+  (avatar, display name, local date) at the end of the epic details
+  disclosure; the compact face keeps its original layout.
+- Scope change before merge: the initially reviewed epic-lead columns and
+  reassignment PATCH, and the epic-scoped history endpoint, were withdrawn by
+  the product owner as workflow-free metadata (epics are "just a group of
+  tasks"); a full epic history stays a future idea. The hydration fix
+  (`suppressHydrationWarning` on the provenance date) and the
+  disclosure-toggle retry helper in `tests/e2e/helpers/interaction-helpers.ts`
+  are retained.
+- Tests: epic service attribution coverage (human create, agent-credential
+  create, update and archive writes, list mapping), epic panel coverage
+  (attribution inside the disclosure, agent label rendering), and
+  `tests/e2e/nd-185-epic-attribution.spec.ts` (UI create/edit lifecycle with
+  DB assertions and agent snapshot rendering); lead/history tests and the
+  `nd-185-epic-leadership` E2E spec removed.
+- Validation: `npm run lint`, `npm run rls:check`, full unit suite (226 files:
+  224 passed, 2 skipped; 1844 tests passed), `npm run test:coverage` (93.77%
+  statements, 84.46% branches, 95.42% functions, 94.07% lines), production
+  build, and the five epic-touching Playwright specs (15/15) passed locally
+  against the local Postgres, which was realigned to the rescoped migration
+  via a checksum-safe delta (lead columns and the composite
+  ProjectActivityEvent index removed, credential indexes added).
+- CI unblock: E2E Smoke failed twice on
+  `tests/e2e/project-meeting-steward.spec.ts` at shifting lines. Root cause
+  is a pre-existing app race - the meeting-notes panel runs
+  `window.location.reload()` when a mutation echoes back as a remote activity
+  event, which closes the note dialog mid-assertion or collides with the
+  spec's own `page.reload()` (ERR_ABORTED / maybe frame was detached). Per
+  repo convention the race is fixed in the spec, not rerun: dialog-opening
+  clicks go through `clickUntilVisible`, facilitator toggles retry through a
+  new `toggleFacilitatorUntil` helper that re-opens the dialog when a reload
+  closes it, and reloads use a new retrying `reloadUntilLoaded` helper in
+  `tests/e2e/helpers/interaction-helpers.ts`. Validated locally: both tests
+  three times consecutively (6/6) plus the ND-185 attribution spec (2/2)
+  against a local `next start` build.
+- Merge-forward (2026-10-04): merged `origin/main` (ND-142 #565, `f064d7b`)
+  after the PR went CONFLICTING; only `journal.md` conflicted (both sides
+  appended entries), resolved by keeping main's ND-142 entry above this one.
+  Main's task-detail-modal changes merged cleanly; CI re-validates the merge
+  head.
+
+## 2026-10-05 - ND-185 Preview migration recovery
+
+- The 2026-10-04 20:32 UTC Preview deploy applied the original ND-185
+  leadership migration. The branch subsequently replaced that migration with
+  an attribution-only migration under a new name. Its first deployment attempt
+  failed with P3018 because `Epic.createdByUserId` already existed, and Prisma
+  then blocked ND-185 and ND-402 preview attempts with P3009.
+- Restored the exact applied migration file and added a later forward migration
+  to remove the withdrawn lead/history schema and add the retained credential
+  indexes. A temporary Preview-only, record-validated workflow action resolved
+  the failed replacement migration in
+  [run 37242260280](https://github.com/dorianagaesse/nexus_dash/actions/runs/37242260280);
+  it was removed after use. Production was untouched.
+- [Preview run 37242365832](https://github.com/dorianagaesse/nexus_dash/actions/runs/37242365832)
+  checked out `f90f393`, applied the forward migration, and verified the
+  immutable deployment, database readiness, and stable auth alias.
+- Validation: fresh local PostgreSQL migration chain, `npm run lint`,
+  `npm run rls:check`, `npm test` (1847 passed), `npm run test:coverage`
+  (93.77% statements, 84.46% branches), `npm run build`, and the PostgreSQL
+  tenant-isolation matrix passed.

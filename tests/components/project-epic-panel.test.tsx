@@ -67,6 +67,33 @@ function setInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+const testEpicAuthor = {
+  kind: "user" as const,
+  id: "user-1",
+  displayName: "dorian",
+  usernameTag: "dorian#0001",
+  avatarSeed: "seed-1",
+  agentCredentialId: null,
+  agentCredentialLabel: null,
+  owner: null,
+};
+
+const testEpicAgentAuthor = {
+  kind: "agent" as const,
+  id: "cred-1",
+  displayName: "Release Agent (agent)",
+  usernameTag: null,
+  avatarSeed: "nexusdash-agent-comment-avatar",
+  agentCredentialId: "cred-1",
+  agentCredentialLabel: "Release Agent",
+  owner: {
+    id: "user-1",
+    displayName: "dorian",
+    usernameTag: "dorian#0001",
+    avatarSeed: "seed-1",
+  },
+};
+
 const epicWithDenseLinkedTasks = {
   id: "epic-1",
   name: "Launch workspace sharing",
@@ -89,6 +116,8 @@ const epicWithDenseLinkedTasks = {
   archivedAt: null,
   createdAt: "2026-07-31T08:00:00.000Z",
   updatedAt: "2026-07-31T08:00:00.000Z",
+  createdBy: testEpicAuthor,
+  updatedBy: testEpicAuthor,
 };
 
 function findButton(container: HTMLElement, labelFragment: string) {
@@ -519,6 +548,90 @@ describe("project-epic-panel", () => {
     ).toBe("1 of 1 tasks completed");
 
     await act(async () => root.unmount());
+  });
+});
+
+describe("project-epic-panel attribution", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    projectSectionExpandedMock.isExpanded = true;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.innerHTML = "";
+  });
+
+  test("shows created and last-edited attribution inside the details disclosure", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [epicWithDenseLinkedTasks],
+      })
+    );
+
+    const details = document.getElementById("epic-epic-1-details");
+    expect(details?.hidden).toBe(true);
+
+    const disclosure = container.querySelector(
+      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    );
+    await act(async () => {
+      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(details?.hidden).toBe(false);
+    expect(details?.textContent).toContain("Created by");
+    expect(details?.textContent).toContain("Last edited by");
+    expect(details?.textContent).toContain("dorian");
+    expect(container.textContent).not.toContain("(agent)");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("labels agent attribution with the durable credential snapshot", async () => {
+    const agentEpic = {
+      ...epicWithDenseLinkedTasks,
+      id: "epic-agent",
+      name: "Agent-authored epic",
+      createdBy: testEpicAgentAuthor,
+      updatedBy: testEpicAgentAuthor,
+    };
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectEpicPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        epics: [agentEpic],
+      })
+    );
+
+    await act(async () => {
+      container
+        .querySelector(
+          `button[aria-label="Show details for ${agentEpic.name}"]`
+        )
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const details = document.getElementById("epic-epic-agent-details");
+    expect(details?.textContent).toContain("Created by");
+    expect(details?.textContent).toContain("Release Agent (agent)");
+    expect(
+      details?.querySelector('[data-agent-avatar="true"]')
+    ).not.toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
   });
 });
 
@@ -1111,6 +1224,8 @@ describe("project-epic-panel linked-task chip activation", () => {
       archivedAt: null,
       createdAt: "2026-10-01T00:00:00.000Z",
       updatedAt: "2026-10-01T00:00:00.000Z",
+      createdBy: testEpicAuthor,
+      updatedBy: testEpicAuthor,
     };
     const updatedEpic = {
       ...initialEpic,
@@ -1176,6 +1291,8 @@ describe("project-epic-panel linked-task chip activation", () => {
       archivedAt: null,
       createdAt: "2026-10-01T00:00:00.000Z",
       updatedAt: "2026-10-01T00:00:00.000Z",
+      createdBy: testEpicAuthor,
+      updatedBy: testEpicAuthor,
     };
     const updatedEpic = {
       ...initialEpic,
@@ -1240,6 +1357,8 @@ describe("project-epic-panel linked-task chip activation", () => {
       archivedAt: null,
       createdAt: "2026-10-01T00:00:00.000Z",
       updatedAt: "2026-10-01T00:00:00.000Z",
+      createdBy: testEpicAuthor,
+      updatedBy: testEpicAuthor,
     };
     const backgroundReconciledEpic = {
       ...initialEpic,
@@ -1325,6 +1444,8 @@ describe("project-epic-panel linked-task chip activation", () => {
       archivedAt: null,
       createdAt: "2026-10-01T00:00:00.000Z",
       updatedAt: "2026-10-01T00:00:00.000Z",
+      createdBy: testEpicAuthor,
+      updatedBy: testEpicAuthor,
     };
 
     const fetchMock = vi.fn().mockResolvedValue({

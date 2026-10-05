@@ -16,6 +16,30 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-10-04 - ND-185: Epic create/update attribution without a lead or history
+
+- Status: Accepted; the epic-lead and epic-history scope proposed on the open
+  PR was withdrawn before merge by the product owner.
+- Context: The collaboration audit (task-336 program) proposed an explicit
+  epic lead plus initiative-level history. Product review rejected both: epics
+  are groups of tasks, and nobody acts on epic ownership, so the metadata added
+  no workflow value. Created-by / last-edited-by attribution itself stays
+  useful and mirrors the Task model.
+- Decision: Every epic durably records who created and last mutated it:
+  `createdBy*`/`updatedBy*` user and ApiCredential columns with display-name
+  label snapshots (migration `20261004120000_nd185_epic_attribution`), written
+  by the create/update/archive service paths through
+  `resolveProjectMutationActor`. The panel renders "Created by" / "Last edited
+  by" rows inside the epic details disclosure; the compact face is unchanged.
+  There is no lead field, no reassignment endpoint, and no epic-scoped history
+  endpoint. A full epic history remains a future idea.
+- Consequences: Pre-existing epics backfill attribution from the project
+  owner. Epic mutation paths now require a resolvable acting actor (the same
+  actor resolution the Task model uses); agent-credential writes persist the
+  credential id and label snapshot.
+- Links: Nexus Dash card ND-185, migration
+  `20261004120000_nd185_epic_attribution`, `lib/services/project-epic-service.ts`.
+
 ## 2026-09-17 - ND-399: Comment attachments accept every supported file type
 
 - Status: Accepted; extends the ND-144 comment-attachment model without a

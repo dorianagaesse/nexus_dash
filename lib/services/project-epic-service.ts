@@ -15,7 +15,10 @@ import {
   requireProjectRole,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
+import { resolveProjectMutationActor } from "@/lib/services/project-actor-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
+import { mapTaskAuthorRecord, type TaskAuthorSummary } from "@/lib/task-author";
+import { taskPersonSummarySelect, type TaskPersonRecord } from "@/lib/task-person";
 import { type TaskStatus } from "@/lib/task-status";
 
 const MIN_EPIC_NAME_LENGTH = 2;
@@ -46,6 +49,8 @@ export interface ProjectEpicSummary {
   linkedTasks: EpicTaskSummary[];
   createdAt: Date;
   updatedAt: Date;
+  createdBy: TaskAuthorSummary;
+  updatedBy: TaskAuthorSummary;
 }
 
 interface CreateProjectEpicInput {
@@ -81,6 +86,28 @@ const epicTaskSelect = {
   createdAt: true,
 } as const;
 
+const epicProvenanceSelect = {
+  createdByCredentialId: true,
+  createdByCredentialLabel: true,
+  updatedByCredentialId: true,
+  updatedByCredentialLabel: true,
+  createdByUser: {
+    select: taskPersonSummarySelect,
+  },
+  updatedByUser: {
+    select: taskPersonSummarySelect,
+  },
+} as const;
+
+interface EpicProvenanceRecord {
+  createdByCredentialId: string | null;
+  createdByCredentialLabel: string | null;
+  updatedByCredentialId: string | null;
+  updatedByCredentialLabel: string | null;
+  createdByUser: TaskPersonRecord;
+  updatedByUser: TaskPersonRecord;
+}
+
 interface EpicCompletionTask {
   status: string;
   archivedAt: Date | null;
@@ -115,23 +142,25 @@ function isPrismaUniqueError(error: unknown): boolean {
   return "code" in error && (error as { code?: string }).code === "P2002";
 }
 
-function mapProjectEpicSummary(epic: {
-  id: string;
-  name: string;
-  description: string;
-  archivedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-  tasks: Array<{
+function mapProjectEpicSummary(
+  epic: {
     id: string;
-    referenceNumber: number;
-    title: string;
-    status: string;
+    name: string;
+    description: string;
     archivedAt: Date | null;
-    position?: number;
-    createdAt?: Date;
-  }>;
-}): ProjectEpicSummary {
+    createdAt: Date;
+    updatedAt: Date;
+    tasks: Array<{
+      id: string;
+      referenceNumber: number;
+      title: string;
+      status: string;
+      archivedAt: Date | null;
+      position?: number;
+      createdAt?: Date;
+    }>;
+  } & EpicProvenanceRecord
+): ProjectEpicSummary {
   const epicTasks = epic.tasks.map((task) => ({
     status: task.status as TaskStatus,
     archivedAt: task.archivedAt,
@@ -172,6 +201,16 @@ function mapProjectEpicSummary(epic: {
     linkedTasks,
     createdAt: epic.createdAt,
     updatedAt: epic.updatedAt,
+    createdBy: mapTaskAuthorRecord({
+      author: epic.createdByUser,
+      agentCredentialId: epic.createdByCredentialId,
+      agentCredentialLabel: epic.createdByCredentialLabel,
+    }),
+    updatedBy: mapTaskAuthorRecord({
+      author: epic.updatedByUser,
+      agentCredentialId: epic.updatedByCredentialId,
+      agentCredentialLabel: epic.updatedByCredentialLabel,
+    }),
   };
 }
 
@@ -342,6 +381,7 @@ async function readEpicSummaryById(input: {
       archivedAt: true,
       createdAt: true,
       updatedAt: true,
+      ...epicProvenanceSelect,
       tasks: {
         orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
         select: epicTaskSelect,
@@ -406,6 +446,7 @@ export async function listProjectEpics(
         archivedAt: true,
         createdAt: true,
         updatedAt: true,
+        ...epicProvenanceSelect,
         tasks: {
           orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
           select: epicTaskSelect,
@@ -462,12 +503,35 @@ export async function createProjectEpic(
       return uniquenessCheck;
     }
 
+    const mutationActor = await resolveProjectMutationActor({
+      db,
+      actorUserId,
+      projectId: input.projectId,
+      agentAccess: input.agentAccess,
+    });
+    if (!mutationActor.ok) {
+      return createError(mutationActor.status, mutationActor.error);
+    }
+
+    const agentAttribution = {
+      credentialId: mutationActor.actor.credentialId,
+      credentialLabel: mutationActor.actor.credentialId
+        ? mutationActor.actor.displayNameSnapshot
+        : null,
+    };
+
     try {
       const createdEpic = await db.epic.create({
         data: {
           projectId: input.projectId,
           name,
           description,
+          createdByUserId: actorUserId,
+          updatedByUserId: actorUserId,
+          createdByCredentialId: agentAttribution.credentialId,
+          createdByCredentialLabel: agentAttribution.credentialLabel,
+          updatedByCredentialId: agentAttribution.credentialId,
+          updatedByCredentialLabel: agentAttribution.credentialLabel,
         },
         select: {
           id: true,
@@ -565,6 +629,16 @@ export async function updateProjectEpic(
       return uniquenessCheck;
     }
 
+    const mutationActor = await resolveProjectMutationActor({
+      db,
+      actorUserId,
+      projectId: input.projectId,
+      agentAccess: input.agentAccess,
+    });
+    if (!mutationActor.ok) {
+      return createError(mutationActor.status, mutationActor.error);
+    }
+
     try {
       await db.epic.update({
         where: {
@@ -573,6 +647,11 @@ export async function updateProjectEpic(
         data: {
           name,
           description,
+          updatedByUserId: actorUserId,
+          updatedByCredentialId: mutationActor.actor.credentialId,
+          updatedByCredentialLabel: mutationActor.actor.credentialId
+            ? mutationActor.actor.displayNameSnapshot
+            : null,
         },
       });
 
@@ -722,10 +801,28 @@ async function setProjectEpicArchivedAt(
       return createError(404, "epic-not-found");
     }
 
+    const mutationActor = await resolveProjectMutationActor({
+      db,
+      actorUserId,
+      projectId: input.projectId,
+      agentAccess: input.agentAccess,
+    });
+    if (!mutationActor.ok) {
+      return createError(mutationActor.status, mutationActor.error);
+    }
+
     try {
       const isAlreadyInTargetState = input.archivedAt
         ? existingEpic.archivedAt != null
         : existingEpic.archivedAt == null;
+
+      const updatedByData = {
+        updatedByUserId: actorUserId,
+        updatedByCredentialId: mutationActor.actor.credentialId,
+        updatedByCredentialLabel: mutationActor.actor.credentialId
+          ? mutationActor.actor.displayNameSnapshot
+          : null,
+      };
 
       if (!isAlreadyInTargetState) {
         await db.epic.update({
@@ -735,12 +832,14 @@ async function setProjectEpicArchivedAt(
           data: input.archivedAt
             ? {
                 archivedAt: input.archivedAt,
+                ...updatedByData,
               }
             : {
                 archivedAt: null,
                 // Restoring is durable: the stale sweep keeps this epic active
                 // until it completes again (a newer completion moment).
                 autoArchiveExemptAt: new Date(),
+                ...updatedByData,
               },
         });
       }
