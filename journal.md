@@ -9486,3 +9486,19 @@ Low-value entries to avoid going forward:
   `npm run rls:check`, `npm test` (1847 passed), `npm run test:coverage`
   (93.77% statements, 84.46% branches), `npm run build`, and the PostgreSQL
   tenant-isolation matrix passed.
+
+## 2026-10-05 - ND-402 branch update after ND-185
+
+- Synced ND-402 with merged ND-185 (`dd52fe9`). The local rebase completed
+  without conflicts, but GitHub rejected its rewritten push because this branch
+  forbids force pushes. Merged `origin/main` into the existing PR branch instead;
+  the merge-forward tree is identical to the rebased tree (`03be8cc`).
+- [Preview run 37321953385](https://github.com/dorianagaesse/nexus_dash/actions/runs/37321953385)
+  checked out `03be8cc`, found no pending migrations, and verified the
+  immutable deployment, runtime database readiness, and stable auth alias.
+- Validation on a separate local PostgreSQL database: migration chain, lint,
+  RLS inventory and tenant-isolation matrix, 1851 unit tests, coverage, and
+  webpack production build passed. The local Turbopack build hit a worktree
+  PostCSS symlink path error; CI's standard build passed. Local Playwright
+  passed 103 tests with one expected skip, and PR quality, E2E, RLS, and
+  container jobs passed.
