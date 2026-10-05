@@ -1,24 +1,48 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
+import {
+  clickUntilVisible,
+  reloadUntilLoaded,
+} from "./helpers/interaction-helpers";
 import {
   createProjectFromProjectsPage,
   openNewestProjectDashboard,
   uniqueProjectName,
 } from "./helpers/project-helpers";
 
-// External meeting-note mutations reach the open dashboard as a live-refresh
-// reload. Waiting for "framenavigated" is not enough: same-document history
-// updates (like the router.refresh() that follows a local steward change) also
-// emit it, resolving the wait before the reload happens. Wait for a real
-// document load instead, and fall back to an explicit reload when the live
-// refresh never arrives.
+// A router.refresh() can emit framenavigated before the document reload caused
+// by external activity. Wait for the load event to avoid racing that reload.
 function waitForLiveRefreshReload(page: Page) {
   return page.waitForEvent("load", { timeout: 10_000 }).catch(() => null);
+}
+
+// Toggling the steward refreshes the section, and the activity feed can
+// hard-reload the page when the mutation echoes back as a remote event; either
+// can close the note dialog mid-assertion, so re-open it before retrying.
+async function toggleFacilitatorUntil(
+  page: Page,
+  noteName: RegExp,
+  trigger: Locator,
+  result: Locator
+): Promise<void> {
+  await expect(async () => {
+    if (!(await result.isVisible())) {
+      if (await trigger.isVisible()) {
+        await trigger.click({ timeout: 1_000 });
+      } else {
+        await page
+          .getByRole("button", { name: noteName })
+          .first()
+          .click({ timeout: 1_000 });
+      }
+    }
+    await expect(result).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
 }
 
 test("defaults steward to creator, supports reassignment, and filters by steward", async ({
@@ -145,9 +169,10 @@ test("defaults steward to creator, supports reassignment, and filters by steward
   await expect(
     page.getByRole("button", { name: /Owner retrospective/i })
   ).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "Clear meeting notes search" })
-    .click();
+  await clickUntilVisible(
+    page.getByRole("button", { name: "Clear meeting notes search" }),
+    page.getByRole("button", { name: /Owner retrospective/i })
+  );
   await expect(
     page.getByRole("button", { name: /Owner retrospective/i })
   ).toBeVisible();
@@ -156,24 +181,34 @@ test("defaults steward to creator, supports reassignment, and filters by steward
     .getByRole("button", { name: /Stewardship kickoff/i })
     .first();
   await expect(noteCard).toBeVisible();
-  await noteCard.click();
   const facilitatorToggle = page.getByRole("button", {
     name: `Make ${collaborator.username} steward / facilitator`,
   });
+  await clickUntilVisible(noteCard, facilitatorToggle);
   await expect(facilitatorToggle).toBeVisible();
   await facilitatorToggle.hover();
   await expect(
     page.getByRole("tooltip", { name: "Make steward" })
   ).toBeVisible();
-  await facilitatorToggle.click();
   const clearFacilitator = page.getByRole("button", {
     name: `Remove ${collaborator.username} as steward / facilitator`,
   });
+  await toggleFacilitatorUntil(
+    page,
+    /Stewardship kickoff/i,
+    facilitatorToggle,
+    clearFacilitator
+  );
   await expect(clearFacilitator).toBeVisible();
   await expect(clearFacilitator).toHaveAttribute("aria-pressed", "true");
   await clearFacilitator.hover();
   await expect(page.getByRole("tooltip", { name: "Steward" })).toBeVisible();
-  await clearFacilitator.click();
+  await toggleFacilitatorUntil(
+    page,
+    /Stewardship kickoff/i,
+    clearFacilitator,
+    facilitatorToggle
+  );
   await expect(facilitatorToggle).toBeVisible();
   if (screenshotDirectory) {
     await page.screenshot({
@@ -238,29 +273,39 @@ test("supports external participant stewards through rename and removal", async 
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Unstewarded 0" })).toBeVisible();
 
-  await page
-    .getByRole("button", { name: /Guest stewardship review/i })
-    .first()
-    .click();
   const clearFacilitator = page.getByRole("button", {
     name: "Remove Camille Guest as steward / facilitator",
   });
+  await clickUntilVisible(
+    page.getByRole("button", { name: /Guest stewardship review/i }).first(),
+    clearFacilitator
+  );
   await expect(clearFacilitator).toBeVisible();
   await expect(clearFacilitator).toHaveAttribute("aria-pressed", "true");
   await clearFacilitator.hover();
   await expect(page.getByRole("tooltip", { name: "Steward" })).toBeVisible();
-  await clearFacilitator.click();
 
   const assignFacilitator = page.getByRole("button", {
     name: "Make Camille Guest steward / facilitator",
   });
+  await toggleFacilitatorUntil(
+    page,
+    /Guest stewardship review/i,
+    clearFacilitator,
+    assignFacilitator
+  );
   await expect(assignFacilitator).toBeVisible();
-  await assignFacilitator.click();
-  await expect(
-    page.getByRole("button", {
-      name: "Remove Camille Guest as steward / facilitator",
-    })
-  ).toHaveAttribute("aria-pressed", "true");
+
+  const removeFacilitator = page.getByRole("button", {
+    name: "Remove Camille Guest as steward / facilitator",
+    pressed: true,
+  });
+  await toggleFacilitatorUntil(
+    page,
+    /Guest stewardship review/i,
+    assignFacilitator,
+    removeFacilitator
+  );
 
   // Renaming the guest keeps the snapshot and flags the steward for reassignment.
   const renameLiveRefresh = waitForLiveRefreshReload(page);
@@ -287,25 +332,30 @@ test("supports external participant stewards through rename and removal", async 
   });
 
   if ((await renameLiveRefresh) === null) {
-    await page.reload();
+    await reloadUntilLoaded(page);
   }
-  await page
-    .getByRole("button", { name: /Guest stewardship review/i })
-    .first()
-    .click();
   const staleFacilitator = page.getByRole("button", {
     name: "Remove Camille Guest as steward / facilitator",
   });
+  await clickUntilVisible(
+    page.getByRole("button", { name: /Guest stewardship review/i }).first(),
+    staleFacilitator
+  );
   await expect(staleFacilitator).toBeVisible();
   await expect(staleFacilitator.getByLabel("Needs reassignment")).toBeVisible();
-  await page
-    .getByRole("button", { name: "Make Camilla Guest steward / facilitator" })
-    .click();
-  await expect(
-    page.getByRole("button", {
-      name: "Remove Camilla Guest as steward / facilitator",
-    })
-  ).toHaveAttribute("aria-pressed", "true");
+  const makeCamillaFacilitator = page.getByRole("button", {
+    name: "Make Camilla Guest steward / facilitator",
+  });
+  const removeCamillaFacilitator = page.getByRole("button", {
+    name: "Remove Camilla Guest as steward / facilitator",
+    pressed: true,
+  });
+  await toggleFacilitatorUntil(
+    page,
+    /Guest stewardship review/i,
+    makeCamillaFacilitator,
+    removeCamillaFacilitator
+  );
   await expect(staleFacilitator).toHaveCount(0);
 
   // Removing the guest entirely also leaves the snapshot for reassignment.
@@ -330,17 +380,21 @@ test("supports external participant stewards through rename and removal", async 
   });
 
   if ((await removeLiveRefresh) === null) {
-    await page.reload();
+    await reloadUntilLoaded(page);
   }
-  await page
-    .getByRole("button", { name: /Guest stewardship review/i })
-    .first()
-    .click();
   const orphanedFacilitator = page.getByRole("button", {
     name: "Remove Camilla Guest as steward / facilitator",
   });
+  await clickUntilVisible(
+    page.getByRole("button", { name: /Guest stewardship review/i }).first(),
+    orphanedFacilitator
+  );
   await expect(orphanedFacilitator).toBeVisible();
   await expect(orphanedFacilitator.getByLabel("Needs reassignment")).toBeVisible();
-  await orphanedFacilitator.click();
-  await expect(orphanedFacilitator).toHaveCount(0);
+  await expect(async () => {
+    if (await orphanedFacilitator.isVisible()) {
+      await orphanedFacilitator.click({ timeout: 1_000 });
+    }
+    await expect(orphanedFacilitator).toHaveCount(0, { timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
 });

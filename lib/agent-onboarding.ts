@@ -348,10 +348,24 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
     notes: [
-      "Task comments are append-only in v1 and preserve line breaks.",
+      "Task comments preserve line breaks and can subsequently be edited via PATCH.",
       "A comment may include up to 10 previously uploaded file attachment ids (images, PDF, text, Markdown, CSV, or JSON); content may be empty when at least one file is attached.",
       "Agent-authored comments are attributed to the credential label with an (agent) suffix.",
       "Tag project agents by inserting the exact `@{Credential Label}` token in content and listing the credentialId in agentMentionSelections; mismatched, revoked, expired, or out-of-project selections fail the whole request with task-comment-agent-mention-invalid.",
+    ],
+  },
+  {
+    tag: "Tasks",
+    method: "PATCH",
+    path: "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}",
+    title: "Edit task comment",
+    description: "Update the content and agent mentions of an existing comment authored by the caller.",
+    requiredScopes: ["task:write"],
+    requestContentType: "application/json",
+    notes: [
+      "Only the original author can edit the comment; for agent comments, the active credential ID must match.",
+      "Supports updating plain-text content (up to 4000 characters) and agent mentions.",
+      "Preserves attachments, reactions, author identity, and creation timestamp while setting updatedAt.",
     ],
   },
   {
@@ -2022,6 +2036,9 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             id: { type: "string" },
             content: { type: "string" },
             createdAt: { type: "string", format: "date-time" },
+            updatedAt: {
+              oneOf: [{ type: "string", format: "date-time" }, { type: "null" }],
+            },
             author: {
               $ref: "#/components/schemas/TaskCommentAuthor",
             },
@@ -2078,6 +2095,43 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           },
         },
         TaskCommentCreateResponse: {
+          type: "object",
+          required: ["comment"],
+          properties: {
+            comment: {
+              $ref: "#/components/schemas/TaskCommentRecord",
+            },
+          },
+        },
+        TaskCommentUpdateRequest: {
+          type: "object",
+          required: ["content"],
+          properties: {
+            content: {
+              type: "string",
+              maxLength: 4000,
+              description: "Updated comment text.",
+            },
+            agentMentionSelections: {
+              type: "array",
+              maxItems: 50,
+              description:
+                "Active project agents tagged by this comment. Each entry requires the exact `@{Credential Label}` token of the credential in `content`.",
+              items: {
+                type: "object",
+                required: ["credentialId"],
+                properties: {
+                  credentialId: {
+                    type: "string",
+                    description:
+                      "Active ApiCredential id from the project actor registry.",
+                  },
+                },
+              },
+            },
+          },
+        },
+        TaskCommentUpdateResponse: {
           type: "object",
           required: ["comment"],
           properties: {
@@ -2772,6 +2826,14 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         TaskId: {
           name: "taskId",
+          in: "path",
+          required: true,
+          schema: {
+            type: "string",
+          },
+        },
+        CommentId: {
+          name: "commentId",
           in: "path",
           required: true,
           schema: {
@@ -3744,6 +3806,43 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "application/json": {
                   schema: {
                     $ref: "#/components/schemas/TaskCommentCreateResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}": {
+        patch: {
+          ...buildOperationMetadata(
+            "PATCH",
+            "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}"
+          ),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { $ref: "#/components/parameters/TaskId" },
+            { $ref: "#/components/parameters/CommentId" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/TaskCommentUpdateRequest",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Task comment updated",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/TaskCommentUpdateResponse",
                   },
                 },
               },

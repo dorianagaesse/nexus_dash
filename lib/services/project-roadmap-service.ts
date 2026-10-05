@@ -742,7 +742,7 @@ export async function deleteProjectRoadmapPhase(input: {
   projectId: string;
   agentAccess?: AgentProjectAccessContext;
   phaseId: string;
-}): Promise<ServiceResult<{ ok: true }>> {
+}): Promise<ServiceResult<{ ok: true; phaseId: string; activityVersion: Date }>> {
   const actorUserId = normalizeText(input.actorUserId);
   const phaseId = normalizeText(input.phaseId);
   if (!actorUserId) {
@@ -785,12 +785,17 @@ export async function deleteProjectRoadmapPhase(input: {
         },
       });
 
-      await touchProjectActivity({ db, projectId: input.projectId });
+      const activityVersion = await touchProjectActivity({
+        db,
+        projectId: input.projectId,
+      });
 
       return {
         ok: true,
         data: {
           ok: true,
+          phaseId,
+          activityVersion,
         },
       };
     } catch (error) {
@@ -1064,7 +1069,7 @@ export async function deleteProjectRoadmapEvent(input: {
   projectId: string;
   agentAccess?: AgentProjectAccessContext;
   eventId: string;
-}): Promise<ServiceResult<{ ok: true; phaseId: string }>> {
+}): Promise<ServiceResult<{ ok: true; phaseId: string; activityVersion: Date }>> {
   const actorUserId = normalizeText(input.actorUserId);
   const eventId = normalizeText(input.eventId);
   if (!actorUserId) {
@@ -1108,13 +1113,17 @@ export async function deleteProjectRoadmapEvent(input: {
         },
       });
 
-      await touchProjectActivity({ db, projectId: input.projectId });
+      const activityVersion = await touchProjectActivity({
+        db,
+        projectId: input.projectId,
+      });
 
       return {
         ok: true,
         data: {
           ok: true,
           phaseId: existingEvent.phaseId,
+          activityVersion,
         },
       };
     } catch (error) {
@@ -1130,7 +1139,7 @@ export async function deleteProjectRoadmapEvent(input: {
 
 export async function reorderProjectRoadmapPhases(
   input: ReorderRoadmapPhasesInput
-): Promise<ServiceResult<{ ok: true }>> {
+): Promise<ServiceResult<{ ok: true; activityVersion: Date }>> {
   const actorUserId = normalizeText(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -1139,7 +1148,7 @@ export async function reorderProjectRoadmapPhases(
   if (input.phaseIds.length === 0) {
     return {
       ok: true,
-      data: { ok: true },
+      data: { ok: true, activityVersion: new Date() },
     };
   }
 
@@ -1185,11 +1194,11 @@ export async function reorderProjectRoadmapPhases(
         )
       );
 
-      await touchProjectActivity({ db, projectId: input.projectId });
+      const activityVersion = await touchProjectActivity({ db, projectId: input.projectId });
 
       return {
         ok: true,
-        data: { ok: true },
+        data: { ok: true, activityVersion },
       };
     } catch (error) {
       logServerError("reorderProjectRoadmapPhases", error, {
@@ -1203,7 +1212,7 @@ export async function reorderProjectRoadmapPhases(
 
 export async function reorderProjectRoadmapEvents(
   input: ReorderRoadmapEventsInput
-): Promise<ServiceResult<{ ok: true }>> {
+): Promise<ServiceResult<{ ok: true; activityVersion: Date }>> {
   const actorUserId = normalizeText(input.actorUserId);
   const phaseId = normalizeText(input.phaseId);
   if (!actorUserId) {
@@ -1269,11 +1278,11 @@ export async function reorderProjectRoadmapEvents(
         )
       );
 
-      await touchProjectActivity({ db, projectId: input.projectId });
+      const activityVersion = await touchProjectActivity({ db, projectId: input.projectId });
 
       return {
         ok: true,
-        data: { ok: true },
+        data: { ok: true, activityVersion },
       };
     } catch (error) {
       logServerError("reorderProjectRoadmapEvents", error, {
@@ -1288,7 +1297,7 @@ export async function reorderProjectRoadmapEvents(
 
 export async function moveProjectRoadmapEvent(
   input: MoveRoadmapEventInput
-): Promise<ServiceResult<{ ok: true }>> {
+): Promise<ServiceResult<{ ok: true; activityVersion: Date }>> {
   const actorUserId = normalizeText(input.actorUserId);
   const eventId = normalizeText(input.eventId);
   const targetPhaseId = normalizeText(input.targetPhaseId);
@@ -1433,12 +1442,13 @@ export async function moveProjectRoadmapEvent(
         });
       }
 
-      await touchProjectActivity({ db, projectId: input.projectId });
+      const activityVersion = await touchProjectActivity({ db, projectId: input.projectId });
 
       return {
         ok: true,
         data: {
           ok: true,
+          activityVersion,
         },
       };
     } catch (error) {

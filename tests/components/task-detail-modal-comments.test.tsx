@@ -147,7 +147,7 @@ function buildModalProps(comments: TaskComment[]) {
   };
 }
 
-type ModalProps = ReturnType<typeof buildModalProps>;
+type ModalProps = React.ComponentProps<typeof TaskDetailModal>;
 
 async function renderWithRoot(
   root: Root,
@@ -651,6 +651,379 @@ describe("TaskDetailModal comments", () => {
 
     await act(async () => {
       root.unmount();
+    });
+  });
+
+  test("separates comment composer submit from task save flow (ND-142)", async () => {
+    const { root } = createTestRenderer();
+    const onSubmitTaskComment = vi.fn();
+    const onSaveTask = vi.fn();
+
+    await renderWithRoot(root, [], {
+      canEdit: true,
+      isEditMode: false,
+      newTaskComment: "Draft comment content",
+      onSubmitTaskComment,
+      onSaveTask,
+    });
+
+    const composer = document.querySelector('[data-testid="task-comment-composer"]');
+    expect(composer).not.toBeNull();
+
+    const addCommentButton = findButtonByText("Add comment");
+    expect(addCommentButton).not.toBeUndefined();
+
+    // Verify Save changes button is NOT rendered in view mode
+    const saveButton = findButtonByText("Save changes");
+    expect(saveButton).toBeUndefined();
+
+    // Verify footer only contains Close
+    const closeButton = findButtonByText("Close");
+    expect(closeButton).not.toBeUndefined();
+
+    // Click Add comment
+    await act(async () => {
+      addCommentButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onSubmitTaskComment).toHaveBeenCalledOnce();
+    expect(onSaveTask).not.toHaveBeenCalled();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("hides comment composer and renders task save flow when in edit mode (ND-142)", async () => {
+    const { root } = createTestRenderer();
+    const onSubmitTaskComment = vi.fn();
+    const onSaveTask = vi.fn();
+
+    await renderWithRoot(root, [], {
+      canEdit: true,
+      isEditMode: true,
+      onSubmitTaskComment,
+      onSaveTask,
+    });
+
+    // In edit mode, comment composer must NOT be rendered
+    const composer = document.querySelector('[data-testid="task-comment-composer"]');
+    expect(composer).toBeNull();
+
+    const addCommentButton = findButtonByText("Add comment");
+    expect(addCommentButton).toBeUndefined();
+
+    // Save changes and Cancel buttons must be present in edit mode footer
+    const saveButton = findButtonByText("Save changes");
+    expect(saveButton).not.toBeUndefined();
+
+    const cancelButton = findButtonByText("Cancel");
+    expect(cancelButton).not.toBeUndefined();
+
+    // Click Save changes
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onSaveTask).toHaveBeenCalledOnce();
+    expect(onSubmitTaskComment).not.toHaveBeenCalled();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("meets comments section accessibility semantics and aria attributes (ND-142)", async () => {
+    const { root } = createTestRenderer();
+
+    await renderWithRoot(root, [], {
+      canEdit: true,
+      isEditMode: false,
+      newTaskComment: "Draft comment",
+      isSubmittingTaskComment: false,
+    });
+
+    // Check section accessibility heading
+    const section = document.querySelector('section[aria-labelledby="task-comments-heading"]');
+    expect(section).not.toBeNull();
+
+    const heading = document.getElementById("task-comments-heading");
+    expect(heading?.tagName.toLowerCase()).toBe("h3");
+    expect(heading?.textContent?.trim()).toBe("Comments");
+
+    // Check composer region role and label
+    const composer = document.querySelector('[data-testid="task-comment-composer"]');
+    expect(composer?.getAttribute("role")).toBe("region");
+    expect(composer?.getAttribute("aria-label")).toBe("Comment composer");
+
+    // Check Add comment button aria-label and idle state
+    const addCommentButton = findButtonByText("Add comment");
+    expect(addCommentButton?.getAttribute("aria-label")).toBe("Add comment");
+    expect(addCommentButton?.hasAttribute("aria-busy")).toBe(false);
+
+    // Re-render in submitting state
+    await renderWithRoot(root, [], {
+      canEdit: true,
+      isEditMode: false,
+      newTaskComment: "Draft comment",
+      isSubmittingTaskComment: true,
+    });
+
+    const postingButton = findButtonByText("Posting...");
+    expect(postingButton?.getAttribute("aria-label")).toBe("Posting comment...");
+    expect(postingButton?.getAttribute("aria-busy")).toBe("true");
+
+    // Re-render in edit mode with isUpdatingTask: true
+    await renderWithRoot(root, [], {
+      canEdit: true,
+      isEditMode: true,
+      isUpdatingTask: true,
+    });
+
+    const savingButton = findButtonByText("Saving...");
+    expect(savingButton?.getAttribute("aria-label")).toBe("Saving changes...");
+    expect(savingButton?.getAttribute("aria-busy")).toBe("true");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  describe("editing comments", () => {
+    const user1Comment: TaskComment = {
+      id: "comment-1",
+      content: "<p>User 1 comment</p>",
+      createdAt: "2026-10-04T09:00:00.000Z",
+      updatedAt: null,
+      author: {
+        id: "user-1",
+        displayName: "Alice",
+        usernameTag: "alice#0001",
+        avatarSeed: "alice",
+        kind: "user",
+        agentCredentialId: null,
+        agentCredentialLabel: null,
+        owner: null,
+      },
+      reactions: [],
+    };
+
+    const user2Comment: TaskComment = {
+      id: "comment-2",
+      content: "<p>User 2 comment</p>",
+      createdAt: "2026-10-04T09:15:00.000Z",
+      updatedAt: null,
+      author: {
+        id: "user-2",
+        displayName: "Bob",
+        usernameTag: "bob#0002",
+        avatarSeed: "bob",
+        kind: "user",
+        agentCredentialId: null,
+        agentCredentialLabel: null,
+        owner: null,
+      },
+      reactions: [],
+    };
+
+    const agentComment: TaskComment = {
+      id: "comment-3",
+      content: "<p>Agent comment</p>",
+      createdAt: "2026-10-04T09:30:00.000Z",
+      updatedAt: null,
+      author: {
+        id: "cred-agent-1",
+        displayName: "ReviewBot (agent)",
+        usernameTag: null,
+        avatarSeed: "agent-seed",
+        kind: "agent",
+        agentCredentialId: "cred-agent-1",
+        agentCredentialLabel: "ReviewBot",
+        owner: {
+          id: "user-1",
+          displayName: "Alice",
+          usernameTag: "alice#0001",
+          avatarSeed: "alice",
+        },
+      },
+      reactions: [],
+    };
+
+    test("shows edit button only for comments authored by currentActorUserId", async () => {
+      const { root } = createTestRenderer();
+      const comments = [user1Comment, user2Comment, agentComment];
+
+      await renderWithRoot(root, comments, {
+        canEdit: true,
+        currentActorUserId: "user-1",
+      });
+
+      expect(document.querySelector("[data-testid='edit-comment-button-comment-1']")).not.toBeNull();
+      expect(document.querySelector("[data-testid='edit-comment-button-comment-2']")).toBeNull();
+      expect(document.querySelector("[data-testid='edit-comment-button-comment-3']")).toBeNull();
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("hides edit buttons when canEdit is false", async () => {
+      const { root } = createTestRenderer();
+      const comments = [user1Comment];
+
+      await renderWithRoot(root, comments, {
+        canEdit: false,
+        currentActorUserId: "user-1",
+      });
+
+      expect(document.querySelector("[data-testid='edit-comment-button-comment-1']")).toBeNull();
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("clicking edit opens inline editor and cancel restores viewing mode", async () => {
+      const { root } = createTestRenderer();
+      const comments = [user1Comment];
+
+      await renderWithRoot(root, comments, {
+        canEdit: true,
+        currentActorUserId: "user-1",
+      });
+
+      expect(document.querySelector("[data-testid='edit-comment-form-comment-1']")).toBeNull();
+
+      const editButton = document.querySelector(
+        "[data-testid='edit-comment-button-comment-1']"
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editButton.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      expect(document.querySelector("[data-testid='edit-comment-form-comment-1']")).not.toBeNull();
+
+      const cancelButton = findButtonByText("Cancel") as HTMLButtonElement;
+      expect(cancelButton).toBeDefined();
+
+      await act(async () => {
+        cancelButton.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      expect(document.querySelector("[data-testid='edit-comment-form-comment-1']")).toBeNull();
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("saving an edit calls onUpdateTaskComment and displays error when it fails", async () => {
+      const { root } = createTestRenderer();
+      const onUpdateTaskComment = vi.fn().mockRejectedValue(new Error("Network error occurred"));
+      const comments = [user1Comment];
+
+      await renderWithRoot(root, comments, {
+        canEdit: true,
+        currentActorUserId: "user-1",
+        onUpdateTaskComment,
+      });
+
+      const editButton = document.querySelector(
+        "[data-testid='edit-comment-button-comment-1']"
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editButton.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      const saveButton = findButtonByText("Save") as HTMLButtonElement;
+      await act(async () => {
+        saveButton.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      expect(onUpdateTaskComment).toHaveBeenCalledWith(
+        "comment-1",
+        "<p>User 1 comment</p>",
+        []
+      );
+
+      const errorElement = document.querySelector("[data-testid='edit-comment-error-comment-1']");
+      expect(errorElement).not.toBeNull();
+      expect(errorElement?.textContent).toBe("Network error occurred");
+      expect(document.querySelector("[data-testid='edit-comment-form-comment-1']")).not.toBeNull();
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("saving an edit successfully resolves and closes the inline editor", async () => {
+      const { root } = createTestRenderer();
+      const onUpdateTaskComment = vi.fn().mockResolvedValue(undefined);
+      const comments = [user1Comment];
+
+      await renderWithRoot(root, comments, {
+        canEdit: true,
+        currentActorUserId: "user-1",
+        onUpdateTaskComment,
+      });
+
+      const editButton = document.querySelector(
+        "[data-testid='edit-comment-button-comment-1']"
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editButton.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      const saveButton = findButtonByText("Save") as HTMLButtonElement;
+      await act(async () => {
+        saveButton.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      expect(onUpdateTaskComment).toHaveBeenCalledWith(
+        "comment-1",
+        "<p>User 1 comment</p>",
+        []
+      );
+      expect(document.querySelector("[data-testid='edit-comment-form-comment-1']")).toBeNull();
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("renders edited timestamp when comment has updatedAt", async () => {
+      const { root } = createTestRenderer();
+      const editedComment: TaskComment = {
+        ...user1Comment,
+        updatedAt: "2026-10-04T12:00:00.000Z",
+      };
+
+      await renderWithRoot(root, [editedComment], {
+        canEdit: true,
+        currentActorUserId: "user-1",
+      });
+
+      const editedBadge = document.querySelector(
+        "[data-testid='comment-edited-comment-1']"
+      );
+      expect(editedBadge).not.toBeNull();
+      expect(editedBadge?.textContent).toContain("(edited");
+
+      await act(async () => {
+        root.unmount();
+      });
     });
   });
 });

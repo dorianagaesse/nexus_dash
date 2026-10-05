@@ -428,6 +428,7 @@ describe("project-roadmap-service", () => {
       ok: true,
       data: {
         ok: true,
+        activityVersion: expect.any(Date),
       },
     });
     expect(dbMock.$transaction).toHaveBeenCalled();

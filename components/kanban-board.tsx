@@ -2502,6 +2502,25 @@ export function KanbanBoard({
 
         detail.markHandled();
       }
+
+      if (activity.domain === "task-comment" && activity.action === "updated") {
+        const commentPayload = readRemoteTaskCommentPayload(activity);
+        if (!commentPayload) {
+          return;
+        }
+
+        if (selectedTask?.id === commentPayload.taskId && commentPayload.comment) {
+          setTaskComments((previousComments) =>
+            previousComments.map((comment) =>
+              comment.id === commentPayload.comment?.id
+                ? { ...comment, ...commentPayload.comment }
+                : comment
+            )
+          );
+        }
+
+        detail.markHandled();
+      }
     }
 
     window.addEventListener(
@@ -2690,6 +2709,78 @@ export function KanbanBoard({
     pushToast,
     selectedTask,
   ]);
+
+  const handleUpdateTaskComment = useCallback(
+    async (
+      commentId: string,
+      content: string,
+      agentMentionSelections?: TaskCommentAgentMentionSelection[]
+    ) => {
+      if (!selectedTask) {
+        return;
+      }
+
+      const response = await fetchProjectActivityMutation(
+        projectId,
+        `/api/projects/${projectId}/tasks/${selectedTask.id}/comments/${commentId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            content,
+            agentMentionSelections,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const message = await readApiError(response, "Could not update comment.");
+        throw new Error(
+          message === "content-required"
+            ? "Comment cannot be empty."
+            : message === "content-too-long"
+              ? "Comment must be 4000 characters or fewer."
+              : message === "task-comment-agent-mention-invalid"
+                ? "The agent mention could not be saved. Mention the agent again."
+                : message === "not-comment-author" || message === "forbidden"
+                  ? "You can only edit your own comments."
+                  : message === "comment-not-found"
+                    ? "Comment not found."
+                    : message
+        );
+      }
+
+      const payload = (await response.json()) as {
+        comment: TaskComment;
+      };
+
+      setTaskComments((previousComments) =>
+        previousComments.map((comment) =>
+          comment.id === payload.comment.id
+            ? { ...comment, ...payload.comment }
+            : comment
+        )
+      );
+
+      applyTaskMutation(selectedTask.id, (task) =>
+        stampTaskActivity(task, currentActorSummary)
+      );
+
+      pushToast({
+        variant: "success",
+        message: "Comment updated.",
+      });
+    },
+    [
+      applyTaskMutation,
+      currentActorSummary,
+      projectId,
+      pushToast,
+      selectedTask,
+    ]
+  );
 
   const handleAddLinkAttachment = useCallback(async (urlOverride?: string) => {
     if (!canEdit) {
@@ -3216,6 +3307,8 @@ export function KanbanBoard({
         onPreviewAttachmentChange={setPreviewAttachment}
         onNewTaskCommentChange={setNewTaskComment}
         onSubmitTaskComment={handleSubmitTaskComment}
+        onUpdateTaskComment={handleUpdateTaskComment}
+        currentActorUserId={actorUserId}
         onAddCommentAttachments={handleAddCommentAttachments}
         onRemoveCommentAttachment={handleRemoveCommentAttachment}
         onMoveTask={(nextStatus) => {

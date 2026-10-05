@@ -182,6 +182,12 @@ interface TaskDetailModalProps {
     agentMentionSelections?: TaskCommentAgentMentionSelection[],
     attachmentIds?: string[]
   ) => void | Promise<void>;
+  onUpdateTaskComment?: (
+    commentId: string,
+    content: string,
+    agentMentionSelections?: TaskCommentAgentMentionSelection[]
+  ) => void | Promise<void>;
+  currentActorUserId?: string;
   onAddCommentAttachments?: (files: File[]) => void | Promise<void>;
   onRemoveCommentAttachment?: (attachmentId: string) => void | Promise<void>;
   onMoveTask: (nextStatus: TaskStatus) => void;
@@ -260,6 +266,8 @@ export function TaskDetailModal({
   onPreviewAttachmentChange,
   onNewTaskCommentChange,
   onSubmitTaskComment,
+  onUpdateTaskComment,
+  currentActorUserId,
   onAddCommentAttachments = () => undefined,
   onRemoveCommentAttachment = () => undefined,
   onMoveTask,
@@ -503,6 +511,8 @@ export function TaskDetailModal({
                     taskCommentReactions={taskCommentReactions}
                     toggleReaction={toggleReaction}
                     handleAddReaction={handleAddReaction}
+                    currentActorUserId={currentActorUserId}
+                    onUpdateTaskComment={onUpdateTaskComment}
                   />
                 </div>
               ) : (
@@ -571,6 +581,8 @@ export function TaskDetailModal({
                       type="button"
                       onClick={() => void onSaveTask()}
                       disabled={isUpdatingTask}
+                      aria-busy={isUpdatingTask ? "true" : undefined}
+                      aria-label={isUpdatingTask ? "Saving changes..." : "Save changes"}
                       className="flex-1"
                     >
                       {isUpdatingTask ? "Saving..." : "Save changes"}
@@ -1401,6 +1413,8 @@ function TaskReadOnlyContent({
   taskCommentReactions,
   toggleReaction,
   handleAddReaction,
+  currentActorUserId,
+  onUpdateTaskComment,
 }: {
   canEdit: boolean;
   selectedTask: KanbanTask;
@@ -1428,7 +1442,115 @@ function TaskReadOnlyContent({
   taskCommentReactions: Map<string, TaskCommentReaction[]>;
   toggleReaction: (commentId: string, emoji: string) => void;
   handleAddReaction: (commentId: string) => (emoji: string) => void;
+  currentActorUserId?: string;
+  onUpdateTaskComment?: (
+    commentId: string,
+    content: string,
+    agentMentionSelections?: TaskCommentAgentMentionSelection[]
+  ) => void | Promise<void>;
 }) {
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentContent, setEditingCommentContent] = useState("");
+  const [editingAgentMentionSelections, setEditingAgentMentionSelections] = useState<
+    CommentAgentMentionDraft[]
+  >([]);
+  const [isSavingCommentEdit, setIsSavingCommentEdit] = useState(false);
+  const [editingCommentError, setEditingCommentError] = useState<string | null>(null);
+
+  const handleEditCommentMentionSelect = useCallback(
+    (member: MentionAutocompleteMember) => {
+      const selectedAgentMention = buildCommentAgentMentionSelection(member);
+      if (selectedAgentMention) {
+        setEditingAgentMentionSelections((previousSelections) => [
+          ...previousSelections,
+          selectedAgentMention,
+        ]);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    setEditingAgentMentionSelections((previousSelections) =>
+      pruneCommentAgentMentionSelections(previousSelections, editingCommentContent)
+    );
+  }, [editingCommentContent]);
+
+  const handleStartEditComment = useCallback((comment: TaskComment) => {
+    setEditingCommentId(comment.id);
+    setEditingCommentContent(comment.content);
+    const initialAgentMentions: CommentAgentMentionDraft[] = (
+      comment.agentMentions ?? []
+    ).map((mention) => ({
+      credentialId: mention.credentialId,
+      label: mention.label,
+    }));
+    setEditingAgentMentionSelections(
+      pruneCommentAgentMentionSelections(initialAgentMentions, comment.content)
+    );
+    setEditingCommentError(null);
+  }, []);
+
+  const handleCancelEditComment = useCallback(() => {
+    setEditingCommentId(null);
+    setEditingCommentContent("");
+    setEditingAgentMentionSelections([]);
+    setEditingCommentError(null);
+  }, []);
+
+  const handleSaveEditComment = useCallback(
+    async (commentId: string) => {
+      if (!onUpdateTaskComment) {
+        return;
+      }
+
+      const plainText = richTextToPlainText(editingCommentContent);
+      const targetComment = taskComments.find((c) => c.id === commentId);
+      const hasAttachments = (targetComment?.attachments?.length ?? 0) > 0;
+      if (!plainText && !hasAttachments) {
+        setEditingCommentError("Comment cannot be empty.");
+        return;
+      }
+      if (plainText.length > MAX_TASK_COMMENT_LENGTH) {
+        setEditingCommentError("Comment must be 4000 characters or fewer.");
+        return;
+      }
+
+      const submittedCommentId = commentId;
+      const submittedContent = editingCommentContent;
+      setIsSavingCommentEdit(true);
+      setEditingCommentError(null);
+      try {
+        await onUpdateTaskComment(
+          commentId,
+          editingCommentContent,
+          editingAgentMentionSelections.map((selection) => ({
+            credentialId: selection.credentialId,
+          }))
+        );
+        setEditingCommentId((currentId) =>
+          currentId === submittedCommentId ? null : currentId
+        );
+        setEditingCommentContent((currentContent) =>
+          currentContent === submittedContent ? "" : currentContent
+        );
+        setEditingAgentMentionSelections([]);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Could not update comment.";
+        setEditingCommentError(message);
+      } finally {
+        setIsSavingCommentEdit(false);
+      }
+    },
+    [
+      editingAgentMentionSelections,
+      editingCommentContent,
+      onUpdateTaskComment,
+      taskComments,
+    ]
+  );
+
   const commentDraftAttachmentIds = new Set(
     commentAttachments.map((attachment) => attachment.id)
   );
@@ -1569,12 +1691,12 @@ function TaskReadOnlyContent({
         attachments={descriptionImages}
         onPreview={onPreviewAttachment}
       />
-      <section className="pt-4">
+      <section className="pt-4" aria-labelledby="task-comments-heading">
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm font-medium">Comments</p>
+              <MessageSquare className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <h3 id="task-comments-heading" className="text-sm font-medium">Comments</h3>
             </div>
             <span className="text-xs text-muted-foreground">
               {selectedTask.commentCount} comment{selectedTask.commentCount === 1 ? "" : "s"}
@@ -1606,23 +1728,117 @@ function TaskReadOnlyContent({
                       />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <p className="text-sm font-medium">{comment.author.displayName}</p>
-                        {getCommentIdentityMeta(comment.author) ? (
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <p className="text-sm font-medium">{comment.author.displayName}</p>
+                          {getCommentIdentityMeta(comment.author) ? (
+                            <p className="text-[11px] text-muted-foreground">
+                              {getCommentIdentityMeta(comment.author)}
+                            </p>
+                          ) : null}
                           <p className="text-[11px] text-muted-foreground">
-                            {getCommentIdentityMeta(comment.author)}
+                            {formatTaskCommentTimestamp(comment.createdAt)}
                           </p>
+                          {comment.updatedAt ? (
+                            <p
+                              data-testid={`comment-edited-${comment.id}`}
+                              className="text-[11px] text-muted-foreground"
+                            >
+                              (edited {formatTaskCommentTimestamp(comment.updatedAt)})
+                            </p>
+                          ) : null}
+                        </div>
+                        {canEdit &&
+                        comment.author.kind === "user" &&
+                        Boolean(currentActorUserId) &&
+                        comment.author.id === currentActorUserId &&
+                        editingCommentId !== comment.id ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            disabled={isSavingCommentEdit}
+                            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                            onClick={() => handleStartEditComment(comment)}
+                            aria-label="Edit comment"
+                            data-testid={`edit-comment-button-${comment.id}`}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
                         ) : null}
-                        <p className="text-[11px] text-muted-foreground">
-                          {formatTaskCommentTimestamp(comment.createdAt)}
-                        </p>
                       </div>
-                      <TaskCommentBody
-                        commentId={comment.id}
-                        authorDisplayName={comment.author.displayName}
-                        content={comment.content}
-                        mentionUsers={mentionUsers}
-                      />
+
+                      {editingCommentId === comment.id ? (
+                        <div
+                          className="mt-2 space-y-2"
+                          data-testid={`edit-comment-form-${comment.id}`}
+                        >
+                          <div
+                            className={cn(
+                              "rounded-md border border-input bg-background focus-within:border-ring/60",
+                              isSavingCommentEdit && "pointer-events-none opacity-60"
+                            )}
+                            aria-disabled={isSavingCommentEdit}
+                          >
+                            <RichTextEditor
+                              id={`edit-comment-input-${comment.id}`}
+                              value={editingCommentContent}
+                              onChange={(value) => {
+                                if (!isSavingCommentEdit) {
+                                  setEditingCommentContent(value);
+                                }
+                              }}
+                              placeholder="Edit comment..."
+                              ariaLabel="Edit task comment"
+                              mentionProjectId={projectId}
+                              agentMentionsEnabled
+                              onMentionSelect={handleEditCommentMentionSelect}
+                              className="border-0 bg-transparent px-3 py-2 text-sm shadow-none focus-visible:ring-0"
+                            />
+                          </div>
+                          {editingCommentError ? (
+                            <p
+                              className="text-xs text-destructive"
+                              role="alert"
+                              data-testid={`edit-comment-error-${comment.id}`}
+                            >
+                              {editingCommentError}
+                            </p>
+                          ) : null}
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={isSavingCommentEdit}
+                              onClick={handleCancelEditComment}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={
+                                isSavingCommentEdit ||
+                                (!richTextToPlainText(editingCommentContent) &&
+                                  (comment.attachments?.length ?? 0) === 0) ||
+                                richTextToPlainText(editingCommentContent).length >
+                                  MAX_TASK_COMMENT_LENGTH
+                              }
+                              onClick={() => void handleSaveEditComment(comment.id)}
+                            >
+                              {isSavingCommentEdit ? "Saving..." : "Save"}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <TaskCommentBody
+                          commentId={comment.id}
+                          authorDisplayName={comment.author.displayName}
+                          content={comment.content}
+                          mentionUsers={mentionUsers}
+                        />
+                      )}
                       <div className="mt-2 space-y-2">
                         <ImageAttachmentGrid
                           attachments={getCommentImageAttachments(comment)}
@@ -1678,6 +1894,8 @@ function TaskReadOnlyContent({
                 Task comment
               </label>
               <div
+                role="region"
+                aria-label="Comment composer"
                 data-testid="task-comment-composer"
                 className="group/composer rounded-md border border-input bg-background transition-colors focus-within:border-ring/60"
               >
@@ -1794,6 +2012,8 @@ function TaskReadOnlyContent({
                       (!commentDraftText && commentAttachments.length === 0) ||
                       commentDraftTooLong
                     }
+                    aria-busy={isSubmittingTaskComment ? "true" : undefined}
+                    aria-label={isSubmittingTaskComment ? "Posting comment..." : "Add comment"}
                     className="min-h-11 flex-1 sm:flex-none"
                   >
                     {isSubmittingTaskComment ? "Posting..." : "Add comment"}

@@ -55,6 +55,9 @@ describe("GET /api/docs/agent/v1/openapi.json", () => {
     expect(paths).toHaveProperty("/api/projects/{projectId}/tasks/{taskId}/status");
     expect(paths).toHaveProperty("/api/projects/{projectId}/tasks/{taskId}/comments");
     expect(paths).toHaveProperty(
+      "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}"
+    );
+    expect(paths).toHaveProperty(
       "/api/projects/{projectId}/tasks/{taskId}/attachments/upload-url"
     );
     expect(paths).toHaveProperty("/api/projects/{projectId}/context-cards/{cardId}");
