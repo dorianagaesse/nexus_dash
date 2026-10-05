@@ -235,7 +235,7 @@ test.describe("project meeting todos", () => {
     await expect(
       mobileNavigation.getByRole("group", { name: "Project navigation" })
     ).toBeVisible();
-    await expect(mobileNavigation.getByRole("link")).toHaveCount(4);
+    await expect(mobileNavigation.getByRole("link")).toHaveCount(5);
     await expect(
       mobileNavigation.getByRole("link", {
         name: "Todos, 2 active todos, overdue work present",
