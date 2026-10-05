@@ -3,6 +3,25 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-06 - ND-373: Live Preview browser verification
+
+- Merged current `origin/main` into PR #569 and combined the steward E2E reload
+  wait with the new shared interaction helpers. The branch is mergeable.
+- Preview run 37384452437 checked out `c5b3e47` and passed private topic joins,
+  public and forged-send denial, database-owned delivery, two-browser project
+  and notification updates without SSE or polling, and browser degradation to
+  SSE and then polling with continued freshness.
+- Preview run 37385155369 checked out `bb1642d` with a deployment-only 60-second
+  token lifetime. Its browser session re-minted a token after roughly 50 seconds,
+  kept Broadcast delivery, and repeated the authorization and fallback checks.
+  Both runs removed their temporary users and project.
+- `SUPABASE_JWT_SECRET` is now a Secret in Vercel Production. The Production
+  transport remains on its existing setting; no Production deployment or
+  promotion was performed during PR testing.
+- Local lint, RLS inventory, 1,855 unit/API tests, coverage thresholds, and
+  build passed. Quality Gates run 37385154300 passed Quality Core, PostgreSQL
+  Tenant Isolation, full Playwright E2E, and the container image build.
+
 # 2026-10-04 - ND-373: Supabase Realtime Broadcast implementation
 
 - Implemented the ND-372 private Broadcast contract with database-owned
