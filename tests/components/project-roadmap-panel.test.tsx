@@ -1001,4 +1001,420 @@ describe("project-roadmap-panel", () => {
       root.unmount();
     });
   });
+
+  test("exposes an edit milestone action in edit mode and hides it in read-only mode", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    const phases = [
+      {
+        id: "phase-1",
+        title: "Private beta",
+        description: "Open the first customer wave.",
+        targetDate: "2026-05-02",
+        status: "active" as const,
+        position: 0,
+        createdAt: "2026-04-23T08:00:00.000Z",
+        updatedAt: "2026-04-23T08:00:00.000Z",
+        events: [],
+      },
+    ];
+
+    // Read-only mode
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        phases,
+      })
+    );
+
+    expect(container.querySelector("[data-roadmap-edit-milestone='phase-1']")).toBeNull();
+
+    // Edit mode
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases,
+      })
+    );
+
+    const editButton = container.querySelector<HTMLButtonElement>(
+      "[data-roadmap-edit-milestone='phase-1']"
+    );
+    expect(editButton).not.toBeNull();
+    expect(editButton?.getAttribute("aria-label")).toBe("Edit Private beta");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+function setInputValue(input: HTMLElement, value: string) {
+  const proto =
+    input instanceof HTMLTextAreaElement
+      ? window.HTMLTextAreaElement.prototype
+      : window.HTMLInputElement.prototype;
+  const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+  nativeSetter?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+  test("opens milestone edit dialog populated with current fields and cancels cleanly", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    const phases = [
+      {
+        id: "phase-1",
+        title: "Private beta",
+        description: "Open the first customer wave.",
+        targetDate: "2026-05-02",
+        status: "active" as const,
+        position: 0,
+        createdAt: "2026-04-23T08:00:00.000Z",
+        updatedAt: "2026-04-23T08:00:00.000Z",
+        events: [
+          {
+            id: "event-1",
+            phaseId: "phase-1",
+            title: "Invite wave one",
+            description: "First wave invitees.",
+            targetDate: "2026-05-02",
+            status: "active" as const,
+            position: 0,
+            createdAt: "2026-04-23T08:00:00.000Z",
+            updatedAt: "2026-04-23T08:00:00.000Z",
+          },
+        ],
+      },
+    ];
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases,
+      })
+    );
+
+    const editButton = container.querySelector<HTMLButtonElement>(
+      "[data-roadmap-edit-milestone='phase-1']"
+    );
+    expect(editButton).not.toBeNull();
+
+    await act(async () => {
+      editButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const dialog = document.body.querySelector("[role='dialog']");
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain("Edit milestone");
+    expect(dialog?.textContent).toContain("Milestone 1");
+
+    const titleInput = document.body.querySelector<HTMLInputElement>(
+      "#roadmap-milestone-title"
+    );
+    expect(titleInput?.value).toBe("Private beta");
+
+    const descriptionInput = document.body.querySelector<HTMLTextAreaElement>(
+      "#roadmap-milestone-description"
+    );
+    expect(descriptionInput?.value).toBe("Open the first customer wave.");
+
+    const dateButton = document.body.querySelector(
+      "#roadmap-milestone-target-date"
+    );
+    expect(dateButton?.textContent).toMatch(/2026/);
+    expect(dateButton?.textContent).toMatch(/2/);
+
+    // Click cancel
+    const cancelButton = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>("button")
+    ).find((btn) => btn.textContent?.trim() === "Cancel");
+    expect(cancelButton).toBeDefined();
+
+    await act(async () => {
+      cancelButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    // Dialog is closed
+    expect(document.body.querySelector("[role='dialog']")).toBeNull();
+    // Milestone remains unchanged
+    expect(container.textContent).toContain("Private beta");
+    expect(container.textContent).toContain("Invite wave one");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("validates milestone title before saving", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    const phases = [
+      {
+        id: "phase-1",
+        title: "Private beta",
+        description: null,
+        targetDate: null,
+        status: "planned" as const,
+        position: 0,
+        createdAt: "2026-04-23T08:00:00.000Z",
+        updatedAt: "2026-04-23T08:00:00.000Z",
+        events: [],
+      },
+    ];
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases,
+      })
+    );
+
+    const editButton = container.querySelector<HTMLButtonElement>(
+      "[data-roadmap-edit-milestone='phase-1']"
+    );
+    await act(async () => {
+      editButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const titleInput = document.body.querySelector<HTMLInputElement>(
+      "#roadmap-milestone-title"
+    );
+    expect(titleInput).not.toBeNull();
+
+    // Set title too short
+    await act(async () => {
+      if (titleInput) {
+        setInputValue(titleInput, " ");
+      }
+    });
+
+    const saveButton = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>("button")
+    ).find((btn) => btn.textContent?.includes("Save milestone"));
+    expect(saveButton).toBeDefined();
+
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const dialog = document.body.querySelector("[role='dialog']");
+    expect(dialog?.textContent).toContain("Title must be at least 2 characters.");
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("saves milestone in place, preserves linked events and position, and displays toast", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    const phases = [
+      {
+        id: "phase-1",
+        title: "Private beta",
+        description: "Initial description",
+        targetDate: "2026-05-02",
+        status: "planned" as const,
+        position: 0,
+        createdAt: "2026-04-23T08:00:00.000Z",
+        updatedAt: "2026-04-23T08:00:00.000Z",
+        events: [
+          {
+            id: "event-1",
+            phaseId: "phase-1",
+            title: "Task 1",
+            description: null,
+            targetDate: null,
+            status: "planned" as const,
+            position: 0,
+            createdAt: "2026-04-23T08:00:00.000Z",
+            updatedAt: "2026-04-23T08:00:00.000Z",
+          },
+        ],
+      },
+      {
+        id: "phase-2",
+        title: "Milestone 2",
+        description: null,
+        targetDate: null,
+        status: "planned" as const,
+        position: 1,
+        createdAt: "2026-04-23T08:00:00.000Z",
+        updatedAt: "2026-04-23T08:00:00.000Z",
+        events: [],
+      },
+    ];
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        phase: {
+          id: "phase-1",
+          title: "Public Launch",
+          description: "New updated launch description",
+          targetDate: "2026-06-15",
+          status: "active",
+          position: 0,
+          createdAt: "2026-04-23T08:00:00.000Z",
+          updatedAt: "2026-06-15T08:00:00.000Z",
+          events: [
+            {
+              id: "event-1",
+              phaseId: "phase-1",
+              title: "Task 1",
+              description: null,
+              targetDate: null,
+              status: "planned" as const,
+              position: 0,
+              createdAt: "2026-04-23T08:00:00.000Z",
+              updatedAt: "2026-04-23T08:00:00.000Z",
+            },
+          ],
+        },
+      }),
+    });
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases,
+      })
+    );
+
+    const editButton = container.querySelector<HTMLButtonElement>(
+      "[data-roadmap-edit-milestone='phase-1']"
+    );
+    await act(async () => {
+      editButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const titleInput = document.body.querySelector<HTMLInputElement>(
+      "#roadmap-milestone-title"
+    );
+    const descInput = document.body.querySelector<HTMLTextAreaElement>(
+      "#roadmap-milestone-description"
+    );
+
+    await act(async () => {
+      if (titleInput) {
+        setInputValue(titleInput, "Public Launch");
+      }
+      if (descInput) {
+        setInputValue(descInput, "New updated launch description");
+      }
+    });
+
+    const saveButton = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>("button")
+    ).find((btn) => btn.textContent?.includes("Save milestone"));
+
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/projects/project-1/roadmap/phases/phase-1",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          title: "Public Launch",
+          description: "New updated launch description",
+          targetDate: "2026-05-02",
+          status: "planned",
+        }),
+      })
+    );
+
+    expect(pushToastMock).toHaveBeenCalledWith({
+      message: "Public Launch has been updated.",
+      variant: "success",
+    });
+
+    // Dialog closed
+    expect(document.body.querySelector("[role='dialog']")).toBeNull();
+
+    // Rendered panel contains updated title and description, preserved event and position
+    expect(container.textContent).toContain("Public Launch");
+    expect(container.textContent).toContain("New updated launch description");
+    expect(container.textContent).toContain("Task 1");
+    expect(container.textContent).toContain("Milestone 2");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("handles server error on milestone save without changing existing state", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    const phases = [
+      {
+        id: "phase-1",
+        title: "Private beta",
+        description: null,
+        targetDate: null,
+        status: "planned" as const,
+        position: 0,
+        createdAt: "2026-04-23T08:00:00.000Z",
+        updatedAt: "2026-04-23T08:00:00.000Z",
+        events: [],
+      },
+    ];
+
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({
+        error: "roadmap-phase-update-failed",
+      }),
+    });
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases,
+      })
+    );
+
+    const editButton = container.querySelector<HTMLButtonElement>(
+      "[data-roadmap-edit-milestone='phase-1']"
+    );
+    await act(async () => {
+      editButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const saveButton = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>("button")
+    ).find((btn) => btn.textContent?.includes("Save milestone"));
+
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const dialog = document.body.querySelector("[role='dialog']");
+    expect(dialog?.textContent).toContain("Could not update roadmap phase. Please retry.");
+    expect(container.textContent).toContain("Private beta");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });

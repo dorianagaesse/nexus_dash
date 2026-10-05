@@ -2,6 +2,32 @@
 
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
+# 2026-10-06 - ND-404: Enable milestone editing from roadmap edit mode
+
+- Card `cmtkk0ymw000h04l103wo0zjz` under epic "Roadmap interaction refinement":
+  - Enabled milestone editing directly from roadmap edit mode (`canEdit: true`):
+    - Added edit button (`Pencil` icon, `data-roadmap-edit-milestone={phase.id}`) to `RoadmapMilestoneLane` and `RoadmapLane` milestone headers.
+    - Updated milestone lane header to dynamically render milestone `phase.title`, `phase.targetDate`, and `phase.description`.
+    - Added milestone editing dialog (`milestoneDialog`, `milestoneDraft`, `milestoneMutationError`) using `RoadmapDialogShell` and `RoadmapEntityForm` (with milestone field ids `idPrefix="roadmap-milestone"`).
+    - Preserved existing milestone events and position upon save by mutating phase in place and retaining `phase.events` and `phase.position`.
+    - Integrated with `PATCH /api/projects/${projectId}/roadmap/phases/${phaseId}` via `fetchProjectActivityMutation` with version header synchronization, toast notifications, and optimistic UI updates.
+    - Added validation enforcing title (2-100 characters) and description (<= 400 characters) before submission.
+    - Protected active milestone dialogs from background live refresh resets with `data-project-live-refresh-lock`.
+    - Keyboard-accessible dialog behavior with Escape key dismiss and focus trap via Radix UI dialog shell.
+  - Automated tests:
+    - Added 5 new comprehensive unit tests in `tests/components/project-roadmap-panel.test.tsx` verifying:
+      - Edit milestone button appears when `canEdit` is true and is absent when `canEdit` is false.
+      - Edit button opens dialog prepopulated with milestone values and cancels without altering milestone state.
+      - Validation blocks invalid/short milestone titles (<2 characters) without calling API.
+      - Successful save calls PATCH endpoint, updates milestone title/description/date/status in place while preserving linked events and position, and displays success toast.
+      - Server errors display error alert and leave milestone state intact.
+    - Verified all 42 tests across roadmap API and UI test suites.
+  - Validation:
+    - `npm run lint`: passed (0 warnings, 0 errors).
+    - `npm run rls:check`: passed.
+    - `npm test`: 225 test files passed, 1878 tests passed.
+    - `npm run test:coverage`: met all threshold targets (Stmts: 93.77%, Branch: 84.46%, Funcs: 95.42%, Lines: 94.07%).
+    - `npx next build --webpack`: successfully compiled and generated all 27 static routes.
 
 # 2026-10-04 - ND-535: Edit task comments in the UI and API
 
