@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { prisma } from "../../lib/prisma";
 import { formatTaskReference } from "../../lib/task-reference";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
+import { clickUntilVisible } from "./helpers/interaction-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
 
 interface EpicChipTask {
@@ -38,6 +39,8 @@ async function createEpicChipFixture(page: Page): Promise<{
       projectId: project.id,
       name: EPIC_NAME,
       description: "Cover linked-task references and deep links.",
+      createdByUserId: userId,
+      updatedByUserId: userId,
     },
     select: { id: true },
   });
@@ -79,9 +82,10 @@ async function createEpicChipFixture(page: Page): Promise<{
 async function openEpicDetails(page: Page, projectId: string) {
   await page.goto(`/projects/${projectId}#epics`);
   const epic = page.getByRole("article", { name: EPIC_NAME });
-  await epic
-    .getByRole("button", { name: `Show details for ${EPIC_NAME}` })
-    .click();
+  await clickUntilVisible(
+    epic.getByRole("button", { name: `Show details for ${EPIC_NAME}` }),
+    epic.getByRole("button", { name: `Hide details for ${EPIC_NAME}` })
+  );
   return epic;
 }
 

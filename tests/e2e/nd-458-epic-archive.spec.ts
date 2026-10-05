@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
+import { clickUntilVisible } from "./helpers/interaction-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -30,6 +31,8 @@ async function createEpicArchiveFixture(userId: string) {
       projectId: project.id,
       name: completedEpicName,
       description: "Deliver the rollout that has already finished.",
+      createdByUserId: userId,
+      updatedByUserId: userId,
     },
     select: { id: true },
   });
@@ -38,6 +41,8 @@ async function createEpicArchiveFixture(userId: string) {
       projectId: project.id,
       name: activeEpicName,
       description: "Carry the initiative that is still in flight.",
+      createdByUserId: userId,
+      updatedByUserId: userId,
     },
     select: { id: true },
   });
@@ -101,7 +106,7 @@ test("auto-archives completed epics and supports manual archive and restore", as
     name: "Archived (1)",
   });
   await expect(archivedView).toBeVisible();
-  await archivedView.click();
+  await clickUntilVisible(archivedView, completedEpic);
 
   await expect(completedEpic).toBeVisible();
   await expect(
@@ -180,7 +185,10 @@ test("auto-archives completed epics and supports manual archive and restore", as
   await expect(activeEpic).toBeVisible();
   await expect(completedEpic).toHaveCount(0);
 
-  await epicListView.getByRole("button", { name: "Archived (1)" }).click();
+  await clickUntilVisible(
+    epicListView.getByRole("button", { name: "Archived (1)" }),
+    completedEpic
+  );
 
   await expect(completedEpic).toBeVisible();
   await expect(
@@ -224,7 +232,10 @@ test("keeps a manually restored epic active until it completes again", async ({
     name: "Archived (1)",
   });
   await expect(archivedView).toBeVisible();
-  await archivedView.click();
+  await clickUntilVisible(
+    archivedView,
+    page.getByRole("article", { name: fixture.completedEpicName })
+  );
 
   const restoreResponse = page.waitForResponse(
     (response) =>
