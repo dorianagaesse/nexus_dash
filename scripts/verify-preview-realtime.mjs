@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
+import { chromium } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import pg from "pg";
 import WebSocket from "ws";
@@ -25,6 +26,7 @@ const prisma = new PrismaClient({
 });
 const clients = [];
 const userIds = [];
+let browser;
 
 async function deadline(promise, label, ms = 20_000) {
   let timer;
@@ -122,6 +124,39 @@ function subscribe(client, topic, event, onPayload, privateChannel = true) {
     `Realtime join for ${topic}`
   );
   return { channel, result };
+}
+
+async function browserContextFor(user) {
+  const context = await browser.newContext();
+  await context.addCookies([{
+    name: "nexusdash.session-token",
+    value: user.sessionToken,
+    url: baseUrl,
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax",
+  }]);
+  return context;
+}
+
+async function renameProject(page, projectId, name) {
+  const response = await page.request.patch(`${baseUrl}/api/projects/${projectId}`, {
+    data: { name },
+  });
+  assert.equal(response.status(), 200, `project rename failed (${response.status()})`);
+}
+
+async function waitForProjectName(page, name) {
+  await page.getByRole("heading", { name, exact: true }).waitFor({ timeout: 25_000 });
+}
+
+function isStreamRequest(request) {
+  return /\/(?:activity|notifications)\/stream$/.test(new URL(request.url()).pathname);
+}
+
+function isActivityPoll(request, projectId) {
+  return new URL(request.url()).pathname === `/api/projects/${projectId}/activity` &&
+    request.headers()["x-realtime-reconcile"] !== "1";
 }
 
 try {
@@ -285,6 +320,83 @@ try {
   assert.equal(notification.latestUnreadNotification?.title, "ND-373 Broadcast smoke");
   console.log("Member received database-owned notification snapshot");
 
+  browser = await chromium.launch();
+  const ownerContext = await browserContextFor(owner);
+  const memberContext = await browserContextFor(member);
+  const ownerPage = await ownerContext.newPage();
+  const memberPage = await memberContext.newPage();
+  const healthyRequests = [];
+  const sockets = [];
+  memberPage.on("request", (request) => healthyRequests.push(request));
+  memberPage.on("websocket", (socket) => sockets.push(socket.url()));
+  const activityReconcile = memberPage.waitForRequest((request) =>
+    new URL(request.url()).pathname === `/api/projects/${project.id}/activity` &&
+    request.headers()["x-realtime-reconcile"] === "1"
+  );
+  const notificationReconcile = memberPage.waitForRequest((request) =>
+    new URL(request.url()).pathname === "/api/account/notifications/summary" &&
+    request.headers()["x-realtime-reconcile"] === "1"
+  );
+  await Promise.all([
+    ownerPage.goto(`${baseUrl}/projects/${project.id}`),
+    memberPage.goto(`${baseUrl}/projects/${project.id}`),
+  ]);
+  await Promise.all([activityReconcile, notificationReconcile]);
+  assert(sockets.some((url) => url.includes("/realtime/v1/websocket")),
+    "healthy browser did not open a Realtime socket");
+
+  const browserName = "ND-373 Browser Broadcast";
+  await renameProject(ownerPage, project.id, browserName);
+  await waitForProjectName(memberPage, browserName);
+  await prisma.notification.create({
+    data: {
+      recipientUserId: member.id,
+      type: "system",
+      title: "ND-373 browser notification",
+      sourceType: "nd373-preview-smoke",
+      sourceId: crypto.randomUUID(),
+    },
+  });
+  await memberPage.waitForFunction(() =>
+    [...document.querySelectorAll('a[href="/account/notifications"] .sr-only')]
+      .some((element) => element.textContent?.includes("2 unread notifications")),
+    null,
+    { timeout: 25_000 }
+  );
+  assert(!healthyRequests.some(isStreamRequest),
+    "healthy Broadcast browser requested an SSE stream");
+  assert(!healthyRequests.some((request) => isActivityPoll(request, project.id)),
+    "healthy Broadcast browser requested activity polling");
+  console.log("Two browser sessions received project and notification changes over Broadcast without SSE or polling");
+
+  const streamContext = await browserContextFor(member);
+  await streamContext.route("**/api/realtime/token", (route) => route.abort());
+  const streamPage = await streamContext.newPage();
+  const streamRequest = streamPage.waitForRequest((request) =>
+    new URL(request.url()).pathname === `/api/projects/${project.id}/activity/stream`
+  );
+  await streamPage.goto(`${baseUrl}/projects/${project.id}`);
+  await streamRequest;
+  const streamName = "ND-373 Browser SSE fallback";
+  await renameProject(ownerPage, project.id, streamName);
+  await waitForProjectName(streamPage, streamName);
+  console.log("Blocked token request degraded to a working project SSE stream");
+
+  const pollContext = await browserContextFor(member);
+  await pollContext.route("**/api/realtime/token", (route) => route.abort());
+  await pollContext.route("**/api/projects/*/activity/stream", (route) => route.abort());
+  await pollContext.route("**/api/account/notifications/stream", (route) => route.abort());
+  const pollPage = await pollContext.newPage();
+  const pollRequest = pollPage.waitForRequest((request) =>
+    isActivityPoll(request, project.id)
+  );
+  await pollPage.goto(`${baseUrl}/projects/${project.id}`);
+  await pollRequest;
+  const pollName = "ND-373 Browser polling fallback";
+  await renameProject(ownerPage, project.id, pollName);
+  await waitForProjectName(pollPage, pollName);
+  console.log("Blocked token and stream requests degraded to working activity polling");
+
   await prisma.session.deleteMany({ where: { userId: member.id } });
   const signedOut = await fetch(`${baseUrl}/api/realtime/token`, {
     method: "POST",
@@ -293,6 +405,7 @@ try {
   assert.equal(signedOut.status, 401, "signed-out session could mint a token");
   console.log("Signed-out session token mint was denied");
 } finally {
+  await browser?.close();
   await Promise.allSettled(
     clients.map(async (client) => {
       await client.removeAllChannels();

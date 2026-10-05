@@ -562,6 +562,10 @@ jobs:
 
           echo "$PREVIEW_AUTH_ORIGIN" > preview-auth-alias.txt
 
+      - name: Install browser for Preview Broadcast verification
+        if: inputs.action == 'deploy-preview' && inputs.preview_realtime_transport == 'broadcast'
+        run: npx playwright install --with-deps chromium
+
       - name: Verify private Preview Broadcast
         if: inputs.action == 'deploy-preview' && inputs.preview_realtime_transport == 'broadcast'
         env:
