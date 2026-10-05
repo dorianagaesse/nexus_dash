@@ -3,6 +3,22 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-04 - ND-402: Preserve milestone linkage after dragging onto roadmap
+
+- Task ND-402 (card `cmtkk0uqg000b04l1l4dvtbea`) under epic "Roadmap interaction refinement":
+  - Investigated root cause of roadmap task/event unlinking when dropped onto milestones: roadmap mutations were using raw `fetch` instead of `fetchProjectActivityMutation` and routes were missing `withProjectActivityVersionHeader`, while `handleDragEnd` and `confirmDeleteEvent` called racing `router.refresh()`. Background realtime/polling updates from `ProjectLiveRefresh` interpreted the database update as an external change mid-drag or immediately post-drag, firing a `router.refresh()` race before replication settled and wiping optimistic state.
+  - Updated `lib/services/project-roadmap-service.ts`: `moveProjectRoadmapEvent`, `reorderProjectRoadmapEvents`, `reorderProjectRoadmapPhases`, `deleteProjectRoadmapEvent`, and `deleteProjectRoadmapPhase` now capture `touchProjectActivity` and return `activityVersion`.
+  - Updated roadmap API routes (`/api/projects/[projectId]/roadmap/events/move`, `/api/projects/[projectId]/roadmap/events/reorder`, `/api/projects/[projectId]/roadmap/phases/reorder`, `/api/projects/[projectId]/roadmap/phases/[phaseId]`, and `/api/projects/[projectId]/roadmap/events/[eventId]`) to attach `withProjectActivityVersionHeader(undefined, result.data.activityVersion)` to responses.
+  - Updated `components/project-roadmap-panel.tsx` to execute mutations through `fetchProjectActivityMutation`, suppress background sync during drag operations, eliminate racing `router.refresh()` calls, and reliably rollback optimistic state on failure with user toast feedback.
+  - Hardened desktop roadmap connector paths: guarded against portaled card measurements during drag operations, re-measured upon drag completion regardless of destination matching, preserved complete card measurements during transient DOM states, and fell back to exact geometric centers in `RoadmapDesktopConnector` if layout measurements ever miss card elements.
+  - Enhanced dropzone visibility in dark mode: replaced top-left radial gradient that clipped at 40% with a full-height vertical gradient and crisp perimeter outline so the drop target area and shadow are clearly visible across the entire lane height.
+  - Added unit/integration coverage for drag/drop persistence, lane count / status badge updates, error rollback, post-refresh prop reconciliation, and desktop connector branch preservation in `tests/components/project-roadmap-panel.test.tsx`, `tests/lib/project-roadmap-service.test.ts`, and `tests/api/project-roadmap.route.test.ts`.
+- Validations:
+  - `git diff --check`, `npm run lint`, `npm run rls:check` passed clean.
+  - `npm test`: 224 test files / 1842 tests passed (2 skipped).
+  - `npm run test:coverage`: met all threshold targets (statements 93.77%, branches 84.46%, funcs 95.42%, lines 94.07%).
+  - `npx next build --webpack`: compiled and generated all 27 static routes cleanly.
+
 # 2026-10-03 - ND-141: Epic live refresh on task and epic mutations
 
 - Added `"epic"` domain to `ProjectActivityDomain` and wired `recordProjectActivityEventVersion` into epic creation, update, delete, archive, and restore endpoints, as well as task archive/unarchive routes.
@@ -9470,3 +9486,19 @@ Low-value entries to avoid going forward:
   `npm run rls:check`, `npm test` (1847 passed), `npm run test:coverage`
   (93.77% statements, 84.46% branches), `npm run build`, and the PostgreSQL
   tenant-isolation matrix passed.
+
+## 2026-10-05 - ND-402 branch update after ND-185
+
+- Synced ND-402 with merged ND-185 (`dd52fe9`). The local rebase completed
+  without conflicts, but GitHub rejected its rewritten push because this branch
+  forbids force pushes. Merged `origin/main` into the existing PR branch instead;
+  the merge-forward tree is identical to the rebased tree (`03be8cc`).
+- [Preview run 37321953385](https://github.com/dorianagaesse/nexus_dash/actions/runs/37321953385)
+  checked out `03be8cc`, found no pending migrations, and verified the
+  immutable deployment, runtime database readiness, and stable auth alias.
+- Validation on a separate local PostgreSQL database: migration chain, lint,
+  RLS inventory and tenant-isolation matrix, 1851 unit tests, coverage, and
+  webpack production build passed. The local Turbopack build hit a worktree
+  PostCSS symlink path error; CI's standard build passed. Local Playwright
+  passed 103 tests with one expected skip, and PR quality, E2E, RLS, and
+  container jobs passed.
