@@ -20,6 +20,7 @@ import {
   PROJECT_SECTION_HEADER_CLASS,
 } from "@/components/project-dashboard/project-section-chrome";
 import { useToast } from "@/components/toast-provider";
+import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,7 @@ import {
   EmojiInputField,
   EmojiTextareaField,
 } from "@/components/ui/emoji-field";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   getEpicColorFromName,
   type EpicTaskSummary,
@@ -50,6 +52,7 @@ import { ListSearchInput } from "@/components/ui/list-search-input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { requestTaskOpen } from "@/lib/task-open-client";
 import { formatTaskReference } from "@/lib/task-reference";
+import type { TaskAuthorSummary } from "@/lib/task-author";
 import { cn } from "@/lib/utils";
 
 export type ProjectEpicPanelEpic = ProjectEpicSnapshot;
@@ -176,6 +179,57 @@ function EpicTaskChip({
         </span>
       </Link>
     </li>
+  );
+}
+
+function formatEpicActivityDate(value: string): string {
+  return new Date(value).toLocaleDateString();
+}
+
+function EpicAuthorInline({
+  label,
+  author,
+  timestamp,
+}: {
+  label: string;
+  author: TaskAuthorSummary;
+  timestamp: string;
+}) {
+  return (
+    <span
+      className="inline-flex min-w-0 max-w-full items-center gap-1.5"
+      title={`${label}: ${author.usernameTag ?? author.displayName}`}
+    >
+      {author.kind === "agent" ? (
+        <AgentAvatar
+          displayName={author.displayName}
+          decorative
+          className="h-5 w-5 shrink-0 border-border/70"
+        />
+      ) : (
+        <UserAvatar
+          avatarSeed={author.avatarSeed}
+          displayName={author.displayName}
+          decorative
+          className="h-5 w-5 shrink-0 border-border/70"
+        />
+      )}
+      <span className="min-w-0 truncate">
+        {label}{" "}
+        <span className="font-medium text-foreground">
+          {author.displayName}
+        </span>{" "}
+        {/* Server and browser locales can format the date differently; keep the
+            client's formatting without tripping a hydration mismatch. */}
+        <time
+          dateTime={timestamp}
+          suppressHydrationWarning
+          className="text-muted-foreground/80"
+        >
+          {formatEpicActivityDate(timestamp)}
+        </time>
+      </span>
+    </span>
   );
 }
 
@@ -1090,6 +1144,19 @@ export function ProjectEpicPanel({
                               </p>
                             )}
                           </section>
+
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                            <EpicAuthorInline
+                              label="Created by"
+                              author={epic.createdBy}
+                              timestamp={epic.createdAt}
+                            />
+                            <EpicAuthorInline
+                              label="Last edited by"
+                              author={epic.updatedBy}
+                              timestamp={epic.updatedAt}
+                            />
+                          </div>
                         </div>
                       </div>
                     )}

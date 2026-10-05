@@ -24,12 +24,14 @@ async function createBoardProject(ownerUserId: string) {
   });
 }
 
-async function createBoardEpic(projectId: string, name: string) {
+async function createBoardEpic(projectId: string, name: string, userId: string) {
   return prisma.epic.create({
     data: {
       projectId,
       name,
       description: `${name} coverage epic`,
+      createdByUserId: userId,
+      updatedByUserId: userId,
     },
     select: {
       id: true,
@@ -116,8 +118,8 @@ test("combines search, label, epic, and No epic filters with archived auto-open 
 }) => {
   const userId = await signInAsVerifiedUser(page);
   const project = await createBoardProject(userId);
-  const epicAlpha = await createBoardEpic(project.id, "Epic Alpha");
-  const epicBeta = await createBoardEpic(project.id, "Epic Beta");
+  const epicAlpha = await createBoardEpic(project.id, "Epic Alpha", userId);
+  const epicBeta = await createBoardEpic(project.id, "Epic Beta", userId);
   const alphaPrep = await createBoardTask({
     projectId: project.id,
     userId,
@@ -150,7 +152,7 @@ test("combines search, label, epic, and No epic filters with archived auto-open 
     archived: true,
   });
   const foreignProject = await createBoardProject(userId);
-  const foreignEpic = await createBoardEpic(foreignProject.id, "Epic Foreign");
+  const foreignEpic = await createBoardEpic(foreignProject.id, "Epic Foreign", userId);
   await createBoardTask({
     projectId: foreignProject.id,
     userId,
@@ -232,9 +234,9 @@ test("epic filters match any selected epic including No epic", async ({
 }) => {
   const userId = await signInAsVerifiedUser(page);
   const project = await createBoardProject(userId);
-  const epicAlpha = await createBoardEpic(project.id, "Epic Alpha");
-  const epicBeta = await createBoardEpic(project.id, "Epic Beta");
-  const epicGamma = await createBoardEpic(project.id, "Epic Gamma");
+  const epicAlpha = await createBoardEpic(project.id, "Epic Alpha", userId);
+  const epicBeta = await createBoardEpic(project.id, "Epic Beta", userId);
+  const epicGamma = await createBoardEpic(project.id, "Epic Gamma", userId);
   const arcOne = await createBoardTask({
     projectId: project.id,
     userId,
@@ -287,7 +289,7 @@ test("pointer drag under a label filter keeps hidden tasks in order", async ({
 }) => {
   const userId = await signInAsVerifiedUser(page);
   const project = await createBoardProject(userId);
-  const epic = await createBoardEpic(project.id, "Epic Alpha");
+  const epic = await createBoardEpic(project.id, "Epic Alpha", userId);
 
   const seeds = [
     { id: "h0", label: "Ops", title: "Hinge zero task" },
@@ -367,7 +369,7 @@ test("keyboard drag under a label filter drops relative to visible tasks", async
 }) => {
   const userId = await signInAsVerifiedUser(page);
   const project = await createBoardProject(userId);
-  const epic = await createBoardEpic(project.id, "Epic Alpha");
+  const epic = await createBoardEpic(project.id, "Epic Alpha", userId);
 
   const seeds = [
     { id: "h0", label: "Ops", title: "Hinge zero task" },
@@ -521,8 +523,8 @@ test("filter panel stays on-screen and horizontal-scroll free at 375px, landscap
 }) => {
   const userId = await signInAsVerifiedUser(page);
   const project = await createBoardProject(userId);
-  await createBoardEpic(project.id, "Epic Alpha");
-  await createBoardEpic(project.id, "Epic Beta");
+  await createBoardEpic(project.id, "Epic Alpha", userId);
+  await createBoardEpic(project.id, "Epic Beta", userId);
   await createBoardTask({
     projectId: project.id,
     userId,

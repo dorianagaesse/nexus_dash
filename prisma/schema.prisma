@@ -61,6 +61,8 @@ model User {
   meetingTodoAssigneeChangesNext      ProjectMeetingNoteActionAssigneeChange[] @relation("MeetingTodoAssigneeChangeNextUser")
   meetingTodoAssigneeChangesPerformed ProjectMeetingNoteActionAssigneeChange[] @relation("MeetingTodoAssigneeChangeActorUser")
   taskCommentAgentMentions            TaskCommentAgentMention[]                @relation("TaskCommentAgentMentionCreator")
+  epicsCreated                        Epic[]                                   @relation("EpicCreatedBy")
+  epicsUpdated                        Epic[]                                   @relation("EpicUpdatedBy")
 
   @@unique([username, usernameDiscriminator])
   @@index([username])
@@ -515,19 +517,33 @@ model ProjectNotificationEmailItem {
 }
 
 model Epic {
-  id                  String    @id @default(cuid())
-  projectId           String
-  name                String    @db.VarChar(80)
-  description         String
-  archivedAt          DateTime?
-  autoArchiveExemptAt DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                       String    @id @default(cuid())
+  projectId                String
+  name                     String    @db.VarChar(80)
+  description              String
+  archivedAt               DateTime?
+  autoArchiveExemptAt      DateTime?
+  createdByUserId          String
+  updatedByUserId          String
+  createdByCredentialId    String?
+  createdByCredentialLabel String?   @db.VarChar(80)
+  updatedByCredentialId    String?
+  updatedByCredentialLabel String?   @db.VarChar(80)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks   Task[]
+  project             Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdByUser       User           @relation("EpicCreatedBy", fields: [createdByUserId], references: [id])
+  updatedByUser       User           @relation("EpicUpdatedBy", fields: [updatedByUserId], references: [id])
+  createdByCredential ApiCredential? @relation("EpicCreatedByCredential", fields: [createdByCredentialId], references: [id], onDelete: SetNull)
+  updatedByCredential ApiCredential? @relation("EpicUpdatedByCredential", fields: [updatedByCredentialId], references: [id], onDelete: SetNull)
+  tasks               Task[]
 
   @@index([projectId, updatedAt])
+  @@index([createdByUserId])
+  @@index([updatedByUserId])
+  @@index([createdByCredentialId])
+  @@index([updatedByCredentialId])
 }
 
 model RoadmapPhase {
@@ -967,6 +983,8 @@ model ApiCredential {
   meetingTodoAssigneeChangesPrevious  ProjectMeetingNoteActionAssigneeChange[] @relation("MeetingTodoAssigneeChangePreviousCredential")
   meetingTodoAssigneeChangesNext      ProjectMeetingNoteActionAssigneeChange[] @relation("MeetingTodoAssigneeChangeNextCredential")
   meetingTodoAssigneeChangesPerformed ProjectMeetingNoteActionAssigneeChange[] @relation("MeetingTodoAssigneeChangeActorCredential")
+  epicsCreated                        Epic[]                                   @relation("EpicCreatedByCredential")
+  epicsUpdated                        Epic[]                                   @relation("EpicUpdatedByCredential")
 
   @@index([projectId])
   @@index([createdByUserId])

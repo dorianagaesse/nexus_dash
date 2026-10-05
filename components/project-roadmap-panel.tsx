@@ -1088,11 +1088,21 @@ function RoadmapDesktopConnector({
 }) {
   const fallbackHeight = getLaneConnectorHeight(maxEventsCount);
   const width = CONNECTOR_WIDTH;
+  const isCurrentMeasurementValid =
+    currentPhase.events.length === 0
+      ? (currentMeasurement?.centers.length ?? 0) <= 1
+      : currentMeasurement?.centers.length === currentPhase.events.length;
   const startY =
-    currentMeasurement?.anchorY ??
-    getLaneConnectorAnchorY(currentPhase.events.length, maxEventsCount);
+    isCurrentMeasurementValid && currentMeasurement?.anchorY !== undefined
+      ? currentMeasurement.anchorY
+      : getLaneConnectorAnchorY(currentPhase.events.length, maxEventsCount);
+
+  const isNextMeasurementValid =
+    nextPhase.events.length === 0
+      ? (nextMeasurement?.centers.length ?? 0) <= 1
+      : nextMeasurement?.centers.length === nextPhase.events.length;
   const targetYs =
-    nextMeasurement?.centers.length
+    isNextMeasurementValid && nextMeasurement?.centers.length
       ? nextMeasurement.centers
       : (nextPhase.events.length === 0
           ? [getLaneCardCenterY(0, nextPhase.events.length, maxEventsCount)]
@@ -1191,7 +1201,7 @@ function RoadmapEventCard({
               "relative min-h-[212px] rounded-[1.55rem] border p-4 shadow-[0_24px_64px_-46px_rgba(15,23,42,0.58)] transition",
               tone.phaseCard,
               snapshot.isDragging &&
-                "z-20 scale-[1.01] shadow-[0_36px_100px_-44px_rgba(15,23,42,0.76)]"
+                "z-20 scale-[1.01] shadow-[0_36px_100px_-44px_rgba(15,23,42,0.76)] dark:shadow-[0_36px_100px_-36px_rgba(0,0,0,0.95),0_0_0_1px_rgba(255,255,255,0.12)]"
             )}
           >
             <div className="space-y-4">
@@ -1370,7 +1380,7 @@ function RoadmapMilestoneLane({
             className={cn(
               "px-1 pb-4 pt-1 transition",
               snapshot.isDraggingOver &&
-                "rounded-[1.8rem] bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.2),transparent_40%)] shadow-[0_30px_80px_-58px_rgba(15,23,42,0.58)] dark:bg-[radial-gradient(circle_at_top_left,rgba(71,85,105,0.34),transparent_40%)]"
+                "rounded-[1.8rem] bg-gradient-to-b from-slate-200/70 via-slate-200/40 to-slate-200/60 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.45),0_0_0_1px_rgba(148,163,184,0.3)] dark:from-slate-800/70 dark:via-slate-800/50 dark:to-slate-800/65 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(148,163,184,0.22)]"
             )}
             style={
               laneMinHeight !== undefined
@@ -1468,7 +1478,7 @@ function RoadmapNewMilestoneDropLane({
                 ? "pointer-events-auto opacity-0"
                 : "pointer-events-none opacity-0",
               snapshot.isDraggingOver &&
-                "opacity-100 bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66)] dark:bg-slate-800/75"
+                "opacity-100 bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66),0_0_0_1px_rgba(148,163,184,0.3)] dark:bg-slate-800/85 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(148,163,184,0.22)]"
             )}
             style={
               isDesktop
@@ -1536,6 +1546,9 @@ export function ProjectRoadmapPanel({
     let animationFrameId = 0;
     const collectMeasurements = () => {
       animationFrameId = 0;
+      if (isDraggingEvent) {
+        return;
+      }
 
       const nextMeasurements: Record<string, RoadmapPhaseLayoutMeasurement> = {};
       const phaseSections = desktopRoot.querySelectorAll<HTMLElement>("[data-roadmap-phase-id]");
@@ -1573,30 +1586,58 @@ export function ProjectRoadmapPanel({
       });
 
       setPhaseLayoutMeasurements((currentMeasurements) => {
-        const currentKeys = Object.keys(currentMeasurements);
         const nextKeys = Object.keys(nextMeasurements);
-        if (currentKeys.length !== nextKeys.length) {
-          return nextMeasurements;
-        }
+        const mergedMeasurements: Record<string, RoadmapPhaseLayoutMeasurement> = {
+          ...currentMeasurements,
+        };
 
         for (const key of nextKeys) {
           const currentMeasurement = currentMeasurements[key];
           const nextMeasurement = nextMeasurements[key];
-          if (!currentMeasurement || !nextMeasurement) {
-            return nextMeasurements;
+          if (!nextMeasurement) {
+            continue;
+          }
+
+          const matchingPhase = roadmapPhases.find((phase) => phase.id === key);
+          const expectedCount = matchingPhase ? matchingPhase.events.length : 0;
+
+          if (
+            expectedCount > 0 &&
+            nextMeasurement.centers.length < expectedCount &&
+            currentMeasurement &&
+            currentMeasurement.centers.length === expectedCount
+          ) {
+            mergedMeasurements[key] = currentMeasurement;
+            continue;
+          }
+
+          mergedMeasurements[key] = nextMeasurement;
+        }
+
+        const currentKeys = Object.keys(currentMeasurements);
+        const mergedKeys = Object.keys(mergedMeasurements);
+        if (currentKeys.length !== mergedKeys.length) {
+          return mergedMeasurements;
+        }
+
+        for (const key of mergedKeys) {
+          const currentMeasurement = currentMeasurements[key];
+          const mergedMeasurement = mergedMeasurements[key];
+          if (!currentMeasurement || !mergedMeasurement) {
+            return mergedMeasurements;
           }
 
           if (
-            currentMeasurement.anchorY !== nextMeasurement.anchorY ||
-            currentMeasurement.height !== nextMeasurement.height ||
-            currentMeasurement.centers.length !== nextMeasurement.centers.length
+            currentMeasurement.anchorY !== mergedMeasurement.anchorY ||
+            currentMeasurement.height !== mergedMeasurement.height ||
+            currentMeasurement.centers.length !== mergedMeasurement.centers.length
           ) {
-            return nextMeasurements;
+            return mergedMeasurements;
           }
 
           for (let index = 0; index < currentMeasurement.centers.length; index += 1) {
-            if (currentMeasurement.centers[index] !== nextMeasurement.centers[index]) {
-              return nextMeasurements;
+            if (currentMeasurement.centers[index] !== mergedMeasurement.centers[index]) {
+              return mergedMeasurements;
             }
           }
         }
@@ -1634,7 +1675,7 @@ export function ProjectRoadmapPanel({
       resizeObserver.disconnect();
       window.removeEventListener("resize", scheduleMeasurements);
     };
-  }, [isDesktopLayout, isExpanded, roadmapPhases]);
+  }, [isDesktopLayout, isExpanded, roadmapPhases, isDraggingEvent]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1730,9 +1771,13 @@ export function ProjectRoadmapPanel({
   }
 
   async function deletePhaseById(phaseId: string): Promise<void> {
-    const response = await fetch(`/api/projects/${projectId}/roadmap/phases/${phaseId}`, {
-      method: "DELETE",
-    });
+    const response = await fetchProjectActivityMutation(
+      projectId,
+      `/api/projects/${projectId}/roadmap/phases/${phaseId}`,
+      {
+        method: "DELETE",
+      }
+    );
 
     if (!response.ok) {
       throw new Error(mapRoadmapMutationError(await readApiError(response)));
@@ -1828,7 +1873,8 @@ export function ProjectRoadmapPanel({
     setIsDeletingEvent(true);
 
     try {
-      const response = await fetch(
+      const response = await fetchProjectActivityMutation(
+        projectId,
         `/api/projects/${projectId}/roadmap/events/${pendingDeleteEvent.id}`,
         {
           method: "DELETE",
@@ -1877,7 +1923,6 @@ export function ProjectRoadmapPanel({
         message: `${pendingDeleteEvent.title} has been removed.`,
         variant: "success",
       });
-      router.refresh();
     } catch (error) {
       console.error("[ProjectRoadmapPanel.confirmDeleteEvent]", error);
       pushToast({
@@ -1890,16 +1935,20 @@ export function ProjectRoadmapPanel({
   }
 
   async function persistEventReorder(phaseId: string, eventIds: string[]) {
-    const response = await fetch(`/api/projects/${projectId}/roadmap/events/reorder`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        phaseId,
-        eventIds,
-      }),
-    });
+    const response = await fetchProjectActivityMutation(
+      projectId,
+      `/api/projects/${projectId}/roadmap/events/reorder`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          phaseId,
+          eventIds,
+        }),
+      }
+    );
 
     if (!response.ok) {
       throw new Error(mapRoadmapMutationError(await readApiError(response)));
@@ -1907,17 +1956,21 @@ export function ProjectRoadmapPanel({
   }
 
   async function persistEventMove(eventId: string, targetPhaseId: string, targetIndex: number) {
-    const response = await fetch(`/api/projects/${projectId}/roadmap/events/move`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        eventId,
-        targetPhaseId,
-        targetIndex,
-      }),
-    });
+    const response = await fetchProjectActivityMutation(
+      projectId,
+      `/api/projects/${projectId}/roadmap/events/move`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          eventId,
+          targetPhaseId,
+          targetIndex,
+        }),
+      }
+    );
 
     if (!response.ok) {
       throw new Error(mapRoadmapMutationError(await readApiError(response)));
@@ -1954,15 +2007,19 @@ export function ProjectRoadmapPanel({
     );
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/roadmap/events/${event.id}`, {
-        method: "PATCH",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          status: nextStatus,
-        }),
-      });
+      const response = await fetchProjectActivityMutation(
+        projectId,
+        `/api/projects/${projectId}/roadmap/events/${event.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            status: nextStatus,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(mapRoadmapMutationError(await readApiError(response)));
@@ -2055,7 +2112,6 @@ export function ProjectRoadmapPanel({
         }
 
         setRoadmapPhases(sortRoadmapPhasesForDisplay(nextPhases));
-        router.refresh();
       } catch (error) {
         pushToast({
           message: error instanceof Error ? error.message : mapRoadmapMutationError(),
@@ -2098,8 +2154,6 @@ export function ProjectRoadmapPanel({
           );
         }
       }
-
-      router.refresh();
     } catch (error) {
       setRoadmapPhases(previousPhases);
       pushToast({

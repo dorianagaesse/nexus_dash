@@ -32,6 +32,22 @@ Use it for important implementation milestones, blockers, validation runs, and r
     - `npm run test:coverage`: met all threshold targets.
     - `npx next build --webpack`: successfully compiled and generated all 27 static routes.
 
+# 2026-10-04 - ND-402: Preserve milestone linkage after dragging onto roadmap
+
+- Task ND-402 (card `cmtkk0uqg000b04l1l4dvtbea`) under epic "Roadmap interaction refinement":
+  - Investigated root cause of roadmap task/event unlinking when dropped onto milestones: roadmap mutations were using raw `fetch` instead of `fetchProjectActivityMutation` and routes were missing `withProjectActivityVersionHeader`, while `handleDragEnd` and `confirmDeleteEvent` called racing `router.refresh()`. Background realtime/polling updates from `ProjectLiveRefresh` interpreted the database update as an external change mid-drag or immediately post-drag, firing a `router.refresh()` race before replication settled and wiping optimistic state.
+  - Updated `lib/services/project-roadmap-service.ts`: `moveProjectRoadmapEvent`, `reorderProjectRoadmapEvents`, `reorderProjectRoadmapPhases`, `deleteProjectRoadmapEvent`, and `deleteProjectRoadmapPhase` now capture `touchProjectActivity` and return `activityVersion`.
+  - Updated roadmap API routes (`/api/projects/[projectId]/roadmap/events/move`, `/api/projects/[projectId]/roadmap/events/reorder`, `/api/projects/[projectId]/roadmap/phases/reorder`, `/api/projects/[projectId]/roadmap/phases/[phaseId]`, and `/api/projects/[projectId]/roadmap/events/[eventId]`) to attach `withProjectActivityVersionHeader(undefined, result.data.activityVersion)` to responses.
+  - Updated `components/project-roadmap-panel.tsx` to execute mutations through `fetchProjectActivityMutation`, suppress background sync during drag operations, eliminate racing `router.refresh()` calls, and reliably rollback optimistic state on failure with user toast feedback.
+  - Hardened desktop roadmap connector paths: guarded against portaled card measurements during drag operations, re-measured upon drag completion regardless of destination matching, preserved complete card measurements during transient DOM states, and fell back to exact geometric centers in `RoadmapDesktopConnector` if layout measurements ever miss card elements.
+  - Enhanced dropzone visibility in dark mode: replaced top-left radial gradient that clipped at 40% with a full-height vertical gradient and crisp perimeter outline so the drop target area and shadow are clearly visible across the entire lane height.
+  - Added unit/integration coverage for drag/drop persistence, lane count / status badge updates, error rollback, post-refresh prop reconciliation, and desktop connector branch preservation in `tests/components/project-roadmap-panel.test.tsx`, `tests/lib/project-roadmap-service.test.ts`, and `tests/api/project-roadmap.route.test.ts`.
+- Validations:
+  - `git diff --check`, `npm run lint`, `npm run rls:check` passed clean.
+  - `npm test`: 224 test files / 1842 tests passed (2 skipped).
+  - `npm run test:coverage`: met all threshold targets (statements 93.77%, branches 84.46%, funcs 95.42%, lines 94.07%).
+  - `npx next build --webpack`: compiled and generated all 27 static routes cleanly.
+
 # 2026-10-03 - ND-141: Epic live refresh on task and epic mutations
 
 - Added `"epic"` domain to `ProjectActivityDomain` and wired `recordProjectActivityEventVersion` into epic creation, update, delete, archive, and restore endpoints, as well as task archive/unarchive routes.
@@ -9424,3 +9440,94 @@ Low-value entries to avoid going forward:
 - Unit and component tests: added 3 new test cases to `tests/components/task-detail-modal-comments.test.tsx` verifying comment submit vs save separation, edit-mode composer exclusion, and the audited accessibility semantics.
 - Full validation: `git diff --check`, `npm run lint`, `npm run rls:check`, full unit test suite (221 files passed, 1816 tests passed), `npm run test:coverage` (93.78% statements, 84.46% branches, 95.42% functions, 94.08% lines), and Next.js production build (`npx next build --webpack`) all passed.
 - Merge-forward (2026-10-04): merged `origin/main` (through ND-141 #568 `b3e072c`), resolved route stream and journal merge conflicts. All automated component and regression tests pass cleanly.
+
+## 2026-10-04 - ND-185: Epic create/update attribution
+
+- Epics now durably record who created and last mutated them: `createdBy*`/
+  `updatedBy*` user and ApiCredential columns with display-name label
+  snapshots on the `Epic` model (the originally applied
+  `20261004120000_nd185_epic_leadership` migration, followed by
+  `20261004230000_nd185_withdraw_epic_leadership`), mirroring the Task model. The
+  create/update/archive service paths resolve the acting actor through
+  `resolveProjectMutationActor` and write the user id plus any agent
+  credential id/label; pre-existing epics backfill attribution from the
+  project owner, and both user columns are NOT NULL with RESTRICT foreign
+  keys.
+- The epic panel renders "Created by" and "Last edited by" inline rows
+  (avatar, display name, local date) at the end of the epic details
+  disclosure; the compact face keeps its original layout.
+- Scope change before merge: the initially reviewed epic-lead columns and
+  reassignment PATCH, and the epic-scoped history endpoint, were withdrawn by
+  the product owner as workflow-free metadata (epics are "just a group of
+  tasks"); a full epic history stays a future idea. The hydration fix
+  (`suppressHydrationWarning` on the provenance date) and the
+  disclosure-toggle retry helper in `tests/e2e/helpers/interaction-helpers.ts`
+  are retained.
+- Tests: epic service attribution coverage (human create, agent-credential
+  create, update and archive writes, list mapping), epic panel coverage
+  (attribution inside the disclosure, agent label rendering), and
+  `tests/e2e/nd-185-epic-attribution.spec.ts` (UI create/edit lifecycle with
+  DB assertions and agent snapshot rendering); lead/history tests and the
+  `nd-185-epic-leadership` E2E spec removed.
+- Validation: `npm run lint`, `npm run rls:check`, full unit suite (226 files:
+  224 passed, 2 skipped; 1844 tests passed), `npm run test:coverage` (93.77%
+  statements, 84.46% branches, 95.42% functions, 94.07% lines), production
+  build, and the five epic-touching Playwright specs (15/15) passed locally
+  against the local Postgres, which was realigned to the rescoped migration
+  via a checksum-safe delta (lead columns and the composite
+  ProjectActivityEvent index removed, credential indexes added).
+- CI unblock: E2E Smoke failed twice on
+  `tests/e2e/project-meeting-steward.spec.ts` at shifting lines. Root cause
+  is a pre-existing app race - the meeting-notes panel runs
+  `window.location.reload()` when a mutation echoes back as a remote activity
+  event, which closes the note dialog mid-assertion or collides with the
+  spec's own `page.reload()` (ERR_ABORTED / maybe frame was detached). Per
+  repo convention the race is fixed in the spec, not rerun: dialog-opening
+  clicks go through `clickUntilVisible`, facilitator toggles retry through a
+  new `toggleFacilitatorUntil` helper that re-opens the dialog when a reload
+  closes it, and reloads use a new retrying `reloadUntilLoaded` helper in
+  `tests/e2e/helpers/interaction-helpers.ts`. Validated locally: both tests
+  three times consecutively (6/6) plus the ND-185 attribution spec (2/2)
+  against a local `next start` build.
+- Merge-forward (2026-10-04): merged `origin/main` (ND-142 #565, `f064d7b`)
+  after the PR went CONFLICTING; only `journal.md` conflicted (both sides
+  appended entries), resolved by keeping main's ND-142 entry above this one.
+  Main's task-detail-modal changes merged cleanly; CI re-validates the merge
+  head.
+
+## 2026-10-05 - ND-185 Preview migration recovery
+
+- The 2026-10-04 20:32 UTC Preview deploy applied the original ND-185
+  leadership migration. The branch subsequently replaced that migration with
+  an attribution-only migration under a new name. Its first deployment attempt
+  failed with P3018 because `Epic.createdByUserId` already existed, and Prisma
+  then blocked ND-185 and ND-402 preview attempts with P3009.
+- Restored the exact applied migration file and added a later forward migration
+  to remove the withdrawn lead/history schema and add the retained credential
+  indexes. A temporary Preview-only, record-validated workflow action resolved
+  the failed replacement migration in
+  [run 37242260280](https://github.com/dorianagaesse/nexus_dash/actions/runs/37242260280);
+  it was removed after use. Production was untouched.
+- [Preview run 37242365832](https://github.com/dorianagaesse/nexus_dash/actions/runs/37242365832)
+  checked out `f90f393`, applied the forward migration, and verified the
+  immutable deployment, database readiness, and stable auth alias.
+- Validation: fresh local PostgreSQL migration chain, `npm run lint`,
+  `npm run rls:check`, `npm test` (1847 passed), `npm run test:coverage`
+  (93.77% statements, 84.46% branches), `npm run build`, and the PostgreSQL
+  tenant-isolation matrix passed.
+
+## 2026-10-05 - ND-402 branch update after ND-185
+
+- Synced ND-402 with merged ND-185 (`dd52fe9`). The local rebase completed
+  without conflicts, but GitHub rejected its rewritten push because this branch
+  forbids force pushes. Merged `origin/main` into the existing PR branch instead;
+  the merge-forward tree is identical to the rebased tree (`03be8cc`).
+- [Preview run 37321953385](https://github.com/dorianagaesse/nexus_dash/actions/runs/37321953385)
+  checked out `03be8cc`, found no pending migrations, and verified the
+  immutable deployment, runtime database readiness, and stable auth alias.
+- Validation on a separate local PostgreSQL database: migration chain, lint,
+  RLS inventory and tenant-isolation matrix, 1851 unit tests, coverage, and
+  webpack production build passed. The local Turbopack build hit a worktree
+  PostCSS symlink path error; CI's standard build passed. Local Playwright
+  passed 103 tests with one expected skip, and PR quality, E2E, RLS, and
+  container jobs passed.

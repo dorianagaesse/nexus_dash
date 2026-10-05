@@ -5,6 +5,7 @@ import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
+import { activateUntilVisible } from "./helpers/interaction-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
 
 const screenshotDirectory = process.env.TASK335_SCREENSHOT_DIR?.trim();
@@ -31,6 +32,8 @@ async function createDenseEpicFixture(userId: string) {
       name: primaryEpicName,
       description:
         "Give collaborators the complete rollout narrative, expected outcome, and enough implementation context to make the initiative understandable at a glance.",
+      createdByUserId: userId,
+      updatedByUserId: userId,
     },
     select: { id: true },
   });
@@ -41,6 +44,8 @@ async function createDenseEpicFixture(userId: string) {
       projectId: project.id,
       name: secondaryEpicName,
       description: "Confirm the product is ready for the first invited teams.",
+      createdByUserId: userId,
+      updatedByUserId: userId,
     },
   });
   await prisma.task.createMany({
@@ -125,6 +130,8 @@ test.describe("TASK-335 epic detail disclosure", () => {
     expect(mobileEpicBounds!.x + mobileEpicBounds!.width).toBeLessThanOrEqual(
       375
     );
+    // Compact face = title, status, progress; the dense description, linked
+    // tasks, and attribution stay behind the disclosure.
     expect(mobileEpicBounds!.height).toBeLessThan(360);
     expect(mobileDisclosureBounds!.width).toBeGreaterThanOrEqual(44);
     expect(mobileDisclosureBounds!.height).toBeGreaterThanOrEqual(44);
@@ -141,11 +148,12 @@ test.describe("TASK-335 epic detail disclosure", () => {
       });
     }
 
-    await showDetails.focus();
-    await showDetails.press("Enter");
-
     const hideDetails = primaryEpic.getByRole("button", {
       name: `Hide details for ${fixture.primaryEpicName}`,
+    });
+    await activateUntilVisible(hideDetails, async () => {
+      await showDetails.focus({ timeout: 1_000 });
+      await showDetails.press("Enter", { timeout: 1_000 });
     });
     await expect(hideDetails).toHaveAttribute("aria-expanded", "true");
     await expect(description).toBeVisible();
