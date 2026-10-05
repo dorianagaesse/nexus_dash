@@ -240,28 +240,62 @@ describe("agent-onboarding contract", () => {
     );
   });
 
-  test("documents the task list epic and label filters", () => {
+  test("documents the task list filters", () => {
     const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
 
     const path = document.paths["/api/projects/{projectId}/tasks"].get;
-    const queryParameters = path.parameters.filter(
-      (parameter: { in?: string }) => parameter.in === "query"
-    );
-    expect(queryParameters.map((parameter: { name: string }) => parameter.name)).toEqual([
+    const queryParameters = (
+      path.parameters as readonly {
+        name?: string;
+        in?: string;
+        required?: boolean;
+        schema?: { enum?: readonly string[]; type?: readonly string[] };
+      }[]
+    ).filter((parameter) => parameter.in === "query");
+    expect(queryParameters.map((parameter) => parameter.name)).toEqual([
       "epicId",
       "label",
+      "assignee",
+      "sort",
+      "limit",
     ]);
-    expect(queryParameters.every((parameter: { required?: boolean }) => !parameter.required)).toBe(true);
+    expect(queryParameters.every((parameter) => !parameter.required)).toBe(true);
+
+    const assigneeParameter = queryParameters.find(
+      (parameter) => parameter.name === "assignee"
+    );
+    expect(assigneeParameter?.schema?.enum).toEqual(["self", "unassigned"]);
+    const sortParameter = queryParameters.find(
+      (parameter) => parameter.name === "sort"
+    );
+    expect(sortParameter?.schema?.enum).toEqual(["recent"]);
 
     const listResponse = document.components.schemas.TaskListResponse;
     expect(listResponse.required).toEqual(["tasks", "filters"]);
-    expect(listResponse.properties.filters.required).toEqual(["epicId", "label"]);
+    expect(listResponse.properties.filters.required).toEqual([
+      "epicId",
+      "label",
+      "assignee",
+      "sort",
+      "limit",
+    ]);
     expect(listResponse.properties.filters.properties.epicId.type).toEqual([
       "string",
       "null",
     ]);
     expect(listResponse.properties.filters.properties.label.type).toEqual([
       "string",
+      "null",
+    ]);
+    expect(
+      listResponse.properties.filters.properties.assignee.enum
+    ).toEqual(["self", "unassigned", null]);
+    expect(listResponse.properties.filters.properties.sort.enum).toEqual([
+      "recent",
+      null,
+    ]);
+    expect(listResponse.properties.filters.properties.limit.type).toEqual([
+      "integer",
       "null",
     ]);
   });

@@ -640,9 +640,16 @@ async function safeFindCalendarConnection(
   }
 }
 
+export type TaskListAssigneeFilter =
+  | "unassigned"
+  | { kind: "human" | "agent"; id: string };
+
 export interface TaskListFilters {
   epicId?: string;
   label?: string;
+  assignee?: TaskListAssigneeFilter;
+  sort?: "recent";
+  limit?: number;
 }
 
 export async function listProjectKanbanTasks(
@@ -667,6 +674,23 @@ export async function listProjectKanbanTasks(
 
   const normalizedEpicId = filters?.epicId?.trim() || undefined;
   const normalizedLabel = filters?.label?.trim() || undefined;
+  const normalizedAssignee = filters?.assignee;
+  const normalizedSort = filters?.sort === "recent" ? "recent" : undefined;
+  const normalizedLimit =
+    typeof filters?.limit === "number" && Number.isFinite(filters.limit)
+      ? Math.min(Math.max(Math.trunc(filters.limit), 1), 200)
+      : undefined;
+  const normalizedTake =
+    normalizedLimit ?? (normalizedSort === "recent" ? 50 : undefined);
+
+  const assigneeWhere =
+    normalizedAssignee === "unassigned"
+      ? { assigneeUserId: null, assigneeCredentialId: null }
+      : normalizedAssignee
+        ? normalizedAssignee.kind === "agent"
+          ? { assigneeKind: "agent" as const, assigneeCredentialId: normalizedAssignee.id }
+          : { assigneeKind: "human" as const, assigneeUserId: normalizedAssignee.id }
+        : undefined;
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
     await archiveStaleDoneTasks(projectId, normalizedActorUserId, db);
@@ -694,9 +718,14 @@ export async function listProjectKanbanTasks(
               ],
             }
           : {}),
+        ...(assigneeWhere ?? {}),
         project: buildProjectPrincipalWhere(normalizedActorUserId),
       },
-      orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
+      orderBy:
+        normalizedSort === "recent"
+          ? [{ updatedAt: "desc" }]
+          : [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
+      ...(normalizedTake ? { take: normalizedTake } : {}),
       include: projectKanbanTaskInclude,
     });
   });

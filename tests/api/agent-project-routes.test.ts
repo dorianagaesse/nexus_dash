@@ -298,7 +298,7 @@ describe("agent project routes", () => {
 
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({
-      filters: { epicId: null, label: null },
+      filters: { epicId: null, label: null, assignee: null, sort: null, limit: null },
       tasks: [
         {
           id: "task-1",
