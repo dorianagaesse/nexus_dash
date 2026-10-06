@@ -29,6 +29,8 @@ const commonEnv = {
     "local-placeholder-agent-token-signing-secret-0123456789",
   RESEND_API_KEY: process.env.RESEND_API_KEY || "local-placeholder-resend-key",
   STORAGE_PROVIDER: process.env.STORAGE_PROVIDER || "local",
+  // Production-mode builds default to Broadcast and require Supabase config; pin polling as CI does.
+  REALTIME_TRANSPORT: process.env.REALTIME_TRANSPORT || "polling",
   RLS_TEST_ADMIN_DATABASE_URL:
     process.env.RLS_TEST_ADMIN_DATABASE_URL || DEFAULT_RLS_ADMIN_DATABASE_URL,
   RLS_TEST_RUNTIME_DATABASE_URL:

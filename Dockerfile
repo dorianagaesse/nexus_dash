@@ -16,10 +16,12 @@ ARG DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=
 ARG DIRECT_URL=postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
 ARG RESEND_API_KEY=ci-placeholder-resend-key
 ARG AGENT_TOKEN_SIGNING_SECRET=ci-placeholder-agent-token-signing-secret-0123456789
+ARG REALTIME_TRANSPORT=polling
 ENV DATABASE_URL=$DATABASE_URL
 ENV DIRECT_URL=$DIRECT_URL
 ENV RESEND_API_KEY=$RESEND_API_KEY
 ENV AGENT_TOKEN_SIGNING_SECRET=$AGENT_TOKEN_SIGNING_SECRET
+ENV REALTIME_TRANSPORT=$REALTIME_TRANSPORT
 
 RUN npx prisma generate
 RUN npm run build
