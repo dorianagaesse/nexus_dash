@@ -67,61 +67,10 @@ function mockActivityVersion(version: string) {
   });
 }
 
-class MockEventSource {
-  static instances: MockEventSource[] = [];
-
-  readonly url: string;
-  closed = false;
-  private listeners = new Map<string, Set<EventListener>>();
-
-  constructor(url: string) {
-    this.url = url;
-    MockEventSource.instances.push(this);
-  }
-
-  addEventListener(type: string, listener: EventListener) {
-    const listeners = this.listeners.get(type) ?? new Set<EventListener>();
-    listeners.add(listener);
-    this.listeners.set(type, listeners);
-  }
-
-  removeEventListener(type: string, listener: EventListener) {
-    this.listeners.get(type)?.delete(listener);
-  }
-
-  close() {
-    this.closed = true;
-  }
-
-  emit(type: string, event: Event) {
-    for (const listener of this.listeners.get(type) ?? []) {
-      listener(event);
-    }
-  }
-
-  open() {
-    this.emit("open", new Event("open"));
-  }
-
-  error() {
-    this.emit("error", new Event("error"));
-  }
-
-  projectActivity(payload: unknown) {
-    this.emit(
-      "project-activity",
-      new MessageEvent("project-activity", {
-        data: JSON.stringify(payload),
-      }) as unknown as Event
-    );
-  }
-}
-
 describe("ProjectLiveRefresh", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    MockEventSource.instances = [];
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("BroadcastChannel", undefined);
   });
@@ -133,50 +82,7 @@ describe("ProjectLiveRefresh", () => {
     document.body.innerHTML = "";
   });
 
-  test("uses the project activity stream when EventSource is available", async () => {
-    vi.stubGlobal("EventSource", MockEventSource);
-    const { root } = createTestRenderer();
-
-    await renderWithRoot(
-      root,
-      React.createElement(ProjectLiveRefresh, {
-        projectId: "project-1",
-        initialVersion: "2026-05-30T10:00:00.000Z",
-        pollIntervalMs: 50,
-      })
-    );
-
-    expect(MockEventSource.instances).toHaveLength(1);
-    expect(MockEventSource.instances[0]?.url).toBe(
-      "/api/projects/project-1/activity/stream"
-    );
-
-    await act(async () => {
-      MockEventSource.instances[0]?.open();
-      await vi.advanceTimersByTimeAsync(100);
-    });
-
-    expect(fetchMock).not.toHaveBeenCalled();
-
-    await act(async () => {
-      MockEventSource.instances[0]?.projectActivity({
-        projectId: "project-1",
-        version: "2026-05-30T10:01:00.000Z",
-        serverTime: "2026-05-30T10:01:00.000Z",
-      });
-    });
-
-    expect(routerRefreshMock).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      root.unmount();
-    });
-
-    expect(MockEventSource.instances[0]?.closed).toBe(true);
-  });
-
-  test("dispatches typed stream activity without refreshing when a listener handles it", async () => {
-    vi.stubGlobal("EventSource", MockEventSource);
+  test("dispatches typed activity without refreshing when a listener handles it", async () => {
     const { root } = createTestRenderer();
     const remoteActivityHandler = vi.fn((event: Event) => {
       const detail = (
@@ -187,19 +93,9 @@ describe("ProjectLiveRefresh", () => {
       detail.markHandled();
     });
     window.addEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, remoteActivityHandler);
-
-    await renderWithRoot(
-      root,
-      React.createElement(ProjectLiveRefresh, {
-        projectId: "project-1",
-        initialVersion: "2026-05-30T10:00:00.000Z",
-        pollIntervalMs: 50,
-      })
-    );
-
-    await act(async () => {
-      MockEventSource.instances[0]?.open();
-      MockEventSource.instances[0]?.projectActivity({
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
         eventId: "event-1",
         projectId: "project-1",
         version: "2026-05-30T10:01:00.000Z",
@@ -214,21 +110,8 @@ describe("ProjectLiveRefresh", () => {
             title: "Remote task",
           },
         },
-      });
+      }),
     });
-
-    expect(remoteActivityHandler).toHaveBeenCalledTimes(1);
-    expect(routerRefreshMock).not.toHaveBeenCalled();
-
-    window.removeEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, remoteActivityHandler);
-    await act(async () => {
-      root.unmount();
-    });
-  });
-
-  test("falls back to adaptive polling when the activity stream fails before opening", async () => {
-    vi.stubGlobal("EventSource", MockEventSource);
-    const { root } = createTestRenderer();
 
     await renderWithRoot(
       root,
@@ -239,21 +122,14 @@ describe("ProjectLiveRefresh", () => {
       })
     );
 
-    mockActivityVersion("2026-05-30T10:01:00.000Z");
-
-    await act(async () => {
-      MockEventSource.instances[0]?.error();
-      await vi.advanceTimersByTimeAsync(0);
-    });
-
     await act(async () => {
       await vi.advanceTimersByTimeAsync(50);
     });
 
-    expect(MockEventSource.instances[0]?.closed).toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(routerRefreshMock).toHaveBeenCalled();
+    expect(remoteActivityHandler).toHaveBeenCalledTimes(1);
+    expect(routerRefreshMock).not.toHaveBeenCalled();
 
+    window.removeEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, remoteActivityHandler);
     await act(async () => {
       root.unmount();
     });
@@ -327,7 +203,6 @@ describe("ProjectLiveRefresh", () => {
         projectId: "project-1",
         initialVersion: "2026-05-30T10:00:00.000Z",
         pollIntervalMs: 5000,
-        streamEnabled: false,
       })
     );
 
@@ -358,7 +233,6 @@ describe("ProjectLiveRefresh", () => {
         projectId: "project-1",
         initialVersion: "2026-05-30T10:00:00.000Z",
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -411,7 +285,6 @@ describe("ProjectLiveRefresh", () => {
         projectId: "project-1",
         initialVersion: "2026-05-30T10:00:00.000Z",
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -552,7 +425,6 @@ describe("ProjectLiveRefresh", () => {
   });
 
   test("keeps suppressing an in-flight mutation echo when a refreshed render lands", async () => {
-    vi.stubGlobal("EventSource", MockEventSource);
     const { root } = createTestRenderer();
     const remoteActivityHandler = vi.fn((event: Event) => {
       const detail = (
@@ -573,10 +445,6 @@ describe("ProjectLiveRefresh", () => {
       })
     );
 
-    await act(async () => {
-      MockEventSource.instances[0]?.open();
-    });
-
     let finishMutation: (() => void) | null = null;
     await act(async () => {
       finishMutation = beginProjectActivityMutation("project-1");
@@ -594,8 +462,9 @@ describe("ProjectLiveRefresh", () => {
       })
     );
 
-    await act(async () => {
-      MockEventSource.instances[0]?.projectActivity({
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
         eventId: "event-1",
         projectId: "project-1",
         version: "2026-05-30T10:02:00.000Z",
@@ -605,7 +474,11 @@ describe("ProjectLiveRefresh", () => {
         action: "updated",
         entityId: "note-1",
         payload: {},
-      });
+      }),
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
     });
 
     expect(remoteActivityHandler).not.toHaveBeenCalled();
@@ -676,7 +549,6 @@ describe("ProjectLiveRefresh", () => {
         projectId: "project-1",
         initialVersion: "2026-05-30T10:00:00.000Z",
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -723,7 +595,6 @@ describe("ProjectLiveRefresh", () => {
         projectId: "project-1",
         initialVersion: "2026-05-30T10:00:00.000Z",
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -790,7 +661,6 @@ describe("ProjectLiveRefresh", () => {
         projectId: "project-1",
         initialVersion: "2026-05-30T10:00:00.000Z",
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
     await renderWithRoot(
@@ -799,7 +669,6 @@ describe("ProjectLiveRefresh", () => {
         projectId: "project-1",
         initialVersion: "2026-05-30T10:00:00.000Z",
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -851,7 +720,6 @@ describe("ProjectLiveRefresh", () => {
         projectId: "project-1",
         initialVersion: "2026-05-30T10:00:00.000Z",
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
     await renderWithRoot(
@@ -860,7 +728,6 @@ describe("ProjectLiveRefresh", () => {
         projectId: "project-1",
         initialVersion: "2026-05-30T10:00:00.000Z",
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -907,7 +774,6 @@ describe("ProjectLiveRefresh", () => {
         projectId: "project-1",
         initialVersion: "2026-05-30T10:00:00.000Z",
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
     await renderWithRoot(
@@ -916,7 +782,6 @@ describe("ProjectLiveRefresh", () => {
         projectId: "project-1",
         initialVersion: "2026-05-30T10:00:00.000Z",
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -985,7 +850,6 @@ describe("ProjectLiveRefresh", () => {
         projectId: "project-1",
         initialVersion: "2026-05-30T10:00:00.000Z",
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 

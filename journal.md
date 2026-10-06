@@ -9607,3 +9607,60 @@ Low-value entries to avoid going forward:
   PostCSS symlink path error; CI's standard build passed. Local Playwright
   passed 103 tests with one expected skip, and PR quality, E2E, RLS, and
   container jobs passed.
+
+## 2026-10-06 - ND-374: Retire legacy SSE routes and load-test realtime fallback behavior
+
+- Deleted both SSE route handlers
+  (`app/api/projects/[projectId]/activity/stream`,
+  `app/api/account/notifications/stream`) and the stream helpers
+  (`lib/realtime/server-sent-events.ts`, `project-activity-stream.ts`,
+  `notification-stream.ts`); `isRealtimeStreamEnabled()` is gone.
+  `REALTIME_TRANSPORT` is now `broadcast | polling`, and the retired `stream`
+  value fails startup validation. Client precedence collapses to broadcast ->
+  bounded adaptive polling; a visible or online tab retries Broadcast. Metrics
+  dropped the stream-only counters; fallback attribution now applies to the
+  `broadcast` transport only. The preview verifier proves a token-blocked
+  browser degrades to polling with no SSE leg, and quality gates pin
+  `REALTIME_TRANSPORT=polling` on the build and e2e jobs because production-like
+  builds default to Broadcast and CI provisions no Supabase Realtime config.
+- Docs and architecture: task-372 ADR gained an ND-374 amendment superseding
+  its stream tier; task-348's schedule ADR notes its "activity SSE bridge"
+  references now target Broadcast plus bounded polling; `adr/decisions.md`
+  records the 2026-10-06 retirement; both Vercel runbooks and `.env.example`
+  describe broadcast|polling only. Known stale surface: `project.md`
+  (current-state lines still name the SSE tier) - off-limits in a feature PR
+  per CLAUDE.md; flagged in the PR for separate maintenance.
+- Load testing: `scripts/load-test-realtime.mjs` (Playwright: 3 member tabs
+  plus the owner tab, two API renames, one reload) ran two 60 s scenarios
+  against a local production build with an isolated database; both recorded
+  20/20 assertions in `docs/reports/nd-374-realtime-load-test.md`:
+  - Polling transport: 11 member activity polls against an independent-tab
+    volume of 33 (leader-coordinated, bound 14), `activity.snapshotChecks`
+    equal to the 19 observed polls, 0 realtime tokens, 0 websockets, 0 SSE
+    requests, 0 fallbacks; convergence 3/3 tabs at both renames.
+  - Broadcast with provider outage: 8 tokens issued and 0 denied, 18/18
+    observed polls attributed as `activity.pollingFallbacks`, same poll
+    bounds, convergence 3/3.
+- Out-of-scope observations (recorded in the report): the single-tab
+  `router.refresh()` RSC fetch is canceled client-side in most single-tab
+  diagnostics (headed and headless; the Next 16.2.7 client fetch path passes
+  no abort signal, and buffered interception applies the same response) -
+  pre-existing ND-373 client behavior, transport-independent, and both
+  recorded multi-tab runs converged; a follow-up candidate. One local
+  `next start` process spun at 100% CPU during harness iteration; the database
+  was idle with no locks, and it did not reproduce on a clean restart.
+- CI-shaped test fix: the two transport-wiring tests asserted the unset
+  transport default without clearing an ambient `REALTIME_TRANSPORT`, so the
+  new quality-core pin would have failed them only in CI. They now stub
+  `REALTIME_TRANSPORT=""` in `beforeEach`, the same pattern
+  `tests/lib/env.server.test.ts` uses.
+- Validation (CI-mirroring env including `REALTIME_TRANSPORT=polling`): lint
+  and `rls:check` clean; `npm test` 1877 passed / 2 skipped; coverage 93.77%
+  statements, 84.46% branches, 95.42% functions, 94.07% lines; production
+  build passed with both stream routes absent from the route manifest;
+  Playwright 103 passed / 1 skipped (preview-auth-isolation) on PORT 3930;
+  `git diff --check` clean. The RLS matrix is not required for this branch:
+  no Prisma model, migration, or runtime-role changes.
+- Merge gating: the Production broadcast flip is deferred and owned by the
+  reviewer; the acceptance check "Vercel Observability reports no legacy SSE
+  invocations" is a post-flip observation on the deployed branch.

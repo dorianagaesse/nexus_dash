@@ -40,7 +40,7 @@ describe("observability realtime metrics route", () => {
 
   test("returns the aggregate telemetry snapshot for authorized principals", async () => {
     recordRealtimeCounter("activity.snapshotChecks");
-    recordRealtimeCounter("stream.connections", 2);
+    recordRealtimeCounter("broadcast.tokenIssued", 2);
     recordDatabaseQueryCalls(7);
 
     const response = await getRealtimeMetrics(
@@ -55,13 +55,13 @@ describe("observability realtime metrics route", () => {
       metrics: {
         environment: "test",
         revision: null,
-        transport: "stream",
+        transport: "polling",
         scope: "instance",
         generatedAt: expect.any(String),
         counters: {
           ...Object.fromEntries(REALTIME_METRIC_COUNTERS.map((name) => [name, 0])),
           "activity.snapshotChecks": 1,
-          "stream.connections": 2,
+          "broadcast.tokenIssued": 2,
         },
         serviceTiming: {},
         database: { queryCalls: 7 },

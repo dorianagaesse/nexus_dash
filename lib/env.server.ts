@@ -266,25 +266,24 @@ export function getStorageRuntimeConfig(): StorageRuntimeConfig {
   };
 }
 
-export type RealtimeTransport = "broadcast" | "stream" | "polling";
+export type RealtimeTransport = "broadcast" | "polling";
 
 export function getRealtimeTransport(): RealtimeTransport {
   const transportRaw = getOptionalServerEnv("REALTIME_TRANSPORT");
   if (transportRaw) {
-    if (transportRaw !== "broadcast" && transportRaw !== "stream" && transportRaw !== "polling") {
-      throw new Error("REALTIME_TRANSPORT must be one of: broadcast, stream, polling.");
+    if (transportRaw !== "broadcast" && transportRaw !== "polling") {
+      throw new Error("REALTIME_TRANSPORT must be one of: broadcast, polling.");
     }
 
     return transportRaw;
   }
 
-  // Persistent DB-polled SSE is the dominant Vercel Fluid compute cost driver,
-  // so Preview defaults to bounded polling unless explicitly overridden.
-  return isPreviewDeployment() ? "polling" : "stream";
-}
-
-export function isRealtimeStreamEnabled(): boolean {
-  return getRealtimeTransport() !== "polling";
+  // Broadcast requires Supabase configuration, so it is the default only for
+  // production-like deployments; Preview, local, and test runs stay on
+  // bounded polling unless the transport is set explicitly.
+  return isProductionEnvironment() && !isPreviewDeployment()
+    ? "broadcast"
+    : "polling";
 }
 
 export function getSupabaseRealtimeTokenRuntimeConfig(): {

@@ -15,16 +15,8 @@ const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 20000;
 interface NotificationLiveUpdatesProps {
   initialSnapshot: NotificationRealtimeSnapshot;
   pollIntervalMs?: number;
-  streamEnabled?: boolean;
   broadcastEnabled?: boolean;
   userId?: string;
-}
-
-function canUseNotificationStream(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.EventSource === "function"
-  );
 }
 
 function isSnapshotChanged(
@@ -42,15 +34,13 @@ function isSnapshotChanged(
 export function NotificationLiveUpdates({
   initialSnapshot,
   pollIntervalMs = DEFAULT_ACTIVE_POLL_INTERVAL_MS,
-  streamEnabled = true,
   broadcastEnabled = false,
   userId,
 }: NotificationLiveUpdatesProps) {
   const [isPollingFallbackActive, setIsPollingFallbackActive] = useState(
-    () => !broadcastEnabled && (!streamEnabled || !canUseNotificationStream())
+    () => !broadcastEnabled
   );
   const [broadcastFailed, setBroadcastFailed] = useState(false);
-  const [streamFailed, setStreamFailed] = useState(false);
   const knownSnapshotRef = useRef(initialSnapshot);
 
   const handleSnapshot = useCallback((snapshot: NotificationRealtimeSnapshot) => {
@@ -75,12 +65,10 @@ export function NotificationLiveUpdates({
   }, [initialSnapshot]);
 
   const useBroadcast = broadcastEnabled && Boolean(userId) && !broadcastFailed;
-  const useStream = streamEnabled && !useBroadcast && !streamFailed &&
-    canUseNotificationStream();
 
   useEffect(() => {
-    setIsPollingFallbackActive(!useBroadcast && !useStream);
-  }, [useBroadcast, useStream]);
+    setIsPollingFallbackActive(!useBroadcast);
+  }, [useBroadcast]);
 
   useEffect(() => {
     if (!useBroadcast || !userId) return;
@@ -106,7 +94,6 @@ export function NotificationLiveUpdates({
     function retry() {
       if (!document.hidden) {
         setBroadcastFailed(false);
-        setStreamFailed(false);
       }
     }
     document.addEventListener("visibilitychange", retry);
@@ -116,51 +103,6 @@ export function NotificationLiveUpdates({
       window.removeEventListener("online", retry);
     };
   }, [broadcastEnabled]);
-
-  useEffect(() => {
-    if (!useStream) {
-      return;
-    }
-
-    const eventSource = new window.EventSource(
-      "/api/account/notifications/stream"
-    );
-
-    function handleOpen() {
-      setIsPollingFallbackActive(false);
-    }
-
-    function handleNotificationSnapshot(event: MessageEvent<string>) {
-      try {
-        handleSnapshot(JSON.parse(event.data) as NotificationRealtimeSnapshot);
-      } catch (error) {
-        console.warn("[NotificationLiveUpdates.stream]", error);
-      }
-    }
-
-    function handleError() {
-      eventSource.close();
-      setStreamFailed(true);
-      setIsPollingFallbackActive(true);
-    }
-
-    eventSource.addEventListener("open", handleOpen);
-    eventSource.addEventListener(
-      "notification-snapshot",
-      handleNotificationSnapshot as EventListener
-    );
-    eventSource.addEventListener("error", handleError);
-
-    return () => {
-      eventSource.removeEventListener("open", handleOpen);
-      eventSource.removeEventListener(
-        "notification-snapshot",
-        handleNotificationSnapshot as EventListener
-      );
-      eventSource.removeEventListener("error", handleError);
-      eventSource.close();
-    };
-  }, [handleSnapshot, useStream]);
 
   useEffect(() => {
     if (!isPollingFallbackActive) {
@@ -329,6 +271,5 @@ export function NotificationLiveUpdates({
 }
 
 export const notificationLiveUpdatesInternals = {
-  canUseNotificationStream,
   isSnapshotChanged,
 };

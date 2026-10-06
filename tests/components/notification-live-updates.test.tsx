@@ -15,56 +15,6 @@ const fetchMock = vi.hoisted(() => vi.fn());
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-class MockEventSource {
-  static instances: MockEventSource[] = [];
-
-  readonly url: string;
-  closed = false;
-  private listeners = new Map<string, Set<EventListener>>();
-
-  constructor(url: string) {
-    this.url = url;
-    MockEventSource.instances.push(this);
-  }
-
-  addEventListener(type: string, listener: EventListener) {
-    const listeners = this.listeners.get(type) ?? new Set<EventListener>();
-    listeners.add(listener);
-    this.listeners.set(type, listeners);
-  }
-
-  removeEventListener(type: string, listener: EventListener) {
-    this.listeners.get(type)?.delete(listener);
-  }
-
-  close() {
-    this.closed = true;
-  }
-
-  emit(type: string, event: Event) {
-    for (const listener of this.listeners.get(type) ?? []) {
-      listener(event);
-    }
-  }
-
-  open() {
-    this.emit("open", new Event("open"));
-  }
-
-  error() {
-    this.emit("error", new Event("error"));
-  }
-
-  notificationSnapshot(payload: unknown) {
-    this.emit(
-      "notification-snapshot",
-      new MessageEvent("notification-snapshot", {
-        data: JSON.stringify(payload),
-      }) as unknown as Event
-    );
-  }
-}
-
 function createTestRenderer() {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -102,7 +52,6 @@ describe("NotificationLiveUpdates", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    MockEventSource.instances = [];
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("BroadcastChannel", undefined);
   });
@@ -114,106 +63,7 @@ describe("NotificationLiveUpdates", () => {
     document.body.innerHTML = "";
   });
 
-  test("uses the notification stream when EventSource is available", async () => {
-    vi.stubGlobal("EventSource", MockEventSource);
-    const { root } = createTestRenderer();
-
-    await renderWithRoot(
-      root,
-      React.createElement(NotificationLiveUpdates, {
-        initialSnapshot,
-        pollIntervalMs: 50,
-      })
-    );
-
-    expect(MockEventSource.instances).toHaveLength(1);
-    expect(MockEventSource.instances[0]?.url).toBe(
-      "/api/account/notifications/stream"
-    );
-
-    await act(async () => {
-      MockEventSource.instances[0]?.open();
-      await vi.advanceTimersByTimeAsync(100);
-    });
-
-    expect(fetchMock).not.toHaveBeenCalled();
-
-    await act(async () => {
-      root.unmount();
-    });
-
-    expect(MockEventSource.instances[0]?.closed).toBe(true);
-  });
-
-  test("publishes stream snapshots to browser subscribers", async () => {
-    vi.stubGlobal("EventSource", MockEventSource);
-    const { root } = createTestRenderer();
-    const listener = vi.fn();
-    window.addEventListener(NOTIFICATION_REALTIME_EVENT, listener);
-
-    await renderWithRoot(
-      root,
-      React.createElement(NotificationLiveUpdates, {
-        initialSnapshot,
-        pollIntervalMs: 50,
-      })
-    );
-
-    await act(async () => {
-      MockEventSource.instances[0]?.open();
-      MockEventSource.instances[0]?.notificationSnapshot({
-        version: "2026-06-04T10:01:00.000Z",
-        unreadCount: 1,
-        latestUnreadNotification: { title: "Assigned: Ship realtime" },
-        serverTime: "2026-06-04T10:01:00.000Z",
-      });
-    });
-
-    expect(listener).toHaveBeenCalled();
-
-    window.removeEventListener(NOTIFICATION_REALTIME_EVENT, listener);
-    await act(async () => {
-      root.unmount();
-    });
-  });
-
-  test("ignores a stale reconciliation response but accepts same-version changes", async () => {
-    vi.stubGlobal("EventSource", MockEventSource);
-    const { root } = createTestRenderer();
-    const listener = vi.fn();
-    window.addEventListener(NOTIFICATION_REALTIME_EVENT, listener);
-    await renderWithRoot(root, React.createElement(NotificationLiveUpdates, {
-      initialSnapshot,
-    }));
-    listener.mockClear();
-
-    await act(async () => {
-      MockEventSource.instances[0]?.notificationSnapshot({
-        version: "2026-06-04T10:02:00.000Z", unreadCount: 2,
-        latestUnreadNotification: { title: "New" }, serverTime: "2026-06-04T10:02:00.000Z",
-      });
-      MockEventSource.instances[0]?.notificationSnapshot({
-        version: "2026-06-04T10:01:00.000Z", unreadCount: 1,
-        latestUnreadNotification: { title: "Stale" }, serverTime: "2026-06-04T10:01:00.000Z",
-      });
-    });
-    expect(listener).toHaveBeenCalledTimes(1);
-    expect((listener.mock.calls[0][0] as CustomEvent).detail.snapshot.unreadCount).toBe(2);
-
-    await act(async () => {
-      MockEventSource.instances[0]?.notificationSnapshot({
-        version: "2026-06-04T10:02:00.000Z", unreadCount: 0,
-        latestUnreadNotification: null, serverTime: "2026-06-04T10:02:01.000Z",
-      });
-    });
-    expect(listener).toHaveBeenCalledTimes(2);
-    expect((listener.mock.calls[1][0] as CustomEvent).detail.snapshot.unreadCount).toBe(0);
-    window.removeEventListener(NOTIFICATION_REALTIME_EVENT, listener);
-    await act(async () => root.unmount());
-  });
-
-  test("does not open a stream when streamEnabled is false", async () => {
-    vi.stubGlobal("EventSource", MockEventSource);
+  test("polls the notification summary when Broadcast is disabled", async () => {
     const { root } = createTestRenderer();
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -225,7 +75,6 @@ describe("NotificationLiveUpdates", () => {
       React.createElement(NotificationLiveUpdates, {
         initialSnapshot,
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -233,7 +82,6 @@ describe("NotificationLiveUpdates", () => {
       await vi.advanceTimersByTimeAsync(50);
     });
 
-    expect(MockEventSource.instances).toHaveLength(0);
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/account/notifications/summary",
       {
@@ -247,16 +95,17 @@ describe("NotificationLiveUpdates", () => {
     });
   });
 
-  test("falls back to polling when the stream fails before opening", async () => {
-    vi.stubGlobal("EventSource", MockEventSource);
+  test("publishes polling snapshots to browser subscribers", async () => {
     const { root } = createTestRenderer();
+    const listener = vi.fn();
+    window.addEventListener(NOTIFICATION_REALTIME_EVENT, listener);
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: vi.fn().mockResolvedValue({
-        version: "2026-06-04T10:02:00.000Z",
-        unreadCount: 2,
-        latestUnreadNotification: { title: "Project invitation: Alpha" },
-        serverTime: "2026-06-04T10:02:00.000Z",
+        version: "2026-06-04T10:01:00.000Z",
+        unreadCount: 1,
+        latestUnreadNotification: { title: "Assigned: Ship realtime" },
+        serverTime: "2026-06-04T10:01:00.000Z",
       }),
     });
 
@@ -269,26 +118,64 @@ describe("NotificationLiveUpdates", () => {
     );
 
     await act(async () => {
-      MockEventSource.instances[0]?.error();
-      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(50);
     });
+
+    expect(listener).toHaveBeenCalled();
+
+    window.removeEventListener(NOTIFICATION_REALTIME_EVENT, listener);
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("ignores a stale reconciliation response but accepts same-version changes", async () => {
+    const { root } = createTestRenderer();
+    const listener = vi.fn();
+    window.addEventListener(NOTIFICATION_REALTIME_EVENT, listener);
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        version: "2026-06-04T10:02:00.000Z", unreadCount: 2,
+        latestUnreadNotification: { title: "New" }, serverTime: "2026-06-04T10:02:00.000Z",
+      }),
+    });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        version: "2026-06-04T10:01:00.000Z", unreadCount: 1,
+        latestUnreadNotification: { title: "Stale" }, serverTime: "2026-06-04T10:01:00.000Z",
+      }),
+    });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        version: "2026-06-04T10:02:00.000Z", unreadCount: 0,
+        latestUnreadNotification: null, serverTime: "2026-06-04T10:02:01.000Z",
+      }),
+    });
+    await renderWithRoot(root, React.createElement(NotificationLiveUpdates, {
+      initialSnapshot,
+      pollIntervalMs: 50,
+    }));
+    listener.mockClear();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(50);
     });
-
-    expect(MockEventSource.instances[0]?.closed).toBe(true);
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/account/notifications/summary",
-      {
-        cache: "no-store",
-        signal: expect.any(AbortSignal),
-      }
-    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect((listener.mock.calls[0][0] as CustomEvent).detail.snapshot.unreadCount).toBe(2);
 
     await act(async () => {
-      root.unmount();
+      await vi.advanceTimersByTimeAsync(50);
     });
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect((listener.mock.calls[1][0] as CustomEvent).detail.snapshot.unreadCount).toBe(0);
+    window.removeEventListener(NOTIFICATION_REALTIME_EVENT, listener);
+    await act(async () => root.unmount());
   });
 
   test("uses the bounded visible default cadence while polling", async () => {
@@ -302,7 +189,6 @@ describe("NotificationLiveUpdates", () => {
       root,
       React.createElement(NotificationLiveUpdates, {
         initialSnapshot,
-        streamEnabled: false,
       })
     );
 
@@ -336,7 +222,6 @@ describe("NotificationLiveUpdates", () => {
       React.createElement(NotificationLiveUpdates, {
         initialSnapshot,
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -387,7 +272,6 @@ describe("NotificationLiveUpdates", () => {
       React.createElement(NotificationLiveUpdates, {
         initialSnapshot,
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -443,7 +327,6 @@ describe("NotificationLiveUpdates", () => {
       React.createElement(NotificationLiveUpdates, {
         initialSnapshot,
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -489,7 +372,6 @@ describe("NotificationLiveUpdates", () => {
       React.createElement(NotificationLiveUpdates, {
         initialSnapshot,
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -560,7 +442,6 @@ describe("NotificationLiveUpdates", () => {
       React.createElement(NotificationLiveUpdates, {
         initialSnapshot,
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
     await renderWithRoot(
@@ -568,7 +449,6 @@ describe("NotificationLiveUpdates", () => {
       React.createElement(NotificationLiveUpdates, {
         initialSnapshot,
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -621,7 +501,6 @@ describe("NotificationLiveUpdates", () => {
       React.createElement(NotificationLiveUpdates, {
         initialSnapshot,
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
     await renderWithRoot(
@@ -629,7 +508,6 @@ describe("NotificationLiveUpdates", () => {
       React.createElement(NotificationLiveUpdates, {
         initialSnapshot,
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -671,7 +549,6 @@ describe("NotificationLiveUpdates", () => {
       React.createElement(NotificationLiveUpdates, {
         initialSnapshot,
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
     await renderWithRoot(
@@ -679,7 +556,6 @@ describe("NotificationLiveUpdates", () => {
       React.createElement(NotificationLiveUpdates, {
         initialSnapshot,
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 
@@ -743,7 +619,6 @@ describe("NotificationLiveUpdates", () => {
       React.createElement(NotificationLiveUpdates, {
         initialSnapshot,
         pollIntervalMs: 50,
-        streamEnabled: false,
       })
     );
 

@@ -16,6 +16,15 @@ overlay stays user-scoped and mutates the target selected through the user's
 own Google connection; the shared schedule is the durable project-level source
 of truth for project-bound time.
 
+## ND-374 Amendment (2026-10-06)
+
+ND-374 retired the SSE routes, so this ADR's references to an "activity SSE
+bridge/stream" and to
+`app/api/projects/[projectId]/activity/stream/route.ts` are historical. The
+activity-event transport is now Broadcast (`project:<projectId>:activity`)
+with bounded adaptive polling as the degraded fallback; schedule work planned
+in section 4.6 and Phase 4 targets that transport.
+
 ## 2) Context
 
 ### Background

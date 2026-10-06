@@ -49,7 +49,6 @@ describe("authenticated app shell", () => {
           usernameTag="dorian#1234"
           avatarSeed="seed"
           initialNotificationSnapshot={notificationSnapshot}
-          streamEnabled={true}
           {...appMetadataProps}
           notificationBanner={<div>Notification banner</div>}
         >
@@ -95,7 +94,6 @@ describe("authenticated app shell", () => {
           usernameTag="dorian#1234"
           avatarSeed="seed"
           initialNotificationSnapshot={notificationSnapshot}
-          streamEnabled={true}
           {...appMetadataProps}
           appEnvironment="preview"
           appDiagnosticLabel="v1.2.3 | preview | build abc1234"
@@ -118,7 +116,6 @@ describe("authenticated app shell", () => {
           usernameTag="dorian#1234"
           avatarSeed="seed"
           initialNotificationSnapshot={notificationSnapshot}
-          streamEnabled={true}
           {...appMetadataProps}
           notificationBanner={<div>Notification banner</div>}
         >
@@ -144,7 +141,6 @@ describe("authenticated app shell", () => {
           usernameTag="dorian#1234"
           avatarSeed="seed"
           initialNotificationSnapshot={notificationSnapshot}
-          streamEnabled={true}
           {...appMetadataProps}
           notificationBanner={<div>Notification banner</div>}
         >

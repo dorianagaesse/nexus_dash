@@ -22,7 +22,6 @@ interface ProjectLiveRefreshProps {
   projectId: string;
   initialVersion: string;
   pollIntervalMs?: number;
-  streamEnabled?: boolean;
   broadcastEnabled?: boolean;
 }
 
@@ -35,13 +34,6 @@ function parseVersion(value: string): number {
 
 function isNewerVersion(nextVersion: string, currentVersion: string): boolean {
   return parseVersion(nextVersion) > parseVersion(currentVersion);
-}
-
-function canUseActivityStream(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.EventSource === "function"
-  );
 }
 
 function markProjectActivityTiming(name: string) {
@@ -83,16 +75,14 @@ export function ProjectLiveRefresh({
   projectId,
   initialVersion,
   pollIntervalMs = DEFAULT_ACTIVE_POLL_INTERVAL_MS,
-  streamEnabled = true,
   broadcastEnabled = false,
 }: ProjectLiveRefreshProps) {
   const router = useRouter();
   const [pendingVersion, setPendingVersion] = useState<string | null>(null);
   const [isPollingFallbackActive, setIsPollingFallbackActive] = useState(
-    () => !broadcastEnabled && (!streamEnabled || !canUseActivityStream())
+    () => !broadcastEnabled
   );
   const [broadcastFailed, setBroadcastFailed] = useState(false);
-  const [streamFailed, setStreamFailed] = useState(false);
   const [isRefreshing, startRefreshTransition] = useTransition();
   const knownVersionRef = useRef(initialVersion);
   const pendingVersionRef = useRef<string | null>(null);
@@ -274,14 +264,9 @@ export function ProjectLiveRefresh({
     };
   }, [applyLocallyDeferredVersion, projectId]);
 
-  const useStream = streamEnabled && (!broadcastEnabled || broadcastFailed) &&
-    !streamFailed && canUseActivityStream();
-
   useEffect(() => {
-    setIsPollingFallbackActive(
-      (!broadcastEnabled || broadcastFailed) && !useStream
-    );
-  }, [broadcastEnabled, broadcastFailed, useStream]);
+    setIsPollingFallbackActive(!broadcastEnabled || broadcastFailed);
+  }, [broadcastEnabled, broadcastFailed]);
 
   useEffect(() => {
     if (!broadcastEnabled || broadcastFailed) return;
@@ -307,7 +292,6 @@ export function ProjectLiveRefresh({
     function retry() {
       if (!document.hidden) {
         setBroadcastFailed(false);
-        setStreamFailed(false);
       }
     }
     document.addEventListener("visibilitychange", retry);
@@ -317,51 +301,6 @@ export function ProjectLiveRefresh({
       window.removeEventListener("online", retry);
     };
   }, [broadcastEnabled]);
-
-  useEffect(() => {
-    if (!useStream) {
-      return;
-    }
-
-    const eventSource = new window.EventSource(
-      `/api/projects/${encodeURIComponent(projectId)}/activity/stream`
-    );
-
-    function handleOpen() {
-      setIsPollingFallbackActive(false);
-    }
-
-    function handleProjectActivity(event: MessageEvent<string>) {
-      try {
-        handleActivitySnapshot(JSON.parse(event.data) as ProjectActivityResponse);
-      } catch (error) {
-        console.warn("[ProjectLiveRefresh.streamActivity]", error);
-      }
-    }
-
-    function handleError() {
-      eventSource.close();
-      setStreamFailed(true);
-      setIsPollingFallbackActive(true);
-    }
-
-    eventSource.addEventListener("open", handleOpen);
-    eventSource.addEventListener(
-      "project-activity",
-      handleProjectActivity as EventListener
-    );
-    eventSource.addEventListener("error", handleError);
-
-    return () => {
-      eventSource.removeEventListener("open", handleOpen);
-      eventSource.removeEventListener(
-        "project-activity",
-        handleProjectActivity as EventListener
-      );
-      eventSource.removeEventListener("error", handleError);
-      eventSource.close();
-    };
-  }, [handleActivitySnapshot, projectId, useStream]);
 
   useEffect(() => {
     if (!isPollingFallbackActive) {
@@ -571,7 +510,6 @@ export function ProjectLiveRefresh({
 }
 
 export const projectLiveRefreshInternals = {
-  canUseActivityStream,
   hasRefreshLock,
   isNewerVersion,
   markProjectActivityTiming,

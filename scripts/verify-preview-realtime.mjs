@@ -150,10 +150,6 @@ async function waitForProjectName(page, name) {
   await page.getByRole("heading", { name, exact: true }).waitFor({ timeout: 25_000 });
 }
 
-function isStreamRequest(request) {
-  return /\/(?:activity|notifications)\/stream$/.test(new URL(request.url()).pathname);
-}
-
 function isActivityPoll(request, projectId) {
   return new URL(request.url()).pathname === `/api/projects/${projectId}/activity` &&
     request.headers()["x-realtime-reconcile"] !== "1";
@@ -378,11 +374,9 @@ try {
     });
     throw error;
   }
-  assert(!healthyRequests.some(isStreamRequest),
-    "healthy Broadcast browser requested an SSE stream");
   assert(!healthyRequests.some((request) => isActivityPoll(request, project.id)),
     "healthy Broadcast browser requested activity polling");
-  console.log("Two browser sessions received project and notification changes over Broadcast without SSE or polling");
+  console.log("Two browser sessions received project and notification changes over Broadcast without polling");
 
   await memberPage.waitForRequest((request) =>
     new URL(request.url()).pathname === "/api/realtime/token" &&
@@ -392,27 +386,12 @@ try {
   const renewedName = "ND-373 Browser renewed token";
   await renameProject(ownerPage, project.id, renewedName);
   await waitForProjectName(memberPage, renewedName);
-  assert(!healthyRequests.some(isStreamRequest),
-    "token renewal caused a fallback to SSE");
+  assert(!healthyRequests.some((request) => isActivityPoll(request, project.id)),
+    "token renewal caused a fallback to polling");
   console.log("Short-lived browser token renewed and Broadcast remained live");
-
-  const streamContext = await browserContextFor(member);
-  await streamContext.route("**/api/realtime/token", (route) => route.abort());
-  const streamPage = await streamContext.newPage();
-  const streamRequest = streamPage.waitForRequest((request) =>
-    new URL(request.url()).pathname === `/api/projects/${project.id}/activity/stream`
-  );
-  await streamPage.goto(`${baseUrl}/projects/${project.id}`);
-  await streamRequest;
-  const streamName = "ND-373 Browser SSE fallback";
-  await renameProject(ownerPage, project.id, streamName);
-  await waitForProjectName(streamPage, streamName);
-  console.log("Blocked token request degraded to a working project SSE stream");
 
   const pollContext = await browserContextFor(member);
   await pollContext.route("**/api/realtime/token", (route) => route.abort());
-  await pollContext.route("**/api/projects/*/activity/stream", (route) => route.abort());
-  await pollContext.route("**/api/account/notifications/stream", (route) => route.abort());
   const pollPage = await pollContext.newPage();
   const pollRequest = pollPage.waitForRequest((request) =>
     isActivityPoll(request, project.id)
@@ -422,7 +401,7 @@ try {
   const pollName = "ND-373 Browser polling fallback";
   await renameProject(ownerPage, project.id, pollName);
   await waitForProjectName(pollPage, pollName);
-  console.log("Blocked token and stream requests degraded to working activity polling");
+  console.log("Blocked token request degraded to working activity polling");
 
   await prisma.session.deleteMany({ where: { userId: member.id } });
   const signedOut = await fetch(`${baseUrl}/api/realtime/token`, {
