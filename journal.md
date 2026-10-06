@@ -9661,6 +9661,12 @@ Low-value entries to avoid going forward:
   Playwright 103 passed / 1 skipped (preview-auth-isolation) on PORT 3930;
   `git diff --check` clean. The RLS matrix is not required for this branch:
   no Prisma model, migration, or runtime-role changes.
+- Container Image follow-up: the first CI run failed the Docker build because
+  a production-like `next build` defaults to Broadcast while the Dockerfile
+  provisions no Supabase config. The Dockerfile, the local-validation script,
+  and the manual-baseline runbook now pin `REALTIME_TRANSPORT=polling`, and
+  `.env.example` plus the env-contract runbook state the
+  `NODE_ENV=production` default precisely.
 - Merge gating: the Production broadcast flip is deferred and owned by the
   reviewer; the acceptance check "Vercel Observability reports no legacy SSE
   invocations" is a post-flip observation on the deployed branch.

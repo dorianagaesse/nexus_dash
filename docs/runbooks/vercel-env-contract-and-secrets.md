@@ -188,8 +188,10 @@ project-activity and notification updates.
   once through the existing HTTP snapshot endpoint.
 - `polling`: bounded client polling against the existing activity and
   notification summary endpoints with no persistent connection.
-- Optional. When unset, production-like deployments default to `broadcast`
-  and Preview, local, and test runtimes default to `polling`. An invalid
+- Optional. When unset, production runs (`NODE_ENV=production`, including
+  local production builds and containers) default to `broadcast`, except
+  Vercel Preview; development and test runtimes default to `polling`.
+  Environments without Supabase Realtime config must pin polling. An invalid
   value — including the retired `stream` mode — fails startup validation.
 
 Broadcast prerequisites, separately for Preview and Production:
