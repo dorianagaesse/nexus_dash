@@ -1,8 +1,27 @@
+import { ClipboardList, FolderKanban, ListTodo } from "lucide-react";
 import Link from "next/link";
 
 import { MeetingTodoAssigneeChipReadonly } from "@/components/meeting-todos/meeting-todo-assignee-chip";
 import { Badge } from "@/components/ui/badge";
-import type { MyWorkItem } from "@/lib/services/my-work-service";
+import type {
+  MyWorkItem,
+  MyWorkItemType,
+} from "@/lib/services/my-work-service";
+
+export const MY_WORK_ROW_GRID =
+  "md:grid-cols-[7rem_minmax(0,1fr)_9rem_9rem_11rem_5.5rem]";
+
+const TYPE_LABELS: Record<MyWorkItemType, string> = {
+  task: "Task",
+  todo: "Todo",
+  note: "Note",
+};
+
+const TYPE_ICONS: Record<MyWorkItemType, typeof FolderKanban> = {
+  task: FolderKanban,
+  todo: ListTodo,
+  note: ClipboardList,
+};
 
 const ABSOLUTE_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
@@ -29,25 +48,38 @@ export function formatMyWorkRelativeTime(timestamp: Date, now: Date): string {
 }
 
 export function MyWorkRow({ item, now }: { item: MyWorkItem; now: Date }) {
+  const TypeIcon = TYPE_ICONS[item.type];
+  const relativeTime = formatMyWorkRelativeTime(item.timestamp, now);
+
   return (
-    <li className="flex min-w-0 flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <div className="min-w-0 flex-1 space-y-1.5">
-        <Link
-          href={item.href}
-          className="block truncate rounded-sm text-sm font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {item.title}
-        </Link>
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          <span className="max-w-52 truncate">{item.projectName}</span>
-          {item.lane ? (
-            <Badge variant="secondary" className="px-2 py-0 text-[11px]">
-              {item.lane}
-            </Badge>
-          ) : null}
-        </div>
+    <li
+      data-my-work-item
+      data-my-work-item-type={item.type}
+      className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 px-4 py-3 md:items-center md:gap-y-0 ${MY_WORK_ROW_GRID}`}
+    >
+      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <TypeIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
+        <span className="sr-only md:not-sr-only">{TYPE_LABELS[item.type]}</span>
       </div>
-      <div className="flex shrink-0 items-center gap-3">
+      <Link
+        href={item.href}
+        className="min-w-0 truncate rounded-sm text-sm font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {item.title}
+      </Link>
+      <time
+        dateTime={item.timestamp.toISOString()}
+        className="shrink-0 text-xs text-muted-foreground md:hidden"
+      >
+        {relativeTime}
+      </time>
+      <div className="col-span-3 flex flex-wrap items-center gap-x-3 gap-y-1 md:contents">
+        <span className="min-w-0 truncate text-xs text-muted-foreground">
+          {item.projectName}
+        </span>
+        <Badge variant="secondary" className="w-fit px-2 py-0 text-[11px]">
+          {item.status}
+        </Badge>
         <MeetingTodoAssigneeChipReadonly
           actor={item.actor}
           bordered={false}
@@ -55,9 +87,9 @@ export function MyWorkRow({ item, now }: { item: MyWorkItem; now: Date }) {
         />
         <time
           dateTime={item.timestamp.toISOString()}
-          className="whitespace-nowrap text-xs text-muted-foreground"
+          className="hidden whitespace-nowrap text-xs text-muted-foreground md:block md:text-right"
         >
-          {formatMyWorkRelativeTime(item.timestamp, now)}
+          {relativeTime}
         </time>
       </div>
     </li>

@@ -35,7 +35,11 @@ vi.mock("@/lib/services/project-actor-service", async (importOriginal) => {
   };
 });
 
-import { listMyWork, MY_WORK_SECTION_LIMIT } from "@/lib/services/my-work-service";
+import {
+  listMyWork,
+  MY_WORK_TYPE_LIMIT,
+  type MyWorkAssignmentFilter,
+} from "@/lib/services/my-work-service";
 
 const principalWhere = {
   OR: [{ ownerId: "user-1" }, { memberships: { some: { userId: "user-1" } } }],
@@ -131,6 +135,7 @@ function noteRow(overrides: Record<string, unknown> = {}) {
   return {
     id: "note-1",
     title: "Kickoff",
+    status: "prepared",
     updatedAt: new Date("2026-09-30T08:00:00.000Z"),
     projectId: "project-1",
     stewardKind: null,
@@ -141,6 +146,17 @@ function noteRow(overrides: Record<string, unknown> = {}) {
     project: { id: "project-1", name: "Alpha" },
     participants: [],
     ...overrides,
+  };
+}
+
+function baseInput(assignment: MyWorkAssignmentFilter) {
+  return {
+    actorUserId: "user-1",
+    assignment,
+    type: "all" as const,
+    projectId: null,
+    query: "",
+    sort: "recent" as const,
   };
 }
 
@@ -159,11 +175,13 @@ describe("my work service", () => {
   });
 
   test("returns null for an empty actor", async () => {
-    expect(await listMyWork({ actorUserId: "  ", view: "assigned" })).toBeNull();
+    expect(
+      await listMyWork({ ...baseInput("mine"), actorUserId: "  " })
+    ).toBeNull();
     expect(rlsContextMock.withActorRlsContext).not.toHaveBeenCalled();
   });
 
-  test("assigned view queries self-assigned open tasks, todos, and stewarded notes", async () => {
+  test("mine queries self-assigned open tasks, todos, and stewarded notes", async () => {
     dbMock.task.findMany.mockResolvedValueOnce([taskRow()]);
     dbMock.projectMeetingNoteAction.findMany.mockResolvedValueOnce([todoRow()]);
     dbMock.projectMeetingNote.findMany.mockResolvedValueOnce([
@@ -173,7 +191,7 @@ describe("my work service", () => {
       registryFixture({ humans: [humanSummary("user-1", "Owner", "active")] })
     );
 
-    const result = await listMyWork({ actorUserId: " user-1 ", view: "assigned" });
+    const result = await listMyWork({ ...baseInput("mine"), actorUserId: " user-1 " });
 
     expect(rlsContextMock.withActorRlsContext).toHaveBeenCalledWith(
       "user-1",
@@ -192,7 +210,7 @@ describe("my work service", () => {
           project: principalWhere,
         }),
         orderBy: [{ updatedAt: "desc" }],
-        take: MY_WORK_SECTION_LIMIT + 1,
+        take: MY_WORK_TYPE_LIMIT + 1,
       })
     );
     expect(dbMock.projectMeetingNoteAction.findMany).toHaveBeenCalledWith(
@@ -215,37 +233,45 @@ describe("my work service", () => {
       })
     );
 
-    expect(result?.tasks.items[0]).toEqual(
+    expect(result?.items.map((item) => item.type)).toEqual([
+      "todo",
+      "task",
+      "note",
+    ]);
+    expect(result?.items.find((item) => item.type === "task")).toEqual(
       expect.objectContaining({
         id: "task-1",
-        type: "task",
         title: "Fix the login flow",
-        lane: "In Progress",
+        status: "In Progress",
         projectName: "Alpha",
         href: "/projects/project-1?taskId=task-1",
         needsReassignment: false,
       })
     );
-    expect(result?.tasks.items[0]?.actor).toEqual(
+    expect(result?.items.find((item) => item.type === "task")?.actor).toEqual(
       expect.objectContaining({ id: "user-1", status: "active" })
     );
-    expect(result?.todos.items[0]).toEqual(
+    expect(result?.items.find((item) => item.type === "todo")).toEqual(
       expect.objectContaining({
-        type: "todo",
         href: "/projects/project-1/todos",
-        lane: null,
+        status: "Open",
       })
     );
-    expect(result?.notes.items[0]).toEqual(
+    expect(result?.items.find((item) => item.type === "note")).toEqual(
       expect.objectContaining({
-        type: "note",
         href: "/projects/project-1?meetingNoteId=note-1",
+        status: "Prepared",
       })
     );
-    expect(result?.tasks).toEqual({ count: 1, truncated: false, items: result?.tasks.items });
+    expect(result?.typeCounts).toEqual({ all: 3, task: 1, todo: 1, note: 1 });
+    expect(result?.projects).toEqual([
+      { id: "project-1", name: "Alpha", count: 3 },
+    ]);
+    expect(result?.total).toBe(3);
+    expect(result?.truncated).toBe(false);
   });
 
-  test("unassigned view uses participant-aware null-assignee predicates", async () => {
+  test("unassigned uses participant-aware null-assignee predicates", async () => {
     dbMock.task.findMany.mockResolvedValueOnce([
       taskRow({
         assigneeKind: null,
@@ -255,7 +281,7 @@ describe("my work service", () => {
       }),
     ]);
 
-    const result = await listMyWork({ actorUserId: "user-1", view: "unassigned" });
+    const result = await listMyWork(baseInput("unassigned"));
 
     expect(dbMock.task.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -279,11 +305,11 @@ describe("my work service", () => {
         where: expect.objectContaining({ stewardKind: null }),
       })
     );
-    expect(result?.tasks.items[0]?.actor).toBeNull();
-    expect(result?.tasks.items[0]?.needsReassignment).toBe(false);
+    expect(result?.items[0]?.actor).toBeNull();
+    expect(result?.items[0]?.needsReassignment).toBe(false);
   });
 
-  test("reassignment view keeps only rows whose actor is no longer assignable", async () => {
+  test("reassignment keeps only rows whose actor is no longer assignable", async () => {
     dbMock.task.findMany.mockResolvedValueOnce([
       taskRow({
         id: "task-revoked-agent",
@@ -348,25 +374,18 @@ describe("my work service", () => {
       })
     );
 
-    const result = await listMyWork({
-      actorUserId: "user-1",
-      view: "reassignment",
-    });
+    const result = await listMyWork(baseInput("reassignment"));
 
-    expect(result?.tasks.items.map((item) => item.id)).toEqual([
+    expect(result?.items.map((item) => item.id)).toEqual([
       "task-revoked-agent",
       "task-former-member",
-    ]);
-    expect(result?.tasks.items[0]?.needsReassignment).toBe(true);
-    expect(result?.tasks.items[1]?.needsReassignment).toBe(true);
-    expect(result?.todos.items).toEqual([]);
-    expect(result?.notes.items.map((item) => item.id)).toEqual([
       "note-former-guest",
     ]);
-    expect(result?.notes.items[0]?.needsReassignment).toBe(true);
+    expect(result?.items.every((item) => item.needsReassignment)).toBe(true);
+    expect(result?.typeCounts).toEqual({ all: 3, task: 2, todo: 0, note: 1 });
   });
 
-  test("recent view drops the status predicate and keeps completed work", async () => {
+  test("all drops the status predicate and keeps completed work", async () => {
     dbMock.task.findMany.mockResolvedValueOnce([taskRow({ status: "Done" })]);
     dbMock.projectMeetingNoteAction.findMany.mockResolvedValueOnce([
       todoRow({ completedAt: new Date("2026-10-03T09:00:00.000Z") }),
@@ -375,7 +394,7 @@ describe("my work service", () => {
       registryFixture({ humans: [humanSummary("user-1", "Owner", "active")] })
     );
 
-    const result = await listMyWork({ actorUserId: "user-1", view: "recent" });
+    const result = await listMyWork(baseInput("all"));
 
     const taskWhere = dbMock.task.findMany.mock.calls[0]?.[0]?.where as Record<
       string,
@@ -386,24 +405,86 @@ describe("my work service", () => {
     const todoWhere = dbMock.projectMeetingNoteAction.findMany.mock.calls[0]?.[0]
       ?.where as Record<string, unknown>;
     expect(todoWhere).not.toHaveProperty("completedAt");
-    expect(result?.tasks.items[0]?.lane).toBe("Done");
-    expect(result?.todos.items[0]?.lane).toBe("Done");
-    expect(result?.todos.items[0]?.actor).toEqual(
-      expect.objectContaining({ id: "user-1", status: "active" })
+    expect(result?.items.find((item) => item.type === "task")?.status).toBe(
+      "Done"
+    );
+    expect(result?.items.find((item) => item.type === "todo")?.status).toBe(
+      "Done"
     );
   });
 
-  test("truncates sections beyond the limit and reports the capped count", async () => {
-    const rows = Array.from({ length: MY_WORK_SECTION_LIMIT + 1 }, (_, index) =>
+  test("filters by type without changing the facet counts", async () => {
+    dbMock.task.findMany.mockResolvedValueOnce([taskRow()]);
+    dbMock.projectMeetingNote.findMany.mockResolvedValueOnce([
+      noteRow({ stewardKind: "human", stewardUserId: "user-1" }),
+    ]);
+
+    const result = await listMyWork({ ...baseInput("mine"), type: "task" });
+
+    expect(result?.items.map((item) => item.type)).toEqual(["task"]);
+    expect(result?.total).toBe(1);
+    expect(result?.typeCounts).toEqual({ all: 2, task: 1, todo: 0, note: 1 });
+    expect(result?.projects).toEqual([
+      { id: "project-1", name: "Alpha", count: 2 },
+    ]);
+  });
+
+  test("filters by project and combines with search and sort", async () => {
+    const rows = [
+      taskRow({ id: "task-old", title: "Alpha cleanup", updatedAt: new Date("2026-10-01T10:00:00.000Z") }),
+      taskRow({
+        id: "task-new",
+        title: "Alpha LOGIN fix",
+        updatedAt: new Date("2026-10-04T10:00:00.000Z"),
+      }),
+      taskRow({
+        id: "task-other-project",
+        title: "Alpha elsewhere",
+        updatedAt: new Date("2026-10-02T10:00:00.000Z"),
+        projectId: "project-2",
+        project: { id: "project-2", name: "Beta" },
+      }),
+    ];
+    dbMock.task.findMany.mockResolvedValueOnce(rows);
+    actorServiceMock.loadProjectActorRegistry.mockResolvedValue(
+      registryFixture({ humans: [humanSummary("user-1", "Owner", "active")] })
+    );
+
+    const filtered = await listMyWork({
+      ...baseInput("mine"),
+      projectId: "project-1",
+      query: "alpha login",
+    });
+
+    expect(filtered?.items.map((item) => item.id)).toEqual(["task-new"]);
+    expect(filtered?.typeCounts.all).toBe(3);
+    expect(filtered?.projects.map((project) => project.id).sort()).toEqual([
+      "project-1",
+      "project-2",
+    ]);
+
+    dbMock.task.findMany.mockResolvedValueOnce(rows);
+    const oldest = await listMyWork({ ...baseInput("mine"), sort: "oldest" });
+
+    expect(oldest?.items.map((item) => item.id)).toEqual([
+      "task-old",
+      "task-other-project",
+      "task-new",
+    ]);
+  });
+
+  test("caps each type at the limit and flags truncation", async () => {
+    const rows = Array.from({ length: MY_WORK_TYPE_LIMIT + 1 }, (_, index) =>
       taskRow({ id: `task-${index}` })
     );
     dbMock.task.findMany.mockResolvedValueOnce(rows);
 
-    const result = await listMyWork({ actorUserId: "user-1", view: "recent" });
+    const result = await listMyWork(baseInput("all"));
 
-    expect(result?.tasks.count).toBe(MY_WORK_SECTION_LIMIT);
-    expect(result?.tasks.truncated).toBe(true);
-    expect(result?.tasks.items).toHaveLength(MY_WORK_SECTION_LIMIT);
+    expect(result?.items).toHaveLength(MY_WORK_TYPE_LIMIT);
+    expect(result?.total).toBe(MY_WORK_TYPE_LIMIT);
+    expect(result?.typeCounts.all).toBe(MY_WORK_TYPE_LIMIT);
+    expect(result?.truncated).toBe(true);
   });
 
   test("loads each project registry once and only for rows with actors", async () => {
@@ -422,7 +503,7 @@ describe("my work service", () => {
       }),
     ]);
 
-    await listMyWork({ actorUserId: "user-1", view: "recent" });
+    await listMyWork(baseInput("all"));
 
     const registryCalls = actorServiceMock.loadProjectActorRegistry.mock.calls.map(
       (call) => call[0].projectId
@@ -444,10 +525,8 @@ describe("my work service", () => {
     ]);
     actorServiceMock.loadProjectActorRegistry.mockResolvedValue(null);
 
-    const result = await listMyWork({ actorUserId: "user-1", view: "recent" });
+    const result = await listMyWork(baseInput("all"));
 
-    expect(result?.tasks.items.every((item) => !item.needsReassignment)).toBe(
-      true
-    );
+    expect(result?.items.every((item) => !item.needsReassignment)).toBe(true);
   });
 });

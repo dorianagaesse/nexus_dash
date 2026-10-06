@@ -13,17 +13,38 @@ import { mapStoredMeetingTodoActor } from "@/lib/services/project-meeting-todo-a
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
 import { taskPersonSummarySelect } from "@/lib/task-person";
 
-export const MY_WORK_VIEWS = [
-  "assigned",
+export const MY_WORK_ASSIGNMENT_FILTERS = [
+  "mine",
   "unassigned",
   "reassignment",
-  "recent",
+  "all",
 ] as const;
 
-export type MyWorkView = (typeof MY_WORK_VIEWS)[number];
+export type MyWorkAssignmentFilter =
+  (typeof MY_WORK_ASSIGNMENT_FILTERS)[number];
 
-export function isMyWorkView(value: string): value is MyWorkView {
-  return (MY_WORK_VIEWS as readonly string[]).includes(value);
+export function isMyWorkAssignmentFilter(
+  value: string
+): value is MyWorkAssignmentFilter {
+  return (MY_WORK_ASSIGNMENT_FILTERS as readonly string[]).includes(value);
+}
+
+export const MY_WORK_TYPE_FILTERS = ["all", "task", "todo", "note"] as const;
+
+export type MyWorkTypeFilter = (typeof MY_WORK_TYPE_FILTERS)[number];
+
+export function isMyWorkTypeFilter(
+  value: string
+): value is MyWorkTypeFilter {
+  return (MY_WORK_TYPE_FILTERS as readonly string[]).includes(value);
+}
+
+export const MY_WORK_SORTS = ["recent", "oldest"] as const;
+
+export type MyWorkSort = (typeof MY_WORK_SORTS)[number];
+
+export function isMyWorkSort(value: string): value is MyWorkSort {
+  return (MY_WORK_SORTS as readonly string[]).includes(value);
 }
 
 export type MyWorkItemType = "task" | "todo" | "note";
@@ -34,32 +55,45 @@ export interface MyWorkItem {
   title: string;
   projectId: string;
   projectName: string;
-  lane: string | null;
+  status: string;
   actor: MeetingTodoActorSummary | null;
   needsReassignment: boolean;
   timestamp: Date;
   href: string;
 }
 
-export interface MyWorkSection {
+export interface MyWorkTypeCounts {
+  all: number;
+  task: number;
+  todo: number;
+  note: number;
+}
+
+export interface MyWorkProjectOption {
+  id: string;
+  name: string;
   count: number;
-  truncated: boolean;
-  items: MyWorkItem[];
 }
 
 export interface MyWorkResult {
-  view: MyWorkView;
-  tasks: MyWorkSection;
-  todos: MyWorkSection;
-  notes: MyWorkSection;
+  items: MyWorkItem[];
+  total: number;
+  truncated: boolean;
+  typeCounts: MyWorkTypeCounts;
+  projects: MyWorkProjectOption[];
 }
 
-export const MY_WORK_SECTION_LIMIT = 200;
+export const MY_WORK_TYPE_LIMIT = 200;
 
-// Bounds registry lookups (one RPC per project) on the reassignment/recent
-// views when an account spans many projects; skipped registries only lose
-// live actor status, not row visibility.
+// Bounds registry lookups (one RPC per project) when an account spans many
+// projects; skipped registries only lose live actor status, not row visibility.
 const PROJECT_REGISTRY_LIMIT = 50;
+
+const NOTE_STATUS_LABELS: Record<string, string> = {
+  prepared: "Prepared",
+  actions_in_progress: "Actions in progress",
+  done: "Done",
+};
 
 const taskMyWorkSelect = {
   id: true,
@@ -99,6 +133,7 @@ const todoMyWorkSelect = {
 const noteMyWorkSelect = {
   id: true,
   title: true,
+  status: true,
   updatedAt: true,
   projectId: true,
   stewardKind: true,
@@ -136,8 +171,8 @@ function buildParticipantNameKeys(
   );
 }
 
-function taskWhereForView(
-  view: MyWorkView,
+function taskWhereForAssignment(
+  assignment: MyWorkAssignmentFilter,
   actorUserId: string
 ): Prisma.TaskWhereInput {
   const base: Prisma.TaskWhereInput = {
@@ -145,8 +180,8 @@ function taskWhereForView(
     project: buildProjectPrincipalWhere(actorUserId),
   };
 
-  switch (view) {
-    case "assigned":
+  switch (assignment) {
+    case "mine":
       return {
         ...base,
         assigneeKind: "human",
@@ -162,21 +197,21 @@ function taskWhereForView(
       };
     case "reassignment":
       return { ...base, assigneeKind: { not: null }, status: { not: "Done" } };
-    case "recent":
+    case "all":
       return base;
   }
 }
 
-function todoWhereForView(
-  view: MyWorkView,
+function todoWhereForAssignment(
+  assignment: MyWorkAssignmentFilter,
   actorUserId: string
 ): Prisma.ProjectMeetingNoteActionWhereInput {
   const base: Prisma.ProjectMeetingNoteActionWhereInput = {
     meetingNote: { project: buildProjectPrincipalWhere(actorUserId) },
   };
 
-  switch (view) {
-    case "assigned":
+  switch (assignment) {
+    case "mine":
       return {
         ...base,
         completedAt: null,
@@ -187,27 +222,27 @@ function todoWhereForView(
       return { ...base, completedAt: null, assigneeKind: null };
     case "reassignment":
       return { ...base, completedAt: null, assigneeKind: { not: null } };
-    case "recent":
+    case "all":
       return base;
   }
 }
 
-function noteWhereForView(
-  view: MyWorkView,
+function noteWhereForAssignment(
+  assignment: MyWorkAssignmentFilter,
   actorUserId: string
 ): Prisma.ProjectMeetingNoteWhereInput {
   const base: Prisma.ProjectMeetingNoteWhereInput = {
     project: buildProjectPrincipalWhere(actorUserId),
   };
 
-  switch (view) {
-    case "assigned":
+  switch (assignment) {
+    case "mine":
       return { ...base, stewardKind: "human", stewardUserId: actorUserId };
     case "unassigned":
       return { ...base, stewardKind: null };
     case "reassignment":
       return { ...base, stewardKind: { not: null } };
-    case "recent":
+    case "all":
       return base;
   }
 }
@@ -251,45 +286,39 @@ async function loadRegistriesForProjects(
   return new Map(entries);
 }
 
-function buildSection(
-  items: MyWorkItem[],
-  forceTruncated: boolean
-): MyWorkSection {
-  const truncated = forceTruncated || items.length > MY_WORK_SECTION_LIMIT;
-  return {
-    count: Math.min(items.length, MY_WORK_SECTION_LIMIT),
-    truncated,
-    items: items.slice(0, MY_WORK_SECTION_LIMIT),
-  };
-}
-
 export async function listMyWork(input: {
   actorUserId: string;
-  view: MyWorkView;
+  assignment: MyWorkAssignmentFilter;
+  type: MyWorkTypeFilter;
+  projectId: string | null;
+  query: string;
+  sort: MyWorkSort;
 }): Promise<MyWorkResult | null> {
   const actorUserId = normalizeIdentifier(input.actorUserId);
   if (!actorUserId) {
     return null;
   }
-  const { view } = input;
-  const fetchTake = MY_WORK_SECTION_LIMIT + 1;
+  const { assignment, type, sort } = input;
+  const projectId = normalizeIdentifier(input.projectId) || null;
+  const query = input.query.trim().toLowerCase();
+  const fetchTake = MY_WORK_TYPE_LIMIT + 1;
 
   return withActorRlsContext(actorUserId, async (db) => {
     const [taskRows, todoRows, noteRows] = await Promise.all([
       db.task.findMany({
-        where: taskWhereForView(view, actorUserId),
+        where: taskWhereForAssignment(assignment, actorUserId),
         orderBy: [{ updatedAt: "desc" }],
         take: fetchTake,
         select: taskMyWorkSelect,
       }),
       db.projectMeetingNoteAction.findMany({
-        where: todoWhereForView(view, actorUserId),
+        where: todoWhereForAssignment(assignment, actorUserId),
         orderBy: [{ updatedAt: "desc" }],
         take: fetchTake,
         select: todoMyWorkSelect,
       }),
       db.projectMeetingNote.findMany({
-        where: noteWhereForView(view, actorUserId),
+        where: noteWhereForAssignment(assignment, actorUserId),
         orderBy: [{ updatedAt: "desc" }],
         take: fetchTake,
         select: noteMyWorkSelect,
@@ -332,7 +361,7 @@ export async function listMyWork(input: {
         title: row.title,
         projectId: row.project.id,
         projectName: row.project.name,
-        lane: row.status,
+        status: row.status,
         actor,
         needsReassignment:
           Boolean(registries.get(row.projectId)) &&
@@ -363,7 +392,7 @@ export async function listMyWork(input: {
         title: row.content,
         projectId: row.meetingNote.projectId,
         projectName: row.meetingNote.project.name,
-        lane: row.completedAt ? "Done" : null,
+        status: row.completedAt ? "Done" : "Open",
         actor,
         needsReassignment:
           Boolean(registries.get(row.meetingNote.projectId)) &&
@@ -392,7 +421,7 @@ export async function listMyWork(input: {
         title: row.title,
         projectId: row.project.id,
         projectName: row.project.name,
-        lane: null,
+        status: NOTE_STATUS_LABELS[row.status] ?? row.status,
         actor,
         needsReassignment:
           Boolean(registries.get(row.projectId)) &&
@@ -403,26 +432,73 @@ export async function listMyWork(input: {
       };
     });
 
-    return {
-      view,
-      tasks: buildSection(
-        view === "reassignment"
+    // Each type is fetched newest-first and capped per type, so heavier
+    // types cannot crowd others out of the merged list.
+    const scopeItems = (list: MyWorkItem[]) =>
+      list.slice(0, MY_WORK_TYPE_LIMIT);
+    const stateItems = [
+      ...scopeItems(
+        assignment === "reassignment"
           ? taskItems.filter((item) => item.needsReassignment)
-          : taskItems,
-        view === "reassignment" && taskRows.length > MY_WORK_SECTION_LIMIT
+          : taskItems
       ),
-      todos: buildSection(
-        view === "reassignment"
+      ...scopeItems(
+        assignment === "reassignment"
           ? todoItems.filter((item) => item.needsReassignment)
-          : todoItems,
-        view === "reassignment" && todoRows.length > MY_WORK_SECTION_LIMIT
+          : todoItems
       ),
-      notes: buildSection(
-        view === "reassignment"
+      ...scopeItems(
+        assignment === "reassignment"
           ? noteItems.filter((item) => item.needsReassignment)
-          : noteItems,
-        view === "reassignment" && noteRows.length > MY_WORK_SECTION_LIMIT
+          : noteItems
       ),
+    ];
+
+    const typeCounts: MyWorkTypeCounts = {
+      all: stateItems.length,
+      task: stateItems.filter((item) => item.type === "task").length,
+      todo: stateItems.filter((item) => item.type === "todo").length,
+      note: stateItems.filter((item) => item.type === "note").length,
+    };
+
+    const projectCounts = new Map<string, MyWorkProjectOption>();
+    for (const item of stateItems) {
+      const option = projectCounts.get(item.projectId);
+      if (option) {
+        option.count += 1;
+      } else {
+        projectCounts.set(item.projectId, {
+          id: item.projectId,
+          name: item.projectName,
+          count: 1,
+        });
+      }
+    }
+    const projects = [...projectCounts.values()].sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+
+    const items = stateItems
+      .filter((item) => type === "all" || item.type === type)
+      .filter((item) => !projectId || item.projectId === projectId)
+      .filter(
+        (item) => !query || item.title.toLowerCase().includes(query)
+      )
+      .sort((a, b) =>
+        sort === "oldest"
+          ? a.timestamp.getTime() - b.timestamp.getTime()
+          : b.timestamp.getTime() - a.timestamp.getTime()
+      );
+
+    return {
+      items,
+      total: items.length,
+      truncated:
+        taskRows.length > MY_WORK_TYPE_LIMIT ||
+        todoRows.length > MY_WORK_TYPE_LIMIT ||
+        noteRows.length > MY_WORK_TYPE_LIMIT,
+      typeCounts,
+      projects,
     };
   });
 }

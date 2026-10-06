@@ -1,29 +1,24 @@
 import { unstable_noStore as noStore } from "next/cache";
 
-import { MyWorkSection } from "@/components/my-work/my-work-section";
-import { MyWorkTabs } from "@/components/my-work/my-work-tabs";
+import {
+  MY_WORK_DEFAULT_FILTERS,
+  MyWorkFilters,
+  type MyWorkFilterState,
+} from "@/components/my-work/my-work-filters";
+import { MyWorkList } from "@/components/my-work/my-work-list";
 import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { logServerError } from "@/lib/observability/logger";
 import {
-  isMyWorkView,
+  isMyWorkAssignmentFilter,
+  isMyWorkSort,
+  isMyWorkTypeFilter,
   listMyWork,
   type MyWorkResult,
-  type MyWorkView,
 } from "@/lib/services/my-work-service";
 
 export const dynamic = "force-dynamic";
 
 type SearchParams = Record<string, string | string[] | undefined>;
-
-const VIEW_DESCRIPTIONS: Record<MyWorkView, string> = {
-  assigned:
-    "Open tasks, meeting todos, and meeting notes assigned or stewarded to you across your projects.",
-  unassigned:
-    "Open work with no assignee or steward, ready to be picked up.",
-  reassignment:
-    "Work still assigned to a deactivated member, a revoked agent credential, or a departed guest.",
-  recent: "The most recently updated work across your projects.",
-};
 
 function readQueryValue(value: string | string[] | undefined): string | null {
   if (!value) {
@@ -33,6 +28,25 @@ function readQueryValue(value: string | string[] | undefined): string | null {
     return value[0] ?? null;
   }
   return value;
+}
+
+function parseFilters(
+  searchParams: SearchParams | undefined
+): MyWorkFilterState {
+  const assignmentParam = readQueryValue(searchParams?.assignee)?.trim() ?? "";
+  const typeParam = readQueryValue(searchParams?.type)?.trim() ?? "";
+  const sortParam = readQueryValue(searchParams?.sort)?.trim() ?? "";
+  return {
+    assignment: isMyWorkAssignmentFilter(assignmentParam)
+      ? assignmentParam
+      : MY_WORK_DEFAULT_FILTERS.assignment,
+    type: isMyWorkTypeFilter(typeParam)
+      ? typeParam
+      : MY_WORK_DEFAULT_FILTERS.type,
+    projectId: readQueryValue(searchParams?.project)?.trim() || null,
+    query: readQueryValue(searchParams?.q)?.trim() ?? "",
+    sort: isMyWorkSort(sortParam) ? sortParam : MY_WORK_DEFAULT_FILTERS.sort,
+  };
 }
 
 export default async function MyWorkPage({
@@ -45,29 +59,48 @@ export default async function MyWorkPage({
     searchParams,
     requireVerifiedSessionUserIdFromServer(),
   ]);
-  const viewParam = readQueryValue(resolvedSearchParams?.view)?.trim() ?? "";
-  const view: MyWorkView = isMyWorkView(viewParam) ? viewParam : "assigned";
+  const filters = parseFilters(resolvedSearchParams);
 
   let result: MyWorkResult | null = null;
   let loadError: string | null = null;
   try {
-    result = await listMyWork({ actorUserId, view });
+    result = await listMyWork({ actorUserId, ...filters });
   } catch (error) {
-    logServerError("MyWorkPage.listMyWork", error, { view });
+    logServerError("MyWorkPage.listMyWork", error, {
+      assignment: filters.assignment,
+      type: filters.type,
+      sort: filters.sort,
+    });
     loadError = "Could not load your work. Refresh to retry.";
   }
+
+  const hasActiveFilters =
+    filters.assignment !== MY_WORK_DEFAULT_FILTERS.assignment ||
+    filters.type !== MY_WORK_DEFAULT_FILTERS.type ||
+    filters.projectId !== MY_WORK_DEFAULT_FILTERS.projectId ||
+    filters.query !== MY_WORK_DEFAULT_FILTERS.query ||
+    filters.sort !== MY_WORK_DEFAULT_FILTERS.sort;
 
   const now = new Date();
 
   return (
     <main className="container py-10 sm:py-16">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <div className="space-y-2">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="text-3xl font-semibold tracking-tight">My work</h1>
-          <p className="text-sm text-muted-foreground">{VIEW_DESCRIPTIONS[view]}</p>
+          {result ? (
+            <span
+              data-my-work-total
+              className="text-sm tabular-nums text-muted-foreground"
+            >
+              {result.total}
+              {result.truncated ? "+" : ""}{" "}
+              {result.total === 1 && !result.truncated ? "item" : "items"}
+            </span>
+          ) : null}
         </div>
 
-        <MyWorkTabs activeView={view} />
+        <MyWorkFilters filters={filters} result={result} />
 
         {loadError ? (
           <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -76,29 +109,11 @@ export default async function MyWorkPage({
         ) : null}
 
         {result ? (
-          <div className="space-y-8">
-            <MyWorkSection
-              name="tasks"
-              title="Kanban tasks"
-              emptyMessage="No kanban tasks in this view."
-              section={result.tasks}
-              now={now}
-            />
-            <MyWorkSection
-              name="todos"
-              title="Meeting todos"
-              emptyMessage="No meeting todos in this view."
-              section={result.todos}
-              now={now}
-            />
-            <MyWorkSection
-              name="notes"
-              title="Meeting notes"
-              emptyMessage="No meeting notes in this view."
-              section={result.notes}
-              now={now}
-            />
-          </div>
+          <MyWorkList
+            result={result}
+            hasActiveFilters={hasActiveFilters}
+            now={now}
+          />
         ) : null}
       </div>
     </main>
