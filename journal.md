@@ -3,6 +3,21 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-06 - ND-430: Kanban responsiveness audit
+
+- Reviewed the four open save-performance epic cards against current `main` and
+  ND-432's accepted autosave contract. All remain valid; picked ND-430 first.
+- Used a dedicated worktree and isolated local PostgreSQL database to measure a
+  240-active/60-archived board against a 12-task control. The repeatable
+  Playwright probe and findings are in `docs/audits/nd-430-kanban-responsiveness-audit.md`.
+- Large-board modal open measured 267 ms p95 versus 91 ms on the control; drag
+  lift 111 versus 43 ms. Reorder HTTP measured 61 ms p95, while drag release
+  sometimes delayed request dispatch by hundreds of milliseconds. ND-431 has
+  a prioritized client/render investigation and comparison targets.
+- Lint, RLS inventory, 1,889 unit/API tests, coverage thresholds, production
+  build, and the dedicated Chromium audit passed. The first unconfigured unit
+  run lacked `DATABASE_URL`; the documented local environment resolved it.
+
 # 2026-10-06 - ND-373: Live Preview browser verification
 
 - Merged current `origin/main` into PR #569 and combined the steward E2E reload
