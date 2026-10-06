@@ -43,7 +43,8 @@ export async function GET(
   recordRealtimeCounter("activity.snapshotChecks");
   if (
     principalResult.principal.kind === "human" &&
-    isRealtimeStreamEnabled()
+    isRealtimeStreamEnabled() &&
+    request.headers.get("x-realtime-reconcile") !== "1"
   ) {
     recordRealtimeCounter("activity.pollingFallbacks");
   }

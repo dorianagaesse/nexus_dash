@@ -72,6 +72,10 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 - Storage: `StorageProvider` abstraction (`local` or `r2`)
 - Testing: Vitest + Playwright
 - Runtime/deploy: Docker, GitHub Actions, Vercel CLI staged production deploy/promotion/rollback
+- Realtime transport: private Supabase Broadcast channels backed by database
+  triggers when explicitly enabled, with SSE then adaptive polling fallback.
+  `adr/task-372-supabase-realtime-authorization.md` defines the channel and
+  authorization contracts.
 - Notification email scheduling: GitHub Actions currently invokes the protected
   dispatcher every 30 minutes as an early-production bridge while Vercel remains
   on Hobby and no managed scheduler is in use. This keeps grouped email

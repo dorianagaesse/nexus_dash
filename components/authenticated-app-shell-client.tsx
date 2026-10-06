@@ -85,6 +85,8 @@ interface AuthenticatedAppShellClientProps {
   avatarSeed: string | null;
   initialNotificationSnapshot: NotificationRealtimeSnapshot;
   streamEnabled: boolean;
+  broadcastEnabled?: boolean;
+  userId?: string;
   appVersionLabel: string;
   appEnvironment: AppRuntimeEnvironment;
   appDiagnosticLabel: string;
@@ -98,6 +100,8 @@ export function AuthenticatedAppShellClient({
   avatarSeed,
   initialNotificationSnapshot,
   streamEnabled,
+  broadcastEnabled,
+  userId,
   appVersionLabel,
   appEnvironment,
   appDiagnosticLabel,
@@ -230,6 +234,8 @@ export function AuthenticatedAppShellClient({
       <NotificationLiveUpdates
         initialSnapshot={initialNotificationSnapshot}
         streamEnabled={streamEnabled}
+        broadcastEnabled={broadcastEnabled}
+        userId={userId}
       />
       <a
         href="#app-main-content"

@@ -1027,4 +1027,3 @@ describe("TaskDetailModal comments", () => {
     });
   });
 });
-

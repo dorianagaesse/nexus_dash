@@ -17,6 +17,8 @@ export const REALTIME_METRIC_COUNTERS = [
   "notifications.pollingFallbacks",
   "stream.connections",
   "stream.refused",
+  "broadcast.tokenIssued",
+  "broadcast.tokenDenied",
 ] as const;
 
 export type RealtimeMetricCounter = (typeof REALTIME_METRIC_COUNTERS)[number];

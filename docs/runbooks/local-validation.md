@@ -84,6 +84,7 @@ $env:STORAGE_PROVIDER = "local"
 npm run db:local:up
 npm ci
 npx prisma generate
+npm run test:rls:realtime-stub
 npm run db:migrate
 npm run rls:check
 npm run lint

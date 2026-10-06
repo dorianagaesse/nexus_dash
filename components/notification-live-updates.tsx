@@ -8,6 +8,7 @@ import {
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
 import { resolveAdaptivePollDelayMs } from "@/lib/adaptive-live-polling";
 import { createTabLeaderCoordinator } from "@/lib/tab-leader-coordinator";
+import { startBroadcastSubscription } from "@/lib/realtime/supabase-realtime-client";
 
 const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 20000;
 
@@ -15,6 +16,8 @@ interface NotificationLiveUpdatesProps {
   initialSnapshot: NotificationRealtimeSnapshot;
   pollIntervalMs?: number;
   streamEnabled?: boolean;
+  broadcastEnabled?: boolean;
+  userId?: string;
 }
 
 function canUseNotificationStream(): boolean {
@@ -40,13 +43,20 @@ export function NotificationLiveUpdates({
   initialSnapshot,
   pollIntervalMs = DEFAULT_ACTIVE_POLL_INTERVAL_MS,
   streamEnabled = true,
+  broadcastEnabled = false,
+  userId,
 }: NotificationLiveUpdatesProps) {
   const [isPollingFallbackActive, setIsPollingFallbackActive] = useState(
-    () => !streamEnabled || !canUseNotificationStream()
+    () => !broadcastEnabled && (!streamEnabled || !canUseNotificationStream())
   );
+  const [broadcastFailed, setBroadcastFailed] = useState(false);
+  const [streamFailed, setStreamFailed] = useState(false);
   const knownSnapshotRef = useRef(initialSnapshot);
 
   const handleSnapshot = useCallback((snapshot: NotificationRealtimeSnapshot) => {
+    if (Date.parse(snapshot.version) < Date.parse(knownSnapshotRef.current.version)) {
+      return;
+    }
     if (!isSnapshotChanged(snapshot, knownSnapshotRef.current)) {
       return;
     }
@@ -56,26 +66,67 @@ export function NotificationLiveUpdates({
   }, []);
 
   useEffect(() => {
+    if (Date.parse(initialSnapshot.version) <
+        Date.parse(knownSnapshotRef.current.version)) {
+      return;
+    }
     knownSnapshotRef.current = initialSnapshot;
     publishNotificationRealtimeSnapshot(initialSnapshot);
   }, [initialSnapshot]);
 
-  useEffect(() => {
-    setIsPollingFallbackActive(!streamEnabled || !canUseNotificationStream());
-  }, [streamEnabled]);
+  const useBroadcast = broadcastEnabled && Boolean(userId) && !broadcastFailed;
+  const useStream = streamEnabled && !useBroadcast && !streamFailed &&
+    canUseNotificationStream();
 
   useEffect(() => {
-    if (!streamEnabled || !canUseNotificationStream()) {
+    setIsPollingFallbackActive(!useBroadcast && !useStream);
+  }, [useBroadcast, useStream]);
+
+  useEffect(() => {
+    if (!useBroadcast || !userId) return;
+    return startBroadcastSubscription<NotificationRealtimeSnapshot>({
+      scope: "notifications",
+      topic: `user:${userId}:notifications`,
+      event: "notification-snapshot",
+      onMessage: handleSnapshot,
+      async reconcile() {
+        const response = await fetch("/api/account/notifications/summary", {
+          cache: "no-store",
+          headers: { "x-realtime-reconcile": "1" },
+        });
+        if (!response.ok) throw new Error("Notification reconciliation failed");
+        return (await response.json()) as NotificationRealtimeSnapshot;
+      },
+      onFailure: () => setBroadcastFailed(true),
+    });
+  }, [handleSnapshot, useBroadcast, userId]);
+
+  useEffect(() => {
+    if (!broadcastEnabled) return;
+    function retry() {
+      if (!document.hidden) {
+        setBroadcastFailed(false);
+        setStreamFailed(false);
+      }
+    }
+    document.addEventListener("visibilitychange", retry);
+    window.addEventListener("online", retry);
+    return () => {
+      document.removeEventListener("visibilitychange", retry);
+      window.removeEventListener("online", retry);
+    };
+  }, [broadcastEnabled]);
+
+  useEffect(() => {
+    if (!useStream) {
       return;
     }
 
-    let opened = false;
     const eventSource = new window.EventSource(
       "/api/account/notifications/stream"
     );
 
     function handleOpen() {
-      opened = true;
       setIsPollingFallbackActive(false);
     }
 
@@ -88,11 +139,8 @@ export function NotificationLiveUpdates({
     }
 
     function handleError() {
-      if (opened) {
-        return;
-      }
-
       eventSource.close();
+      setStreamFailed(true);
       setIsPollingFallbackActive(true);
     }
 
@@ -112,7 +160,7 @@ export function NotificationLiveUpdates({
       eventSource.removeEventListener("error", handleError);
       eventSource.close();
     };
-  }, [handleSnapshot, streamEnabled]);
+  }, [handleSnapshot, useStream]);
 
   useEffect(() => {
     if (!isPollingFallbackActive) {
@@ -179,7 +227,8 @@ export function NotificationLiveUpdates({
       onRoleChange(isLeader) {
         isPollingLeader = isLeader;
         if (isLeader) {
-          scheduleNextPoll();
+          if (broadcastEnabled) schedulePoll(0);
+          else scheduleNextPoll();
         } else {
           clearScheduledPoll();
         }
@@ -274,7 +323,7 @@ export function NotificationLiveUpdates({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", requestImmediatePoll);
     };
-  }, [handleSnapshot, isPollingFallbackActive, pollIntervalMs]);
+  }, [broadcastEnabled, handleSnapshot, isPollingFallbackActive, pollIntervalMs]);
 
   return null;
 }

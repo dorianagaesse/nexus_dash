@@ -4,7 +4,7 @@ import { AuthenticatedAppShellClient } from "@/components/authenticated-app-shel
 import { NotificationAwarenessBanner } from "@/components/notification-awareness-banner";
 import { getAppMetadataSummary } from "@/lib/app-metadata";
 import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
-import { isRealtimeStreamEnabled } from "@/lib/env.server";
+import { getRealtimeTransport, isRealtimeStreamEnabled } from "@/lib/env.server";
 import { getInitialNotificationRealtimeSnapshotForUser } from "@/lib/notification-realtime-server";
 import { getAccountIdentitySummary } from "@/lib/services/account-identity-service";
 import type { NotificationRealtimeSnapshot } from "@/lib/notification-realtime-types";
@@ -19,17 +19,21 @@ export async function AuthenticatedAppShell({
   children,
   initialIdentity,
   initialNotificationSnapshot,
+  userId,
 }: {
   children: React.ReactNode;
   initialIdentity?: AuthenticatedAppShellIdentity | null;
   initialNotificationSnapshot?: NotificationRealtimeSnapshot;
+  userId?: string;
 }) {
   noStore();
   let identity = initialIdentity;
   let notificationSnapshot = initialNotificationSnapshot;
+  let actorUserId = userId;
 
-  if (identity === undefined || notificationSnapshot === undefined) {
-    const actorUserId = await requireVerifiedSessionUserIdFromServer();
+  if (identity === undefined || notificationSnapshot === undefined ||
+      (getRealtimeTransport() === "broadcast" && !actorUserId)) {
+    actorUserId ??= await requireVerifiedSessionUserIdFromServer();
     [identity, notificationSnapshot] = await Promise.all([
       identity === undefined
         ? getAccountIdentitySummary(actorUserId)
@@ -49,6 +53,8 @@ export async function AuthenticatedAppShell({
       avatarSeed={identity?.avatarSeed ?? null}
       initialNotificationSnapshot={notificationSnapshot}
       streamEnabled={isRealtimeStreamEnabled()}
+      broadcastEnabled={getRealtimeTransport() === "broadcast"}
+      userId={actorUserId}
       appVersionLabel={appMetadata.versionLabel}
       appEnvironment={appMetadata.environment}
       appDiagnosticLabel={appMetadata.diagnosticLabel}

@@ -13,6 +13,7 @@ import {
 import type { ProjectActivityEventPayload } from "@/lib/project-activity-event-types";
 import { resolveAdaptivePollDelayMs } from "@/lib/adaptive-live-polling";
 import { createTabLeaderCoordinator } from "@/lib/tab-leader-coordinator";
+import { startBroadcastSubscription } from "@/lib/realtime/supabase-realtime-client";
 
 const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 10000;
 const PENDING_REFRESH_CHECK_INTERVAL_MS = 500;
@@ -22,6 +23,7 @@ interface ProjectLiveRefreshProps {
   initialVersion: string;
   pollIntervalMs?: number;
   streamEnabled?: boolean;
+  broadcastEnabled?: boolean;
 }
 
 type ProjectActivityResponse = ProjectActivityEventPayload;
@@ -82,12 +84,15 @@ export function ProjectLiveRefresh({
   initialVersion,
   pollIntervalMs = DEFAULT_ACTIVE_POLL_INTERVAL_MS,
   streamEnabled = true,
+  broadcastEnabled = false,
 }: ProjectLiveRefreshProps) {
   const router = useRouter();
   const [pendingVersion, setPendingVersion] = useState<string | null>(null);
   const [isPollingFallbackActive, setIsPollingFallbackActive] = useState(
-    () => !streamEnabled || !canUseActivityStream()
+    () => !broadcastEnabled && (!streamEnabled || !canUseActivityStream())
   );
+  const [broadcastFailed, setBroadcastFailed] = useState(false);
+  const [streamFailed, setStreamFailed] = useState(false);
   const [isRefreshing, startRefreshTransition] = useTransition();
   const knownVersionRef = useRef(initialVersion);
   const pendingVersionRef = useRef<string | null>(null);
@@ -97,9 +102,16 @@ export function ProjectLiveRefresh({
 
   useEffect(() => {
     knownVersionRef.current = initialVersion;
+
+    if (localMutationCountRef.current > 0) {
+      // A refreshed render can arrive while a local mutation is still awaiting
+      // its response; keep deferral state so that mutation's own echo stays
+      // suppressed instead of being dispatched as a remote change.
+      return;
+    }
+
     pendingVersionRef.current = null;
     locallyDeferredVersionRef.current = null;
-    localMutationCountRef.current = 0;
     setPendingVersion(null);
   }, [initialVersion]);
 
@@ -262,22 +274,60 @@ export function ProjectLiveRefresh({
     };
   }, [applyLocallyDeferredVersion, projectId]);
 
-  useEffect(() => {
-    setIsPollingFallbackActive(!streamEnabled || !canUseActivityStream());
-  }, [streamEnabled]);
+  const useStream = streamEnabled && (!broadcastEnabled || broadcastFailed) &&
+    !streamFailed && canUseActivityStream();
 
   useEffect(() => {
-    if (!streamEnabled || !canUseActivityStream()) {
+    setIsPollingFallbackActive(
+      (!broadcastEnabled || broadcastFailed) && !useStream
+    );
+  }, [broadcastEnabled, broadcastFailed, useStream]);
+
+  useEffect(() => {
+    if (!broadcastEnabled || broadcastFailed) return;
+    return startBroadcastSubscription<ProjectActivityResponse>({
+      scope: `project:${projectId}`,
+      topic: `project:${projectId}:activity`,
+      event: "project-activity",
+      onMessage: handleActivitySnapshot,
+      async reconcile() {
+        const response = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}/activity`,
+          { cache: "no-store", headers: { "x-realtime-reconcile": "1" } }
+        );
+        if (!response.ok) throw new Error("Project activity reconciliation failed");
+        return (await response.json()) as ProjectActivityResponse;
+      },
+      onFailure: () => setBroadcastFailed(true),
+    });
+  }, [broadcastEnabled, broadcastFailed, handleActivitySnapshot, projectId]);
+
+  useEffect(() => {
+    if (!broadcastEnabled) return;
+    function retry() {
+      if (!document.hidden) {
+        setBroadcastFailed(false);
+        setStreamFailed(false);
+      }
+    }
+    document.addEventListener("visibilitychange", retry);
+    window.addEventListener("online", retry);
+    return () => {
+      document.removeEventListener("visibilitychange", retry);
+      window.removeEventListener("online", retry);
+    };
+  }, [broadcastEnabled]);
+
+  useEffect(() => {
+    if (!useStream) {
       return;
     }
 
-    let opened = false;
     const eventSource = new window.EventSource(
       `/api/projects/${encodeURIComponent(projectId)}/activity/stream`
     );
 
     function handleOpen() {
-      opened = true;
       setIsPollingFallbackActive(false);
     }
 
@@ -290,11 +340,8 @@ export function ProjectLiveRefresh({
     }
 
     function handleError() {
-      if (opened) {
-        return;
-      }
-
       eventSource.close();
+      setStreamFailed(true);
       setIsPollingFallbackActive(true);
     }
 
@@ -314,7 +361,7 @@ export function ProjectLiveRefresh({
       eventSource.removeEventListener("error", handleError);
       eventSource.close();
     };
-  }, [handleActivitySnapshot, projectId, streamEnabled]);
+  }, [handleActivitySnapshot, projectId, useStream]);
 
   useEffect(() => {
     if (!isPollingFallbackActive) {
@@ -381,7 +428,8 @@ export function ProjectLiveRefresh({
       onRoleChange(isLeader) {
         isPollingLeader = isLeader;
         if (isLeader) {
-          scheduleNextPoll();
+          if (broadcastEnabled) schedulePoll(0);
+          else scheduleNextPoll();
         } else {
           clearScheduledPoll();
         }
@@ -479,7 +527,7 @@ export function ProjectLiveRefresh({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", requestImmediatePoll);
     };
-  }, [handleActivitySnapshot, isPollingFallbackActive, pollIntervalMs, projectId]);
+  }, [broadcastEnabled, handleActivitySnapshot, isPollingFallbackActive, pollIntervalMs, projectId]);
 
   useEffect(() => {
     function refreshWhenVisible() {

@@ -15,6 +15,12 @@ import {
   uniqueProjectName,
 } from "./helpers/project-helpers";
 
+// A router.refresh() can emit framenavigated before the document reload caused
+// by external activity. Wait for the load event to avoid racing that reload.
+function waitForLiveRefreshReload(page: Page) {
+  return page.waitForEvent("load", { timeout: 10_000 }).catch(() => null);
+}
+
 // Toggling the steward refreshes the section, and the activity feed can
 // hard-reload the page when the mutation echoes back as a remote event; either
 // can close the note dialog mid-assertion, so re-open it before retrying.
@@ -302,6 +308,7 @@ test("supports external participant stewards through rename and removal", async 
   );
 
   // Renaming the guest keeps the snapshot and flags the steward for reassignment.
+  const renameLiveRefresh = waitForLiveRefreshReload(page);
   const renamed = await page.request.patch(noteUrl, {
     data: {
       title: "Guest stewardship review",
@@ -324,7 +331,9 @@ test("supports external participant stewards through rename and removal", async 
     isAssignable: false,
   });
 
-  await reloadUntilLoaded(page);
+  if ((await renameLiveRefresh) === null) {
+    await reloadUntilLoaded(page);
+  }
   const staleFacilitator = page.getByRole("button", {
     name: "Remove Camille Guest as steward / facilitator",
   });
@@ -350,6 +359,7 @@ test("supports external participant stewards through rename and removal", async 
   await expect(staleFacilitator).toHaveCount(0);
 
   // Removing the guest entirely also leaves the snapshot for reassignment.
+  const removeLiveRefresh = waitForLiveRefreshReload(page);
   const removed = await page.request.patch(noteUrl, {
     data: { title: "Guest stewardship review", participants: [] },
   });
@@ -369,7 +379,9 @@ test("supports external participant stewards through rename and removal", async 
     isAssignable: false,
   });
 
-  await reloadUntilLoaded(page);
+  if ((await removeLiveRefresh) === null) {
+    await reloadUntilLoaded(page);
+  }
   const orphanedFacilitator = page.getByRole("button", {
     name: "Remove Camilla Guest as steward / facilitator",
   });

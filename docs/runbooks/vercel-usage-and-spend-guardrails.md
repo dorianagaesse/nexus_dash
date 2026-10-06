@@ -169,17 +169,20 @@ only: no user IDs, emails, project IDs, or request payloads.
 
 Counters:
 
-- `activity.snapshotChecks` / `notifications.snapshotChecks`: poll requests
+- `activity.snapshotChecks` / `notifications.snapshotChecks`: snapshot requests
   served by `/api/projects/:id/activity` and
   `/api/account/notifications/summary` (the endpoints the client fallback
-  loops poll; the full-list `/api/account/notifications` route is a
-  reconciliation fetch and is deliberately not counted).
+  loops poll and Broadcast subscriptions reconcile through; the full-list
+  `/api/account/notifications` route is deliberately not counted).
 - `activity.changesEmitted`: project activity change events persisted; these
   are the payloads realtime clients refresh for.
 - `activity.pollingFallbacks` / `notifications.pollingFallbacks`: human poll
-  requests received while the transport resolves to `stream` - the client
-  could not hold an SSE connection (browser without EventSource, or the
-  connection failed) and is in polling fallback.
+  requests received while the transport resolves to `stream` or `broadcast`,
+  excluding Broadcast subscribe-time reconciliation requests. The client
+  could not hold its preferred connection and is in polling fallback.
+- `broadcast.tokenIssued` / `broadcast.tokenDenied`: Realtime token minting
+  outcomes at the session endpoint. These are instance-local samples, not
+  connection counts.
 - `stream.connections`: accepted SSE connections
   (`activity/stream`, `notifications/stream`). The stream route closes
   periodically by design, so EventSource reconnects arrive as new connections

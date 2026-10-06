@@ -162,6 +162,9 @@ Environment access/validation is centralized in `lib/env.server.ts` and executed
 - `DIRECT_URL`
 - `RESEND_API_KEY` (email verification delivery)
 - `AGENT_TOKEN_SIGNING_SECRET` (agent bearer-token signing, minimum 32 chars; see `docs/runbooks/vercel-env-contract-and-secrets.md` for generation and rotation guidance)
+- `SUPABASE_JWT_SECRET` and the Supabase client group when
+  `REALTIME_TRANSPORT=broadcast`. Use the matching environment's legacy
+  Supabase JWT secret and mark it sensitive in Vercel.
 
 ### Optional grouped vars (must be complete if any value is set)
 
@@ -176,6 +179,8 @@ Environment access/validation is centralized in `lib/env.server.ts` and executed
   - `SUPABASE_URL`
   - `SUPABASE_PUBLISHABLE_KEY`
   - legacy fallback accepted for migration only: `SUPABASE_API_KEY`
+- `SUPABASE_REALTIME_TOKEN_TTL_SECONDS` is optional in Broadcast mode (60 to
+  600 seconds, default 600).
 - R2 credentials group:
   - `R2_ACCOUNT_ID`
   - `R2_ACCESS_KEY_ID`

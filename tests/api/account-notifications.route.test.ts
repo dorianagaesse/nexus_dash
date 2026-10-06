@@ -190,6 +190,20 @@ describe("account notification and invitation routes", () => {
     expect(snapshot.counters["notifications.pollingFallbacks"]).toBe(1);
   });
 
+  test("Broadcast subscribe reconciliation does not count as polling fallback", async () => {
+    vi.stubEnv("REALTIME_TRANSPORT", "broadcast");
+    notificationServiceMock.getNotificationRealtimeSnapshotForUser.mockResolvedValueOnce({
+      ok: true, status: 200,
+      data: { version: "2026-06-04T10:00:00.000Z", unreadCount: 0,
+        latestUnreadNotification: null, serverTime: "2026-06-04T10:00:00.000Z" },
+    });
+    await getNotificationSummary(new NextRequest(
+      "http://localhost/api/account/notifications/summary",
+      { headers: { "x-realtime-reconcile": "1" } }
+    ));
+    expect(getRealtimeMetricsSnapshot().counters["notifications.pollingFallbacks"]).toBe(0);
+  });
+
   test("GET notifications list stays out of poll telemetry (reconciliation fetch)", async () => {
     vi.stubEnv("REALTIME_TRANSPORT", "stream");
     notificationServiceMock.listNotificationsForUser.mockResolvedValueOnce({

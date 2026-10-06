@@ -551,6 +551,81 @@ describe("ProjectLiveRefresh", () => {
     });
   });
 
+  test("keeps suppressing an in-flight mutation echo when a refreshed render lands", async () => {
+    vi.stubGlobal("EventSource", MockEventSource);
+    const { root } = createTestRenderer();
+    const remoteActivityHandler = vi.fn((event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          markHandled: () => void;
+        }>
+      ).detail;
+      detail.markHandled();
+    });
+    window.addEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, remoteActivityHandler);
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:00:00.000Z",
+        pollIntervalMs: 50,
+      })
+    );
+
+    await act(async () => {
+      MockEventSource.instances[0]?.open();
+    });
+
+    let finishMutation: (() => void) | null = null;
+    await act(async () => {
+      finishMutation = beginProjectActivityMutation("project-1");
+    });
+
+    // A router.refresh() render (e.g. after an unrelated version bump) can land
+    // while the local mutation is still awaiting its response. It must not
+    // clear the in-flight suppression state.
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1",
+        initialVersion: "2026-05-30T10:01:00.000Z",
+        pollIntervalMs: 50,
+      })
+    );
+
+    await act(async () => {
+      MockEventSource.instances[0]?.projectActivity({
+        eventId: "event-1",
+        projectId: "project-1",
+        version: "2026-05-30T10:02:00.000Z",
+        serverTime: "2026-05-30T10:02:00.000Z",
+        actorUserId: "user-1",
+        domain: "meeting-note",
+        action: "updated",
+        entityId: "note-1",
+        payload: {},
+      });
+    });
+
+    expect(remoteActivityHandler).not.toHaveBeenCalled();
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      acknowledgeProjectActivity("project-1", "2026-05-30T10:02:00.000Z");
+      finishMutation?.();
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(remoteActivityHandler).not.toHaveBeenCalled();
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+
+    window.removeEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, remoteActivityHandler);
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("automatically applies a pending remote update when the edit lock clears", async () => {
     const { container, root } = createTestRenderer();
     const lock = document.createElement("div");

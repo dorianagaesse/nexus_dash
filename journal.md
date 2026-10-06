@@ -3,6 +3,82 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-06 - ND-373: Live Preview browser verification
+
+- Merged current `origin/main` into PR #569 and combined the steward E2E reload
+  wait with the new shared interaction helpers. The branch is mergeable.
+- Preview run 37384452437 checked out `c5b3e47` and passed private topic joins,
+  public and forged-send denial, database-owned delivery, two-browser project
+  and notification updates without SSE or polling, and browser degradation to
+  SSE and then polling with continued freshness.
+- Preview run 37385155369 checked out `bb1642d` with a deployment-only 60-second
+  token lifetime. Its browser session re-minted a token after roughly 50 seconds,
+  kept Broadcast delivery, and repeated the authorization and fallback checks.
+  Both runs removed their temporary users and project.
+- `SUPABASE_JWT_SECRET` is now a Secret in Vercel Production. The Production
+  transport remains on its existing setting; no Production deployment or
+  promotion was performed during PR testing.
+- Local lint, RLS inventory, 1,855 unit/API tests, coverage thresholds, and
+  build passed. Quality Gates run 37385154300 passed Quality Core, PostgreSQL
+  Tenant Isolation, full Playwright E2E, and the container image build.
+
+# 2026-10-04 - ND-373: Supabase Realtime Broadcast implementation
+
+- Implemented the ND-372 private Broadcast contract with database-owned
+  publishers, SELECT-only topic policies, short-lived session JWTs, a shared
+  leader-tab client, subscribe-time reconciliation, and SSE/polling demotion.
+- Added a plain-PostgreSQL Realtime stub before the CI RLS migration replay and
+  matrix assertions for topic authorization, forged sends, trigger payloads,
+  suppression, coalescing, and failure tolerance. Local Docker Desktop could
+  not start, so the PostgreSQL matrix awaits CI evidence.
+- Local lint, RLS inventory, and unit/API tests passed. Preview rollout still
+  depends on the Supabase and Vercel prerequisites in the env runbook.
+- CI PostgreSQL tenant-isolation matrix and Quality Core passed on the
+  `c33f74d` branch head in Quality Gates run 37187234216; Playwright E2E was
+  still running when this entry was updated. The local coverage run passed
+  thresholds with 1,822 tests passing and two skipped; local Docker Desktop
+  could not start for a PostgreSQL/E2E run.
+- Preview workflow run 37187231577 checked out `c33f74d` and deployed it with
+  a deployment-only Broadcast override. Migration, database readiness, revision,
+  and stable auth alias checks passed. Its temporary three-user live smoke
+  confirmed authenticated topic predicates, member access, non-member and
+  cross-user join denial, public-channel refusal, client publish denial with
+  server acknowledgement, and typed project activity delivery. The Preview
+  signing secret is sensitive in Vercel; the prebuilt workflow applies the
+  Broadcast override at runtime so local build does not need that secret.
+- Production still lacks `SUPABASE_JWT_SECRET` in Vercel. Keep the existing
+  transport until review, Production secret configuration, and the staged
+  rollout checks in the env runbook.
+- Takeover after Codex hit its usage limit: the open Quality Gates failure
+  (run 37187570226, `0d6716d`) was Playwright E2E in
+  `tests/e2e/project-meeting-steward.spec.ts`. Attempts 1-2 raced the test's
+  explicit `page.reload()` against the by-design live-refresh reload
+  (ERR_ABORTED, frame detached). Attempt 3 exposed a real client bug: when an
+  RSC refreshed render landed while a local mutation was still in flight, the
+  `initialVersion` effect cleared the live-refresh deferral state, the
+  mutation's own activity echo was dispatched as a remote change, and the
+  meeting-notes panel hard-reloaded over the open modal.
+- Fixes on this branch: `ProjectLiveRefresh` keeps deferral state when a
+  refreshed render lands mid-mutation (component regression test added, fails
+  before the fix), and the steward E2E waits for the live-refresh document
+  `load` instead of the first `framenavigated` event — same-document history
+  updates from `router.refresh()` also emit `framenavigated` and resolved the
+  wait before the reload ever happened. The Broadcast-to-SSE-to-polling
+  demotion component test is committed alongside.
+- Local E2E reproduction via the Dockerized PostgreSQL harness
+  (`nd373-e2e-pg`, `PORT=3100`): with the old wait the steward spec failed 2
+  of 6 repeats at the orphaned-steward assertion; with the fixes two
+  consecutive 6x repeats passed 24/24.
+- Deviation: the ADR section 8 degradation E2E (broadcast -> stream ->
+  polling with blocked transports) is deferred to ND-374, which already owns
+  the load and interleaving scenarios; unit and component coverage for the
+  demotion tiers is in place.
+- Validation after the fixes: `npm run lint`, `npm run rls:check`, `npm test`
+  (1,855 passed, 2 skipped), `npm run test:coverage` (93.77% statements,
+  84.46% branches), and `npm run build` all passed; the steward E2E passed
+  twice at 6x repeats locally. A fresh Quality Gates run is pending on the
+  pushed head.
+
 # 2026-10-04 - ND-535: Edit task comments in the UI and API
 
 - Card `cmurfq7n8000604l5wl6nhs8u` under epic "Task and Activity Enhancements":

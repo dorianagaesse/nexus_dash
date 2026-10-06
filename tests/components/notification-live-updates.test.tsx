@@ -177,6 +177,41 @@ describe("NotificationLiveUpdates", () => {
     });
   });
 
+  test("ignores a stale reconciliation response but accepts same-version changes", async () => {
+    vi.stubGlobal("EventSource", MockEventSource);
+    const { root } = createTestRenderer();
+    const listener = vi.fn();
+    window.addEventListener(NOTIFICATION_REALTIME_EVENT, listener);
+    await renderWithRoot(root, React.createElement(NotificationLiveUpdates, {
+      initialSnapshot,
+    }));
+    listener.mockClear();
+
+    await act(async () => {
+      MockEventSource.instances[0]?.notificationSnapshot({
+        version: "2026-06-04T10:02:00.000Z", unreadCount: 2,
+        latestUnreadNotification: { title: "New" }, serverTime: "2026-06-04T10:02:00.000Z",
+      });
+      MockEventSource.instances[0]?.notificationSnapshot({
+        version: "2026-06-04T10:01:00.000Z", unreadCount: 1,
+        latestUnreadNotification: { title: "Stale" }, serverTime: "2026-06-04T10:01:00.000Z",
+      });
+    });
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect((listener.mock.calls[0][0] as CustomEvent).detail.snapshot.unreadCount).toBe(2);
+
+    await act(async () => {
+      MockEventSource.instances[0]?.notificationSnapshot({
+        version: "2026-06-04T10:02:00.000Z", unreadCount: 0,
+        latestUnreadNotification: null, serverTime: "2026-06-04T10:02:01.000Z",
+      });
+    });
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect((listener.mock.calls[1][0] as CustomEvent).detail.snapshot.unreadCount).toBe(0);
+    window.removeEventListener(NOTIFICATION_REALTIME_EVENT, listener);
+    await act(async () => root.unmount());
+  });
+
   test("does not open a stream when streamEnabled is false", async () => {
     vi.stubGlobal("EventSource", MockEventSource);
     const { root } = createTestRenderer();
