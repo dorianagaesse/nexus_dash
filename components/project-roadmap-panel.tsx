@@ -1360,71 +1360,84 @@ function RoadmapMilestoneLane({
       data-roadmap-milestone={phaseIndex + 1}
       data-roadmap-phase-id={phase.id}
     >
-      <div className="mb-4 flex items-start justify-between gap-3 px-1">
-        <div className="flex items-start gap-3 min-w-0 flex-1">
-          <span
-            className={cn(
-              "relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-4 border-background shadow-[0_10px_28px_-18px_rgba(15,23,42,0.5)]",
-              milestoneTone.dot
-            )}
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-background" />
-          </span>
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p
-                className={cn(
-                  "inline-flex max-w-full items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] shadow-[0_14px_30px_-24px_rgba(15,23,42,0.45)]",
-                  milestoneTone.badge
-                )}
+      <div className="mb-4 flex items-start gap-3 px-1">
+        <span
+          className={cn(
+            "relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-4 border-background shadow-[0_10px_28px_-18px_rgba(15,23,42,0.5)]",
+            milestoneTone.dot
+          )}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-background" />
+        </span>
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p
+              className={cn(
+                "inline-flex max-w-full items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] shadow-[0_14px_30px_-24px_rgba(15,23,42,0.45)]",
+                milestoneTone.badge
+              )}
+            >
+              {milestoneLabel}
+            </p>
+            {phase.title && phase.title !== milestoneLabel ? (
+              <span
+                className="font-semibold text-sm text-foreground truncate max-w-[12rem]"
+                title={phase.title}
+                data-roadmap-phase-title={phase.id}
               >
-                {milestoneLabel}
-              </p>
-              {phase.title && phase.title !== milestoneLabel ? (
-                <span
-                  className="font-semibold text-sm text-foreground truncate max-w-[12rem]"
-                  title={phase.title}
-                  data-roadmap-phase-title={phase.id}
-                >
-                  {phase.title}
-                </span>
-              ) : null}
-            </div>
-            <div className="flex items-center gap-2 pl-1 text-xs">
-              <p className={cn("font-medium", milestoneTone.accent)}>
-                {getEventCountLabel(phase.events.length)}
-              </p>
-              {phase.targetDate ? (
-                <>
-                  <span className="text-muted-foreground/60">•</span>
-                  <span className="text-muted-foreground">
-                    {formatRoadmapTargetDateForDisplay(phase.targetDate)}
-                  </span>
-                </>
-              ) : null}
-            </div>
-            {phase.description ? (
-              <p className="pl-1 text-xs text-muted-foreground line-clamp-2">
-                {phase.description}
-              </p>
+                {phase.title}
+              </span>
+            ) : canEdit ? (
+              <button
+                type="button"
+                className="text-xs italic text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+                onClick={() => onEditMilestone(phase)}
+                data-roadmap-phase-title={phase.id}
+              >
+                No title yet
+              </button>
+            ) : null}
+            {canEdit ? (
+              <button
+                type="button"
+                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground/50 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                onClick={() => onEditMilestone(phase)}
+                aria-label={`Edit ${phase.title || milestoneLabel}`}
+                title="Edit milestone details"
+                data-roadmap-edit-milestone={phase.id}
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
             ) : null}
           </div>
+          <div className="flex items-center gap-2 pl-1 text-xs">
+            <p className={cn("font-medium", milestoneTone.accent)}>
+              {getEventCountLabel(phase.events.length)}
+            </p>
+            {phase.targetDate ? (
+              <>
+                <span className="text-muted-foreground/60">•</span>
+                <span className="text-muted-foreground">
+                  {formatRoadmapTargetDateForDisplay(phase.targetDate)}
+                </span>
+              </>
+            ) : null}
+          </div>
+          {phase.description ? (
+            <p className="pl-1 text-xs text-muted-foreground line-clamp-2">
+              {phase.description}
+            </p>
+          ) : canEdit ? (
+            <button
+              type="button"
+              className="pl-1 text-left text-xs italic text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+              onClick={() => onEditMilestone(phase)}
+              data-roadmap-phase-description={phase.id}
+            >
+              No description yet
+            </button>
+          ) : null}
         </div>
-
-        {canEdit ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={cn(ROADMAP_ACTION_BUTTON_CLASS, "shrink-0")}
-            onClick={() => onEditMilestone(phase)}
-            aria-label={`Edit ${phase.title || milestoneLabel}`}
-            data-roadmap-edit-milestone={phase.id}
-          >
-            <Pencil className="h-4 w-4" />
-            <span className="sr-only sm:not-sr-only sm:inline">Edit</span>
-          </Button>
-        ) : null}
       </div>
 
       <Droppable droppableId={phase.id} type="ROADMAP_EVENT" isDropDisabled={!canEdit}>
@@ -2676,8 +2689,8 @@ export function ProjectRoadmapPanel({
         <RoadmapEntityForm
           draft={milestoneDraft}
           idPrefix="roadmap-milestone"
-          titlePlaceholder="Milestone title"
-          descriptionPlaceholder="Describe what this milestone means for the project."
+          titlePlaceholder="No title yet"
+          descriptionPlaceholder="No description yet"
           submitLabel="Save milestone"
           targetDateLabel="Milestone date"
           statusLabel="Milestone status"

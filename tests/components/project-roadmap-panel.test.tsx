@@ -1417,4 +1417,91 @@ function setInputValue(input: HTMLElement, value: string) {
       root.unmount();
     });
   });
+
+  test("displays placeholder texts when milestone details are unset in edit mode and allows opening dialog from placeholders", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+    const phases = [
+      {
+        id: "phase-1",
+        title: "",
+        description: null,
+        targetDate: null,
+        position: 0,
+        status: "planned" as const,
+        createdAt: "2026-04-23T08:00:00.000Z",
+        updatedAt: "2026-04-23T08:00:00.000Z",
+        events: [],
+      },
+    ];
+
+    // Read-only mode: placeholders should not be rendered
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: false,
+        phases,
+      })
+    );
+
+    expect(container.textContent).not.toContain("No title yet");
+    expect(container.textContent).not.toContain("No description yet");
+
+    // Edit mode: placeholders should be visible and clickable
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases,
+      })
+    );
+
+    const titlePlaceholder = container.querySelector<HTMLButtonElement>(
+      "[data-roadmap-phase-title='phase-1']"
+    );
+    const descPlaceholder = container.querySelector<HTMLButtonElement>(
+      "[data-roadmap-phase-description='phase-1']"
+    );
+    const editButton = container.querySelector<HTMLButtonElement>(
+      "[data-roadmap-edit-milestone='phase-1']"
+    );
+
+    expect(titlePlaceholder).not.toBeNull();
+    expect(titlePlaceholder?.textContent).toBe("No title yet");
+    expect(descPlaceholder).not.toBeNull();
+    expect(descPlaceholder?.textContent).toBe("No description yet");
+    expect(editButton).not.toBeNull();
+
+    // Clicking "No title yet" opens the edit dialog
+    await act(async () => {
+      titlePlaceholder?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    let dialog = document.body.querySelector("[role='dialog']");
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain("Edit milestone");
+
+    // Close dialog
+    const cancelButton = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>("button")
+    ).find((btn) => btn.textContent?.includes("Cancel"));
+    await act(async () => {
+      cancelButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    // Clicking "No description yet" opens the edit dialog
+    await act(async () => {
+      descPlaceholder?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    dialog = document.body.querySelector("[role='dialog']");
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain("Edit milestone");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });
