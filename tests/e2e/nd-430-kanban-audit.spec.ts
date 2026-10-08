@@ -11,6 +11,8 @@ const TASKS_PER_LANE = 60;
 const ARCHIVED_TASKS = 60;
 const ACTIVE_TASKS = TASKS_PER_LANE * 4;
 const LANES = ["Backlog", "In Progress", "Blocked", "Done"] as const;
+const WARM_UP_SAMPLES = 2;
+const MEASURED_SAMPLES = 20;
 
 function summary(samples: number[]) {
   const sorted = [...samples].sort((a, b) => a - b);
@@ -91,13 +93,13 @@ test("ND-430 large-board responsiveness baseline", async ({ page }) => {
     const route = `/projects/${project.id}#kanban`;
     const loadSamples: number[] = [];
     const responseBytes: number[] = [];
-    for (let iteration = 0; iteration < 12; iteration += 1) {
+    for (let iteration = 0; iteration < WARM_UP_SAMPLES + MEASURED_SAMPLES; iteration += 1) {
       const response = iteration === 0
         ? await page.goto(route, { waitUntil: "domcontentloaded" })
         : await page.reload({ waitUntil: "domcontentloaded" });
       await expect(page.locator("[data-kanban-task-card]")).toHaveCount(ACTIVE_TASKS);
       const elapsed = await page.evaluate(() => performance.now());
-      if (iteration >= 2) {
+      if (iteration >= WARM_UP_SAMPLES) {
         loadSamples.push(elapsed);
         responseBytes.push((await response!.body()).byteLength);
       }
@@ -106,20 +108,20 @@ test("ND-430 large-board responsiveness baseline", async ({ page }) => {
 
     const card = page.locator("[data-kanban-task-card]").first();
     const modalSamples: number[] = [];
-    for (let iteration = 0; iteration < 22; iteration += 1) {
+    for (let iteration = 0; iteration < WARM_UP_SAMPLES + MEASURED_SAMPLES; iteration += 1) {
       const started = await page.evaluate(() => performance.now());
       await card.click();
       await expect(page.getByRole("dialog")).toBeVisible();
       const elapsed = (await page.evaluate(() => performance.now())) - started;
       await page.getByRole("button", { name: "Close task" }).click();
       await expect(page.getByRole("dialog")).toBeHidden();
-      if (iteration >= 2) modalSamples.push(elapsed);
+      if (iteration >= WARM_UP_SAMPLES) modalSamples.push(elapsed);
     }
 
     const firstTaskId = await card.getAttribute("data-kanban-task-card");
     expect(firstTaskId).toBeTruthy();
     const remoteSamples: number[] = [];
-    for (let iteration = 0; iteration < 22; iteration += 1) {
+    for (let iteration = 0; iteration < WARM_UP_SAMPLES + MEASURED_SAMPLES; iteration += 1) {
       const duration = await page.evaluate(
         ({ projectId, taskId, sequence }) =>
           new Promise<number>((resolve, reject) => {
@@ -166,7 +168,7 @@ test("ND-430 large-board responsiveness baseline", async ({ page }) => {
           }),
         { projectId: project.id, taskId: firstTaskId!, sequence: iteration }
       );
-      if (iteration >= 2) remoteSamples.push(duration);
+      if (iteration >= WARM_UP_SAMPLES) remoteSamples.push(duration);
     }
 
     const dragStartSamples: number[] = [];
@@ -175,7 +177,7 @@ test("ND-430 large-board responsiveness baseline", async ({ page }) => {
     const reorderResponseSamples: number[] = [];
     const reorderHttpSamples: number[] = [];
     const reorderPayloadBytes: number[] = [];
-    for (let iteration = 0; iteration < 10; iteration += 1) {
+    for (let iteration = 0; iteration < WARM_UP_SAMPLES + MEASURED_SAMPLES; iteration += 1) {
       const source = page.locator('[data-kanban-dropzone="Backlog"] [data-kanban-task-card]').first();
       await source.focus();
       const start = await page.evaluate(() => performance.now());
@@ -201,7 +203,7 @@ test("ND-430 large-board responsiveness baseline", async ({ page }) => {
       const persisted = await page.evaluate(() => performance.now());
       await expect(source).not.toHaveCSS("position", "fixed");
       const dropped = await page.evaluate(() => performance.now());
-      if (iteration >= 2) {
+      if (iteration >= WARM_UP_SAMPLES) {
         dragStartSamples.push(lifted - start);
         dragEndSamples.push(dropped - drop);
         reorderDispatchSamples.push(dispatched - drop);
@@ -289,7 +291,7 @@ test("ND-430 large-board responsiveness baseline", async ({ page }) => {
         controlDragDrop: controlDragEndSamples,
       },
     };
-    const output = path.join(process.cwd(), ".tmp", "nd-430-kanban-baseline.json");
+    const output = path.join(process.cwd(), ".tmp", process.env.ND_KANBAN_AUDIT_OUTPUT || "nd-430-kanban-baseline.json");
     await fs.mkdir(path.dirname(output), { recursive: true });
     await fs.writeFile(output, JSON.stringify(results, null, 2));
     console.log(JSON.stringify(results));

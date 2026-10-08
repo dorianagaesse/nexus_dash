@@ -399,7 +399,6 @@ export function KanbanBoard({
   const [isSaving, startTransition] = useTransition();
   const [persistError, setPersistError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
-  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<KanbanTask | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const [isArchivingTask, setIsArchivingTask] = useState(false);
@@ -808,15 +807,6 @@ export function KanbanBoard({
 
   const relatedTaskGraph = useMemo(() => createRelatedTaskMap(allTasks), [allTasks]);
 
-  const highlightedTaskIds = useMemo(() => {
-    if (!hoveredTaskId) {
-      return new Set<string>();
-    }
-
-    const connectedTaskIds = relatedTaskGraph.get(hoveredTaskId) ?? [];
-    return new Set([hoveredTaskId, ...connectedTaskIds]);
-  }, [hoveredTaskId, relatedTaskGraph]);
-
   const availableRelatedTaskOptions = useMemo<RelatedTaskOption[]>(() => {
     if (!selectedTask) {
       return [];
@@ -1193,11 +1183,6 @@ export function KanbanBoard({
       }
 
       setColumns(nextColumns);
-      syncRelatedTaskSummary(movedTask.id, {
-        title: movedTask.title,
-        status: destinationStatus,
-        archivedAt: null,
-      });
       setPersistError(null);
 
       startTransition(() => {
@@ -1214,12 +1199,20 @@ export function KanbanBoard({
           },
         });
       });
+      if (relatedTaskGraph.get(movedTask.id)?.length) {
+        syncRelatedTaskSummary(movedTask.id, {
+          title: movedTask.title,
+          status: destinationStatus,
+          archivedAt: null,
+        });
+      }
     },
     [
       canEdit,
       columns,
       currentActorSummary,
       persistColumns,
+      relatedTaskGraph,
       syncRelatedTaskSummary,
       visibleColumns,
     ]
@@ -3224,11 +3217,10 @@ export function KanbanBoard({
             archivedDoneTasks={visibleArchivedDoneTasks}
             isFiltering={hasActiveFilters}
             mentionUsers={availableAssignees}
-            highlightedTaskIds={highlightedTaskIds}
+            relatedTaskGraph={relatedTaskGraph}
             onDragEnd={onDragEnd}
             onSelectTask={handleSelectTask}
             onEditTask={openTaskInEditMode}
-            onTaskHoverChange={setHoveredTaskId}
           />
         </>
       ) : null}
