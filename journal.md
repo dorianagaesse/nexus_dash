@@ -18,6 +18,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   production build passed. Full Playwright validation passed 104 tests with
   two expected skips, including pointer/keyboard drag, mobile lanes, archive
   filters, and failed-reorder rollback.
+- PR #579 opened from `2512ace`. Preview run 37776655780 checked out that
+  exact commit, deployed successfully, and passed browser signup, modal,
+  keyboard reorder, and mobile lane checks. Copilot could not review because
+  the review requester had reached its quota; no inline feedback was posted.
 
 # 2026-10-06 - ND-430: Kanban responsiveness audit
 
