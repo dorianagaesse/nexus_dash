@@ -9663,10 +9663,16 @@ Low-value entries to avoid going forward:
   no Prisma model, migration, or runtime-role changes.
 - Container Image follow-up: the first CI run failed the Docker build because
   a production-like `next build` defaults to Broadcast while the Dockerfile
-  provisions no Supabase config. The Dockerfile, the local-validation script,
-  and the manual-baseline runbook now pin `REALTIME_TRANSPORT=polling`, and
-  `.env.example` plus the env-contract runbook state the
-  `NODE_ENV=production` default precisely.
+  provisions no Supabase config. `e1fb1cb` pinned polling in the Dockerfile,
+  the local-validation script, and the manual-baseline runbook; `8c13931`
+  tightened `.env.example` and the env-contract runbook. Review round
+  2026-10-08 then scoped the Dockerfile pin to the build only: an `ENV` would
+  have overridden the production Broadcast default in the image runtime.
+- Review round 2026-10-08 (reviewed head `8c13931`, three items): the
+  Dockerfile pin is build-scoped; `project.md` and
+  `docs/runbooks/github-actions-workflows.md` no longer describe SSE as a
+  live transport; Preview deployment evidence for "no legacy SSE
+  invocations" is recorded in `docs/reports/nd-374-realtime-load-test.md`.
 - Merge gating: the Production broadcast flip is deferred and owned by the
   reviewer; the acceptance check "Vercel Observability reports no legacy SSE
   invocations" is a post-flip observation on the deployed branch.
