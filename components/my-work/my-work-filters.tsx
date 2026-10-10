@@ -2,10 +2,8 @@ import { Check, ChevronDown } from "lucide-react";
 import Link from "next/link";
 
 import {
-  MY_WORK_ASSIGNMENT_FILTERS,
   MY_WORK_SORTS,
   MY_WORK_TYPE_FILTERS,
-  type MyWorkAssignmentFilter,
   type MyWorkResult,
   type MyWorkSort,
   type MyWorkTypeFilter,
@@ -13,7 +11,6 @@ import {
 import { cn } from "@/lib/utils";
 
 export interface MyWorkFilterState {
-  assignment: MyWorkAssignmentFilter;
   type: MyWorkTypeFilter;
   projectId: string | null;
   query: string;
@@ -21,28 +18,16 @@ export interface MyWorkFilterState {
 }
 
 export const MY_WORK_DEFAULT_FILTERS: MyWorkFilterState = {
-  assignment: "mine",
   type: "all",
   projectId: null,
   query: "",
   sort: "recent",
 };
 
-export const MY_WORK_ASSIGNMENT_LABELS: Record<
-  MyWorkAssignmentFilter,
-  string
-> = {
-  mine: "Assigned to me",
-  unassigned: "Unassigned",
-  reassignment: "Needs reassignment",
-  all: "All work",
-};
-
 const TYPE_LABELS: Record<MyWorkTypeFilter, string> = {
   all: "All types",
   task: "Tasks",
   todo: "Todos",
-  note: "Notes",
 };
 
 const SORT_LABELS: Record<MyWorkSort, string> = {
@@ -56,9 +41,6 @@ export function myWorkHref(
 ): string {
   const next = { ...state, ...overrides };
   const params = new URLSearchParams();
-  if (next.assignment !== "mine") {
-    params.set("assignee", next.assignment);
-  }
   if (next.type !== "all") {
     params.set("type", next.type);
   }
@@ -178,70 +160,45 @@ export function MyWorkFilters({
     filters.sort === "recent" ? "Sort" : `Sort: ${SORT_LABELS[filters.sort]}`;
 
   return (
-    <div className="flex flex-col gap-3">
-      <nav aria-label="Assignment filter" className="flex flex-wrap gap-2">
-        {MY_WORK_ASSIGNMENT_FILTERS.map((assignment) => {
-          const isActive = assignment === filters.assignment;
-          return (
-            <Link
-              key={assignment}
-              href={myWorkHref(filters, { assignment })}
-              aria-current={isActive ? "page" : undefined}
-              className={cn(
-                "inline-flex min-h-11 items-center rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                isActive
-                  ? "border-primary/30 bg-primary/10 text-primary dark:bg-primary/15"
-                  : "border-border/70 bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              {MY_WORK_ASSIGNMENT_LABELS[assignment]}
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="flex flex-col gap-2 md:flex-row md:items-center">
-        <form
-          role="search"
-          action="/my-work"
-          method="get"
-          className="flex min-w-0 items-center gap-2 md:flex-1"
+    <div className="flex flex-col gap-2 md:flex-row md:items-center">
+      <form
+        role="search"
+        action="/my-work"
+        method="get"
+        className="flex min-w-0 items-center gap-2 md:flex-1"
+      >
+        {filters.type !== "all" ? (
+          <input type="hidden" name="type" value={filters.type} />
+        ) : null}
+        {filters.projectId ? (
+          <input type="hidden" name="project" value={filters.projectId} />
+        ) : null}
+        {filters.sort !== "recent" ? (
+          <input type="hidden" name="sort" value={filters.sort} />
+        ) : null}
+        <input
+          type="search"
+          name="q"
+          defaultValue={filters.query}
+          placeholder="Search titles"
+          aria-label="Search my work"
+          className="h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
+        />
+        <button
+          type="submit"
+          className="h-11 shrink-0 rounded-md border border-border/70 bg-background px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {filters.assignment !== "mine" ? (
-            <input type="hidden" name="assignee" value={filters.assignment} />
-          ) : null}
-          {filters.type !== "all" ? (
-            <input type="hidden" name="type" value={filters.type} />
-          ) : null}
-          {filters.projectId ? (
-            <input type="hidden" name="project" value={filters.projectId} />
-          ) : null}
-          {filters.sort !== "recent" ? (
-            <input type="hidden" name="sort" value={filters.sort} />
-          ) : null}
-          <input
-            type="search"
-            name="q"
-            defaultValue={filters.query}
-            placeholder="Search titles"
-            aria-label="Search my work"
-            className="h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
-          />
-          <button
-            type="submit"
-            className="h-11 shrink-0 rounded-md border border-border/70 bg-background px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Search
-          </button>
-        </form>
-        <div className="flex flex-wrap items-center gap-2">
-          <FilterDropdown name="type" summary={typeSummary} options={typeOptions} />
-          <FilterDropdown
-            name="project"
-            summary={projectSummary}
-            options={projectOptions}
-          />
-          <FilterDropdown name="sort" summary={sortSummary} options={sortOptions} />
-        </div>
+          Search
+        </button>
+      </form>
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterDropdown name="type" summary={typeSummary} options={typeOptions} />
+        <FilterDropdown
+          name="project"
+          summary={projectSummary}
+          options={projectOptions}
+        />
+        <FilterDropdown name="sort" summary={sortSummary} options={sortOptions} />
       </div>
     </div>
   );

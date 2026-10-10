@@ -24,6 +24,16 @@ import type {
 
 const now = new Date("2026-10-05T12:00:00.000Z");
 
+const ownerActor = {
+  kind: "human" as const,
+  id: "user-1",
+  displayName: "Dorian",
+  usernameTag: "dorian#1234",
+  avatarSeed: null,
+  status: "active" as const,
+  isAssignable: true,
+};
+
 function taskItem(overrides: Partial<MyWorkItem> = {}): MyWorkItem {
   return {
     id: "task-1",
@@ -32,16 +42,7 @@ function taskItem(overrides: Partial<MyWorkItem> = {}): MyWorkItem {
     projectId: "project-1",
     projectName: "Alpha",
     status: "In Progress",
-    actor: {
-      kind: "human",
-      id: "user-1",
-      displayName: "Dorian",
-      usernameTag: "dorian#1234",
-      avatarSeed: null,
-      status: "active",
-      isAssignable: true,
-    },
-    needsReassignment: false,
+    actor: ownerActor,
     timestamp: new Date("2026-10-05T10:00:00.000Z"),
     href: "/projects/project-1?taskId=task-1",
     ...overrides,
@@ -53,7 +54,7 @@ function resultFixture(overrides: Partial<MyWorkResult> = {}): MyWorkResult {
     items: [taskItem()],
     total: 1,
     truncated: false,
-    typeCounts: { all: 1, task: 1, todo: 0, note: 0 },
+    typeCounts: { all: 1, task: 1, todo: 0 },
     projects: [{ id: "project-1", name: "Alpha", count: 1 }],
     ...overrides,
   };
@@ -89,7 +90,6 @@ describe("myWorkHref", () => {
 
   test("serializes non-default filters in a stable order", () => {
     const state: MyWorkFilterState = {
-      assignment: "unassigned",
       type: "todo",
       projectId: "project-1",
       sort: "oldest",
@@ -97,13 +97,12 @@ describe("myWorkHref", () => {
     };
 
     expect(myWorkHref(state)).toBe(
-      "/my-work?assignee=unassigned&type=todo&project=project-1&sort=oldest&q=launch+recap"
+      "/my-work?type=todo&project=project-1&sort=oldest&q=launch+recap"
     );
   });
 
   test("override preserves the other filters and clears defaults", () => {
     const state: MyWorkFilterState = {
-      assignment: "all",
       type: "task",
       projectId: "project-1",
       sort: "recent",
@@ -111,10 +110,10 @@ describe("myWorkHref", () => {
     };
 
     expect(myWorkHref(state, { type: "all" })).toBe(
-      "/my-work?assignee=all&project=project-1&q=login"
+      "/my-work?project=project-1&q=login"
     );
     expect(myWorkHref(state, { projectId: null })).toBe(
-      "/my-work?assignee=all&type=task&q=login"
+      "/my-work?type=task&q=login"
     );
   });
 });
@@ -134,52 +133,22 @@ describe("MyWorkRow", () => {
     expect(markup).not.toContain('aria-label="Needs reassignment"');
   });
 
-  test("flags revoked assignees with the needs-reassignment indicator", () => {
+  test("renders a todo row with its status and todos deep link", () => {
     const markup = renderToStaticMarkup(
       <MyWorkRow
         item={taskItem({
-          actor: {
-            kind: "agent",
-            id: "cred-1",
-            displayName: "Codex bot",
-            usernameTag: null,
-            avatarSeed: null,
-            status: "revoked",
-            isAssignable: false,
-          },
-          needsReassignment: true,
+          type: "todo",
+          status: "Open",
+          href: "/projects/project-1/todos",
         })}
         now={now}
       />
     );
 
-    expect(markup).toContain('aria-label="Needs reassignment"');
-    expect(markup).toContain("Codex bot");
-  });
-
-  test("renders todo status and steward-role notes", () => {
-    const todo = renderToStaticMarkup(
-      <MyWorkRow
-        item={taskItem({ type: "todo", status: "Open", actor: null })}
-        now={now}
-      />
-    );
-    expect(todo).toContain("Open");
-    expect(todo).toContain("Unassigned");
-
-    const note = renderToStaticMarkup(
-      <MyWorkRow
-        item={taskItem({
-          type: "note",
-          status: "Actions in progress",
-          actor: null,
-          href: "/projects/project-1?meetingNoteId=note-1",
-        })}
-        now={now}
-      />
-    );
-    expect(note).toContain("No facilitator");
-    expect(note).toContain('data-identity-role="steward"');
+    expect(markup).toContain('data-my-work-item-type="todo"');
+    expect(markup).toContain('href="/projects/project-1/todos"');
+    expect(markup).toContain("Open");
+    expect(markup).toContain("Dorian");
   });
 });
 
@@ -199,7 +168,7 @@ describe("MyWorkList", () => {
     const empty = resultFixture({
       items: [],
       total: 0,
-      typeCounts: { all: 0, task: 0, todo: 0, note: 0 },
+      typeCounts: { all: 0, task: 0, todo: 0 },
       projects: [],
     });
 
@@ -229,27 +198,12 @@ describe("MyWorkList", () => {
 });
 
 describe("MyWorkFilters", () => {
-  test("links every assignment state and marks the active one", () => {
-    const markup = renderToStaticMarkup(
-      <MyWorkFilters
-        filters={{ ...MY_WORK_DEFAULT_FILTERS, assignment: "reassignment" }}
-        result={resultFixture()}
-      />
-    );
-
-    expect(markup).toContain('aria-label="Assignment filter"');
-    expect(markup).toContain('href="/my-work"');
-    expect(markup).toContain('href="/my-work?assignee=unassigned"');
-    expect(markup).toContain("Needs reassignment");
-    expect(markup).toContain('aria-current="page"');
-  });
-
-  test("lists type and project facets with counts from the result", () => {
+  test("lists type and project facets with counts and no assignment pills", () => {
     const markup = renderToStaticMarkup(
       <MyWorkFilters
         filters={MY_WORK_DEFAULT_FILTERS}
         result={resultFixture({
-          typeCounts: { all: 3, task: 2, todo: 1, note: 0 },
+          typeCounts: { all: 3, task: 2, todo: 1 },
           projects: [{ id: "project-1", name: "Alpha", count: 3 }],
         })}
       />
@@ -258,16 +212,19 @@ describe("MyWorkFilters", () => {
     expect(markup).toContain("All types (3)");
     expect(markup).toContain("Tasks (2)");
     expect(markup).toContain("Todos (1)");
-    expect(markup).toContain("Notes (0)");
     expect(markup).toContain("Alpha (3)");
     expect(markup).toContain('data-my-work-filter="type"');
     expect(markup).toContain('data-my-work-filter="project"');
     expect(markup).toContain('data-my-work-filter="sort"');
+
+    expect(markup).not.toContain('aria-label="Assignment filter"');
+    expect(markup).not.toContain("Assigned to me");
+    expect(markup).not.toContain("Needs reassignment");
+    expect(markup).not.toContain(">Unassigned<");
   });
 
   test("preserves active filters in the search form and dropdown hrefs", () => {
     const filters: MyWorkFilterState = {
-      assignment: "unassigned",
       type: "todo",
       projectId: null,
       query: "",
@@ -279,8 +236,8 @@ describe("MyWorkFilters", () => {
 
     expect(markup).toContain('action="/my-work"');
     expect(markup).toContain('name="q"');
-    expect(markup).toContain('name="assignee" value="unassigned"');
     expect(markup).toContain('name="type" value="todo"');
+    expect(markup).not.toContain('name="assignee"');
     expect(markup).toContain("Search");
     expect(markup).toContain("Type: Todos");
   });

@@ -1,4 +1,4 @@
-import { ClipboardList, FolderKanban, ListTodo } from "lucide-react";
+import { FolderKanban, ListTodo } from "lucide-react";
 import Link from "next/link";
 
 import { MeetingTodoAssigneeChipReadonly } from "@/components/meeting-todos/meeting-todo-assignee-chip";
@@ -14,13 +14,11 @@ export const MY_WORK_ROW_GRID =
 const TYPE_LABELS: Record<MyWorkItemType, string> = {
   task: "Task",
   todo: "Todo",
-  note: "Note",
 };
 
 const TYPE_ICONS: Record<MyWorkItemType, typeof FolderKanban> = {
   task: FolderKanban,
   todo: ListTodo,
-  note: ClipboardList,
 };
 
 const ABSOLUTE_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
@@ -83,7 +81,7 @@ export function MyWorkRow({ item, now }: { item: MyWorkItem; now: Date }) {
         <MeetingTodoAssigneeChipReadonly
           actor={item.actor}
           bordered={false}
-          identityRole={item.type === "note" ? "steward" : "assignee"}
+          identityRole="assignee"
         />
         <time
           dateTime={item.timestamp.toISOString()}

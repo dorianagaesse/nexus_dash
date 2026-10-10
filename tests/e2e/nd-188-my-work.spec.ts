@@ -8,7 +8,7 @@ import {
   uniqueProjectName,
 } from "./helpers/project-helpers";
 
-test("my work surfaces assigned, unassigned, and reassignment queues across artifacts", async ({
+test("my work lists the tasks and todos assigned to the signed-in user", async ({
   page,
 }) => {
   const ownerId = await signInAsVerifiedUser(page);
@@ -29,8 +29,8 @@ test("my work surfaces assigned, unassigned, and reassignment queues across arti
   expect(projectId).toBeTruthy();
   const projectIdValue = projectId as string;
 
-  // Create an agent credential so the spec can exercise both the agent
-  // assignee=self queue and the needs-reassignment view after revocation.
+  // Create an agent credential so the spec can exercise the agent
+  // assignee=self queue below.
   const agentLabel = `My work bot ${suffix}`;
   await page.getByRole("button", { name: "Share project" }).click();
   await page.getByRole("button", { name: "Agent access" }).click();
@@ -83,17 +83,14 @@ test("my work surfaces assigned, unassigned, and reassignment queues across arti
   );
   expect(openTaskResponse.ok()).toBeTruthy();
 
-  const noteTitle = `Stewarded meeting ${suffix}`;
-  const todoContent = `Steward follow-up ${suffix}`;
+  const noteTitle = `Planning sync ${suffix}`;
+  const todoContent = `Follow up on recap ${suffix}`;
   const meetingNote = await prisma.projectMeetingNote.create({
     data: {
       projectId: projectIdValue,
       title: noteTitle,
       createdByUserId: ownerId,
       updatedByUserId: ownerId,
-      stewardUserId: ownerId,
-      stewardKind: "human",
-      stewardDisplayNameSnapshot: ownerUsername,
     },
     select: { id: true },
   });
@@ -103,6 +100,9 @@ test("my work surfaces assigned, unassigned, and reassignment queues across arti
       content: todoContent,
       createdByUserId: ownerId,
       creatorDisplayNameSnapshot: ownerUsername,
+      assigneeKind: "human",
+      assigneeUserId: ownerId,
+      assigneeDisplayNameSnapshot: ownerUsername,
     },
     select: { id: true },
   });
@@ -174,7 +174,7 @@ test("my work surfaces assigned, unassigned, and reassignment queues across arti
   const agentTitles = agentListPayload.tasks.map((task) => task.title);
   expect(agentTitles).toEqual([agentTaskTitle]);
 
-  // My work page: one unified list with assignment filters, facets, and search.
+  // My work page: a single list of the work assigned to the signed-in user.
   await page.goto("/my-work");
   await expect(
     page.getByRole("heading", { name: "My work", level: 1 })
@@ -182,32 +182,26 @@ test("my work surfaces assigned, unassigned, and reassignment queues across arti
   await expect(
     page.getByRole("link", { name: "My work" }).first()
   ).toHaveAttribute("aria-current", "page");
-  await expect(
-    page.getByRole("link", { name: "Assigned to me", exact: true })
-  ).toHaveAttribute("aria-current", "page");
 
   const rows = page.locator("[data-my-work-item]");
   await expect(rows).toHaveCount(2);
   await expect(rows.getByRole("link", { name: assignedTitle })).toBeVisible();
+  await expect(rows.getByRole("link", { name: todoContent })).toBeVisible();
   await expect(rows.getByRole("link", { name: agentTaskTitle })).toHaveCount(0);
-  const noteRow = rows.filter({ hasText: noteTitle });
-  await expect(noteRow.locator("[data-identity-role='steward']")).toBeVisible();
+  await expect(rows.getByRole("link", { name: openTitle })).toHaveCount(0);
+  await expect(rows.getByRole("link", { name: noteTitle })).toHaveCount(0);
   await expect(page.locator("[data-my-work-total]")).toHaveText("2 items");
 
-  // Unassigned filter: the pickup queue across tasks and todos.
-  await page.getByRole("link", { name: "Unassigned", exact: true }).click();
-  await expect(page).toHaveURL(/\/my-work\?assignee=unassigned/);
-  await expect(rows).toHaveCount(2);
-  await expect(rows.getByRole("link", { name: openTitle })).toBeVisible();
-  await expect(rows.getByRole("link", { name: todoContent })).toBeVisible();
-
-  // Type facet keeps the assignment filter and narrows the list.
+  // The assignment filters are gone; the type facet narrows the list.
+  await expect(
+    page.getByRole("link", { name: "Unassigned", exact: true })
+  ).toHaveCount(0);
   await page.locator("details[data-my-work-filter='type'] summary").click();
   await page
     .locator("details[data-my-work-filter='type']")
     .getByRole("link", { name: "Todos (1)", exact: true })
     .click();
-  await expect(page).toHaveURL(/assignee=unassigned&type=todo/);
+  await expect(page).toHaveURL(/\/my-work\?type=todo/);
   await expect(rows).toHaveCount(1);
   await expect(rows.getByRole("link", { name: todoContent })).toBeVisible();
 
@@ -216,29 +210,18 @@ test("my work surfaces assigned, unassigned, and reassignment queues across arti
     .getByRole("searchbox", { name: "Search my work" })
     .fill(todoContent);
   await page.getByRole("button", { name: "Search" }).click();
-  await expect(page).toHaveURL(/q=/);
-  await expect(page).toHaveURL(/assignee=unassigned/);
   await expect(page).toHaveURL(/type=todo/);
+  await expect(page).toHaveURL(/q=/);
   await expect(rows).toHaveCount(1);
   await expect(rows.getByRole("link", { name: todoContent })).toBeVisible();
 
-  // Revoking the credential moves its work into the reassignment filter.
-  await prisma.apiCredential.update({
-    where: { id: credentialId },
-    data: { revokedAt: new Date(), revokedByUserId: ownerId },
-  });
-  await page.goto("/my-work?assignee=reassignment");
-  await expect(
-    page.getByRole("link", { name: "Needs reassignment", exact: true })
-  ).toHaveAttribute("aria-current", "page");
-  const agentTaskLink = rows.getByRole("link", { name: agentTaskTitle });
-  await expect(agentTaskLink).toBeVisible();
-  await expect(page.getByLabel("Needs reassignment")).toHaveCount(1);
-
-  // Deep link: the row opens the task on its project board.
-  await agentTaskLink.click();
+  // Deep link: the task row opens the task on its project board.
+  await page.goto("/my-work");
+  const taskLink = rows.getByRole("link", { name: assignedTitle });
+  await expect(taskLink).toBeVisible();
+  await taskLink.click();
   await expect(page).toHaveURL(
     new RegExp(`/projects/${projectIdValue}\\?taskId=`)
   );
-  await expect(page.getByRole("dialog")).toContainText(agentTaskTitle);
+  await expect(page.getByRole("dialog")).toContainText(assignedTitle);
 });

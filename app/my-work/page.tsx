@@ -9,7 +9,6 @@ import { MyWorkList } from "@/components/my-work/my-work-list";
 import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { logServerError } from "@/lib/observability/logger";
 import {
-  isMyWorkAssignmentFilter,
   isMyWorkSort,
   isMyWorkTypeFilter,
   listMyWork,
@@ -33,13 +32,9 @@ function readQueryValue(value: string | string[] | undefined): string | null {
 function parseFilters(
   searchParams: SearchParams | undefined
 ): MyWorkFilterState {
-  const assignmentParam = readQueryValue(searchParams?.assignee)?.trim() ?? "";
   const typeParam = readQueryValue(searchParams?.type)?.trim() ?? "";
   const sortParam = readQueryValue(searchParams?.sort)?.trim() ?? "";
   return {
-    assignment: isMyWorkAssignmentFilter(assignmentParam)
-      ? assignmentParam
-      : MY_WORK_DEFAULT_FILTERS.assignment,
     type: isMyWorkTypeFilter(typeParam)
       ? typeParam
       : MY_WORK_DEFAULT_FILTERS.type,
@@ -67,7 +62,6 @@ export default async function MyWorkPage({
     result = await listMyWork({ actorUserId, ...filters });
   } catch (error) {
     logServerError("MyWorkPage.listMyWork", error, {
-      assignment: filters.assignment,
       type: filters.type,
       sort: filters.sort,
     });
@@ -75,7 +69,6 @@ export default async function MyWorkPage({
   }
 
   const hasActiveFilters =
-    filters.assignment !== MY_WORK_DEFAULT_FILTERS.assignment ||
     filters.type !== MY_WORK_DEFAULT_FILTERS.type ||
     filters.projectId !== MY_WORK_DEFAULT_FILTERS.projectId ||
     filters.query !== MY_WORK_DEFAULT_FILTERS.query ||
