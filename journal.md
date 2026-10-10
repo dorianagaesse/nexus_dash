@@ -17,6 +17,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Documentation validation: `git diff --check` passed and all relative ADR
   links resolve. Source references were checked against `f1873ac`; no runtime
   checks or preview are required for this documentation-only PR.
+- Opened PR #589 and attached it to ND-187; verified the card remains In
+  Progress and comments are attributed to `codex-home (agent)`. Copilot
+  returned a quota-limit result instead of reviewing; no inline findings.
+  Surface scope and staged-delivery questions remain pending before migration.
 # 2026-10-06 - ND-404: Enable milestone editing from roadmap edit mode
 
 - Card `cmtkk0ymw000h04l103wo0zjz` under epic "Roadmap interaction refinement":
