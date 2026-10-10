@@ -132,6 +132,31 @@ describe("useRecoveryDraft", () => {
     expect(JSON.parse(localStorage.getItem(key)!).payload).toBe("Newer text");
   });
 
+  test("clears a submitted create draft after its dialog closes", async () => {
+    let acknowledge: (() => void) | null = null;
+    function ClosingHarness() {
+      const [open, setOpen] = useState(true);
+      const [value, setValue] = useState("");
+      const draft = useRecoveryDraft({ storageKey: open ? key : null, value, base: "", restore: setValue });
+      return <div>
+        <input value={value} onChange={(event) => setValue(event.target.value)} />
+        <button onClick={() => { draft.flush(); acknowledge = () => draft.saved(value); setOpen(false); setValue(""); }}>Create</button>
+      </div>;
+    }
+    await act(async () => { root.render(<ClosingHarness />); });
+    await act(async () => { vi.advanceTimersByTime(1); });
+    const input = container.querySelector("input")!;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
+      setter.call(input, "Submitted task");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => { (container.querySelector("button") as HTMLButtonElement).click(); });
+    expect(JSON.parse(localStorage.getItem(key)!).payload).toBe("Submitted task");
+    await act(async () => { acknowledge?.(); });
+    expect(localStorage.getItem(key)).toBeNull();
+  });
+
   test("keeps an incompatible draft copyable until explicit discard", async () => {
     const raw = JSON.stringify({ version: 2, payload: "Future format" });
     localStorage.setItem(key, raw);

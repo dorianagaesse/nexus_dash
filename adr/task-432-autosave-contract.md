@@ -426,6 +426,12 @@ and the server revision check.
    edit surfaces per the matrix. Add conditional context-card Live; keep
    roadmap and Google Calendar edit as Draft only unless a later evidence-backed
    task changes this decision.
+   ND-434 uses the shared local recovery module for task creation, context-card
+   create/edit, roadmap event create/edit and milestone edit, and Google Calendar
+   event create/edit. Create remains an explicit command on these surfaces.
+   Context-card Live remains disabled until its content revision, conditional
+   PATCH, and measured load gate are available; roadmap and Google Calendar
+   remain Draft only as specified above.
 7. Add epic recovery in a separately scoped follow-up if product priority
    warrants it. Administrative/security surfaces remain excluded.
 8. Fallback: disable the affected Live flag. Local recovery and explicit Save

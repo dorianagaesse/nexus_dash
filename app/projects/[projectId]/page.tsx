@@ -316,7 +316,7 @@ export default async function ProjectDashboardPage({
       </Suspense>
 
       <Suspense fallback={<ProjectCalendarPanelSkeleton />}>
-        <ProjectCalendarPanelSection projectId={project.id} />
+        <ProjectCalendarPanelSection projectId={project.id} actorUserId={actorUserId} />
       </Suspense>
     </main>
   );

@@ -14,6 +14,7 @@ import type {
   TaskCreateOptimisticDraft,
 } from "@/components/kanban-board-types";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { RecoveryDraftNotice } from "@/components/recovery-draft-notice";
 import { useToast } from "@/components/toast-provider";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { AssigneeSelect } from "@/components/ui/assignee-select";
@@ -39,6 +40,7 @@ import {
 } from "@/lib/task-attachment";
 import { uploadFilesDirectInBackground } from "@/lib/direct-upload-client";
 import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
+import { recoveryDraftKey, useRecoveryDraft } from "@/lib/hooks/use-recovery-draft";
 import type { ProjectActorReference, ProjectActorSummary } from "@/lib/project-actor";
 import {
   MAX_TASK_TITLE_LENGTH,
@@ -47,6 +49,7 @@ import {
 
 interface CreateTaskDialogProps {
   projectId: string;
+  actorUserId: string;
   storageProvider: "local" | "r2";
   existingLabels: string[];
   availableTasks: RelatedTaskOption[];
@@ -72,6 +75,7 @@ function createLocalId(): string {
 
 export function CreateTaskDialog({
   projectId,
+  actorUserId,
   storageProvider,
   existingLabels,
   availableTasks,
@@ -102,6 +106,38 @@ export function CreateTaskDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [titleCharCount, setTitleCharCount] = useState(0);
+  const [title, setTitle] = useState("");
+  const recoveryValue = useMemo(() => ({
+    title, description, deadlineDate, epicId, assignee, labels,
+    relatedTaskIds, attachmentLinks, linkUrl,
+  }), [title, description, deadlineDate, epicId, assignee, labels,
+    relatedTaskIds, attachmentLinks, linkUrl]);
+  const recoveryBase = useMemo(() => ({
+    title: "", description: "", deadlineDate: "", epicId: "",
+    assignee: null as ProjectActorReference | null,
+    labels: [] as string[], relatedTaskIds: [] as string[],
+    attachmentLinks: [] as PendingAttachmentLink[], linkUrl: "",
+  }), []);
+  const taskRecovery = useRecoveryDraft({
+    storageKey: isOpen
+      ? recoveryDraftKey({ userId: actorUserId, projectId, surface: "task-create", mode: "create" })
+      : null,
+    value: recoveryValue,
+    base: recoveryBase,
+    restore: (draft) => {
+      setTitle(draft.title);
+      setTitleCharCount(draft.title.length);
+      setDescription(draft.description);
+      setDeadlineDate(draft.deadlineDate);
+      setEpicId(draft.epicId);
+      setAssignee(draft.assignee);
+      setLabels(draft.labels);
+      setRelatedTaskIds(draft.relatedTaskIds);
+      setAttachmentLinks(draft.attachmentLinks);
+      setLinkUrl(draft.linkUrl);
+      setIsLinkComposerOpen(Boolean(draft.linkUrl));
+    },
+  });
 
   const maxAttachmentFileSizeBytes =
     storageProvider === "r2"
@@ -122,6 +158,7 @@ export function CreateTaskDialog({
   }, []);
 
   const resetDraft = () => {
+    setTitle("");
     setDescription("");
     setDeadlineDate("");
     setEpicId("");
@@ -139,12 +176,14 @@ export function CreateTaskDialog({
   };
 
   const openDialog = () => {
+    if (isSubmitting) return;
     resetDraft();
     setSubmitError(null);
     setIsOpen(true);
   };
 
   const closeDialog = () => {
+    taskRecovery.flush();
     resetDraft();
     setIsOpen(false);
   };
@@ -204,6 +243,8 @@ export function CreateTaskDialog({
 
     setIsSubmitting(true);
     setSubmitError(null);
+    const submittedRecovery = recoveryValue;
+    taskRecovery.flush();
 
     const filesForBackgroundUpload =
       storageProvider === "r2" ? [...selectedFiles] : [];
@@ -213,7 +254,6 @@ export function CreateTaskDialog({
     }
 
     closeDialog();
-    setIsSubmitting(false);
     const optimisticTaskId =
       onTaskCreateStarted?.({
         title,
@@ -261,6 +301,7 @@ export function CreateTaskDialog({
         if (!isMountedRef.current) {
           return;
         }
+        taskRecovery.saved(submittedRecovery);
         const createdTaskId =
           payload && typeof payload.taskId === "string" ? payload.taskId : null;
         if (payload?.task) {
@@ -326,6 +367,8 @@ export function CreateTaskDialog({
           variant: "error",
           message,
         });
+      } finally {
+        if (isMountedRef.current) setIsSubmitting(false);
       }
     })();
   };
@@ -457,14 +500,16 @@ export function CreateTaskDialog({
                         </label>
                         <EmojiInputField
                           id="task-title"
+                          value={title}
                           autoFocus
                           name="title"
                           required
                           minLength={2}
                           maxLength={MAX_TASK_TITLE_LENGTH}
-                          onChange={(event) =>
-                            setTitleCharCount(event.target.value.length)
-                          }
+                          onChange={(event) => {
+                            setTitle(event.target.value);
+                            setTitleCharCount(event.target.value.length);
+                          }}
                           wrapperClassName={`rounded-md border border-input bg-background ${
                             FORM_FOCUS_BORDER_SHELL_CLASS
                           }`}
@@ -765,6 +810,10 @@ export function CreateTaskDialog({
                     className="shrink-0 border-t border-border/60 bg-card/95 px-6 pb-6 pt-4 backdrop-blur supports-[backdrop-filter]:bg-card/90"
                   >
                     <div className="flex w-full flex-col gap-3">
+                      <RecoveryDraftNotice draft={taskRecovery} onDiscard={() => {
+                        taskRecovery.discard();
+                        resetDraft();
+                      }} />
                       {submitError ? (
                         <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                           {submitError}

@@ -297,8 +297,19 @@ export function useRecoveryDraft<T>({
   }, [storageKey, conflict]);
 
   const saved = useCallback((submittedValue: unknown) => {
-    if (JSON.stringify(latestRef.current.value) === JSON.stringify(submittedValue)) discard();
-  }, [discard]);
+    if (!storageKey) return;
+    const latest = latestRef.current;
+    if (latest.storageKey === storageKey && JSON.stringify(latest.value) !== JSON.stringify(submittedValue)) return;
+    const submittedJson = JSON.stringify(submittedValue);
+    const stored = readDraft<T>(storageKey);
+    const forkKey = `${storageKey}:conflict:${writerRef.current}`;
+    const fork = readDraft<T>(forkKey);
+    try {
+      if (stored && JSON.stringify(stored.payload) === submittedJson) localStorage.removeItem(storageKey);
+      if (fork && JSON.stringify(fork.payload) === submittedJson) localStorage.removeItem(forkKey);
+    } catch { /* Keep the draft if storage is unavailable. */ }
+    if (latest.storageKey === storageKey) discard();
+  }, [discard, storageKey]);
 
   const acceptConflict = useCallback(() => {
     if (!storageKey) return;
