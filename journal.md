@@ -2,6 +2,21 @@
 
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
+
+# 2026-10-10 - ND-187: Shared discussion architecture pickup
+
+- Read the card and DeepSeek's scope review/handoff; moved ND-187 to In Progress
+  with a Codex pickup comment. Root checkout has unrelated changes and was left
+  untouched. Created `feature/nd-187-shared-discussion` in `../nexus_dash_nd187`
+  from current `origin/main` at `f1873ac`.
+- Verified task comment, reaction, agent mention/attention, authorization, and
+  attachment contracts. Proposed the reusable FK-backed thread model, explicit
+  actor subscriptions, ND-189 ownership boundary, and migration/rollback gates
+  in `adr/nd-187-shared-discussion.md`. No runtime or schema change in this
+  architecture milestone; product scope and staged delivery are under review.
+- Documentation validation: `git diff --check` passed and all relative ADR
+  links resolve. Source references were checked against `f1873ac`; no runtime
+  checks or preview are required for this documentation-only PR.
 # 2026-10-06 - ND-404: Enable milestone editing from roadmap edit mode
 
 - Card `cmtkk0ymw000h04l103wo0zjz` under epic "Roadmap interaction refinement":
