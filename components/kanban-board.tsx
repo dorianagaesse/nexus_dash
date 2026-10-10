@@ -38,6 +38,7 @@ import {
 } from "@/components/kanban/kanban-filter-utils";
 import { useKanbanTaskSearch } from "@/components/kanban/use-kanban-task-search";
 import { TaskDetailModal } from "@/components/kanban/task-detail-modal";
+import { recoveryDraftKey, useRecoveryDraft } from "@/lib/hooks/use-recovery-draft";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -445,6 +446,8 @@ export function KanbanBoard({
   const [taskCommentsError, setTaskCommentsError] = useState<string | null>(null);
   const [isLoadingTaskComments, setIsLoadingTaskComments] = useState(false);
   const [newTaskComment, setNewTaskComment] = useState("");
+  const [commentMentionSelections, setCommentMentionSelections] = useState<TaskCommentMentionSelection[]>([]);
+  const [commentAgentMentionSelections, setCommentAgentMentionSelections] = useState<Array<{ credentialId: string; label: string }>>([]);
   const [isSubmittingTaskComment, setIsSubmittingTaskComment] = useState(false);
   const [commentAttachments, setCommentAttachments] = useState<
     TaskAttachment[]
@@ -452,6 +455,61 @@ export function KanbanBoard({
   const [pendingCommentAttachmentUploads, setPendingCommentAttachmentUploads] =
     useState<PendingAttachmentUpload[]>([]);
   const [commentAttachmentInputKey, setCommentAttachmentInputKey] = useState(0);
+  const commentRecoveryValue = useMemo(() => ({
+    content: newTaskComment,
+    attachmentIds: commentAttachments.map((attachment) => attachment.id),
+    mentionSelections: commentMentionSelections,
+    agentMentionSelections: commentAgentMentionSelections,
+  }), [newTaskComment, commentAttachments, commentMentionSelections, commentAgentMentionSelections]);
+  const commentRecovery = useRecoveryDraft({
+    storageKey: canEdit && selectedTask
+      ? recoveryDraftKey({ userId: actorUserId, projectId, surface: "task-comment", mode: "create", entityId: selectedTask.id })
+      : null,
+    value: commentRecoveryValue,
+    base: { content: "", attachmentIds: [], mentionSelections: [], agentMentionSelections: [] },
+    restore: (draft) => {
+      setNewTaskComment(draft.content);
+      setCommentAttachments(selectedTask?.attachments.filter((attachment) => draft.attachmentIds.includes(attachment.id)) ?? []);
+      setCommentMentionSelections(draft.mentionSelections);
+      setCommentAgentMentionSelections(draft.agentMentionSelections);
+    },
+    isEmpty: (draft) => !draft.content && draft.attachmentIds.length === 0,
+  });
+  const taskEditRecoveryValue = useMemo(() => ({
+    title: editTitle,
+    labels: editLabels,
+    description: editDescription,
+    deadlineDate: editDeadlineDate,
+    epicId: editEpicId,
+    assignee: editAssignee,
+    relatedTasks: editRelatedTasks,
+  }), [editTitle, editLabels, editDescription, editDeadlineDate, editEpicId, editAssignee, editRelatedTasks]);
+  const taskEditRecoveryBase = selectedTask ? {
+    title: selectedTask.title,
+    labels: selectedTask.labels,
+    description: selectedTask.description ?? "",
+    deadlineDate: selectedTask.deadlineDate ?? "",
+    epicId: selectedTask.epic?.id ?? "",
+    assignee: selectedTask.assignee ? { kind: selectedTask.assignee.kind, id: selectedTask.assignee.id } : null,
+    relatedTasks: selectedTask.relatedTasks,
+  } : taskEditRecoveryValue;
+  const taskEditRecovery = useRecoveryDraft({
+    storageKey: canEdit && isEditMode && selectedTask
+      ? recoveryDraftKey({ userId: actorUserId, projectId, surface: "task-detail", mode: "edit", entityId: selectedTask.id })
+      : null,
+    value: taskEditRecoveryValue,
+    base: taskEditRecoveryBase,
+    baseRevision: selectedTask?.updatedAt ?? null,
+    restore: (draft) => {
+      setEditTitle(draft.title);
+      setEditLabels(draft.labels);
+      setEditDescription(draft.description);
+      setEditDeadlineDate(draft.deadlineDate);
+      setEditEpicId(draft.epicId);
+      setEditAssignee(draft.assignee);
+      setEditRelatedTasks(draft.relatedTasks);
+    },
+  });
   const maxAttachmentFileSizeBytes =
     storageProvider === "r2"
       ? DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES
@@ -1233,6 +1291,8 @@ export function KanbanBoard({
   }, []);
 
   const closeTaskModal = useCallback(() => {
+    taskEditRecovery.flush();
+    commentRecovery.flush();
     // The task detail modal opens from card interactions instead of a Radix
     // trigger, so hand focus back to the originating card as it closes.
     restoreTaskCardFocus(taskCardReturnFocusRef.current);
@@ -1253,9 +1313,13 @@ export function KanbanBoard({
     setPendingCommentAttachmentUploads([]);
     setCommentAttachmentInputKey((previous) => previous + 1);
     setNewTaskComment("");
-  }, [restoreTaskCardFocus]);
+    setCommentMentionSelections([]);
+    setCommentAgentMentionSelections([]);
+  }, [restoreTaskCardFocus, taskEditRecovery, commentRecovery]);
 
   const handleSelectTask = useCallback((task: KanbanTask) => {
+    taskEditRecovery.flush();
+    commentRecovery.flush();
     commentDraftTaskIdRef.current = task.id;
     taskCardReturnFocusRef.current = findTaskCardElement(task.id);
     shouldOpenTaskInEditModeRef.current = false;
@@ -1266,13 +1330,15 @@ export function KanbanBoard({
     setCommentAttachmentInputKey((previous) => previous + 1);
     setNewTaskComment("");
     setSelectedTask(task);
-  }, []);
+  }, [taskEditRecovery, commentRecovery]);
 
   const openTaskInEditMode = useCallback((task: KanbanTask) => {
     if (!canEdit) {
       return;
     }
 
+    taskEditRecovery.flush();
+    commentRecovery.flush();
     commentDraftTaskIdRef.current = task.id;
     taskCardReturnFocusRef.current = findTaskCardElement(task.id);
     shouldOpenTaskInEditModeRef.current = true;
@@ -1283,7 +1349,7 @@ export function KanbanBoard({
     setCommentAttachmentInputKey((previous) => previous + 1);
     setNewTaskComment("");
     setSelectedTask(task);
-  }, [canEdit]);
+  }, [canEdit, taskEditRecovery, commentRecovery]);
 
   const openRelatedTask = useCallback(
     (taskId: string) => {
@@ -1291,6 +1357,9 @@ export function KanbanBoard({
       if (!relatedTask) {
         return;
       }
+
+      taskEditRecovery.flush();
+      commentRecovery.flush();
 
       shouldOpenTaskInEditModeRef.current = false;
       commentDraftTaskIdRef.current = relatedTask.id;
@@ -1303,7 +1372,7 @@ export function KanbanBoard({
       setNewTaskComment("");
       setSelectedTask(relatedTask);
     },
-    [taskById]
+    [taskById, taskEditRecovery, commentRecovery]
   );
 
   const handleActivateTaskEditMode = useCallback(() => {
@@ -2030,12 +2099,16 @@ export function KanbanBoard({
       setTaskModalError("Task title must be at least 2 characters.");
       return;
     }
+    if (taskEditRecovery.conflict) return;
+    const submittedDraft = taskEditRecoveryValue;
 
     setTaskModalError(null);
+    taskEditRecovery.flush();
     setIsEditMode(false);
 
     const didSave = await persistTaskChanges({ exitEditMode: false });
     if (didSave) {
+      taskEditRecovery.saved(submittedDraft);
       pushToast({
         variant: "success",
         message: "Task saved.",
@@ -2048,7 +2121,7 @@ export function KanbanBoard({
       message: "Could not save task changes. Please retry.",
     });
     setIsEditMode(true);
-  }, [editTitle, persistTaskChanges, pushToast, selectedTask]);
+  }, [editTitle, persistTaskChanges, pushToast, selectedTask, taskEditRecovery, taskEditRecoveryValue]);
 
   const handleMoveTaskToStatus = useCallback(
     (task: KanbanTask, nextStatus: TaskStatus) => {
@@ -2550,6 +2623,7 @@ export function KanbanBoard({
     }
 
     const content = newTaskComment.trim();
+    const submittedDraft = commentRecoveryValue;
     if (!content && attachmentIds.length === 0) {
       setTaskCommentsError("Comment cannot be empty.");
       return;
@@ -2579,7 +2653,6 @@ export function KanbanBoard({
         ...previousComments,
         optimisticComment,
       ]);
-      setNewTaskComment("");
       applyTaskMutation(selectedTask.id, (task) =>
         stampTaskActivity(
           {
@@ -2627,6 +2700,14 @@ export function KanbanBoard({
       const payload = (await response.json()) as {
         comment: TaskComment;
       };
+      commentRecovery.saved(submittedDraft);
+      commentRecovery.flush();
+      setCommentMentionSelections((current) =>
+        JSON.stringify(current) === JSON.stringify(submittedDraft.mentionSelections) ? [] : current
+      );
+      setCommentAgentMentionSelections((current) =>
+        JSON.stringify(current) === JSON.stringify(submittedDraft.agentMentionSelections) ? [] : current
+      );
 
       setTaskComments((previousComments) =>
         mergeSubmittedTaskComment(
@@ -2635,8 +2716,8 @@ export function KanbanBoard({
           payload.comment
         )
       );
-      setNewTaskComment("");
-      setCommentAttachments([]);
+      setNewTaskComment((current) => current === submittedDraft.content ? "" : current);
+      setCommentAttachments((current) => current.filter((attachment) => !submittedDraft.attachmentIds.includes(attachment.id)));
       setCommentAttachmentInputKey((previous) => previous + 1);
       if (attachmentIds.length > 0) {
         const commentAttachmentIds = new Set(attachmentIds);
@@ -2681,8 +2762,6 @@ export function KanbanBoard({
             currentActorSummary
           )
         );
-        setNewTaskComment(content);
-        setCommentAttachments(commentAttachments);
       }
       setTaskCommentsError(message);
       pushToast({
@@ -2697,6 +2776,8 @@ export function KanbanBoard({
     canEdit,
     currentActorSummary,
     commentAttachments,
+    commentRecovery,
+    commentRecoveryValue,
     newTaskComment,
     projectId,
     pushToast,
@@ -3244,6 +3325,11 @@ export function KanbanBoard({
         newBlockedFollowUpEntry={newBlockedFollowUpEntry}
         isUpdatingTask={isUpdatingTask}
         taskModalError={taskModalError}
+        taskEditRecovery={taskEditRecovery}
+        onDiscardTaskEditRecovery={() => {
+          taskEditRecovery.discard(true);
+          if (selectedTask) resetTaskEditDraft(selectedTask);
+        }}
         attachmentError={attachmentError}
         isSubmittingAttachment={isSubmittingAttachment}
         isArchivingTask={isArchivingTask}
@@ -3258,6 +3344,18 @@ export function KanbanBoard({
         taskCommentsError={taskCommentsError}
         isLoadingTaskComments={isLoadingTaskComments}
         newTaskComment={newTaskComment}
+        commentMentionSelections={commentMentionSelections}
+        commentAgentMentionSelections={commentAgentMentionSelections}
+        onCommentMentionSelectionsChange={setCommentMentionSelections}
+        onCommentAgentMentionSelectionsChange={setCommentAgentMentionSelections}
+        commentRecovery={commentRecovery}
+        onDiscardCommentRecovery={() => {
+          commentRecovery.discard(true);
+          setNewTaskComment("");
+          setCommentAttachments([]);
+          setCommentMentionSelections([]);
+          setCommentAgentMentionSelections([]);
+        }}
         isSubmittingTaskComment={isSubmittingTaskComment}
         commentAttachments={commentAttachments}
         pendingCommentAttachmentUploads={pendingCommentAttachmentUploads}

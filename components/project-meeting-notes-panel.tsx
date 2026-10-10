@@ -53,6 +53,7 @@ import {
 } from "@/components/project-dashboard/project-section-chrome";
 import { RichTextContent } from "@/components/rich-text-content";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { RecoveryDraftNotice } from "@/components/recovery-draft-notice";
 import { useToast } from "@/components/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,7 @@ import { ListSearchInput } from "@/components/ui/list-search-input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { TokenInput } from "@/components/ui/token-input";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
+import { recoveryDraftKey, useRecoveryDraft } from "@/lib/hooks/use-recovery-draft";
 import {
   getMeetingParticipantKey,
   type ProjectMeetingParticipantCollaborator,
@@ -1064,6 +1066,24 @@ export function ProjectMeetingNotesPanel({
         : null,
     [localNotes, prepareDialog]
   );
+  const prepareRecovery = useRecoveryDraft({
+    storageKey: canEdit && currentActorUserId && prepareDialog
+      ? recoveryDraftKey({ userId: currentActorUserId, projectId, surface: "meeting-preparation", mode: prepareDialog.mode, entityId: prepareDialog.noteId })
+      : null,
+    value: prepareDraft,
+    base: prepareNote ? buildPrepareDraftFromNote(prepareNote) : EMPTY_PREPARE_DRAFT,
+    baseRevision: prepareNote?.updatedAt ?? null,
+    restore: setPrepareDraft,
+  });
+  const notesRecovery = useRecoveryDraft({
+    storageKey: canEdit && currentActorUserId && selectedNoteId
+      ? recoveryDraftKey({ userId: currentActorUserId, projectId, surface: "meeting-output", mode: "edit", entityId: selectedNoteId })
+      : null,
+    value: notesDraft,
+    base: selectedNote ? buildNotesDraftFromNote(selectedNote) : EMPTY_NOTES_DRAFT,
+    baseRevision: selectedNote?.updatedAt ?? null,
+    restore: setNotesDraft,
+  });
   const savedParticipantKeys = useMemo(
     () =>
       new Set(
@@ -1155,6 +1175,7 @@ export function ProjectMeetingNotesPanel({
       return;
     }
 
+    notesRecovery.flush();
     resetPrepareDraft();
     setPrepareDialog({ mode: "create", noteId: null });
     setIsExpanded(true);
@@ -1165,6 +1186,7 @@ export function ProjectMeetingNotesPanel({
       return;
     }
 
+    notesRecovery.flush();
     setPrepareDraft(buildPrepareDraftFromNote(note));
     setDraftError(null);
     setPrepareDialog({ mode: "edit", noteId: note.id });
@@ -1176,23 +1198,27 @@ export function ProjectMeetingNotesPanel({
       return;
     }
 
+    prepareRecovery.flush();
     setPrepareDialog(null);
     resetPrepareDraft();
   };
 
   const openNoteDialog = (note: ProjectMeetingNotePanelNote) => {
     if (selectedNoteId === note.id) {
+      notesRecovery.flush();
       setSelectedNoteId(null);
       setNotesDraft(EMPTY_NOTES_DRAFT);
       return;
     }
 
+    notesRecovery.flush();
     setSelectedNoteId(note.id);
     setNotesDraft(buildNotesDraftFromNote(note));
     setDraftError(null);
   };
 
   const openNoteFromTodoPanel = (note: ProjectMeetingNotePanelNote) => {
+    notesRecovery.flush();
     setListView(note.status === "done" ? "archived" : "active");
     setIsExpanded(true);
     setSelectedNoteId(note.id);
@@ -1237,7 +1263,8 @@ export function ProjectMeetingNotesPanel({
           )
         )
       );
-      if (selectedNoteId === payload.note.id) {
+      if (selectedNoteId === payload.note.id && selectedNote &&
+        JSON.stringify(notesDraft) === JSON.stringify(buildNotesDraftFromNote(selectedNote))) {
         setNotesDraft(buildNotesDraftFromNote(payload.note));
       }
       pushToast({
@@ -1334,6 +1361,7 @@ export function ProjectMeetingNotesPanel({
       return;
     }
 
+    notesRecovery.flush();
     setSelectedNoteId(null);
     setNotesDraft(EMPTY_NOTES_DRAFT);
     setDraftError(null);
@@ -1343,6 +1371,8 @@ export function ProjectMeetingNotesPanel({
     if (!prepareDialog || isSaving) {
       return;
     }
+    if (prepareRecovery.conflict) return;
+    const submittedDraft = prepareDraft;
 
     const payload = {
       ...(prepareNote ? buildBasePayload(prepareNote) : {}),
@@ -1392,6 +1422,8 @@ export function ProjectMeetingNotesPanel({
       }
 
       const savedNote = responsePayload.note;
+      prepareRecovery.saved(submittedDraft);
+      prepareRecovery.flush();
       setLocalNotes((current) =>
         sortNotes(
           prepareDialog.mode === "create"
@@ -1491,6 +1523,8 @@ export function ProjectMeetingNotesPanel({
     if (!selectedNote || isSaving) {
       return;
     }
+    if (notesRecovery.conflict) return;
+    const submittedDraft = notesDraft;
 
     const payload = {
       ...buildBasePayload(selectedNote),
@@ -1540,6 +1574,8 @@ export function ProjectMeetingNotesPanel({
       }
 
       const savedNote = responsePayload.note;
+      notesRecovery.saved(submittedDraft);
+      notesRecovery.flush();
       setLocalNotes((current) =>
         sortNotes(
           current.map((note) => (note.id === savedNote.id ? savedNote : note))
@@ -1970,7 +2006,7 @@ export function ProjectMeetingNotesPanel({
               <Button
                 type="button"
                 onClick={() => void savePrepareDialog()}
-                disabled={isSaving}
+                disabled={isSaving || prepareRecovery.conflict}
               >
                 {isSaving ? "Saving..." : "Save preparation"}
               </Button>
@@ -1978,6 +2014,10 @@ export function ProjectMeetingNotesPanel({
           }
         >
           <div className="grid gap-4">
+            <RecoveryDraftNotice draft={prepareRecovery} onDiscard={() => {
+              prepareRecovery.discard(true);
+              setPrepareDraft(prepareNote ? buildPrepareDraftFromNote(prepareNote) : EMPTY_PREPARE_DRAFT);
+            }} />
             <div className="grid gap-2">
               <label htmlFor="meeting-title" className="text-sm font-medium">
                 Title
@@ -2238,7 +2278,7 @@ export function ProjectMeetingNotesPanel({
                 <Button
                   type="button"
                   onClick={() => void saveNotesDialog()}
-                  disabled={isSaving}
+                  disabled={isSaving || notesRecovery.conflict}
                 >
                   {isSaving ? "Saving..." : "Save notes"}
                 </Button>
@@ -2247,6 +2287,10 @@ export function ProjectMeetingNotesPanel({
           }
         >
           <div className="space-y-4">
+            <RecoveryDraftNotice draft={notesRecovery} onDiscard={() => {
+              notesRecovery.discard(true);
+              setNotesDraft(buildNotesDraftFromNote(selectedNote));
+            }} />
             <div className="flex flex-wrap gap-2">
               <Badge
                 variant="outline"
