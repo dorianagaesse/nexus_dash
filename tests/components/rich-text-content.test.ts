@@ -213,6 +213,19 @@ describe("rich-text-content", () => {
     expect(mention?.textContent).toBe("@alice");
   });
 
+  test("highlights a dotted username as one mention without leaving raw tail text", () => {
+    const output = buildEnhancedRichTextHtml("<p>Nice work @abdel.kiwi#1234, thanks</p>");
+    const template = document.createElement("template");
+    template.innerHTML = output;
+    const mentions = template.content.querySelectorAll("[data-rich-mention='true']");
+
+    expect(mentions).toHaveLength(1);
+    expect(mentions[0]?.textContent).toBe("@abdel.kiwi");
+    expect(mentions[0]?.getAttribute("data-mention-username")).toBe("abdel.kiwi");
+    expect(mentions[0]?.getAttribute("data-mention-discriminator")).toBe("1234");
+    expect(template.content.textContent).toBe("Nice work @abdel.kiwi, thanks");
+  });
+
   test("marks mentions in coerced task description text after edits", async () => {
     const { container, root } = createTestRenderer();
 
@@ -568,6 +581,32 @@ describe("rich-text-content", () => {
     expect(hiddenDiscriminator?.textContent).toBe("#1234");
     expect(hiddenDiscriminator?.className).toContain("hidden");
     expect(mention?.contains(hiddenDiscriminator)).toBe(false);
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  test("keeps a dotted username styled as one mention in textarea mirrors", () => {
+    const { container, root } = createTestRenderer();
+
+    act(() => {
+      root.render(
+        React.createElement(
+          "div",
+          null,
+          renderContentWithMentions("@abdel.kiwi#1234 hello", {
+            hideMentionDiscriminator: true,
+            resolveDisplayUsers: false,
+          })
+        )
+      );
+    });
+
+    const mention = container.querySelector("span:not([aria-hidden='true'])");
+    const hiddenDiscriminator = container.querySelector("[aria-hidden='true']");
+    expect(mention?.textContent).toBe("@abdel.kiwi");
+    expect(hiddenDiscriminator?.textContent).toBe("#1234");
 
     act(() => {
       root.unmount();

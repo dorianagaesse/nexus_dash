@@ -34,6 +34,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   accept/reject cases, backfill assignment/retry/idempotency, route-level
   dotted-selection resolution plus both 400 paths, and the inert
   tagless-member picker row.
+- Rendering regression tests lock the production-reported symptom
+  (`@abdel.kiwi#1234` previously styled only the `@abdel` prefix, failing the
+  mention): the display renderer, the editor chip with full-token
+  serialization, and the textarea mirror all render a dotted username as one
+  mention consuming the shared parser.
 - Validation:
   - `npm run lint`, `npm run rls:check`: passed.
   - `npm test`: 233 test files passed, 1,944 tests passed (2 skipped files).
