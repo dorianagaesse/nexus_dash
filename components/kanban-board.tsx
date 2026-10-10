@@ -2618,9 +2618,11 @@ export function KanbanBoard({
               ? "Comment must be 4000 characters or fewer."
               : message === "task-comment-agent-mention-invalid"
                 ? "The agent mention could not be saved. Mention the agent again."
-                : message === "task-comment-attachment-invalid"
-                  ? "One or more attachments could not be added to this comment."
-                  : message
+                : message === "task-comment-mention-invalid"
+                  ? "A mention could not be saved. Remove it and mention the person again."
+                  : message === "task-comment-attachment-invalid"
+                    ? "One or more attachments could not be added to this comment."
+                    : message
         );
       }
 
