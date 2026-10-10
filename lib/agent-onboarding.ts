@@ -277,6 +277,9 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     notes: [
       "Every task includes a canonical labels: string[] field. The legacy label and labelsJson fields remain for compatibility and are deprecated.",
       "Optional epicId and label query parameters filter the list server-side. They compose with AND; an unknown epicId returns an empty list. Label matching is case-insensitive on whole label values.",
+      "assignee=self returns tasks assigned to the calling principal (for agent tokens, the credential itself) and assignee=unassigned returns tasks with no assignee; they compose with the other filters with AND.",
+      "sort=recent orders by last update, newest first, and defaults limit to 50; limit accepts 1-200 and is clamped. Poll assignee=self&sort=recent as a work-queue shortcut instead of scanning the full project.",
+      "Invalid assignee, sort, or limit values return 400 with invalid-assignee, invalid-sort, or invalid-limit.",
       "The response echoes the effective filters in the filters object.",
     ],
   },
@@ -1844,7 +1847,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
             filters: {
               type: "object",
-              required: ["epicId", "label"],
+              required: ["epicId", "label", "assignee", "sort", "limit"],
               properties: {
                 epicId: {
                   type: ["string", "null"],
@@ -1855,6 +1858,25 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                   type: ["string", "null"],
                   description:
                     "The effective label filter applied to this response, or null when absent.",
+                },
+                assignee: {
+                  type: ["string", "null"],
+                  enum: ["self", "unassigned", null],
+                  description:
+                    "The raw assignee filter applied to this response, or null when absent.",
+                },
+                sort: {
+                  type: ["string", "null"],
+                  enum: ["recent", null],
+                  description:
+                    "The raw sort applied to this response, or null when absent.",
+                },
+                limit: {
+                  type: ["integer", "null"],
+                  minimum: 1,
+                  maximum: 200,
+                  description:
+                    "The effective limit applied to this response, or null when absent.",
                 },
               },
             },
@@ -2953,6 +2975,30 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               schema: { type: "string" },
               description:
                 "Return only tasks carrying this label. Matching is case-insensitive on whole label values, never substrings. When both filters are present, they compose with AND.",
+            },
+            {
+              name: "assignee",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["self", "unassigned"] },
+              description:
+                "self returns tasks assigned to the calling principal (for agent tokens, the credential itself); unassigned returns tasks with no assignee. Composes with the other filters with AND.",
+            },
+            {
+              name: "sort",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["recent"] },
+              description:
+                "recent orders tasks by last update, newest first, and defaults limit to 50.",
+            },
+            {
+              name: "limit",
+              in: "query",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 200 },
+              description:
+                "Maximum number of tasks to return. Values are clamped to 1-200; non-numeric values return invalid-limit.",
             },
           ],
           responses: {

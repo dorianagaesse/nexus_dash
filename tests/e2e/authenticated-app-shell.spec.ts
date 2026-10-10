@@ -97,6 +97,12 @@ test.describe("responsive authenticated app shell", () => {
     const projectPath = `/projects/${projectId}?taskId=${taskId}#kanban`;
     await page.goto(projectPath);
 
+    // The taskId deep link opens a modal dialog that aria-hides the shell nav,
+    // so dismiss it before asserting on the aside navigation. Closing keeps
+    // the taskId in the URL.
+    await page.getByRole("button", { name: "Close task" }).click();
+    await expect(page.getByRole("button", { name: "Close task" })).toHaveCount(0);
+
     const desktopNavigation = page.locator(
       "aside nav[aria-label='Primary navigation']"
     );
@@ -304,7 +310,7 @@ test.describe("responsive authenticated app shell", () => {
       mobileBrand.locator('[data-product-state="alpha"]')
     ).toHaveText("Alpha");
     await expect(mobileNavigation).toBeVisible();
-    await expect(mobileNavigation.getByRole("link")).toHaveCount(2);
+    await expect(mobileNavigation.getByRole("link")).toHaveCount(3);
     await expect(page.getByRole("button", { name: /Switch to .* mode/ })).toBeVisible();
     await page.getByRole("button", { name: "Account menu" }).click();
     await expect(

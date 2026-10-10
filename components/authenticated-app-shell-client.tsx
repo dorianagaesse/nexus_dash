@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { Bell, FolderKanban, LayoutDashboard, ListTodo } from "lucide-react";
+import { Bell, FolderKanban, LayoutDashboard, ListChecks, ListTodo } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
 import { NotificationLiveUpdates } from "@/components/notification-live-updates";
@@ -38,6 +38,12 @@ const WORKSPACE_NAVIGATION_ITEMS: Array<
     label: "Projects",
     mobileLabel: "Projects",
     icon: FolderKanban,
+  },
+  {
+    href: "/my-work",
+    label: "My work",
+    mobileLabel: "My work",
+    icon: ListChecks,
   },
   {
     href: "/account/notifications",
