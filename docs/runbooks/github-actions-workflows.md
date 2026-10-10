@@ -62,9 +62,10 @@ Run `.github/workflows/deploy-vercel.yml` manually:
 
 - `action=deploy-preview`
 - `git_ref=<branch-or-sha>`
-- Optional `preview_realtime_transport=broadcast|stream|polling` overrides the
+- Optional `preview_realtime_transport=broadcast|polling` overrides the
   transport only for this deployment. Use it for Broadcast validation without
-  changing the shared Vercel Preview environment or other branches.
+  changing the shared Vercel Preview environment or other branches. The
+  retired `stream` value is rejected.
 
 The `preview-deployment` artifact contains both the immutable deployment URL
 and the stable Preview auth URL. It is uploaded only after the workflow verifies
@@ -78,7 +79,7 @@ With `preview_realtime_transport=broadcast`, the workflow sets a deployment-only
 non-member sessions in Preview. It checks private channel joins, public-channel
 refusal, denied client publishing, and database-owned activity and notification
 delivery. A browser check covers two signed-in sessions, token renewal, and
-Broadcast to SSE to polling degradation while project changes continue to
+Broadcast to polling degradation while project changes continue to
 arrive. It also rejects a signed-out token request, then removes the fixtures.
 
 ### ND-185 Preview Migration Recovery

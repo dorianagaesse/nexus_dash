@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { Bell, FolderKanban, LayoutDashboard, ListTodo } from "lucide-react";
+import { Bell, FolderKanban, LayoutDashboard, ListChecks, ListTodo } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
 import { NotificationLiveUpdates } from "@/components/notification-live-updates";
@@ -38,6 +38,12 @@ const WORKSPACE_NAVIGATION_ITEMS: Array<
     label: "Projects",
     mobileLabel: "Projects",
     icon: FolderKanban,
+  },
+  {
+    href: "/my-work",
+    label: "My work",
+    mobileLabel: "My work",
+    icon: ListChecks,
   },
   {
     href: "/account/notifications",
@@ -84,7 +90,6 @@ interface AuthenticatedAppShellClientProps {
   usernameTag: string | null;
   avatarSeed: string | null;
   initialNotificationSnapshot: NotificationRealtimeSnapshot;
-  streamEnabled: boolean;
   broadcastEnabled?: boolean;
   userId?: string;
   appVersionLabel: string;
@@ -99,7 +104,6 @@ export function AuthenticatedAppShellClient({
   usernameTag,
   avatarSeed,
   initialNotificationSnapshot,
-  streamEnabled,
   broadcastEnabled,
   userId,
   appVersionLabel,
@@ -233,7 +237,6 @@ export function AuthenticatedAppShellClient({
     <div className="min-h-dvh bg-muted/20 pb-[calc(6.5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64">
       <NotificationLiveUpdates
         initialSnapshot={initialNotificationSnapshot}
-        streamEnabled={streamEnabled}
         broadcastEnabled={broadcastEnabled}
         userId={userId}
       />

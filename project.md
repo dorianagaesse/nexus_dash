@@ -23,17 +23,17 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder, deadline/comment visibility, task epic links, and task detail modal
   - Project epics registry with dedicated epic CRUD, automatic status/progress, and linked-task rollups
   - Google Calendar panel (read/create/update/delete events when connected)
-  - Server-sent-events-backed live project refresh with typed activity events
-    for task, task-comment, and context-card mutations; dashboards apply safe
-    remote updates directly, keep adaptive polling and broad refresh as
+  - Broadcast-backed live project refresh with typed activity events for task,
+    task-comment, and context-card mutations; dashboards apply safe remote
+    updates directly, keep bounded adaptive polling and broad refresh as
     fallbacks, and acknowledge local mutations to avoid self-refresh prompts
 - Notification center:
   - durable per-user in-app inbox at `/account/notifications`
   - unread/read state and resolved lifecycle
   - project invitation delivery, accept/decline actions, and notification-aware account menu counts
-  - account-scoped live notification snapshots over SSE with polling fallback
-    so unread counts, awareness banners, and notification-center rows update
-    without navigation
+  - account-scoped live notification snapshots over private Broadcast channels
+    with polling fallback so unread counts, awareness banners, and
+    notification-center rows update without navigation
   - foundation for future mention and activity producers
   - DB-backed notification email orchestration for project activity digests,
     invitation reminders, and three-day task due-date reminders, with
@@ -73,7 +73,7 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 - Testing: Vitest + Playwright
 - Runtime/deploy: Docker, GitHub Actions, Vercel CLI staged production deploy/promotion/rollback
 - Realtime transport: private Supabase Broadcast channels backed by database
-  triggers when explicitly enabled, with SSE then adaptive polling fallback.
+  triggers when enabled, with bounded adaptive polling fallback.
   `adr/task-372-supabase-realtime-authorization.md` defines the channel and
   authorization contracts.
 - Notification email scheduling: GitHub Actions currently invokes the protected

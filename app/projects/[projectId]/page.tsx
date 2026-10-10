@@ -22,7 +22,6 @@ import { requireSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import {
   getStorageRuntimeConfig,
   getRealtimeTransport,
-  isRealtimeStreamEnabled,
 } from "@/lib/env.server";
 import {
   getProjectSummaryById,
@@ -156,7 +155,6 @@ export default async function ProjectDashboardPage({
       <ProjectLiveRefresh
         projectId={project.id}
         initialVersion={project.updatedAt.toISOString()}
-        streamEnabled={isRealtimeStreamEnabled()}
         broadcastEnabled={getRealtimeTransport() === "broadcast"}
       />
 

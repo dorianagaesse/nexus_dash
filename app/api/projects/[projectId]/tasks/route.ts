@@ -9,7 +9,10 @@ import { startServerTiming } from "@/lib/observability/server-timing";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
 import { loadProjectActorRegistryForActor } from "@/lib/services/project-actor-service";
-import { listProjectKanbanTasks } from "@/lib/services/project-service";
+import {
+  listProjectKanbanTasks,
+  type TaskListAssigneeFilter,
+} from "@/lib/services/project-service";
 import {
   createTaskForProject,
   parseTaskAssigneeInput,
@@ -86,11 +89,43 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
 
   const epicIdFilter = request.nextUrl.searchParams.get("epicId")?.trim() || null;
   const labelFilter = request.nextUrl.searchParams.get("label")?.trim() || null;
+  const assigneeParam = request.nextUrl.searchParams.get("assignee")?.trim() || null;
+  if (assigneeParam && assigneeParam !== "self" && assigneeParam !== "unassigned") {
+    return NextResponse.json({ error: "invalid-assignee" }, { status: 400 });
+  }
+
+  const sortParam = request.nextUrl.searchParams.get("sort")?.trim() || null;
+  if (sortParam && sortParam !== "recent") {
+    return NextResponse.json({ error: "invalid-sort" }, { status: 400 });
+  }
+
+  const limitParam = request.nextUrl.searchParams.get("limit")?.trim() || null;
+  let limitFilter: number | null = null;
+  if (limitParam) {
+    const parsedLimit = Number.parseInt(limitParam, 10);
+    if (!Number.isFinite(parsedLimit)) {
+      return NextResponse.json({ error: "invalid-limit" }, { status: 400 });
+    }
+    limitFilter = Math.min(Math.max(parsedLimit, 1), 200);
+  }
+
+  const assigneeFilter: TaskListAssigneeFilter | undefined =
+    assigneeParam === "unassigned"
+      ? "unassigned"
+      : assigneeParam === "self"
+        ? principalResult.principal.kind === "agent"
+          ? { kind: "agent", id: principalResult.principal.credentialId }
+          : { kind: "human", id: principalResult.principal.actorUserId }
+        : undefined;
+
   const filters =
-    epicIdFilter || labelFilter
+    epicIdFilter || labelFilter || assigneeFilter || sortParam || limitFilter
       ? {
           ...(epicIdFilter ? { epicId: epicIdFilter } : {}),
           ...(labelFilter ? { label: labelFilter } : {}),
+          ...(assigneeFilter ? { assignee: assigneeFilter } : {}),
+          ...(sortParam === "recent" ? { sort: "recent" as const } : {}),
+          ...(limitFilter !== null ? { limit: limitFilter } : {}),
         }
       : undefined;
 
@@ -112,6 +147,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
       filters: {
         epicId: epicIdFilter,
         label: labelFilter,
+        assignee: assigneeParam,
+        sort: sortParam,
+        limit: limitFilter,
       },
       tasks: tasks.map((task) =>
         mapProjectKanbanTaskToTaskResponse(task, params.projectId, actorRegistry)

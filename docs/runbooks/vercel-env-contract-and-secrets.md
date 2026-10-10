@@ -182,18 +182,17 @@ If Google OAuth is enabled:
 `REALTIME_TRANSPORT` selects how authenticated browsers receive live
 project-activity and notification updates.
 
-- `stream`: persistent SSE connection through
-  `/api/projects/[projectId]/activity/stream` and
-  `/api/account/notifications/stream`. The server polls PostgreSQL every
-  second per open tab, which is the dominant Vercel Fluid compute cost driver.
+- `broadcast`: private Supabase Realtime channels for project activity and
+  personal notifications. A failed channel falls back to bounded polling; a
+  visible or online tab retries Broadcast. A channel subscription reconciles
+  once through the existing HTTP snapshot endpoint.
 - `polling`: bounded client polling against the existing activity and
   notification summary endpoints with no persistent connection.
-- `broadcast`: private Supabase Realtime channels for project activity and
-  personal notifications. A failed channel falls back to `stream`, then
-  `polling`; a visible or online tab retries Broadcast. A channel subscription
-  reconciles once through the existing HTTP snapshot endpoint.
-- Optional. When unset, Vercel Preview defaults to `polling` and every other
-  environment defaults to `stream`. An invalid value fails startup validation.
+- Optional. When unset, production runs (`NODE_ENV=production`, including
+  local production builds and containers) default to `broadcast`, except
+  Vercel Preview; development and test runtimes default to `polling`.
+  Environments without Supabase Realtime config must pin polling. An invalid
+  value — including the retired `stream` mode — fails startup validation.
 
 Broadcast prerequisites, separately for Preview and Production:
 
@@ -226,28 +225,25 @@ documented 100/500 messages-per-second Free/Pro allowances. One visible tab
 usually holds one multiplexed socket; if separate tabs lead the two channel
 scopes, a profile can hold two. Review actual usage after rollout.
 
-Rollback from Broadcast: set `REALTIME_TRANSPORT=stream` (or `polling`) and
-redeploy/promote. If emission must also stop, disable the four triggers listed
-in `adr/task-372-supabase-realtime-authorization.md` section 7. Keep the SSE
-routes until ND-374 retires them.
+Rollback from Broadcast: set `REALTIME_TRANSPORT=polling` and redeploy/promote.
+Bounded adaptive polling is the only supported fallback transport. If emission
+must also stop, disable the four triggers listed in
+`adr/task-372-supabase-realtime-authorization.md` section 7.
 
-The stream routes are the runtime kill switch: when the transport resolves to
-`polling`, both routes return `404` without opening a database-backed stream
-and log a `stream.transportDisabled` info record with the transport mode. Any
-client that still requests a stream falls back to polling on that error, so a
-stale client bundle cannot keep a stream alive.
-
-Production rollback from stream to polling:
+Production rollback from Broadcast to polling:
 
 1. Set `REALTIME_TRANSPORT=polling` on the Vercel Production environment.
 2. Redeploy or promote a staged deployment so the runtime picks up the
    environment change (values are read from the deployment environment).
-3. Revert by removing the variable or setting `REALTIME_TRANSPORT=stream` the
-   same way.
+3. Revert by removing the variable (back to the `broadcast` default) or
+   setting `REALTIME_TRANSPORT=broadcast` the same way.
 
-Preview validation can prove the kill switch by confirming the dashboard loads
-with no `text/event-stream` requests and that activity/notification freshness
-still flows through polling.
+Preview validation of the fallback confirms the dashboard loads with no
+Realtime socket — for example with the token endpoint blocked — and that
+activity/notification freshness still flows through bounded polling. CI quality
+gates pin `REALTIME_TRANSPORT=polling` because production-like builds default
+to Broadcast, which requires Supabase Realtime configuration CI does not
+provision.
 
 Spend budgets, usage inspection, retention, and the realtime cost context are
 documented in `docs/runbooks/vercel-usage-and-spend-guardrails.md`.

@@ -54,8 +54,6 @@ import {
 } from "@/lib/observability/realtime-metrics";
 import { POST as markAllRead } from "@/app/api/account/notifications/mark-all-read/route";
 import { GET as getNotificationSummary } from "@/app/api/account/notifications/summary/route";
-import { GET as streamNotifications } from "@/app/api/account/notifications/stream/route";
-import { isSnapshotChanged } from "@/lib/realtime/notification-stream";
 import { GET as listInvitations } from "@/app/api/account/invitations/route";
 import { POST as respondToInvitation } from "@/app/api/account/invitations/[invitationId]/respond/route";
 
@@ -65,17 +63,6 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
 
 function invitationParams(invitationId: string) {
   return { params: Promise.resolve({ invitationId }) };
-}
-
-async function readFirstChunk(response: Response): Promise<string> {
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error("missing-response-body");
-  }
-
-  const { value } = await reader.read();
-  await reader.cancel();
-  return new TextDecoder().decode(value);
 }
 
 describe("account notification and invitation routes", () => {
@@ -169,8 +156,8 @@ describe("account notification and invitation routes", () => {
     expect(snapshot.serviceTiming["account.notifications.poll"]?.count).toBe(1);
   });
 
-  test("GET notification summary counts polling fallbacks while the stream transport is active", async () => {
-    vi.stubEnv("REALTIME_TRANSPORT", "stream");
+  test("GET notification summary counts polling fallbacks while Broadcast is active", async () => {
+    vi.stubEnv("REALTIME_TRANSPORT", "broadcast");
     notificationServiceMock.getNotificationRealtimeSnapshotForUser.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -205,7 +192,7 @@ describe("account notification and invitation routes", () => {
   });
 
   test("GET notifications list stays out of poll telemetry (reconciliation fetch)", async () => {
-    vi.stubEnv("REALTIME_TRANSPORT", "stream");
+    vi.stubEnv("REALTIME_TRANSPORT", "broadcast");
     notificationServiceMock.listNotificationsForUser.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -357,83 +344,6 @@ describe("account notification and invitation routes", () => {
     await expect(readJson(response)).resolves.toEqual({
       error: "notification-snapshot-failed",
     });
-  });
-
-  test("notification stream emits the authorized realtime snapshot", async () => {
-    notificationServiceMock.getNotificationRealtimeSnapshotForUser.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      data: {
-        version: "2026-06-04T10:00:00.000Z",
-        unreadCount: 1,
-        latestUnreadNotification: { title: "Project invitation: Alpha" },
-        serverTime: "2026-06-04T10:00:00.000Z",
-      },
-    });
-
-    const response = await streamNotifications(
-      new NextRequest("http://localhost/api/account/notifications/stream")
-    );
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toContain("text/event-stream");
-    expect(response.headers.get("cache-control")).toBe("no-store, no-transform");
-
-    const chunk = await readFirstChunk(response);
-    expect(chunk).toContain("retry: 2000");
-    expect(chunk).toContain("id: 2026-06-04T10:00:00.000Z");
-    expect(chunk).toContain("event: notification-snapshot");
-    expect(chunk).toContain('"unreadCount":1');
-    expect(chunk).toContain('"Project invitation: Alpha"');
-
-    const snapshot = getRealtimeMetricsSnapshot();
-    expect(snapshot.counters["stream.connections"]).toBe(1);
-    expect(snapshot.counters["stream.refused"]).toBe(0);
-  });
-
-  test("notification stream refuses to open when the transport is polling", async () => {
-    vi.stubEnv("REALTIME_TRANSPORT", "polling");
-
-    const response = await streamNotifications(
-      new NextRequest("http://localhost/api/account/notifications/stream")
-    );
-
-    expect(response.status).toBe(404);
-    expect(response.headers.get("content-type")).toContain("application/json");
-    expect(response.headers.get("cache-control")).toBe("no-store");
-    await expect(readJson(response)).resolves.toEqual({ error: "not_found" });
-    expect(apiGuardMock.requireAuthenticatedApiUser).not.toHaveBeenCalled();
-    expect(
-      notificationServiceMock.getNotificationRealtimeSnapshotForUser
-    ).not.toHaveBeenCalled();
-    expect(logServerInfoMock).toHaveBeenCalledWith(
-      "GET /api/account/notifications/stream.transportDisabled",
-      expect.any(String),
-      { transport: "polling" }
-    );
-
-    const snapshot = getRealtimeMetricsSnapshot();
-    expect(snapshot.counters["stream.refused"]).toBe(1);
-    expect(snapshot.counters["stream.connections"]).toBe(0);
-  });
-
-  test("notification stream reports changed snapshots", () => {
-    expect(
-      isSnapshotChanged(
-        {
-          version: "2026-06-04T10:01:00.000Z",
-          unreadCount: 1,
-          latestUnreadNotification: { title: "A" },
-          serverTime: "2026-06-04T10:01:00.000Z",
-        },
-        {
-          version: "2026-06-04T10:00:00.000Z",
-          unreadCount: 1,
-          latestUnreadNotification: { title: "A" },
-          serverTime: "2026-06-04T10:00:00.000Z",
-        }
-      )
-    ).toBe(true);
   });
 
   test("GET invitations returns pending invitations", async () => {

@@ -2,6 +2,7 @@ import { appendQueryToPath, normalizeReturnToPath } from "@/lib/navigation/retur
 
 export const AUTHENTICATED_DESTINATIONS = [
   "/projects",
+  "/my-work",
   "/account/notifications",
   "/account",
   "/account/settings",
@@ -17,6 +18,7 @@ function isAllowedReturnPath(path: string): boolean {
   return (
     pathname === "/projects" ||
     pathname.startsWith("/projects/") ||
+    pathname === "/my-work" ||
     pathname === "/account/notifications"
   );
 }

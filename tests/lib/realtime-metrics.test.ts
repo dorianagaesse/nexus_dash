@@ -35,7 +35,7 @@ describe("realtime metrics registry", () => {
   test("aggregates counters, service timing, and database query volume", () => {
     recordRealtimeCounter("activity.snapshotChecks");
     recordRealtimeCounter("activity.snapshotChecks");
-    recordRealtimeCounter("stream.connections");
+    recordRealtimeCounter("broadcast.tokenIssued");
     recordServiceTiming("project.activity.poll", 12.34);
     recordServiceTiming("project.activity.poll", 4);
     recordDatabaseQueryCalls(3);
@@ -43,9 +43,9 @@ describe("realtime metrics registry", () => {
     const snapshot = getRealtimeMetricsSnapshot();
 
     expect(snapshot.counters["activity.snapshotChecks"]).toBe(2);
-    expect(snapshot.counters["stream.connections"]).toBe(1);
+    expect(snapshot.counters["broadcast.tokenIssued"]).toBe(1);
     expect(snapshot.counters["activity.pollingFallbacks"]).toBe(0);
-    expect(snapshot.counters["stream.refused"]).toBe(0);
+    expect(snapshot.counters["broadcast.tokenDenied"]).toBe(0);
     expect(snapshot.serviceTiming["project.activity.poll"]).toEqual({
       count: 2,
       totalMs: 16.3,
@@ -53,7 +53,7 @@ describe("realtime metrics registry", () => {
     });
     expect(snapshot.database.queryCalls).toBe(3);
     expect(snapshot.environment).toBe("test");
-    expect(snapshot.transport).toBe("stream");
+    expect(snapshot.transport).toBe("polling");
     expect(snapshot.generatedAt).toBe("2026-10-03T10:00:00.000Z");
   });
 
@@ -108,7 +108,7 @@ describe("realtime metrics registry", () => {
     vi.setSystemTime(
       new Date(Date.now() + REALTIME_METRICS_FLUSH_INTERVAL_MS)
     );
-    recordRealtimeCounter("stream.connections");
+    recordRealtimeCounter("broadcast.tokenIssued");
     expect(loggerMock.logServerInfo).toHaveBeenCalledTimes(2);
     expect(loggerMock.logServerInfo).toHaveBeenLastCalledWith(
       "realtime.metrics",
@@ -116,7 +116,7 @@ describe("realtime metrics registry", () => {
       expect.objectContaining({
         counters: expect.objectContaining({
           "activity.snapshotChecks": 2,
-          "stream.connections": 1,
+          "broadcast.tokenIssued": 1,
         }),
       })
     );
@@ -127,7 +127,7 @@ describe("realtime metrics registry", () => {
     vi.stubEnv("VERCEL_ENV", "preview");
 
     recordRealtimeCounter("activity.snapshotChecks");
-    recordRealtimeCounter("stream.connections", 4);
+    recordRealtimeCounter("broadcast.tokenIssued", 4);
     recordDatabaseQueryCalls(3);
 
     expect(loggerMock.logServerInfo).toHaveBeenCalledTimes(1);
@@ -136,7 +136,7 @@ describe("realtime metrics registry", () => {
       database: { queryCalls: number };
     };
     expect(sampledRecord.counters["activity.snapshotChecks"]).toBe(1);
-    expect(sampledRecord.counters["stream.connections"]).toBe(0);
+    expect(sampledRecord.counters["broadcast.tokenIssued"]).toBe(0);
     expect(sampledRecord.database.queryCalls).toBe(0);
 
     vi.setSystemTime(new Date(Date.now() + REALTIME_METRICS_FLUSH_INTERVAL_MS));
@@ -148,7 +148,7 @@ describe("realtime metrics registry", () => {
       database: { queryCalls: number };
     };
     expect(nextRecord.counters["activity.snapshotChecks"]).toBe(2);
-    expect(nextRecord.counters["stream.connections"]).toBe(4);
+    expect(nextRecord.counters["broadcast.tokenIssued"]).toBe(4);
     expect(nextRecord.database.queryCalls).toBe(3);
   });
 

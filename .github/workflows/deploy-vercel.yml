@@ -28,7 +28,7 @@ on:
         default: "main"
         type: string
       preview_realtime_transport:
-        description: "Optional per-deployment Preview transport override: broadcast, stream, or polling"
+        description: "Optional per-deployment Preview transport override: broadcast or polling"
         required: false
         type: string
 
@@ -260,7 +260,7 @@ jobs:
         run: |
           if [ -n "$PREVIEW_REALTIME_TRANSPORT" ]; then
             case "$PREVIEW_REALTIME_TRANSPORT" in
-              broadcast|stream|polling) ;;
+              broadcast|polling) ;;
               *) echo "::error::Invalid preview realtime transport override"; exit 1 ;;
             esac
           fi

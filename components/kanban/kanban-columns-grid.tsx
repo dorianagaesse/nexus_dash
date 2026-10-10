@@ -5,8 +5,10 @@ import {
   type DropResult,
 } from "@hello-pangea/dnd";
 import {
+  memo,
   useEffect,
   useId,
+  useMemo,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
@@ -103,12 +105,11 @@ interface KanbanColumnsGridProps {
   columns: TaskColumns<KanbanTask>;
   archivedDoneTasks: KanbanTask[];
   mentionUsers: ProjectTaskCollaborator[];
-  highlightedTaskIds: Set<string>;
+  relatedTaskGraph: Map<string, string[]>;
   isFiltering: boolean;
   onDragEnd: (result: DropResult) => void;
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
-  onTaskHoverChange: (taskId: string | null) => void;
 }
 
 type MobileLaneNavigationDirection = "previous" | "next";
@@ -121,19 +122,23 @@ function getMobileLaneNavigationButtonId(
   return `${gridId}-kanban-${status.toLowerCase().replaceAll(" ", "-")}-${direction}`;
 }
 
-export function KanbanColumnsGrid({
+export const KanbanColumnsGrid = memo(function KanbanColumnsGrid({
   canEdit,
   columns,
   archivedDoneTasks,
   mentionUsers,
-  highlightedTaskIds,
+  relatedTaskGraph,
   isFiltering,
   onDragEnd,
   onSelectTask,
   onEditTask,
-  onTaskHoverChange,
 }: KanbanColumnsGridProps) {
   const gridId = useId();
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
+  const highlightedTaskIds = useMemo(() => {
+    if (!hoveredTaskId) return new Set<string>();
+    return new Set([hoveredTaskId, ...(relatedTaskGraph.get(hoveredTaskId) ?? [])]);
+  }, [hoveredTaskId, relatedTaskGraph]);
   const [mobileLaneState, setMobileLaneState] = useState<{
     activeStatus: TaskStatus;
     focusDirection: MobileLaneNavigationDirection | null;
@@ -195,7 +200,7 @@ export function KanbanColumnsGrid({
               onMobileNavigate={navigateMobileLane}
               onSelectTask={onSelectTask}
               onEditTask={onEditTask}
-              onTaskHoverChange={onTaskHoverChange}
+              onTaskHoverChange={setHoveredTaskId}
               className={cn(status !== activeMobileStatus && "hidden xl:flex")}
             />
           );
@@ -203,7 +208,7 @@ export function KanbanColumnsGrid({
       </div>
     </DragDropContext>
   );
-}
+});
 
 interface KanbanColumnProps {
   canEdit: boolean;
@@ -353,54 +358,56 @@ function KanbanColumn({
             <summary className="min-h-11 cursor-pointer rounded-xl px-3 py-3 text-xs font-medium text-muted-foreground transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
               Archive ({archivedDoneTasks.length})
             </summary>
-            <div
-              className={cn(
-                "max-h-40 space-y-2 overflow-y-auto overscroll-y-contain border-t border-border/60 p-2 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                SLIM_SCROLLBAR_CLASSES
-              )}
-              aria-label="Archived Done tasks"
-              role="region"
-              tabIndex={0}
-            >
-              {archivedDoneTasks.map((task) => (
-                <button
-                  key={task.id}
-                  type="button"
-                  className={cn(
-                    "min-h-11 w-full rounded-md border border-border/60 bg-card px-2 py-2 text-left transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    highlightedTaskIds.has(task.id) &&
-                      "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
-                  )}
-                  onClick={() => onSelectTask(task)}
-                  onMouseEnter={() => onTaskHoverChange(task.id)}
-                  onMouseLeave={() => onTaskHoverChange(null)}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground/90">
-                      <Archive
-                        aria-hidden="true"
-                        className="h-3.5 w-3.5 shrink-0 text-emerald-400/80"
-                      />
-                      <span className="truncate">{task.title}</span>
-                    </p>
-                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-emerald-300/80">
-                      Archived
-                    </span>
-                  </div>
-                  <TaskCardIndicators task={task} className="mt-1" />
-                  {task.description ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {renderContentWithMentions(
-                        getDescriptionPreview(task.description, 90),
-                        {
-                          mentionUsers,
-                        }
-                      )}
-                    </p>
-                  ) : null}
+            {isArchiveOpen ? (
+              <div
+                className={cn(
+                  "max-h-40 space-y-2 overflow-y-auto overscroll-y-contain border-t border-border/60 p-2 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                  SLIM_SCROLLBAR_CLASSES
+                )}
+                aria-label="Archived Done tasks"
+                role="region"
+                tabIndex={0}
+              >
+                {archivedDoneTasks.map((task) => (
+                  <button
+                    key={task.id}
+                    type="button"
+                    className={cn(
+                      "min-h-11 w-full rounded-md border border-border/60 bg-card px-2 py-2 text-left transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      highlightedTaskIds.has(task.id) &&
+                        "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
+                    )}
+                    onClick={() => onSelectTask(task)}
+                    onMouseEnter={() => onTaskHoverChange(task.id)}
+                    onMouseLeave={() => onTaskHoverChange(null)}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground/90">
+                        <Archive
+                          aria-hidden="true"
+                          className="h-3.5 w-3.5 shrink-0 text-emerald-400/80"
+                        />
+                        <span className="truncate">{task.title}</span>
+                      </p>
+                      <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-emerald-300/80">
+                        Archived
+                      </span>
+                    </div>
+                    <TaskCardIndicators task={task} className="mt-1" />
+                    {task.description ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {renderContentWithMentions(
+                          getDescriptionPreview(task.description, 90),
+                          {
+                            mentionUsers,
+                          }
+                        )}
+                      </p>
+                    ) : null}
                 </button>
               ))}
             </div>
+            ) : null}
           </details>
         </div>
       ) : null}
@@ -433,196 +440,18 @@ function KanbanColumn({
               ) : null}
 
               {tasks.map((task, index) => (
-                <Draggable
+                <MemoizedTaskCard
                   key={task.id}
-                  draggableId={task.id}
+                  task={task}
                   index={index}
-                  isDragDisabled={!canEdit}
-                >
-                  {(draggableProvided, draggableSnapshot) => {
-                    const epicColor = task.epic
-                      ? getEpicColorFromName(task.epic.name)
-                      : null;
-
-                    return (
-                      <article
-                        ref={draggableProvided.innerRef}
-                        {...draggableProvided.draggableProps}
-                        {...(canEdit
-                          ? draggableProvided.dragHandleProps
-                          : {
-                              role: "button",
-                              tabIndex: 0,
-                              onKeyDown: (
-                                event: ReactKeyboardEvent<HTMLElement>
-                              ) => {
-                                if (
-                                  event.key === "Enter" ||
-                                  event.key === " "
-                                ) {
-                                  event.preventDefault();
-                                  onSelectTask(task);
-                                }
-                              },
-                            })}
-                        data-kanban-task-id={task.id}
-                        data-kanban-task-card={task.id}
-                        style={buildDragStyle(
-                          draggableProvided.draggableProps.style,
-                          draggableSnapshot.isDragging
-                        )}
-                        className={cn(
-                          "rounded-xl border border-border/70 bg-card/95 p-3 shadow-sm transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                          canEdit
-                            ? "cursor-grab active:cursor-grabbing"
-                            : "cursor-pointer",
-                          draggableSnapshot.isDragging && "shadow-lg",
-                          highlightedTaskIds.has(task.id) &&
-                            "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
-                        )}
-                        onClick={() => {
-                          if (!draggableSnapshot.isDragging) {
-                            onSelectTask(task);
-                          }
-                        }}
-                        onMouseEnter={() => onTaskHoverChange(task.id)}
-                        onMouseLeave={() => onTaskHoverChange(null)}
-                        onDoubleClick={(event) => {
-                          if (!canEdit) {
-                            return;
-                          }
-                          event.stopPropagation();
-                          onEditTask(task);
-                        }}
-                      >
-                        <div className="mb-2 flex items-start justify-between gap-2">
-                          <h3 className="min-w-0 flex-1 text-sm font-medium leading-snug [overflow-wrap:anywhere] line-clamp-2">
-                            {task.title}
-                          </h3>
-                          <div className="flex items-center gap-1">
-                            {status === "Blocked" ? (
-                              <span
-                                className="rounded-sm p-1 text-amber-500"
-                                aria-label="Blocked task"
-                                title="Blocked task"
-                              >
-                                <TriangleAlert className="h-4 w-4" />
-                              </span>
-                            ) : null}
-                            {canEdit ? (
-                              <span
-                                className="rounded-sm p-1 text-muted-foreground"
-                                aria-label="Drag task"
-                                title="Drag task"
-                              >
-                                <GripVertical className="h-4 w-4" />
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        <TaskCardIndicators
-                          task={task}
-                          className="-mt-1 mb-2"
-                        />
-
-                        {task.description ? (
-                          <p className="break-words text-xs text-muted-foreground">
-                            {renderContentWithMentions(
-                              getDescriptionPreview(task.description),
-                              {
-                                mentionUsers,
-                              }
-                            )}
-                          </p>
-                        ) : null}
-
-                        {task.epic && epicColor ? (
-                          <div className="mt-3">
-                            <span
-                              className="inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium"
-                              style={{
-                                backgroundColor: epicColor.soft,
-                                borderColor: epicColor.border,
-                                color: epicColor.accent,
-                              }}
-                              title={task.epic.name}
-                            >
-                              <Flag className="h-3 w-3" />
-                              <span className="truncate">{task.epic.name}</span>
-                            </span>
-                          </div>
-                        ) : null}
-
-                        {task.assignee ? (
-                          <div
-                            className={cn(
-                              "mt-3 flex items-center gap-2 rounded-full border px-2 py-1 text-xs",
-                              task.assignee.isAssignable
-                                ? "border-border/60 bg-background/70 text-muted-foreground"
-                                : "border-amber-500/45 bg-amber-500/[0.08] text-amber-700 dark:text-amber-300"
-                            )}
-                            title={
-                              task.assignee.usernameTag ?? task.assignee.displayName
-                            }
-                          >
-                            {task.assignee.kind === "agent" ? (
-                              <AgentAvatar
-                                displayName={task.assignee.displayName}
-                                className="h-5 w-5"
-                                decorative
-                              />
-                            ) : task.assignee.avatarSeed ? (
-                              <UserAvatar
-                                avatarSeed={task.assignee.avatarSeed}
-                                displayName={task.assignee.displayName}
-                                className="h-5 w-5 border-border/70"
-                                decorative
-                              />
-                            ) : (
-                              <span
-                                aria-hidden
-                                className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border/60 bg-primary/10 text-[10px] font-semibold text-primary"
-                              >
-                                {task.assignee.displayName.trim().charAt(0).toUpperCase() || "?"}
-                              </span>
-                            )}
-                            <span className="truncate">
-                              {task.assignee.displayName}
-                            </span>
-                            {task.assignee.kind === "agent" ? (
-                              <span className="shrink-0 text-[10px] text-muted-foreground">
-                                agent
-                              </span>
-                            ) : null}
-                            {!task.assignee.isAssignable ? (
-                              <TriangleAlert
-                                aria-label="Needs reassignment"
-                                className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-300"
-                              />
-                            ) : null}
-                          </div>
-                        ) : null}
-
-                        {task.labels.length > 0 ? (
-                          <div className="mt-3 flex flex-wrap gap-1">
-                            {task.labels.map((label) => (
-                              <span
-                                key={label}
-                                className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium text-slate-900"
-                                style={{
-                                  backgroundColor: getTaskLabelColor(label),
-                                }}
-                              >
-                                {label}
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
-                      </article>
-                    );
-                  }}
-                </Draggable>
+                  status={status}
+                  canEdit={canEdit}
+                  mentionUsers={mentionUsers}
+                  isHighlighted={highlightedTaskIds.has(task.id)}
+                  onSelectTask={onSelectTask}
+                  onEditTask={onEditTask}
+                  onTaskHoverChange={onTaskHoverChange}
+                />
               ))}
               {provided.placeholder}
             </div>
@@ -632,6 +461,211 @@ function KanbanColumn({
     </Card>
   );
 }
+
+interface MemoizedTaskCardProps {
+  task: KanbanTask;
+  index: number;
+  status: TaskStatus;
+  canEdit: boolean;
+  mentionUsers: ProjectTaskCollaborator[];
+  isHighlighted: boolean;
+  onSelectTask: (task: KanbanTask) => void;
+  onEditTask: (task: KanbanTask) => void;
+  onTaskHoverChange: (taskId: string | null) => void;
+}
+
+const MemoizedTaskCard = memo(function MemoizedTaskCard({
+  task,
+  index,
+  status,
+  canEdit,
+  mentionUsers,
+  isHighlighted,
+  onSelectTask,
+  onEditTask,
+  onTaskHoverChange,
+}: MemoizedTaskCardProps) {
+  return (
+    <Draggable
+      key={task.id}
+      draggableId={task.id}
+      index={index}
+      isDragDisabled={!canEdit}
+    >
+      {(draggableProvided, draggableSnapshot) => {
+        const epicColor = task.epic
+          ? getEpicColorFromName(task.epic.name)
+          : null;
+
+        return (
+          <article
+            ref={draggableProvided.innerRef}
+            {...draggableProvided.draggableProps}
+            {...(canEdit
+              ? draggableProvided.dragHandleProps
+              : {
+                  role: "button",
+                  tabIndex: 0,
+                  onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onSelectTask(task);
+                    }
+                  },
+                })}
+            data-kanban-task-id={task.id}
+            data-kanban-task-card={task.id}
+            style={buildDragStyle(
+              draggableProvided.draggableProps.style,
+              draggableSnapshot.isDragging,
+              draggableSnapshot.isDropAnimating
+            )}
+            className={cn(
+              "rounded-xl border border-border/70 bg-card/95 p-3 shadow-sm transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+              draggableSnapshot.isDragging && "shadow-lg",
+              isHighlighted &&
+                "border-border/80 bg-muted/35 shadow-[0_0_0_1px_rgba(148,163,184,0.08)]"
+            )}
+            onClick={() => {
+              if (!draggableSnapshot.isDragging) {
+                onSelectTask(task);
+              }
+            }}
+            onMouseEnter={() => onTaskHoverChange(task.id)}
+            onMouseLeave={() => onTaskHoverChange(null)}
+            onDoubleClick={(event) => {
+              if (!canEdit) {
+                return;
+              }
+              event.stopPropagation();
+              onEditTask(task);
+            }}
+          >
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <h3 className="min-w-0 flex-1 text-sm font-medium leading-snug [overflow-wrap:anywhere] line-clamp-2">
+                {task.title}
+              </h3>
+              <div className="flex items-center gap-1">
+                {status === "Blocked" ? (
+                  <span
+                    className="rounded-sm p-1 text-amber-500"
+                    aria-label="Blocked task"
+                    title="Blocked task"
+                  >
+                    <TriangleAlert className="h-4 w-4" />
+                  </span>
+                ) : null}
+                {canEdit ? (
+                  <span
+                    className="rounded-sm p-1 text-muted-foreground"
+                    aria-label="Drag task"
+                    title="Drag task"
+                  >
+                    <GripVertical className="h-4 w-4" />
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            <TaskCardIndicators task={task} className="-mt-1 mb-2" />
+
+            {task.description ? (
+              <p className="break-words text-xs text-muted-foreground">
+                {renderContentWithMentions(
+                  getDescriptionPreview(task.description),
+                  {
+                    mentionUsers,
+                  }
+                )}
+              </p>
+            ) : null}
+
+            {task.epic && epicColor ? (
+              <div className="mt-3">
+                <span
+                  className="inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium"
+                  style={{
+                    backgroundColor: epicColor.soft,
+                    borderColor: epicColor.border,
+                    color: epicColor.accent,
+                  }}
+                  title={task.epic.name}
+                >
+                  <Flag className="h-3 w-3" />
+                  <span className="truncate">{task.epic.name}</span>
+                </span>
+              </div>
+            ) : null}
+
+            {task.assignee ? (
+              <div
+                className={cn(
+                  "mt-3 flex items-center gap-2 rounded-full border px-2 py-1 text-xs",
+                  task.assignee.isAssignable
+                    ? "border-border/60 bg-background/70 text-muted-foreground"
+                    : "border-amber-500/45 bg-amber-500/[0.08] text-amber-700 dark:text-amber-300"
+                )}
+                title={task.assignee.usernameTag ?? task.assignee.displayName}
+              >
+                {task.assignee.kind === "agent" ? (
+                  <AgentAvatar
+                    displayName={task.assignee.displayName}
+                    className="h-5 w-5"
+                    decorative
+                  />
+                ) : task.assignee.avatarSeed ? (
+                  <UserAvatar
+                    avatarSeed={task.assignee.avatarSeed}
+                    displayName={task.assignee.displayName}
+                    className="h-5 w-5 border-border/70"
+                    decorative
+                  />
+                ) : (
+                  <span
+                    aria-hidden
+                    className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border/60 bg-primary/10 text-[10px] font-semibold text-primary"
+                  >
+                    {task.assignee.displayName.trim().charAt(0).toUpperCase() ||
+                      "?"}
+                  </span>
+                )}
+                <span className="truncate">{task.assignee.displayName}</span>
+                {task.assignee.kind === "agent" ? (
+                  <span className="shrink-0 text-[10px] text-muted-foreground">
+                    agent
+                  </span>
+                ) : null}
+                {!task.assignee.isAssignable ? (
+                  <TriangleAlert
+                    aria-label="Needs reassignment"
+                    className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-300"
+                  />
+                ) : null}
+              </div>
+            ) : null}
+
+            {task.labels.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-1">
+                {task.labels.map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium text-slate-900"
+                    style={{
+                      backgroundColor: getTaskLabelColor(label),
+                    }}
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </article>
+        );
+      }}
+    </Draggable>
+  );
+});
 
 function TaskCardIndicators({
   task,

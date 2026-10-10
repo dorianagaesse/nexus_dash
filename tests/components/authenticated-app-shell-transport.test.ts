@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("next/cache", () => ({
   unstable_noStore: vi.fn(),
@@ -24,34 +24,45 @@ async function renderShellElement() {
     children: null,
     initialIdentity: identity,
     initialNotificationSnapshot: notificationSnapshot,
+    userId: "user-1",
   });
 }
 
-function readStreamEnabled(element: Awaited<ReturnType<typeof renderShellElement>>) {
-  return (element.props as { streamEnabled: boolean }).streamEnabled;
+function readBroadcastEnabled(
+  element: Awaited<ReturnType<typeof renderShellElement>>
+) {
+  return (element.props as { broadcastEnabled: boolean }).broadcastEnabled;
 }
 
 describe("authenticated app shell realtime transport wiring", () => {
+  beforeEach(() => {
+    // "Default" assertions mean REALTIME_TRANSPORT is unset; the ambient value
+    // may be pinned by the environment (CI pins polling for production-like
+    // builds).
+    vi.stubEnv("REALTIME_TRANSPORT", "");
+  });
+
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  test("enables the notification stream by default outside preview", async () => {
+  test("enables Broadcast by default in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
 
-    expect(readStreamEnabled(await renderShellElement())).toBe(true);
+    expect(readBroadcastEnabled(await renderShellElement())).toBe(true);
   });
 
-  test("disables the notification stream on Vercel Preview by default", async () => {
+  test("keeps polling on Vercel Preview by default", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("VERCEL_ENV", "preview");
 
-    expect(readStreamEnabled(await renderShellElement())).toBe(false);
+    expect(readBroadcastEnabled(await renderShellElement())).toBe(false);
   });
 
-  test("honors an explicit transport override", async () => {
+  test("honors an explicit polling override in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("REALTIME_TRANSPORT", "polling");
 
-    expect(readStreamEnabled(await renderShellElement())).toBe(false);
+    expect(readBroadcastEnabled(await renderShellElement())).toBe(false);
   });
 });

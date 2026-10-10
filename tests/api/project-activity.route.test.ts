@@ -128,8 +128,8 @@ describe("project activity route", () => {
     expect(snapshot.serviceTiming["project.activity.poll"]?.count).toBe(1);
   });
 
-  test("attributes human polls to polling fallbacks while the stream transport is active", async () => {
-    vi.stubEnv("REALTIME_TRANSPORT", "stream");
+  test("attributes human polls to polling fallbacks while Broadcast is active", async () => {
+    vi.stubEnv("REALTIME_TRANSPORT", "broadcast");
     projectActivityServiceMock.getProjectActivitySnapshot.mockResolvedValueOnce({
       ok: true,
       data: {
@@ -162,7 +162,7 @@ describe("project activity route", () => {
   });
 
   test("does not attribute agent polls to polling fallbacks", async () => {
-    vi.stubEnv("REALTIME_TRANSPORT", "stream");
+    vi.stubEnv("REALTIME_TRANSPORT", "broadcast");
     apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
       ok: true,
       principal: {

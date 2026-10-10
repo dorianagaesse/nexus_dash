@@ -80,6 +80,9 @@ $env:DIRECT_URL = $env:DATABASE_URL
 $env:AGENT_TOKEN_SIGNING_SECRET = "local-placeholder-agent-token-signing-secret-0123456789"
 $env:RESEND_API_KEY = "local-placeholder-resend-key"
 $env:STORAGE_PROVIDER = "local"
+# Production-mode builds default to Broadcast and require Supabase Realtime
+# config; pin polling for local validation, as CI does.
+$env:REALTIME_TRANSPORT = "polling"
 
 npm run db:local:up
 npm ci

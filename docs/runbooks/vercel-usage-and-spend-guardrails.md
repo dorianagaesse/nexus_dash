@@ -1,16 +1,16 @@
 # Vercel Usage and Spend Guardrails Runbook
 
 This runbook covers how the team's metered usage and on-demand spend are
-guarded, inspected, and reviewed. It exists because the realtime SSE paths were
-the dominant Fluid compute cost driver, and the remediation program is still
-rolling out.
+guarded, inspected, and reviewed. It exists because the legacy realtime stream
+paths were the dominant Fluid compute cost driver; those paths are retired and
+the bounded transports that replaced them remain under the same review.
 
 Delivery values and billing figures are deliberately not recorded here. The
 source of truth is the Vercel team settings plus the CLI commands below, run
 from a checkout linked to the project (the repository root of the main
 checkout, not a worktree).
 
-For the realtime transport kill switch and its rollback path, see
+For realtime transport selection and its rollback path, see
 `docs/runbooks/vercel-env-contract-and-secrets.md`.
 
 ## Guardrails in Place
@@ -68,11 +68,11 @@ When a spend notification fires:
 2. Identify the driver. Historically Fluid Provisioned Memory dominates the
    infrastructure total, with Fluid Active CPU second.
 3. Apply the cheapest mitigation first:
-   - Realtime/stream traffic: confirm Preview resolves to polling
+   - Realtime traffic: confirm Preview resolves to polling
      (`REALTIME_TRANSPORT`, see the env contract runbook). If Production
-     streams are the driver, apply the same documented Production rollback
+     Broadcast is the driver, apply the documented Production rollback
      (`REALTIME_TRANSPORT=polling` plus redeploy or promote) before
-     considering a production pause: it stops the per-second stream work
+     considering a production pause: it stops the persistent-connection work
      without taking the site down.
    - Review whether the remaining server-side polling cadence can be reduced.
      Adaptive polling and cross-tab coordination are tracked on the board
@@ -177,18 +177,12 @@ Counters:
 - `activity.changesEmitted`: project activity change events persisted; these
   are the payloads realtime clients refresh for.
 - `activity.pollingFallbacks` / `notifications.pollingFallbacks`: human poll
-  requests received while the transport resolves to `stream` or `broadcast`,
-  excluding Broadcast subscribe-time reconciliation requests. The client
-  could not hold its preferred connection and is in polling fallback.
+  requests received while the transport resolves to `broadcast`, excluding
+  Broadcast subscribe-time reconciliation requests. The client could not hold
+  its preferred connection and is in bounded polling fallback.
 - `broadcast.tokenIssued` / `broadcast.tokenDenied`: Realtime token minting
   outcomes at the session endpoint. These are instance-local samples, not
   connection counts.
-- `stream.connections`: accepted SSE connections
-  (`activity/stream`, `notifications/stream`). The stream route closes
-  periodically by design, so EventSource reconnects arrive as new connections
-  and are counted here.
-- `stream.refused`: stream attempts refused because the transport resolves to
-  `polling` (stale bundles or clients ignoring the transport flag).
 
 Sampled evidence: on deployment runtimes the aggregates are emitted as a
 structured log record (scope `realtime.metrics`) - one sample at the
@@ -204,29 +198,23 @@ comparison across environments and revisions, not as exact accounting. The
 endpoint snapshot is the live view while reproducing; the log records are the
 history.
 
-Counters are also per serverless function. On Vercel the stream routes deploy
-as their own function, separate from the function serving the poll routes and
-this observability endpoint, so `stream.connections` and `stream.refused` read
-as zero in the endpoint snapshot even while stream requests are being refused.
-The stream function's own `realtime.metrics` records carry those counters (a
-refusal logs one attributed to the stream request path, with stream-only
-counters and zero poll counters), so read stream counters from the log
-records, not the snapshot. Observed on Preview: a refused stream request
-returned 404, the API function's snapshot stayed at `stream.refused 0`, while
-the stream function's log record showed `realtime.metrics ... stream.refused
-1`.
+Counters are also per serverless function and per instance. Realtime token
+counters are recorded in the function serving `/api/realtime/token`, while the
+poll counters, service timing, and `database.queryCalls` are recorded in the
+function serving the poll routes and this observability endpoint. Each
+instance's snapshot only shows its own counters, so cross-function totals come
+from the `realtime.metrics` log records, not a single endpoint response.
 
 Attribution recipes:
 
-- Stream counters (`stream.connections`, `stream.refused`) come from the
-  stream function's `realtime.metrics` log records; the endpoint snapshot
-  carries the poll counters, service timing, and `database.queryCalls`.
-- High compute on the activity route with `stream.connections` near zero in
-  Production: clients are stuck in polling fallback - check
-  `activity.pollingFallbacks` and the `stream.refused` / `transportDisabled`
-  signatures.
-- High stream route compute with many `stream.connections`: reconnect churn;
-  confirm the transport kill-switch state before changing cadences.
+- `broadcast.tokenIssued` / `broadcast.tokenDenied` come from the token
+  function's `realtime.metrics` log records; the endpoint snapshot carries the
+  poll counters, service timing, and `database.queryCalls`.
+- High compute on the activity route with `activity.pollingFallbacks` rising
+  while the transport is `broadcast`: clients are stuck in polling fallback -
+  check token denials and socket failures before changing cadences.
+- High compute while Broadcast is healthy on Production: look at mutation
+  volume and channel fan-out rather than assuming a fallback.
 - `database.queryCalls` is instance-wide driver volume, not per route: it
   counts every query the instance issues, including auth and session lookups.
   Use it to compare environments or revisions at similar traffic; do not read
@@ -241,10 +229,10 @@ Production and Preview can be reviewed independently:
 - Logs and observability: `npx vercel logs --environment production` and
   `npx vercel logs --environment preview` filter independently, and the
   dashboard observability views expose the same environment filter.
-- Realtime transport evidence: the refusal log record added by ND-368
-  (`stream.transportDisabled`) only appears where the transport resolves to
-  polling, which by default is Preview. Presence on Preview and absence on
-  Production is the expected operational signature.
+- Realtime transport evidence: ND-374 removed the SSE routes, so no stream
+  function deploys and the retired `stream.transportDisabled` refusal records
+  no longer appear. Preview defaults to bounded polling; Production defaults
+  to Broadcast unless overridden.
 - Realtime telemetry (ND-371): the `realtime.metrics` log records and the
   `/api/observability/realtime` snapshot carry an `environment` field, so the
   same counters can be compared per environment without consulting billing
@@ -278,7 +266,7 @@ Security & Privacy, Deployment Retention Policy:
 Stale-tab hygiene:
 
 - Preview browsers use bounded polling (`REALTIME_TRANSPORT` defaults to
-  `polling` in Preview), so there are no persistent SSE connections
+  `polling` in Preview), so there are no persistent connections
   generating per-second server-side database work.
 - Client polling is bounded and adaptive: project activity every 10s and
   notifications every 20s while the tab is visible, no periodic requests while
@@ -295,7 +283,7 @@ Stale-tab hygiene:
   40 GB-hour seven-day targets; investigate at 80%.
 - Realtime telemetry: `GET /api/observability/realtime` returns an
   environment-tagged snapshot, and `realtime.metrics` log records appear on
-  deployment runtimes (stream counters appear in the stream function's log
+  deployment runtimes (token counters appear in the token function's log
   records, not the snapshot).
 - Notifications: account notification settings show Spend Management enabled.
 - Retention: Team Settings, Security & Privacy, Deployment Retention Policy

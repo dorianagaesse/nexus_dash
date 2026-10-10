@@ -214,7 +214,13 @@ describe("GET /api/projects/:projectId/tasks", () => {
 
     expect(response.status).toBe(200);
     expect(payload.tasks).toEqual([]);
-    expect(payload.filters).toEqual({ epicId: "epic-1", label: "Docs" });
+    expect(payload.filters).toEqual({
+      epicId: "epic-1",
+      label: "Docs",
+      assignee: null,
+      sort: null,
+      limit: null,
+    });
     expect(projectServiceMock.listProjectKanbanTasks).toHaveBeenCalledWith(
       "p1",
       "test-user",
@@ -237,7 +243,13 @@ describe("GET /api/projects/:projectId/tasks", () => {
     };
 
     expect(response.status).toBe(200);
-    expect(payload.filters).toEqual({ epicId: null, label: null });
+    expect(payload.filters).toEqual({
+      epicId: null,
+      label: null,
+      assignee: null,
+      sort: null,
+      limit: null,
+    });
     expect(projectServiceMock.listProjectKanbanTasks).toHaveBeenCalledWith(
       "p1",
       "test-user",

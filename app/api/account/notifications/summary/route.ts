@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
-import { isRealtimeStreamEnabled } from "@/lib/env.server";
+import { getRealtimeTransport } from "@/lib/env.server";
 import { recordRealtimeCounter } from "@/lib/observability/realtime-metrics";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { getNotificationRealtimeSnapshotForUser } from "@/lib/services/notification-service";
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   }
 
   recordRealtimeCounter("notifications.snapshotChecks");
-  if (isRealtimeStreamEnabled() &&
+  if (getRealtimeTransport() === "broadcast" &&
       request.headers.get("x-realtime-reconcile") !== "1") {
     recordRealtimeCounter("notifications.pollingFallbacks");
   }
