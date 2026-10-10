@@ -110,6 +110,7 @@ export async function ProjectContextPanelSection({
     <ProjectContextPanel
       canEdit={canEdit}
       projectId={projectId}
+      actorUserId={actorUserId}
       storageProvider={storageProvider}
       cards={cards}
       collaborators={collaborators}

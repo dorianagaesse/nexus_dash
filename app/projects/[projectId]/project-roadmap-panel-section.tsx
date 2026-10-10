@@ -40,6 +40,7 @@ export async function ProjectRoadmapPanelSection({
   return (
     <ProjectRoadmapPanel
       projectId={projectId}
+      actorUserId={actorUserId}
       canEdit={canEdit}
       phases={phases}
       loadError={loadError}

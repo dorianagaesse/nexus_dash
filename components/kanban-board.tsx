@@ -3236,6 +3236,7 @@ export function KanbanBoard({
         headerAction={canEdit ? (
           <CreateTaskDialog
             projectId={projectId}
+            actorUserId={actorUserId}
             storageProvider={storageProvider}
             existingLabels={allKnownLabels}
             availableTasks={createDialogAvailableTasks}
