@@ -1127,9 +1127,9 @@ function RoadmapDesktopBetweenMilestonesDropZone({
   return (
     <div
       className={cn(
-        "absolute inset-x-1.5 z-10 transition-all duration-200",
+        "absolute inset-x-1.5 z-10 transition duration-200",
         isDraggingEvent
-          ? "pointer-events-auto opacity-100"
+          ? "pointer-events-auto"
           : "pointer-events-none opacity-0"
       )}
       style={{
@@ -1148,17 +1148,15 @@ function RoadmapDesktopBetweenMilestonesDropZone({
             {...provided.droppableProps}
             data-roadmap-between-milestones-dropzone={insertIndex}
             className={cn(
-              "flex min-h-[170px] w-full flex-col items-center justify-center rounded-[1.4rem] border-2 border-dashed p-3 text-center transition-all duration-150",
-              snapshot.isDraggingOver
-                ? "scale-[1.03] border-primary bg-slate-200/95 dark:bg-slate-800/90 shadow-[0_20px_50px_-20px_rgba(15,23,42,0.6)] ring-2 ring-primary/40"
-                : "border-border/80 bg-background/85 hover:border-primary/60 shadow-[0_10px_30px_-15px_rgba(15,23,42,0.3)]"
+              "flex min-h-[212px] w-full items-center justify-center rounded-[1.55rem] px-4 py-8 text-center transition",
+              isDraggingEvent
+                ? "pointer-events-auto opacity-0"
+                : "pointer-events-none opacity-0",
+              snapshot.isDraggingOver &&
+                "opacity-100 bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66),0_0_0_1px_rgba(148,163,184,0.3)] dark:bg-slate-800/85 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(148,163,184,0.22)]"
             )}
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary mb-1.5">
-              <PlusSquare className="h-4 w-4" />
-            </div>
-            <span className="text-xs font-semibold text-foreground">Insert milestone</span>
-            <span className="text-[10px] text-muted-foreground mt-0.5">Drop event here</span>
+            <PlusSquare className="h-5 w-5 text-muted-foreground/70" />
             {provided.placeholder}
           </div>
         )}
@@ -1200,14 +1198,15 @@ function RoadmapMobileBetweenMilestonesDropZone({
             data-roadmap-between-milestones-dropzone={insertIndex}
             data-roadmap-mobile-between-milestones-dropzone={insertIndex}
             className={cn(
-              "flex min-h-[75px] w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-3 text-center transition",
-              snapshot.isDraggingOver
-                ? "border-primary bg-slate-200/95 dark:bg-slate-800/90 shadow-md text-foreground"
-                : "border-border/80 bg-muted/40 text-muted-foreground"
+              "flex min-h-[90px] w-full items-center justify-center rounded-[1.55rem] px-4 py-6 text-center transition",
+              isDraggingEvent
+                ? "pointer-events-auto opacity-0"
+                : "pointer-events-none opacity-0",
+              snapshot.isDraggingOver &&
+                "opacity-100 bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66),0_0_0_1px_rgba(148,163,184,0.3)] dark:bg-slate-800/85 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(148,163,184,0.22)]"
             )}
           >
-            <PlusSquare className="h-4 w-4 text-primary" />
-            <span className="text-xs font-medium">Insert milestone between milestones</span>
+            <PlusSquare className="h-5 w-5 text-muted-foreground/70" />
             {provided.placeholder}
           </div>
         )}

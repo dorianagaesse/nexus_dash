@@ -1885,4 +1885,72 @@ function setInputValue(input: HTMLElement, value: string) {
       root.unmount();
     });
   });
+
+  test("intermediate drop zone remains invisible with opacity-0 while dragging until hovered (ND-403)", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    const phases = [
+      {
+        id: "phase-1",
+        title: "Milestone 1",
+        description: null,
+        targetDate: null,
+        status: "planned" as const,
+        position: 0,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [
+          {
+            id: "event-1",
+            phaseId: "phase-1",
+            title: "Task 1",
+            description: null,
+            targetDate: "2026-05-01",
+            status: "planned" as const,
+            position: 0,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+        ],
+      },
+      {
+        id: "phase-2",
+        title: "Milestone 2",
+        description: null,
+        targetDate: null,
+        status: "planned" as const,
+        position: 1,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [],
+      },
+    ];
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases,
+      })
+    );
+
+    // Start dragging an event
+    await act(async () => {
+      capturedOnDragStart?.();
+    });
+
+    // The between-milestone dropzone element exists in the DOM for interaction
+    const dropzone = container.querySelector("[data-roadmap-between-milestones-dropzone='1']");
+    expect(dropzone).not.toBeNull();
+
+    // It has opacity-0 when not dragged over (no default intrusive popup/text)
+    expect(dropzone?.className).toContain("opacity-0");
+    expect(dropzone?.textContent).not.toContain("Insert milestone");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });
