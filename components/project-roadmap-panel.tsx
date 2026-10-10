@@ -83,8 +83,15 @@ interface EventDialogState {
 }
 
 interface MilestoneDialogState {
-  phaseId: string;
+  mode: "edit" | "create";
+  phaseId: string | null;
   phaseIndex: number;
+  pendingEventDrop?: {
+    movedEvent: ProjectRoadmapPanelEvent;
+    sourcePhaseId: string;
+    sourceIndex: number;
+    insertIndex: number;
+  } | null;
 }
 
 interface RoadmapPhaseLayoutMeasurement {
@@ -109,6 +116,21 @@ const DEFAULT_DRAFT_STATE: RoadmapDraftState = {
 
 const NEW_MILESTONE_TARGET = "__roadmap-new-milestone__";
 const NEW_MILESTONE_DROP_ID = "__roadmap-drop-new-milestone__";
+const INTERMEDIATE_MILESTONE_DROP_PREFIX = "__roadmap-drop-new-milestone-at-";
+
+function getIntermediateMilestoneDropId(insertIndex: number): string {
+  return `${INTERMEDIATE_MILESTONE_DROP_PREFIX}${insertIndex}__`;
+}
+
+function parseIntermediateMilestoneDropIndex(droppableId: string): number | null {
+  if (droppableId.startsWith(INTERMEDIATE_MILESTONE_DROP_PREFIX)) {
+    const match = droppableId.match(/^__roadmap-drop-new-milestone-at-(\d+)__$/);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+  }
+  return null;
+}
 const ROADMAP_LANE_WIDTH_CLASS = "w-[21rem]";
 const CONNECTOR_CARD_HEIGHT = 212;
 const CONNECTOR_CARD_GAP = 16;
@@ -958,6 +980,23 @@ function getMilestoneLabel(phaseIndex: number): string {
   return `Milestone ${phaseIndex + 1}`;
 }
 
+function hasCustomMilestoneTitle(title: string | null | undefined): boolean {
+  if (!title) {
+    return false;
+  }
+  return !/^milestone\s+\d+$/i.test(title.trim());
+}
+
+function getMilestoneDisplayTitle(
+  phase: ProjectRoadmapPanelPhase | undefined,
+  phaseIndex: number
+): string {
+  if (!phase) {
+    return getMilestoneLabel(phaseIndex);
+  }
+  return hasCustomMilestoneTitle(phase.title) ? phase.title : getMilestoneLabel(phaseIndex);
+}
+
 function getEventCountLabel(count: number): string {
   return `${count} event${count === 1 ? "" : "s"}`;
 }
@@ -1084,18 +1123,133 @@ function buildForkConnectorSegments(
   };
 }
 
+function RoadmapDesktopBetweenMilestonesDropZone({
+  canEdit,
+  isDraggingEvent,
+  insertIndex,
+  maxEventsCount,
+}: {
+  canEdit: boolean;
+  isDraggingEvent: boolean;
+  insertIndex: number;
+  maxEventsCount: number;
+}) {
+  if (!canEdit) {
+    return null;
+  }
+
+  const dropZoneTopOffset =
+    CONNECTOR_TOP_OFFSET + getLaneVerticalOffset(1, maxEventsCount);
+
+  return (
+    <div
+      className={cn(
+        "absolute inset-x-1.5 z-10 transition duration-200",
+        isDraggingEvent
+          ? "pointer-events-auto"
+          : "pointer-events-none opacity-0"
+      )}
+      style={{
+        top: dropZoneTopOffset,
+      }}
+      aria-hidden={!isDraggingEvent}
+    >
+      <Droppable
+        droppableId={getIntermediateMilestoneDropId(insertIndex)}
+        type="ROADMAP_EVENT"
+        isDropDisabled={!canEdit}
+      >
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            data-roadmap-between-milestones-dropzone={insertIndex}
+            className={cn(
+              "flex min-h-[212px] w-full items-center justify-center rounded-[1.55rem] px-4 py-8 text-center transition",
+              isDraggingEvent
+                ? "pointer-events-auto opacity-0"
+                : "pointer-events-none opacity-0",
+              snapshot.isDraggingOver &&
+                "opacity-100 bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66),0_0_0_1px_rgba(148,163,184,0.3)] dark:bg-slate-800/85 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(148,163,184,0.22)]"
+            )}
+          >
+            <PlusSquare className="h-5 w-5 text-muted-foreground/70" />
+            {provided.placeholder}
+          </div>
+        )}
+      </Droppable>
+    </div>
+  );
+}
+
+function RoadmapMobileBetweenMilestonesDropZone({
+  canEdit,
+  isDraggingEvent,
+  insertIndex,
+}: {
+  canEdit: boolean;
+  isDraggingEvent: boolean;
+  insertIndex: number;
+}) {
+  if (!canEdit) {
+    return null;
+  }
+
+  return (
+    <div
+      className={cn(
+        "w-full px-1 transition-all",
+        !isDraggingEvent && "hidden"
+      )}
+      aria-hidden={!isDraggingEvent}
+    >
+      <Droppable
+        droppableId={getIntermediateMilestoneDropId(insertIndex)}
+        type="ROADMAP_EVENT"
+        isDropDisabled={!canEdit}
+      >
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            data-roadmap-between-milestones-dropzone={insertIndex}
+            data-roadmap-mobile-between-milestones-dropzone={insertIndex}
+            className={cn(
+              "flex min-h-[90px] w-full items-center justify-center rounded-[1.55rem] px-4 py-6 text-center transition",
+              isDraggingEvent
+                ? "pointer-events-auto opacity-0"
+                : "pointer-events-none opacity-0",
+              snapshot.isDraggingOver &&
+                "opacity-100 bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66),0_0_0_1px_rgba(148,163,184,0.3)] dark:bg-slate-800/85 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(148,163,184,0.22)]"
+            )}
+          >
+            <PlusSquare className="h-5 w-5 text-muted-foreground/70" />
+            {provided.placeholder}
+          </div>
+        )}
+      </Droppable>
+    </div>
+  );
+}
+
 function RoadmapDesktopConnector({
   currentPhase,
   nextPhase,
   maxEventsCount,
   currentMeasurement,
   nextMeasurement,
+  canEdit,
+  isDraggingEvent,
+  insertIndex,
 }: {
   currentPhase: ProjectRoadmapPanelPhase;
   nextPhase: ProjectRoadmapPanelPhase;
   maxEventsCount: number;
   currentMeasurement?: RoadmapPhaseLayoutMeasurement;
   nextMeasurement?: RoadmapPhaseLayoutMeasurement;
+  canEdit?: boolean;
+  isDraggingEvent?: boolean;
+  insertIndex?: number;
 }) {
   const fallbackHeight = getLaneConnectorHeight(maxEventsCount);
   const width = CONNECTOR_WIDTH;
@@ -1133,11 +1287,11 @@ function RoadmapDesktopConnector({
 
   return (
     <div
-      aria-hidden="true"
       className="relative hidden w-[9.25rem] shrink-0 lg:block"
       style={{ height }}
     >
       <svg
+        aria-hidden="true"
         viewBox={`0 0 ${width} ${height}`}
         className="h-full w-full overflow-visible"
         fill="none"
@@ -1171,6 +1325,14 @@ function RoadmapDesktopConnector({
           />
         ))}
       </svg>
+      {canEdit && insertIndex !== undefined ? (
+        <RoadmapDesktopBetweenMilestonesDropZone
+          canEdit={canEdit}
+          isDraggingEvent={Boolean(isDraggingEvent)}
+          insertIndex={insertIndex}
+          maxEventsCount={maxEventsCount}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1379,7 +1541,7 @@ function RoadmapMilestoneLane({
             >
               {milestoneLabel}
             </p>
-            {phase.title && phase.title !== milestoneLabel ? (
+            {hasCustomMilestoneTitle(phase.title) ? (
               <span
                 className="font-semibold text-sm text-foreground truncate max-w-[12rem]"
                 title={phase.title}
@@ -1402,7 +1564,7 @@ function RoadmapMilestoneLane({
                 type="button"
                 className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground/50 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => onEditMilestone(phase)}
-                aria-label={`Edit ${phase.title || milestoneLabel}`}
+                aria-label={`Edit ${hasCustomMilestoneTitle(phase.title) ? phase.title : milestoneLabel}`}
                 title="Edit milestone details"
                 data-roadmap-edit-milestone={phase.id}
               >
@@ -1820,8 +1982,10 @@ export function ProjectRoadmapPanel({
     setMilestoneMutationError(null);
     setMilestoneDraft(cloneDraftState(phase));
     setMilestoneDialog({
+      mode: "edit",
       phaseId: phase.id,
       phaseIndex: phaseIndex >= 0 ? phaseIndex : 0,
+      pendingEventDrop: null,
     });
   }
 
@@ -1981,6 +2145,129 @@ export function ProjectRoadmapPanel({
     setMilestoneMutationError(null);
 
     try {
+      if (milestoneDialog.mode === "create") {
+        const { pendingEventDrop } = milestoneDialog;
+        if (!pendingEventDrop) {
+          setIsSubmittingMilestone(false);
+          return;
+        }
+
+        const createResponse = await fetchProjectActivityMutation(
+          projectId,
+          `/api/projects/${projectId}/roadmap`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              title: trimmedTitle,
+              description: milestoneDraft.description.trim() ? milestoneDraft.description.trim() : null,
+              targetDate: milestoneDraft.targetDate || null,
+              status: milestoneDraft.status,
+            }),
+          }
+        );
+
+        if (!createResponse.ok) {
+          const errorCode = await readApiError(createResponse);
+          setMilestoneMutationError(mapRoadmapMutationError(errorCode));
+          return;
+        }
+
+        const createPayload = (await createResponse.json()) as {
+          phase: ProjectRoadmapPanelPhase;
+        };
+        const createdPhase = createPayload.phase;
+
+        const insertIndex = pendingEventDrop.insertIndex;
+        const currentPhaseIds = roadmapPhases.map((phase) => phase.id);
+        const reorderedPhaseIds = [
+          ...currentPhaseIds.slice(0, insertIndex),
+          createdPhase.id,
+          ...currentPhaseIds.slice(insertIndex),
+        ];
+
+        const reorderResponse = await fetchProjectActivityMutation(
+          projectId,
+          `/api/projects/${projectId}/roadmap/phases/reorder`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              phaseIds: reorderedPhaseIds,
+            }),
+          }
+        );
+
+        if (!reorderResponse.ok) {
+          const errorCode = await readApiError(reorderResponse);
+          setMilestoneMutationError(mapRoadmapMutationError(errorCode));
+          return;
+        }
+
+        await persistEventMove(pendingEventDrop.movedEvent.id, createdPhase.id, 0);
+
+        const sourcePhase = roadmapPhases.find((phase) => phase.id === pendingEventDrop.sourcePhaseId);
+        const isSourceEmptied =
+          sourcePhase &&
+          sourcePhase.events.length === 1 &&
+          sourcePhase.events[0]?.id === pendingEventDrop.movedEvent.id;
+
+        if (isSourceEmptied) {
+          await deletePhaseById(sourcePhase.id);
+        }
+
+        const updatedSourcePhases = roadmapPhases.map((phase) => {
+          if (phase.id === pendingEventDrop.sourcePhaseId) {
+            return {
+              ...phase,
+              events: phase.events
+                .filter((event) => event.id !== pendingEventDrop.movedEvent.id)
+                .map((event, idx) => ({ ...event, position: idx })),
+            };
+          }
+          return phase;
+        });
+
+        const filteredPhases = isSourceEmptied
+          ? updatedSourcePhases.filter((phase) => phase.id !== pendingEventDrop.sourcePhaseId)
+          : updatedSourcePhases;
+
+        const createdPhaseWithEvent: ProjectRoadmapPanelPhase = {
+          ...createdPhase,
+          position: insertIndex,
+          events: [
+            {
+              ...pendingEventDrop.movedEvent,
+              phaseId: createdPhase.id,
+              position: 0,
+            },
+          ],
+        };
+
+        const finalPhases = [
+          ...filteredPhases.slice(0, insertIndex),
+          createdPhaseWithEvent,
+          ...filteredPhases.slice(insertIndex),
+        ].map((phase, idx) => ({
+          ...phase,
+          position: idx,
+        }));
+
+        setRoadmapPhases(sortRoadmapPhasesForDisplay(finalPhases));
+
+        pushToast({
+          message: `Milestone "${createdPhase.title}" created with "${pendingEventDrop.movedEvent.title}".`,
+          variant: "success",
+        });
+
+        closeMilestoneDialog();
+        return;
+      }
+
       const response = await fetchProjectActivityMutation(
         projectId,
         `/api/projects/${projectId}/roadmap/phases/${milestoneDialog.phaseId}`,
@@ -2238,11 +2525,161 @@ export function ProjectRoadmapPanel({
       return;
     }
 
+    const intermediateInsertIndex = parseIntermediateMilestoneDropIndex(destinationPhaseId);
+    if (intermediateInsertIndex !== null) {
+      const sourcePhase = roadmapPhases.find((phase) => phase.id === sourcePhaseId);
+      const movedEvent = sourcePhase?.events[source.index] ?? null;
+
+      if (!movedEvent) {
+        return;
+      }
+
+      const sourcePhaseIndex = roadmapPhases.findIndex((phase) => phase.id === sourcePhaseId);
+      const isSoleEvent = Boolean(
+        sourcePhase &&
+        sourcePhase.events.length === 1 &&
+        sourcePhase.events[0]?.id === draggableId
+      );
+
+      if (isSoleEvent && sourcePhaseIndex !== -1) {
+        const targetPhaseIndex =
+          sourcePhaseIndex < intermediateInsertIndex
+            ? intermediateInsertIndex - 1
+            : intermediateInsertIndex;
+
+        if (targetPhaseIndex === sourcePhaseIndex) {
+          return;
+        }
+
+        const previousPhases = roadmapPhases;
+        const reordered = reorderList(previousPhases, sourcePhaseIndex, targetPhaseIndex).map(
+          (phase, idx) => ({
+            ...phase,
+            position: idx,
+          })
+        );
+
+        setRoadmapPhases(sortRoadmapPhasesForDisplay(reordered));
+
+        try {
+          const response = await fetchProjectActivityMutation(
+            projectId,
+            `/api/projects/${projectId}/roadmap/phases/reorder`,
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({
+                phaseIds: reordered.map((phase) => phase.id),
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(mapRoadmapMutationError(await readApiError(response)));
+          }
+
+          pushToast({
+            message: "Milestone order updated.",
+            variant: "success",
+          });
+        } catch (error) {
+          console.error("[ProjectRoadmapPanel.handleDragEnd.reorderMilestone]", error);
+          setRoadmapPhases(previousPhases);
+          pushToast({
+            message: error instanceof Error ? error.message : mapRoadmapMutationError(),
+            variant: "error",
+          });
+        }
+
+        return;
+      }
+
+      setMilestoneDraft({
+        title: getMilestoneLabel(intermediateInsertIndex),
+        description: "",
+        targetDate: movedEvent.targetDate ?? "",
+        status: movedEvent.status || "planned",
+      });
+      setMilestoneMutationError(null);
+      setMilestoneDialog({
+        mode: "create",
+        phaseId: null,
+        phaseIndex: intermediateInsertIndex,
+        pendingEventDrop: {
+          movedEvent,
+          sourcePhaseId,
+          sourceIndex: source.index,
+          insertIndex: intermediateInsertIndex,
+        },
+      });
+      return;
+    }
+
     if (destinationPhaseId === NEW_MILESTONE_DROP_ID) {
       const sourcePhase = roadmapPhases.find((phase) => phase.id === sourcePhaseId);
       const movedEvent = sourcePhase?.events[source.index] ?? null;
 
       if (!movedEvent) {
+        return;
+      }
+
+      const sourcePhaseIndex = roadmapPhases.findIndex((phase) => phase.id === sourcePhaseId);
+      const isSoleEvent = Boolean(
+        sourcePhase &&
+        sourcePhase.events.length === 1 &&
+        sourcePhase.events[0]?.id === draggableId
+      );
+
+      if (isSoleEvent && sourcePhaseIndex !== -1) {
+        const targetPhaseIndex = roadmapPhases.length - 1;
+        if (targetPhaseIndex === sourcePhaseIndex) {
+          return;
+        }
+
+        const previousPhases = roadmapPhases;
+        const reordered = reorderList(previousPhases, sourcePhaseIndex, targetPhaseIndex).map(
+          (phase, idx) => ({
+            ...phase,
+            position: idx,
+          })
+        );
+
+        setRoadmapPhases(sortRoadmapPhasesForDisplay(reordered));
+
+        try {
+          const response = await fetchProjectActivityMutation(
+            projectId,
+            `/api/projects/${projectId}/roadmap/phases/reorder`,
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({
+                phaseIds: reordered.map((phase) => phase.id),
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(mapRoadmapMutationError(await readApiError(response)));
+          }
+
+          pushToast({
+            message: "Milestone order updated.",
+            variant: "success",
+          });
+        } catch (error) {
+          console.error("[ProjectRoadmapPanel.handleDragEnd.reorderMilestoneEnd]", error);
+          setRoadmapPhases(previousPhases);
+          pushToast({
+            message: error instanceof Error ? error.message : mapRoadmapMutationError(),
+            variant: "error",
+          });
+        }
+
         return;
       }
 
@@ -2576,6 +3013,16 @@ export function ProjectRoadmapPanel({
                           nextMeasurement={
                             phaseLayoutMeasurements[roadmapPhases[phaseIndex + 1]?.id ?? ""]
                           }
+                          canEdit={canEdit}
+                          isDraggingEvent={isDraggingEvent}
+                          insertIndex={phaseIndex + 1}
+                        />
+                      ) : null}
+                      {!isDesktopLayout && phaseIndex < roadmapPhases.length - 1 && canEdit ? (
+                        <RoadmapMobileBetweenMilestonesDropZone
+                          canEdit={canEdit}
+                          isDraggingEvent={isDraggingEvent}
+                          insertIndex={phaseIndex + 1}
                         />
                       ) : null}
                     </div>
@@ -2666,12 +3113,16 @@ export function ProjectRoadmapPanel({
       </RoadmapDialogShell>
 
       <RoadmapDialogShell
-        title="Edit milestone"
+        title={milestoneDialog?.mode === "create" ? "New milestone" : "Edit milestone"}
         subtitle={
           milestoneDialog
-            ? `Update details for ${getMilestoneLabel(
-                milestoneDialog.phaseIndex
-              )}.`
+            ? milestoneDialog.mode === "create"
+              ? milestoneDialog.phaseIndex > 0 && milestoneDialog.phaseIndex < roadmapPhases.length
+                ? `Insert a new milestone between ${getMilestoneDisplayTitle(roadmapPhases[milestoneDialog.phaseIndex - 1], milestoneDialog.phaseIndex - 1)} and ${getMilestoneDisplayTitle(roadmapPhases[milestoneDialog.phaseIndex], milestoneDialog.phaseIndex)}.`
+                : `Create a new milestone at position ${milestoneDialog.phaseIndex + 1}.`
+              : `Update details for ${getMilestoneLabel(
+                  milestoneDialog.phaseIndex
+                )}.`
             : undefined
         }
         headerBadge={
@@ -2679,7 +3130,7 @@ export function ProjectRoadmapPanel({
             variant="outline"
             className="rounded-full border-border/70 bg-muted/30 px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground"
           >
-            Editing
+            {milestoneDialog?.mode === "create" ? "New" : "Editing"}
           </Badge>
         }
         isOpen={milestoneDialog !== null}
@@ -2689,9 +3140,13 @@ export function ProjectRoadmapPanel({
         <RoadmapEntityForm
           draft={milestoneDraft}
           idPrefix="roadmap-milestone"
-          titlePlaceholder="No title yet"
+          titlePlaceholder={
+            milestoneDialog?.mode === "create"
+              ? getMilestoneLabel(milestoneDialog.phaseIndex)
+              : "No title yet"
+          }
           descriptionPlaceholder="No description yet"
-          submitLabel="Save milestone"
+          submitLabel={milestoneDialog?.mode === "create" ? "Create milestone" : "Save milestone"}
           targetDateLabel="Milestone date"
           statusLabel="Milestone status"
           statusOptions={statusSelectOptions}
