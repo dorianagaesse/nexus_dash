@@ -1,6 +1,7 @@
 # ND-374 realtime load test
 
 Date: 2026-10-06
+Updated: 2026-10-10 (Preview deployment run added for the review round)
 Task: ND-374 (Retire legacy SSE routes and load-test realtime fallback behavior)
 Branch: `refactor/nd-374-retire-sse-routes`
 
@@ -99,12 +100,52 @@ rename phases, and both version-delivery assertions passed (observed by the
 tab holding activity-poll leadership at the time; leadership moved across
 reloads).
 
+### Preview deployment (review round, 2026-10-10)
+
+After the 2026-10-08 review round, the fixed head
+`62f1842e9b734f83951b11db769264231779e5c5` was deployed to Preview with
+`deploy-vercel.yml` ([run
+38041190779](https://github.com/dorianagaesse/nexus_dash/actions/runs/38041190779),
+`action=deploy-preview`, `git_ref=62f1842e9b734f83951b11db769264231779e5c5`).
+The workflow verified that the immutable deployment
+(`https://nexus-dash-fbo1btnbf-dorian-agaesses-projects.vercel.app`) belongs
+to the configured Vercel project, targets Preview, and reports
+`environment: preview` and `revision: 62f1842` from `/api/health/ready`,
+matching the checked-out ref. The deployment runs the polling transport (the
+Preview default).
+
+The harness ran against the immutable URL with 3 member tabs plus the owner
+tab, 60 s configured duration: elapsed 81.3 s, all 20 assertions passed.
+
+| Metric | Value |
+| --- | ---: |
+| Elapsed | 81,325 ms |
+| Activity polls (member total / owner) | 11 / 8 |
+| Notification polls (member total / owner) | 6 / 4 |
+| Legacy stream requests (all tabs) | 0 |
+| Realtime token requests / websocket attempts | 0 / 0 |
+| `activity.snapshotChecks` | 4 (observed polls: 19; per-instance counters) |
+| `activity.pollingFallbacks` | 0 |
+
+On Vercel the observability snapshot is served by one function instance, so
+its in-memory counters under-count fleet-wide traffic; the harness assertion
+is the inequality `snapshotChecks <= observed polls`, which held. Convergence
+was 3/3 member tabs at both rename phases.
+
+Deployment-level "no legacy SSE invocations" evidence: both retired routes
+return HTTP 404 at the deployment
+(`/api/projects/<id>/activity/stream`, `/api/account/notifications/stream`),
+the route manifest contains no stream routes, and the harness tabs made zero
+requests to any `/stream` path. The Vercel Observability check for Production
+remains the post-flip rollout verification item (see Acceptance mapping).
+
 ## Acceptance mapping
 
-- No legacy SSE invocations: tabs request no SSE endpoints locally, and the
-  routes are deleted in this branch. Confirming "no legacy SSE invocations" in
-  Vercel Observability requires a deployment of this branch — that check
-  belongs to the post-merge Production broadcast rollout verification.
+- No legacy SSE invocations: tabs request no SSE endpoints locally or on the
+  Preview deployment (both retired routes 404 there, and the deployment's
+  route manifest has no stream routes). Confirming "no legacy SSE invocations"
+  in Vercel Observability for Production requires the production broadcast
+  rollout; that check is tracked as the post-flip verification item.
 - No continuous server function activity from idle tabs: idle tabs make only
   bounded periodic polls (5-6 activity polls and 0-6 notification polls in
   ~74 s against 10 s / 20 s cadences) and stream nothing.

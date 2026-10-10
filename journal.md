@@ -9671,8 +9671,16 @@ Low-value entries to avoid going forward:
 - Review round 2026-10-08 (reviewed head `8c13931`, three items): the
   Dockerfile pin is build-scoped; `project.md` and
   `docs/runbooks/github-actions-workflows.md` no longer describe SSE as a
-  live transport; Preview deployment evidence for "no legacy SSE
-  invocations" is recorded in `docs/reports/nd-374-realtime-load-test.md`.
+  live transport. Preview deployment evidence for "no legacy SSE
+  invocations": head `62f1842e9b734f83951b11db769264231779e5c5` deployed with
+  `deploy-vercel.yml` (run 38041190779), revision `62f1842` and
+  `environment: preview` verified via `/api/health/ready` on the immutable
+  URL; harness 20/20 with zero stream requests across all tabs; both retired
+  routes return 404. Recorded in `docs/reports/nd-374-realtime-load-test.md`.
+  The Production Vercel Observability check stays the post-flip rollout
+  verification item. Operational note: a first dispatch with `git_ref=62f1842`
+  (short SHA) failed checkout because actions/checkout fetched it as
+  `refs/heads/62f1842`; `git_ref` must be a branch name or full SHA.
 - Merge gating: the Production broadcast flip is deferred and owned by the
   reviewer; the acceptance check "Vercel Observability reports no legacy SSE
   invocations" is a post-flip observation on the deployed branch.
