@@ -53,7 +53,6 @@ import {
 } from "@/components/project-dashboard/project-section-chrome";
 import { RichTextContent } from "@/components/rich-text-content";
 import { RichTextEditor } from "@/components/rich-text-editor";
-import { RecoveryDraftNotice } from "@/components/recovery-draft-notice";
 import { useToast } from "@/components/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1198,6 +1197,11 @@ export function ProjectMeetingNotesPanel({
       return;
     }
 
+    const base = prepareNote ? buildPrepareDraftFromNote(prepareNote) : EMPTY_PREPARE_DRAFT;
+    if (JSON.stringify(prepareDraft) !== JSON.stringify(base)) {
+      void savePrepareDialog();
+      return;
+    }
     prepareRecovery.flush();
     setPrepareDialog(null);
     resetPrepareDraft();
@@ -1371,7 +1375,10 @@ export function ProjectMeetingNotesPanel({
     if (!prepareDialog || isSaving) {
       return;
     }
-    if (prepareRecovery.conflict) return;
+    if (prepareRecovery.conflict) {
+      setDraftError("This preparation changed elsewhere. Review it before saving.");
+      return;
+    }
     const submittedDraft = prepareDraft;
 
     const payload = {
@@ -1523,7 +1530,10 @@ export function ProjectMeetingNotesPanel({
     if (!selectedNote || isSaving) {
       return;
     }
-    if (notesRecovery.conflict) return;
+    if (notesRecovery.conflict) {
+      setDraftError("This note changed elsewhere. Review it before saving.");
+      return;
+    }
     const submittedDraft = notesDraft;
 
     const payload = {
@@ -2006,7 +2016,7 @@ export function ProjectMeetingNotesPanel({
               <Button
                 type="button"
                 onClick={() => void savePrepareDialog()}
-                disabled={isSaving || prepareRecovery.conflict}
+                disabled={isSaving}
               >
                 {isSaving ? "Saving..." : "Save preparation"}
               </Button>
@@ -2014,10 +2024,14 @@ export function ProjectMeetingNotesPanel({
           }
         >
           <div className="grid gap-4">
-            <RecoveryDraftNotice draft={prepareRecovery} onDiscard={() => {
-              prepareRecovery.discard(true);
-              setPrepareDraft(prepareNote ? buildPrepareDraftFromNote(prepareNote) : EMPTY_PREPARE_DRAFT);
-            }} />
+            {prepareRecovery.conflict ? (
+              <div role="alert" className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">
+                This preparation changed elsewhere. Check the current note before saving.
+                <Button type="button" size="sm" variant="outline" className="ml-2" onClick={prepareRecovery.acceptConflict}>
+                  Use my changes
+                </Button>
+              </div>
+            ) : null}
             <div className="grid gap-2">
               <label htmlFor="meeting-title" className="text-sm font-medium">
                 Title
@@ -2278,7 +2292,7 @@ export function ProjectMeetingNotesPanel({
                 <Button
                   type="button"
                   onClick={() => void saveNotesDialog()}
-                  disabled={isSaving || notesRecovery.conflict}
+                  disabled={isSaving}
                 >
                   {isSaving ? "Saving..." : "Save notes"}
                 </Button>
@@ -2287,10 +2301,14 @@ export function ProjectMeetingNotesPanel({
           }
         >
           <div className="space-y-4">
-            <RecoveryDraftNotice draft={notesRecovery} onDiscard={() => {
-              notesRecovery.discard(true);
-              setNotesDraft(buildNotesDraftFromNote(selectedNote));
-            }} />
+            {notesRecovery.conflict ? (
+              <div role="alert" className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">
+                This note changed elsewhere. Check the current note before saving.
+                <Button type="button" size="sm" variant="outline" className="ml-2" onClick={notesRecovery.acceptConflict}>
+                  Use my changes
+                </Button>
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <Badge
                 variant="outline"

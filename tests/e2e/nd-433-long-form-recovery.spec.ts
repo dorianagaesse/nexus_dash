@@ -4,7 +4,7 @@ import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
 
-test("long-form task and meeting drafts recover locally without background mutations", async ({ page }) => {
+test("task drafts recover and meeting preparation saves on dismissal", async ({ page }) => {
   const userId = await signInAsVerifiedUser(page);
   const project = await prisma.project.create({
     data: {
@@ -53,24 +53,42 @@ test("long-form task and meeting drafts recover locally without background mutat
     await page.getByRole("button", { name: "Close task" }).click();
 
     await page.getByRole("button", { name: "Prepare meeting" }).click();
-    await page.locator("#meeting-title").fill("Recovered preparation");
-    await page.getByRole("button", { name: "Cancel" }).click();
-    await page.reload();
-    await page.getByRole("button", { name: "Prepare meeting" }).click();
-    await expect(page.locator("#meeting-title")).toHaveValue("Recovered preparation");
-    await expect(page.getByText("Draft restored from this browser.")).toBeVisible();
+    await page.locator("#meeting-inputs").fill("Agenda without a title");
+    await page.mouse.click(5, 5);
+    await page.mouse.click(5, 5);
+    await expect(page.getByText("Meeting title is required.")).toBeVisible();
     expect(await prisma.projectMeetingNote.count({ where: { projectId: project.id } })).toBe(0);
-    await page.getByRole("button", { name: "Save preparation" }).click();
+    await page.locator("#meeting-title").fill("Recovered preparation");
+    expect(await prisma.projectMeetingNote.count({ where: { projectId: project.id } })).toBe(0);
+    await expect(page.getByText("Draft saved locally in this browser.")).toHaveCount(0);
+    const createPreparation = page.waitForResponse((response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith(`/api/projects/${project.id}/meeting-notes`) &&
+      response.ok()
+    );
+    await page.mouse.click(5, 5);
+    await createPreparation;
     const meetingCard = page.getByRole("button", { name: /Recovered preparation/ });
     await expect(meetingCard).toBeVisible();
     expect(await prisma.projectMeetingNote.count({ where: { projectId: project.id } })).toBe(1);
     await meetingCard.click();
+    await page.getByRole("button", { name: "Edit prep" }).click();
+    await page.locator("#meeting-title").fill("Updated preparation");
+    const updatePreparation = page.waitForResponse((response) =>
+      response.request().method() === "PATCH" &&
+      response.url().includes(`/api/projects/${project.id}/meeting-notes/`) &&
+      response.ok()
+    );
+    await page.mouse.click(5, 5);
+    await updatePreparation;
+    await expect(page.getByRole("button", { name: /Updated preparation/ })).toBeVisible();
+    await page.getByRole("button", { name: /Updated preparation/ }).click();
     await page.locator("#meeting-outputs").fill("Recovered output notes");
-    await page.getByRole("button", { name: "Close Recovered preparation" }).click();
+    await page.getByRole("button", { name: "Close Updated preparation" }).click();
     await page.reload();
-    await page.getByRole("button", { name: /Recovered preparation/ }).click();
+    await page.getByRole("button", { name: /Updated preparation/ }).click();
     await expect(page.locator("#meeting-outputs")).toContainText("Recovered output notes");
-    await expect(page.getByText("Draft restored from this browser.")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Discard draft|Keep draft|Confirm discard/ })).toHaveCount(0);
     const saveOutput = page.waitForResponse((response) =>
       response.request().method() === "PATCH" &&
       response.url().includes(`/api/projects/${project.id}/meeting-notes/`) &&

@@ -6,10 +6,12 @@ Use it for important implementation milestones, blockers, validation runs, and r
 # 2026-10-10 - ND-433: Long-form local draft recovery
 
 - Picked up ND-433 from Backlog and started `feature/nd-433-long-form-autosave` in a worktree based on `origin/main` at `f1873ac`.
-- Added browser-local recovery drafts for task details and comments, meeting preparation, and meeting output/todos. Drafts are scoped to user, project, surface, mode, and record; explicit Save/Post remains the only server mutation.
-- Restores visible drafts after opening, preserves drafts on Cancel, clears after acknowledged submission, warns about concurrent record/tab changes, and clears the user's namespace at logout. Uploaded comment attachments are referenced by ID only.
+- Added browser-local recovery drafts for task details and comments, meeting preparation, and meeting output/todos. Drafts are scoped to user, project, surface, mode, and record; timed draft writes do not mutate the server.
+- Restores drafts after opening, clears after acknowledged submission, warns about concurrent record/tab changes, and clears the user's namespace at logout. Uploaded comment attachments are referenced by ID only.
+- User testing found that changed meeting preparation should appear in the list after clicking outside. Dismissal now invokes the existing Save preparation path; an empty form closes, and an invalid form stays open with its error. Meeting preparation/output no longer show local-draft status or discard controls. Output close still retains recovery data for reopening.
+- Follow-up validation: lint, RLS inventory, 1,911 unit tests (2 skipped), coverage (94.07% lines), production build, 106 full browser tests (2 skipped), and the focused ND-433 browser test after the final conflict-message adjustment all passed.
 - ND-432/ND-428 still gate network live save on revision preconditions and measured request/load limits.
-- Validation on the worktree: `npm run lint`, `npm run rls:check`, `npm test` (1,911 passed, 2 skipped), `npm run test:coverage` (94.07% lines), `npm run build`, `npm run release:check`, and the full Chromium E2E suite (106 passed, 2 skipped). The ND-433 browser test verifies recovery and explicit save across all four covered surfaces without background mutations.
+- Validation on the worktree: `npm run lint`, `npm run rls:check`, `npm test` (1,911 passed, 2 skipped), `npm run test:coverage` (94.07% lines), `npm run build`, `npm run release:check`, and the full Chromium E2E suite (106 passed, 2 skipped). The ND-433 browser test verifies recovery across all four covered surfaces and meeting preparation save on dismissal.
 # 2026-10-06 - ND-404: Enable milestone editing from roadmap edit mode
 
 - Card `cmtkk0ymw000h04l103wo0zjz` under epic "Roadmap interaction refinement":
