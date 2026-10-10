@@ -35,6 +35,26 @@ Use it for important implementation milestones, blockers, validation runs, and r
     - `npm run test:coverage`: met all threshold targets (Stmts: 93.77%, Branch: 84.46%, Funcs: 95.42%, Lines: 94.07%).
     - `npx next build --webpack`: successfully compiled and generated all 27 static routes.
 
+# 2026-10-08 - ND-431: Kanban responsiveness
+
+- Continued the save-performance epic from merged ND-430 in a fresh worktree
+  and isolated PostgreSQL database. The card was moved to In Progress.
+- Kept hover state in the grid, memoized the grid and draggable cards, mounted
+  archived cards on demand, and shortened the drag library's drop transition.
+  Added a keyboard reorder failure test that confirms optimistic rollback.
+- The 20-sample local comparison and remaining p95 gaps are recorded in
+  `docs/audits/nd-431-kanban-responsiveness-follow-up.md`. Navigation, remote
+  event application, and reorder HTTP met their targets; modal, lift, release,
+  and request dispatch remained near but above theirs on this machine.
+- Lint, RLS inventory, 1,890 unit/API tests, coverage thresholds, and the
+  production build passed. Full Playwright validation passed 104 tests with
+  two expected skips, including pointer/keyboard drag, mobile lanes, archive
+  filters, and failed-reorder rollback.
+- PR #579 opened from `2512ace`. Preview run 37776655780 checked out that
+  exact commit, deployed successfully, and passed browser signup, modal,
+  keyboard reorder, and mobile lane checks. Copilot could not review because
+  the review requester had reached its quota; no inline feedback was posted.
+
 # 2026-10-06 - ND-430: Kanban responsiveness audit
 
 - Reviewed the four open save-performance epic cards against current `main` and

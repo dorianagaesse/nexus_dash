@@ -95,8 +95,16 @@ export function cloneColumns<T>(columns: TaskColumns<T>): TaskColumns<T> {
 
 export function buildDragStyle(
   style: DraggableProvidedDraggableProps["style"],
-  isDragging: boolean
+  isDragging: boolean,
+  isDropAnimating = false
 ): DraggableProvidedDraggableProps["style"] {
+  if (isDropAnimating && style && "position" in style) {
+    // The library waits for transform's transitionend before calling onDragEnd.
+    // Its distance-based animation can defer persistence by half a second on
+    // long lanes, even though the task is already at its drop position.
+    return { ...style, transition: "transform 10ms linear" };
+  }
+
   if (!isDragging || !style) {
     return style;
   }

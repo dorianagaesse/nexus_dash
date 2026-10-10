@@ -98,6 +98,7 @@ async function renderGrid(
     canEdit?: boolean;
     isFiltering?: boolean;
     onSelectTask?: (task: KanbanTask) => void;
+    relatedTaskGraph?: Map<string, string[]>;
     titleOverride?: string;
   } = {}
 ) {
@@ -123,12 +124,11 @@ async function renderGrid(
         columns={columns}
         archivedDoneTasks={[archivedTask]}
         mentionUsers={[]}
-        highlightedTaskIds={new Set()}
+        relatedTaskGraph={options.relatedTaskGraph ?? new Map()}
         isFiltering={options.isFiltering ?? false}
         onDragEnd={vi.fn()}
         onSelectTask={options.onSelectTask ?? vi.fn()}
         onEditTask={vi.fn()}
-        onTaskHoverChange={vi.fn()}
       />
     );
   });
@@ -196,6 +196,29 @@ describe("KanbanColumnsGrid bounded lanes", () => {
 
     expect(archiveSummary).toBeDefined();
     expect(doneScroller?.contains(archiveSummary ?? null)).toBe(false);
+
+    await act(async () => root.unmount());
+  });
+
+  test("highlights related cards while hovering and clears them on leave", async () => {
+    const { container, root } = createRenderer();
+    await renderGrid(root, {
+      relatedTaskGraph: new Map([["1", ["2"]]]),
+    });
+
+    const first = container.querySelector<HTMLElement>('[data-kanban-task-card="1"]');
+    const related = container.querySelector<HTMLElement>('[data-kanban-task-card="2"]');
+    await act(async () => {
+      first?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+    expect(first?.className).toContain("bg-muted/35");
+    expect(related?.className).toContain("bg-muted/35");
+
+    await act(async () => {
+      first?.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+    });
+    expect(first?.className).not.toContain("bg-muted/35");
+    expect(related?.className).not.toContain("bg-muted/35");
 
     await act(async () => root.unmount());
   });
@@ -318,6 +341,15 @@ describe("KanbanColumnsGrid bounded lanes", () => {
   test("gives the archived Done scroller the lane scroller focus treatment", async () => {
     const { container, root } = createRenderer();
     await renderGrid(root);
+
+    expect(container.querySelector('[aria-label="Archived Done tasks"]')).toBeNull();
+    const details = archiveDetails(container);
+    await act(async () => {
+      if (details) {
+        details.open = true;
+        details.dispatchEvent(new Event("toggle", { bubbles: true }));
+      }
+    });
 
     const archiveRegion = container.querySelector<HTMLElement>(
       '[aria-label="Archived Done tasks"]'
