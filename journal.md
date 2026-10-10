@@ -2,6 +2,14 @@
 
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
+
+# 2026-10-10 - ND-433: Long-form local draft recovery
+
+- Picked up ND-433 from Backlog and started `feature/nd-433-long-form-autosave` in a worktree based on `origin/main` at `f1873ac`.
+- Added browser-local recovery drafts for task details and comments, meeting preparation, and meeting output/todos. Drafts are scoped to user, project, surface, mode, and record; explicit Save/Post remains the only server mutation.
+- Restores visible drafts after opening, preserves drafts on Cancel, clears after acknowledged submission, warns about concurrent record/tab changes, and clears the user's namespace at logout. Uploaded comment attachments are referenced by ID only.
+- ND-432/ND-428 still gate network live save on revision preconditions and measured request/load limits.
+- Validation on the worktree: `npm run lint`, `npm run rls:check`, `npm test` (1,911 passed, 2 skipped), `npm run test:coverage` (94.07% lines), `npm run build`, `npm run release:check`, and the full Chromium E2E suite (106 passed, 2 skipped). The ND-433 browser test verifies recovery and explicit save across all four covered surfaces without background mutations.
 # 2026-10-06 - ND-404: Enable milestone editing from roadmap edit mode
 
 - Card `cmtkk0ymw000h04l103wo0zjz` under epic "Roadmap interaction refinement":

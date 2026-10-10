@@ -405,6 +405,11 @@ and the server revision check.
 2. In ND-433, add recovery drafts to task comments, task detail edits, meeting
    preparation, and meeting output/todos. Preserve the current explicit
    buttons.
+   ND-433 implements browser-local recovery for these surfaces with a shared
+   versioned store, 300 ms debounce, close/pagehide flush, restore and discard
+   controls, and a conflict warning when the saved record or another tab
+   changes. It does not start network saves; the revision and load gates in
+   steps 3-5 remain prerequisites for Live.
 3. Add content revisions, conditional partial PATCH contracts, conflict UI,
    autosave mutation intent, and the coalesced invalidation/activity producer
    for Task and ProjectMeetingNote.
