@@ -30,7 +30,7 @@ import { ProjectLiveRefresh } from "@/components/project-live-refresh";
 function findElement(
   node: ReactNode,
   type: unknown
-): ReactElement<{ streamEnabled?: boolean }> | null {
+): ReactElement<{ broadcastEnabled?: boolean }> | null {
   if (Array.isArray(node)) {
     for (const child of node) {
       const found = findElement(child, type);
@@ -47,7 +47,7 @@ function findElement(
   }
 
   if (node.type === type) {
-    return node as ReactElement<{ streamEnabled?: boolean }>;
+    return node as ReactElement<{ broadcastEnabled?: boolean }>;
   }
 
   const children = (node.props as { children?: ReactNode }).children;
@@ -64,6 +64,10 @@ async function renderDashboardElement() {
 describe("project dashboard realtime transport wiring", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // "Default" assertions mean REALTIME_TRANSPORT is unset; the ambient value
+    // may be pinned by the environment (CI pins polling for production-like
+    // builds).
+    vi.stubEnv("REALTIME_TRANSPORT", "");
     serverGuardMock.requireSessionUserIdFromServer.mockResolvedValue("user-1");
     projectServiceMock.getProjectSummaryById.mockResolvedValue({
       id: "project-1",
@@ -89,22 +93,32 @@ describe("project dashboard realtime transport wiring", () => {
     vi.unstubAllEnvs();
   });
 
-  test("enables the activity stream by default outside preview", async () => {
+  test("enables Broadcast by default in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
     const element = await renderDashboardElement();
 
-    expect(findElement(element, ProjectLiveRefresh)?.props.streamEnabled).toBe(
-      true
-    );
+    expect(
+      findElement(element, ProjectLiveRefresh)?.props.broadcastEnabled
+    ).toBe(true);
   });
 
-  test("disables the activity stream on Vercel Preview by default", async () => {
+  test("keeps polling on Vercel Preview by default", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("VERCEL_ENV", "preview");
     const element = await renderDashboardElement();
 
-    expect(findElement(element, ProjectLiveRefresh)?.props.streamEnabled).toBe(
-      false
-    );
+    expect(
+      findElement(element, ProjectLiveRefresh)?.props.broadcastEnabled
+    ).toBe(false);
+  });
+
+  test("honors an explicit polling override in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("REALTIME_TRANSPORT", "polling");
+    const element = await renderDashboardElement();
+
+    expect(
+      findElement(element, ProjectLiveRefresh)?.props.broadcastEnabled
+    ).toBe(false);
   });
 });

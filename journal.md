@@ -9654,3 +9654,80 @@ Low-value entries to avoid going forward:
   PostCSS symlink path error; CI's standard build passed. Local Playwright
   passed 103 tests with one expected skip, and PR quality, E2E, RLS, and
   container jobs passed.
+
+## 2026-10-06 - ND-374: Retire legacy SSE routes and load-test realtime fallback behavior
+
+- Deleted both SSE route handlers
+  (`app/api/projects/[projectId]/activity/stream`,
+  `app/api/account/notifications/stream`) and the stream helpers
+  (`lib/realtime/server-sent-events.ts`, `project-activity-stream.ts`,
+  `notification-stream.ts`); `isRealtimeStreamEnabled()` is gone.
+  `REALTIME_TRANSPORT` is now `broadcast | polling`, and the retired `stream`
+  value fails startup validation. Client precedence collapses to broadcast ->
+  bounded adaptive polling; a visible or online tab retries Broadcast. Metrics
+  dropped the stream-only counters; fallback attribution now applies to the
+  `broadcast` transport only. The preview verifier proves a token-blocked
+  browser degrades to polling with no SSE leg, and quality gates pin
+  `REALTIME_TRANSPORT=polling` on the build and e2e jobs because production-like
+  builds default to Broadcast and CI provisions no Supabase Realtime config.
+- Docs and architecture: task-372 ADR gained an ND-374 amendment superseding
+  its stream tier; task-348's schedule ADR notes its "activity SSE bridge"
+  references now target Broadcast plus bounded polling; `adr/decisions.md`
+  records the 2026-10-06 retirement; both Vercel runbooks and `.env.example`
+  describe broadcast|polling only. Known stale surface: `project.md`
+  (current-state lines still name the SSE tier) - off-limits in a feature PR
+  per CLAUDE.md; flagged in the PR for separate maintenance.
+- Load testing: `scripts/load-test-realtime.mjs` (Playwright: 3 member tabs
+  plus the owner tab, two API renames, one reload) ran two 60 s scenarios
+  against a local production build with an isolated database; both recorded
+  20/20 assertions in `docs/reports/nd-374-realtime-load-test.md`:
+  - Polling transport: 11 member activity polls against an independent-tab
+    volume of 33 (leader-coordinated, bound 14), `activity.snapshotChecks`
+    equal to the 19 observed polls, 0 realtime tokens, 0 websockets, 0 SSE
+    requests, 0 fallbacks; convergence 3/3 tabs at both renames.
+  - Broadcast with provider outage: 8 tokens issued and 0 denied, 18/18
+    observed polls attributed as `activity.pollingFallbacks`, same poll
+    bounds, convergence 3/3.
+- Out-of-scope observations (recorded in the report): the single-tab
+  `router.refresh()` RSC fetch is canceled client-side in most single-tab
+  diagnostics (headed and headless; the Next 16.2.7 client fetch path passes
+  no abort signal, and buffered interception applies the same response) -
+  pre-existing ND-373 client behavior, transport-independent, and both
+  recorded multi-tab runs converged; a follow-up candidate. One local
+  `next start` process spun at 100% CPU during harness iteration; the database
+  was idle with no locks, and it did not reproduce on a clean restart.
+- CI-shaped test fix: the two transport-wiring tests asserted the unset
+  transport default without clearing an ambient `REALTIME_TRANSPORT`, so the
+  new quality-core pin would have failed them only in CI. They now stub
+  `REALTIME_TRANSPORT=""` in `beforeEach`, the same pattern
+  `tests/lib/env.server.test.ts` uses.
+- Validation (CI-mirroring env including `REALTIME_TRANSPORT=polling`): lint
+  and `rls:check` clean; `npm test` 1877 passed / 2 skipped; coverage 93.77%
+  statements, 84.46% branches, 95.42% functions, 94.07% lines; production
+  build passed with both stream routes absent from the route manifest;
+  Playwright 103 passed / 1 skipped (preview-auth-isolation) on PORT 3930;
+  `git diff --check` clean. The RLS matrix is not required for this branch:
+  no Prisma model, migration, or runtime-role changes.
+- Container Image follow-up: the first CI run failed the Docker build because
+  a production-like `next build` defaults to Broadcast while the Dockerfile
+  provisions no Supabase config. `e1fb1cb` pinned polling in the Dockerfile,
+  the local-validation script, and the manual-baseline runbook; `8c13931`
+  tightened `.env.example` and the env-contract runbook. Review round
+  2026-10-08 then scoped the Dockerfile pin to the build only: an `ENV` would
+  have overridden the production Broadcast default in the image runtime.
+- Review round 2026-10-08 (reviewed head `8c13931`, three items): the
+  Dockerfile pin is build-scoped; `project.md` and
+  `docs/runbooks/github-actions-workflows.md` no longer describe SSE as a
+  live transport. Preview deployment evidence for "no legacy SSE
+  invocations": head `62f1842e9b734f83951b11db769264231779e5c5` deployed with
+  `deploy-vercel.yml` (run 38041190779), revision `62f1842` and
+  `environment: preview` verified via `/api/health/ready` on the immutable
+  URL; harness 20/20 with zero stream requests across all tabs; both retired
+  routes return 404. Recorded in `docs/reports/nd-374-realtime-load-test.md`.
+  The Production Vercel Observability check stays the post-flip rollout
+  verification item. Operational note: a first dispatch with `git_ref=62f1842`
+  (short SHA) failed checkout because actions/checkout fetched it as
+  `refs/heads/62f1842`; `git_ref` must be a branch name or full SHA.
+- Merge gating: the Production broadcast flip is deferred and owned by the
+  reviewer; the acceptance check "Vercel Observability reports no legacy SSE
+  invocations" is a post-flip observation on the deployed branch.

@@ -15,8 +15,6 @@ export const REALTIME_METRIC_COUNTERS = [
   "activity.pollingFallbacks",
   "notifications.snapshotChecks",
   "notifications.pollingFallbacks",
-  "stream.connections",
-  "stream.refused",
   "broadcast.tokenIssued",
   "broadcast.tokenDenied",
 ] as const;

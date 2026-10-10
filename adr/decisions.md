@@ -1045,3 +1045,39 @@ Keep UI-only or task-only notes in `journal.md`.
 - Links: `adr/task-372-supabase-realtime-authorization.md`,
   `docs/runbooks/vercel-env-contract-and-secrets.md`,
   `docs/runbooks/vercel-usage-and-spend-guardrails.md`.
+
+## 2026-10-06 - Retire legacy SSE realtime routes; Broadcast with bounded polling fallback (ND-374)
+
+- Status: Accepted.
+
+- Context: ND-373 delivered private Supabase Realtime Broadcast behind
+  `REALTIME_TRANSPORT`, keeping the legacy SSE routes as an intermediate
+  fallback tier. The SSE path is the previous architecture's dominant Fluid
+  compute cost driver — one server function per open tab polling PostgreSQL
+  every second — and its migration window closes with ND-374.
+
+- Decision: Deleted both SSE route handlers
+  (`/api/projects/[projectId]/activity/stream`,
+  `/api/account/notifications/stream`) and the stream helpers
+  (`lib/realtime/server-sent-events.ts`, `project-activity-stream.ts`,
+  `notification-stream.ts`). `REALTIME_TRANSPORT` is now `broadcast |
+  polling`; the retired `stream` value fails startup validation. When unset,
+  production-like deployments default to `broadcast` and Preview, local, and
+  test runtimes default to `polling`. Client precedence collapses to
+  broadcast -> bounded adaptive polling, and
+  `scripts/verify-preview-realtime.mjs` now proves the token-blocked fallback
+  lands on polling. CI quality gates pin `REALTIME_TRANSPORT=polling` because
+  production-like builds default to Broadcast and CI does not provision
+  Supabase Realtime configuration.
+
+- Consequences: No SSE function deploys; healthy Broadcast tabs stay silent
+  while idle; remaining transport cost is token mints per <=60 s Preview /
+  <=10 min default TTL plus bounded poll requests in fallback. Rollback is
+  `REALTIME_TRANSPORT=polling` plus redeploy/promote; the
+  `stream.transportDisabled` kill switch and stream metrics counters are
+  removed (`lib/observability/realtime-metrics.ts`). ADR task-372 carries the
+  amendment note.
+
+- Links: `adr/task-372-supabase-realtime-authorization.md`,
+  `docs/reports/nd-374-realtime-load-test.md`,
+  `docs/runbooks/vercel-env-contract-and-secrets.md`.

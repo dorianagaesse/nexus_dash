@@ -1,7 +1,7 @@
 # ND-372 Private Supabase Realtime Authorization and Channel Contracts
 
 Date: 2026-10-03
-Status: Accepted
+Status: Accepted (amended by ND-374 on 2026-10-06)
 
 ## 1) Decision Summary
 
@@ -35,6 +35,38 @@ Supabase Realtime **Broadcast** over two families of private channels:
 
 This ADR is the authorization and channel contract for ND-373 (implementation);
 ND-374 retires the SSE routes, ND-375 measures cost.
+
+## ND-374 Amendment (2026-10-06)
+
+ND-374 retired the SSE transport. Where this ADR describes an intermediate
+stream tier or a `stream` transport value, those descriptions are historical;
+current behavior:
+
+- `REALTIME_TRANSPORT` is `broadcast | polling`. The retired `stream` value
+  fails startup validation (`lib/env.server.ts`).
+- The SSE routes (`/api/projects/[projectId]/activity/stream`,
+  `/api/account/notifications/stream`), `lib/realtime/server-sent-events.ts`,
+  `lib/realtime/project-activity-stream.ts`, and
+  `lib/realtime/notification-stream.ts` are deleted; `isRealtimeStreamEnabled()`
+  is removed.
+- Client precedence collapses to broadcast -> bounded adaptive polling
+  (superseding section 5.5's broadcast -> stream -> polling). A Broadcast
+  failure (token fetch, channel error, timeout, or close) demotes that tab to
+  polling; a visible or online tab retries Broadcast.
+- Default transport when unset: broadcast on production-like deployments;
+  polling on Vercel Preview, local, and test runtimes. Section 5.6 and section
+  7 step 4 otherwise stand; the step 5 rollback is now
+  `REALTIME_TRANSPORT=polling`, and no stream teardown remains.
+- CI quality gates pin `REALTIME_TRANSPORT=polling` because production-like
+  builds default to Broadcast, which requires Supabase Realtime configuration
+  CI does not provision.
+- Section 8's stream-guard env test, stream-demotion component test, and
+  SSE-fallback Preview run are superseded: ND-374 env tests assert that
+  `stream` fails startup, component tests assert that a Broadcast failure
+  demotes to polling, and `scripts/verify-preview-realtime.mjs` proves the
+  token-blocked fallback lands on bounded polling with no SSE leg. The load
+  test is `scripts/load-test-realtime.mjs` with the recorded run in
+  `docs/reports/nd-374-realtime-load-test.md`.
 
 ## 2) Context
 

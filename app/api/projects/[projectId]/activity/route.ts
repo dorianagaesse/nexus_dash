@@ -4,7 +4,7 @@ import {
   getAgentProjectAccessContext,
   requireApiPrincipal,
 } from "@/lib/auth/api-guard";
-import { isRealtimeStreamEnabled } from "@/lib/env.server";
+import { getRealtimeTransport } from "@/lib/env.server";
 import { recordRealtimeCounter } from "@/lib/observability/realtime-metrics";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { getProjectActivitySnapshot } from "@/lib/services/project-activity-service";
@@ -43,7 +43,7 @@ export async function GET(
   recordRealtimeCounter("activity.snapshotChecks");
   if (
     principalResult.principal.kind === "human" &&
-    isRealtimeStreamEnabled() &&
+    getRealtimeTransport() === "broadcast" &&
     request.headers.get("x-realtime-reconcile") !== "1"
   ) {
     recordRealtimeCounter("activity.pollingFallbacks");
