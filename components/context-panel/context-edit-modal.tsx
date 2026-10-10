@@ -93,7 +93,9 @@ export function ContextEditModal({
       dismissible={!isUpdatingCard && !isSubmittingAttachment}
     >
       <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
-        <RecoveryDraftNotice draft={recovery} onDiscard={onDiscardRecovery} />
+        {recovery.conflict || recovery.error ? (
+          <RecoveryDraftNotice draft={recovery} onDiscard={onDiscardRecovery} />
+        ) : null}
         <input type="hidden" name="cardId" value={editingCard.id} />
         <div className="grid gap-2">
           <label htmlFor="context-edit-title" className="text-sm font-medium">
@@ -257,11 +259,11 @@ export function ContextEditModal({
           <Button
             type="button"
             variant="ghost"
-            onClick={onClose}
+            onClick={recovery.restored ? onDiscardRecovery : onClose}
             disabled={isUpdatingCard || isSubmittingAttachment}
             className="w-full sm:w-auto"
           >
-            Cancel
+            {recovery.restored ? "Discard" : "Cancel"}
           </Button>
         </div>
       </form>

@@ -3,6 +3,12 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-11 - ND-434: Restored draft controls
+
+- Replaced the routine recovery notice in task creation and context-card create/edit with a Discard button in the existing Cancel position. It appears only after a draft is restored, clears that draft without closing the form, and returns to Cancel. Conflict and recovery errors retain their warning.
+- Added browser coverage for button transitions, clearing restored values, and reopening without the discarded draft.
+- Validation: lint, RLS inventory, 1,912 unit tests (2 skipped), coverage (94.07% lines), production build, 7 focused browser tests, and the full Chromium suite (108 passed, 2 skipped). An ND-433 outside-click assertion failed once in the first full run, then passed three focused repeats and the full rerun.
+
 # 2026-10-10 - ND-434: Recovery across remaining authoring forms
 
 - Picked up ND-434 from Backlog, moved it to In Progress, and started `feature/nd-434-remaining-autosave` from `origin/main` in a separate worktree. Cherry-picked the ND-433 prerequisite commits while PR #586 remains open.

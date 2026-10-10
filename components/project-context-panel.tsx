@@ -1260,6 +1260,7 @@ export function ProjectContextPanel({
           createRecovery.discard();
           resetCreateAttachmentDraft();
           setCreateColor(CONTEXT_CARD_COLORS[0]);
+          setCreateError(null);
         }}
         createContent={createContent}
         createLinkUrl={createLinkUrl}
@@ -1296,6 +1297,7 @@ export function ProjectContextPanel({
           setEditTitle(editingCard?.title ?? "");
           setEditContent(editingCard?.content ?? "");
           setEditingColor(editingCard?.color ?? CONTEXT_CARD_COLORS[0]);
+          setEditError(null);
         }}
         mentionProjectId={projectId}
         editContent={editContent}

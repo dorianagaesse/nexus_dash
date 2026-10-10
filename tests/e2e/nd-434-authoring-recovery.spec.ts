@@ -92,6 +92,36 @@ test("create forms recover after close and reload without creating records", asy
     await page.getByRole("button", { name: "Context card options" }).click();
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await expect(page.locator("#context-edit-title")).toHaveValue("Recovered context edit");
+    await expect(page.getByText("Draft restored from this browser.")).toHaveCount(0);
+    await page.getByRole("button", { name: "Discard", exact: true }).click();
+    await expect(page.locator("#context-edit-title")).toHaveValue("Recovered context card");
+    await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+
+    await page.getByRole("button", { name: "Add card" }).click();
+    await page.locator("#context-create-title").fill("Context draft to discard");
+    await page.getByRole("button", { name: "Close New context card" }).click();
+    await page.getByRole("button", { name: "Add card" }).click();
+    await expect(page.getByText("Draft restored from this browser.")).toHaveCount(0);
+    await page.getByRole("button", { name: "Discard", exact: true }).click();
+    await expect(page.locator("#context-create-title")).toHaveValue("");
+    await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("button", { name: "Add card" }).click();
+    await expect(page.locator("#context-create-title")).toHaveValue("");
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+
+    await page.getByRole("button", { name: "New task" }).click();
+    await page.locator("#task-title").fill("Task draft to discard");
+    await page.getByRole("button", { name: "Close task creation" }).click();
+    await page.getByRole("button", { name: "New task" }).click();
+    await expect(page.getByText("Draft restored from this browser.")).toHaveCount(0);
+    await page.getByRole("button", { name: "Discard", exact: true }).click();
+    await expect(page.locator("#task-title")).toHaveValue("");
+    await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("button", { name: "New task" }).click();
+    await expect(page.locator("#task-title")).toHaveValue("");
   } finally {
     await prisma.project.delete({ where: { id: project.id } });
   }

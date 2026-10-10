@@ -188,6 +188,12 @@ export function CreateTaskDialog({
     setIsOpen(false);
   };
 
+  const discardRestoredDraft = () => {
+    taskRecovery.discard();
+    resetDraft();
+    setSubmitError(null);
+  };
+
   const mapCreateTaskError = (errorCode: string): string => {
     switch (errorCode) {
       case "title-too-short":
@@ -810,10 +816,9 @@ export function CreateTaskDialog({
                     className="shrink-0 border-t border-border/60 bg-card/95 px-6 pb-6 pt-4 backdrop-blur supports-[backdrop-filter]:bg-card/90"
                   >
                     <div className="flex w-full flex-col gap-3">
-                      <RecoveryDraftNotice draft={taskRecovery} onDiscard={() => {
-                        taskRecovery.discard();
-                        resetDraft();
-                      }} />
+                      {taskRecovery.conflict || taskRecovery.error ? (
+                        <RecoveryDraftNotice draft={taskRecovery} onDiscard={discardRestoredDraft} />
+                      ) : null}
                       {submitError ? (
                         <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                           {submitError}
@@ -826,11 +831,11 @@ export function CreateTaskDialog({
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={closeDialog}
+                          onClick={taskRecovery.restored ? discardRestoredDraft : closeDialog}
                           disabled={isSubmitting}
                           className="flex-1"
                         >
-                          Cancel
+                          {taskRecovery.restored ? "Discard" : "Cancel"}
                         </Button>
                       </div>
                     </div>

@@ -88,7 +88,9 @@ export function ContextCreateModal({
       dismissible={!isCreatingCard}
     >
       <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
-        <RecoveryDraftNotice draft={recovery} onDiscard={onDiscardRecovery} />
+        {recovery.conflict || recovery.error ? (
+          <RecoveryDraftNotice draft={recovery} onDiscard={onDiscardRecovery} />
+        ) : null}
         <div className="grid gap-2">
           <label htmlFor="context-create-title" className="text-sm font-medium">
             Title
@@ -229,11 +231,11 @@ export function ContextCreateModal({
           <Button
             type="button"
             variant="ghost"
-            onClick={onClose}
+            onClick={recovery.restored ? onDiscardRecovery : onClose}
             disabled={isCreatingCard}
             className="w-full sm:w-auto"
           >
-            Cancel
+            {recovery.restored ? "Discard" : "Cancel"}
           </Button>
         </div>
         {createError ? (
