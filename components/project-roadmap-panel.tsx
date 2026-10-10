@@ -83,8 +83,15 @@ interface EventDialogState {
 }
 
 interface MilestoneDialogState {
-  phaseId: string;
+  mode: "edit" | "create";
+  phaseId: string | null;
   phaseIndex: number;
+  pendingEventDrop?: {
+    movedEvent: ProjectRoadmapPanelEvent;
+    sourcePhaseId: string;
+    sourceIndex: number;
+    insertIndex: number;
+  } | null;
 }
 
 interface RoadmapPhaseLayoutMeasurement {
@@ -109,6 +116,21 @@ const DEFAULT_DRAFT_STATE: RoadmapDraftState = {
 
 const NEW_MILESTONE_TARGET = "__roadmap-new-milestone__";
 const NEW_MILESTONE_DROP_ID = "__roadmap-drop-new-milestone__";
+const INTERMEDIATE_MILESTONE_DROP_PREFIX = "__roadmap-drop-new-milestone-at-";
+
+function getIntermediateMilestoneDropId(insertIndex: number): string {
+  return `${INTERMEDIATE_MILESTONE_DROP_PREFIX}${insertIndex}__`;
+}
+
+function parseIntermediateMilestoneDropIndex(droppableId: string): number | null {
+  if (droppableId.startsWith(INTERMEDIATE_MILESTONE_DROP_PREFIX)) {
+    const match = droppableId.match(/^__roadmap-drop-new-milestone-at-(\d+)__$/);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+  }
+  return null;
+}
 const ROADMAP_LANE_WIDTH_CLASS = "w-[21rem]";
 const CONNECTOR_CARD_HEIGHT = 212;
 const CONNECTOR_CARD_GAP = 16;
@@ -1084,18 +1106,134 @@ function buildForkConnectorSegments(
   };
 }
 
+function RoadmapDesktopBetweenMilestonesDropZone({
+  canEdit,
+  isDraggingEvent,
+  insertIndex,
+  maxEventsCount,
+}: {
+  canEdit: boolean;
+  isDraggingEvent: boolean;
+  insertIndex: number;
+  maxEventsCount: number;
+}) {
+  if (!canEdit) {
+    return null;
+  }
+
+  const dropZoneTopOffset =
+    CONNECTOR_TOP_OFFSET + getLaneVerticalOffset(1, maxEventsCount);
+
+  return (
+    <div
+      className={cn(
+        "absolute inset-x-1.5 z-10 transition-all duration-200",
+        isDraggingEvent
+          ? "pointer-events-auto opacity-100"
+          : "pointer-events-none opacity-0"
+      )}
+      style={{
+        top: dropZoneTopOffset,
+      }}
+      aria-hidden={!isDraggingEvent}
+    >
+      <Droppable
+        droppableId={getIntermediateMilestoneDropId(insertIndex)}
+        type="ROADMAP_EVENT"
+        isDropDisabled={!canEdit}
+      >
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            data-roadmap-between-milestones-dropzone={insertIndex}
+            className={cn(
+              "flex min-h-[170px] w-full flex-col items-center justify-center rounded-[1.4rem] border-2 border-dashed p-3 text-center transition-all duration-150",
+              snapshot.isDraggingOver
+                ? "scale-[1.03] border-primary bg-slate-200/95 dark:bg-slate-800/90 shadow-[0_20px_50px_-20px_rgba(15,23,42,0.6)] ring-2 ring-primary/40"
+                : "border-border/80 bg-background/85 hover:border-primary/60 shadow-[0_10px_30px_-15px_rgba(15,23,42,0.3)]"
+            )}
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary mb-1.5">
+              <PlusSquare className="h-4 w-4" />
+            </div>
+            <span className="text-xs font-semibold text-foreground">Insert milestone</span>
+            <span className="text-[10px] text-muted-foreground mt-0.5">Drop event here</span>
+            {provided.placeholder}
+          </div>
+        )}
+      </Droppable>
+    </div>
+  );
+}
+
+function RoadmapMobileBetweenMilestonesDropZone({
+  canEdit,
+  isDraggingEvent,
+  insertIndex,
+}: {
+  canEdit: boolean;
+  isDraggingEvent: boolean;
+  insertIndex: number;
+}) {
+  if (!canEdit) {
+    return null;
+  }
+
+  return (
+    <div
+      className={cn(
+        "w-full px-1 transition-all",
+        !isDraggingEvent && "hidden"
+      )}
+      aria-hidden={!isDraggingEvent}
+    >
+      <Droppable
+        droppableId={getIntermediateMilestoneDropId(insertIndex)}
+        type="ROADMAP_EVENT"
+        isDropDisabled={!canEdit}
+      >
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            data-roadmap-between-milestones-dropzone={insertIndex}
+            data-roadmap-mobile-between-milestones-dropzone={insertIndex}
+            className={cn(
+              "flex min-h-[75px] w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-3 text-center transition",
+              snapshot.isDraggingOver
+                ? "border-primary bg-slate-200/95 dark:bg-slate-800/90 shadow-md text-foreground"
+                : "border-border/80 bg-muted/40 text-muted-foreground"
+            )}
+          >
+            <PlusSquare className="h-4 w-4 text-primary" />
+            <span className="text-xs font-medium">Insert milestone between milestones</span>
+            {provided.placeholder}
+          </div>
+        )}
+      </Droppable>
+    </div>
+  );
+}
+
 function RoadmapDesktopConnector({
   currentPhase,
   nextPhase,
   maxEventsCount,
   currentMeasurement,
   nextMeasurement,
+  canEdit,
+  isDraggingEvent,
+  insertIndex,
 }: {
   currentPhase: ProjectRoadmapPanelPhase;
   nextPhase: ProjectRoadmapPanelPhase;
   maxEventsCount: number;
   currentMeasurement?: RoadmapPhaseLayoutMeasurement;
   nextMeasurement?: RoadmapPhaseLayoutMeasurement;
+  canEdit?: boolean;
+  isDraggingEvent?: boolean;
+  insertIndex?: number;
 }) {
   const fallbackHeight = getLaneConnectorHeight(maxEventsCount);
   const width = CONNECTOR_WIDTH;
@@ -1133,11 +1271,11 @@ function RoadmapDesktopConnector({
 
   return (
     <div
-      aria-hidden="true"
       className="relative hidden w-[9.25rem] shrink-0 lg:block"
       style={{ height }}
     >
       <svg
+        aria-hidden="true"
         viewBox={`0 0 ${width} ${height}`}
         className="h-full w-full overflow-visible"
         fill="none"
@@ -1171,6 +1309,14 @@ function RoadmapDesktopConnector({
           />
         ))}
       </svg>
+      {canEdit && insertIndex !== undefined ? (
+        <RoadmapDesktopBetweenMilestonesDropZone
+          canEdit={canEdit}
+          isDraggingEvent={Boolean(isDraggingEvent)}
+          insertIndex={insertIndex}
+          maxEventsCount={maxEventsCount}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1820,8 +1966,10 @@ export function ProjectRoadmapPanel({
     setMilestoneMutationError(null);
     setMilestoneDraft(cloneDraftState(phase));
     setMilestoneDialog({
+      mode: "edit",
       phaseId: phase.id,
       phaseIndex: phaseIndex >= 0 ? phaseIndex : 0,
+      pendingEventDrop: null,
     });
   }
 
@@ -1981,6 +2129,129 @@ export function ProjectRoadmapPanel({
     setMilestoneMutationError(null);
 
     try {
+      if (milestoneDialog.mode === "create") {
+        const { pendingEventDrop } = milestoneDialog;
+        if (!pendingEventDrop) {
+          setIsSubmittingMilestone(false);
+          return;
+        }
+
+        const createResponse = await fetchProjectActivityMutation(
+          projectId,
+          `/api/projects/${projectId}/roadmap`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              title: trimmedTitle,
+              description: milestoneDraft.description.trim() ? milestoneDraft.description.trim() : null,
+              targetDate: milestoneDraft.targetDate || null,
+              status: milestoneDraft.status,
+            }),
+          }
+        );
+
+        if (!createResponse.ok) {
+          const errorCode = await readApiError(createResponse);
+          setMilestoneMutationError(mapRoadmapMutationError(errorCode));
+          return;
+        }
+
+        const createPayload = (await createResponse.json()) as {
+          phase: ProjectRoadmapPanelPhase;
+        };
+        const createdPhase = createPayload.phase;
+
+        const insertIndex = pendingEventDrop.insertIndex;
+        const currentPhaseIds = roadmapPhases.map((phase) => phase.id);
+        const reorderedPhaseIds = [
+          ...currentPhaseIds.slice(0, insertIndex),
+          createdPhase.id,
+          ...currentPhaseIds.slice(insertIndex),
+        ];
+
+        const reorderResponse = await fetchProjectActivityMutation(
+          projectId,
+          `/api/projects/${projectId}/roadmap/phases/reorder`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              phaseIds: reorderedPhaseIds,
+            }),
+          }
+        );
+
+        if (!reorderResponse.ok) {
+          const errorCode = await readApiError(reorderResponse);
+          setMilestoneMutationError(mapRoadmapMutationError(errorCode));
+          return;
+        }
+
+        await persistEventMove(pendingEventDrop.movedEvent.id, createdPhase.id, 0);
+
+        const sourcePhase = roadmapPhases.find((phase) => phase.id === pendingEventDrop.sourcePhaseId);
+        const isSourceEmptied =
+          sourcePhase &&
+          sourcePhase.events.length === 1 &&
+          sourcePhase.events[0]?.id === pendingEventDrop.movedEvent.id;
+
+        if (isSourceEmptied) {
+          await deletePhaseById(sourcePhase.id);
+        }
+
+        const updatedSourcePhases = roadmapPhases.map((phase) => {
+          if (phase.id === pendingEventDrop.sourcePhaseId) {
+            return {
+              ...phase,
+              events: phase.events
+                .filter((event) => event.id !== pendingEventDrop.movedEvent.id)
+                .map((event, idx) => ({ ...event, position: idx })),
+            };
+          }
+          return phase;
+        });
+
+        const filteredPhases = isSourceEmptied
+          ? updatedSourcePhases.filter((phase) => phase.id !== pendingEventDrop.sourcePhaseId)
+          : updatedSourcePhases;
+
+        const createdPhaseWithEvent: ProjectRoadmapPanelPhase = {
+          ...createdPhase,
+          position: insertIndex,
+          events: [
+            {
+              ...pendingEventDrop.movedEvent,
+              phaseId: createdPhase.id,
+              position: 0,
+            },
+          ],
+        };
+
+        const finalPhases = [
+          ...filteredPhases.slice(0, insertIndex),
+          createdPhaseWithEvent,
+          ...filteredPhases.slice(insertIndex),
+        ].map((phase, idx) => ({
+          ...phase,
+          position: idx,
+        }));
+
+        setRoadmapPhases(sortRoadmapPhasesForDisplay(finalPhases));
+
+        pushToast({
+          message: `Milestone "${createdPhase.title}" created with "${pendingEventDrop.movedEvent.title}".`,
+          variant: "success",
+        });
+
+        closeMilestoneDialog();
+        return;
+      }
+
       const response = await fetchProjectActivityMutation(
         projectId,
         `/api/projects/${projectId}/roadmap/phases/${milestoneDialog.phaseId}`,
@@ -2235,6 +2506,36 @@ export function ProjectRoadmapPanel({
     const destinationPhaseId = destination.droppableId;
 
     if (sourcePhaseId === destinationPhaseId && source.index === destination.index) {
+      return;
+    }
+
+    const intermediateInsertIndex = parseIntermediateMilestoneDropIndex(destinationPhaseId);
+    if (intermediateInsertIndex !== null) {
+      const sourcePhase = roadmapPhases.find((phase) => phase.id === sourcePhaseId);
+      const movedEvent = sourcePhase?.events[source.index] ?? null;
+
+      if (!movedEvent) {
+        return;
+      }
+
+      setMilestoneDraft({
+        title: getMilestoneLabel(intermediateInsertIndex),
+        description: "",
+        targetDate: movedEvent.targetDate ?? "",
+        status: movedEvent.status || "planned",
+      });
+      setMilestoneMutationError(null);
+      setMilestoneDialog({
+        mode: "create",
+        phaseId: null,
+        phaseIndex: intermediateInsertIndex,
+        pendingEventDrop: {
+          movedEvent,
+          sourcePhaseId,
+          sourceIndex: source.index,
+          insertIndex: intermediateInsertIndex,
+        },
+      });
       return;
     }
 
@@ -2576,6 +2877,16 @@ export function ProjectRoadmapPanel({
                           nextMeasurement={
                             phaseLayoutMeasurements[roadmapPhases[phaseIndex + 1]?.id ?? ""]
                           }
+                          canEdit={canEdit}
+                          isDraggingEvent={isDraggingEvent}
+                          insertIndex={phaseIndex + 1}
+                        />
+                      ) : null}
+                      {!isDesktopLayout && phaseIndex < roadmapPhases.length - 1 && canEdit ? (
+                        <RoadmapMobileBetweenMilestonesDropZone
+                          canEdit={canEdit}
+                          isDraggingEvent={isDraggingEvent}
+                          insertIndex={phaseIndex + 1}
                         />
                       ) : null}
                     </div>
@@ -2666,12 +2977,16 @@ export function ProjectRoadmapPanel({
       </RoadmapDialogShell>
 
       <RoadmapDialogShell
-        title="Edit milestone"
+        title={milestoneDialog?.mode === "create" ? "New milestone" : "Edit milestone"}
         subtitle={
           milestoneDialog
-            ? `Update details for ${getMilestoneLabel(
-                milestoneDialog.phaseIndex
-              )}.`
+            ? milestoneDialog.mode === "create"
+              ? milestoneDialog.phaseIndex > 0 && milestoneDialog.phaseIndex < roadmapPhases.length
+                ? `Insert a new milestone between ${roadmapPhases[milestoneDialog.phaseIndex - 1]?.title || getMilestoneLabel(milestoneDialog.phaseIndex - 1)} and ${roadmapPhases[milestoneDialog.phaseIndex]?.title || getMilestoneLabel(milestoneDialog.phaseIndex)}.`
+                : `Create a new milestone at position ${milestoneDialog.phaseIndex + 1}.`
+              : `Update details for ${getMilestoneLabel(
+                  milestoneDialog.phaseIndex
+                )}.`
             : undefined
         }
         headerBadge={
@@ -2679,7 +2994,7 @@ export function ProjectRoadmapPanel({
             variant="outline"
             className="rounded-full border-border/70 bg-muted/30 px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground"
           >
-            Editing
+            {milestoneDialog?.mode === "create" ? "New" : "Editing"}
           </Badge>
         }
         isOpen={milestoneDialog !== null}
@@ -2689,9 +3004,13 @@ export function ProjectRoadmapPanel({
         <RoadmapEntityForm
           draft={milestoneDraft}
           idPrefix="roadmap-milestone"
-          titlePlaceholder="No title yet"
+          titlePlaceholder={
+            milestoneDialog?.mode === "create"
+              ? getMilestoneLabel(milestoneDialog.phaseIndex)
+              : "No title yet"
+          }
           descriptionPlaceholder="No description yet"
-          submitLabel="Save milestone"
+          submitLabel={milestoneDialog?.mode === "create" ? "Create milestone" : "Save milestone"}
           targetDateLabel="Milestone date"
           statusLabel="Milestone status"
           statusOptions={statusSelectOptions}

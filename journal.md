@@ -2,6 +2,28 @@
 
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
+# 2026-10-10 - ND-403: Create a milestone by dropping a roadmap event between milestones
+
+- Card `cmtkk0wnu000e04l1macj5qlt` under epic "Roadmap interaction refinement":
+  - Enabled milestone creation directly by dropping or moving a roadmap event into the gap between two existing milestones:
+    - Added intermediate milestone drop targets (`RoadmapDesktopBetweenMilestonesDropZone` and `RoadmapMobileBetweenMilestonesDropZone`) rendered in the connector gaps between adjacent milestones during event drag operations.
+    - Drop zone features dashed interactive styling, animated hover/drag-over highlight, accessible droppable ID (`__roadmap-drop-new-milestone-at-${insertIndex}__`), `PlusSquare` icon, and "Insert milestone" label.
+    - Updated `handleDragEnd` to detect intermediate gap drops, stage the moved event, pre-fill a draft milestone with sensible defaults derived from the dropped event, and present the milestone creation dialog (`mode: "create"`).
+    - Milestone dialog allows reviewing and editing details (title, target date, description, status) with full validation (title 2-100 characters, description <= 400 characters) before confirming creation.
+    - On confirmation (`submitMilestone`), sequentially creates the new milestone phase via `POST /api/projects/${projectId}/roadmap`, reorders the phases to insert the new milestone at the specified position via `POST /api/projects/${projectId}/roadmap/phases/reorder`, moves the event into the new milestone at position 0 via `persistEventMove`, cleans up any emptied source phase, and updates the roadmap optimistically with toast feedback.
+    - Cancellation or validation failure cleanly aborts the operation and preserves all existing milestone and event order intact.
+  - Automated tests:
+    - Added 3 comprehensive unit tests in `tests/components/project-roadmap-panel.test.tsx`:
+      - Intermediate drop dialog cancellation: dialog dismisses without API calls, preserving event and milestone order.
+      - Validation failure: invalid/short title displays error message and halts creation without modifying state.
+      - Successful creation & linking flow: executes create, reorder, and move APIs in sequence, displays toast notification, and updates roadmap phase ordering.
+  - Validation:
+    - `npm run lint`: passed (0 errors, 0 warnings).
+    - `npm run rls:check`: passed.
+    - `npm run test:coverage`: 231 test files passed, 1898 tests passed, met all coverage thresholds.
+    - `npx next build --webpack`: compiled successfully and generated 27 static routes.
+    - `git diff --check`: clean.
+
 # 2026-10-06 - ND-404: Enable milestone editing from roadmap edit mode
 
 - Card `cmtkk0ymw000h04l103wo0zjz` under epic "Roadmap interaction refinement":
