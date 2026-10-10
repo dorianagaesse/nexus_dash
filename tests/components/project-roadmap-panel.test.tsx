@@ -1531,6 +1531,17 @@ function setInputValue(input: HTMLElement, value: string) {
             createdAt: "2026-04-20T00:00:00.000Z",
             updatedAt: "2026-04-20T00:00:00.000Z",
           },
+          {
+            id: "event-2",
+            phaseId: "phase-1",
+            title: "Task 2",
+            description: null,
+            targetDate: "2026-05-15",
+            status: "planned" as const,
+            position: 1,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
         ],
       },
       {
@@ -1555,11 +1566,11 @@ function setInputValue(input: HTMLElement, value: string) {
       })
     );
 
-    // Drop event between phase-1 and phase-2 (insertIndex = 1)
+    // Drop event-2 between phase-1 and phase-2 (insertIndex = 1)
     await act(async () => {
       await capturedOnDragEnd!({
-        draggableId: "event-1",
-        source: { droppableId: "phase-1", index: 0 },
+        draggableId: "event-2",
+        source: { droppableId: "phase-1", index: 1 },
         destination: { droppableId: "__roadmap-drop-new-milestone-at-1__", index: 0 },
       });
     });
@@ -1615,6 +1626,17 @@ function setInputValue(input: HTMLElement, value: string) {
             createdAt: "2026-04-20T00:00:00.000Z",
             updatedAt: "2026-04-20T00:00:00.000Z",
           },
+          {
+            id: "event-2",
+            phaseId: "phase-1",
+            title: "Task 2",
+            description: null,
+            targetDate: "2026-05-15",
+            status: "planned" as const,
+            position: 1,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
         ],
       },
       {
@@ -1639,11 +1661,11 @@ function setInputValue(input: HTMLElement, value: string) {
       })
     );
 
-    // Drop event between phase-1 and phase-2
+    // Drop event-2 between phase-1 and phase-2
     await act(async () => {
       await capturedOnDragEnd!({
-        draggableId: "event-1",
-        source: { droppableId: "phase-1", index: 0 },
+        draggableId: "event-2",
+        source: { droppableId: "phase-1", index: 1 },
         destination: { droppableId: "__roadmap-drop-new-milestone-at-1__", index: 0 },
       });
     });
@@ -1948,6 +1970,157 @@ function setInputValue(input: HTMLElement, value: string) {
     // It has opacity-0 when not dragged over (no default intrusive popup/text)
     expect(dropzone?.className).toContain("opacity-0");
     expect(dropzone?.textContent).not.toContain("Insert milestone");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("reorders milestones directly when moving sole event of milestone 3 between milestones 1 and 2 without opening creation modal", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    const phases = [
+      {
+        id: "phase-1",
+        title: "Beta Launch",
+        description: null,
+        targetDate: null,
+        status: "planned" as const,
+        position: 0,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [
+          {
+            id: "event-1",
+            phaseId: "phase-1",
+            title: "Task 1",
+            description: null,
+            targetDate: "2026-05-01",
+            status: "planned" as const,
+            position: 0,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+        ],
+      },
+      {
+        id: "phase-2",
+        title: "Milestone 2",
+        description: null,
+        targetDate: null,
+        status: "planned" as const,
+        position: 1,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [
+          {
+            id: "event-2",
+            phaseId: "phase-2",
+            title: "Task 2",
+            description: null,
+            targetDate: "2026-06-01",
+            status: "planned" as const,
+            position: 0,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+        ],
+      },
+      {
+        id: "phase-3",
+        title: "Milestone 3",
+        description: null,
+        targetDate: null,
+        status: "planned" as const,
+        position: 2,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [
+          {
+            id: "event-3",
+            phaseId: "phase-3",
+            title: "Task 3",
+            description: null,
+            targetDate: "2026-07-01",
+            status: "planned" as const,
+            position: 0,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+        ],
+      },
+    ];
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          [PROJECT_ACTIVITY_VERSION_HEADER]: "2026-04-21T00:00:02.000Z",
+        },
+      })
+    );
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases,
+      })
+    );
+
+    // Drop sole event of phase-3 into gap between phase-1 and phase-2 (insertIndex = 1)
+    await act(async () => {
+      await capturedOnDragEnd!({
+        draggableId: "event-3",
+        source: { droppableId: "phase-3", index: 0 },
+        destination: { droppableId: "__roadmap-drop-new-milestone-at-1__", index: 0 },
+      });
+    });
+
+    // No creation dialog should open
+    expect(document.body.querySelector("[role='dialog']")).toBeNull();
+
+    // Reorder API should be called with swapped order: phase-1, phase-3, phase-2
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/project-1/roadmap/phases/reorder", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        phaseIds: ["phase-1", "phase-3", "phase-2"],
+      }),
+    });
+
+    // Toast pushed
+    expect(pushToastMock).toHaveBeenCalledWith({
+      message: "Milestone order updated.",
+      variant: "success",
+    });
+
+    // Check rendered milestone positions: phase-1 -> phase-3 -> phase-2
+    const renderedPhases = Array.from(
+      container.querySelectorAll("[data-roadmap-phase-id]")
+    ).map((el) => el.getAttribute("data-roadmap-phase-id"));
+    expect(renderedPhases).toEqual(["phase-1", "phase-3", "phase-2"]);
+
+    // Milestone 1 has custom title "Beta Launch"
+    const phase1Header = container.querySelector("[data-roadmap-phase-id='phase-1']");
+    expect(phase1Header?.textContent).toContain("Beta Launch");
+
+    // Milestone 3 (now index 1, badge "Milestone 2") must NOT display "Milestone 3" or "Milestone 2" as custom title
+    const phase3Header = container.querySelector("[data-roadmap-phase-id='phase-3']");
+    expect(phase3Header?.textContent).toContain("Milestone 2");
+    expect(phase3Header?.textContent).toContain("No title yet");
+    expect(phase3Header?.querySelector("[data-roadmap-phase-title='phase-3']")?.textContent).toBe("No title yet");
+
+    // Milestone 2 (now index 2, badge "Milestone 3") must NOT display "Milestone 2" as custom title
+    const phase2Header = container.querySelector("[data-roadmap-phase-id='phase-2']");
+    expect(phase2Header?.textContent).toContain("Milestone 3");
+    expect(phase2Header?.textContent).toContain("No title yet");
+    expect(phase2Header?.querySelector("[data-roadmap-phase-title='phase-2']")?.textContent).toBe("No title yet");
 
     await act(async () => {
       root.unmount();

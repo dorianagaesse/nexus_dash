@@ -980,6 +980,23 @@ function getMilestoneLabel(phaseIndex: number): string {
   return `Milestone ${phaseIndex + 1}`;
 }
 
+function hasCustomMilestoneTitle(title: string | null | undefined): boolean {
+  if (!title) {
+    return false;
+  }
+  return !/^milestone\s+\d+$/i.test(title.trim());
+}
+
+function getMilestoneDisplayTitle(
+  phase: ProjectRoadmapPanelPhase | undefined,
+  phaseIndex: number
+): string {
+  if (!phase) {
+    return getMilestoneLabel(phaseIndex);
+  }
+  return hasCustomMilestoneTitle(phase.title) ? phase.title : getMilestoneLabel(phaseIndex);
+}
+
 function getEventCountLabel(count: number): string {
   return `${count} event${count === 1 ? "" : "s"}`;
 }
@@ -1524,7 +1541,7 @@ function RoadmapMilestoneLane({
             >
               {milestoneLabel}
             </p>
-            {phase.title && phase.title !== milestoneLabel ? (
+            {hasCustomMilestoneTitle(phase.title) ? (
               <span
                 className="font-semibold text-sm text-foreground truncate max-w-[12rem]"
                 title={phase.title}
@@ -1547,7 +1564,7 @@ function RoadmapMilestoneLane({
                 type="button"
                 className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground/50 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => onEditMilestone(phase)}
-                aria-label={`Edit ${phase.title || milestoneLabel}`}
+                aria-label={`Edit ${hasCustomMilestoneTitle(phase.title) ? phase.title : milestoneLabel}`}
                 title="Edit milestone details"
                 data-roadmap-edit-milestone={phase.id}
               >
@@ -2517,6 +2534,68 @@ export function ProjectRoadmapPanel({
         return;
       }
 
+      const sourcePhaseIndex = roadmapPhases.findIndex((phase) => phase.id === sourcePhaseId);
+      const isSoleEvent = Boolean(
+        sourcePhase &&
+        sourcePhase.events.length === 1 &&
+        sourcePhase.events[0]?.id === draggableId
+      );
+
+      if (isSoleEvent && sourcePhaseIndex !== -1) {
+        const targetPhaseIndex =
+          sourcePhaseIndex < intermediateInsertIndex
+            ? intermediateInsertIndex - 1
+            : intermediateInsertIndex;
+
+        if (targetPhaseIndex === sourcePhaseIndex) {
+          return;
+        }
+
+        const previousPhases = roadmapPhases;
+        const reordered = reorderList(previousPhases, sourcePhaseIndex, targetPhaseIndex).map(
+          (phase, idx) => ({
+            ...phase,
+            position: idx,
+          })
+        );
+
+        setRoadmapPhases(sortRoadmapPhasesForDisplay(reordered));
+
+        try {
+          const response = await fetchProjectActivityMutation(
+            projectId,
+            `/api/projects/${projectId}/roadmap/phases/reorder`,
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({
+                phaseIds: reordered.map((phase) => phase.id),
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(mapRoadmapMutationError(await readApiError(response)));
+          }
+
+          pushToast({
+            message: "Milestone order updated.",
+            variant: "success",
+          });
+        } catch (error) {
+          console.error("[ProjectRoadmapPanel.handleDragEnd.reorderMilestone]", error);
+          setRoadmapPhases(previousPhases);
+          pushToast({
+            message: error instanceof Error ? error.message : mapRoadmapMutationError(),
+            variant: "error",
+          });
+        }
+
+        return;
+      }
+
       setMilestoneDraft({
         title: getMilestoneLabel(intermediateInsertIndex),
         description: "",
@@ -2543,6 +2622,64 @@ export function ProjectRoadmapPanel({
       const movedEvent = sourcePhase?.events[source.index] ?? null;
 
       if (!movedEvent) {
+        return;
+      }
+
+      const sourcePhaseIndex = roadmapPhases.findIndex((phase) => phase.id === sourcePhaseId);
+      const isSoleEvent = Boolean(
+        sourcePhase &&
+        sourcePhase.events.length === 1 &&
+        sourcePhase.events[0]?.id === draggableId
+      );
+
+      if (isSoleEvent && sourcePhaseIndex !== -1) {
+        const targetPhaseIndex = roadmapPhases.length - 1;
+        if (targetPhaseIndex === sourcePhaseIndex) {
+          return;
+        }
+
+        const previousPhases = roadmapPhases;
+        const reordered = reorderList(previousPhases, sourcePhaseIndex, targetPhaseIndex).map(
+          (phase, idx) => ({
+            ...phase,
+            position: idx,
+          })
+        );
+
+        setRoadmapPhases(sortRoadmapPhasesForDisplay(reordered));
+
+        try {
+          const response = await fetchProjectActivityMutation(
+            projectId,
+            `/api/projects/${projectId}/roadmap/phases/reorder`,
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({
+                phaseIds: reordered.map((phase) => phase.id),
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(mapRoadmapMutationError(await readApiError(response)));
+          }
+
+          pushToast({
+            message: "Milestone order updated.",
+            variant: "success",
+          });
+        } catch (error) {
+          console.error("[ProjectRoadmapPanel.handleDragEnd.reorderMilestoneEnd]", error);
+          setRoadmapPhases(previousPhases);
+          pushToast({
+            message: error instanceof Error ? error.message : mapRoadmapMutationError(),
+            variant: "error",
+          });
+        }
+
         return;
       }
 
@@ -2981,7 +3118,7 @@ export function ProjectRoadmapPanel({
           milestoneDialog
             ? milestoneDialog.mode === "create"
               ? milestoneDialog.phaseIndex > 0 && milestoneDialog.phaseIndex < roadmapPhases.length
-                ? `Insert a new milestone between ${roadmapPhases[milestoneDialog.phaseIndex - 1]?.title || getMilestoneLabel(milestoneDialog.phaseIndex - 1)} and ${roadmapPhases[milestoneDialog.phaseIndex]?.title || getMilestoneLabel(milestoneDialog.phaseIndex)}.`
+                ? `Insert a new milestone between ${getMilestoneDisplayTitle(roadmapPhases[milestoneDialog.phaseIndex - 1], milestoneDialog.phaseIndex - 1)} and ${getMilestoneDisplayTitle(roadmapPhases[milestoneDialog.phaseIndex], milestoneDialog.phaseIndex)}.`
                 : `Create a new milestone at position ${milestoneDialog.phaseIndex + 1}.`
               : `Update details for ${getMilestoneLabel(
                   milestoneDialog.phaseIndex
