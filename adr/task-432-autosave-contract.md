@@ -16,8 +16,9 @@ NexusDash will treat autosave as two separate capabilities:
    stay inside the agreed latency and database-load budget.
 
 Creation, publication, destructive actions, workflow transitions, and writes
-to external systems remain explicit. In particular, an autosaved task or
-meeting-comment draft is never posted, and an autosaved create draft never
+to external systems remain explicit, except that dismissing changed meeting
+preparation now invokes its normal Save preparation action. An autosaved task or
+meeting-comment draft is never posted, and timed draft persistence never
 creates a partial or duplicate entity. Every surface that receives recovery
 drafts or live save keeps its existing explicit action; on edit surfaces that
 action flushes pending changes through the same conflict-safe mutation path.
@@ -117,7 +118,7 @@ authoritative even after autosave is introduced.
 | Task comment composer                                                                                                | Text, human/agent mention selections, and already-uploaded screenshot attachment ids     | Draft only; never auto-post                                                                                                   | **Add comment** publishes. Clear only after a successful POST or explicit Discard.                                                                                        |
 | Task creation                                                                                                        | Title, labels, description, deadline, epic, assignee, related task ids, and staged links | Draft only; never auto-create                                                                                                 | **Create task** creates exactly once. Clear after the server confirms creation. Local file selections are not restorable.                                                 |
 | Task detail edit                                                                                                     | Editable task fields and their base snapshot/revision                                    | Draft plus conditional Live after the latency gate                                                                            | **Save changes** flushes now. Clear when the acknowledged server representation matches the draft. New blocked follow-up entries and attachment commands remain explicit. |
-| Meeting preparation - create                                                                                         | Title, time, participants, labels, and input notes                                       | Draft only; never auto-create                                                                                                 | **Save preparation** creates the meeting note. Clear on confirmed creation.                                                                                               |
+| Meeting preparation - create                                                                                         | Title, time, participants, labels, and input notes                                       | Local recovery; closing a changed valid form invokes the normal create action                                                   | **Save preparation** or dismissing a changed form creates the meeting note. Clear on confirmed creation.                                                                 |
 | Meeting preparation - edit                                                                                           | Preparation fields and their base snapshot/revision                                      | Draft plus conditional Live after the latency gate                                                                            | **Save preparation** flushes now. Steward changes remain their existing atomic command.                                                                                   |
 | Meeting output/todos - edit                                                                                          | Output notes and uncommitted todo text/assignment changes with the note base revision    | Draft plus conditional Live for content; the aggregate must use the note revision                                             | **Save notes** flushes now. Moving the note to Done/archive remains explicit and is not triggered by a timer. Todo completion remains its existing atomic command.        |
 | Context card creation                                                                                                | Title, rich content, color, and staged links                                             | Draft only; never auto-create                                                                                                 | **Create card** creates once. Clear on confirmed creation; local files must be reselected after reload.                                                                   |
@@ -405,6 +406,12 @@ and the server revision check.
 2. In ND-433, add recovery drafts to task comments, task detail edits, meeting
    preparation, and meeting output/todos. Preserve the current explicit
    buttons.
+   ND-433 implements browser-local recovery for these surfaces with a shared
+   versioned store, 300 ms debounce, close/pagehide flush, and a conflict
+   warning when the saved record or another tab changes. Meeting-note dialogs
+   omit draft status and discard controls. Closing changed preparation invokes
+   its normal save mutation; timed draft writes do not start network saves.
+   The revision and load gates in steps 3-5 remain prerequisites for Live.
 3. Add content revisions, conditional partial PATCH contracts, conflict UI,
    autosave mutation intent, and the coalesced invalidation/activity producer
    for Task and ProjectMeetingNote.
