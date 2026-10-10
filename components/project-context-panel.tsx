@@ -22,6 +22,7 @@ import { ContextCardsGrid } from "@/components/context-panel/context-cards-grid"
 import { ContextCreateModal } from "@/components/context-panel/context-create-modal";
 import { ContextEditModal } from "@/components/context-panel/context-edit-modal";
 import { ContextPreviewModal } from "@/components/context-panel/context-preview-modal";
+import { RecoveryDraftNotice } from "@/components/recovery-draft-notice";
 import { useToast } from "@/components/toast-provider";
 import type { MentionDisplayUser } from "@/components/ui/mention-hover-card";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
@@ -59,11 +60,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
+import { recoveryDraftKey, useRecoveryDraft } from "@/lib/hooks/use-recovery-draft";
 import { cn } from "@/lib/utils";
 
 interface ProjectContextPanelProps {
   canEdit: boolean;
   projectId: string;
+  actorUserId: string;
   storageProvider: "local" | "r2";
   cards: ProjectContextCard[];
   collaborators: MentionDisplayUser[];
@@ -120,6 +123,7 @@ function hasContextCardAttachments(
 export function ProjectContextPanel({
   canEdit,
   projectId,
+  actorUserId,
   storageProvider,
   cards,
   collaborators,
@@ -136,6 +140,7 @@ export function ProjectContextPanel({
   });
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createColor, setCreateColor] = useState<string>(getRandomContextColor());
+  const [createTitle, setCreateTitle] = useState("");
   const [createContent, setCreateContent] = useState("");
   const [createLinkUrl, setCreateLinkUrl] = useState("");
   const [isCreateLinkComposerOpen, setIsCreateLinkComposerOpen] = useState(false);
@@ -146,6 +151,7 @@ export function ProjectContextPanel({
   const [createFileInputKey, setCreateFileInputKey] = useState(0);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [editingColor, setEditingColor] = useState<string>(CONTEXT_CARD_COLORS[0]);
+  const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -192,6 +198,54 @@ export function ProjectContextPanel({
     () => localCards.find((card) => card.id === editingCardId) ?? null,
     [localCards, editingCardId]
   );
+  const createRecoveryValue = useMemo(() => ({
+    title: createTitle, content: createContent, color: createColor,
+    links: createAttachmentLinks, linkUrl: createLinkUrl,
+  }), [createTitle, createContent, createColor, createAttachmentLinks, createLinkUrl]);
+  const createRecoveryBase = useMemo(() => ({
+    title: "", content: "", color: CONTEXT_CARD_COLORS[0],
+    links: [] as PendingAttachmentLink[], linkUrl: "",
+  }), []);
+  const createRecovery = useRecoveryDraft({
+    storageKey: isCreateOpen
+      ? recoveryDraftKey({ userId: actorUserId, projectId, surface: "context-card", mode: "create" })
+      : null,
+    value: createRecoveryValue,
+    base: createRecoveryBase,
+    isEmpty: (draft) => !draft.title && !draft.content && !draft.links.length && !draft.linkUrl,
+    restore: (draft) => {
+      setCreateTitle(draft.title);
+      setCreateContent(draft.content);
+      setCreateColor(draft.color);
+      setCreateAttachmentLinks(draft.links);
+      setCreateLinkUrl(draft.linkUrl);
+      setIsCreateLinkComposerOpen(Boolean(draft.linkUrl));
+    },
+  });
+  const editRecoveryValue = useMemo(() => ({
+    title: editTitle, content: editContent, color: editingColor,
+  }), [editTitle, editContent, editingColor]);
+  const editRecoveryBase = useMemo(() => ({
+    title: editingCard?.title ?? "",
+    content: editingCard?.content ?? "",
+    color: editingCard?.color ?? CONTEXT_CARD_COLORS[0],
+  }), [editingCard]);
+  const editRecovery = useRecoveryDraft({
+    storageKey: editingCard
+      ? recoveryDraftKey({
+          userId: actorUserId, projectId, surface: "context-card",
+          mode: "edit", entityId: editingCard.id,
+        })
+      : null,
+    value: editRecoveryValue,
+    base: editRecoveryBase,
+    baseRevision: editingCard?.updatedAt ?? null,
+    restore: (draft) => {
+      setEditTitle(draft.title);
+      setEditContent(draft.content);
+      setEditingColor(draft.color);
+    },
+  });
 
   const editingCardAttachments = useMemo(() => {
     if (!editingCard) {
@@ -393,6 +447,7 @@ export function ProjectContextPanel({
   }, [projectId, setIsExpanded, withDownloadUrls]);
 
   const resetCreateAttachmentDraft = () => {
+    setCreateTitle("");
     setCreateContent("");
     setCreateLinkUrl("");
     setIsCreateLinkComposerOpen(false);
@@ -402,13 +457,14 @@ export function ProjectContextPanel({
   };
 
   const closeCreateModal = () => {
+    createRecovery.flush();
     resetCreateAttachmentDraft();
     setCreateError(null);
     setIsCreateOpen(false);
   };
 
   const openCreateModal = () => {
-    if (!canEdit) {
+    if (!canEdit || isCreatingCard) {
       return;
     }
 
@@ -420,7 +476,9 @@ export function ProjectContextPanel({
   };
 
   const closeEditModal = () => {
+    editRecovery.flush();
     setEditingCardId(null);
+    setEditTitle("");
     setEditContent("");
     setEditError(null);
     setAttachmentError(null);
@@ -439,6 +497,7 @@ export function ProjectContextPanel({
 
     setPreviewCardId(null);
     setEditingColor(cardToEdit.color);
+    setEditTitle(cardToEdit.title);
     setEditContent(normalizeContextCardContentHtml(cardToEdit.content));
     setEditError(null);
     setAttachmentError(null);
@@ -535,6 +594,8 @@ export function ProjectContextPanel({
 
     setIsCreatingCard(true);
     setCreateError(null);
+    const submittedRecovery = createRecoveryValue;
+    createRecovery.flush();
 
     const formData = new FormData(event.currentTarget);
     const optimisticCardId = `optimistic-context-${Date.now()}-${Math.random()
@@ -578,7 +639,6 @@ export function ProjectContextPanel({
     }
 
     closeCreateModal();
-    setIsCreatingCard(false);
     const optimisticNow = new Date().toISOString();
     setLocalCards((previous) => [
       {
@@ -650,6 +710,7 @@ export function ProjectContextPanel({
         if (!isMountedRef.current) {
           return;
         }
+        createRecovery.saved(submittedRecovery);
         const createdCardId =
           payload && typeof payload.cardId === "string" ? payload.cardId : null;
         const createdCard =
@@ -740,6 +801,8 @@ export function ProjectContextPanel({
           variant: "error",
           message,
         });
+      } finally {
+        if (isMountedRef.current) setIsCreatingCard(false);
       }
     })();
   };
@@ -752,6 +815,8 @@ export function ProjectContextPanel({
 
     setIsUpdatingCard(true);
     setEditError(null);
+    const submittedRecovery = editRecoveryValue;
+    editRecovery.flush();
 
     const formData = new FormData(event.currentTarget);
     const editingCardIdSnapshot = editingCard.id;
@@ -812,6 +877,8 @@ export function ProjectContextPanel({
         if (!isMountedRef.current) {
           return;
         }
+
+        editRecovery.saved(submittedRecovery);
 
         pushToast({
           variant: "success",
@@ -1187,6 +1254,13 @@ export function ProjectContextPanel({
         isCreatingCard={isCreatingCard}
         mentionProjectId={projectId}
         createColor={createColor}
+        createTitle={createTitle}
+        recovery={createRecovery}
+        onDiscardRecovery={() => {
+          createRecovery.discard();
+          resetCreateAttachmentDraft();
+          setCreateColor(CONTEXT_CARD_COLORS[0]);
+        }}
         createContent={createContent}
         createLinkUrl={createLinkUrl}
         isCreateLinkComposerOpen={isCreateLinkComposerOpen}
@@ -1197,6 +1271,7 @@ export function ProjectContextPanel({
         onClose={closeCreateModal}
         onSubmit={handleCreateCardSubmit}
         onCreateColorChange={setCreateColor}
+        onCreateTitleChange={setCreateTitle}
         onCreateContentChange={setCreateContent}
         onCreateLinkUrlChange={setCreateLinkUrl}
         onToggleCreateLinkComposer={() =>
@@ -1214,6 +1289,14 @@ export function ProjectContextPanel({
       <ContextEditModal
         editingCard={editingCard}
         editingColor={editingColor}
+        editTitle={editTitle}
+        recovery={editRecovery}
+        onDiscardRecovery={() => {
+          editRecovery.discard();
+          setEditTitle(editingCard?.title ?? "");
+          setEditContent(editingCard?.content ?? "");
+          setEditingColor(editingCard?.color ?? CONTEXT_CARD_COLORS[0]);
+        }}
         mentionProjectId={projectId}
         editContent={editContent}
         editingCardAttachments={editingCardAttachments}
@@ -1227,6 +1310,7 @@ export function ProjectContextPanel({
         onClose={closeEditModal}
         onSubmit={handleUpdateCardSubmit}
         onEditingColorChange={setEditingColor}
+        onEditTitleChange={setEditTitle}
         onEditContentChange={setEditContent}
         onPreviewAttachment={(attachment) => setPreviewAttachment(attachment)}
         onDeleteAttachment={handleDeleteAttachment}

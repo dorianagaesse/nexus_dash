@@ -35,16 +35,30 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
+import { recoveryDraftKey, useRecoveryDraft } from "@/lib/hooks/use-recovery-draft";
 import { cn } from "@/lib/utils";
 
 interface ProjectCalendarPanelProps {
   projectId: string;
+  actorUserId?: string;
 }
 
 type EventModalMode = "create" | "edit" | "view";
+interface CalendarRecoveryValue {
+  summary: string;
+  allDay: boolean;
+  startDate: string;
+  endDate: string;
+  startDateTime: string;
+  endDateTime: string;
+  location: string;
+  description: string;
+  calendarSourceId: string;
+}
 
 export function ProjectCalendarPanel({
   projectId,
+  actorUserId,
 }: ProjectCalendarPanelProps) {
   const { isExpanded, setIsExpanded } = useProjectSectionExpanded({
     projectId,
@@ -78,6 +92,47 @@ export function ProjectCalendarPanel({
   const [eventEndDateTime, setEventEndDateTime] = useState("");
   const [eventLocation, setEventLocation] = useState("");
   const [eventDescription, setEventDescription] = useState("");
+  const [recoveryBase, setRecoveryBase] = useState<CalendarRecoveryValue>({
+    summary: "", allDay: false, startDate: "", endDate: "", startDateTime: "",
+    endDateTime: "", location: "", description: "", calendarSourceId: "",
+  });
+  const recoveryValue: CalendarRecoveryValue = useMemo(() => ({
+    summary: eventSummary,
+    allDay: eventAllDay,
+    startDate: eventStartDate,
+    endDate: eventEndDate,
+    startDateTime: eventStartDateTime,
+    endDateTime: eventEndDateTime,
+    location: eventLocation,
+    description: eventDescription,
+    calendarSourceId: eventCalendarSourceId,
+  }), [eventSummary, eventAllDay, eventStartDate, eventEndDate, eventStartDateTime,
+    eventEndDateTime, eventLocation, eventDescription, eventCalendarSourceId]);
+  const applyRecoveryValue = (draft: CalendarRecoveryValue) => {
+    setEventSummary(draft.summary);
+    setEventAllDay(draft.allDay);
+    setEventStartDate(draft.startDate);
+    setEventEndDate(draft.endDate);
+    setEventStartDateTime(draft.startDateTime);
+    setEventEndDateTime(draft.endDateTime);
+    setEventLocation(draft.location);
+    setEventDescription(draft.description);
+    setEventCalendarSourceId(draft.calendarSourceId);
+  };
+  const eventRecovery = useRecoveryDraft({
+    storageKey: actorUserId && isEventModalOpen && eventModalMode !== "view"
+      ? recoveryDraftKey({
+          userId: actorUserId,
+          projectId,
+          surface: "calendar-event",
+          mode: eventModalMode,
+          entityId: editingEventId ? `${eventCalendarSourceId}:${editingEventId}` : null,
+        })
+      : null,
+    value: recoveryValue,
+    base: recoveryBase,
+    restore: applyRecoveryValue,
+  });
   const [isBrowserReady, setIsBrowserReady] = useState(false);
   const isEventMutationPending = isSavingEvent || isDeletingEvent;
 
@@ -100,6 +155,11 @@ export function ProjectCalendarPanel({
     setEventLocation("");
     setEventDescription("");
     setEventCalendarSourceId(defaultCalendarSourceId);
+    setRecoveryBase({
+      summary: "", allDay: false, startDate: today, endDate: today,
+      startDateTime: defaults.start, endDateTime: defaults.end,
+      location: "", description: "", calendarSourceId: defaultCalendarSourceId,
+    });
     setEditingEventId(null);
     setSelectedEvent(null);
     setEventFormError(null);
@@ -129,6 +189,17 @@ export function ProjectCalendarPanel({
     setEventLocation(parsed.location);
     setEventDescription(parsed.description);
     setEventCalendarSourceId(event.calendarSourceId);
+    setRecoveryBase({
+      summary: parsed.summary,
+      allDay: parsed.isAllDay,
+      startDate: parsed.startDate,
+      endDate: parsed.endDate,
+      startDateTime: parsed.startDateTime,
+      endDateTime: parsed.endDateTime,
+      location: parsed.location,
+      description: parsed.description,
+      calendarSourceId: event.calendarSourceId,
+    });
     setEventFormError(null);
     setIsEventModalOpen(true);
   };
@@ -138,6 +209,7 @@ export function ProjectCalendarPanel({
       return;
     }
 
+    eventRecovery.flush();
     setIsEventModalOpen(false);
     setEventFormError(null);
   };
@@ -255,6 +327,8 @@ export function ProjectCalendarPanel({
 
     setIsSavingEvent(true);
     setEventFormError(null);
+    const submittedRecovery = recoveryValue;
+    eventRecovery.flush();
 
     try {
       const endpoint =
@@ -288,6 +362,7 @@ export function ProjectCalendarPanel({
         throw new Error(mapEventMutationError(payload?.error ?? "calendar-internal-error"));
       }
 
+      eventRecovery.saved(submittedRecovery);
       setIsEventModalOpen(false);
       await loadEvents();
     } catch (submitError) {
@@ -536,6 +611,8 @@ export function ProjectCalendarPanel({
         eventCalendarSourceId={eventCalendarSourceId}
         selectedEvent={selectedEvent}
         eventFormError={eventFormError}
+        recovery={eventRecovery}
+        onDiscardRecovery={() => { eventRecovery.discard(); applyRecoveryValue(recoveryBase); }}
         connectUrl={connectUrl}
         onClose={closeEventModal}
         onSubmit={submitEventForm}
