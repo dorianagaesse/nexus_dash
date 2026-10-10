@@ -2,7 +2,6 @@
 
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
-
 # 2026-10-10 - ND-187: Shared discussion architecture pickup
 
 - Read the card and DeepSeek's scope review/handoff; moved ND-187 to In Progress
@@ -21,6 +20,53 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Progress and comments are attributed to `codex-home (agent)`. Copilot
   returned a quota-limit result instead of reviewing; no inline findings.
   Surface scope and staged-delivery questions remain pending before migration.
+
+# 2026-10-10 - ND-561: Every project member is mentionable (username tag backfill + dotted usernames)
+
+- Card `cmv2c751c001a04jqqg81xbnt` (fix, P1; GitHub issue #587), implemented in
+  a worktree on `fix/nd-561-mention-coverage`. Two defects: accounts without a
+  username tag (the owner included) could not be mentioned - the autocomplete
+  row inserted nothing and API mention selections were dropped silently - and
+  the username policy allowed dots that the mention grammar could not parse,
+  so a dotted username never resolved and could resolve to a different prefix
+  account.
+- Aligned the mention grammar with the account username policy on lowercase
+  dot-separated segments with no leading, trailing, or consecutive dots:
+  `lib/mention.ts` parses dotted usernames as one full match while a trailing
+  sentence dot stays punctuation, the length cap is enforced after stripping
+  editor format characters (an overlong name resolves zero times, never to a
+  truncated prefix), and `lib/services/account-security-policy.ts` tightened
+  the stored-name pattern to the same shape.
+- Unresolvable human mention selections now fail the comment submission with
+  400 `task-comment-mention-invalid` instead of posting without a
+  notification, and `components/kanban-board.tsx` maps the code to a friendly
+  message. The mention picker keeps members without a tag visible but inert
+  with an explicit reason.
+- Added `npm run db:backfill-username-tags`
+  (`scripts/backfill-username-tags.mjs`): idempotent, race-safe backfill that
+  derives handles from the existing username, display name, or email local
+  part, preserves display names and existing tags, and supports `--dry-run`.
+  Local run updated 18 e2e-seeded accounts; a rerun scanned zero. Production
+  dry run (read-only) plans 2 accounts (`corelia`, owner `dorian1`); the live
+  production write awaits operator confirmation.
+- Tests: dotted-username parse/trigger/validation cases, profile-service
+  accept/reject cases, backfill assignment/retry/idempotency, route-level
+  dotted-selection resolution plus both 400 paths, and the inert
+  tagless-member picker row.
+- Rendering regression tests lock the production-reported symptom
+  (`@abdel.kiwi#1234` previously styled only the `@abdel` prefix, failing the
+  mention): the display renderer, the editor chip with full-token
+  serialization, and the textarea mirror all render a dotted username as one
+  mention consuming the shared parser.
+- Validation:
+  - `npm run lint`, `npm run rls:check`: passed.
+  - `npm test`: 233 test files passed, 1,944 tests passed (2 skipped files).
+  - `npm run test:coverage`: statements 93.77%, branches 84.46%, functions
+    95.42%, lines 94.07%.
+  - `npm run build`: passed.
+  - `npx playwright test` (isolated port 3114, `NODE_ENV=test`): 105 passed,
+    2 expected skips, 5.1 minutes.
+
 # 2026-10-06 - ND-404: Enable milestone editing from roadmap edit mode
 
 - Card `cmtkk0ymw000h04l103wo0zjz` under epic "Roadmap interaction refinement":

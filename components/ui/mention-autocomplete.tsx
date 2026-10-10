@@ -56,7 +56,9 @@ function isMemberSelectable(
   agentMentionsEnabled: boolean
 ): boolean {
   if (member.kind === "human") {
-    return true;
+    // A member without a username tag has no mention token, so the row stays
+    // inert with an explicit reason instead of inserting nothing.
+    return Boolean(member.usernameTag);
   }
 
   // Credential labels that contain braces or line breaks have no encodable
@@ -352,6 +354,8 @@ export function MentionAutocomplete({
                 member.kind === "agent" &&
                 agentMentionsEnabled &&
                 !isSelectable;
+              const showHumanTagMissing =
+                member.kind === "human" && !member.usernameTag;
 
               return (
                 <div
@@ -364,7 +368,9 @@ export function MentionAutocomplete({
                       ? "Agent mentions are not available here yet"
                       : showAgentTokenUnsupported
                         ? "This credential label cannot be mentioned"
-                        : undefined
+                        : showHumanTagMissing
+                          ? "This member has no username yet, so they cannot be mentioned"
+                          : undefined
                   }
                   className={cn(
                     "flex min-h-12 items-center gap-3 rounded-lg px-2 py-2 transition-colors",
@@ -404,6 +410,10 @@ export function MentionAutocomplete({
                     ) : showAgentTokenUnsupported ? (
                       <p className="truncate text-xs leading-tight text-muted-foreground">
                         Agent — label can&apos;t be mentioned
+                      </p>
+                    ) : showHumanTagMissing ? (
+                      <p className="truncate text-xs leading-tight text-muted-foreground">
+                        Member — no username to mention yet
                       </p>
                     ) : member.kind === "human" && member.usernameTag ? (
                       <p className="truncate text-xs text-muted-foreground leading-tight">

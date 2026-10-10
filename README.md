@@ -109,10 +109,17 @@ Scripts:
 
 ```bash
 npm run db:migrate
+npm run db:backfill-username-tags -- --dry-run
 ```
 
 Notes:
 
+- `db:backfill-username-tags` assigns a missing `username#discriminator` tag
+  to every account that lacks one, deriving the handle from the existing
+  username, display name, or email local part and leaving display names and
+  existing tags untouched. It is idempotent and race-safe, requires
+  `DATABASE_URL`, and supports `--dry-run` to print the plan without writing.
+  Run it against environments whose data predates username onboarding.
 - Datasource is PostgreSQL (`prisma/schema.prisma`).
 - Runtime and migration connection roles are split via `DATABASE_URL` + `DIRECT_URL`.
 - In production with remote hosts, runtime validation enforces:
