@@ -90,6 +90,16 @@ until the stored card matches the intended contract and contains no secrets.
 The hosted API guide is `/docs/agent/v1`; its OpenAPI document is
 `/api/docs/agent/v1/openapi.json`.
 
+For relation maintenance, PATCH a task with `addRelatedTaskIds` and/or
+`removeRelatedTaskIds` to edit only the named undirected pairs. Existing edges
+are preserved, repeated operations are safe, and removing an absent edge is a
+no-op. Additions require an active task in the same project, except that an
+already-linked archived task may be retained. IDs are trimmed and deduplicated;
+blank IDs and self-relations are invalid. Do not mix these fields with the
+replace-mode `relatedTaskIds`, or put the same ID in both additive arrays.
+Read both endpoints back and verify their `relatedTasks` and unrelated edges.
+The hosted agent guide documents these fields and their validation errors.
+
 For epics, keep membership in linked tasks and dependencies in Related Tasks;
 do not put dependency lists, split manifests, or staging notes in the epic
 description. Start with a `Recommended order:` path covering every linked

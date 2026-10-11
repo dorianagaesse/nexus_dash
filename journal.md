@@ -9872,3 +9872,32 @@ Low-value entries to avoid going forward:
 - Merge gating: the Production broadcast flip is deferred and owned by the
   reviewer; the acceptance check "Vercel Observability reports no legacy SSE
   invocations" is a post-flip observation on the deployed branch.
+
+## 2026-10-11 - ND-451: Additive agent task relation edits
+
+- Added `addRelatedTaskIds` and `removeRelatedTaskIds` to task PATCH and its
+  OpenAPI contract. Canonical pair inserts skip duplicates, and removals target
+  only the named pairs within the authorized project; unrelated edges are never
+  rewritten. Existing `relatedTaskIds` replace-mode behavior is unchanged.
+- Reject mixed modes, overlapping add/remove IDs, malformed arrays, blank IDs,
+  and self-relations before mutation. Additions reuse existing project/archive
+  validation; removals need no target lookup and can remove archived edges.
+- Updated the workflow runbook with retry and two-endpoint read-back guidance.
+  Route tests cover authorization, validation and scoped pair writes. A real
+  agent-token Playwright scenario verifies concurrent disjoint additions,
+  reverse-endpoint retries, archived-edge retention/removal, invalid-addition
+  atomicity, metadata preservation, and both endpoints after every operation.
+- Validation: lint, RLS inventory, production build and `git diff --check`
+  passed; unit/API tests and coverage each passed 1936 tests with 2 skipped.
+  Coverage: 93.77% statements, 84.46% branches, 95.42% functions, 94.07% lines.
+  PostgreSQL matrix passed in a separate database with the Realtime stub
+  installed before migrations. The first test invocation omitted required
+  process environment values; the configured rerun passed.
+- The targeted relation E2E passed three times. Broader smoke: 6 passed, one
+  meeting-note zoom-boundary assertion failed twice at line 494 in unchanged
+  UI/test code. A clean-main check at 13a4951 passed; a final branch run after
+  the heavier parallel checks finished passed both the relation and meeting
+  scenarios (2/2). Timing sensitivity is suspected; no UI or smoke-test edits.
+- Delivery: PR #593, implementation commit 36f2f45. Initial CI Quality Core and
+  Tenant Isolation passed; hosted E2E was still running at handoff. Copilot
+  could not review because its quota was exhausted; manual review is needed.
