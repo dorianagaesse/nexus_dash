@@ -248,6 +248,50 @@ function moveEventBetweenPhases(
   });
 }
 
+function areRoadmapPhasesEquivalent(
+  a: ProjectRoadmapPanelPhase[],
+  b: ProjectRoadmapPanelPhase[]
+): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+
+  for (let i = 0; i < a.length; i += 1) {
+    const phaseA = a[i];
+    const phaseB = b[i];
+    if (!phaseA || !phaseB) return false;
+    if (
+      phaseA.id !== phaseB.id ||
+      phaseA.title !== phaseB.title ||
+      phaseA.description !== phaseB.description ||
+      phaseA.targetDate !== phaseB.targetDate ||
+      phaseA.status !== phaseB.status ||
+      phaseA.position !== phaseB.position ||
+      phaseA.events.length !== phaseB.events.length
+    ) {
+      return false;
+    }
+
+    for (let j = 0; j < phaseA.events.length; j += 1) {
+      const eventA = phaseA.events[j];
+      const eventB = phaseB.events[j];
+      if (!eventA || !eventB) return false;
+      if (
+        eventA.id !== eventB.id ||
+        eventA.title !== eventB.title ||
+        eventA.description !== eventB.description ||
+        eventA.targetDate !== eventB.targetDate ||
+        eventA.status !== eventB.status ||
+        eventA.position !== eventB.position ||
+        eventA.phaseId !== eventB.phaseId
+      ) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 function mapRoadmapMutationError(errorCode?: string): string {
   switch (errorCode) {
     case "roadmap-title-too-short":
@@ -375,6 +419,8 @@ function RoadmapStatusBadge({
         )}
         onClick={onClick}
         disabled={disabled}
+        aria-busy={disabled ? "true" : undefined}
+        data-status-pending={disabled ? "true" : undefined}
         title={title}
         aria-label={title ?? getRoadmapStatusLabel(status)}
       >
@@ -1377,6 +1423,8 @@ function RoadmapEventCard({
             ref={provided.innerRef}
             {...provided.draggableProps}
             data-roadmap-event-card={event.id}
+            data-roadmap-event-status={event.status}
+            data-roadmap-event-status-pending={isUpdatingStatus ? "true" : undefined}
             className={cn(
               "relative min-h-[212px] rounded-[1.55rem] border p-4 shadow-[0_24px_64px_-46px_rgba(15,23,42,0.58)] transition",
               tone.phaseCard,
@@ -1497,6 +1545,7 @@ function RoadmapMilestoneLane({
   isDesktop,
   maxEventsCount,
   statusMutationEventId,
+  pendingStatusEventIds,
   onViewEvent,
   onEditEvent,
   onDeleteEvent,
@@ -1508,7 +1557,8 @@ function RoadmapMilestoneLane({
   canEdit: boolean;
   isDesktop: boolean;
   maxEventsCount: number;
-  statusMutationEventId: string | null;
+  statusMutationEventId?: string | null;
+  pendingStatusEventIds?: Set<string>;
   onViewEvent: (eventId: string) => void;
   onEditEvent: (event: ProjectRoadmapPanelEvent) => void;
   onDeleteEvent: (eventId: string) => void;
@@ -1657,7 +1707,11 @@ function RoadmapMilestoneLane({
                     event={event}
                     eventIndex={eventIndex}
                     canEdit={canEdit}
-                    isUpdatingStatus={statusMutationEventId === event.id}
+                    isUpdatingStatus={
+                      pendingStatusEventIds
+                        ? pendingStatusEventIds.has(event.id)
+                        : statusMutationEventId === event.id
+                    }
                     onView={onViewEvent}
                     onEdit={onEditEvent}
                     onDelete={onDeleteEvent}
@@ -1790,14 +1844,22 @@ export function ProjectRoadmapPanel({
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [isDesktopLayout, setIsDesktopLayout] = useState(false);
   const [isDraggingEvent, setIsDraggingEvent] = useState(false);
-  const [statusMutationEventId, setStatusMutationEventId] = useState<string | null>(null);
+  const [pendingStatusEventIds, setPendingStatusEventIds] = useState<Set<string>>(() => new Set());
+  const statusMutationEventId = Array.from(pendingStatusEventIds)[0] ?? null;
+  const [isPersistingMove, setIsPersistingMove] = useState(false);
   const [phaseLayoutMeasurements, setPhaseLayoutMeasurements] = useState<
     Record<string, RoadmapPhaseLayoutMeasurement>
   >({});
   const desktopRoadmapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    setRoadmapPhases(sortRoadmapPhasesForDisplay(phases));
+    setRoadmapPhases((currentPhases) => {
+      const sortedPhases = sortRoadmapPhasesForDisplay(phases);
+      if (areRoadmapPhasesEquivalent(currentPhases, sortedPhases)) {
+        return currentPhases;
+      }
+      return sortedPhases;
+    });
   }, [phases]);
 
   useEffect(() => {
@@ -2477,14 +2539,13 @@ export function ProjectRoadmapPanel({
   }
 
   async function cycleEventStatus(event: ProjectRoadmapPanelEvent) {
-    if (statusMutationEventId !== null) {
+    if (pendingStatusEventIds.has(event.id)) {
       return;
     }
 
-    const previousPhases = roadmapPhases;
     const nextStatus = getNextRoadmapStatus(event.status);
 
-    setStatusMutationEventId(event.id);
+    setPendingStatusEventIds((previous) => new Set(previous).add(event.id));
     setRoadmapPhases((currentPhases) =>
       sortRoadmapPhasesForDisplay(
         currentPhases.map((phase) =>
@@ -2541,13 +2602,35 @@ export function ProjectRoadmapPanel({
       });
     } catch (error) {
       console.error("[ProjectRoadmapPanel.cycleEventStatus]", error);
-      setRoadmapPhases(previousPhases);
+      setRoadmapPhases((currentPhases) =>
+        sortRoadmapPhasesForDisplay(
+          currentPhases.map((phase) =>
+            phase.id === event.phaseId
+              ? {
+                  ...phase,
+                  events: phase.events.map((phaseEvent) =>
+                    phaseEvent.id === event.id
+                      ? {
+                          ...phaseEvent,
+                          status: event.status,
+                        }
+                      : phaseEvent
+                  ),
+                }
+              : phase
+          )
+        )
+      );
       pushToast({
         message: error instanceof Error ? error.message : mapRoadmapMutationError(),
         variant: "error",
       });
     } finally {
-      setStatusMutationEventId(null);
+      setPendingStatusEventIds((previous) => {
+        const next = new Set(previous);
+        next.delete(event.id);
+        return next;
+      });
     }
   }
 
@@ -2601,6 +2684,7 @@ export function ProjectRoadmapPanel({
         );
 
         setRoadmapPhases(sortRoadmapPhasesForDisplay(reordered));
+        setIsPersistingMove(true);
 
         try {
           const response = await fetchProjectActivityMutation(
@@ -2632,6 +2716,8 @@ export function ProjectRoadmapPanel({
             message: error instanceof Error ? error.message : mapRoadmapMutationError(),
             variant: "error",
           });
+        } finally {
+          setIsPersistingMove(false);
         }
 
         return;
@@ -2688,6 +2774,7 @@ export function ProjectRoadmapPanel({
         );
 
         setRoadmapPhases(sortRoadmapPhasesForDisplay(reordered));
+        setIsPersistingMove(true);
 
         try {
           const response = await fetchProjectActivityMutation(
@@ -2719,53 +2806,98 @@ export function ProjectRoadmapPanel({
             message: error instanceof Error ? error.message : mapRoadmapMutationError(),
             variant: "error",
           });
+        } finally {
+          setIsPersistingMove(false);
         }
 
         return;
       }
 
+      const optimisticPhaseId = `optimistic-phase-${Date.now()}`;
+      const optimisticPhase: ProjectRoadmapPanelPhase = {
+        id: optimisticPhaseId,
+        title: getMilestoneLabel(roadmapPhases.length),
+        description: null,
+        targetDate: movedEvent.targetDate ?? null,
+        status: movedEvent.status || "planned",
+        position: roadmapPhases.length,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        events: [
+          {
+            ...movedEvent,
+            phaseId: optimisticPhaseId,
+            position: 0,
+          },
+        ],
+      };
+
+      const previousPhases = roadmapPhases;
+      let optimisticNextPhases = sortRoadmapPhasesForDisplay([
+        ...previousPhases.map((phase) =>
+          phase.id === sourcePhaseId
+            ? {
+                ...phase,
+                events: phase.events
+                  .filter((event) => event.id !== draggableId)
+                  .map((event, eventIndex) => ({
+                    ...event,
+                    position: eventIndex,
+                  })),
+              }
+            : phase
+        ),
+        optimisticPhase,
+      ]);
+
+      const emptiedSource = optimisticNextPhases.find((phase) => phase.id === sourcePhaseId);
+      if (emptiedSource && emptiedSource.events.length === 0) {
+        optimisticNextPhases = optimisticNextPhases.filter((phase) => phase.id !== emptiedSource.id);
+      }
+
+      setRoadmapPhases(sortRoadmapPhasesForDisplay(optimisticNextPhases));
+      setIsPersistingMove(true);
+
+      let createdPhase: ProjectRoadmapPanelPhase | null = null;
       try {
-        const createdPhase = await createPhaseForMilestone(movedEvent, roadmapPhases.length);
+        createdPhase = await createPhaseForMilestone(movedEvent, roadmapPhases.length);
         await persistEventMove(draggableId, createdPhase.id, 0);
 
-        let nextPhases = sortRoadmapPhasesForDisplay([
-          ...roadmapPhases.map((phase) =>
-            phase.id === sourcePhaseId
-              ? {
-                  ...phase,
-                  events: phase.events
-                    .filter((event) => event.id !== draggableId)
-                    .map((event, eventIndex) => ({
-                      ...event,
-                      position: eventIndex,
-                    })),
-                }
-              : phase
-          ),
-          {
-            ...createdPhase,
-            events: [
-              {
-                ...movedEvent,
-                phaseId: createdPhase.id,
-                position: 0,
-              },
-            ],
-          },
-        ]);
-
-        const emptiedSource = nextPhases.find((phase) => phase.id === sourcePhaseId);
         if (emptiedSource && emptiedSource.events.length === 0) {
           await deletePhaseById(emptiedSource.id);
-          nextPhases = nextPhases.filter((phase) => phase.id !== emptiedSource.id);
         }
 
-        setRoadmapPhases(sortRoadmapPhasesForDisplay(nextPhases));
+        const reconciledPhase = createdPhase;
+        setRoadmapPhases((currentPhases) =>
+          sortRoadmapPhasesForDisplay(
+            currentPhases.map((phase) =>
+              phase.id === optimisticPhaseId
+                ? {
+                    ...reconciledPhase,
+                    events: [
+                      {
+                        ...movedEvent,
+                        phaseId: reconciledPhase.id,
+                        position: 0,
+                      },
+                    ],
+                  }
+                : phase
+            )
+          )
+        );
       } catch (error) {
+        console.error("[ProjectRoadmapPanel.handleDragEnd.newMilestone]", error);
+        if (createdPhase) {
+          await deletePhaseById(createdPhase.id).catch(() => undefined);
+        }
+        setRoadmapPhases(previousPhases);
         pushToast({
           message: error instanceof Error ? error.message : mapRoadmapMutationError(),
           variant: "error",
         });
+      } finally {
+        setIsPersistingMove(false);
       }
 
       return;
@@ -2782,7 +2914,14 @@ export function ProjectRoadmapPanel({
       )
     );
 
-    setRoadmapPhases(nextPhases);
+    const emptiedSource = nextPhases.find((phase) => phase.id === sourcePhaseId);
+    const finalOptimisticPhases =
+      emptiedSource && emptiedSource.events.length === 0
+        ? nextPhases.filter((phase) => phase.id !== emptiedSource.id)
+        : nextPhases;
+
+    setRoadmapPhases(sortRoadmapPhasesForDisplay(finalOptimisticPhases));
+    setIsPersistingMove(true);
 
     try {
       if (sourcePhaseId === destinationPhaseId) {
@@ -2793,22 +2932,19 @@ export function ProjectRoadmapPanel({
         );
       } else {
         await persistEventMove(draggableId, destinationPhaseId, destination.index);
-        const emptiedSource = nextPhases.find((phase) => phase.id === sourcePhaseId);
         if (emptiedSource && emptiedSource.events.length === 0) {
           await deletePhaseById(emptiedSource.id);
-          setRoadmapPhases((currentPhases) =>
-            sortRoadmapPhasesForDisplay(
-              currentPhases.filter((phase) => phase.id !== emptiedSource.id)
-            )
-          );
         }
       }
     } catch (error) {
+      console.error("[ProjectRoadmapPanel.handleDragEnd.move]", error);
       setRoadmapPhases(previousPhases);
       pushToast({
         message: error instanceof Error ? error.message : mapRoadmapMutationError(),
         variant: "error",
       });
+    } finally {
+      setIsPersistingMove(false);
     }
   }
 
@@ -2855,12 +2991,13 @@ export function ProjectRoadmapPanel({
       className={PROJECT_SECTION_CARD_CLASS}
       data-project-live-refresh-lock={
         isDraggingEvent ||
+        isPersistingMove ||
         Boolean(eventDialog) ||
         isSubmittingEvent ||
         Boolean(milestoneDialog) ||
         isSubmittingMilestone ||
         Boolean(pendingDeleteEventId) ||
-        Boolean(statusMutationEventId)
+        pendingStatusEventIds.size > 0
           ? "true"
           : undefined
       }
@@ -3039,6 +3176,7 @@ export function ProjectRoadmapPanel({
                         isDesktop={isDesktopLayout}
                         maxEventsCount={maxEventsCount}
                         statusMutationEventId={statusMutationEventId}
+                        pendingStatusEventIds={pendingStatusEventIds}
                         onViewEvent={setSelectedEventId}
                         onEditEvent={openEditEvent}
                         onDeleteEvent={setPendingDeleteEventId}

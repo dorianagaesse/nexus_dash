@@ -2126,4 +2126,518 @@ function setInputValue(input: HTMLElement, value: string) {
       root.unmount();
     });
   });
+
+  test("changing event status updates card immediately while persistence is in flight and locks refresh (ND-534)", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    let resolveFetch!: (res: Response) => void;
+    const pendingFetchPromise = new Promise<Response>((resolve) => {
+      resolveFetch = resolve;
+    });
+
+    fetchMock.mockReturnValueOnce(pendingFetchPromise);
+
+    const initialPhases = [
+      {
+        id: "phase-1",
+        title: "Milestone 1",
+        description: null,
+        targetDate: "2026-05-01",
+        status: "planned" as const,
+        position: 0,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [
+          {
+            id: "event-1",
+            phaseId: "phase-1",
+            title: "Task 1",
+            description: "Initial description",
+            targetDate: "2026-05-01",
+            status: "planned" as const,
+            position: 0,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+        ],
+      },
+    ];
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases: initialPhases,
+      })
+    );
+
+    const statusButton = Array.from(container.querySelectorAll("button")).find(
+      (btn) =>
+        btn.textContent?.includes("Planned") &&
+        btn.getAttribute("aria-label")?.includes("Change status")
+    );
+
+    expect(statusButton).not.toBeUndefined();
+
+    // Click status button
+    act(() => {
+      statusButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    // 1. Immediate UI update: Card and badge immediately update to Active before fetch finishes
+    const eventCard = container.querySelector("[data-roadmap-event-card='event-1']");
+    expect(eventCard?.getAttribute("data-roadmap-event-status")).toBe("active");
+    expect(eventCard?.getAttribute("data-roadmap-event-status-pending")).toBe("true");
+
+    // 2. Button shows disabled/pending state and panel is locked from refresh
+    const activeBadgeButton = eventCard?.querySelector("button[data-status-pending='true']");
+    expect(activeBadgeButton).not.toBeNull();
+    expect(activeBadgeButton?.getAttribute("aria-busy")).toBe("true");
+    expect(activeBadgeButton?.getAttribute("disabled")).not.toBeNull();
+    expect(activeBadgeButton?.getAttribute("title")).toContain("Saving Task 1 status");
+
+    const cardContainer = container.querySelector("[data-project-live-refresh-lock='true']");
+    expect(cardContainer).not.toBeNull();
+
+    // 3. Duplicate clicks while pending are ignored
+    act(() => {
+      activeBadgeButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // 4. Resolve the fetch successfully
+    await act(async () => {
+      resolveFetch(
+        new Response(
+          JSON.stringify({
+            event: {
+              ...initialPhases[0]!.events[0]!,
+              status: "active",
+            },
+            phase: {
+              ...initialPhases[0]!,
+              events: [
+                {
+                  ...initialPhases[0]!.events[0]!,
+                  status: "active",
+                },
+              ],
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+              [PROJECT_ACTIVITY_VERSION_HEADER]: "2026-04-20T00:00:01.000Z",
+            },
+          }
+        )
+      );
+    });
+
+    // 5. Success state: pending cleared, card stays Active, toast shown, no router.refresh
+    expect(eventCard?.getAttribute("data-roadmap-event-status")).toBe("active");
+    expect(eventCard?.getAttribute("data-roadmap-event-status-pending")).toBeNull();
+    expect(pushToastMock).toHaveBeenCalledWith({
+      message: "Task 1 marked as active.",
+      variant: "success",
+    });
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("failed event status persistence restores affected event and shows error toast (ND-534)", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: "roadmap-event-update-failed" }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      })
+    );
+
+    const initialPhases = [
+      {
+        id: "phase-1",
+        title: "Milestone 1",
+        description: null,
+        targetDate: "2026-05-01",
+        status: "planned" as const,
+        position: 0,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [
+          {
+            id: "event-1",
+            phaseId: "phase-1",
+            title: "Task 1",
+            description: null,
+            targetDate: "2026-05-01",
+            status: "planned" as const,
+            position: 0,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+          {
+            id: "event-2",
+            phaseId: "phase-1",
+            title: "Task 2",
+            description: null,
+            targetDate: "2026-05-01",
+            status: "completed" as const,
+            position: 1,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+        ],
+      },
+    ];
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases: initialPhases,
+      })
+    );
+
+    const statusButton = Array.from(container.querySelectorAll("button")).find(
+      (btn) =>
+        btn.textContent?.includes("Planned") &&
+        btn.getAttribute("aria-label")?.includes("Change status")
+    );
+
+    await act(async () => {
+      statusButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    // Error toast shown
+    expect(pushToastMock).toHaveBeenCalledWith({
+      message: "Could not update roadmap event. Please retry.",
+      variant: "error",
+    });
+
+    // Event 1 restored to "planned"
+    const eventCard1 = container.querySelector("[data-roadmap-event-card='event-1']");
+    expect(eventCard1?.getAttribute("data-roadmap-event-status")).toBe("planned");
+    expect(eventCard1?.getAttribute("data-roadmap-event-status-pending")).toBeNull();
+
+    // Event 2 remains untouched as "completed"
+    const eventCard2 = container.querySelector("[data-roadmap-event-card='event-2']");
+    expect(eventCard2?.getAttribute("data-roadmap-event-status")).toBe("completed");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("dragging event within same milestone reorders events immediately without full-panel reload (ND-534)", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          [PROJECT_ACTIVITY_VERSION_HEADER]: "2026-04-20T00:00:01.000Z",
+        },
+      })
+    );
+
+    const initialPhases = [
+      {
+        id: "phase-1",
+        title: "Milestone 1",
+        description: null,
+        targetDate: "2026-05-01",
+        status: "planned" as const,
+        position: 0,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [
+          {
+            id: "event-1",
+            phaseId: "phase-1",
+            title: "Task 1",
+            description: null,
+            targetDate: "2026-05-01",
+            status: "planned" as const,
+            position: 0,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+          {
+            id: "event-2",
+            phaseId: "phase-1",
+            title: "Task 2",
+            description: null,
+            targetDate: "2026-05-01",
+            status: "planned" as const,
+            position: 1,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+        ],
+      },
+    ];
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases: initialPhases,
+      })
+    );
+
+    // Initial order: Task 1 then Task 2
+    let cards = Array.from(container.querySelectorAll("[data-roadmap-event-card]"));
+    expect(cards[0]?.getAttribute("data-roadmap-event-card")).toBe("event-1");
+    expect(cards[1]?.getAttribute("data-roadmap-event-card")).toBe("event-2");
+
+    // Drag event-1 to index 1
+    await act(async () => {
+      await capturedOnDragEnd!({
+        draggableId: "event-1",
+        source: { droppableId: "phase-1", index: 0 },
+        destination: { droppableId: "phase-1", index: 1 },
+      });
+    });
+
+    // Reorder API was called
+    expect(fetchMock).toHaveBeenCalledWith("/api/projects/project-1/roadmap/events/reorder", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        phaseId: "phase-1",
+        eventIds: ["event-2", "event-1"],
+      }),
+    });
+
+    // Reordered order in DOM: Task 2 then Task 1
+    cards = Array.from(container.querySelectorAll("[data-roadmap-event-card]"));
+    expect(cards[0]?.getAttribute("data-roadmap-event-card")).toBe("event-2");
+    expect(cards[1]?.getAttribute("data-roadmap-event-card")).toBe("event-1");
+
+    // No visible panel refresh
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("dragging event into new milestone drop lane creates milestone and moves event immediately (ND-534)", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    let resolveCreatePhase!: (res: Response) => void;
+    const createPhasePromise = new Promise<Response>((resolve) => {
+      resolveCreatePhase = resolve;
+    });
+
+    fetchMock.mockReturnValueOnce(createPhasePromise);
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          [PROJECT_ACTIVITY_VERSION_HEADER]: "2026-04-20T00:00:01.000Z",
+        },
+      })
+    );
+
+    const initialPhases = [
+      {
+        id: "phase-1",
+        title: "Milestone 1",
+        description: null,
+        targetDate: "2026-05-01",
+        status: "planned" as const,
+        position: 0,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [
+          {
+            id: "event-1",
+            phaseId: "phase-1",
+            title: "Task 1",
+            description: null,
+            targetDate: "2026-05-01",
+            status: "planned" as const,
+            position: 0,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+          {
+            id: "event-2",
+            phaseId: "phase-1",
+            title: "Task 2",
+            description: null,
+            targetDate: "2026-05-15",
+            status: "planned" as const,
+            position: 1,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+        ],
+      },
+    ];
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases: initialPhases,
+      })
+    );
+
+    // Drop event-2 to new milestone
+    act(() => {
+      capturedOnDragEnd!({
+        draggableId: "event-2",
+        source: { droppableId: "phase-1", index: 1 },
+        destination: { droppableId: "__roadmap-drop-new-milestone__", index: 0 },
+      });
+    });
+
+    // 1. Immediate UI update: 2 milestones rendered immediately before fetch resolves!
+    expect(container.querySelectorAll("[data-roadmap-phase-id]").length).toBe(2);
+    const phase1Section = container.querySelector("[data-roadmap-phase-id='phase-1']");
+    expect(phase1Section?.textContent).toContain("1 event");
+    expect(phase1Section?.querySelector("[data-roadmap-event-card='event-2']")).toBeNull();
+
+    // New milestone has event-2 immediately
+    const event2Card = container.querySelector("[data-roadmap-event-card='event-2']");
+    expect(event2Card).not.toBeNull();
+
+    // 2. Resolve creation and move
+    await act(async () => {
+      resolveCreatePhase(
+        new Response(
+          JSON.stringify({
+            phase: {
+              id: "phase-2",
+              title: "Milestone 2",
+              description: null,
+              targetDate: "2026-05-15",
+              status: "planned",
+              position: 1,
+              createdAt: "2026-04-20T00:00:00.000Z",
+              updatedAt: "2026-04-20T00:00:00.000Z",
+              events: [],
+            },
+          }),
+          {
+            status: 201,
+            headers: {
+              "content-type": "application/json",
+              [PROJECT_ACTIVITY_VERSION_HEADER]: "2026-04-20T00:00:01.000Z",
+            },
+          }
+        )
+      );
+    });
+
+    // Reconciled with phase-2
+    expect(container.querySelector("[data-roadmap-phase-id='phase-2']")).not.toBeNull();
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("failed persistence when dropping into new milestone reverts optimistic milestone (ND-534)", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: "roadmap-phase-create-failed" }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      })
+    );
+
+    const initialPhases = [
+      {
+        id: "phase-1",
+        title: "Milestone 1",
+        description: null,
+        targetDate: "2026-05-01",
+        status: "planned" as const,
+        position: 0,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [
+          {
+            id: "event-1",
+            phaseId: "phase-1",
+            title: "Task 1",
+            description: null,
+            targetDate: "2026-05-01",
+            status: "planned" as const,
+            position: 0,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+          {
+            id: "event-2",
+            phaseId: "phase-1",
+            title: "Task 2",
+            description: null,
+            targetDate: "2026-05-15",
+            status: "planned" as const,
+            position: 1,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+        ],
+      },
+    ];
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases: initialPhases,
+      })
+    );
+
+    await act(async () => {
+      await capturedOnDragEnd!({
+        draggableId: "event-2",
+        source: { droppableId: "phase-1", index: 1 },
+        destination: { droppableId: "__roadmap-drop-new-milestone__", index: 0 },
+      });
+    });
+
+    // Error toast
+    expect(pushToastMock).toHaveBeenCalledWith({
+      message: "Could not create roadmap phase. Please retry.",
+      variant: "error",
+    });
+
+    // Only 1 milestone remains, and event-2 is restored to phase-1
+    expect(container.querySelectorAll("[data-roadmap-phase-id]").length).toBe(1);
+    const phase1Section = container.querySelector("[data-roadmap-phase-id='phase-1']");
+    expect(phase1Section?.textContent).toContain("2 events");
+    expect(phase1Section?.querySelector("[data-roadmap-event-card='event-2']")).not.toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });
