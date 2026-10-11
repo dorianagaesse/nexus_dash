@@ -525,6 +525,14 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
   },
   {
     tag: "Context",
+    method: "GET",
+    path: "/api/projects/{projectId}/context-cards/{cardId}",
+    title: "Read context card",
+    description: "Read one context card and its content revision ETag.",
+    requiredScopes: ["context:read"],
+  },
+  {
+    tag: "Context",
     method: "PATCH",
     path: "/api/projects/{projectId}/context-cards/{cardId}",
     title: "Update context card",
@@ -1105,6 +1113,18 @@ function buildCommonErrorResponses() {
 export function buildAgentOpenApiDocument(appOrigin?: string | null) {
   const serverUrl = normalizeOrigin(appOrigin);
   const commonErrorResponses = buildCommonErrorResponses();
+  const contentEtagHeaders = {
+    ETag: { description: "Strong entity/content revision validator for conditional PATCH.", schema: { type: "string" } },
+  };
+  const editConflictResponse = {
+    description: "Stale If-Match; no mutation applied. The authorized latest entity is returned for reconciliation.",
+    headers: contentEtagHeaders,
+    content: { "application/json": { schema: { type: "object", required: ["error", "contentRevision", "current"], properties: {
+      error: { type: "string", const: "edit-conflict" },
+      contentRevision: { type: "integer", minimum: 0 },
+      current: { type: "object", additionalProperties: true },
+    } } } },
+  };
 
   return {
     openapi: "3.1.0",
@@ -1724,6 +1744,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           required: [
             "id",
             "reference",
+            "contentRevision",
             "title",
             "description",
             "blockedNote",
@@ -1750,6 +1771,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           ],
           properties: {
             id: { type: "string" },
+            contentRevision: { type: "integer", minimum: 0, description: "Monotonic content revision; comments and activity-only changes do not advance it." },
             reference: {
               type: "string",
               pattern: "^ND-[1-9][0-9]*$",
@@ -2399,6 +2421,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           required: ["id", "title", "content", "color", "createdAt", "attachments"],
           properties: {
             id: { type: "string" },
+            contentRevision: { type: "integer", minimum: 0 },
             title: { type: "string" },
             content: { type: "string" },
             color: {
@@ -2431,6 +2454,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           required: ["id", "title", "content", "color", "attachments"],
           properties: {
             id: { type: "string" },
+            contentRevision: { type: "integer", minimum: 0 },
             title: { type: "string" },
             content: { type: "string" },
             color: {
@@ -2487,7 +2511,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         ContextCardUpdateRequest: {
           type: "object",
-          required: ["title", "content", "color"],
+          description: "Partial content update: omitted fields are preserved. Optional If-Match protects against stale writes during the additive v1 release.",
           properties: {
             title: { type: "string" },
             content: { type: "string" },
@@ -2833,6 +2857,11 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
       },
       parameters: {
+        ContentIfMatch: {
+          name: "If-Match", in: "header", required: false,
+          description: "One exact strong ETag from the entity read. Weak tags, wildcard and lists return 400 edit-precondition-invalid; stale tags return 412 edit-conflict. Missing headers remain compatible in v1; Live remains gated.",
+          schema: { type: "string" },
+        },
         ProjectId: {
           name: "projectId",
           in: "path",
@@ -3719,6 +3748,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           responses: {
             200: {
               description: "Task read",
+              headers: contentEtagHeaders,
               content: {
                 "application/json": {
                   schema: {
@@ -3736,6 +3766,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           parameters: [
             { $ref: "#/components/parameters/ProjectId" },
             { $ref: "#/components/parameters/TaskId" },
+            { $ref: "#/components/parameters/ContentIfMatch" },
           ],
           requestBody: {
             required: true,
@@ -3750,6 +3781,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           responses: {
             200: {
               description: "Task updated",
+              headers: contentEtagHeaders,
               content: {
                 "application/json": {
                   schema: {
@@ -3758,6 +3790,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 },
               },
             },
+            412: editConflictResponse,
             ...commonErrorResponses,
           },
         },
@@ -4205,12 +4238,24 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
       },
       "/api/projects/{projectId}/context-cards/{cardId}": {
+        get: {
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/context-cards/{cardId}"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { $ref: "#/components/parameters/CardId" }],
+          responses: {
+            200: { description: "Context card read", headers: contentEtagHeaders, content: { "application/json": { schema: {
+              type: "object", required: ["card"], properties: { card: { $ref: "#/components/schemas/ContextCardDetail" } },
+            } } } },
+            ...commonErrorResponses,
+          },
+        },
         patch: {
           ...buildOperationMetadata("PATCH", "/api/projects/{projectId}/context-cards/{cardId}"),
           security: [{ BearerAuth: [] }],
           parameters: [
             { $ref: "#/components/parameters/ProjectId" },
             { $ref: "#/components/parameters/CardId" },
+            { $ref: "#/components/parameters/ContentIfMatch" },
           ],
           requestBody: {
             required: true,
@@ -4225,6 +4270,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           responses: {
             200: {
               description: "Context card updated",
+              headers: contentEtagHeaders,
               content: {
                 "application/json": {
                   schema: {
@@ -4233,6 +4279,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 },
               },
             },
+            412: editConflictResponse,
             ...commonErrorResponses,
           },
         },

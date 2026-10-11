@@ -1103,3 +1103,22 @@ Keep UI-only or task-only notes in `journal.md`.
 - Links: `adr/task-372-supabase-realtime-authorization.md`,
   `docs/reports/nd-374-realtime-load-test.md`,
   `docs/runbooks/vercel-env-contract-and-secrets.md`.
+## 2026-10-11 - ND-565: Database-owned aggregate content revisions
+
+- Status: Accepted.
+- Context: ND-432 requires monotonic content revisions, but legacy clients and
+  owner offboarding functions also mutate authoring content. Updating revisions
+  only in the new PATCH handlers would leave those writers outside the contract.
+- Decision: Invoker PostgreSQL triggers advance Task, ProjectMeetingNote, and
+  Resource content revisions. Child relation/participant/todo changes advance
+  their parent. Metadata-only activity does not. Nested writes advance each
+  affected aggregate once per transaction using one transaction-local JSON
+  marker. Services authorize and lock before comparing an optional If-Match,
+  then mutate inside that same RLS transaction.
+- Consequences: Existing clients remain compatible in the additive release;
+  guarded writes reject stale content with 412 and return the authorized current
+  representation. Live remains disabled until browser/agent enforcement,
+  v1 sunset, and measured load gates pass. Trigger behavior is covered by the
+  least-privilege PostgreSQL matrix and concurrent HTTP edit probes.
+- Links: `task-432-autosave-contract.md`,
+  `../docs/runbooks/content-revision-preconditions.md`, Nexus Dash ND-565.

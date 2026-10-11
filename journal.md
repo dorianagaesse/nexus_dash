@@ -9901,3 +9901,17 @@ Low-value entries to avoid going forward:
 - Delivery: PR #593, implementation commit 36f2f45. Initial CI Quality Core and
   Tenant Isolation passed; hosted E2E was still running at handoff. Copilot
   could not review because its quota was exhausted; manual review is needed.
+
+## 2026-10-11 - ND-565: Conditional content revision foundation
+
+- Split the shared server foundation from ND-433/ND-434 into ND-565 and started
+  `feature/nd-565-content-revisions` from current main in a separate worktree.
+- Added additive entity revisions and ETag/If-Match checks inside authorized
+  actor transactions for task, meeting-note, and context-card edits. Stale
+  requests return the current authorized content without mutation side effects.
+- Meeting and context edits preserve omitted fields. Database invoker triggers
+  track legacy and offboarding writes, task relations, and meeting participants
+  and todos; metadata-only task activity keeps the content revision stable.
+- Live, browser required-header enforcement, and agent v2/sunset remain separate
+  rollout gates. Validation and branch-preview results will be recorded before
+  handoff.

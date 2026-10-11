@@ -8,8 +8,10 @@ import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
+import { contentErrorBody, parseContentIfMatch, withContentEtag } from "@/lib/content-revision";
 import {
   deleteContextCardForProject,
+  getContextCardForProject,
   updateContextCardForProject,
   type ContextCardResponse,
 } from "@/lib/services/context-card-service";
@@ -47,6 +49,18 @@ function serializeContextCard(card: ContextCardResponse) {
   };
 }
 
+export async function GET(request: NextRequest, props: { params: Promise<{ projectId: string; cardId: string }> }) {
+  const params = await props.params;
+  const principal = await requireApiPrincipal(request);
+  if (!principal.ok) return principal.response;
+  const result = await getContextCardForProject({
+    ...params, actorUserId: principal.principal.actorUserId,
+    agentAccess: getAgentProjectAccessContext(principal.principal),
+  });
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+  return NextResponse.json({ card: serializeContextCard(result.data) }, { headers: withContentEtag({}, "context-card", result.data) });
+}
+
 export async function PATCH(
   request: NextRequest,
   props: { params: Promise<{ projectId: string; cardId: string }> }
@@ -64,9 +78,11 @@ export async function PATCH(
     return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
   }
 
-  let title = "";
-  let content = "";
-  let color = "";
+  const precondition = parseContentIfMatch(request.headers.get("if-match"), "context-card", cardId);
+  if (!precondition.ok) return NextResponse.json({ error: precondition.error }, { status: 400 });
+  let title: string | undefined;
+  let content: string | undefined;
+  let color: string | undefined;
 
   if (isJsonRequest(request)) {
     let payload: ContextCardUpdateJsonRequestBody;
@@ -80,10 +96,17 @@ export async function PATCH(
       );
       return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
     }
+    if (!payload || typeof payload !== "object" || Array.isArray(payload) ||
+      ["title", "content", "color"].some((field) => {
+        const value = (payload as Record<string, unknown>)[field];
+        return value !== undefined && typeof value !== "string";
+      })) {
+      return NextResponse.json({ error: "invalid-request-body" }, { status: 400 });
+    }
 
-    title = typeof payload.title === "string" ? payload.title.trim() : "";
-    content = typeof payload.content === "string" ? payload.content.trim() : "";
-    color = typeof payload.color === "string" ? payload.color.trim() : "";
+    title = typeof payload.title === "string" ? payload.title.trim() : undefined;
+    content = typeof payload.content === "string" ? payload.content.trim() : undefined;
+    color = typeof payload.color === "string" ? payload.color.trim() : undefined;
   } else {
     let formData: FormData;
     try {
@@ -97,9 +120,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid form payload" }, { status: 400 });
     }
 
-    title = readText(formData, "title");
-    content = readText(formData, "content");
-    color = readText(formData, "color");
+    title = formData.has("title") ? readText(formData, "title") : undefined;
+    content = formData.has("content") ? readText(formData, "content") : undefined;
+    color = formData.has("color") ? readText(formData, "color") : undefined;
   }
 
   const result = await updateContextCardForProject({
@@ -110,12 +133,13 @@ export async function PATCH(
     content,
     color,
     agentAccess,
+    ...(precondition.expectedRevision === undefined ? {} : { expectedRevision: precondition.expectedRevision }),
   });
 
   if (!result.ok) {
     return NextResponse.json(
-      { error: result.error },
-      { status: result.status, headers: timing.headers() }
+      contentErrorBody(result),
+      { status: result.status, headers: result.current ? withContentEtag(timing.headers(), "context-card", result.current) : timing.headers() }
     );
   }
 
@@ -135,7 +159,7 @@ export async function PATCH(
     {
       card: serializedCard,
     },
-    { headers: withProjectActivityVersionHeader(timing.headers(), version) }
+    { headers: withContentEtag(withProjectActivityVersionHeader(timing.headers(), version), "context-card", result.data) }
   );
 }
 

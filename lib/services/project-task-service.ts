@@ -61,6 +61,8 @@ import {
   type ResolvedProjectActorPersistence,
 } from "@/lib/services/project-actor-service";
 import { mapTaskStoredActor } from "@/lib/services/project-task-response";
+import type { VersionedContent } from "@/lib/content-revision";
+import { editConflict, lockContentRevision } from "@/lib/services/content-revision-service";
 
 const MIN_TITLE_LENGTH = 2;
 const TASK_ASSIGNEE_INVALID = "assignee-invalid";
@@ -71,6 +73,7 @@ interface ServiceErrorResult {
   ok: false;
   status: number;
   error: string;
+  current?: VersionedContent;
 }
 
 interface ServiceSuccessResult<T> {
@@ -90,7 +93,7 @@ export interface ReorderPayload {
 }
 
 export interface UpdateTaskPayload {
-  title: string;
+  title?: string;
   label?: string;
   labels?: string[];
   description?: string;
@@ -122,6 +125,7 @@ export interface CreateTaskForProjectInput {
 
 export interface UpdatedTaskPayload {
   id: string;
+  contentRevision: number;
   reference: string;
   title: string;
   label: string | null;
@@ -354,6 +358,7 @@ async function loadTaskMutationPayload(
     where: { id: taskId },
     select: {
       id: true,
+      contentRevision: true,
       referenceNumber: true,
       title: true,
       label: true,
@@ -446,6 +451,7 @@ async function loadTaskMutationPayload(
 
   return {
     id: task.id,
+    contentRevision: task.contentRevision,
     reference: formatTaskReference(task.referenceNumber),
     title: task.title,
     label: task.label,
@@ -1620,7 +1626,8 @@ export async function updateTaskForProject(
   taskId: string,
   payload: UpdateTaskPayload,
   actorUserId: string,
-  agentAccess?: AgentProjectAccessContext
+  agentAccess?: AgentProjectAccessContext,
+  expectedRevision?: number
 ): Promise<
   ServiceResult<{ task: UpdatedTaskPayload; activityVersion: Date }>
 > {
@@ -1744,6 +1751,20 @@ export async function updateTaskForProject(
     }
 
     try {
+      const precondition = await lockContentRevision({
+        db, domain: "task", projectId, id: taskId, expectedRevision,
+      });
+      if (precondition === "missing") return createError(404, "Task not found");
+      if (precondition === "conflict") {
+        const current = await loadTaskMutationPayload(db, projectId, taskId, true);
+        if (!current) return createError(404, "Task not found");
+        return editConflict({
+          ...current,
+          attachments: current.attachments.map((attachment) =>
+            mapTaskAttachmentResponse(projectId, taskId, attachment)
+          ),
+        });
+      }
       const existingTask = await db.task.findUnique({
         where: { id: taskId },
         select: {
@@ -2018,7 +2039,7 @@ export async function updateTaskForProject(
       logServerError("updateTaskForProject", error);
       return createError(500, "Failed to update task");
     }
-  });
+  }, { forceTransaction: expectedRevision !== undefined });
 }
 
 export async function archiveTaskForProject(
