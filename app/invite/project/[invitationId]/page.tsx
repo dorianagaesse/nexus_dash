@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LogoutForm } from "@/components/logout-form";
 import { getSessionUserIdFromServer } from "@/lib/auth/session-user";
 import { appendQueryToPath } from "@/lib/navigation/return-to";
 import {
@@ -155,9 +156,9 @@ export default async function ProjectInvitationPage({
                   invite is reserved for {invitation.invitedEmail}.
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <form action={logoutAction} method="post">
+                  <LogoutForm action={logoutAction} userId={actorUserId}>
                     <Button type="submit">Sign out and switch account</Button>
-                  </form>
+                  </LogoutForm>
                   <Button asChild variant="outline">
                     <Link href={signInHref}>Use matching account</Link>
                   </Button>

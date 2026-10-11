@@ -70,7 +70,7 @@ async function expectFocusOnCard(page: Page, taskId: string) {
 }
 
 test.describe("ND-465 Kanban task Cancel", () => {
-  test("create flow Cancel closes the dialog, discards the draft, and returns focus", async ({
+  test("create flow Cancel closes the dialog, keeps recoverable input, and returns focus", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -78,7 +78,7 @@ test.describe("ND-465 Kanban task Cancel", () => {
 
     const newTaskButton = page.getByRole("button", { name: "New task" }).first();
     await newTaskButton.click();
-    await openDialog(page).getByLabel("Title").fill("nd465 draft that must be discarded");
+    await openDialog(page).getByLabel("Title").fill("nd465 recoverable draft");
     await openDialog(page).getByLabel("Labels").fill("nd465-draft-label");
 
     await modalButton(page, "Cancel").click();
@@ -88,8 +88,11 @@ test.describe("ND-465 Kanban task Cancel", () => {
     await expect(newTaskButton).toBeFocused();
 
     await newTaskButton.click();
-    await expect(openDialog(page).getByLabel("Title")).toHaveValue("");
+    await expect(openDialog(page).getByLabel("Title")).toHaveValue("nd465 recoverable draft");
     await expect(openDialog(page).getByLabel("Labels")).toHaveValue("");
+    await expect(modalButton(page, "Discard")).toBeEnabled();
+    await modalButton(page, "Discard").click();
+    await expect(openDialog(page).getByLabel("Title")).toHaveValue("");
     await expect(modalButton(page, "Cancel")).toBeEnabled();
     await modalButton(page, "Cancel").click();
     await expect(page.locator('[role="dialog"][data-state="open"]')).toHaveCount(0);
@@ -132,6 +135,12 @@ test.describe("ND-465 Kanban task Cancel", () => {
     await page.keyboard.press("Enter");
     await expect(page.locator('[role="dialog"][data-state="open"]')).toHaveCount(0);
     await expect(newTaskButton).toBeFocused();
+    await newTaskButton.click();
+    await modalButton(page, "Discard").focus();
+    await page.keyboard.press("Enter");
+    await expect(openDialog(page).getByLabel("Title")).toHaveValue("");
+    await expect(modalButton(page, "Cancel")).toBeVisible();
+    await modalButton(page, "Cancel").click();
 
     const card = await createTask(page, "nd465 keyboard cancel target");
     const taskId = (await card.getAttribute("data-kanban-task-card")) as string;
@@ -179,11 +188,13 @@ test.describe("ND-465 Kanban task Cancel", () => {
       await newTaskButton.tap();
       await openDialog(page)
         .getByLabel("Title")
-        .fill("nd465 mobile create draft that must be discarded");
+        .fill("nd465 mobile recoverable draft");
       await modalButton(page, "Cancel").tap();
       await expect(page.locator('[role="dialog"][data-state="open"]')).toHaveCount(0);
       await expect(newTaskButton).toBeFocused();
       await newTaskButton.tap();
+      await expect(openDialog(page).getByLabel("Title")).toHaveValue("nd465 mobile recoverable draft");
+      await modalButton(page, "Discard").tap();
       await expect(openDialog(page).getByLabel("Title")).toHaveValue("");
       await modalButton(page, "Cancel").tap();
       await expect(page.locator('[role="dialog"][data-state="open"]')).toHaveCount(0);
