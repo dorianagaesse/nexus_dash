@@ -103,6 +103,20 @@ import {
 } from "@/lib/task-deadline";
 import { MAX_TASK_LABELS, getTaskLabelColor } from "@/lib/task-label";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
+import { RecoveryDraftNotice } from "@/components/recovery-draft-notice";
+import type { RecoveryDraftState } from "@/lib/hooks/use-recovery-draft";
+
+const EMPTY_RECOVERY_STATE: RecoveryDraftState = {
+  restored: false,
+  locallyStored: false,
+  conflict: false,
+  error: null,
+  incompatibleDraft: null,
+  discard: () => undefined,
+  acceptConflict: () => undefined,
+  saved: () => undefined,
+  flush: () => undefined,
+};
 import {
   MAX_TASK_TITLE_LENGTH,
   TASK_TITLE_LIMIT_HINT_THRESHOLD,
@@ -127,6 +141,8 @@ interface TaskDetailModalProps {
   newBlockedFollowUpEntry: string;
   isUpdatingTask: boolean;
   taskModalError: string | null;
+  taskEditRecovery?: RecoveryDraftState;
+  onDiscardTaskEditRecovery?: () => void;
   attachmentError: string | null;
   isSubmittingAttachment: boolean;
   isArchivingTask: boolean;
@@ -141,6 +157,12 @@ interface TaskDetailModalProps {
   taskCommentsError: string | null;
   isLoadingTaskComments: boolean;
   newTaskComment: string;
+  commentMentionSelections?: TaskCommentMentionSelection[];
+  commentAgentMentionSelections?: CommentAgentMentionDraft[];
+  onCommentMentionSelectionsChange?: (value: TaskCommentMentionSelection[] | ((previous: TaskCommentMentionSelection[]) => TaskCommentMentionSelection[])) => void;
+  onCommentAgentMentionSelectionsChange?: (value: CommentAgentMentionDraft[] | ((previous: CommentAgentMentionDraft[]) => CommentAgentMentionDraft[])) => void;
+  commentRecovery?: RecoveryDraftState;
+  onDiscardCommentRecovery?: () => void;
   isSubmittingTaskComment: boolean;
   commentAttachments?: TaskAttachment[];
   pendingCommentAttachmentUploads?: PendingAttachmentUpload[];
@@ -215,6 +237,8 @@ export function TaskDetailModal({
   newBlockedFollowUpEntry,
   isUpdatingTask,
   taskModalError,
+  taskEditRecovery = EMPTY_RECOVERY_STATE,
+  onDiscardTaskEditRecovery = () => undefined,
   attachmentError,
   isSubmittingAttachment,
   isArchivingTask,
@@ -229,6 +253,12 @@ export function TaskDetailModal({
   taskCommentsError,
   isLoadingTaskComments,
   newTaskComment,
+  commentMentionSelections,
+  commentAgentMentionSelections,
+  onCommentMentionSelectionsChange,
+  onCommentAgentMentionSelectionsChange,
+  commentRecovery = EMPTY_RECOVERY_STATE,
+  onDiscardCommentRecovery = () => undefined,
   isSubmittingTaskComment,
   commentAttachments = [],
   pendingCommentAttachmentUploads = [],
@@ -275,6 +305,8 @@ export function TaskDetailModal({
   onUnarchiveTask,
   onRequestDeleteTask,
 }: TaskDetailModalProps) {
+  const [localCommentMentionSelections, setLocalCommentMentionSelections] = useState<TaskCommentMentionSelection[]>([]);
+  const [localCommentAgentMentionSelections, setLocalCommentAgentMentionSelections] = useState<CommentAgentMentionDraft[]>([]);
   const selectedTaskId = selectedTask?.id ?? "";
   const [taskCommentReactions, setTaskCommentReactions] = useState<Map<string, TaskCommentReaction[]>>(new Map());
   const reactionsAbortControllerRef = useRef<AbortController | null>(null);
@@ -495,6 +527,12 @@ export function TaskDetailModal({
                     taskCommentsError={taskCommentsError}
                     isLoadingTaskComments={isLoadingTaskComments}
                     newTaskComment={newTaskComment}
+                    commentMentionSelections={commentMentionSelections ?? localCommentMentionSelections}
+                    commentAgentMentionSelections={commentAgentMentionSelections ?? localCommentAgentMentionSelections}
+                    onCommentMentionSelectionsChange={onCommentMentionSelectionsChange ?? setLocalCommentMentionSelections}
+                    onCommentAgentMentionSelectionsChange={onCommentAgentMentionSelectionsChange ?? setLocalCommentAgentMentionSelections}
+                    commentRecovery={commentRecovery}
+                    onDiscardCommentRecovery={onDiscardCommentRecovery}
                     isSubmittingTaskComment={isSubmittingTaskComment}
                     commentAttachments={commentAttachments}
                     pendingCommentAttachmentUploads={pendingCommentAttachmentUploads}
@@ -574,13 +612,14 @@ export function TaskDetailModal({
                     {taskModalError}
                   </div>
                 ) : null}
+                {isEditing ? <RecoveryDraftNotice draft={taskEditRecovery} onDiscard={onDiscardTaskEditRecovery} /> : null}
 
                 {isEditing ? (
                   <div className="flex w-full gap-2">
                     <Button
                       type="button"
                       onClick={() => void onSaveTask()}
-                      disabled={isUpdatingTask}
+                      disabled={isUpdatingTask || taskEditRecovery.conflict}
                       aria-busy={isUpdatingTask ? "true" : undefined}
                       aria-label={isUpdatingTask ? "Saving changes..." : "Save changes"}
                       className="flex-1"
@@ -1397,6 +1436,12 @@ function TaskReadOnlyContent({
   taskCommentsError,
   isLoadingTaskComments,
   newTaskComment,
+  commentMentionSelections,
+  commentAgentMentionSelections,
+  onCommentMentionSelectionsChange,
+  onCommentAgentMentionSelectionsChange,
+  commentRecovery,
+  onDiscardCommentRecovery,
   isSubmittingTaskComment,
   commentAttachments,
   pendingCommentAttachmentUploads,
@@ -1422,6 +1467,12 @@ function TaskReadOnlyContent({
   taskCommentsError: string | null;
   isLoadingTaskComments: boolean;
   newTaskComment: string;
+  commentMentionSelections: TaskCommentMentionSelection[];
+  commentAgentMentionSelections: CommentAgentMentionDraft[];
+  onCommentMentionSelectionsChange: (value: TaskCommentMentionSelection[] | ((previous: TaskCommentMentionSelection[]) => TaskCommentMentionSelection[])) => void;
+  onCommentAgentMentionSelectionsChange: (value: CommentAgentMentionDraft[] | ((previous: CommentAgentMentionDraft[]) => CommentAgentMentionDraft[])) => void;
+  commentRecovery: RecoveryDraftState;
+  onDiscardCommentRecovery: () => void;
   isSubmittingTaskComment: boolean;
   commentAttachments: TaskAttachment[];
   pendingCommentAttachmentUploads: PendingAttachmentUpload[];
@@ -1580,11 +1631,6 @@ function TaskReadOnlyContent({
   const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
   const hasCommentDraftAttachments =
     commentAttachments.length > 0 || pendingCommentAttachmentUploads.length > 0;
-  const [commentMentionSelections, setCommentMentionSelections] = useState<
-    TaskCommentMentionSelection[]
-  >([]);
-  const [commentAgentMentionSelections, setCommentAgentMentionSelections] =
-    useState<CommentAgentMentionDraft[]>([]);
   const commentDraftText = richTextToPlainText(newTaskComment);
   const commentDraftTooLong =
     commentDraftText.length > MAX_TASK_COMMENT_LENGTH;
@@ -1592,7 +1638,7 @@ function TaskReadOnlyContent({
   const handleCommentMentionSelect = (member: MentionAutocompleteMember) => {
     const selectedMention = buildCommentMentionSelection(member);
     if (selectedMention) {
-      setCommentMentionSelections((previousSelections) => [
+      onCommentMentionSelectionsChange((previousSelections) => [
         ...previousSelections,
         selectedMention,
       ]);
@@ -1600,7 +1646,7 @@ function TaskReadOnlyContent({
 
     const selectedAgentMention = buildCommentAgentMentionSelection(member);
     if (selectedAgentMention) {
-      setCommentAgentMentionSelections((previousSelections) => [
+      onCommentAgentMentionSelectionsChange((previousSelections) => [
         ...previousSelections,
         selectedAgentMention,
       ]);
@@ -1608,13 +1654,13 @@ function TaskReadOnlyContent({
   };
 
   useEffect(() => {
-    setCommentMentionSelections((previousSelections) =>
+    onCommentMentionSelectionsChange((previousSelections) =>
       pruneCommentMentionSelections(previousSelections, newTaskComment)
     );
-    setCommentAgentMentionSelections((previousSelections) =>
+    onCommentAgentMentionSelectionsChange((previousSelections) =>
       pruneCommentAgentMentionSelections(previousSelections, newTaskComment)
     );
-  }, [newTaskComment]);
+  }, [newTaskComment, onCommentMentionSelectionsChange, onCommentAgentMentionSelectionsChange]);
 
   return (
     <>
@@ -1887,6 +1933,7 @@ function TaskReadOnlyContent({
           {taskCommentsError ? (
             <p className="text-xs text-destructive">{taskCommentsError}</p>
           ) : null}
+          {canEdit ? <RecoveryDraftNotice draft={commentRecovery} onDiscard={onDiscardCommentRecovery} /> : null}
 
           {canEdit ? (
             <div className="space-y-2">
@@ -2008,6 +2055,7 @@ function TaskReadOnlyContent({
                     }
                     disabled={
                       isSubmittingTaskComment ||
+                      commentRecovery.conflict ||
                       pendingCommentAttachmentUploads.length > 0 ||
                       (!commentDraftText && commentAttachments.length === 0) ||
                       commentDraftTooLong

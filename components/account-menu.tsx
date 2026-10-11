@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { LogoutForm } from "@/components/logout-form";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { useDismissibleMenu } from "@/lib/hooks/use-dismissible-menu";
 import { buildAuthenticatedDestinationHref } from "@/lib/navigation/authenticated-shell";
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 
 interface AccountMenuProps {
   isAuthenticated: boolean;
+  userId?: string;
   displayName: string | null;
   usernameTag: string | null;
   avatarSeed: string | null;
@@ -33,6 +35,7 @@ interface AccountMenuProps {
 
 export function AccountMenu({
   isAuthenticated,
+  userId,
   displayName,
   usernameTag,
   avatarSeed,
@@ -291,9 +294,9 @@ export function AccountMenu({
               ) : null}
             </Link>
           </Button>
-          <form
+          <LogoutForm
             action="/api/auth/logout"
-            method="post"
+            userId={userId}
             role="none"
             className="mt-1 border-t border-border/70 pt-1"
           >
@@ -306,7 +309,7 @@ export function AccountMenu({
               <LogOut className="h-4 w-4" aria-hidden />
               Log out
             </Button>
-          </form>
+          </LogoutForm>
         </div>
       ) : null}
     </div>

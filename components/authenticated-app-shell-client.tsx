@@ -305,6 +305,7 @@ export function AuthenticatedAppShellClient({
           <div className="mt-2 border-t border-border/70 pt-3">
             <AccountMenu
               isAuthenticated
+              userId={userId}
               displayName={displayName}
               usernameTag={usernameTag}
               avatarSeed={avatarSeed}
@@ -343,6 +344,7 @@ export function AuthenticatedAppShellClient({
             <ThemeToggle compact />
             <AccountMenu
               isAuthenticated
+              userId={userId}
               displayName={displayName}
               usernameTag={usernameTag}
               avatarSeed={avatarSeed}
