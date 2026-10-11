@@ -11,6 +11,11 @@ and an `ETag`. Meeting-note single-record GET/PATCH routes expose the same
 contract to authenticated humans. List and mutation representations carry the
 revision so clients can retain the base they edited.
 
+Authoring responses explicitly disable browser and CDN storage. These ETags
+protect database mutations; a CDN must not compare the incoming validator
+against the newly advanced ETag returned by a successful PATCH. The deployed
+Preview probe verifies the accepted response as well as conflict responses.
+
 Use the exact ETag in the next PATCH's `If-Match` header. For example, a task
 ETag is `"task:<entity-id>:<revision>"`. Meeting and context prefixes are
 `meeting-note` and `context-card`. Send only the changed fields. Meeting-note

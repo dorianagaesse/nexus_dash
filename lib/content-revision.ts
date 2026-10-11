@@ -35,6 +35,10 @@ export function withContentEtag(
   entity: { id: string; contentRevision?: number }
 ): Headers {
   const result = new Headers(headers);
+  // These validators guard database writes. Intermediaries must not evaluate
+  // If-Match against a mutation response's newly advanced ETag.
+  result.set("Cache-Control", "private, no-store");
+  result.set("Vercel-CDN-Cache-Control", "no-store");
   if (entity.contentRevision !== undefined) {
     result.set("ETag", contentEtag(domain, entity.id, entity.contentRevision));
   }
