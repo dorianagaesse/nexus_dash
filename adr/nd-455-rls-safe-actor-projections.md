@@ -113,9 +113,10 @@ re-derive the caller's access:
 
 This ADR governs read projections of actor display metadata. Other SECURITY
 DEFINER functions follow the same revalidation principle under their own
-contracts: `app.touch_project_activity_version` revalidates editor/owner
-membership (per the 2026-05-30 decision in
-[decisions.md](./decisions.md)) and
+contracts:
+[`app.touch_project_activity`](../prisma/migrations/20260530120000_task118_project_activity_touch/migration.sql)
+revalidates owner/editor membership and raises on an absent actor (per the
+2026-05-30 decision in [decisions.md](./decisions.md)), while
 `app.resolve_project_actor_responsibilities` is owner-only (ND-179). This ADR
 does not change them.
 

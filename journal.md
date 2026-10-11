@@ -18,6 +18,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   service and RLS context helper, the isolation matrix, and the RLS runbook.
 - Validation: `git diff --check` clean and relative link/reference review
   passed. Documentation only; no runtime or database changes.
+- Review follow-up: the orchestrator review flagged one wrong identifier in the
+  boundary section; corrected the activity-touch function name to
+  `app.touch_project_activity` and linked the task118 migration. Link check and
+  `git diff --check` re-run clean.
 
 # 2026-10-11 - ND-433: Resolve main integration
 
