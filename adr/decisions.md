@@ -16,6 +16,21 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-10-10 - ND-187: Shared discussion and explicit subscription contracts
+
+- Status: Proposed; architecture milestone, runtime work remains on the board.
+- Context: Task comments already implement discussion and attribution, while the
+  other artifacts have no threads; explicit watchers overlap ND-189.
+- Decision: Propose one FK-backed thread/message family, actor-specific
+  subscriptions, task API compatibility adapters, and a fenced migration. ND-187
+  owns discussion watch intents; ND-189 owns preference filtering and broader
+  followed artifact changes. Watcher delivery waits for their shared contract.
+- Consequences: Migration, RLS, identity, retention, and notification parity must
+  be verified before each surface rollout. Final product scope remains a review
+  gate; this decision does not claim any runtime feature is implemented.
+- Links: [ND-187 discussion ADR](nd-187-shared-discussion.md), board ND-187 and ND-189.
+
+
 ## 2026-10-04 - ND-535: Edit task comments with author-only authorization and audit timestamp
 
 - Status: Accepted.
