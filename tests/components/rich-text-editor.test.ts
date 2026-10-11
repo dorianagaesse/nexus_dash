@@ -580,6 +580,31 @@ describe("rich-text-editor", () => {
     });
   });
 
+  test("highlights a dotted username as one editor chip and persists the full token", async () => {
+    const { container, root } = createTestRenderer();
+
+    await renderWithRoot(
+      root,
+      React.createElement(EditorHarness, {
+        initialValue: "<p>Nice work @abdel.kiwi#1234, thanks</p>",
+      })
+    );
+
+    const editor = container.querySelector<HTMLDivElement>('[contenteditable="true"]');
+    const mentions = editor?.querySelectorAll<HTMLElement>("[data-editor-mention='true']");
+    const persistedValue = container.querySelector("output[data-testid='value']")?.textContent;
+
+    expect(mentions).toHaveLength(1);
+    expect(mentions?.[0]?.textContent).toBe("@abdel.kiwi");
+    expect(mentions?.[0]?.dataset.mentionRaw).toBe("@abdel.kiwi#1234");
+    expect(editor?.textContent).toContain("Nice work @abdel.kiwi, thanks");
+    expect(persistedValue).toBe("<p>Nice work @abdel.kiwi#1234, thanks</p>");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
   test("renders a visible editor-only separator after highlighted mentions", async () => {
     const { container, root } = createTestRenderer();
 

@@ -30,6 +30,13 @@ Keep UI-only or task-only notes in `journal.md`.
   gate; this decision does not claim any runtime feature is implemented.
 - Links: [ND-187 discussion ADR](nd-187-shared-discussion.md), board ND-187 and ND-189.
 
+## 2026-10-10 - ND-561: One dot-separated username shape shared by policy, storage, and mention grammar
+
+- Status: Accepted.
+- Context: The account username policy accepted any mix of dots, underscores, and alphanumerics (`[a-z0-9._]+`), but the mention grammar only parsed alphanumeric/underscore names. A dotted username could not resolve at all, and a mention could resolve to a different account whose handle was a prefix of it. Separately, accounts provisioned before username onboarding had no tag, so they were silently unmentionable and mention selections were dropped without feedback.
+- Decision: One canonical shape everywhere: lowercase alphanumeric/underscore segments joined by single dots, with no leading, trailing, or consecutive dots. The mention grammar parses that shape case-insensitively, consumes a dot only when a segment follows (a trailing sentence dot remains punctuation), and enforces the 20-character cap in code after stripping editor format characters; an overlong name resolves zero times instead of truncating to a prefix. Unresolvable human mention selections fail the submission with `task-comment-mention-invalid` (visible feedback) instead of being dropped. `npm run db:backfill-username-tags` provisions missing tags idempotently and race-safely, deriving handles from username, display name, or email local part and never changing display names.
+- Consequences: Dotted usernames are mentionable and resolve exactly once; existing stored handles already satisfy the shape (verified against production: zero violations), so no data rewrite was needed there. Comment creation can now fail on stale selections where it previously posted silently; the UI surfaces a retry message. Environments whose data predates username onboarding must run the documented backfill after deploy.
+- Links: Nexus Dash card ND-561; GitHub issue #587.
 
 ## 2026-10-04 - ND-535: Edit task comments with author-only authorization and audit timestamp
 

@@ -202,6 +202,66 @@ describe("MentionAutocomplete actor options", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  test("keeps humans without a username tag inert with an explicit reason", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          actors: [
+            {
+              kind: "human",
+              id: "user-9",
+              displayName: "Corelia",
+              usernameTag: null,
+              avatarSeed: null,
+              projectRole: "owner",
+              isOwner: true,
+            },
+          ],
+        }),
+      })
+    );
+    const onSelect = vi.fn();
+
+    act(() => {
+      root.render(
+        <MentionAutocomplete
+          projectId="project-1"
+          query=""
+          position={{ top: 20, left: 20 }}
+          onSelect={onSelect}
+          onClose={vi.fn()}
+        />
+      );
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(160);
+    });
+
+    const human = document.querySelector("[role='option']");
+    expect(human?.getAttribute("aria-disabled")).toBe("true");
+    expect(human?.textContent).toContain("no username to mention yet");
+
+    act(() => {
+      human?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true })
+      );
+    });
+
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   test("selects agents with Enter when agent mentions are enabled", async () => {
     stubActorSearch();
     const onSelect = vi.fn();
