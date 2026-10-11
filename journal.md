@@ -9826,3 +9826,32 @@ Low-value entries to avoid going forward:
 - Merge gating: the Production broadcast flip is deferred and owned by the
   reviewer; the acceptance check "Vercel Observability reports no legacy SSE
   invocations" is a post-flip observation on the deployed branch.
+
+## 2026-10-11 - ND-450: Project-scoped agent task search
+
+- The existing workspace search route (`GET /api/projects/{projectId}/tasks/search`)
+  now accepts agent bearer tokens: it uses `requireApiPrincipal` plus a
+  `task:read` scope and project-binding check instead of the session-only
+  guard that returned 401 for every bearer. Matching semantics are unchanged
+  because the route still calls `searchProjectTaskIds`; only the principal
+  handling and response bounding changed.
+- Responses are bounded and self-describing: `{ taskIds, totalMatches,
+  truncated }`. Agent credentials default to 50 ids; an explicit `limit`
+  (1-200, clamped; non-numeric returns `invalid-limit`) overrides it for any
+  principal. Session searches without a limit stay unbounded so the kanban
+  filter keeps seeing every matching card.
+- Documented in the agent v1 surface: a `TaskSearchResponse` schema, the new
+  OpenAPI path with `q`/`limit` parameters, endpoint notes covering semantics
+  and bounds, a "capped search" limitation bullet, and a copy-paste search
+  example in the hosted guide.
+- Validation (CI-mirroring env): lint and `rls:check` clean; `npm test`
+  1,927 passed / 2 skipped; coverage 94.2% lines with the search route and
+  service at 100% statements/lines; production build passed; full Playwright
+  suite 108 passed / 2 skipped against an owned server on PORT 3457
+  (`PLAYWRIGHT_BASE_URL` guard, no webServer reuse). Real end-to-end check
+  against the local build with a freshly minted `task_read` credential:
+  token exchange, bounded search (limit respected, `taskIds` contained the
+  expected card), 403 without `task:read`, and 404 for a cross-project id;
+  the temporary verification harness and credentials were removed after the
+  run. The RLS matrix is not required for this branch: no Prisma model,
+  migration, or runtime-role changes.

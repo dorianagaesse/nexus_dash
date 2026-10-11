@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const projectAccessServiceMock = vi.hoisted(() => ({
   requireProjectRole: vi.fn(),
+  requireAgentProjectScopes: vi.fn(),
 }));
 const rlsContextMock = vi.hoisted(() => ({ withActorRlsContext: vi.fn() }));
 const loggerMock = vi.hoisted(() => ({ logServerError: vi.fn() }));
@@ -12,6 +13,7 @@ const projectActorServiceMock = vi.hoisted(() => ({
 
 vi.mock("@/lib/services/project-access-service", () => ({
   requireProjectRole: projectAccessServiceMock.requireProjectRole,
+  requireAgentProjectScopes: projectAccessServiceMock.requireAgentProjectScopes,
 }));
 vi.mock("@/lib/services/rls-context", () => ({
   withActorRlsContext: rlsContextMock.withActorRlsContext,
@@ -58,6 +60,9 @@ describe("project task search service", () => {
       ok: true,
       role: "viewer",
     });
+    projectAccessServiceMock.requireAgentProjectScopes.mockReturnValue({
+      ok: true,
+    });
     rlsContextMock.withActorRlsContext.mockImplementation(
       async (_actorUserId: string, operation: (db: typeof dbMock) => unknown) =>
         operation(dbMock)
@@ -89,7 +94,10 @@ describe("project task search service", () => {
         projectId: "project-1",
         query,
       })
-    ).resolves.toEqual({ ok: true, data: { taskIds: ["task-1"] } });
+    ).resolves.toEqual({
+      ok: true,
+      data: { taskIds: ["task-1"], totalMatches: 1, truncated: false },
+    });
   });
 
   test("does not match rich-text comment markup", async () => {
@@ -99,7 +107,10 @@ describe("project task search service", () => {
       query: "<p>",
     });
 
-    expect(result).toEqual({ ok: true, data: { taskIds: [] } });
+    expect(result).toEqual({
+      ok: true,
+      data: { taskIds: [], totalMatches: 0, truncated: false },
+    });
   });
 
   test("searches only the requested authorized project, including archived rows", async () => {
@@ -113,7 +124,10 @@ describe("project task search service", () => {
       query: "launch",
     });
 
-    expect(result).toEqual({ ok: true, data: { taskIds: ["archived-task"] } });
+    expect(result).toEqual({
+      ok: true,
+      data: { taskIds: ["archived-task"], totalMatches: 1, truncated: false },
+    });
     expect(projectAccessServiceMock.requireProjectRole).toHaveBeenCalledWith(
       expect.objectContaining({
         actorUserId: "viewer-1",
@@ -142,7 +156,10 @@ describe("project task search service", () => {
         projectId: "project-1",
         query: "release bot",
       })
-    ).resolves.toEqual({ ok: true, data: { taskIds: ["task-1"] } });
+    ).resolves.toEqual({
+      ok: true,
+      data: { taskIds: ["task-1"], totalMatches: 1, truncated: false },
+    });
     expect(projectActorServiceMock.loadProjectActorRegistry).toHaveBeenCalledWith(
       { db: dbMock, projectId: "project-1" }
     );
@@ -164,7 +181,10 @@ describe("project task search service", () => {
         projectId: "project-1",
         query: "nightly sync",
       })
-    ).resolves.toEqual({ ok: true, data: { taskIds: ["task-1"] } });
+    ).resolves.toEqual({
+      ok: true,
+      data: { taskIds: ["task-1"], totalMatches: 1, truncated: false },
+    });
   });
 
   test("matches agent-assigned tasks by the live registry credential label", async () => {
@@ -194,7 +214,10 @@ describe("project task search service", () => {
         projectId: "project-1",
         query: "v2",
       })
-    ).resolves.toEqual({ ok: true, data: { taskIds: ["task-1"] } });
+    ).resolves.toEqual({
+      ok: true,
+      data: { taskIds: ["task-1"], totalMatches: 1, truncated: false },
+    });
   });
 
   test("does not match agent snapshots on tasks without an agent assignee", async () => {
@@ -213,7 +236,10 @@ describe("project task search service", () => {
         projectId: "project-1",
         query: "release bot",
       })
-    ).resolves.toEqual({ ok: true, data: { taskIds: [] } });
+    ).resolves.toEqual({
+      ok: true,
+      data: { taskIds: [], totalMatches: 0, truncated: false },
+    });
   });
 
   test("does not query tasks when project authorization fails", async () => {
@@ -275,7 +301,10 @@ describe("project task search service", () => {
         projectId: "project-1",
         query: "definitely absent",
       })
-    ).resolves.toEqual({ ok: true, data: { taskIds: [] } });
+    ).resolves.toEqual({
+      ok: true,
+      data: { taskIds: [], totalMatches: 0, truncated: false },
+    });
   });
 
   test("maps persistence failures without exposing task content", async () => {
@@ -295,5 +324,191 @@ describe("project task search service", () => {
       expect.any(Error),
       { actorUserId: "user-1", projectId: "project-1" }
     );
+  });
+
+  test("keeps session searches unbounded without an explicit limit", async () => {
+    dbMock.task.findMany.mockResolvedValueOnce(
+      Array.from({ length: 60 }, (_, index) =>
+        searchableTask({ id: `task-${index}` })
+      )
+    );
+
+    const result = await searchProjectTaskIds({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      query: "launch",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        taskIds: Array.from({ length: 60 }, (_, index) => `task-${index}`),
+        totalMatches: 60,
+        truncated: false,
+      },
+    });
+  });
+
+  test("bounds agent searches to the default limit and reports truncation", async () => {
+    dbMock.task.findMany.mockResolvedValueOnce(
+      Array.from({ length: 60 }, (_, index) =>
+        searchableTask({ id: `task-${index}` })
+      )
+    );
+
+    const result = await searchProjectTaskIds({
+      actorUserId: "owner-1",
+      projectId: "project-1",
+      query: "launch",
+      agentAccess: {
+        credentialId: "credential-1",
+        projectId: "project-1",
+        scopes: ["task:read"],
+      },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        taskIds: Array.from({ length: 50 }, (_, index) => `task-${index}`),
+        totalMatches: 60,
+        truncated: true,
+      },
+    });
+  });
+
+  test("honors an explicit limit for agent and session callers", async () => {
+    const tasks = Array.from({ length: 10 }, (_, index) =>
+      searchableTask({ id: `task-${index}` })
+    );
+
+    dbMock.task.findMany.mockResolvedValueOnce(tasks);
+    const agentResult = await searchProjectTaskIds({
+      actorUserId: "owner-1",
+      projectId: "project-1",
+      query: "launch",
+      agentAccess: {
+        credentialId: "credential-1",
+        projectId: "project-1",
+        scopes: ["task:read"],
+      },
+      limit: 5,
+    });
+
+    expect(agentResult).toEqual({
+      ok: true,
+      data: {
+        taskIds: ["task-0", "task-1", "task-2", "task-3", "task-4"],
+        totalMatches: 10,
+        truncated: true,
+      },
+    });
+
+    dbMock.task.findMany.mockResolvedValueOnce(tasks);
+    const sessionResult = await searchProjectTaskIds({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      query: "launch",
+      limit: 2,
+    });
+
+    expect(sessionResult).toEqual({
+      ok: true,
+      data: {
+        taskIds: ["task-0", "task-1"],
+        totalMatches: 10,
+        truncated: true,
+      },
+    });
+  });
+
+  test("clamps explicit limits into the supported range", async () => {
+    const tasks = Array.from({ length: 3 }, (_, index) =>
+      searchableTask({ id: `task-${index}` })
+    );
+
+    dbMock.task.findMany.mockResolvedValueOnce(tasks);
+    const oversized = await searchProjectTaskIds({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      query: "launch",
+      limit: 999,
+    });
+
+    expect(oversized).toEqual({
+      ok: true,
+      data: {
+        taskIds: ["task-0", "task-1", "task-2"],
+        totalMatches: 3,
+        truncated: false,
+      },
+    });
+
+    dbMock.task.findMany.mockResolvedValueOnce(tasks);
+    const undersized = await searchProjectTaskIds({
+      actorUserId: "user-1",
+      projectId: "project-1",
+      query: "launch",
+      limit: 0,
+    });
+
+    expect(undersized).toEqual({
+      ok: true,
+      data: { taskIds: ["task-0"], totalMatches: 3, truncated: true },
+    });
+  });
+
+  test("rejects agent access without task:read scope before querying", async () => {
+    projectAccessServiceMock.requireAgentProjectScopes.mockReturnValueOnce({
+      ok: false,
+      status: 403,
+      error: "forbidden",
+    });
+
+    await expect(
+      searchProjectTaskIds({
+        actorUserId: "owner-1",
+        projectId: "project-1",
+        query: "launch",
+        agentAccess: {
+          credentialId: "credential-1",
+          projectId: "project-1",
+          scopes: ["project:read"],
+        },
+      })
+    ).resolves.toEqual({ ok: false, status: 403, error: "forbidden" });
+    expect(projectAccessServiceMock.requireAgentProjectScopes).toHaveBeenCalledWith({
+      agentAccess: {
+        credentialId: "credential-1",
+        projectId: "project-1",
+        scopes: ["project:read"],
+      },
+      projectId: "project-1",
+      requiredScopes: ["task:read"],
+    });
+    expect(rlsContextMock.withActorRlsContext).not.toHaveBeenCalled();
+    expect(dbMock.task.findMany).not.toHaveBeenCalled();
+  });
+
+  test("rejects cross-project agent access as not found", async () => {
+    projectAccessServiceMock.requireAgentProjectScopes.mockReturnValueOnce({
+      ok: false,
+      status: 404,
+      error: "project-not-found",
+    });
+
+    await expect(
+      searchProjectTaskIds({
+        actorUserId: "owner-1",
+        projectId: "project-2",
+        query: "launch",
+        agentAccess: {
+          credentialId: "credential-1",
+          projectId: "project-1",
+          scopes: ["task:read"],
+        },
+      })
+    ).resolves.toEqual({ ok: false, status: 404, error: "project-not-found" });
+    expect(dbMock.task.findMany).not.toHaveBeenCalled();
   });
 });
