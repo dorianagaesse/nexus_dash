@@ -3,6 +3,19 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-11 - ND-434: Restored draft controls
+
+- Replaced the routine recovery notice in task creation and context-card create/edit with a Discard button in the existing Cancel position. It appears only after a draft is restored, clears that draft without closing the form, and returns to Cancel. Conflict and recovery errors retain their warning.
+- Added browser coverage for button transitions, clearing restored values, and reopening without the discarded draft.
+- Validation: lint, RLS inventory, 1,912 unit tests (2 skipped), coverage (94.07% lines), production build, 7 focused browser tests, and the full Chromium suite (108 passed, 2 skipped). An ND-433 outside-click assertion failed once in the first full run, then passed three focused repeats and the full rerun.
+
+# 2026-10-10 - ND-434: Recovery across remaining authoring forms
+
+- Picked up ND-434 from Backlog, moved it to In Progress, and started `feature/nd-434-remaining-autosave` from `origin/main` in a separate worktree. Cherry-picked the ND-433 prerequisite commits while PR #586 remains open.
+- Added user/project scoped recovery for task creation, context-card create/edit, roadmap event create/edit and milestone edit, and Google Calendar event create/edit. Closing a form flushes its local draft; confirmed server saves clear the submitted draft. Task/context create requests stay single-flight to avoid duplicate records.
+- Browser tests cover reload recovery for task, context, roadmap, and calendar create, context edit recovery, no timed domain writes, and a delayed task create request. Context-card Live stays gated by the ND-432 revision and database-load contract.
+- Validation: lint, RLS inventory, 1,912 unit tests (2 skipped), coverage (94.07% lines), production build, and the full Chromium E2E suite (108 passed, 2 skipped) passed.
+
 # 2026-10-10 - ND-433: Long-form local draft recovery
 
 - Picked up ND-433 from Backlog and started `feature/nd-433-long-form-autosave` in a worktree based on `origin/main` at `f1873ac`.

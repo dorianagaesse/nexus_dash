@@ -4,6 +4,7 @@ import {
   type CSSProperties,
   type ReactNode,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -33,6 +34,7 @@ import {
 } from "lucide-react";
 
 import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
+import { RecoveryDraftNotice } from "@/components/recovery-draft-notice";
 import { SectionHelpAffordance } from "@/components/project-dashboard/section-help-affordance";
 import {
   PROJECT_SECTION_CARD_CLASS,
@@ -55,6 +57,7 @@ import {
   type RoadmapStatus,
 } from "@/lib/roadmap-milestone";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
+import { recoveryDraftKey, useRecoveryDraft } from "@/lib/hooks/use-recovery-draft";
 import { fetchProjectActivityMutation } from "@/lib/project-activity-client";
 import { cn } from "@/lib/utils";
 
@@ -63,6 +66,7 @@ export type ProjectRoadmapPanelEvent = ProjectRoadmapEvent;
 
 interface ProjectRoadmapPanelProps {
   projectId: string;
+  actorUserId?: string;
   canEdit: boolean;
   phases: ProjectRoadmapPanelPhase[];
   loadError?: string | null;
@@ -584,6 +588,7 @@ function RoadmapEntityForm({
   targetDateLabel,
   statusLabel,
   statusOptions,
+  recoveryNotice,
   extraFields,
   isSubmitting,
   error,
@@ -601,6 +606,7 @@ function RoadmapEntityForm({
   targetDateLabel: string;
   statusLabel: string;
   statusOptions: RoadmapSelectOption[];
+  recoveryNotice?: ReactNode;
   extraFields?: ReactNode;
   isSubmitting: boolean;
   error: string | null;
@@ -610,6 +616,7 @@ function RoadmapEntityForm({
 }) {
   return (
     <div className="space-y-5">
+      {recoveryNotice}
       {title || subtitle ? (
         <div className="rounded-2xl border border-border/60 bg-background px-4 py-3">
           <div className="space-y-1">
@@ -1568,6 +1575,7 @@ function RoadmapNewMilestoneDropLane({
 
 export function ProjectRoadmapPanel({
   projectId,
+  actorUserId,
   canEdit,
   phases,
   loadError,
@@ -1586,6 +1594,31 @@ export function ProjectRoadmapPanel({
   const [eventDraft, setEventDraft] = useState<RoadmapDraftState>({ ...DEFAULT_DRAFT_STATE });
   const [milestoneDialog, setMilestoneDialog] = useState<MilestoneDialogState | null>(null);
   const [milestoneDraft, setMilestoneDraft] = useState<RoadmapDraftState>({ ...DEFAULT_DRAFT_STATE });
+  const eventRecoveryValue = useMemo(() => ({
+    ...eventDraft,
+    targetPhaseId: eventDialog?.targetPhaseId ?? NEW_MILESTONE_TARGET,
+  }), [eventDraft, eventDialog?.targetPhaseId]);
+  const eventRecoveryBase = eventDialog?.mode === "edit"
+    ? { ...cloneDraftState(roadmapPhases.flatMap((phase) => phase.events).find((event) => event.id === eventDialog.eventId)), targetPhaseId: eventDialog.phaseId ?? "" }
+    : { ...DEFAULT_DRAFT_STATE, targetPhaseId: NEW_MILESTONE_TARGET };
+  const eventRecovery = useRecoveryDraft({
+    storageKey: actorUserId && eventDialog ? recoveryDraftKey({ userId: actorUserId, projectId, surface: "roadmap-event", mode: eventDialog.mode, entityId: eventDialog.eventId }) : null,
+    value: eventRecoveryValue,
+    base: eventRecoveryBase,
+    restore: (draft) => {
+      setEventDraft({ title: draft.title, description: draft.description, targetDate: draft.targetDate, status: draft.status });
+      setEventDialog((current) => current ? { ...current, targetPhaseId: draft.targetPhaseId } : current);
+    },
+  });
+  const milestoneRecoveryBase = milestoneDialog
+    ? cloneDraftState(roadmapPhases.find((phase) => phase.id === milestoneDialog.phaseId))
+    : DEFAULT_DRAFT_STATE;
+  const milestoneRecovery = useRecoveryDraft({
+    storageKey: actorUserId && milestoneDialog ? recoveryDraftKey({ userId: actorUserId, projectId, surface: "roadmap-milestone", mode: "edit", entityId: milestoneDialog.phaseId }) : null,
+    value: milestoneDraft,
+    base: milestoneRecoveryBase,
+    restore: setMilestoneDraft,
+  });
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [pendingDeleteEventId, setPendingDeleteEventId] = useState<string | null>(null);
   const [eventMutationError, setEventMutationError] = useState<string | null>(null);
@@ -1809,6 +1842,7 @@ export function ProjectRoadmapPanel({
   }
 
   function closeEventDialog() {
+    eventRecovery.flush();
     setEventDialog(null);
     setEventMutationError(null);
     setEventDraft({ ...DEFAULT_DRAFT_STATE });
@@ -1829,6 +1863,7 @@ export function ProjectRoadmapPanel({
     if (isSubmittingMilestone) {
       return;
     }
+    milestoneRecovery.flush();
     setMilestoneDialog(null);
     setMilestoneMutationError(null);
     setMilestoneDraft({ ...DEFAULT_DRAFT_STATE });
@@ -1884,6 +1919,8 @@ export function ProjectRoadmapPanel({
 
     setIsSubmittingEvent(true);
     setEventMutationError(null);
+    const submittedRecovery = eventRecoveryValue;
+    eventRecovery.flush();
 
     let targetPhaseId = eventDialog.targetPhaseId;
     let createdPhase: ProjectRoadmapPanelPhase | null = null;
@@ -1944,6 +1981,7 @@ export function ProjectRoadmapPanel({
         variant: "success",
       });
 
+      eventRecovery.saved(submittedRecovery);
       closeEventDialog();
     } catch (error) {
       console.error("[ProjectRoadmapPanel.submitEvent]", error);
@@ -1979,6 +2017,8 @@ export function ProjectRoadmapPanel({
 
     setIsSubmittingMilestone(true);
     setMilestoneMutationError(null);
+    const submittedRecovery = milestoneDraft;
+    milestoneRecovery.flush();
 
     try {
       const response = await fetchProjectActivityMutation(
@@ -2027,6 +2067,7 @@ export function ProjectRoadmapPanel({
         variant: "success",
       });
 
+      milestoneRecovery.saved(submittedRecovery);
       closeMilestoneDialog();
     } catch (error) {
       console.error("[ProjectRoadmapPanel.submitMilestone]", error);
@@ -2625,6 +2666,11 @@ export function ProjectRoadmapPanel({
       >
         <RoadmapEntityForm
           draft={eventDraft}
+          recoveryNotice={<RecoveryDraftNotice draft={eventRecovery} onDiscard={() => {
+            eventRecovery.discard();
+            setEventDraft(eventRecoveryBase);
+            if (eventDialog) setEventDialog({ ...eventDialog, targetPhaseId: eventRecoveryBase.targetPhaseId });
+          }} />}
           submitLabel={eventDialog?.mode === "create" ? "Create event" : "Save event"}
           targetDateLabel="Event date"
           statusLabel="Event status"
@@ -2688,6 +2734,7 @@ export function ProjectRoadmapPanel({
       >
         <RoadmapEntityForm
           draft={milestoneDraft}
+          recoveryNotice={<RecoveryDraftNotice draft={milestoneRecovery} onDiscard={() => { milestoneRecovery.discard(); setMilestoneDraft(milestoneRecoveryBase); }} />}
           idPrefix="roadmap-milestone"
           titlePlaceholder="No title yet"
           descriptionPlaceholder="No description yet"

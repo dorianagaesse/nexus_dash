@@ -9,6 +9,8 @@ import type {
 } from "@/components/project-context-panel-types";
 import { resolveAttachmentHref } from "@/components/project-context-panel-utils";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { RecoveryDraftNotice } from "@/components/recovery-draft-notice";
+import type { RecoveryDraftState } from "@/lib/hooks/use-recovery-draft";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
 import { EmojiInputField } from "@/components/ui/emoji-field";
@@ -26,6 +28,9 @@ import {
 interface ContextEditModalProps {
   editingCard: ProjectContextCard | null;
   editingColor: string;
+  editTitle: string;
+  recovery: RecoveryDraftState;
+  onDiscardRecovery: () => void;
   mentionProjectId: string;
   editContent: string;
   editingCardAttachments: ProjectContextAttachment[];
@@ -39,6 +44,7 @@ interface ContextEditModalProps {
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
   onEditingColorChange: (color: string) => void;
+  onEditTitleChange: (title: string) => void;
   onEditContentChange: (value: string) => void;
   onPreviewAttachment: (attachment: ProjectContextAttachment) => void;
   onDeleteAttachment: (attachmentId: string) => void | Promise<void>;
@@ -51,6 +57,9 @@ interface ContextEditModalProps {
 export function ContextEditModal({
   editingCard,
   editingColor,
+  editTitle,
+  recovery,
+  onDiscardRecovery,
   mentionProjectId,
   editContent,
   editingCardAttachments,
@@ -64,6 +73,7 @@ export function ContextEditModal({
   onClose,
   onSubmit,
   onEditingColorChange,
+  onEditTitleChange,
   onEditContentChange,
   onPreviewAttachment,
   onDeleteAttachment,
@@ -83,6 +93,9 @@ export function ContextEditModal({
       dismissible={!isUpdatingCard && !isSubmittingAttachment}
     >
       <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
+        {recovery.conflict || recovery.error ? (
+          <RecoveryDraftNotice draft={recovery} onDiscard={onDiscardRecovery} />
+        ) : null}
         <input type="hidden" name="cardId" value={editingCard.id} />
         <div className="grid gap-2">
           <label htmlFor="context-edit-title" className="text-sm font-medium">
@@ -94,7 +107,8 @@ export function ContextEditModal({
             required
             minLength={2}
             maxLength={120}
-            defaultValue={editingCard.title}
+            value={editTitle}
+            onChange={(event) => onEditTitleChange(event.target.value)}
             wrapperClassName={`rounded-md border border-input bg-background ${FORM_FOCUS_BORDER_SHELL_CLASS}`}
             className="h-10 rounded-md border-0 bg-transparent px-3 text-sm outline-none"
           />
@@ -245,11 +259,11 @@ export function ContextEditModal({
           <Button
             type="button"
             variant="ghost"
-            onClick={onClose}
+            onClick={recovery.restored ? onDiscardRecovery : onClose}
             disabled={isUpdatingCard || isSubmittingAttachment}
             className="w-full sm:w-auto"
           >
-            Cancel
+            {recovery.restored ? "Discard" : "Cancel"}
           </Button>
         </div>
       </form>
