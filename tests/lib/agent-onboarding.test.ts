@@ -15,6 +15,24 @@ import { MAX_BULK_TASK_OPERATIONS } from "@/lib/task-bulk";
 import { TASK_STATUSES } from "@/lib/task-status";
 
 describe("agent-onboarding contract", () => {
+  test("documents additive relation edits and excludes mixed replace mode", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+    const schema = document.components.schemas.TaskUpdateRequest;
+    expect(schema.properties.addRelatedTaskIds).toMatchObject({
+      type: "array", items: { type: "string", minLength: 1 },
+    });
+    expect(schema.properties.removeRelatedTaskIds.description).toContain("Absent pairs are a no-op");
+    expect(schema.allOf).toEqual([
+      { not: { required: ["relatedTaskIds", "addRelatedTaskIds"] } },
+      { not: { required: ["relatedTaskIds", "removeRelatedTaskIds"] } },
+    ]);
+    const endpoint = AGENT_API_ENDPOINTS.find((entry) =>
+      entry.method === "PATCH" && entry.path === "/api/projects/{projectId}/tasks/{taskId}"
+    );
+    expect(endpoint?.notes.join(" ")).toContain("GET both task endpoints");
+    expect(endpoint?.notes.join(" ")).toContain("related-tasks-operation-conflict");
+  });
+
   test("documents the scoped roadmap API surface", () => {
     const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
 

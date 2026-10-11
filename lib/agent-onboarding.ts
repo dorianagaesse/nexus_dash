@@ -327,6 +327,9 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "Set deadlineDate to null to clear the deadline.",
       "Send labels as a string array to replace the full label set; an empty array clears all labels. The legacy singular label field remains accepted for compatibility.",
       "Set epicId or assignee to null to clear the epic link or assignment, and relatedTaskIds to an empty array to remove all relations.",
+      "Use addRelatedTaskIds and removeRelatedTaskIds to edit specific undirected relation pairs while preserving every other relation. Additions must refer to active tasks in this project; already-linked archived tasks can be retained. Removing an absent pair is a no-op, including for missing or inaccessible target IDs.",
+      "Do not combine relatedTaskIds with either additive field (related-tasks-mode-conflict), or put the same ID in both additive arrays (related-tasks-operation-conflict). Invalid arrays or self-relations return related-tasks-invalid. IDs are trimmed and deduplicated; empty additive arrays change no relations.",
+      "After a relation edit, GET both task endpoints and check relatedTasks: the relation is bidirectional and unrelated edges must remain present. Repeating an add or remove is safe.",
       "assignee accepts { kind: \"human\" | \"agent\", id } and assigns against project members or active agent credentials. The legacy human-only assigneeUserId string remains accepted; when both are present, assignee wins.",
       "Unknown, non-member, or revoked/expired actors are rejected with assignee-invalid.",
     ],
@@ -1940,6 +1943,10 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           type: "object",
           description:
             "True partial update: every field is optional and only the fields present in the request body change. Omitted fields are preserved.",
+          allOf: [
+            { not: { required: ["relatedTaskIds", "addRelatedTaskIds"] } },
+            { not: { required: ["relatedTaskIds", "removeRelatedTaskIds"] } },
+          ],
           properties: {
             title: {
               type: "string",
@@ -1995,7 +2002,19 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               type: "array",
               items: { type: "string" },
               description:
-                "Replace the related-task set. Omit to preserve; an empty array removes all relations.",
+                "Replace the related-task set. Omit to preserve; an empty array removes all relations. Cannot be combined with addRelatedTaskIds or removeRelatedTaskIds.",
+            },
+            addRelatedTaskIds: {
+              type: "array",
+              items: { type: "string", minLength: 1 },
+              description:
+                "Add only these undirected relation pairs, preserving all other relations. IDs must identify active tasks in this project, or already-linked archived tasks. Existing pairs are retained without duplication. Cannot be combined with relatedTaskIds or overlap removeRelatedTaskIds. Blank IDs and self-relations are invalid.",
+            },
+            removeRelatedTaskIds: {
+              type: "array",
+              items: { type: "string", minLength: 1 },
+              description:
+                "Remove only these undirected relation pairs, preserving all other relations. Absent pairs are a no-op; archived, missing, or inaccessible target IDs need no lookup. Cannot be combined with relatedTaskIds or overlap addRelatedTaskIds. Blank IDs and self-relations are invalid.",
             },
             attachmentLinks: {
               type: "array",
