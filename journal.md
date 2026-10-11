@@ -3,6 +3,14 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-11 - ND-431: Kanban keyboard-drop persist on Space and card render memoization
+
+- Picked up the remaining ND-431 work: new branch `fix/nd-431-kanban-p95-targets` in a sibling worktree from `origin/main` (`24d4496`); root checkout untouched.
+- Keyboard (SNAP) drops now start the reorder request inside the confirming Space keypress: the grid reports the drop intent from its keydown handler, the board persists immediately, and `onDragEnd` reconciles without re-sending (it also skips the local re-apply when an early persist already failed and rolled the board back). Pointer drags keep the existing `onDragEnd` path.
+- Card bodies are referentially memoized (`MemoizedTaskCardContent`) so the drag library's render-prop re-renders reuse card subtrees; grid drag responders use latest-ref indirection so grid re-renders cannot cascade into the mounted draggables.
+- ND-430 fixture measurements with 20 post-warm-up samples and a control board per run. The shared machine's load is the dominant variance (contended runs 101-118 s vs clean 38-54 s). Clean-run p95, baseline to after: navigation 544.3 to 475.9, modal 249.7 to 148.2, lift 131.3 to 99.0, drop-to-settled 253.0 to 217.6, drop to reorder request 147.8 to 120.2 (p50 98.8, inside the 100 ms target), reorder HTTP 100.3 to 93.7, typed remote event 21.1 to 30.3. Board-attributable (large minus control) p95 costs fell 65% for modal open, 53% for lift, and 58% for drop-to-settled. Details in `docs/audits/nd-431-kanban-responsiveness-follow-up.md`.
+- Validation: `npm run lint`, `npm run rls:check`, `npm test` (1,960 passed, 2 skipped), `npm run test:coverage` (94.07% lines), `npm run build`, the full Chromium E2E suite (108 passed, 2 skipped, 4.8 min), and `git diff --check` all passed.
+
 # 2026-10-11 - ND-433: Resolve main integration
 
 - Merged current `origin/main` into the ND-433 branch after ND-434 landed on it. Preserved both autosave and newer roadmap/shared-discussion journal entries.

@@ -8,7 +8,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import type { DropResult } from "@hello-pangea/dnd";
+import type { DraggableLocation, DropResult } from "@hello-pangea/dnd";
 
 import type { RelatedTaskOption } from "@/components/kanban/related-task-field";
 import {
@@ -366,6 +366,22 @@ function getAttachmentLinkName(url: string): string {
   }
 }
 
+interface DropApplication {
+  previousColumns: TaskColumns<KanbanTask>;
+  nextColumns: TaskColumns<KanbanTask>;
+  movedTask: KanbanTask;
+  sourceStatus: TaskStatus;
+  destinationStatus: TaskStatus;
+  previousTask: KanbanTask;
+  nextTask: KanbanTask;
+}
+
+interface KeyboardDropIntent {
+  source: DraggableLocation;
+  destination: DraggableLocation;
+  outcome: "pending" | "saved" | "failed";
+}
+
 export function KanbanBoard({
   canEdit,
   projectId,
@@ -399,6 +415,7 @@ export function KanbanBoard({
   );
   const [isSaving, startTransition] = useTransition();
   const [persistError, setPersistError] = useState<string | null>(null);
+  const keyboardDropIntentRef = useRef<KeyboardDropIntent | null>(null);
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<KanbanTask | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
@@ -1137,7 +1154,7 @@ export function KanbanBoard({
         previousTask: KanbanTask;
         nextTask: KanbanTask;
       }
-    ) => {
+    ): Promise<boolean> => {
       try {
         const response = await fetchProjectActivityMutation(
           projectId,
@@ -1163,40 +1180,27 @@ export function KanbanBoard({
           epicTaskMutation.nextTask
         );
       }
+      return true;
     } catch (error) {
       console.error("[KanbanBoard.persistColumns]", error);
       setColumns(previousColumns);
       setPersistError("Could not save task movement. Board reverted.");
+      return false;
     }
   },
     [projectId]
   );
 
-  const onDragEnd = useCallback(
-    (result: DropResult) => {
-      if (!canEdit) {
-        return;
-      }
-
-      const { source, destination } = result;
-
-      if (!destination) {
-        return;
-      }
-
-      if (
-        source.droppableId === destination.droppableId &&
-        source.index === destination.index
-      ) {
-        return;
-      }
-
+  const computeDropApplication = useCallback(
+    (
+      source: DraggableLocation,
+      destination: DraggableLocation
+    ): { application: DropApplication } | { error: string } | null => {
       const sourceStatus = source.droppableId;
       const destinationStatus = destination.droppableId;
 
       if (!isTaskStatus(sourceStatus) || !isTaskStatus(destinationStatus)) {
-        setPersistError("Invalid drag target. Please retry.");
-        return;
+        return { error: "Invalid drag target. Please retry." };
       }
 
       const previousColumns = cloneColumns(columns);
@@ -1222,7 +1226,7 @@ export function KanbanBoard({
       });
 
       if (!appliedDrop) {
-        return;
+        return null;
       }
 
       const { columns: nextColumns, movedTask } = appliedDrop;
@@ -1236,15 +1240,16 @@ export function KanbanBoard({
       const nextTask = nextColumns[destinationStatus][nextTaskIndex];
 
       if (!previousTask || !nextTask) {
-        setPersistError("Could not map task movement. Please retry.");
-        return;
+        return { error: "Could not map task movement. Please retry." };
       }
 
-      setColumns(nextColumns);
-      setPersistError(null);
-
-      startTransition(() => {
-        void persistColumns(nextColumns, previousColumns, {
+      return {
+        application: {
+          previousColumns,
+          nextColumns,
+          movedTask,
+          sourceStatus,
+          destinationStatus,
           previousTask: {
             ...previousTask,
             status: sourceStatus,
@@ -1255,24 +1260,122 @@ export function KanbanBoard({
             status: destinationStatus,
             position: nextTaskIndex,
           },
-        });
+        },
+      };
+    },
+    [columns, currentActorSummary, visibleColumns]
+  );
+
+  const handleKeyboardDropIntent = useCallback(
+    (source: DraggableLocation, destination: DraggableLocation) => {
+      if (!canEdit || keyboardDropIntentRef.current) {
+        return;
+      }
+
+      const computed = computeDropApplication(source, destination);
+      if (!computed || "error" in computed) {
+        return;
+      }
+
+      const record: KeyboardDropIntent = {
+        source,
+        destination,
+        outcome: "pending",
+      };
+      keyboardDropIntentRef.current = record;
+
+      // Space confirms a keyboard drop in the same keydown, so the persist
+      // request starts here instead of waiting for the drop transition to end
+      // and onDragEnd to fire.
+      void persistColumns(
+        computed.application.nextColumns,
+        computed.application.previousColumns,
+        {
+          previousTask: computed.application.previousTask,
+          nextTask: computed.application.nextTask,
+        }
+      ).then((succeeded) => {
+        if (keyboardDropIntentRef.current === record) {
+          record.outcome = succeeded ? "saved" : "failed";
+        }
       });
-      if (relatedTaskGraph.get(movedTask.id)?.length) {
-        syncRelatedTaskSummary(movedTask.id, {
-          title: movedTask.title,
-          status: destinationStatus,
+    },
+    [canEdit, computeDropApplication, persistColumns]
+  );
+
+  const onDragEnd = useCallback(
+    (result: DropResult) => {
+      if (!canEdit) {
+        return;
+      }
+
+      const { source, destination, reason } = result;
+      const keyboardIntent = keyboardDropIntentRef.current;
+      keyboardDropIntentRef.current = null;
+
+      if (reason !== "DROP" || !destination) {
+        return;
+      }
+
+      if (
+        source.droppableId === destination.droppableId &&
+        source.index === destination.index
+      ) {
+        return;
+      }
+
+      const matchesKeyboardIntent =
+        keyboardIntent !== null &&
+        keyboardIntent.source.droppableId === source.droppableId &&
+        keyboardIntent.source.index === source.index &&
+        keyboardIntent.destination.droppableId === destination.droppableId &&
+        keyboardIntent.destination.index === destination.index;
+
+      if (matchesKeyboardIntent && keyboardIntent.outcome === "failed") {
+        // The early persist already reverted and surfaced the error; leave the
+        // board on the stored order instead of applying the drop locally.
+        return;
+      }
+
+      const computed = computeDropApplication(source, destination);
+      if (!computed) {
+        return;
+      }
+      if ("error" in computed) {
+        setPersistError(computed.error);
+        return;
+      }
+
+      const { application } = computed;
+
+      setColumns(application.nextColumns);
+      setPersistError(null);
+
+      if (!matchesKeyboardIntent) {
+        void persistColumns(
+          application.nextColumns,
+          application.previousColumns,
+          {
+            previousTask: application.previousTask,
+            nextTask: application.nextTask,
+          }
+        );
+      }
+
+      if (relatedTaskGraph.get(application.movedTask.id)?.length) {
+        syncRelatedTaskSummary(application.movedTask.id, {
+          title: application.movedTask.title,
+          status: application.destinationStatus,
           archivedAt: null,
         });
       }
     },
     [
       canEdit,
-      columns,
-      currentActorSummary,
+      computeDropApplication,
       persistColumns,
       relatedTaskGraph,
       syncRelatedTaskSummary,
-      visibleColumns,
     ]
   );
 
@@ -3303,6 +3406,7 @@ export function KanbanBoard({
             mentionUsers={availableAssignees}
             relatedTaskGraph={relatedTaskGraph}
             onDragEnd={onDragEnd}
+            onKeyboardDropIntent={handleKeyboardDropIntent}
             onSelectTask={handleSelectTask}
             onEditTask={openTaskInEditMode}
           />
