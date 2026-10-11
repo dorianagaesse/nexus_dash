@@ -3,6 +3,22 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-11 - ND-455: RLS-safe actor-projection ADR
+
+- Read the ND-455 card, moved it to In Progress with a pickup comment, and
+  created `docs/nd-455-rls-actor-projection-adr` in `../nexus_dash_task455`
+  from `origin/main` at `13a4951`.
+- Documented the shipped ND-382 `app.list_project_actors` SECURITY DEFINER
+  projection in `adr/nd-455-rls-safe-actor-projections.md`: when to use
+  projections, the membership revalidation requirement, the no-secret-material
+  rule, the consumer/maintenance contract, and the drop-with-last-consumer
+  lifecycle (TASK-356 meeting-note variant, ND-447 context-card removal).
+  Linked from `adr/decisions.md`.
+- References verified against the branch tree: migration files, the actor
+  service and RLS context helper, the isolation matrix, and the RLS runbook.
+- Validation: `git diff --check` clean and relative link/reference review
+  passed. Documentation only; no runtime or database changes.
+
 # 2026-10-11 - ND-433: Resolve main integration
 
 - Merged current `origin/main` into the ND-433 branch after ND-434 landed on it. Preserved both autosave and newer roadmap/shared-discussion journal entries.

@@ -16,6 +16,31 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-10-11 - ND-455: RLS-safe actor projections for non-owner project members
+
+- Status: Accepted; records the shipped ND-382 implementation
+  (`app.list_project_actors`) and the TASK-356/TASK-342 pattern lineage.
+- Context: `ApiCredential` SELECT is owner-only under forced RLS, but every
+  current project member needs display-safe agent identity for mention,
+  assignment, and steward surfaces; a direct registry read returned zero
+  credential rows for non-owner sessions (ND-382 preview gap).
+- Decision: Read actor display metadata through read-only SECURITY DEFINER SQL
+  projections (`app.list_project_actors`, `app.list_project_meeting_note_actors`)
+  that return only display-safe columns. The function must revalidate the
+  caller's project membership itself via `app.current_user_id()` (owner or
+  membership row; zero rows otherwise), keep a fixed safe `search_path`, and
+  never expose secret-bearing fields, hashes included. Base-table RLS stays
+  unchanged, and services keep their own principal/role gate inside
+  `withActorRlsContext`.
+- Consequences: Members see live agent identity and status without credential
+  read access. Each projection is per-consumer, covered by the real-PostgreSQL
+  isolation matrix, and dropped with its last consumer (ND-447 removed the
+  context-card variant). Policy and projection membership predicates must
+  change together.
+- Links: [ND-455 actor-projection ADR](nd-455-rls-safe-actor-projections.md),
+  migration `prisma/migrations/20260909212500_nd382_project_actor_safe_read`,
+  board card ND-455.
+
 ## 2026-10-10 - ND-187: Shared discussion and explicit subscription contracts
 
 - Status: Proposed; architecture milestone, runtime work remains on the board.
