@@ -2,6 +2,32 @@
 
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
+# 2026-10-10 - ND-403: Create a milestone by dropping a roadmap event between milestones
+
+- Card `cmtkk0wnu000e04l1macj5qlt` under epic "Roadmap interaction refinement":
+  - Enabled milestone creation directly by dropping or moving a roadmap event into the gap between two existing milestones:
+    - Added intermediate milestone drop targets (`RoadmapDesktopBetweenMilestonesDropZone` and `RoadmapMobileBetweenMilestonesDropZone`) rendered in the connector gaps between adjacent milestones during event drag operations.
+    - Drop zones remain invisible (`opacity-0`) by default when an event is picked up, avoiding visual clutter and premature text popups.
+    - Only when the dragged event card hovers directly above the gap (`snapshot.isDraggingOver`) does the smooth insertion drop shadow smoothly fade in (`opacity-100 bg-slate-200/90 shadow-... dark:bg-slate-800/85 dark:shadow-...`), matching the drop shadow behavior of milestone lanes and the end-of-roadmap milestone target.
+    - Added sole-event reorder detection in `handleDragEnd`: when dragging an event that is the only event of its milestone into an intermediate milestone gap, directly reorders the milestones via `POST /api/projects/${projectId}/roadmap/phases/reorder` without opening the milestone creation dialog. This seamlessly moves/swaps milestone positions without deleting or creating phases.
+    - Added `hasCustomMilestoneTitle` helper to prevent auto-generated default milestone labels (e.g. `"Milestone 2"`) from being treated as user-defined custom titles when milestones change positions on the roadmap.
+    - Updated `handleDragEnd` to detect intermediate gap drops, stage the moved event, pre-fill a draft milestone with sensible defaults derived from the dropped event, and present the milestone creation dialog (`mode: "create"`).
+    - Milestone dialog allows reviewing and editing details (title, target date, description, status) with full validation (title 2-100 characters, description <= 400 characters) before confirming creation.
+    - On confirmation (`submitMilestone`), sequentially creates the new milestone phase via `POST /api/projects/${projectId}/roadmap`, reorders the phases to insert the new milestone at the specified position via `POST /api/projects/${projectId}/roadmap/phases/reorder`, moves the event into the new milestone at position 0 via `persistEventMove`, cleans up any emptied source phase, and updates the roadmap optimistically with toast feedback.
+    - Cancellation or validation failure cleanly aborts the operation and preserves all existing milestone and event order intact.
+  - Automated tests:
+    - Added 5 comprehensive unit tests in `tests/components/project-roadmap-panel.test.tsx`:
+      - Intermediate drop dialog cancellation: dialog dismisses without API calls, preserving event and milestone order.
+      - Validation failure: invalid/short title displays error message and halts creation without modifying state.
+      - Successful creation & linking flow: executes create, reorder, and move APIs in sequence, displays toast notification, and updates roadmap phase ordering.
+      - Interaction affordance: verifies intermediate dropzone remains `opacity-0` with no intrusive text while dragging until hovered.
+      - Sole-event milestone reorder: verifies dragging the sole event of Milestone 3 between Milestones 1 and 2 reorders the milestones directly without opening the creation dialog and does not display default milestone titles as custom titles.
+  - Validation:
+    - `npm run lint`: passed (0 errors, 0 warnings).
+    - `npm run rls:check`: passed.
+    - `npm run test:coverage`: 231 test files passed, 1900 tests passed, met all coverage thresholds.
+    - `npx next build --webpack`: compiled successfully and generated 27 static routes.
+    - `git diff --check`: clean.
 
 # 2026-10-10 - ND-187: Shared discussion architecture pickup
 
@@ -21,6 +47,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Progress and comments are attributed to `codex-home (agent)`. Copilot
   returned a quota-limit result instead of reviewing; no inline findings.
   Surface scope and staged-delivery questions remain pending before migration.
+
+
 # 2026-10-06 - ND-404: Enable milestone editing from roadmap edit mode
 
 - Card `cmtkk0ymw000h04l103wo0zjz` under epic "Roadmap interaction refinement":
