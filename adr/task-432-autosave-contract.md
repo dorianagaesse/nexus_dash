@@ -360,6 +360,34 @@ and the server revision check.
 - Changing project, user, calendar source, or create/edit mode changes the key;
   drafts cannot cross those boundaries.
 
+### 4.7 Client live-save scheduler and adapter contract (ND-433)
+
+ND-433 ships the shared client half of rollout step 3: a framework-free
+scheduler (`lib/live-save/scheduler.ts`), a React binding
+(`lib/hooks/use-live-save.ts`), the status strip and conflict review
+(`components/live-save/`), and a per-surface Live gate
+(`lib/live-save/rollout.ts`, initially empty). The scheduler implements the
+timing, single-flight, pause/retry, rebase, and conflict rules of 4.3-4.5;
+surfaces keep owning their form state and inject the transport adapter, so no
+route or surface starts live-saving until its gate is enabled.
+
+The adapter contract is `LiveSaveAdapter<F>` in `lib/live-save/types.ts`. The
+surface adapter must:
+
+- Send one conditional write of only `input.fields` against
+  `input.baseRevision`, forwarding `input.intent` as the mutation intent of
+  4.3 and honouring `input.signal` so an abandoned write is aborted.
+- Translate the server response into `LiveSaveWriteResult`: `accepted` with
+  the new revision and the current representation; `conflict` with the latest
+  revision and representation (412 `edit-conflict`); `invalid` with a message
+  (422 validation); `unauthorized`; `gone` for deletion or lost access;
+  `offline`; or `failed` with a retryability flag. Thrown errors are treated
+  as retryable failures, and an aborted request never surfaces as a user
+  error or an implicit retry.
+- Treat the returned representation as the merged, authorized current state:
+  the scheduler rebases disjoint remote fields from it and keeps both sides
+  for review on overlap.
+
 ## 5) Consequences
 
 ### Technical impact
@@ -415,6 +443,10 @@ and the server revision check.
 3. Add content revisions, conditional partial PATCH contracts, conflict UI,
    autosave mutation intent, and the coalesced invalidation/activity producer
    for Task and ProjectMeetingNote.
+   ND-433 first lands the shared client scheduler, hook, status strip, conflict
+   review, and adapter contract (4.7). Surfaces adopt them against the server
+   revision and conditional PATCH contract only after the ND-428/ND-429 gate
+   and the 4.4 v1 sunset; Live flags stay per surface and off until then.
 4. Publish the additive agent v1 revision fields and agent v2 precondition
    contract, migrate repository-owned clients/examples, complete the announced
    v1 sunset, and verify missing/stale precondition behavior.

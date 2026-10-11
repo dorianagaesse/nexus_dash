@@ -3,6 +3,13 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-12 - ND-433: Shared live-save client scheduler and conflict UI
+
+- Picked up the ND-433 live-save work from the board and started `feature/nd-433-live-save-scheduler` from `origin/main` at `24d4496` in a dedicated worktree.
+- Added the framework-free `LiveSaveScheduler` (2 s quiet debounce, 30 s max wait, single-flight coalescing of dirty-field writes, offline/hidden/auth/invalid pauses, bounded 5/15/60 s retries, one disjoint auto-rebase, conflict review preserving both versions), the `useLiveSave` React binding on top of the existing recovery drafts, the injected-adapter contract in `lib/live-save/types.ts`, a per-surface Live gate (still disabled), a status strip, and conflict review UI with per-field Use latest/Keep my version.
+- The adapter contract is documented in the ND-432 ADR section 4.7. Prisma, service, route, agent-compatibility, and server-side side-effect work remain with Codex.
+- Validation: lint, RLS inventory, 2,007 unit tests (2 skipped) against an isolated local database, coverage gate with the live-save files added (92.61% statements / 85.19% branches), and production build. Browser suite not run: no surface mounts the live-save UI while the Live gate is empty, and the CI e2e smoke flow is unaffected.
+
 # 2026-10-11 - ND-433: Resolve main integration
 
 - Merged current `origin/main` into the ND-433 branch after ND-434 landed on it. Preserved both autosave and newer roadmap/shared-discussion journal entries.
