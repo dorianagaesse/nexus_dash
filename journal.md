@@ -9847,6 +9847,11 @@ Low-value entries to avoid going forward:
   PostgreSQL matrix passed in a separate database with the Realtime stub
   installed before migrations. The first test invocation omitted required
   process environment values; the configured rerun passed.
-- The targeted relation E2E passed twice. Broader smoke: 6 passed, one
+- The targeted relation E2E passed three times. Broader smoke: 6 passed, one
   meeting-note zoom-boundary assertion failed twice at line 494 in unchanged
-  UI/test code. A clean-main reproduction is being checked separately.
+  UI/test code. A clean-main check at 13a4951 passed; a final branch run after
+  the heavier parallel checks finished passed both the relation and meeting
+  scenarios (2/2). Timing sensitivity is suspected; no UI or smoke-test edits.
+- Delivery: PR #593, implementation commit 36f2f45. Initial CI Quality Core and
+  Tenant Isolation passed; hosted E2E was still running at handoff. Copilot
+  could not review because its quota was exhausted; manual review is needed.
