@@ -140,6 +140,33 @@ describe("project task search service", () => {
     );
   });
 
+  test("requests active-first ordering so the bounded slice cannot drop active matches", async () => {
+    // Postgres ASC defaults to NULLS LAST, which would put archived matches
+    // ahead of active ones; this pins the ordering contract the cap relies on.
+    await searchProjectTaskIds({
+      actorUserId: "owner-1",
+      projectId: "project-1",
+      query: "launch",
+      agentAccess: {
+        credentialId: "credential-1",
+        projectId: "project-1",
+        scopes: ["task:read"],
+      },
+      limit: 1,
+    });
+
+    expect(dbMock.task.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [
+          { archivedAt: { sort: "asc", nulls: "first" } },
+          { status: "asc" },
+          { position: "asc" },
+          { createdAt: "asc" },
+        ],
+      })
+    );
+  });
+
   test("matches agent-assigned tasks by their stored display-name snapshot", async () => {
     dbMock.task.findMany.mockResolvedValueOnce([
       searchableTask({

@@ -35,14 +35,13 @@ export async function GET(
   const limitParam = request.nextUrl.searchParams.get("limit")?.trim() || null;
   let limitFilter: number | null = null;
   if (limitParam) {
-    const parsedLimit = Number.parseInt(limitParam, 10);
-    if (!Number.isFinite(parsedLimit)) {
+    if (!/^-?\d+$/.test(limitParam)) {
       return NextResponse.json(
         { error: "invalid-limit" },
         { status: 400, headers: timing.headers() }
       );
     }
-    limitFilter = Math.min(Math.max(parsedLimit, 1), 200);
+    limitFilter = Math.min(Math.max(Number.parseInt(limitParam, 10), 1), 200);
   }
 
   const result = await searchProjectTaskIds({

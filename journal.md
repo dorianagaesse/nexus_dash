@@ -31,6 +31,23 @@ Use it for important implementation milestones, blockers, validation runs, and r
   the temporary verification harness and credentials were removed after the
   run. The RLS matrix is not required for this branch: no Prisma model,
   migration, or runtime-role changes.
+- Review round 2026-10-11 (reviewed head `a22079b`): the bounded search now
+  orders `archivedAt` NULLS FIRST so active matches precede archived ones -
+  Postgres sorts ASC with NULLs LAST by default, so without the fix the cap
+  could return only archived matches; a unit test pins the ordering
+  contract. The route validates `limit` as a whole integer before clamping,
+  so `10abc`, `1.5`, and `1e2` now return `invalid-limit` instead of
+  silently parsing a numeric prefix; route tests cover all three plus the
+  negative-clamp path, and the OpenAPI notes match the stricter contract.
+- Review-round validation (CI-mirroring env): lint and `rls:check` clean;
+  `npm test` 1,931 passed / 2 skipped; coverage 94.19% lines with the search
+  route and service at 100% statements/lines; production build passed; the
+  full Chromium suite ran 107 passed / 2 skipped with one failure -
+  `nd-408-kanban-search-filter.spec.ts` "pointer drag under a label filter
+  keeps hidden tasks in order" (catalogued flake, failed on main 2026-09-13,
+  pointer-drag timing). It reproduced on the pre-fix build in this
+  environment (1 of 2 repeats failed) and the changed paths are not on that
+  spec's request path.
 
 # 2026-10-11 - ND-433: Resolve main integration
 

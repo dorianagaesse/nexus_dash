@@ -108,7 +108,10 @@ export async function searchProjectTaskIds(input: {
       const tasks = await db.task.findMany({
         where: { projectId },
         orderBy: [
-          { archivedAt: "asc" },
+          // Postgres ASC defaults to NULLS LAST, so archived rows would
+          // precede active ones and the bounded agent slice could drop
+          // active matches entirely.
+          { archivedAt: { sort: "asc", nulls: "first" } },
           { status: "asc" },
           { position: "asc" },
           { createdAt: "asc" },

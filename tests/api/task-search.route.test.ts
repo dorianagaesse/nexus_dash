@@ -181,20 +181,33 @@ describe("task search route", () => {
     expect(taskSearchServiceMock.searchProjectTaskIds).toHaveBeenLastCalledWith(
       expect.objectContaining({ limit: 200 })
     );
-  });
 
-  test("rejects non-numeric limits before search", async () => {
-    const response = await GET(
+    await GET(
       new NextRequest(
-        "http://localhost/api/projects/project-1/tasks/search?q=launch&limit=lots"
+        "http://localhost/api/projects/project-1/tasks/search?q=launch&limit=-5"
       ),
       { params: Promise.resolve({ projectId: "project-1" }) }
     );
-
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: "invalid-limit" });
-    expect(taskSearchServiceMock.searchProjectTaskIds).not.toHaveBeenCalled();
+    expect(taskSearchServiceMock.searchProjectTaskIds).toHaveBeenLastCalledWith(
+      expect.objectContaining({ limit: 1 })
+    );
   });
+
+  test.each(["lots", "10abc", "1.5", "1e2"])(
+    "rejects malformed limits before search: %s",
+    async (limit) => {
+      const response = await GET(
+        new NextRequest(
+          `http://localhost/api/projects/project-1/tasks/search?q=launch&limit=${encodeURIComponent(limit)}`
+        ),
+        { params: Promise.resolve({ projectId: "project-1" }) }
+      );
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({ error: "invalid-limit" });
+      expect(taskSearchServiceMock.searchProjectTaskIds).not.toHaveBeenCalled();
+    }
+  );
 
   test("preserves service validation and authorization failures", async () => {
     taskSearchServiceMock.searchProjectTaskIds.mockResolvedValueOnce({

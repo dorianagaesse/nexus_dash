@@ -294,7 +294,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     notes: [
       "q is required after trimming and accepts 1-200 characters; empty queries return query-required and longer ones query-too-long.",
       "Matching is case-insensitive substring across the fields the workspace search covers: title, description, reference, status, labels, epic name, assignee (including agent credential labels), comments, blocked follow-ups, attachment names, and related task titles.",
-      "limit accepts 1-200 and is clamped; non-numeric values return invalid-limit.",
+      "limit must be a whole number; out-of-range values are clamped to 1-200 and malformed or fractional values return invalid-limit.",
       "Responses are always bounded for agent credentials: without limit you receive at most 50 task ids; pass limit to raise the cap up to 200.",
       "taskIds keep board order (active tasks before archived, then status and position). totalMatches is the full match count before the cap, and truncated=true when taskIds is shorter than totalMatches.",
       "Search spans the full project task set, including archived tasks, and is scoped to the credential's project like the rest of the agent API.",
@@ -3112,7 +3112,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               required: false,
               schema: { type: "integer", minimum: 1, maximum: 200 },
               description:
-                "Maximum number of task ids to return. Values are clamped to 1-200; non-numeric values return invalid-limit. Agent credentials default to 50 when omitted.",
+                "Maximum number of task ids to return. Values are clamped to 1-200; malformed or fractional values return invalid-limit. Agent credentials default to 50 when omitted.",
             },
           ],
           responses: {
