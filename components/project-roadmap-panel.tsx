@@ -87,15 +87,9 @@ interface EventDialogState {
 }
 
 interface MilestoneDialogState {
-  mode: "edit" | "create";
-  phaseId: string | null;
+  mode: "edit";
+  phaseId: string;
   phaseIndex: number;
-  pendingEventDrop?: {
-    movedEvent: ProjectRoadmapPanelEvent;
-    sourcePhaseId: string;
-    sourceIndex: number;
-    insertIndex: number;
-  } | null;
 }
 
 interface RoadmapPhaseLayoutMeasurement {
@@ -2081,7 +2075,6 @@ export function ProjectRoadmapPanel({
       mode: "edit",
       phaseId: phase.id,
       phaseIndex: phaseIndex >= 0 ? phaseIndex : 0,
-      pendingEventDrop: null,
     });
   }
 
@@ -2247,129 +2240,6 @@ export function ProjectRoadmapPanel({
     milestoneRecovery.flush();
 
     try {
-      if (milestoneDialog.mode === "create") {
-        const { pendingEventDrop } = milestoneDialog;
-        if (!pendingEventDrop) {
-          setIsSubmittingMilestone(false);
-          return;
-        }
-
-        const createResponse = await fetchProjectActivityMutation(
-          projectId,
-          `/api/projects/${projectId}/roadmap`,
-          {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-            },
-            body: JSON.stringify({
-              title: trimmedTitle,
-              description: milestoneDraft.description.trim() ? milestoneDraft.description.trim() : null,
-              targetDate: milestoneDraft.targetDate || null,
-              status: milestoneDraft.status,
-            }),
-          }
-        );
-
-        if (!createResponse.ok) {
-          const errorCode = await readApiError(createResponse);
-          setMilestoneMutationError(mapRoadmapMutationError(errorCode));
-          return;
-        }
-
-        const createPayload = (await createResponse.json()) as {
-          phase: ProjectRoadmapPanelPhase;
-        };
-        const createdPhase = createPayload.phase;
-
-        const insertIndex = pendingEventDrop.insertIndex;
-        const currentPhaseIds = roadmapPhases.map((phase) => phase.id);
-        const reorderedPhaseIds = [
-          ...currentPhaseIds.slice(0, insertIndex),
-          createdPhase.id,
-          ...currentPhaseIds.slice(insertIndex),
-        ];
-
-        const reorderResponse = await fetchProjectActivityMutation(
-          projectId,
-          `/api/projects/${projectId}/roadmap/phases/reorder`,
-          {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-            },
-            body: JSON.stringify({
-              phaseIds: reorderedPhaseIds,
-            }),
-          }
-        );
-
-        if (!reorderResponse.ok) {
-          const errorCode = await readApiError(reorderResponse);
-          setMilestoneMutationError(mapRoadmapMutationError(errorCode));
-          return;
-        }
-
-        await persistEventMove(pendingEventDrop.movedEvent.id, createdPhase.id, 0);
-
-        const sourcePhase = roadmapPhases.find((phase) => phase.id === pendingEventDrop.sourcePhaseId);
-        const isSourceEmptied =
-          sourcePhase &&
-          sourcePhase.events.length === 1 &&
-          sourcePhase.events[0]?.id === pendingEventDrop.movedEvent.id;
-
-        if (isSourceEmptied) {
-          await deletePhaseById(sourcePhase.id);
-        }
-
-        const updatedSourcePhases = roadmapPhases.map((phase) => {
-          if (phase.id === pendingEventDrop.sourcePhaseId) {
-            return {
-              ...phase,
-              events: phase.events
-                .filter((event) => event.id !== pendingEventDrop.movedEvent.id)
-                .map((event, idx) => ({ ...event, position: idx })),
-            };
-          }
-          return phase;
-        });
-
-        const filteredPhases = isSourceEmptied
-          ? updatedSourcePhases.filter((phase) => phase.id !== pendingEventDrop.sourcePhaseId)
-          : updatedSourcePhases;
-
-        const createdPhaseWithEvent: ProjectRoadmapPanelPhase = {
-          ...createdPhase,
-          position: insertIndex,
-          events: [
-            {
-              ...pendingEventDrop.movedEvent,
-              phaseId: createdPhase.id,
-              position: 0,
-            },
-          ],
-        };
-
-        const finalPhases = [
-          ...filteredPhases.slice(0, insertIndex),
-          createdPhaseWithEvent,
-          ...filteredPhases.slice(insertIndex),
-        ].map((phase, idx) => ({
-          ...phase,
-          position: idx,
-        }));
-
-        setRoadmapPhases(sortRoadmapPhasesForDisplay(finalPhases));
-
-        pushToast({
-          message: `Milestone "${createdPhase.title}" created with "${pendingEventDrop.movedEvent.title}".`,
-          variant: "success",
-        });
-
-        closeMilestoneDialog();
-        return;
-      }
-
       const response = await fetchProjectActivityMutation(
         projectId,
         `/api/projects/${projectId}/roadmap/phases/${milestoneDialog.phaseId}`,
@@ -2723,24 +2593,122 @@ export function ProjectRoadmapPanel({
         return;
       }
 
-      setMilestoneDraft({
+      const optimisticPhaseId = `optimistic-phase-${Date.now()}`;
+      const optimisticPhase: ProjectRoadmapPanelPhase = {
+        id: optimisticPhaseId,
         title: getMilestoneLabel(intermediateInsertIndex),
-        description: "",
-        targetDate: movedEvent.targetDate ?? "",
+        description: null,
+        targetDate: movedEvent.targetDate ?? null,
         status: movedEvent.status || "planned",
+        position: intermediateInsertIndex,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        events: [
+          {
+            ...movedEvent,
+            phaseId: optimisticPhaseId,
+            position: 0,
+          },
+        ],
+      };
+
+      const previousPhases = roadmapPhases;
+      const updatedSourcePhases = previousPhases.map((phase) => {
+        if (phase.id === sourcePhaseId) {
+          return {
+            ...phase,
+            events: phase.events
+              .filter((event) => event.id !== draggableId)
+              .map((event, eventIndex) => ({
+                ...event,
+                position: eventIndex,
+              })),
+          };
+        }
+        return phase;
       });
-      setMilestoneMutationError(null);
-      setMilestoneDialog({
-        mode: "create",
-        phaseId: null,
-        phaseIndex: intermediateInsertIndex,
-        pendingEventDrop: {
-          movedEvent,
-          sourcePhaseId,
-          sourceIndex: source.index,
-          insertIndex: intermediateInsertIndex,
-        },
-      });
+
+      const nextPhasesWithInserted = [
+        ...updatedSourcePhases.slice(0, intermediateInsertIndex),
+        optimisticPhase,
+        ...updatedSourcePhases.slice(intermediateInsertIndex),
+      ].map((phase, idx) => ({
+        ...phase,
+        position: idx,
+      }));
+
+      setRoadmapPhases(sortRoadmapPhasesForDisplay(nextPhasesWithInserted));
+      setIsPersistingMove(true);
+
+      let createdPhase: ProjectRoadmapPanelPhase | null = null;
+      try {
+        createdPhase = await createPhaseForMilestone(movedEvent, intermediateInsertIndex);
+
+        const reorderedPhaseIds = [
+          ...previousPhases.slice(0, intermediateInsertIndex).map((p) => p.id),
+          createdPhase.id,
+          ...previousPhases.slice(intermediateInsertIndex).map((p) => p.id),
+        ];
+
+        const reorderResponse = await fetchProjectActivityMutation(
+          projectId,
+          `/api/projects/${projectId}/roadmap/phases/reorder`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              phaseIds: reorderedPhaseIds,
+            }),
+          }
+        );
+
+        if (!reorderResponse.ok) {
+          throw new Error(mapRoadmapMutationError(await readApiError(reorderResponse)));
+        }
+
+        await persistEventMove(draggableId, createdPhase.id, 0);
+
+        const reconciledPhase = createdPhase;
+        setRoadmapPhases((currentPhases) =>
+          sortRoadmapPhasesForDisplay(
+            currentPhases.map((phase) =>
+              phase.id === optimisticPhaseId
+                ? {
+                    ...reconciledPhase,
+                    position: phase.position,
+                    events: [
+                      {
+                        ...movedEvent,
+                        phaseId: reconciledPhase.id,
+                        position: 0,
+                      },
+                    ],
+                  }
+                : phase
+            )
+          )
+        );
+
+        pushToast({
+          message: `Milestone "${reconciledPhase.title}" created with "${movedEvent.title}".`,
+          variant: "success",
+        });
+      } catch (error) {
+        console.error("[ProjectRoadmapPanel.handleDragEnd.intermediateNewMilestone]", error);
+        if (createdPhase) {
+          await deletePhaseById(createdPhase.id).catch(() => undefined);
+        }
+        setRoadmapPhases(previousPhases);
+        pushToast({
+          message: error instanceof Error ? error.message : mapRoadmapMutationError(),
+          variant: "error",
+        });
+      } finally {
+        setIsPersistingMove(false);
+      }
+
       return;
     }
 
@@ -3297,16 +3265,12 @@ export function ProjectRoadmapPanel({
       </RoadmapDialogShell>
 
       <RoadmapDialogShell
-        title={milestoneDialog?.mode === "create" ? "New milestone" : "Edit milestone"}
+        title="Edit milestone"
         subtitle={
           milestoneDialog
-            ? milestoneDialog.mode === "create"
-              ? milestoneDialog.phaseIndex > 0 && milestoneDialog.phaseIndex < roadmapPhases.length
-                ? `Insert a new milestone between ${getMilestoneDisplayTitle(roadmapPhases[milestoneDialog.phaseIndex - 1], milestoneDialog.phaseIndex - 1)} and ${getMilestoneDisplayTitle(roadmapPhases[milestoneDialog.phaseIndex], milestoneDialog.phaseIndex)}.`
-                : `Create a new milestone at position ${milestoneDialog.phaseIndex + 1}.`
-              : `Update details for ${getMilestoneLabel(
-                  milestoneDialog.phaseIndex
-                )}.`
+            ? `Update details for ${getMilestoneLabel(
+                milestoneDialog.phaseIndex
+              )}.`
             : undefined
         }
         headerBadge={
@@ -3314,7 +3278,7 @@ export function ProjectRoadmapPanel({
             variant="outline"
             className="rounded-full border-border/70 bg-muted/30 px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground"
           >
-            {milestoneDialog?.mode === "create" ? "New" : "Editing"}
+            Editing
           </Badge>
         }
         isOpen={milestoneDialog !== null}
@@ -3325,13 +3289,9 @@ export function ProjectRoadmapPanel({
           draft={milestoneDraft}
           recoveryNotice={<RecoveryDraftNotice draft={milestoneRecovery} onDiscard={() => { milestoneRecovery.discard(); setMilestoneDraft(milestoneRecoveryBase); }} />}
           idPrefix="roadmap-milestone"
-          titlePlaceholder={
-            milestoneDialog?.mode === "create"
-              ? getMilestoneLabel(milestoneDialog.phaseIndex)
-              : "No title yet"
-          }
+          titlePlaceholder="No title yet"
           descriptionPlaceholder="No description yet"
-          submitLabel={milestoneDialog?.mode === "create" ? "Create milestone" : "Save milestone"}
+          submitLabel="Save milestone"
           targetDateLabel="Milestone date"
           statusLabel="Milestone status"
           statusOptions={statusSelectOptions}

@@ -3,27 +3,30 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
-# 2026-10-11 - ND-534: Immediate roadmap moves and event status toggles
+# 2026-10-12 - ND-534: Immediate roadmap moves and event status toggles
 
 - Card `cmur7myd3000m04jpy4br0eyp` under epic "Roadmap interaction refinement":
   - Made roadmap event status transitions and drag moves feel immediate and smooth with zero layout flicker or full-panel refreshes:
     - Added granular per-event pending status tracking (`pendingStatusEventIds`) so individual status changes update the card immediately and reflect pending state locally without blocking unrelated UI interactions.
     - Status cycle failures gracefully reconcile and restore only the affected event's previous status with error toast notification.
     - Drag-and-drop moves (reordering within milestone, moving across milestones, moving to intermediate milestone drop zones, or moving into new milestones at the end) update local roadmap phases optimistically and immediately before server persistence completes.
+    - Dropping an event between milestones now creates and inserts a new milestone immediately and optimistically without any modal popup or "draft saved locally" banner. New milestones start with clean default titles ("Milestone X") and placeholders ("No title yet" / "No description yet"), allowing detail edits directly via the milestone edit button.
     - Dropping an event into a new milestone creates an optimistic placeholder milestone phase and renders the event in place instantly while creation and reordering run in the background. If creation or reorder fails, optimistic state is cleanly reverted with error toast feedback.
     - Added `areRoadmapPhasesEquivalent` phase equality check to avoid full-panel re-measurements and re-renders when server responses or realtime activity return identical phase data.
     - Locked live-refresh polling during in-flight status changes and drag moves via `data-project-live-refresh-lock` to protect optimistic UI integrity.
   - Automated tests:
-    - Added 5 focused unit tests in `tests/components/project-roadmap-panel.test.tsx` verifying:
+    - Added and updated unit tests in `tests/components/project-roadmap-panel.test.tsx` verifying:
       - Immediate event status toggling with card updates while persistence is in flight and refresh lock is engaged.
       - Graceful error reconciliation restoring affected event status upon server failure.
       - Immediate reordering within the same milestone without full-panel reload.
+      - Immediate intermediate milestone creation and event movement without modal dialog.
+      - Failure rollback when dropping between milestones cleanly reverting optimistic state.
       - Immediate new milestone creation and event movement upon dropping into new milestone drop lane.
       - Reversion of optimistic milestone and error toast on mutation failure.
   - Validation:
     - `npm run lint`: passed cleanly.
     - `npm run rls:check`: passed cleanly.
-    - Unit tests (`npm test`): 1,963 passed, 2 skipped.
+    - Unit tests (`npm test`): 1,981 passed, 2 skipped.
     - Coverage (`npm run test:coverage`): 94.07% lines, meeting all thresholds.
     - Production build (`next build --webpack`): compiled and generated all static and dynamic pages with 0 errors.
     - Playwright browser test (`accessible-overlays.spec.ts`): 2 passed.

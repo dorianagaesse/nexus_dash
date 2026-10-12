@@ -1505,199 +1505,7 @@ function setInputValue(input: HTMLElement, value: string) {
     });
   });
 
-  test("canceling intermediate milestone drop preserves existing milestones and events without API calls (ND-403)", async () => {
-    projectSectionExpandedMock.isExpanded = true;
-    const { container, root } = createTestRenderer();
-
-    const initialPhases = [
-      {
-        id: "phase-1",
-        title: "Milestone 1",
-        description: null,
-        targetDate: null,
-        status: "planned" as const,
-        position: 0,
-        createdAt: "2026-04-20T00:00:00.000Z",
-        updatedAt: "2026-04-20T00:00:00.000Z",
-        events: [
-          {
-            id: "event-1",
-            phaseId: "phase-1",
-            title: "Task 1",
-            description: null,
-            targetDate: "2026-05-01",
-            status: "planned" as const,
-            position: 0,
-            createdAt: "2026-04-20T00:00:00.000Z",
-            updatedAt: "2026-04-20T00:00:00.000Z",
-          },
-          {
-            id: "event-2",
-            phaseId: "phase-1",
-            title: "Task 2",
-            description: null,
-            targetDate: "2026-05-15",
-            status: "planned" as const,
-            position: 1,
-            createdAt: "2026-04-20T00:00:00.000Z",
-            updatedAt: "2026-04-20T00:00:00.000Z",
-          },
-        ],
-      },
-      {
-        id: "phase-2",
-        title: "Milestone 2",
-        description: null,
-        targetDate: null,
-        status: "planned" as const,
-        position: 1,
-        createdAt: "2026-04-20T00:00:00.000Z",
-        updatedAt: "2026-04-20T00:00:00.000Z",
-        events: [],
-      },
-    ];
-
-    await renderWithRoot(
-      root,
-      React.createElement(ProjectRoadmapPanel, {
-        projectId: "project-1",
-        canEdit: true,
-        phases: initialPhases,
-      })
-    );
-
-    // Drop event-2 between phase-1 and phase-2 (insertIndex = 1)
-    await act(async () => {
-      await capturedOnDragEnd!({
-        draggableId: "event-2",
-        source: { droppableId: "phase-1", index: 1 },
-        destination: { droppableId: "__roadmap-drop-new-milestone-at-1__", index: 0 },
-      });
-    });
-
-    const dialog = document.body.querySelector("[role='dialog']");
-    expect(dialog).not.toBeNull();
-    expect(dialog?.textContent).toContain("New milestone");
-
-    // Click Cancel
-    const cancelButton = Array.from(
-      document.body.querySelectorAll<HTMLButtonElement>("button")
-    ).find((btn) => btn.textContent?.includes("Cancel"));
-    await act(async () => {
-      cancelButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    // Dialog closed without any network calls
-    expect(document.body.querySelector("[role='dialog']")).toBeNull();
-    expect(fetchMock).not.toHaveBeenCalled();
-
-    // Event remains in phase-1
-    const phase1 = container.querySelector("[data-roadmap-phase-id='phase-1']");
-    expect(phase1?.textContent).toContain("Task 1");
-
-    await act(async () => {
-      root.unmount();
-    });
-  });
-
-  test("validation failure on intermediate milestone creation blocks submission and preserves state (ND-403)", async () => {
-    projectSectionExpandedMock.isExpanded = true;
-    const { container, root } = createTestRenderer();
-
-    const initialPhases = [
-      {
-        id: "phase-1",
-        title: "Milestone 1",
-        description: null,
-        targetDate: null,
-        status: "planned" as const,
-        position: 0,
-        createdAt: "2026-04-20T00:00:00.000Z",
-        updatedAt: "2026-04-20T00:00:00.000Z",
-        events: [
-          {
-            id: "event-1",
-            phaseId: "phase-1",
-            title: "Task 1",
-            description: null,
-            targetDate: "2026-05-01",
-            status: "planned" as const,
-            position: 0,
-            createdAt: "2026-04-20T00:00:00.000Z",
-            updatedAt: "2026-04-20T00:00:00.000Z",
-          },
-          {
-            id: "event-2",
-            phaseId: "phase-1",
-            title: "Task 2",
-            description: null,
-            targetDate: "2026-05-15",
-            status: "planned" as const,
-            position: 1,
-            createdAt: "2026-04-20T00:00:00.000Z",
-            updatedAt: "2026-04-20T00:00:00.000Z",
-          },
-        ],
-      },
-      {
-        id: "phase-2",
-        title: "Milestone 2",
-        description: null,
-        targetDate: null,
-        status: "planned" as const,
-        position: 1,
-        createdAt: "2026-04-20T00:00:00.000Z",
-        updatedAt: "2026-04-20T00:00:00.000Z",
-        events: [],
-      },
-    ];
-
-    await renderWithRoot(
-      root,
-      React.createElement(ProjectRoadmapPanel, {
-        projectId: "project-1",
-        canEdit: true,
-        phases: initialPhases,
-      })
-    );
-
-    // Drop event-2 between phase-1 and phase-2
-    await act(async () => {
-      await capturedOnDragEnd!({
-        draggableId: "event-2",
-        source: { droppableId: "phase-1", index: 1 },
-        destination: { droppableId: "__roadmap-drop-new-milestone-at-1__", index: 0 },
-      });
-    });
-
-    const titleInput = document.body.querySelector<HTMLInputElement>(
-      "#roadmap-milestone-title"
-    );
-    expect(titleInput).not.toBeNull();
-
-    // Type 1 character (invalid title)
-    await act(async () => {
-      setInputValue(titleInput!, "A");
-    });
-
-    const submitButton = Array.from(
-      document.body.querySelectorAll<HTMLButtonElement>("button")
-    ).find((btn) => btn.textContent?.includes("Create milestone"));
-
-    await act(async () => {
-      submitButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    const dialog = document.body.querySelector("[role='dialog']");
-    expect(dialog?.textContent).toContain("Title must be at least 2 characters.");
-    expect(fetchMock).not.toHaveBeenCalled();
-
-    await act(async () => {
-      root.unmount();
-    });
-  });
-
-  test("creates milestone between adjacent milestones and moves event in one coherent flow (ND-403)", async () => {
+  test("creates milestone between adjacent milestones and moves event immediately without opening modal (ND-403, ND-534)", async () => {
     projectSectionExpandedMock.isExpanded = true;
     const { container, root } = createTestRenderer();
 
@@ -1768,8 +1576,8 @@ function setInputValue(input: HTMLElement, value: string) {
         JSON.stringify({
           phase: {
             id: "phase-new",
-            title: "Bridge Release",
-            description: "Intermediate milestone",
+            title: "Milestone 2",
+            description: "",
             targetDate: "2026-05-15",
             status: "in_progress",
             position: 2,
@@ -1828,26 +1636,8 @@ function setInputValue(input: HTMLElement, value: string) {
       });
     });
 
-    const titleInput = document.body.querySelector<HTMLInputElement>(
-      "#roadmap-milestone-title"
-    );
-    const descInput = document.body.querySelector<HTMLTextAreaElement>(
-      "#roadmap-milestone-description"
-    );
-
-    expect(titleInput).not.toBeNull();
-    await act(async () => {
-      setInputValue(titleInput!, "Bridge Release");
-      setInputValue(descInput!, "Intermediate milestone");
-    });
-
-    const submitButton = Array.from(
-      document.body.querySelectorAll<HTMLButtonElement>("button")
-    ).find((btn) => btn.textContent?.includes("Create milestone"));
-
-    await act(async () => {
-      submitButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    // No modal dialog opened
+    expect(document.body.querySelector("[role='dialog']")).toBeNull();
 
     // Verify API calls
     expect(fetchMock).toHaveBeenCalledWith("/api/projects/project-1/roadmap", {
@@ -1856,8 +1646,8 @@ function setInputValue(input: HTMLElement, value: string) {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        title: "Bridge Release",
-        description: "Intermediate milestone",
+        title: "Milestone 2",
+        description: "",
         targetDate: "2026-05-15",
         status: "in_progress",
       }),
@@ -1887,21 +1677,124 @@ function setInputValue(input: HTMLElement, value: string) {
 
     // Toast pushed
     expect(pushToastMock).toHaveBeenCalledWith({
-      message: 'Milestone "Bridge Release" created with "Task 2".',
+      message: 'Milestone "Milestone 2" created with "Task 2".',
       variant: "success",
     });
 
-    // Dialog closed
-    expect(document.body.querySelector("[role='dialog']")).toBeNull();
-
-    // Verify rendering order on the roadmap: Alpha -> Bridge Release -> Beta
+    // Verify rendering order on the roadmap: Alpha -> Milestone 2 -> Beta
     const renderedPhaseTitles = Array.from(
       container.querySelectorAll("[data-roadmap-phase-id]")
     ).map((el) => el.getAttribute("data-roadmap-phase-id"));
 
     expect(renderedPhaseTitles).toEqual(["phase-1", "phase-new", "phase-2"]);
-    expect(container.textContent).toContain("Bridge Release");
     expect(container.textContent).toContain("Task 2");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("failed persistence when dropping event between milestones reverts optimistic milestone (ND-534)", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    const initialPhases = [
+      {
+        id: "phase-1",
+        title: "Alpha",
+        description: null,
+        targetDate: null,
+        status: "planned" as const,
+        position: 0,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [
+          {
+            id: "event-1",
+            phaseId: "phase-1",
+            title: "Task 1",
+            description: null,
+            targetDate: "2026-05-01",
+            status: "planned" as const,
+            position: 0,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+          {
+            id: "event-2",
+            phaseId: "phase-1",
+            title: "Task 2",
+            description: null,
+            targetDate: "2026-05-15",
+            status: "in_progress" as const,
+            position: 1,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+        ],
+      },
+      {
+        id: "phase-2",
+        title: "Beta",
+        description: null,
+        targetDate: null,
+        status: "planned" as const,
+        position: 1,
+        createdAt: "2026-04-20T00:00:00.000Z",
+        updatedAt: "2026-04-20T00:00:00.000Z",
+        events: [
+          {
+            id: "event-3",
+            phaseId: "phase-2",
+            title: "Task 3",
+            description: null,
+            targetDate: "2026-06-01",
+            status: "planned" as const,
+            position: 0,
+            createdAt: "2026-04-20T00:00:00.000Z",
+            updatedAt: "2026-04-20T00:00:00.000Z",
+          },
+        ],
+      },
+    ];
+
+    // Mock API failure on phase creation
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: "Could not create roadmap phase." }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      })
+    );
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases: initialPhases,
+      })
+    );
+
+    await act(async () => {
+      await capturedOnDragEnd!({
+        draggableId: "event-2",
+        source: { droppableId: "phase-1", index: 1 },
+        destination: { droppableId: "__roadmap-drop-new-milestone-at-1__", index: 0 },
+      });
+    });
+
+    // Reverts to original phases: phase-1 has Task 1 and Task 2
+    const phase1 = container.querySelector("[data-roadmap-phase-id='phase-1']");
+    expect(phase1?.textContent).toContain("Task 1");
+    expect(phase1?.textContent).toContain("Task 2");
+
+    // Toast pushed
+    expect(pushToastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ variant: "error" })
+    );
+
+    // Refresh lock released
+    expect(container.querySelector("[data-project-live-refresh-lock='true']")).toBeNull();
 
     await act(async () => {
       root.unmount();
