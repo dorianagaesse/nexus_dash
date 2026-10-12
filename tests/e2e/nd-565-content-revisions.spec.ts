@@ -27,9 +27,8 @@ test("conditional authoring rejects competing writes and preserves partial aggre
     expect(saves.map((response) => response.status()).sort()).toEqual([200, 412]);
     const accepted = await saves.find((response) => response.status() === 200)!.json();
     const rejected = await saves.find((response) => response.status() === 412)!.json();
-    expect(saves.find((response) => response.status() === 200)!.headers()["x-content-etag"])
+    expect(saves.find((response) => response.status() === 200)!.headers().etag)
       .toBe(`"task:${taskId}:${accepted.task.contentRevision}"`);
-    expect(saves.find((response) => response.status() === 200)!.headers().etag).toBeUndefined();
     expect(rejected.error).toBe("edit-conflict");
     expect(rejected.current.description).toBe(accepted.task.description);
     expect(accepted.task.contentRevision).toBe(initial.contentRevision + 1);
@@ -66,7 +65,7 @@ test("conditional authoring rejects competing writes and preserves partial aggre
     expect(storedNote.actions[0].assigneeUserId).toBe(userId);
     const completed = await page.request.patch(`${noteUrl}/actions/${latestNote.actions[0].id}`, { data: { completed: true } });
     expect(completed.ok()).toBeTruthy();
-    expect((await page.request.patch(noteUrl, { headers: { "If-Match": savedNote.headers()["x-content-etag"] }, data: { outputNotes: "Stale todo snapshot" } })).status()).toBe(412);
+    expect((await page.request.patch(noteUrl, { headers: { "If-Match": savedNote.headers().etag }, data: { outputNotes: "Stale todo snapshot" } })).status()).toBe(412);
 
     const card = await prisma.resource.create({ data: { projectId: project.id, type: "context-card", name: "Card revision", content: "Keep body", color: "#FDE2E4" } });
     const cardUrl = `${prefix}/context-cards/${card.id}`;

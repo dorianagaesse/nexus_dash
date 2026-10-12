@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { contentEtag, parseContentIfMatch, withContentEtag, withContentMutationHeaders } from "@/lib/content-revision";
+import { contentEtag, parseContentIfMatch, withContentEtag, readContentIfMatch, CONTENT_IF_MATCH_FORWARD_HEADER } from "@/lib/content-revision";
 
 describe("content preconditions", () => {
-  test("returns the next write validator without an intermediary response precondition", () => {
-    const headers = withContentMutationHeaders({}, "task", { id: "task-1", contentRevision: 4 });
-    expect(headers.has("ETag")).toBe(false);
-    expect(headers.get("X-Content-ETag")).toBe('"task:task-1:4"');
-    expect(parseContentIfMatch(headers.get("X-Content-ETag"), "task", "task-1"))
+  test("reads a middleware-forwarded validator and the public header in direct handlers", () => {
+    const etag = contentEtag("task", "task-1", 4);
+    expect(readContentIfMatch(new Headers({ "If-Match": etag }))).toBe(etag);
+    const headers = new Headers({ [CONTENT_IF_MATCH_FORWARD_HEADER]: etag });
+    expect(parseContentIfMatch(readContentIfMatch(headers), "task", "task-1"))
       .toEqual({ ok: true, expectedRevision: 4 });
   });
   test("keeps authoring responses private with database-owned validators", () => {
