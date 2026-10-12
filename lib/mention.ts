@@ -2,17 +2,27 @@
  * Mention parsing utilities for @username#discriminator tagging.
  *
  * Matches patterns like @alice or @alice#1234 where username is 1-20 chars
- * and discriminator is 1-4 chars.
+ * and discriminator is 1-4 chars. Usernames may contain dots between
+ * segments (`@first.last`, mirroring the account username policy); a dot is
+ * only consumed when another segment follows, so sentence-ending punctuation
+ * (`thanks @alice.`) still resolves `alice`. The capped length is enforced in
+ * code after stripping format characters rather than in the pattern.
  */
+
+const MAX_MENTION_USERNAME_LENGTH = 20;
 
 const MENTION_FORMAT_CHARACTER_PATTERN = /[\u200B\u200C\u200D\u2060\uFEFF]/g;
 const MENTION_FORMAT_CHARACTER_TEST_PATTERN = /[\u200B\u200C\u200D\u2060\uFEFF]/;
 const MENTION_FORMAT_CHARACTER_FRAGMENT = "[\\u200B\\u200C\\u200D\\u2060\\uFEFF]*";
+const MENTION_USERNAME_SEGMENT = `[a-zA-Z0-9_](?:${MENTION_FORMAT_CHARACTER_FRAGMENT}[a-zA-Z0-9_])*`;
+const MENTION_USERNAME_CAPTURE =
+  `(${MENTION_USERNAME_SEGMENT}` +
+  `(?:${MENTION_FORMAT_CHARACTER_FRAGMENT}\\.${MENTION_FORMAT_CHARACTER_FRAGMENT}${MENTION_USERNAME_SEGMENT})*)`;
 const MENTION_REGEX = new RegExp(
   [
     "@",
     MENTION_FORMAT_CHARACTER_FRAGMENT,
-    `([a-zA-Z0-9_](?:${MENTION_FORMAT_CHARACTER_FRAGMENT}[a-zA-Z0-9_]){0,19})`,
+    MENTION_USERNAME_CAPTURE,
     `(?:${MENTION_FORMAT_CHARACTER_FRAGMENT}#${MENTION_FORMAT_CHARACTER_FRAGMENT}`,
     `([a-zA-Z0-9](?:${MENTION_FORMAT_CHARACTER_FRAGMENT}[a-zA-Z0-9]){0,3}))?`,
     `(?!${MENTION_FORMAT_CHARACTER_FRAGMENT}[a-zA-Z0-9_])`,
@@ -43,7 +53,7 @@ export interface MentionTriggerReplacement {
   cursorPosition: number;
 }
 
-const ACTIVE_MENTION_QUERY_REGEX = /^[a-zA-Z0-9_#]*$/;
+const ACTIVE_MENTION_QUERY_REGEX = /^[a-zA-Z0-9_.#]*$/;
 const MENTION_BOUNDARY_REGEX = /[\s([{]/;
 const MENTION_LEFT_BOUNDARY_REGEX = /[a-zA-Z0-9_]/;
 
@@ -73,10 +83,10 @@ export function stripMentionFormatCharacters(input: string): string {
  * Returns both the extracted mentions and the plain-text version with
  * discriminator suffix stripped (e.g. "@alice#1234" -> "@alice").
  *
- * Note: left boundary check is applied (mention must be at string start or
- * preceded by whitespace or a punctuation char) to avoid matching @ inside
- * email addresses. This is conservative — some valid patterns at other
- * boundaries (e.g. `@alice.`, `@alice!`) are not captured.
+ * A mention must start at the string start or after a non-username character
+ * so the @ in email addresses is never matched. Usernames longer than the
+ * account policy maximum are not mentions; the overlong match is skipped
+ * entirely rather than truncated to a prefix.
  */
 export function parseMentions(input: string): MentionParseResult {
   if (typeof input !== "string" || !input) {
@@ -94,6 +104,9 @@ export function parseMentions(input: string): MentionParseResult {
     }
 
     const username = stripMentionFormatCharacters(match[1]);
+    if (username.length > MAX_MENTION_USERNAME_LENGTH) {
+      continue;
+    }
     const discriminator = match[2]
       ? stripMentionFormatCharacters(match[2])
       : null;
@@ -246,14 +259,19 @@ export function removeMentionBeforeCursor(input: {
 }
 
 /**
- * Check if a username matches a mention pattern.
+ * Check if a username matches a mention pattern. Mirrors the account
+ * username policy: dot-separated segments, no leading, trailing, or
+ * consecutive dots.
  */
 export function isValidMentionUsername(username: string): boolean {
   if (typeof username !== "string") {
     return false;
   }
 
-  return /^[a-zA-Z0-9_]{1,20}$/.test(username);
+  return (
+    username.length <= MAX_MENTION_USERNAME_LENGTH &&
+    /^[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*$/.test(username)
+  );
 }
 
 /**

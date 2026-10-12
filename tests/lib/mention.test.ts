@@ -154,6 +154,71 @@ describe("parseMentions", () => {
     expect(result.mentions).toHaveLength(0);
   });
 
+  it("parses a dotted username as one full match", () => {
+    const result = parseMentions("Nice work @first.last!");
+    expect(result.mentions).toHaveLength(1);
+    expect(result.mentions[0]).toEqual({
+      username: "first.last",
+      discriminator: null,
+      fullMatch: "@first.last",
+      startIndex: 10,
+      endIndex: 21,
+    });
+  });
+
+  it("parses a dotted username with discriminator without truncating to a prefix", () => {
+    const result = parseMentions("Hey @first.last#1234, check this out");
+    expect(result.mentions).toHaveLength(1);
+    expect(result.mentions[0]).toEqual({
+      username: "first.last",
+      discriminator: "1234",
+      fullMatch: "@first.last#1234",
+      startIndex: 4,
+      endIndex: 20,
+    });
+  });
+
+  it("treats a trailing dot as sentence punctuation, not part of the username", () => {
+    const result = parseMentions("thanks @alice.");
+    expect(result.mentions).toHaveLength(1);
+    expect(result.mentions[0].username).toBe("alice");
+    expect(result.mentions[0].fullMatch).toBe("@alice");
+    expect(result.plainText).toBe("thanks @alice.");
+  });
+
+  it("keeps a trailing dot after a dotted username out of the match", () => {
+    const result = parseMentions("thanks @first.last.");
+    expect(result.mentions).toHaveLength(1);
+    expect(result.mentions[0].username).toBe("first.last");
+    expect(result.mentions[0].fullMatch).toBe("@first.last");
+  });
+
+  it("parses dotted usernames containing invisible editor format characters", () => {
+    const result = parseMentions(
+      "Hey @first\u200B.\u2060last#1234, check this out"
+    );
+
+    expect(result.mentions).toHaveLength(1);
+    expect(result.mentions[0]).toEqual({
+      username: "first.last",
+      discriminator: "1234",
+      fullMatch: "@first\u200B.\u2060last#1234",
+      startIndex: 4,
+      endIndex: 22,
+    });
+    expect(result.plainText).toBe("Hey @first.last, check this out");
+  });
+
+  it("does not match dotted usernames exceeding the account policy length", () => {
+    const result = parseMentions("Hello @aaaaaaaaaa.bbbbbbbbbb.c");
+    expect(result.mentions).toHaveLength(0);
+  });
+
+  it("does not parse a dotted email target as a mention", () => {
+    const result = parseMentions("mail me@first.last");
+    expect(result.mentions).toEqual([]);
+  });
+
   it("does not match mention with discriminator exceeding 4 chars", () => {
     const result = parseMentions("Hello @alice#12345");
     // The regex will match @alice only (without the discriminator)
@@ -339,6 +404,23 @@ describe("isValidMentionUsername", () => {
   it("returns true for username at max length (20 chars)", () => {
     expect(isValidMentionUsername("abcdefghijklmnopqrst")).toBe(true);
   });
+
+  it("returns true for dotted usernames", () => {
+    expect(isValidMentionUsername("first.last")).toBe(true);
+    expect(isValidMentionUsername("a.b.c")).toBe(true);
+    expect(isValidMentionUsername("first.last_2")).toBe(true);
+  });
+
+  it("returns false for usernames with empty dot segments", () => {
+    expect(isValidMentionUsername(".first")).toBe(false);
+    expect(isValidMentionUsername("first.")).toBe(false);
+    expect(isValidMentionUsername("first..last")).toBe(false);
+    expect(isValidMentionUsername(".")).toBe(false);
+  });
+
+  it("returns true for dotted username at max length (20 chars)", () => {
+    expect(isValidMentionUsername("aaaaaaaaaa.bbbbbbbbb")).toBe(true);
+  });
 });
 
 describe("getActiveMentionTrigger", () => {
@@ -360,6 +442,17 @@ describe("getActiveMentionTrigger", () => {
     expect(getActiveMentionTrigger("Hello @alice#12", 15)).toEqual({
       startIndex: 6,
       query: "alice#12",
+    });
+  });
+
+  it("supports dotted username query text", () => {
+    expect(getActiveMentionTrigger("Hello @first.la", 15)).toEqual({
+      startIndex: 6,
+      query: "first.la",
+    });
+    expect(getActiveMentionTrigger("Hello @first.last#12", 20)).toEqual({
+      startIndex: 6,
+      query: "first.last#12",
     });
   });
 

@@ -3,6 +3,20 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-12 - ND-455: Resolve main integration
+
+- Merged current `origin/main` (`eec4874`) into
+  `docs/nd-455-rls-actor-projection-adr` to clear the PR #592 conflict. The
+  only conflict was `journal.md`: ND-450 added its entry at the same insertion
+  point, resolved by keeping both entries newest-first.
+- Re-verified the ADR's references on the merged tree after ND-561, ND-451,
+  and ND-450 landed: `loadProjectActorRegistry` consumers are unchanged (task
+  comments, task search, task and context-card actors, meeting todos, agent
+  attention) and main did not touch the actor service, RLS context helper,
+  agent-access helper, isolation matrix, or RLS runbook.
+- Validation: `git diff --check` clean and the relative link/reference review
+  re-run clean on the integrated tree.
+
 # 2026-10-11 - ND-455: RLS-safe actor-projection ADR
 
 - Read the ND-455 card, moved it to In Progress with a pickup comment, and
@@ -22,6 +36,52 @@ Use it for important implementation milestones, blockers, validation runs, and r
   boundary section; corrected the activity-touch function name to
   `app.touch_project_activity` and linked the task118 migration. Link check and
   `git diff --check` re-run clean.
+
+# 2026-10-11 - ND-450: Project-scoped agent task search
+
+- The existing workspace search route (`GET /api/projects/{projectId}/tasks/search`)
+  now accepts agent bearer tokens: it uses `requireApiPrincipal` plus a
+  `task:read` scope and project-binding check instead of the session-only
+  guard that returned 401 for every bearer. Matching semantics are unchanged
+  because the route still calls `searchProjectTaskIds`; only the principal
+  handling and response bounding changed.
+- Responses are bounded and self-describing: `{ taskIds, totalMatches,
+  truncated }`. Agent credentials default to 50 ids; an explicit `limit`
+  (1-200, clamped; non-numeric returns `invalid-limit`) overrides it for any
+  principal. Session searches without a limit stay unbounded so the kanban
+  filter keeps seeing every matching card.
+- Documented in the agent v1 surface: a `TaskSearchResponse` schema, the new
+  OpenAPI path with `q`/`limit` parameters, endpoint notes covering semantics
+  and bounds, a "capped search" limitation bullet, and a copy-paste search
+  example in the hosted guide.
+- Validation (CI-mirroring env): lint and `rls:check` clean; `npm test`
+  1,927 passed / 2 skipped; coverage 94.2% lines with the search route and
+  service at 100% statements/lines; production build passed; full Playwright
+  suite 108 passed / 2 skipped against an owned server on PORT 3457
+  (`PLAYWRIGHT_BASE_URL` guard, no webServer reuse). Real end-to-end check
+  against the local build with a freshly minted `task_read` credential:
+  token exchange, bounded search (limit respected, `taskIds` contained the
+  expected card), 403 without `task:read`, and 404 for a cross-project id;
+  the temporary verification harness and credentials were removed after the
+  run. The RLS matrix is not required for this branch: no Prisma model,
+  migration, or runtime-role changes.
+- Review round 2026-10-11 (reviewed head `a22079b`): the bounded search now
+  orders `archivedAt` NULLS FIRST so active matches precede archived ones -
+  Postgres sorts ASC with NULLs LAST by default, so without the fix the cap
+  could return only archived matches; a unit test pins the ordering
+  contract. The route validates `limit` as a whole integer before clamping,
+  so `10abc`, `1.5`, and `1e2` now return `invalid-limit` instead of
+  silently parsing a numeric prefix; route tests cover all three plus the
+  negative-clamp path, and the OpenAPI notes match the stricter contract.
+- Review-round validation (CI-mirroring env): lint and `rls:check` clean;
+  `npm test` 1,931 passed / 2 skipped; coverage 94.19% lines with the search
+  route and service at 100% statements/lines; production build passed; the
+  full Chromium suite ran 107 passed / 2 skipped with one failure -
+  `nd-408-kanban-search-filter.spec.ts` "pointer drag under a label filter
+  keeps hidden tasks in order" (catalogued flake, failed on main 2026-09-13,
+  pointer-drag timing). It reproduced on the pre-fix build in this
+  environment (1 of 2 repeats failed) and the changed paths are not on that
+  spec's request path.
 
 # 2026-10-11 - ND-433: Resolve main integration
 
@@ -96,6 +156,52 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Progress and comments are attributed to `codex-home (agent)`. Copilot
   returned a quota-limit result instead of reviewing; no inline findings.
   Surface scope and staged-delivery questions remain pending before migration.
+
+# 2026-10-10 - ND-561: Every project member is mentionable (username tag backfill + dotted usernames)
+
+- Card `cmv2c751c001a04jqqg81xbnt` (fix, P1; GitHub issue #587), implemented in
+  a worktree on `fix/nd-561-mention-coverage`. Two defects: accounts without a
+  username tag (the owner included) could not be mentioned - the autocomplete
+  row inserted nothing and API mention selections were dropped silently - and
+  the username policy allowed dots that the mention grammar could not parse,
+  so a dotted username never resolved and could resolve to a different prefix
+  account.
+- Aligned the mention grammar with the account username policy on lowercase
+  dot-separated segments with no leading, trailing, or consecutive dots:
+  `lib/mention.ts` parses dotted usernames as one full match while a trailing
+  sentence dot stays punctuation, the length cap is enforced after stripping
+  editor format characters (an overlong name resolves zero times, never to a
+  truncated prefix), and `lib/services/account-security-policy.ts` tightened
+  the stored-name pattern to the same shape.
+- Unresolvable human mention selections now fail the comment submission with
+  400 `task-comment-mention-invalid` instead of posting without a
+  notification, and `components/kanban-board.tsx` maps the code to a friendly
+  message. The mention picker keeps members without a tag visible but inert
+  with an explicit reason.
+- Added `npm run db:backfill-username-tags`
+  (`scripts/backfill-username-tags.mjs`): idempotent, race-safe backfill that
+  derives handles from the existing username, display name, or email local
+  part, preserves display names and existing tags, and supports `--dry-run`.
+  Local run updated 18 e2e-seeded accounts; a rerun scanned zero. Production
+  dry run (read-only) plans 2 accounts (`corelia`, owner `dorian1`); the live
+  production write awaits operator confirmation.
+- Tests: dotted-username parse/trigger/validation cases, profile-service
+  accept/reject cases, backfill assignment/retry/idempotency, route-level
+  dotted-selection resolution plus both 400 paths, and the inert
+  tagless-member picker row.
+- Rendering regression tests lock the production-reported symptom
+  (`@abdel.kiwi#1234` previously styled only the `@abdel` prefix, failing the
+  mention): the display renderer, the editor chip with full-token
+  serialization, and the textarea mirror all render a dotted username as one
+  mention consuming the shared parser.
+- Validation:
+  - `npm run lint`, `npm run rls:check`: passed.
+  - `npm test`: 233 test files passed, 1,944 tests passed (2 skipped files).
+  - `npm run test:coverage`: statements 93.77%, branches 84.46%, functions
+    95.42%, lines 94.07%.
+  - `npm run build`: passed.
+  - `npx playwright test` (isolated port 3114, `NODE_ENV=test`): 105 passed,
+    2 expected skips, 5.1 minutes.
 
 # 2026-10-06 - ND-404: Enable milestone editing from roadmap edit mode
 
@@ -9846,3 +9952,32 @@ Low-value entries to avoid going forward:
 - Merge gating: the Production broadcast flip is deferred and owned by the
   reviewer; the acceptance check "Vercel Observability reports no legacy SSE
   invocations" is a post-flip observation on the deployed branch.
+
+## 2026-10-11 - ND-451: Additive agent task relation edits
+
+- Added `addRelatedTaskIds` and `removeRelatedTaskIds` to task PATCH and its
+  OpenAPI contract. Canonical pair inserts skip duplicates, and removals target
+  only the named pairs within the authorized project; unrelated edges are never
+  rewritten. Existing `relatedTaskIds` replace-mode behavior is unchanged.
+- Reject mixed modes, overlapping add/remove IDs, malformed arrays, blank IDs,
+  and self-relations before mutation. Additions reuse existing project/archive
+  validation; removals need no target lookup and can remove archived edges.
+- Updated the workflow runbook with retry and two-endpoint read-back guidance.
+  Route tests cover authorization, validation and scoped pair writes. A real
+  agent-token Playwright scenario verifies concurrent disjoint additions,
+  reverse-endpoint retries, archived-edge retention/removal, invalid-addition
+  atomicity, metadata preservation, and both endpoints after every operation.
+- Validation: lint, RLS inventory, production build and `git diff --check`
+  passed; unit/API tests and coverage each passed 1936 tests with 2 skipped.
+  Coverage: 93.77% statements, 84.46% branches, 95.42% functions, 94.07% lines.
+  PostgreSQL matrix passed in a separate database with the Realtime stub
+  installed before migrations. The first test invocation omitted required
+  process environment values; the configured rerun passed.
+- The targeted relation E2E passed three times. Broader smoke: 6 passed, one
+  meeting-note zoom-boundary assertion failed twice at line 494 in unchanged
+  UI/test code. A clean-main check at 13a4951 passed; a final branch run after
+  the heavier parallel checks finished passed both the relation and meeting
+  scenarios (2/2). Timing sensitivity is suspected; no UI or smoke-test edits.
+- Delivery: PR #593, implementation commit 36f2f45. Initial CI Quality Core and
+  Tenant Isolation passed; hosted E2E was still running at handoff. Copilot
+  could not review because its quota was exhausted; manual review is needed.

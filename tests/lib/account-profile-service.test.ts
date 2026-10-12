@@ -302,6 +302,61 @@ describe("account-profile-service", () => {
     expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
   });
 
+  test("rejects username updates with empty dot segments", async () => {
+    for (const usernameRaw of [".first", "first.", "first..last"]) {
+      const result = await updateAccountUsername({
+        actorUserId: "user-1",
+        usernameRaw,
+      });
+
+      expect(result).toEqual({
+        ok: false,
+        status: 400,
+        error: "invalid-username",
+      });
+    }
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  test("accepts dotted usernames and keeps discriminator", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      username: "before",
+      usernameDiscriminator: "1111",
+    });
+    prismaMock.user.update.mockResolvedValueOnce({
+      username: "first.last",
+      usernameDiscriminator: "1111",
+    });
+
+    const result = await updateAccountUsername({
+      actorUserId: "user-1",
+      usernameRaw: "First.Last",
+    });
+
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        username: "first.last",
+        usernameDiscriminator: "1111",
+        name: "first.last",
+      },
+      select: {
+        username: true,
+        usernameDiscriminator: true,
+      },
+    });
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      data: {
+        username: "first.last",
+        usernameDiscriminator: "1111",
+        usernameTag: "first.last#1111",
+        discriminatorRegenerated: false,
+      },
+    });
+  });
+
   test("rejects cross-user username updates", async () => {
     const result = await updateAccountUsername({
       actorUserId: "user-1",

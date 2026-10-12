@@ -31,6 +31,7 @@ import {
   buildAgentTaskCommentExample,
   buildAgentTaskCreateExample,
   buildAgentTaskReorderExample,
+  buildAgentTaskSearchExample,
   buildAgentTaskUpdateExample,
   buildAgentContextCreateExample,
 } from "@/lib/agent-onboarding";
@@ -313,7 +314,13 @@ function buildGuideSections({
       title: "Read example",
       description:
         "Once you hold a bearer token, use it against the project-scoped read routes.",
-      content: <CodeBlock value={buildAgentProjectReadExample()} />,
+      contentClassName: "space-y-4",
+      content: (
+        <>
+          <CodeBlock value={buildAgentProjectReadExample()} />
+          <CodeBlock value={buildAgentTaskSearchExample()} />
+        </>
+      ),
     },
     createExamples: {
       title: "Create examples",

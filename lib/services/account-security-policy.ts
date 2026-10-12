@@ -14,7 +14,10 @@ export { USERNAME_DISCRIMINATOR_LENGTH };
 const MAX_EMAIL_LENGTH = 320;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const USERNAME_PATTERN = /^[a-z0-9._]+$/;
+// Dots separate non-empty segments so every policy-valid username is also a
+// valid mention token (lib/mention.ts); leading, trailing, and consecutive
+// dots would make the mention boundary ambiguous.
+const USERNAME_PATTERN = /^[a-z0-9_]+(?:\.[a-z0-9_]+)*$/;
 const PASSWORD_UPPERCASE_PATTERN = /[A-Z]/;
 const PASSWORD_LOWERCASE_PATTERN = /[a-z]/;
 const PASSWORD_NUMBER_PATTERN = /\d/;

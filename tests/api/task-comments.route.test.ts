@@ -760,6 +760,189 @@ describe("task comments route", () => {
     });
   });
 
+  test("POST resolves dotted-username mention selections end to end", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      title: "Dotted username task",
+      projectId: "project-1",
+    });
+    prismaMock.project.findUnique.mockResolvedValueOnce({
+      id: "project-1",
+      name: "Test project",
+      owner: {
+        id: "owner-1",
+        name: "First Last",
+        email: "first.last@example.com",
+        username: "first.last",
+        usernameDiscriminator: "0002",
+      },
+      memberships: [],
+    });
+    prismaMock.taskComment.create.mockResolvedValueOnce({
+      id: "comment-dotted",
+      content: "Nice work @first.last",
+      createdAt: new Date("2026-04-19T13:00:00.000Z"),
+      authorAgentCredentialId: null,
+      authorAgentCredentialLabel: null,
+      author: {
+        id: "test-user",
+        name: "Reviewer",
+        email: "reviewer@example.com",
+        username: "reviewer",
+        usernameDiscriminator: "0007",
+        avatarSeed: null,
+      },
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "Nice work @first.last",
+            mentionSelections: [
+              {
+                userId: "owner-1",
+                username: "first.last",
+                discriminator: "0002",
+              },
+            ],
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.taskComment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          content: "<p>Nice work @first.last</p>",
+        }),
+      })
+    );
+    expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          recipientUserId: "owner-1",
+          sourceType: "task_comment_mention",
+          sourceId: "comment-dotted",
+          targetPath:
+            "/projects/project-1?taskId=task-1&commentId=comment-dotted",
+        }),
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  test("POST rejects a mention selection that no longer matches the tagged member", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      title: "Stale mention task",
+      projectId: "project-1",
+    });
+    prismaMock.project.findUnique.mockResolvedValueOnce({
+      id: "project-1",
+      name: "Test project",
+      owner: {
+        id: "owner-1",
+        name: "Alice Owner",
+        email: "owner@example.com",
+        username: "alice",
+        usernameDiscriminator: "0001",
+      },
+      memberships: [
+        {
+          userId: "member-1",
+          user: {
+            id: "member-1",
+            name: "Alice Member",
+            email: "alice@example.com",
+            username: "alice",
+            usernameDiscriminator: "0002",
+          },
+        },
+      ],
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "Can @alice check this?",
+            mentionSelections: [
+              {
+                userId: "member-1",
+                username: "alice",
+                discriminator: "0001",
+              },
+            ],
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "task-comment-mention-invalid",
+    });
+    expect(prismaMock.taskComment.create).not.toHaveBeenCalled();
+    expect(prismaMock.notification.createMany).not.toHaveBeenCalled();
+  });
+
+  test("POST rejects a mention selection whose username is not mentioned", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({
+      id: "task-1",
+      title: "Unmentioned selection task",
+      projectId: "project-1",
+    });
+    prismaMock.project.findUnique.mockResolvedValueOnce({
+      id: "project-1",
+      name: "Test project",
+      owner: {
+        id: "owner-1",
+        name: "Alice Owner",
+        email: "owner@example.com",
+        username: "alice",
+        usernameDiscriminator: "0001",
+      },
+      memberships: [],
+    });
+
+    const response = await POST(
+      new Request(
+        "http://localhost/api/projects/project-1/tasks/task-1/comments",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            content: "Can @alice check this?",
+            mentionSelections: [
+              {
+                userId: "owner-1",
+                username: "bob",
+                discriminator: "0001",
+              },
+            ],
+          }),
+        }
+      ) as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) }
+    );
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "task-comment-mention-invalid",
+    });
+    expect(prismaMock.taskComment.create).not.toHaveBeenCalled();
+  });
+
   test("POST forwards agent mention selections and persists tagged-agent events", async () => {
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "task-1",

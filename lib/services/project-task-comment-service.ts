@@ -44,6 +44,7 @@ import {
 } from "@/lib/task-attachment";
 
 const AGENT_COMMENT_AVATAR_SEED = "nexusdash-agent-comment-avatar";
+const HUMAN_MENTION_INVALID_ERROR = "task-comment-mention-invalid";
 
 interface ServiceErrorResult {
   ok: false;
@@ -354,15 +355,19 @@ async function resolveMentionedProjectMembers(
   for (const selection of mentionSelections) {
     const usernameKey = selection.username.toLowerCase();
     const discriminatorKey = selection.discriminator?.toLowerCase() ?? "";
-    if (!mentionedUsernameKeys.has(usernameKey) || !discriminatorKey) {
-      continue;
-    }
+    const selectedUser = discriminatorKey
+      ? usernameTagToUser.get(`${usernameKey}#${discriminatorKey}`)
+      : undefined;
 
-    const selectedUser = usernameTagToUser.get(
-      `${usernameKey}#${discriminatorKey}`
-    );
-    if (!selectedUser || selectedUser.userId !== selection.userId) {
-      continue;
+    // A selection whose mention text is gone, or that no longer matches the
+    // tagged member, fails the whole submission instead of silently dropping
+    // the notification the author asked for.
+    if (
+      !mentionedUsernameKeys.has(usernameKey) ||
+      !selectedUser ||
+      selectedUser.userId !== selection.userId
+    ) {
+      return createError(400, HUMAN_MENTION_INVALID_ERROR);
     }
 
     if (!mentionedUsers.some((user) => user.userId === selectedUser.userId)) {

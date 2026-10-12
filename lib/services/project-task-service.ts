@@ -97,6 +97,8 @@ export interface UpdateTaskPayload {
   deadlineDate?: string | null;
   blockedFollowUpEntry?: string;
   relatedTaskIds?: string[];
+  addRelatedTaskIds?: string[];
+  removeRelatedTaskIds?: string[];
   epicId?: string | null;
   assignee?: ProjectActorReference | null;
   assigneeUserId?: string | null;
@@ -918,6 +920,34 @@ async function replaceTaskRelations(input: {
   });
 }
 
+async function editTaskRelationPairs(input: {
+  db: DbClient;
+  projectId: string;
+  taskId: string;
+  addTaskIds: string[];
+  removeTaskIds: string[];
+}) {
+  if (input.removeTaskIds.length > 0) {
+    await input.db.taskRelation.deleteMany({
+      where: {
+        projectId: input.projectId,
+        OR: input.removeTaskIds.map((relatedTaskId) =>
+          buildCanonicalTaskRelation(input.taskId, relatedTaskId)
+        ),
+      },
+    });
+  }
+  if (input.addTaskIds.length > 0) {
+    await input.db.taskRelation.createMany({
+      data: input.addTaskIds.map((relatedTaskId) => ({
+        ...buildCanonicalTaskRelation(input.taskId, relatedTaskId),
+        projectId: input.projectId,
+      })),
+      skipDuplicates: true,
+    });
+  }
+}
+
 function isPrismaNotFoundError(error: unknown): boolean {
   if (!error || typeof error !== "object") {
     return false;
@@ -1624,6 +1654,30 @@ export async function updateTaskForProject(
   const relatedTaskIds = relatedTaskIdsProvided
     ? normalizeRelatedTaskIds(payload.relatedTaskIds ?? [])
     : [];
+  const additiveRelationsProvided =
+    Object.prototype.hasOwnProperty.call(payload, "addRelatedTaskIds") ||
+    Object.prototype.hasOwnProperty.call(payload, "removeRelatedTaskIds");
+  if (relatedTaskIdsProvided && additiveRelationsProvided) {
+    return createError(400, "related-tasks-mode-conflict");
+  }
+  for (const field of ["addRelatedTaskIds", "removeRelatedTaskIds"] as const) {
+    if (
+      Object.prototype.hasOwnProperty.call(payload, field) &&
+      (!Array.isArray(payload[field]) ||
+        payload[field].some((id) => typeof id !== "string" || !id.trim()))
+    ) {
+      return createError(400, "related-tasks-invalid");
+    }
+  }
+  const addRelatedTaskIds = normalizeRelatedTaskIds(payload.addRelatedTaskIds ?? []);
+  const removeRelatedTaskIds = normalizeRelatedTaskIds(payload.removeRelatedTaskIds ?? []);
+  if (addRelatedTaskIds.some((id) => removeRelatedTaskIds.includes(id))) {
+    return createError(400, "related-tasks-operation-conflict");
+  }
+  if (removeRelatedTaskIds.includes(taskId)) {
+    return createError(400, "related-tasks-invalid");
+  }
+  const loadExistingRelations = relatedTaskIdsProvided || addRelatedTaskIds.length > 0;
   const epicProvided = Object.prototype.hasOwnProperty.call(payload, "epicId");
   const epicId = epicProvided ? normalizeText(payload.epicId) : null;
   // Transport precedence: the structured `assignee` reference wins over the
@@ -1702,10 +1756,10 @@ export async function updateTaskForProject(
           assigneeUserId: true,
           assigneeCredentialId: true,
           assigneeDisplayNameSnapshot: true,
-          outgoingRelations: relatedTaskIdsProvided
+          outgoingRelations: loadExistingRelations
             ? { select: { rightTaskId: true } }
             : false,
-          incomingRelations: relatedTaskIdsProvided
+          incomingRelations: loadExistingRelations
             ? { select: { leftTaskId: true } }
             : false,
         },
@@ -1715,18 +1769,18 @@ export async function updateTaskForProject(
         return createError(404, "Task not found");
       }
 
-      const existingRelatedTaskIds = relatedTaskIdsProvided
+      const existingRelatedTaskIds = loadExistingRelations
         ? [
             ...existingTask.outgoingRelations.map((entry) => entry.rightTaskId),
             ...existingTask.incomingRelations.map((entry) => entry.leftTaskId),
           ]
         : [];
-      const relatedTaskValidation = relatedTaskIdsProvided
+      const relatedTaskValidation = loadExistingRelations
         ? await validateRelatedTaskIds({
             db,
             projectId,
             taskId,
-            relatedTaskIds,
+            relatedTaskIds: relatedTaskIdsProvided ? relatedTaskIds : addRelatedTaskIds,
             allowArchivedTaskIds: existingRelatedTaskIds,
           })
         : {
@@ -1862,6 +1916,14 @@ export async function updateTaskForProject(
             projectId,
             taskId,
             relatedTaskIds: relatedTaskValidation.data.relatedTaskIds,
+          });
+        } else if (additiveRelationsProvided) {
+          await editTaskRelationPairs({
+            db: tx,
+            projectId,
+            taskId,
+            addTaskIds: relatedTaskValidation.data.relatedTaskIds,
+            removeTaskIds: removeRelatedTaskIds,
           });
         }
 
