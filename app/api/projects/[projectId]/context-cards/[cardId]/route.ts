@@ -8,7 +8,7 @@ import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
-import { contentErrorBody, parseContentIfMatch, withContentEtag, readContentIfMatch } from "@/lib/content-revision";
+import { contentErrorBody, parseContentPrecondition, withContentEtag } from "@/lib/content-revision";
 import {
   deleteContextCardForProject,
   getContextCardForProject,
@@ -78,7 +78,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
   }
 
-  const precondition = parseContentIfMatch(readContentIfMatch(request.headers), "context-card", cardId);
+  const precondition = parseContentPrecondition(request.headers, "context-card", cardId);
   if (!precondition.ok) return NextResponse.json({ error: precondition.error }, { status: 400 });
   let title: string | undefined;
   let content: string | undefined;

@@ -12,15 +12,14 @@ contract to authenticated humans. List and mutation representations carry the
 revision so clients can retain the base they edited.
 
 Authoring responses explicitly disable browser and CDN storage. Vercel still
-evaluates incoming `If-Match` against a successful response's `ETag`, even with
-storage disabled. The request proxy forwards content PATCH conditions in an
-internal header and removes the public header before the function hop. Services
-consume that forwarded condition; the public ETag/If-Match contract stays the
-same. The proxy always removes client-supplied internal headers, so clients
-cannot forge the forwarded condition. The deployed Preview probe verifies
-accepted writes and JSON conflict responses.
+re-evaluates standard `If-Match` against a successful response's advanced ETag,
+producing a platform 412 after an accepted database write. Use
+`X-Content-If-Match` for content writes. Standard `If-Match` fails with HTTP 400
+`edit-precondition-transport` before mutation, including when both headers
+are supplied. The deployed Preview probe verifies accepted writes and JSON
+conflict responses.
 
-Use the exact ETag in the next PATCH's `If-Match` header. For example, a task
+Use the exact ETag in the next PATCH's `X-Content-If-Match` header. For example, a task
 ETag is `"task:<entity-id>:<revision>"`. Meeting and context prefixes are
 `meeting-note` and `context-card`. Send only the changed fields. Meeting-note
 participants/todos and context-card fields are preserved when omitted; explicit

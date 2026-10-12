@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CONTENT_IF_MATCH_FORWARD_HEADER } from "@/lib/content-revision";
 
 const REQUEST_ID_MAX_LENGTH = 128;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
@@ -24,18 +23,6 @@ function resolveRequestId(request: NextRequest): string {
 export function proxy(request: NextRequest): NextResponse {
   const requestId = resolveRequestId(request);
   const requestHeaders = new Headers(request.headers);
-  // Never trust a client-supplied internal validator. Only the public If-Match
-  // header may reach the content services. Strip it before the function hop so
-  // Vercel cannot re-evaluate it against the post-mutation response ETag.
-  requestHeaders.delete(CONTENT_IF_MATCH_FORWARD_HEADER);
-  if (request.method === "PATCH" &&
-    /^\/api\/projects\/[^/]+\/(tasks|meeting-notes|context-cards)\/[^/]+$/.test(request.nextUrl.pathname)) {
-    const ifMatch = request.headers.get("if-match");
-    if (ifMatch !== null) {
-      requestHeaders.set(CONTENT_IF_MATCH_FORWARD_HEADER, ifMatch);
-      requestHeaders.delete("if-match");
-    }
-  }
   requestHeaders.set("x-request-id", requestId);
 
   const response = NextResponse.next({

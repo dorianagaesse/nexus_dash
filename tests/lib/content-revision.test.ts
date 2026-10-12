@@ -1,13 +1,17 @@
 import { describe, expect, test } from "vitest";
-import { contentEtag, parseContentIfMatch, withContentEtag, readContentIfMatch, CONTENT_IF_MATCH_FORWARD_HEADER } from "@/lib/content-revision";
+import { contentEtag, parseContentIfMatch, withContentEtag, parseContentPrecondition, CONTENT_IF_MATCH_HEADER } from "@/lib/content-revision";
 
 describe("content preconditions", () => {
-  test("reads a middleware-forwarded validator and the public header in direct handlers", () => {
+  test("accepts the CDN-safe condition and refuses ambiguous standard conditions", () => {
     const etag = contentEtag("task", "task-1", 4);
-    expect(readContentIfMatch(new Headers({ "If-Match": etag }))).toBe(etag);
-    const headers = new Headers({ [CONTENT_IF_MATCH_FORWARD_HEADER]: etag });
-    expect(parseContentIfMatch(readContentIfMatch(headers), "task", "task-1"))
+    const headers = new Headers({ [CONTENT_IF_MATCH_HEADER]: etag });
+    expect(parseContentPrecondition(headers, "task", "task-1"))
       .toEqual({ ok: true, expectedRevision: 4 });
+    headers.set("If-Match", etag);
+    expect(parseContentPrecondition(headers, "task", "task-1"))
+      .toEqual({ ok: false, error: "edit-precondition-transport" });
+    expect(parseContentPrecondition(new Headers(), "task", "task-1"))
+      .toEqual({ ok: true });
   });
   test("keeps authoring responses private with database-owned validators", () => {
     const headers = withContentEtag({ "Server-Timing": "db;dur=2" }, "task", { id: "task-1", contentRevision: 3 });

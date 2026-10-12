@@ -22,7 +22,7 @@ test("conditional authoring rejects competing writes and preserves partial aggre
     expect(etag).toBe(`"task:${taskId}:${initial.contentRevision}"`);
 
     const saves = await Promise.all(["Writer one", "Writer two"].map((description) =>
-      page.request.patch(taskUrl, { headers: { "If-Match": etag }, data: { description } })
+      page.request.patch(taskUrl, { headers: { "X-Content-If-Match": etag }, data: { description } })
     ));
     expect(saves.map((response) => response.status()).sort()).toEqual([200, 412]);
     const accepted = await saves.find((response) => response.status() === 200)!.json();
@@ -33,9 +33,10 @@ test("conditional authoring rejects competing writes and preserves partial aggre
     expect(rejected.current.description).toBe(accepted.task.description);
     expect(accepted.task.contentRevision).toBe(initial.contentRevision + 1);
     const activityBefore = await prisma.projectActivityEvent.count({ where: { projectId: project.id } });
-    expect((await page.request.patch(taskUrl, { headers: { "If-Match": etag }, data: { description: "Stale again" } })).status()).toBe(412);
+    expect((await page.request.patch(taskUrl, { headers: { "X-Content-If-Match": etag }, data: { description: "Stale again" } })).status()).toBe(412);
     expect(await prisma.projectActivityEvent.count({ where: { projectId: project.id } })).toBe(activityBefore);
-    expect((await page.request.patch(taskUrl, { headers: { "If-Match": `W/${etag}` }, data: { title: "Invalid header" } })).status()).toBe(400);
+    expect((await page.request.patch(taskUrl, { headers: { "X-Content-If-Match": `W/${etag}` }, data: { title: "Invalid header" } })).status()).toBe(400);
+    expect((await page.request.patch(taskUrl, { headers: { "If-Match": etag }, data: { title: "Unsupported transport" } })).status()).toBe(400);
     const comment = await page.request.post(`${taskUrl}/comments`, { data: { content: "Activity-only comment" } });
     expect(comment.ok()).toBeTruthy();
     expect((await (await page.request.get(taskUrl)).json()).task.contentRevision).toBe(accepted.task.contentRevision);
@@ -51,7 +52,7 @@ test("conditional authoring rejects competing writes and preserves partial aggre
     const noteRead = await page.request.get(noteUrl);
     expect(noteRead.ok()).toBeTruthy();
     const noteBody = (await noteRead.json()).note;
-    const savedNote = await page.request.patch(noteUrl, { headers: { "If-Match": noteRead.headers().etag }, data: { outputNotes: "New output" } });
+    const savedNote = await page.request.patch(noteUrl, { headers: { "X-Content-If-Match": noteRead.headers().etag }, data: { outputNotes: "New output" } });
     expect(savedNote.status()).toBe(200);
     const latestNote = (await savedNote.json()).note;
     expect(latestNote.inputNotes).toBe("Keep preparation");
@@ -65,19 +66,19 @@ test("conditional authoring rejects competing writes and preserves partial aggre
     expect(storedNote.actions[0].assigneeUserId).toBe(userId);
     const completed = await page.request.patch(`${noteUrl}/actions/${latestNote.actions[0].id}`, { data: { completed: true } });
     expect(completed.ok()).toBeTruthy();
-    expect((await page.request.patch(noteUrl, { headers: { "If-Match": savedNote.headers().etag }, data: { outputNotes: "Stale todo snapshot" } })).status()).toBe(412);
+    expect((await page.request.patch(noteUrl, { headers: { "X-Content-If-Match": savedNote.headers().etag }, data: { outputNotes: "Stale todo snapshot" } })).status()).toBe(412);
 
     const card = await prisma.resource.create({ data: { projectId: project.id, type: "context-card", name: "Card revision", content: "Keep body", color: "#FDE2E4" } });
     const cardUrl = `${prefix}/context-cards/${card.id}`;
     const cardRead = await page.request.get(cardUrl);
     expect(cardRead.ok()).toBeTruthy();
     const cardBody = (await cardRead.json()).card;
-    const savedCard = await page.request.patch(cardUrl, { headers: { "If-Match": cardRead.headers().etag }, data: { title: "New card title" } });
+    const savedCard = await page.request.patch(cardUrl, { headers: { "X-Content-If-Match": cardRead.headers().etag }, data: { title: "New card title" } });
     expect(savedCard.status()).toBe(200);
     const latestCard = (await savedCard.json()).card;
     expect(latestCard.content).toBe("Keep body");
     expect(latestCard.contentRevision).toBe(cardBody.contentRevision + 1);
-    expect((await page.request.patch(cardUrl, { headers: { "If-Match": cardRead.headers().etag }, data: { content: "Stale body" } })).status()).toBe(412);
+    expect((await page.request.patch(cardUrl, { headers: { "X-Content-If-Match": cardRead.headers().etag }, data: { content: "Stale body" } })).status()).toBe(412);
   } finally {
     await prisma.project.delete({ where: { id: project.id } });
   }

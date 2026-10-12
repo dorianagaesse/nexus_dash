@@ -1117,7 +1117,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
     ETag: { description: "Strong entity/content revision validator for conditional PATCH.", schema: { type: "string" } },
   };
   const editConflictResponse = {
-    description: "Stale If-Match; no mutation applied. The authorized latest entity is returned for reconciliation.",
+    description: "Stale content precondition; no mutation applied. The authorized latest entity is returned for reconciliation.",
     headers: contentEtagHeaders,
     content: { "application/json": { schema: { type: "object", required: ["error", "contentRevision", "current"], properties: {
       error: { type: "string", const: "edit-conflict" },
@@ -2511,7 +2511,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
         ContextCardUpdateRequest: {
           type: "object",
-          description: "Partial content update: omitted fields are preserved. Optional If-Match protects against stale writes during the additive v1 release.",
+          description: "Partial content update: omitted fields are preserved. Optional X-Content-If-Match protects against stale writes during the additive v1 release.",
           properties: {
             title: { type: "string" },
             content: { type: "string" },
@@ -2858,8 +2858,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
       },
       parameters: {
         ContentIfMatch: {
-          name: "If-Match", in: "header", required: false,
-          description: "One exact strong ETag from the entity read. Weak tags, wildcard and lists return 400 edit-precondition-invalid; stale tags return 412 edit-conflict. Missing headers remain compatible in v1; Live remains gated.",
+          name: "X-Content-If-Match", in: "header", required: false,
+          description: "One exact strong ETag from the entity read. Weak tags, wildcard and lists return 400 edit-precondition-invalid; stale tags return 412 edit-conflict. Missing headers remain compatible in v1; standard If-Match returns 400 edit-precondition-transport to prevent CDN response rewriting. Live remains gated.",
           schema: { type: "string" },
         },
         ProjectId: {

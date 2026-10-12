@@ -1,9 +1,5 @@
 export type ContentDomain = "task" | "meeting-note" | "context-card";
-export const CONTENT_IF_MATCH_FORWARD_HEADER = "x-nexusdash-content-if-match";
-
-export function readContentIfMatch(headers: Headers): string | null {
-  return headers.get(CONTENT_IF_MATCH_FORWARD_HEADER) ?? headers.get("if-match");
-}
+export const CONTENT_IF_MATCH_HEADER = "x-content-if-match";
 
 export interface VersionedContent {
   id: string;
@@ -32,6 +28,14 @@ export function parseContentIfMatch(
     return { ok: false, error: "edit-precondition-invalid" };
   }
   return { ok: true, expectedRevision: revision };
+}
+
+/** Vercel evaluates standard If-Match against the post-mutation response. */
+export function parseContentPrecondition(headers: Headers, domain: ContentDomain, id: string) {
+  if (headers.has("if-match")) {
+    return { ok: false as const, error: "edit-precondition-transport" };
+  }
+  return parseContentIfMatch(headers.get(CONTENT_IF_MATCH_HEADER), domain, id);
 }
 
 export function withContentEtag(

@@ -1113,7 +1113,7 @@ Keep UI-only or task-only notes in `journal.md`.
   Resource content revisions. Child relation/participant/todo changes advance
   their parent. Metadata-only activity does not. Nested writes advance each
   affected aggregate once per transaction using one transaction-local JSON
-  marker. Services authorize and lock before comparing an optional If-Match,
+  marker. Services authorize and lock before comparing an optional content precondition,
   then mutate inside that same RLS transaction.
 - Consequences: Existing clients remain compatible in the additive release;
   guarded writes reject stale content with 412 and return the authorized current

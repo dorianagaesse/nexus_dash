@@ -5,7 +5,7 @@ import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
-import { contentErrorBody, parseContentIfMatch, withContentEtag, readContentIfMatch } from "@/lib/content-revision";
+import { contentErrorBody, parseContentPrecondition, withContentEtag } from "@/lib/content-revision";
 import type { ProjectMeetingParticipantInput } from "@/lib/meeting-participant";
 import { isMeetingTodoActorReference } from "@/lib/meeting-todo-actor";
 import {
@@ -140,7 +140,7 @@ export async function PATCH(
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;
   }
-  const precondition = parseContentIfMatch(readContentIfMatch(request.headers), "meeting-note", params.noteId);
+  const precondition = parseContentPrecondition(request.headers, "meeting-note", params.noteId);
   if (!precondition.ok) return NextResponse.json({ error: precondition.error }, { status: 400 });
 
   const payload = await readJsonPayload(
