@@ -9906,12 +9906,34 @@ Low-value entries to avoid going forward:
 
 - Split the shared server foundation from ND-433/ND-434 into ND-565 and started
   `feature/nd-565-content-revisions` from current main in a separate worktree.
-- Added additive entity revisions and ETag/If-Match checks inside authorized
+- Added additive entity revisions and ETag-based checks inside authorized
   actor transactions for task, meeting-note, and context-card edits. Stale
   requests return the current authorized content without mutation side effects.
 - Meeting and context edits preserve omitted fields. Database invoker triggers
   track legacy and offboarding writes, task relations, and meeting participants
   and todos; metadata-only task activity keeps the content revision stable.
-- Live, browser required-header enforcement, and agent v2/sunset remain separate
-  rollout gates. Validation and branch-preview results will be recorded before
-  handoff.
+- Preview exposed Vercel re-evaluating standard If-Match against the advanced
+  response ETag, changing an accepted write into a platform 412. Private cache
+  headers, a separate response validator, and request-proxy forwarding did not
+  prevent it. The final transport uses X-Content-If-Match with the same strong
+  entity ETag and rejects standard If-Match with 400 before mutation. Amended
+  the ND-432 contract; Live and agent v2/sunset gates remain separate.
+- Validation completed 2026-10-12: lint, RLS inventory, 1,990 unit/API tests
+  (2 skipped), coverage, and production build passed. Coverage: 93.58%
+  statements, 84.07% branches, 95.42% functions, 93.98% lines. The real
+  PostgreSQL isolation matrix passed in a separate database. Full local browser
+  baseline: 109 passed, 2 skipped; final transport/aggregate regression and the
+  newly merged ND-451 relation scenario also passed separately.
+- [Preview run 38250393051](https://github.com/dorianagaesse/nexus_dash/actions/runs/38250393051)
+  checked out `feature/nd-565-content-revisions` at
+  `0b724b9ae8bb8a7aff3ce81426839f4a7b404698`; checkout logs and readiness
+  metadata confirmed the revision and Preview environment. The immutable URL
+  was <https://nexus-dash-8apzb9fz5-dorian-agaesses-projects.vercel.app>.
+  Protected-deployment HTTP probes passed concurrent task 200/412 responses,
+  stale rejection without activity, weak/header-transport rejection, preserved
+  meeting participants/todos, todo invalidation, and conditional context edits.
+  Temporary fixture projects, sessions and users were removed.
+- Delivery: [PR #595](https://github.com/dorianagaesse/nexus_dash/pull/595),
+  validated implementation `0b724b9`. Copilot could not review because its quota
+  was exhausted; manual review is needed before merge. The card stays In
+  Progress for the reviewer.

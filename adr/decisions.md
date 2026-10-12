@@ -1120,5 +1120,9 @@ Keep UI-only or task-only notes in `journal.md`.
   representation. Live remains disabled until browser/agent enforcement,
   v1 sunset, and measured load gates pass. Trigger behavior is covered by the
   least-privilege PostgreSQL matrix and concurrent HTTP edit probes.
+- Transport amendment (2026-10-12): use X-Content-If-Match with the exact entity
+  ETag. Vercel evaluates standard If-Match against post-mutation responses and
+  can replace an accepted write with a platform 412. Reject the standard header
+  before mutation; preserve normal response ETags and the atomic service guard.
 - Links: `task-432-autosave-contract.md`,
   `../docs/runbooks/content-revision-preconditions.md`, Nexus Dash ND-565.
