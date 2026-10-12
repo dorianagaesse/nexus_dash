@@ -22,6 +22,40 @@ Use it for important implementation milestones, blockers, validation runs, and r
   build hit a local `node_modules` junction restriction in Turbopack; `npm ci`
   inside the worktree fixed the setup and the subsequent build passed.
 
+# 2026-10-12 - ND-455: Resolve main integration
+
+- Merged current `origin/main` (`eec4874`) into
+  `docs/nd-455-rls-actor-projection-adr` to clear the PR #592 conflict. The
+  only conflict was `journal.md`: ND-450 added its entry at the same insertion
+  point, resolved by keeping both entries newest-first.
+- Re-verified the ADR's references on the merged tree after ND-561, ND-451,
+  and ND-450 landed: `loadProjectActorRegistry` consumers are unchanged (task
+  comments, task search, task and context-card actors, meeting todos, agent
+  attention) and main did not touch the actor service, RLS context helper,
+  agent-access helper, isolation matrix, or RLS runbook.
+- Validation: `git diff --check` clean and the relative link/reference review
+  re-run clean on the integrated tree.
+
+# 2026-10-11 - ND-455: RLS-safe actor-projection ADR
+
+- Read the ND-455 card, moved it to In Progress with a pickup comment, and
+  created `docs/nd-455-rls-actor-projection-adr` in `../nexus_dash_task455`
+  from `origin/main` at `13a4951`.
+- Documented the shipped ND-382 `app.list_project_actors` SECURITY DEFINER
+  projection in `adr/nd-455-rls-safe-actor-projections.md`: when to use
+  projections, the membership revalidation requirement, the no-secret-material
+  rule, the consumer/maintenance contract, and the drop-with-last-consumer
+  lifecycle (TASK-356 meeting-note variant, ND-447 context-card removal).
+  Linked from `adr/decisions.md`.
+- References verified against the branch tree: migration files, the actor
+  service and RLS context helper, the isolation matrix, and the RLS runbook.
+- Validation: `git diff --check` clean and relative link/reference review
+  passed. Documentation only; no runtime or database changes.
+- Review follow-up: the orchestrator review flagged one wrong identifier in the
+  boundary section; corrected the activity-touch function name to
+  `app.touch_project_activity` and linked the task118 migration. Link check and
+  `git diff --check` re-run clean.
+
 # 2026-10-11 - ND-450: Project-scoped agent task search
 
 - The existing workspace search route (`GET /api/projects/{projectId}/tasks/search`)
