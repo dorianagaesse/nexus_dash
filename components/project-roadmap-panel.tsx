@@ -1845,6 +1845,7 @@ export function ProjectRoadmapPanel({
     Record<string, RoadmapPhaseLayoutMeasurement>
   >({});
   const desktopRoadmapRef = useRef<HTMLDivElement | null>(null);
+  const desktopRoadmapScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setRoadmapPhases((currentPhases) => {
@@ -2018,6 +2019,109 @@ export function ProjectRoadmapPanel({
       mediaQuery.removeEventListener("change", handleChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isDesktopLayout || !isDraggingEvent) {
+      return undefined;
+    }
+
+    const scrollContainer = desktopRoadmapScrollRef.current;
+    if (!scrollContainer) {
+      return undefined;
+    }
+
+    const EDGE_THRESHOLD = 120;
+    const MAX_SPEED = 28;
+    const MIN_SPEED = 4;
+
+    let animationFrameId = 0;
+    let pointerCoords: { x: number; y: number } | null = null;
+
+    const computeScrollSpeed = (clientX: number, clientY: number): number => {
+      const rect = scrollContainer.getBoundingClientRect();
+      if (clientY < rect.top - 160 || clientY > rect.bottom + 160) {
+        return 0;
+      }
+
+      if (clientX <= rect.left + EDGE_THRESHOLD) {
+        const dist = clientX - rect.left;
+        if (dist <= 0) {
+          return -MAX_SPEED;
+        }
+        const ratio = 1 - dist / EDGE_THRESHOLD;
+        return -(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * ratio * ratio);
+      }
+
+      if (clientX >= rect.right - EDGE_THRESHOLD) {
+        const dist = rect.right - clientX;
+        if (dist <= 0) {
+          return MAX_SPEED;
+        }
+        const ratio = 1 - dist / EDGE_THRESHOLD;
+        return MIN_SPEED + (MAX_SPEED - MIN_SPEED) * ratio * ratio;
+      }
+
+      return 0;
+    };
+
+    const step = () => {
+      animationFrameId = 0;
+      if (!pointerCoords) {
+        return;
+      }
+
+      const speed = computeScrollSpeed(pointerCoords.x, pointerCoords.y);
+      if (speed === 0) {
+        return;
+      }
+
+      const currentScroll = scrollContainer.scrollLeft;
+      const maxScroll = scrollContainer.scrollWidth - scrollContainer.clientWidth;
+
+      if (speed < 0 && currentScroll > 0) {
+        scrollContainer.scrollLeft = Math.max(0, currentScroll + speed);
+        animationFrameId = window.requestAnimationFrame(step);
+      } else if (speed > 0 && currentScroll < maxScroll) {
+        scrollContainer.scrollLeft = Math.min(maxScroll, currentScroll + speed);
+        animationFrameId = window.requestAnimationFrame(step);
+      }
+    };
+
+    const handlePointerMove = (event: MouseEvent | PointerEvent) => {
+      pointerCoords = { x: event.clientX, y: event.clientY };
+      if (!animationFrameId) {
+        const speed = computeScrollSpeed(pointerCoords.x, pointerCoords.y);
+        if (speed !== 0) {
+          animationFrameId = window.requestAnimationFrame(step);
+        }
+      }
+    };
+
+    const handlePointerStop = () => {
+      pointerCoords = null;
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+        animationFrameId = 0;
+      }
+    };
+
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    window.addEventListener("pointerup", handlePointerStop, { passive: true });
+    window.addEventListener("pointercancel", handlePointerStop, { passive: true });
+    window.addEventListener("mousemove", handlePointerMove, { passive: true });
+    window.addEventListener("mouseup", handlePointerStop, { passive: true });
+
+    return () => {
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerStop);
+      window.removeEventListener("pointercancel", handlePointerStop);
+      window.removeEventListener("mousemove", handlePointerMove);
+      window.removeEventListener("mouseup", handlePointerStop);
+    };
+  }, [isDesktopLayout, isDraggingEvent]);
 
   const selectedPhase =
     selectedEventId == null
@@ -3120,6 +3224,8 @@ export function ProjectRoadmapPanel({
               onDragEnd={handleDragEnd}
             >
               <div
+                ref={isDesktopLayout ? desktopRoadmapScrollRef : null}
+                data-roadmap-scroll-container="true"
                 className={cn(
                   isDesktopLayout &&
                     "overflow-x-auto pb-4 [scrollbar-color:rgba(148,163,184,0.52)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[rgba(148,163,184,0.14)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]"
@@ -3219,11 +3325,23 @@ export function ProjectRoadmapPanel({
       >
         <RoadmapEntityForm
           draft={eventDraft}
-          recoveryNotice={<RecoveryDraftNotice draft={eventRecovery} onDiscard={() => {
-            eventRecovery.discard();
-            setEventDraft(eventRecoveryBase);
-            if (eventDialog) setEventDialog({ ...eventDialog, targetPhaseId: eventRecoveryBase.targetPhaseId });
-          }} />}
+          recoveryNotice={
+            eventRecovery.conflict || eventRecovery.error ? (
+              <RecoveryDraftNotice
+                draft={eventRecovery}
+                onDiscard={() => {
+                  eventRecovery.discard();
+                  setEventDraft(eventRecoveryBase);
+                  if (eventDialog) {
+                    setEventDialog({
+                      ...eventDialog,
+                      targetPhaseId: eventRecoveryBase.targetPhaseId,
+                    });
+                  }
+                }}
+              />
+            ) : null
+          }
           submitLabel={eventDialog?.mode === "create" ? "Create event" : "Save event"}
           targetDateLabel="Event date"
           statusLabel="Event status"
@@ -3287,7 +3405,17 @@ export function ProjectRoadmapPanel({
       >
         <RoadmapEntityForm
           draft={milestoneDraft}
-          recoveryNotice={<RecoveryDraftNotice draft={milestoneRecovery} onDiscard={() => { milestoneRecovery.discard(); setMilestoneDraft(milestoneRecoveryBase); }} />}
+          recoveryNotice={
+            milestoneRecovery.conflict || milestoneRecovery.error ? (
+              <RecoveryDraftNotice
+                draft={milestoneRecovery}
+                onDiscard={() => {
+                  milestoneRecovery.discard();
+                  setMilestoneDraft(milestoneRecoveryBase);
+                }}
+              />
+            ) : null
+          }
           idPrefix="roadmap-milestone"
           titlePlaceholder="No title yet"
           descriptionPlaceholder="No description yet"

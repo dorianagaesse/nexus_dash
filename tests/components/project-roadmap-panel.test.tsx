@@ -2533,4 +2533,246 @@ function setInputValue(input: HTMLElement, value: string) {
       root.unmount();
     });
   });
+
+  test("does not display 'Draft saved locally in this browser' when creating an event", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    const initialPhases = [
+      {
+        id: "phase-1",
+        title: "Milestone 1",
+        description: null,
+        targetDate: null,
+        order: 0,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        events: [],
+      },
+    ];
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases: initialPhases,
+      })
+    );
+
+    const newEventButton = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("New event")
+    );
+    expect(newEventButton).not.toBeUndefined();
+
+    await act(async () => {
+      newEventButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const titleInput = document.body.querySelector<HTMLInputElement>("#roadmap-entity-title");
+    expect(titleInput).not.toBeNull();
+
+    await act(async () => {
+      if (titleInput) {
+        titleInput.value = "New deliverable";
+        titleInput.dispatchEvent(new Event("input", { bubbles: true }));
+        titleInput.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+
+    // The routine locally-stored draft notice must NOT be rendered
+    expect(document.body.textContent).not.toContain("Draft saved locally in this browser.");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("horizontally auto-scrolls desktop roadmap container all the way to the left when dragging event near or beyond left edge", async () => {
+    projectSectionExpandedMock.isExpanded = true;
+    const { container, root } = createTestRenderer();
+
+    const initialPhases = [
+      {
+        id: "phase-1",
+        title: "Milestone 1",
+        description: null,
+        targetDate: null,
+        order: 0,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        events: [
+          {
+            id: "event-1",
+            title: "Event 1",
+            description: null,
+            targetDate: null,
+            status: "PLANNED" as const,
+            order: 0,
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      },
+      {
+        id: "phase-2",
+        title: "Milestone 2",
+        description: null,
+        targetDate: null,
+        order: 1,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        events: [
+          {
+            id: "event-2",
+            title: "Event 2",
+            description: null,
+            targetDate: null,
+            status: "PLANNED" as const,
+            order: 0,
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      },
+      {
+        id: "phase-3",
+        title: "Milestone 3",
+        description: null,
+        targetDate: null,
+        order: 2,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        events: [
+          {
+            id: "event-3",
+            title: "Event 3",
+            description: null,
+            targetDate: null,
+            status: "PLANNED" as const,
+            order: 0,
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      },
+    ];
+
+    await renderWithRoot(
+      root,
+      React.createElement(ProjectRoadmapPanel, {
+        projectId: "project-1",
+        canEdit: true,
+        phases: initialPhases,
+      })
+    );
+
+    const scrollContainer = container.querySelector<HTMLDivElement>(
+      "[data-roadmap-scroll-container='true']"
+    );
+    expect(scrollContainer).not.toBeNull();
+
+    if (!scrollContainer) {
+      return;
+    }
+
+    Object.defineProperty(scrollContainer, "clientWidth", { configurable: true, value: 600 });
+    Object.defineProperty(scrollContainer, "scrollWidth", { configurable: true, value: 1600 });
+    let currentScrollLeft = 500;
+    Object.defineProperty(scrollContainer, "scrollLeft", {
+      configurable: true,
+      get: () => currentScrollLeft,
+      set: (val: number) => {
+        currentScrollLeft = val;
+      },
+    });
+
+    vi.spyOn(scrollContainer, "getBoundingClientRect").mockReturnValue({
+      left: 200,
+      right: 800,
+      top: 100,
+      bottom: 500,
+      width: 600,
+      height: 400,
+      x: 200,
+      y: 100,
+      toJSON: () => {},
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, version: 1 }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      )
+    );
+
+    let rafCallback: FrameRequestCallback | null = null;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
+      rafCallback = cb;
+      return 1;
+    });
+
+    // Start drag
+    await act(async () => {
+      capturedOnDragStart!();
+    });
+
+    // Move pointer all the way to the left (beyond container.left = 200, e.g. at clientX = 50)
+    await act(async () => {
+      window.dispatchEvent(
+        new PointerEvent("pointermove", {
+          clientX: 50,
+          clientY: 250,
+        })
+      );
+    });
+
+    expect(rafCallback).not.toBeNull();
+
+    // Step 1 animation frame: should scroll left by MAX_SPEED (28px)
+    await act(async () => {
+      const cb = rafCallback;
+      rafCallback = null;
+      cb?.(performance.now());
+    });
+
+    expect(currentScrollLeft).toBe(500 - 28);
+    expect(rafCallback).not.toBeNull();
+
+    // Fast-forward scroll to near 0
+    currentScrollLeft = 10;
+    await act(async () => {
+      const cb = rafCallback;
+      rafCallback = null;
+      cb?.(performance.now());
+    });
+
+    // Reached 0 (Milestone 1 is now fully in view)
+    expect(currentScrollLeft).toBe(0);
+
+    // Final step at scrollLeft === 0: no further frame scheduled
+    await act(async () => {
+      const cb = rafCallback;
+      rafCallback = null;
+      cb?.(performance.now());
+    });
+
+    expect(rafCallback).toBeNull();
+
+    // End drag
+    await act(async () => {
+      await capturedOnDragEnd!({
+        draggableId: "event-3",
+        source: { droppableId: "phase-3", index: 0 },
+        destination: { droppableId: "phase-1", index: 1 },
+      });
+    });
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });

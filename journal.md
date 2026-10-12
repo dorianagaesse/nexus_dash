@@ -14,6 +14,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
     - Dropping an event into a new milestone creates an optimistic placeholder milestone phase and renders the event in place instantly while creation and reordering run in the background. If creation or reorder fails, optimistic state is cleanly reverted with error toast feedback.
     - Added `areRoadmapPhasesEquivalent` phase equality check to avoid full-panel re-measurements and re-renders when server responses or realtime activity return identical phase data.
     - Locked live-refresh polling during in-flight status changes and drag moves via `data-project-live-refresh-lock` to protect optimistic UI integrity.
+    - Removed routine "Draft saved locally in this browser." notice from roadmap event authoring and milestone editing modals: only display `RecoveryDraftNotice` when actionable draft conflicts or errors occur, matching `create-task-dialog` and context modals.
+    - Fixed horizontal auto-scrolling during roadmap event drag-and-drop: added continuous RAF-driven edge auto-scrolling on the desktop roadmap scroll container that smoothly scrolls all the way to `scrollLeft = 0` (and symmetrically to the right edge) even when the user drags their pointer all the way to the screen/card margin where library bounding boxes would otherwise halt scrolling.
   - Automated tests:
     - Added and updated unit tests in `tests/components/project-roadmap-panel.test.tsx` verifying:
       - Immediate event status toggling with card updates while persistence is in flight and refresh lock is engaged.
@@ -23,13 +25,15 @@ Use it for important implementation milestones, blockers, validation runs, and r
       - Failure rollback when dropping between milestones cleanly reverting optimistic state.
       - Immediate new milestone creation and event movement upon dropping into new milestone drop lane.
       - Reversion of optimistic milestone and error toast on mutation failure.
+      - Elimination of routine "Draft saved locally" notice when creating or editing events.
+      - Smooth horizontal auto-scrolling all the way to `scrollLeft = 0` (Milestone 1) when dragging an event near or beyond the container's left boundary.
   - Validation:
     - `npm run lint`: passed cleanly.
     - `npm run rls:check`: passed cleanly.
-    - Unit tests (`npm test`): 1,981 passed, 2 skipped.
+    - Unit tests (`npm test`): 1,983 passed, 2 skipped.
     - Coverage (`npm run test:coverage`): 94.07% lines, meeting all thresholds.
     - Production build (`next build --webpack`): compiled and generated all static and dynamic pages with 0 errors.
-    - Playwright browser test (`accessible-overlays.spec.ts`): 2 passed.
+    - Playwright browser test (`nd-433-long-form-recovery.spec.ts`): passed cleanly.
 
 # 2026-10-11 - ND-433: Resolve main integration
 
