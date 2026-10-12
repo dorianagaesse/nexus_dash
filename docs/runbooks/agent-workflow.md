@@ -99,6 +99,12 @@ blank IDs and self-relations are invalid. Do not mix these fields with the
 replace-mode `relatedTaskIds`, or put the same ID in both additive arrays.
 Read both endpoints back and verify their `relatedTasks` and unrelated edges.
 The hosted agent guide documents these fields and their validation errors.
+When a relation target is invalid, the response retains the
+`related-tasks-invalid` error code and includes `invalidRelatedTask` with the
+failing `id` and `reason` (`archived`, `missing`, `cross-project`, or `self`).
+Project-bound agent tokens and callers without access to a foreign task see
+`missing`. A human caller can see `cross-project` only for tasks they can
+already read.
 
 For epics, keep membership in linked tasks and dependencies in Related Tasks;
 do not put dependency lists, split manifests, or staging notes in the epic

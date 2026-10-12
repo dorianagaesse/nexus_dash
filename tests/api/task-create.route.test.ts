@@ -273,6 +273,28 @@ describe("POST /api/projects/:projectId/tasks", () => {
     apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
   });
 
+  test("passes relation target diagnostics from the service to the agent", async () => {
+    projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      error: "related-tasks-invalid",
+      invalidRelatedTask: { id: "archived-task", reason: "archived" },
+    });
+    const response = await POST(
+      new Request("http://localhost/api/projects/p1/tasks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: "New task", relatedTaskIds: ["archived-task"] }),
+      }) as never,
+      taskRouteParams("p1")
+    );
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "related-tasks-invalid",
+      invalidRelatedTask: { id: "archived-task", reason: "archived" },
+    });
+  });
+
   test("returns 400 when project id is missing", async () => {
     const request = new Request("http://localhost/api/projects//tasks", {
       method: "POST",

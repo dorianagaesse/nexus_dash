@@ -246,6 +246,32 @@ describe("POST /api/projects/:projectId/tasks/bulk", () => {
     expect(projectTaskServiceMock.updateTaskForProject).toHaveBeenCalledTimes(3);
   });
 
+  test("preserves relation diagnostics for failed create and update operations", async () => {
+    projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
+      ok: false, status: 400, error: "related-tasks-invalid",
+      invalidRelatedTask: { id: "archived", reason: "archived" },
+    });
+    projectTaskServiceMock.updateTaskForProject.mockResolvedValueOnce({
+      ok: false, status: 400, error: "related-tasks-invalid",
+      invalidRelatedTask: { id: "foreign", reason: "missing" },
+    });
+    const response = await POST(
+      bulkRequest({ operations: [
+        { type: "create", task: { title: "New task", relatedTaskIds: ["archived"] } },
+        { type: "update", taskId: "source", changes: { addRelatedTaskIds: ["foreign"] } },
+      ] }) as never,
+      bulkRouteParams("p1")
+    );
+    expect(response.status).toBe(200);
+    const payload = await readJson(response) as { results: unknown[] };
+    expect(payload.results).toEqual([
+      { index: 0, ok: false, status: 400, error: "related-tasks-invalid",
+        invalidRelatedTask: { id: "archived", reason: "archived" } },
+      { index: 1, ok: false, status: 400, error: "related-tasks-invalid",
+        invalidRelatedTask: { id: "foreign", reason: "missing" } },
+    ]);
+  });
+
   test("executes create operations with mapped fields and 201 results", async () => {
     projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
       ok: true,
