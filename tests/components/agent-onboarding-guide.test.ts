@@ -24,6 +24,8 @@ describe("agent-onboarding-guide", () => {
     expect(result).toContain("/api/projects/{projectId}/roadmap/events/move");
     expect(result).toContain("roadmap:delete");
     expect(result).toContain("/api/projects/{projectId}/tasks");
+    expect(result).toContain("/api/projects/{projectId}/tasks/search");
+    expect(result).toContain("tasks/search?q=release%20notes");
     expect(result).toContain("/api/projects/{projectId}/tasks/{taskId}/comments");
     expect(result).toContain("application/json");
     expect(result).toContain("deadlineDate");

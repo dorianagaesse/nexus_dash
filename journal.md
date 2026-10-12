@@ -3,6 +3,52 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-11 - ND-450: Project-scoped agent task search
+
+- The existing workspace search route (`GET /api/projects/{projectId}/tasks/search`)
+  now accepts agent bearer tokens: it uses `requireApiPrincipal` plus a
+  `task:read` scope and project-binding check instead of the session-only
+  guard that returned 401 for every bearer. Matching semantics are unchanged
+  because the route still calls `searchProjectTaskIds`; only the principal
+  handling and response bounding changed.
+- Responses are bounded and self-describing: `{ taskIds, totalMatches,
+  truncated }`. Agent credentials default to 50 ids; an explicit `limit`
+  (1-200, clamped; non-numeric returns `invalid-limit`) overrides it for any
+  principal. Session searches without a limit stay unbounded so the kanban
+  filter keeps seeing every matching card.
+- Documented in the agent v1 surface: a `TaskSearchResponse` schema, the new
+  OpenAPI path with `q`/`limit` parameters, endpoint notes covering semantics
+  and bounds, a "capped search" limitation bullet, and a copy-paste search
+  example in the hosted guide.
+- Validation (CI-mirroring env): lint and `rls:check` clean; `npm test`
+  1,927 passed / 2 skipped; coverage 94.2% lines with the search route and
+  service at 100% statements/lines; production build passed; full Playwright
+  suite 108 passed / 2 skipped against an owned server on PORT 3457
+  (`PLAYWRIGHT_BASE_URL` guard, no webServer reuse). Real end-to-end check
+  against the local build with a freshly minted `task_read` credential:
+  token exchange, bounded search (limit respected, `taskIds` contained the
+  expected card), 403 without `task:read`, and 404 for a cross-project id;
+  the temporary verification harness and credentials were removed after the
+  run. The RLS matrix is not required for this branch: no Prisma model,
+  migration, or runtime-role changes.
+- Review round 2026-10-11 (reviewed head `a22079b`): the bounded search now
+  orders `archivedAt` NULLS FIRST so active matches precede archived ones -
+  Postgres sorts ASC with NULLs LAST by default, so without the fix the cap
+  could return only archived matches; a unit test pins the ordering
+  contract. The route validates `limit` as a whole integer before clamping,
+  so `10abc`, `1.5`, and `1e2` now return `invalid-limit` instead of
+  silently parsing a numeric prefix; route tests cover all three plus the
+  negative-clamp path, and the OpenAPI notes match the stricter contract.
+- Review-round validation (CI-mirroring env): lint and `rls:check` clean;
+  `npm test` 1,931 passed / 2 skipped; coverage 94.19% lines with the search
+  route and service at 100% statements/lines; production build passed; the
+  full Chromium suite ran 107 passed / 2 skipped with one failure -
+  `nd-408-kanban-search-filter.spec.ts` "pointer drag under a label filter
+  keeps hidden tasks in order" (catalogued flake, failed on main 2026-09-13,
+  pointer-drag timing). It reproduced on the pre-fix build in this
+  environment (1 of 2 repeats failed) and the changed paths are not on that
+  spec's request path.
+
 # 2026-10-11 - ND-433: Resolve main integration
 
 - Merged current `origin/main` into the ND-433 branch after ND-434 landed on it. Preserved both autosave and newer roadmap/shared-discussion journal entries.
