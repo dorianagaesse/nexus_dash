@@ -5,7 +5,7 @@ import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
-import { contentErrorBody, parseContentIfMatch, withContentEtag } from "@/lib/content-revision";
+import { contentErrorBody, parseContentIfMatch, withContentEtag, withContentMutationHeaders } from "@/lib/content-revision";
 import type { ProjectMeetingParticipantInput } from "@/lib/meeting-participant";
 import { isMeetingTodoActorReference } from "@/lib/meeting-todo-actor";
 import {
@@ -182,7 +182,7 @@ export async function PATCH(
   return NextResponse.json(
     { note: serializeMeetingNote(result.data.note) },
     {
-      headers: withContentEtag(withProjectActivityVersionHeader(
+      headers: withContentMutationHeaders(withProjectActivityVersionHeader(
         timing.headers(),
         result.data.activityVersion
       ), "meeting-note", result.data.note),

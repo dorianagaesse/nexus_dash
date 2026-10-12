@@ -1116,6 +1116,9 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
   const contentEtagHeaders = {
     ETag: { description: "Strong entity/content revision validator for conditional PATCH.", schema: { type: "string" } },
   };
+  const contentMutationHeaders = {
+    "X-Content-ETag": { description: "Next If-Match validator after an accepted write. Uses a distinct response header to avoid CDN precondition evaluation against the advanced revision.", schema: { type: "string" } },
+  };
   const editConflictResponse = {
     description: "Stale If-Match; no mutation applied. The authorized latest entity is returned for reconciliation.",
     headers: contentEtagHeaders,
@@ -3781,7 +3784,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           responses: {
             200: {
               description: "Task updated",
-              headers: contentEtagHeaders,
+              headers: contentMutationHeaders,
               content: {
                 "application/json": {
                   schema: {
@@ -4270,7 +4273,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           responses: {
             200: {
               description: "Context card updated",
-              headers: contentEtagHeaders,
+              headers: contentMutationHeaders,
               content: {
                 "application/json": {
                   schema: {

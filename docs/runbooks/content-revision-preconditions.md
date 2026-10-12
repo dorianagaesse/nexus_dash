@@ -6,15 +6,18 @@ v2, or retire v1.
 
 ## Browser and agent contract
 
-Task and context-card single-record GET/PATCH routes return `contentRevision`
-and an `ETag`. Meeting-note single-record GET/PATCH routes expose the same
+Task and context-card single-record GET/PATCH routes return `contentRevision`.
+GET and conflict responses return `ETag`; successful PATCH responses return
+the next validator in `X-Content-ETag`. Meeting-note routes expose the same
 contract to authenticated humans. List and mutation representations carry the
 revision so clients can retain the base they edited.
 
-Authoring responses explicitly disable browser and CDN storage. These ETags
-protect database mutations; a CDN must not compare the incoming validator
-against the newly advanced ETag returned by a successful PATCH. The deployed
-Preview probe verifies the accepted response as well as conflict responses.
+Authoring responses explicitly disable browser and CDN storage. Vercel still
+evaluates incoming `If-Match` against a successful response's `ETag`, even with
+storage disabled. Returning the advanced validator in `X-Content-ETag` avoids
+a platform-generated 412 after an accepted database write. Clients use this
+header as the next `If-Match` value; GET and 412 keep normal ETags. The deployed
+Preview probe verifies accepted writes and JSON conflict responses.
 
 Use the exact ETag in the next PATCH's `If-Match` header. For example, a task
 ETag is `"task:<entity-id>:<revision>"`. Meeting and context prefixes are

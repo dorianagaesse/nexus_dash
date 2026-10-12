@@ -1,7 +1,14 @@
 import { describe, expect, test } from "vitest";
-import { contentEtag, parseContentIfMatch, withContentEtag } from "@/lib/content-revision";
+import { contentEtag, parseContentIfMatch, withContentEtag, withContentMutationHeaders } from "@/lib/content-revision";
 
 describe("content preconditions", () => {
+  test("returns the next write validator without an intermediary response precondition", () => {
+    const headers = withContentMutationHeaders({}, "task", { id: "task-1", contentRevision: 4 });
+    expect(headers.has("ETag")).toBe(false);
+    expect(headers.get("X-Content-ETag")).toBe('"task:task-1:4"');
+    expect(parseContentIfMatch(headers.get("X-Content-ETag"), "task", "task-1"))
+      .toEqual({ ok: true, expectedRevision: 4 });
+  });
   test("keeps authoring responses private with database-owned validators", () => {
     const headers = withContentEtag({ "Server-Timing": "db;dur=2" }, "task", { id: "task-1", contentRevision: 3 });
     expect(headers.get("ETag")).toBe('"task:task-1:3"');

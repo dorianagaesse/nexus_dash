@@ -8,7 +8,7 @@ import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
-import { contentErrorBody, parseContentIfMatch, withContentEtag } from "@/lib/content-revision";
+import { contentErrorBody, parseContentIfMatch, withContentEtag, withContentMutationHeaders } from "@/lib/content-revision";
 import {
   deleteContextCardForProject,
   getContextCardForProject,
@@ -159,7 +159,7 @@ export async function PATCH(
     {
       card: serializedCard,
     },
-    { headers: withContentEtag(withProjectActivityVersionHeader(timing.headers(), version), "context-card", result.data) }
+    { headers: withContentMutationHeaders(withProjectActivityVersionHeader(timing.headers(), version), "context-card", result.data) }
   );
 }
 

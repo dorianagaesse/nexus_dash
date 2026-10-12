@@ -8,7 +8,7 @@ import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
-import { contentErrorBody, parseContentIfMatch, withContentEtag } from "@/lib/content-revision";
+import { contentErrorBody, parseContentIfMatch, withContentEtag, withContentMutationHeaders } from "@/lib/content-revision";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
 import { loadProjectActorRegistryForActor } from "@/lib/services/project-actor-service";
 import { getProjectKanbanTaskById } from "@/lib/services/project-service";
@@ -128,7 +128,7 @@ export async function PATCH(
   return NextResponse.json(
     { task },
     {
-      headers: withContentEtag(withProjectActivityVersionHeader(
+      headers: withContentMutationHeaders(withProjectActivityVersionHeader(
         timing.headers(),
         result.data.activityVersion
       ), "task", rawTask),

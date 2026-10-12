@@ -35,13 +35,25 @@ export function withContentEtag(
   entity: { id: string; contentRevision?: number }
 ): Headers {
   const result = new Headers(headers);
-  // These validators guard database writes. Intermediaries must not evaluate
-  // If-Match against a mutation response's newly advanced ETag.
+  // Authoring content is private and must not be retained by shared caches.
   result.set("Cache-Control", "private, no-store");
   result.set("Vercel-CDN-Cache-Control", "no-store");
   if (entity.contentRevision !== undefined) {
     result.set("ETag", contentEtag(domain, entity.id, entity.contentRevision));
   }
+  return result;
+}
+
+/** Vercel compares If-Match with response ETags even after a successful write. */
+export function withContentMutationHeaders(
+  headers: HeadersInit,
+  domain: ContentDomain,
+  entity: { id: string; contentRevision?: number }
+): Headers {
+  const result = withContentEtag(headers, domain, entity);
+  const etag = result.get("ETag");
+  result.delete("ETag");
+  if (etag) result.set("X-Content-ETag", etag);
   return result;
 }
 
