@@ -326,6 +326,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "Provide labels as a string array. Task responses return the canonical labels field.",
       "Use attachmentLinks as an array of { name, url } objects.",
       "Use the direct-upload attachment routes for binary files and images.",
+      "Invalid relatedTaskIds return related-tasks-invalid with invalidRelatedTask { id, reason } when a task id is known. Reasons are archived, missing, cross-project, or self; project-bound agent tokens and callers without access to a foreign task see missing.",
       "Use assignee as { kind: \"human\" | \"agent\", id } to assign a project member or an active agent credential; the legacy human-only assigneeUserId string remains accepted and assignee wins when both are present.",
       "Assignment persists the credential identity for agents, along with who assigned it and when; revoked or expired credentials are rejected with assignee-invalid but existing assignments stay readable with an inactive status.",
       "201 responses include taskId and the complete created task covering labels, status, ordering position, epic, assignment, timestamps, attachments, and relations, so no follow-up read is needed.",
@@ -346,6 +347,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "Set epicId or assignee to null to clear the epic link or assignment, and relatedTaskIds to an empty array to remove all relations.",
       "Use addRelatedTaskIds and removeRelatedTaskIds to edit specific undirected relation pairs while preserving every other relation. Additions must refer to active tasks in this project; already-linked archived tasks can be retained. Removing an absent pair is a no-op, including for missing or inaccessible target IDs.",
       "Do not combine relatedTaskIds with either additive field (related-tasks-mode-conflict), or put the same ID in both additive arrays (related-tasks-operation-conflict). Invalid arrays or self-relations return related-tasks-invalid. IDs are trimmed and deduplicated; empty additive arrays change no relations.",
+      "For an invalid relation target, the 400 response keeps error=related-tasks-invalid and adds invalidRelatedTask { id, reason: archived | missing | cross-project | self }. Project-bound agent tokens and callers without access to a foreign task see missing; human callers can see cross-project only for tasks they can already read.",
       "After a relation edit, GET both task endpoints and check relatedTasks: the relation is bidirectional and unrelated edges must remain present. Repeating an add or remove is safe.",
       "assignee accepts { kind: \"human\" | \"agent\", id } and assigns against project members or active agent credentials. The legacy human-only assigneeUserId string remains accepted; when both are present, assignee wins.",
       "Unknown, non-member, or revoked/expired actors are rejected with assignee-invalid.",
@@ -432,6 +434,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     notes: [
       `Each request accepts at most ${MAX_BULK_TASK_OPERATIONS} operations.`,
       "Operations run sequentially and each one is validated and authorized independently. Failures are reported per operation and do not roll back earlier operations.",
+      "Failed create/update relation operations include invalidRelatedTask { id, reason } in their result when a target id is known, as on the single-task routes.",
       "Supported operation types are create, update (partial PATCH semantics), and status. Bulk v1 does not include delete.",
       "Create operations are not idempotent; update and status operations are.",
     ],
@@ -1206,12 +1209,24 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
       },
       schemas: {
+        InvalidRelatedTaskDiagnostic: {
+          type: "object",
+          description: "An invalid relation target. Project-bound agent tokens and callers without access to a foreign task see missing.",
+          required: ["id", "reason"],
+          properties: {
+            id: { type: "string" },
+            reason: { type: "string", enum: ["archived", "missing", "cross-project", "self"] },
+          },
+        },
         ErrorResponse: {
           type: "object",
           required: ["error"],
           properties: {
             error: {
               type: "string",
+            },
+            invalidRelatedTask: {
+              $ref: "#/components/schemas/InvalidRelatedTaskDiagnostic",
             },
           },
         },
@@ -2403,6 +2418,9 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             error: {
               type: "string",
               description: "The machine-readable error code when the operation failed.",
+            },
+            invalidRelatedTask: {
+              $ref: "#/components/schemas/InvalidRelatedTaskDiagnostic",
             },
           },
         },

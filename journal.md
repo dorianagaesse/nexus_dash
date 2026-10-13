@@ -5,11 +5,30 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 # 2026-10-13 - ND-431: Review round - identity-based keyboard-drop reconciliation
 
-- Merged current `origin/main` (`ad22b89`: ND-455, ND-450, ND-451) into `fix/nd-431-kanban-p95-targets` (merge commit `8c5137f`); the only conflict was `journal.md`, resolved by keeping both entries newest-first.
+- Merged current `origin/main` into `fix/nd-431-kanban-p95-targets` twice this round (`8c5137f` at `ad22b89`, then again at `9d2b03b`: ND-452, ND-455, ND-450); both times the only conflict was `journal.md`, resolved by keeping both entries newest-first.
 - Review fix (PR #598, P1): `onDragEnd` could re-apply an acknowledged keyboard move when a typed reorder event or refetch reconciled the columns between the early Space-keypress persist and the drop settling - it recomputed the move from the original source/destination indices and moved whichever card then held the source index. The intent now records `movedTaskId` at submit time and `onDragEnd` reconciles by identity and idempotently: already at the destination slot -> acknowledge and stop (no re-apply, no re-send); otherwise locate the submitted task in the current columns and move it from where it actually sits, keeping every other card's remote position; the card at the original source index is never moved. Early persist failure keeps the stored order; a failure after the drop settled reverts the optimistic apply.
 - Regression tests: `tests/components/kanban-board-keyboard-reconcile.test.tsx` (typed-event race, shifted-identity reconcile, early failure, late failure); the two race tests fail on the pre-fix revision.
 - Performance framing is explicit partial progress: p95 targets are not fully met on this shared machine (clean-run p95 modal 148.2 vs 130, lift 99.0 vs 70, release 217.6 vs 200, dispatch 120.2 with p50 98.8 vs 100; reorder HTTP 93.7 and typed remote event 30.3 pass). The 12-task control board floors near the targets itself, so absolute sign-off is deferred to a quiet-environment harness rerun; ND-543 owns the structural remainder. Card stays In Progress.
 - Validation on the merged head: `npm run lint`, `npm run rls:check`, `npm test` (1,997 passed, 2 skipped), `npm run test:coverage` (94.19% lines), `npm run build`, the full Chromium E2E suite (109 passed, 2 skipped, 5.9 min, includes the ND-431 drag rollback spec), and `git diff --check` all passed. Local e2e environment notes: the shared 5432 Postgres container (`nexus_dash_nd451-postgres-1`) was stopped mid-round and restarted; a manually started production server needs `TRUSTED_ORIGINS=http://127.0.0.1:<port>` plus `OUTBOUND_EMAIL_DELIVERY_MODE=disabled` (setting `NEXTAUTH_URL` alone without `NEXTAUTH_SECRET` 500s every page).
+
+# 2026-10-12 - ND-452: Explain invalid relation targets
+
+- Read the live ND-452 card, moved it to In Progress, and started
+  `feature/nd-452-related-task-error-details` from current `origin/main` after
+  ND-450 merged.
+- Kept `related-tasks-invalid` stable while adding a failing task id
+  and reason to create/update responses. Archived, missing, cross-project, and
+  self targets have distinct diagnostics; project-bound agent tokens cannot
+  probe the existence of tasks in other projects.
+- Added route/service and agent-token end-to-end checks, plus OpenAPI and
+  workflow documentation for the structured response.
+- Validation: `rls:check` passed; full unit/API suite 1,997 passed and 2
+  skipped; coverage gate passed (93.9% statements, 94.19% lines); real
+  PostgreSQL tenant-isolation matrix passed; production build passed; the
+  agent-token relation-diagnostics E2E passed. The 104 focused route/service,
+  bulk, and OpenAPI checks passed after the bulk response addition. The first
+  build hit a local `node_modules` junction restriction in Turbopack; `npm ci`
+  inside the worktree fixed the setup and the subsequent build passed.
 
 # 2026-10-12 - ND-455: Resolve main integration
 
