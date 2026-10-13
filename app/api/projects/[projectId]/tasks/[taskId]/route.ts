@@ -102,7 +102,10 @@ export async function PATCH(
   );
   if (!result.ok) {
     return NextResponse.json(
-      { error: result.error },
+      {
+        error: result.error,
+        ...(result.invalidRelatedTask ? { invalidRelatedTask: result.invalidRelatedTask } : {}),
+      },
       { status: result.status, headers: timing.headers() }
     );
   }

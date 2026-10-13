@@ -286,6 +286,23 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
   {
     tag: "Tasks",
     method: "GET",
+    path: "/api/projects/{projectId}/tasks/search",
+    title: "Search tasks",
+    description:
+      "Search project tasks with the same matching semantics as the workspace search, returning bounded task ids.",
+    requiredScopes: ["task:read"],
+    notes: [
+      "q is required after trimming and accepts 1-200 characters; empty queries return query-required and longer ones query-too-long.",
+      "Matching is case-insensitive substring across the fields the workspace search covers: title, description, reference, status, labels, epic name, assignee (including agent credential labels), comments, blocked follow-ups, attachment names, and related task titles.",
+      "limit must be a whole number; out-of-range values are clamped to 1-200 and malformed or fractional values return invalid-limit.",
+      "Responses are always bounded for agent credentials: without limit you receive at most 50 task ids; pass limit to raise the cap up to 200.",
+      "taskIds keep board order (active tasks before archived, then status and position). totalMatches is the full match count before the cap, and truncated=true when taskIds is shorter than totalMatches.",
+      "Search spans the full project task set, including archived tasks, and is scoped to the credential's project like the rest of the agent API.",
+    ],
+  },
+  {
+    tag: "Tasks",
+    method: "GET",
     path: "/api/projects/{projectId}/tasks/{taskId}",
     title: "Read task",
     description: "Read one project task by id.",
@@ -309,6 +326,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "Provide labels as a string array. Task responses return the canonical labels field.",
       "Use attachmentLinks as an array of { name, url } objects.",
       "Use the direct-upload attachment routes for binary files and images.",
+      "Invalid relatedTaskIds return related-tasks-invalid with invalidRelatedTask { id, reason } when a task id is known. Reasons are archived, missing, cross-project, or self; project-bound agent tokens and callers without access to a foreign task see missing.",
       "Use assignee as { kind: \"human\" | \"agent\", id } to assign a project member or an active agent credential; the legacy human-only assigneeUserId string remains accepted and assignee wins when both are present.",
       "Assignment persists the credential identity for agents, along with who assigned it and when; revoked or expired credentials are rejected with assignee-invalid but existing assignments stay readable with an inactive status.",
       "201 responses include taskId and the complete created task covering labels, status, ordering position, epic, assignment, timestamps, attachments, and relations, so no follow-up read is needed.",
@@ -329,6 +347,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "Set epicId or assignee to null to clear the epic link or assignment, and relatedTaskIds to an empty array to remove all relations.",
       "Use addRelatedTaskIds and removeRelatedTaskIds to edit specific undirected relation pairs while preserving every other relation. Additions must refer to active tasks in this project; already-linked archived tasks can be retained. Removing an absent pair is a no-op, including for missing or inaccessible target IDs.",
       "Do not combine relatedTaskIds with either additive field (related-tasks-mode-conflict), or put the same ID in both additive arrays (related-tasks-operation-conflict). Invalid arrays or self-relations return related-tasks-invalid. IDs are trimmed and deduplicated; empty additive arrays change no relations.",
+      "For an invalid relation target, the 400 response keeps error=related-tasks-invalid and adds invalidRelatedTask { id, reason: archived | missing | cross-project | self }. Project-bound agent tokens and callers without access to a foreign task see missing; human callers can see cross-project only for tasks they can already read.",
       "After a relation edit, GET both task endpoints and check relatedTasks: the relation is bidirectional and unrelated edges must remain present. Repeating an add or remove is safe.",
       "assignee accepts { kind: \"human\" | \"agent\", id } and assigns against project members or active agent credentials. The legacy human-only assigneeUserId string remains accepted; when both are present, assignee wins.",
       "Unknown, non-member, or revoked/expired actors are rejected with assignee-invalid.",
@@ -415,6 +434,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     notes: [
       `Each request accepts at most ${MAX_BULK_TASK_OPERATIONS} operations.`,
       "Operations run sequentially and each one is validated and authorized independently. Failures are reported per operation and do not roll back earlier operations.",
+      "Failed create/update relation operations include invalidRelatedTask { id, reason } in their result when a target id is known, as on the single-task routes.",
       "Supported operation types are create, update (partial PATCH semantics), and status. Bulk v1 does not include delete.",
       "Create operations are not idempotent; update and status operations are.",
     ],
@@ -641,6 +661,7 @@ export const AGENT_LIMITATIONS: readonly string[] = [
   "Attention reads always resolve to the calling credential. There is no parameter for reading another agent credential's mentions or assignments.",
   "Change one task's status through POST /api/projects/{projectId}/tasks/{taskId}/status. Use POST /api/projects/{projectId}/tasks/reorder only for full-board ordering, and PATCH /api/projects/{projectId}/tasks/{taskId} never changes status.",
   `Bulk task operations are capped at ${MAX_BULK_TASK_OPERATIONS} per request. Failures are reported per operation and do not roll back earlier operations. Bulk v1 does not include delete.`,
+  "Task search responses are capped for agent credentials (50 task ids by default, 200 with an explicit limit). When truncated=true, refine q instead of expecting pagination; totalMatches reports the full match count.",
   "Rich HTML is sanitized. Inline <img> content should not be treated as a supported image-delivery path; use attachments instead.",
   "Preview deployments may still be protected by Vercel. If a preview returns Vercel's auth wall, make the preview reachable or use an approved bypass before testing the agent flow.",
 ];
@@ -722,6 +743,14 @@ export function buildAgentTokenExchangeExample(appOrigin?: string | null): strin
 export function buildAgentProjectReadExample(): string {
   return [
     'curl "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID" \\',
+    `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
+  ].join("\n");
+}
+
+export function buildAgentTaskSearchExample(): string {
+  return [
+    "# Search before creating to catch duplicate cards (task:read)",
+    'curl "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/search?q=release%20notes&limit=20" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
   ].join("\n");
 }
@@ -1180,12 +1209,24 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
       },
       schemas: {
+        InvalidRelatedTaskDiagnostic: {
+          type: "object",
+          description: "An invalid relation target. Project-bound agent tokens and callers without access to a foreign task see missing.",
+          required: ["id", "reason"],
+          properties: {
+            id: { type: "string" },
+            reason: { type: "string", enum: ["archived", "missing", "cross-project", "self"] },
+          },
+        },
         ErrorResponse: {
           type: "object",
           required: ["error"],
           properties: {
             error: {
               type: "string",
+            },
+            invalidRelatedTask: {
+              $ref: "#/components/schemas/InvalidRelatedTaskDiagnostic",
             },
           },
         },
@@ -1885,6 +1926,28 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
+        TaskSearchResponse: {
+          type: "object",
+          required: ["taskIds", "totalMatches", "truncated"],
+          properties: {
+            taskIds: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "Task ids of the matching tasks in board order (active tasks before archived, then status and position). For agent credentials the array is capped by the effective limit.",
+            },
+            totalMatches: {
+              type: "integer",
+              description:
+                "Total number of tasks matching the query before the limit is applied.",
+            },
+            truncated: {
+              type: "boolean",
+              description:
+                "True when taskIds is shorter than totalMatches because the limit was reached.",
+            },
+          },
+        },
         TaskCreateRequest: {
           type: "object",
           required: ["title"],
@@ -2355,6 +2418,9 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             error: {
               type: "string",
               description: "The machine-readable error code when the operation failed.",
+            },
+            invalidRelatedTask: {
+              $ref: "#/components/schemas/InvalidRelatedTaskDiagnostic",
             },
           },
         },
@@ -3055,6 +3121,44 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 "application/json": {
                   schema: {
                     $ref: "#/components/schemas/TaskCreateResponse",
+                  },
+                },
+              },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/tasks/search": {
+        get: {
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/tasks/search"),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            {
+              name: "q",
+              in: "query",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 200 },
+              description:
+                "Case-insensitive substring to match against task text, mirroring the workspace search fields. Trimmed before matching.",
+            },
+            {
+              name: "limit",
+              in: "query",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 200 },
+              description:
+                "Maximum number of task ids to return. Values are clamped to 1-200; malformed or fractional values return invalid-limit. Agent credentials default to 50 when omitted.",
+            },
+          ],
+          responses: {
+            200: {
+              description: "Matching task ids returned",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/TaskSearchResponse",
                   },
                 },
               },
