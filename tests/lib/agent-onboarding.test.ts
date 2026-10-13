@@ -217,6 +217,22 @@ describe("agent-onboarding contract", () => {
     );
   });
 
+  test("documents the structured relation validation diagnostic", () => {
+    const schemas = buildAgentOpenApiDocument("https://preview.nexusdash.test")
+      .components.schemas;
+    const schema = schemas.InvalidRelatedTaskDiagnostic;
+    expect(schema.required).toEqual(["id", "reason"]);
+    expect(schema.properties.reason.enum).toEqual([
+      "archived", "missing", "cross-project", "self",
+    ]);
+    expect(schemas.ErrorResponse.properties.invalidRelatedTask.$ref).toBe(
+      "#/components/schemas/InvalidRelatedTaskDiagnostic"
+    );
+    expect(schemas.TaskBulkResult.properties.invalidRelatedTask.$ref).toBe(
+      "#/components/schemas/InvalidRelatedTaskDiagnostic"
+    );
+  });
+
   test("documents tagged-agent selections on task comment creation", () => {
     const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
 

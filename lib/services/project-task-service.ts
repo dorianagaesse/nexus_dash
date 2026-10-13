@@ -67,10 +67,16 @@ const TASK_ASSIGNEE_INVALID = "assignee-invalid";
 
 export { MAX_BULK_TASK_OPERATIONS } from "@/lib/task-bulk";
 
+export interface InvalidRelatedTaskDiagnostic {
+  id: string;
+  reason: "archived" | "missing" | "cross-project" | "self";
+}
+
 interface ServiceErrorResult {
   ok: false;
   status: number;
   error: string;
+  invalidRelatedTask?: InvalidRelatedTaskDiagnostic;
 }
 
 interface ServiceSuccessResult<T> {
@@ -165,8 +171,17 @@ interface PendingTaskAssignmentNotification {
   notification: TaskAssignmentNotificationInput;
 }
 
-function createError(status: number, error: string): ServiceErrorResult {
-  return { ok: false, status, error };
+function createError(
+  status: number,
+  error: string,
+  invalidRelatedTask?: ServiceErrorResult["invalidRelatedTask"]
+): ServiceErrorResult {
+  return {
+    ok: false,
+    status,
+    error,
+    ...(invalidRelatedTask ? { invalidRelatedTask } : {}),
+  };
 }
 
 function normalizeText(value: unknown): string {
@@ -501,6 +516,7 @@ async function validateRelatedTaskIds(input: {
   taskId?: string;
   relatedTaskIds: string[];
   allowArchivedTaskIds?: string[];
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<{ relatedTaskIds: string[] }>> {
   const filteredRelatedTaskIds = normalizeRelatedTaskIds(input.relatedTaskIds);
   const allowedArchivedTaskIds = new Set(
@@ -508,7 +524,10 @@ async function validateRelatedTaskIds(input: {
   );
 
   if (input.taskId && filteredRelatedTaskIds.includes(input.taskId)) {
-    return createError(400, "related-tasks-invalid");
+    return createError(400, "related-tasks-invalid", {
+      id: input.taskId,
+      reason: "self",
+    });
   }
 
   if (filteredRelatedTaskIds.length === 0) {
@@ -532,7 +551,29 @@ async function validateRelatedTaskIds(input: {
   });
 
   if (relatedTasks.length !== filteredRelatedTaskIds.length) {
-    return createError(400, "related-tasks-invalid");
+    const foundIds = new Set(relatedTasks.map((task) => task.id));
+    const failingId = filteredRelatedTaskIds.find((id) => !foundIds.has(id));
+    if (!failingId) {
+      return createError(400, "related-tasks-invalid");
+    }
+    // A project-bound agent must not learn whether an id exists elsewhere,
+    // even when its human owner can see that other project through RLS.
+    const candidates = await input.db.task.findMany({
+      where: {
+        id: failingId,
+        ...(input.agentAccess ? { projectId: input.projectId } : {}),
+      },
+      select: { id: true, projectId: true, archivedAt: true },
+    });
+    const candidate = candidates[0];
+    const reason = !candidate
+      ? "missing"
+      : candidate.projectId !== input.projectId
+        ? "cross-project"
+        : candidate.archivedAt
+          ? "archived"
+          : "missing";
+    return createError(400, "related-tasks-invalid", { id: failingId, reason });
   }
 
   return {
@@ -1065,6 +1106,7 @@ export async function createTaskForProject(
         db,
         projectId: input.projectId,
         relatedTaskIds: parsedRelatedTaskIds,
+        agentAccess: input.agentAccess,
       });
       if (!relatedTaskValidation.ok) {
         return relatedTaskValidation;
@@ -1675,7 +1717,7 @@ export async function updateTaskForProject(
     return createError(400, "related-tasks-operation-conflict");
   }
   if (removeRelatedTaskIds.includes(taskId)) {
-    return createError(400, "related-tasks-invalid");
+    return createError(400, "related-tasks-invalid", { id: taskId, reason: "self" });
   }
   const loadExistingRelations = relatedTaskIdsProvided || addRelatedTaskIds.length > 0;
   const epicProvided = Object.prototype.hasOwnProperty.call(payload, "epicId");
@@ -1782,6 +1824,7 @@ export async function updateTaskForProject(
             taskId,
             relatedTaskIds: relatedTaskIdsProvided ? relatedTaskIds : addRelatedTaskIds,
             allowArchivedTaskIds: existingRelatedTaskIds,
+            agentAccess,
           })
         : {
             ok: true as const,

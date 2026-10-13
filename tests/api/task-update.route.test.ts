@@ -1197,6 +1197,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     expect(response.status).toBe(400);
     await expect(readJson(response)).resolves.toEqual({
       error: "related-tasks-invalid",
+      invalidRelatedTask: { id: "other-project-task", reason: "missing" },
     });
     expect(prismaMock.taskRelation.deleteMany).not.toHaveBeenCalled();
   });

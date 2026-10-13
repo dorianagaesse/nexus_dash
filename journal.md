@@ -11,6 +11,25 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Validation: lint, RLS inventory, 2,007 unit tests (2 skipped) against an isolated local database, coverage gate with the live-save files added (92.61% statements / 85.19% branches), and production build. Browser suite not run: no surface mounts the live-save UI while the Live gate is empty, and the CI e2e smoke flow is unaffected.
 - Review round 2026-10-12 (reviewed head `7fe1522`): merged `origin/main` (only `journal.md` conflicted; both entries kept newest-first) and fixed five findings. A clean remote update now adopts the new representation into the form instead of silently resubmitting the stale value (P1). Construction is inert and scheduling starts from the committed lifecycle after the real online/visibility state is applied, so a discarded StrictMode render or an unmount before the debounce can no longer leave a timer that writes (P1). An accepted write restarts the max-wait clock for edits that stayed dirty while it was in flight (P1). Conflict review shows full values in bounded, keyboard-scrollable previews instead of truncating at 240 characters (P2). The adapter contract now specifies the ND-565 transport: `X-Content-If-Match` with the exact entity ETag derived purely from the numeric `contentRevision`, never standard `If-Match`, and the precondition error codes map to a non-retryable failure (P2). Also replaced the NUL cache-key separators in `lib/hooks/use-live-save.ts` with `\n` escapes so the file diffs as text.
 - Review-round validation (CI-mirroring env, isolated database): lint and `rls:check` clean; 2,047 unit tests passed (2 skipped); coverage gate passed (93.7% statements / 85.96% branches); production build passed. The reviewer's four regressions plus StrictMode, unmount-before-debounce, and inert-construction coverage live in `tests/components/live-save-review-regressions.test.tsx`.
+# 2026-10-12 - ND-452: Explain invalid relation targets
+
+- Read the live ND-452 card, moved it to In Progress, and started
+  `feature/nd-452-related-task-error-details` from current `origin/main` after
+  ND-450 merged.
+- Kept `related-tasks-invalid` stable while adding a failing task id
+  and reason to create/update responses. Archived, missing, cross-project, and
+  self targets have distinct diagnostics; project-bound agent tokens cannot
+  probe the existence of tasks in other projects.
+- Added route/service and agent-token end-to-end checks, plus OpenAPI and
+  workflow documentation for the structured response.
+- Validation: `rls:check` passed; full unit/API suite 1,997 passed and 2
+  skipped; coverage gate passed (93.9% statements, 94.19% lines); real
+  PostgreSQL tenant-isolation matrix passed; production build passed; the
+  agent-token relation-diagnostics E2E passed. The 104 focused route/service,
+  bulk, and OpenAPI checks passed after the bulk response addition. The first
+  build hit a local `node_modules` junction restriction in Turbopack; `npm ci`
+  inside the worktree fixed the setup and the subsequent build passed.
+
 # 2026-10-12 - ND-455: Resolve main integration
 
 - Merged current `origin/main` (`eec4874`) into
