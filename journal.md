@@ -16,8 +16,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Added API checks for retained relations, revision rechecks and retry limits,
   plus real-database browser regressions for legacy snapshots, reciprocal
   conditional saves and a deliberately forced reciprocal lock schedule.
-- Live remains off; review fixes and main integration require fresh validation
-  and branch Preview evidence before handoff.
+- Local lint, RLS inventory, 2,026 unit/API tests (2 skipped), coverage
+  (93.71% statements / 84.98% branches / 95.42% functions / 94.11% lines),
+  production build, the least-privilege PostgreSQL matrix and the full browser
+  suite (112 passed / 2 expected skips) passed.
+- Implementation `ea9d20d97199d6df51f482b2e983ac37be72cb66` passed every gate in
+  [CI run 38463067569](https://github.com/dorianagaesse/nexus_dash/actions/runs/38463067569).
+- [Preview run 38463093280](https://github.com/dorianagaesse/nexus_dash/actions/runs/38463093280)
+  checked out that implementation SHA. Its first dependency install aborted
+  during a network download; rerunning the failed job succeeded. The immutable
+  [deployment](https://nexus-dash-dcaej573a-dorian-agaesses-projects.vercel.app)
+  passed protected HTTP checks for the original revision contract, identical
+  legacy/guarded relation snapshots retaining both ETags, and reciprocal saves
+  yielding 200/412 with one committed activity. Temporary fixtures were removed.
+- Both review threads have implementation/test replies and are resolved.
+  Main conflicts are resolved; Live remains off and merge belongs to the reviewer.
 
 # 2026-10-12 - ND-452: Explain invalid relation targets
 
