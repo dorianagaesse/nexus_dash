@@ -112,8 +112,18 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
     this.acceptedBase = options.base;
     this.acceptedRevision = options.baseRevision;
     this.enabled = this.opts.enabled;
+    // Construction is inert: nothing schedules until the owning lifecycle
+    // calls `resume()` or an input method. React can build an instance during
+    // a render it later discards (StrictMode double-invocation), and the
+    // discarded instance never receives effect cleanup, so no timer may start
+    // here.
     this.snapshot = this.buildSnapshot();
-    this.refresh();
+    if (this.dirtyFields(this.effectiveValue()).length > 0) {
+      // A restored draft can already be dirty at construction; anchor its
+      // debounce window now so it is not treated as infinitely old once
+      // scheduling starts.
+      this.lastChangeAt = this.now();
+    }
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -160,8 +170,21 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
     if (revision === this.acceptedRevision) return;
     const dirty = this.dirtyFields(this.effectiveValue());
     if (dirty.length === 0) {
+      const changedOnServer = this.changedFields(base, this.acceptedBase);
       this.acceptedBase = base;
       this.acceptedRevision = revision;
+      // A clean (un-dirty) surface still displays the old values: adopt the
+      // remote representation so the next dirty-field computation does not
+      // resubmit a value the server already replaced.
+      if (changedOnServer.length > 0) {
+        const adopted = { ...this.effectiveValue() };
+        for (const field of changedOnServer) {
+          (adopted as Record<string, unknown>)[field] = base[field];
+        }
+        this.pendingRepresentation = null;
+        this.value = adopted;
+        this.opts.applyRepresentation?.(base, changedOnServer);
+      }
       this.refresh();
       return;
     }
@@ -252,7 +275,10 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
   }
 
   resume(): void {
-    if (this.destroyed || !this.suspended) return;
+    if (this.destroyed) return;
+    // Scheduling starts here, from the committed lifecycle: the owning effect
+    // calls this after applying the real online/visibility state. Re-runs are
+    // idempotent (the timer target does not depend on when refresh happens).
     this.suspended = false;
     this.refresh();
   }
@@ -518,6 +544,13 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
       case "accepted": {
         this.acceptedBase = result.representation;
         this.acceptedRevision = result.revision;
+        // Edits made while this write was in flight stay dirty against the
+        // new base; restart their max-wait clock so the next request observes
+        // a fresh quiet window instead of firing on a stale 30 s deadline.
+        const acceptedAt = this.now();
+        for (const field of this.dirtyFields(this.effectiveValue())) {
+          this.firstDirtyAt.set(field, acceptedAt);
+        }
         this.attempts = 0;
         this.autoRebaseUsed = false;
         this.savedAt = this.now();

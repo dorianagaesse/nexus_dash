@@ -10,16 +10,28 @@ import type {
 
 export function formatLiveSaveFieldValue(value: unknown): string {
   if (value === null || value === undefined || value === "") return "(empty)";
-  if (typeof value === "string") {
-    return value.length > 240 ? `${value.slice(0, 240)}...` : value;
-  }
+  if (typeof value === "string") return value;
   try {
     const json = JSON.stringify(value);
-    if (json === undefined) return String(value);
-    return json.length > 240 ? `${json.slice(0, 240)}...` : json;
+    return json === undefined ? String(value) : json;
   } catch {
     return String(value);
   }
+}
+
+/**
+ * Long values are shown in full inside a bounded, keyboard-scrollable box: the
+ * user must be able to compare versions that only differ past any prefix.
+ */
+function FieldValuePreview({ value }: { value: unknown }) {
+  return (
+    <span
+      className="mt-0.5 block max-h-40 overflow-auto font-mono text-xs whitespace-pre-wrap break-words"
+      tabIndex={0}
+    >
+      {formatLiveSaveFieldValue(value)}
+    </span>
+  );
 }
 
 function defaultChoices(conflictingFields: string[]): Record<string, LiveSaveConflictChoice> {
@@ -81,10 +93,8 @@ export function ConflictReview<F extends Record<string, unknown>>({
           <ul className="mt-1 space-y-1">
             {serverOnly.map((field) => (
               <li key={field}>
-                <span className="font-medium">{labelFor(field)}</span>:{" "}
-                <span className="font-mono text-xs whitespace-pre-wrap break-words">
-                  {formatLiveSaveFieldValue(conflict.latest[field])}
-                </span>
+                <span className="font-medium">{labelFor(field)}</span>:
+                <FieldValuePreview value={conflict.latest[field]} />
               </li>
             ))}
           </ul>
@@ -96,10 +106,8 @@ export function ConflictReview<F extends Record<string, unknown>>({
           <ul className="mt-1 space-y-1">
             {localOnly.map((field) => (
               <li key={field}>
-                <span className="font-medium">{labelFor(field)}</span>:{" "}
-                <span className="font-mono text-xs whitespace-pre-wrap break-words">
-                  {formatLiveSaveFieldValue(conflict.local[field])}
-                </span>
+                <span className="font-medium">{labelFor(field)}</span>:
+                <FieldValuePreview value={conflict.local[field]} />
               </li>
             ))}
           </ul>
@@ -130,9 +138,7 @@ export function ConflictReview<F extends Record<string, unknown>>({
               />
               <span>
                 Keep my version
-                <span className="block font-mono text-xs whitespace-pre-wrap break-words">
-                  {formatLiveSaveFieldValue(conflict.local[field])}
-                </span>
+                <FieldValuePreview value={conflict.local[field]} />
               </span>
             </label>
             <label className="flex items-start gap-2">
@@ -147,9 +153,7 @@ export function ConflictReview<F extends Record<string, unknown>>({
               />
               <span>
                 Use latest
-                <span className="block font-mono text-xs whitespace-pre-wrap break-words">
-                  {formatLiveSaveFieldValue(conflict.latest[field])}
-                </span>
+                <FieldValuePreview value={conflict.latest[field]} />
               </span>
             </label>
           </fieldset>

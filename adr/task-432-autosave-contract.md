@@ -374,16 +374,26 @@ route or surface starts live-saving until its gate is enabled.
 The adapter contract is `LiveSaveAdapter<F>` in `lib/live-save/types.ts`. The
 surface adapter must:
 
-- Send one conditional write of only `input.fields` against
+- Send one conditional `PATCH` of only `input.fields` against
   `input.baseRevision`, forwarding `input.intent` as the mutation intent of
-  4.3 and honouring `input.signal` so an abandoned write is aborted.
+  4.3 and honouring `input.signal` so an abandoned write is aborted. The
+  precondition is the ND-565 transport: `X-Content-If-Match` carrying the
+  exact entity ETag `"<domain>:<encodeURIComponent(entityId)>:<revision>"`.
+  The ETag is a pure function of the entity identity and the numeric
+  `contentRevision` (`lib/content-revision.ts`), so the adapter derives it
+  from the route it patches; standard `If-Match` must never be sent (Vercel
+  evaluates it against the post-mutation response and the server rejects it
+  with `400 edit-precondition-transport`), and a stale precondition is never
+  retried without user-visible reconciliation.
 - Translate the server response into `LiveSaveWriteResult`: `accepted` with
   the new revision and the current representation; `conflict` with the latest
   revision and representation (412 `edit-conflict`); `invalid` with a message
   (422 validation); `unauthorized`; `gone` for deletion or lost access;
-  `offline`; or `failed` with a retryability flag. Thrown errors are treated
-  as retryable failures, and an aborted request never surfaces as a user
-  error or an implicit retry.
+  `offline`; or `failed` with a retryability flag. The precondition errors
+  `400 edit-precondition-transport` and `400 edit-precondition-invalid` are
+  adapter contract violations, so they map to `failed` with
+  `retryable: false`. Thrown errors are treated as retryable failures, and an
+  aborted request never surfaces as a user error or an implicit retry.
 - Treat the returned representation as the merged, authorized current state:
   the scheduler rebases disjoint remote fields from it and keeps both sides
   for review on overlap.

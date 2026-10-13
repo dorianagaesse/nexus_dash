@@ -35,11 +35,11 @@ const fieldMeta = {
 } as const;
 
 describe("formatLiveSaveFieldValue", () => {
-  test("normalizes empties, truncates long values, and stringifies structures", () => {
+  test("normalizes empties and stringifies structures without truncating", () => {
     expect(formatLiveSaveFieldValue(null)).toBe("(empty)");
     expect(formatLiveSaveFieldValue("")).toBe("(empty)");
     expect(formatLiveSaveFieldValue("short")).toBe("short");
-    expect(formatLiveSaveFieldValue("x".repeat(300))).toBe(`${"x".repeat(240)}...`);
+    expect(formatLiveSaveFieldValue("x".repeat(300))).toBe("x".repeat(300));
     expect(formatLiveSaveFieldValue(["a", "b"])).toBe('["a","b"]');
     expect(formatLiveSaveFieldValue(42)).toBe("42");
   });

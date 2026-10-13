@@ -13,7 +13,11 @@ export const LIVE_SAVE_DEBOUNCE_MS = 2_000;
 export const LIVE_SAVE_MAX_WAIT_MS = 30_000;
 export const LIVE_SAVE_RETRY_DELAYS_MS = [5_000, 15_000, 60_000] as const;
 
-/** Content revision used as the conditional-write precondition (`If-Match`). */
+/**
+ * Content revision used as the conditional-write precondition. ND-565
+ * surfaces carry the numeric `contentRevision` (from the read/patch response);
+ * the adapter maps it to the entity ETag sent in `X-Content-If-Match`.
+ */
 export type LiveSaveRevision = string | number;
 
 /** Mutating request attribution; maps to `NexusDash-Mutation-Intent`. */
@@ -37,11 +41,20 @@ export type LiveSaveFieldMetaMap<F extends Record<string, unknown>> = Partial<
  * and conflict policy. A conforming adapter must:
  *
  * 1. Send `PATCH` to the record's content route with only the supplied `fields`
- *    (never the whole aggregate), `If-Match: baseRevision`, and the
+ *    (never the whole aggregate), the ND-565 content precondition, and the
  *    `NexusDash-Mutation-Intent` header set to `intent`. Autosave intent is a
  *    hint for side-effect coalescing, not an authorization bypass; commands
  *    (status, assignee, archive, delete, mentions, attachments) must never be
  *    sent through the autosave path.
+ *    The precondition is `X-Content-If-Match` carrying the exact entity ETag
+ *    the adapter last read, `"<domain>:<encodeURIComponent(entityId)>:<revision>"`
+ *    with domain `task`, `meeting-note`, or `context-card`. The ETag is a pure
+ *    function of entity identity plus `baseRevision` (`contentEtag` in
+ *    `lib/content-revision.ts`), so the adapter derives it from the route it
+ *    patches; never send standard `If-Match`, which Vercel evaluates against
+ *    the post-mutation response and which the server rejects with `400
+ *    edit-precondition-transport` before mutating. A write must never be
+ *    retried against a stale precondition.
  * 2. Map responses to exactly one result kind:
  *    - `200`-class with the updated record -> `accepted` with the new
  *      monotonic content revision and the full current representation mapped
@@ -49,6 +62,9 @@ export type LiveSaveFieldMetaMap<F extends Record<string, unknown>> = Partial<
  *    - `412 Precondition Failed` with stable `edit-conflict` code ->
  *      `conflict` carrying the current revision and the authorized latest
  *      representation. The adapter must not retry or apply the stale payload.
+ *    - `400 edit-precondition-transport` / `edit-precondition-invalid` -> a
+ *      contract violation in the adapter itself (wrong header or malformed
+ *      ETag) -> `failed` with `retryable: false`.
  *    - `422`/`400` validation rejection -> `invalid` with the server message.
  *    - `401`/`403` -> `unauthorized`.
  *    - `404` (deleted or lost access) -> `gone`.
@@ -72,7 +88,10 @@ export interface LiveSaveAdapter<F extends Record<string, unknown>> {
 export interface LiveSaveWriteInput<F extends Record<string, unknown>> {
   /** Dirty fields only; never the whole aggregate. */
   fields: Partial<F>;
-  /** Conditional-write precondition for the submitted base revision. */
+  /**
+   * The `contentRevision` the write is conditioned on; the adapter converts it
+   * to the patched entity's `X-Content-If-Match` ETag.
+   */
   baseRevision: LiveSaveRevision;
   intent: LiveSaveIntent;
   signal: AbortSignal;
