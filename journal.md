@@ -3,6 +3,25 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-12 - ND-452: Explain invalid relation targets
+
+- Read the live ND-452 card, moved it to In Progress, and started
+  `feature/nd-452-related-task-error-details` from current `origin/main` after
+  ND-450 merged.
+- Kept `related-tasks-invalid` stable while adding a failing task id
+  and reason to create/update responses. Archived, missing, cross-project, and
+  self targets have distinct diagnostics; project-bound agent tokens cannot
+  probe the existence of tasks in other projects.
+- Added route/service and agent-token end-to-end checks, plus OpenAPI and
+  workflow documentation for the structured response.
+- Validation: `rls:check` passed; full unit/API suite 1,997 passed and 2
+  skipped; coverage gate passed (93.9% statements, 94.19% lines); real
+  PostgreSQL tenant-isolation matrix passed; production build passed; the
+  agent-token relation-diagnostics E2E passed. The 104 focused route/service,
+  bulk, and OpenAPI checks passed after the bulk response addition. The first
+  build hit a local `node_modules` junction restriction in Turbopack; `npm ci`
+  inside the worktree fixed the setup and the subsequent build passed.
+
 # 2026-10-12 - ND-455: Resolve main integration
 
 - Merged current `origin/main` (`eec4874`) into
