@@ -379,6 +379,7 @@ interface DropApplication {
 interface KeyboardDropIntent {
   source: DraggableLocation;
   destination: DraggableLocation;
+  movedTaskId: string;
   outcome: "pending" | "saved" | "failed";
 }
 
@@ -1280,6 +1281,7 @@ export function KanbanBoard({
       const record: KeyboardDropIntent = {
         source,
         destination,
+        movedTaskId: computed.application.movedTask.id,
         outcome: "pending",
       };
       keyboardDropIntentRef.current = record;
@@ -1331,9 +1333,68 @@ export function KanbanBoard({
         keyboardIntent.destination.droppableId === destination.droppableId &&
         keyboardIntent.destination.index === destination.index;
 
-      if (matchesKeyboardIntent && keyboardIntent.outcome === "failed") {
-        // The early persist already reverted and surfaced the error; leave the
-        // board on the stored order instead of applying the drop locally.
+      if (matchesKeyboardIntent) {
+        if (keyboardIntent.outcome === "failed") {
+          // The early persist already reverted and surfaced the error; leave
+          // the board on the stored order instead of applying the drop locally.
+          return;
+        }
+
+        // A typed reorder event or a refetch can replace the columns while the
+        // drop is still completing, so reconcile the acknowledgement by the
+        // submitted task's identity: apply the move at most once, keep the
+        // intervening remote changes of every other card, and never re-move
+        // whichever card now holds the original source index.
+        const settledTask = isTaskStatus(destination.droppableId)
+          ? visibleColumns[destination.droppableId][destination.index]
+          : undefined;
+        if (settledTask?.id === keyboardIntent.movedTaskId) {
+          setPersistError(null);
+          if (relatedTaskGraph.get(settledTask.id)?.length) {
+            syncRelatedTaskSummary(settledTask.id, {
+              title: settledTask.title,
+              status: settledTask.status,
+              archivedAt: null,
+            });
+          }
+          return;
+        }
+
+        let currentStatus: TaskStatus | null = null;
+        let currentIndex = -1;
+        for (const status of TASK_STATUSES) {
+          const index = visibleColumns[status].findIndex(
+            (task) => task.id === keyboardIntent.movedTaskId
+          );
+          if (index !== -1) {
+            currentStatus = status;
+            currentIndex = index;
+            break;
+          }
+        }
+
+        if (currentStatus === null) {
+          return;
+        }
+
+        const reconciled = computeDropApplication(
+          { droppableId: currentStatus, index: currentIndex },
+          destination
+        );
+        if (!reconciled || "error" in reconciled) {
+          return;
+        }
+
+        setColumns(reconciled.application.nextColumns);
+        setPersistError(null);
+
+        if (relatedTaskGraph.get(reconciled.application.movedTask.id)?.length) {
+          syncRelatedTaskSummary(reconciled.application.movedTask.id, {
+            title: reconciled.application.movedTask.title,
+            status: reconciled.application.destinationStatus,
+            archivedAt: null,
+          });
+        }
         return;
       }
 
@@ -1351,16 +1412,14 @@ export function KanbanBoard({
       setColumns(application.nextColumns);
       setPersistError(null);
 
-      if (!matchesKeyboardIntent) {
-        void persistColumns(
-          application.nextColumns,
-          application.previousColumns,
-          {
-            previousTask: application.previousTask,
-            nextTask: application.nextTask,
-          }
-        );
-      }
+      void persistColumns(
+        application.nextColumns,
+        application.previousColumns,
+        {
+          previousTask: application.previousTask,
+          nextTask: application.nextTask,
+        }
+      );
 
       if (relatedTaskGraph.get(application.movedTask.id)?.length) {
         syncRelatedTaskSummary(application.movedTask.id, {
@@ -1376,6 +1435,7 @@ export function KanbanBoard({
       persistColumns,
       relatedTaskGraph,
       syncRelatedTaskSummary,
+      visibleColumns,
     ]
   );
 

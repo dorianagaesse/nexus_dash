@@ -110,3 +110,32 @@ wave across 240 mounted draggables (all cards re-render on lift and drop) and
 the reorder HTTP leg that the release path overlaps. Cutting those needs
 fewer mounted draggables and a leaner reorder route - the structural work
 already tracked by ND-543.
+
+### Review fix (2026-10-12): identity-based drop reconciliation
+
+Review found that `onDragEnd` could apply a committed keyboard move twice: it
+recomputed the move from the original source/destination indices against
+whatever columns were current, so if a typed reorder event or a refetch
+reconciled the columns between the early Space-keypress persist and the drop
+settling, the recompute moved whichever card now held the source index and
+displayed a different order than the database.
+
+The reconciliation now retains the submitted task's identity
+(`keyboardDropIntentRef` records `movedTaskId` at submit time) and is
+idempotent against current columns:
+
+- if the submitted task already occupies the destination slot, the move is
+  acknowledged (error cleared, related-task summary synced) and nothing is
+  re-applied or re-sent;
+- otherwise the submitted task is located by id across visible lanes and the
+  move is applied from where it actually sits, so intervening remote changes
+  to every other card are preserved and the card at the original source index
+  is never moved;
+- an early failure still leaves the stored order in place, and a failure that
+  lands after the drop settled still reverts the optimistic apply.
+
+Regression coverage in `tests/components/kanban-board-keyboard-reconcile.test.tsx`:
+typed reorder between early accept and settle (stays acknowledged order, one
+request), remote reorder that shifts the submitted task (moves the submitted
+task by identity), early failure (stored order kept), late failure (optimistic
+apply reverted). The two race tests fail on the pre-fix revision.
