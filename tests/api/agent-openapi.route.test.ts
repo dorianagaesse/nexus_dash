@@ -52,6 +52,7 @@ describe("GET /api/docs/agent/v1/openapi.json", () => {
     expect(paths).toHaveProperty("/api/projects/{projectId}/epics");
     expect(paths).toHaveProperty("/api/projects/{projectId}/epics/{epicId}");
     expect(paths).toHaveProperty("/api/projects/{projectId}/tasks");
+    expect(paths).toHaveProperty("/api/projects/{projectId}/tasks/search");
     expect(paths).toHaveProperty("/api/projects/{projectId}/tasks/{taskId}/status");
     expect(paths).toHaveProperty("/api/projects/{projectId}/tasks/{taskId}/comments");
     expect(paths).toHaveProperty(
@@ -78,6 +79,7 @@ describe("GET /api/docs/agent/v1/openapi.json", () => {
       { AgentApiKeyHeader: [] },
     ]);
     expect(components?.schemas).toHaveProperty("AttachmentLinkInput");
+    expect(components?.schemas).toHaveProperty("TaskSearchResponse");
     const taskUpdateAttachmentLinks = (
       components?.schemas?.TaskUpdateRequest?.properties?.attachmentLinks as
         | {
