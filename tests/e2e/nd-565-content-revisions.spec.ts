@@ -2,6 +2,9 @@ import { expect, test } from "@playwright/test";
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
+import { buildCanonicalTaskRelation } from "../../lib/task-related";
+import { lockContentRevision } from "../../lib/services/content-revision-service";
+import { retryTransaction } from "../../lib/services/transaction-retry";
 
 test("conditional authoring rejects competing writes and preserves partial aggregates", async ({ page }) => {
   const userId = await signInAsVerifiedUser(page);
@@ -79,6 +82,76 @@ test("conditional authoring rejects competing writes and preserves partial aggre
     expect(latestCard.content).toBe("Keep body");
     expect(latestCard.contentRevision).toBe(cardBody.contentRevision + 1);
     expect((await page.request.patch(cardUrl, { headers: { "X-Content-If-Match": cardRead.headers().etag }, data: { content: "Stale body" } })).status()).toBe(412);
+  } finally {
+    await prisma.project.delete({ where: { id: project.id } });
+  }
+});
+
+test("relation snapshots are no-ops and reciprocal guarded edits recover from deadlocks", async ({ page }) => {
+  const userId = await signInAsVerifiedUser(page);
+  const project = await prisma.project.create({ data: {
+    name: uniqueProjectName("nd565-relations"), ownerId: userId,
+    memberships: { create: { userId, role: "owner" } },
+    tasks: { create: ["Snapshot A", "Snapshot B", "Concurrent A", "Concurrent B", "Locked A", "Locked B"].map((title, position) => ({
+      title, position, createdByUserId: userId, updatedByUserId: userId,
+    })) },
+  }, include: { tasks: { orderBy: { position: "asc" } } } });
+  const [a, b, c, d, e, f] = project.tasks;
+  const url = (id: string) => `/api/projects/${project.id}/tasks/${id}`;
+  const read = async (id: string) => {
+    const response = await page.request.get(url(id));
+    expect(response.status()).toBe(200);
+    return { etag: response.headers().etag, task: (await response.json()).task };
+  };
+  const patch = (id: string, peer: string, etag: string, additive = false) =>
+    page.request.patch(url(id), { headers: { "X-Content-If-Match": etag },
+      data: additive ? { addRelatedTaskIds: [peer] } : { relatedTaskIds: [peer] } });
+  try {
+    const initial = await read(a.id);
+    expect((await patch(a.id, b.id, initial.etag)).status()).toBe(200);
+    const beforeA = await read(a.id);
+    const beforeB = await read(b.id);
+    // Full legacy snapshots and conditional snapshots must retain both ETags.
+    expect((await page.request.patch(url(a.id), { data: { title: a.title, relatedTaskIds: [b.id] } })).status()).toBe(200);
+    expect((await patch(a.id, b.id, beforeA.etag)).status()).toBe(200);
+    expect((await patch(b.id, a.id, beforeB.etag)).status()).toBe(200);
+    expect((await read(a.id)).etag).toBe(beforeA.etag);
+    expect((await read(b.id)).etag).toBe(beforeB.etag);
+
+    const beforeC = await read(c.id);
+    const beforeD = await read(d.id);
+    const activityBefore = await prisma.projectActivityEvent.count({ where: { projectId: project.id } });
+    const reciprocal = await Promise.all([
+      patch(c.id, d.id, beforeC.etag, true), patch(d.id, c.id, beforeD.etag, true),
+    ]);
+    expect(reciprocal.map((response) => response.status()).sort()).toEqual([200, 412]);
+    expect(await prisma.projectActivityEvent.count({ where: { projectId: project.id } })).toBe(activityBefore + 1);
+    expect((await read(c.id)).task.contentRevision).toBe(beforeC.task.contentRevision + 1);
+    expect((await read(d.id)).task.contentRevision).toBe(beforeD.task.contentRevision + 1);
+
+    // Force the reciprocal lock schedule so this regression cannot pass merely
+    // because one HTTP request happened to finish before the other began.
+    let waiting = 0;
+    let release!: () => void;
+    const barrier = new Promise<void>((resolve) => { release = resolve; });
+    const attempts = [0, 0];
+    const write = (id: string, peer: string, index: number) => retryTransaction(
+      () => prisma.$transaction(async (db) => {
+        attempts[index] += 1;
+        const state = await lockContentRevision({ db, domain: "task", projectId: project.id, id, expectedRevision: 0 });
+        if (state !== "matched") return state;
+        if (attempts[index] === 1) {
+          waiting += 1;
+          if (waiting === 2) release();
+          await barrier;
+        }
+        await db.taskRelation.createMany({ data: [{ projectId: project.id, ...buildCanonicalTaskRelation(id, peer) }], skipDuplicates: true });
+        return "accepted";
+      }, { timeout: 15_000 }), true
+    );
+    expect((await Promise.all([write(e.id, f.id, 0), write(f.id, e.id, 1)])).sort()).toEqual(["accepted", "conflict"]);
+    expect(attempts[0] + attempts[1]).toBe(3);
+    expect(await prisma.taskRelation.count({ where: { projectId: project.id, ...buildCanonicalTaskRelation(e.id, f.id) } })).toBe(1);
   } finally {
     await prisma.project.delete({ where: { id: project.id } });
   }

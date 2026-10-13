@@ -3,10 +3,23 @@ import { formatTaskReference } from "@/lib/task-reference";
 import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { logServerError } from "@/lib/observability/logger";
 import { loadProjectActorRegistry } from "@/lib/services/project-actor-service";
-import { requireProjectRole } from "@/lib/services/project-access-service";
+import {
+  requireAgentProjectScopes,
+  requireProjectRole,
+  type AgentProjectAccessContext,
+} from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 
 const MAX_TASK_SEARCH_QUERY_LENGTH = 200;
+
+export const AGENT_TASK_SEARCH_DEFAULT_LIMIT = 50;
+export const MAX_TASK_SEARCH_LIMIT = 200;
+
+export interface ProjectTaskSearchResult {
+  taskIds: string[];
+  totalMatches: number;
+  truncated: boolean;
+}
 
 interface ServiceErrorResult {
   ok: false;
@@ -41,7 +54,9 @@ export async function searchProjectTaskIds(input: {
   actorUserId: string;
   projectId: string;
   query: string;
-}): Promise<ServiceResult<{ taskIds: string[] }>> {
+  agentAccess?: AgentProjectAccessContext | null;
+  limit?: number | null;
+}): Promise<ServiceResult<ProjectTaskSearchResult>> {
   const actorUserId = input.actorUserId.trim();
   const projectId = input.projectId.trim();
   const query = input.query.trim();
@@ -59,6 +74,25 @@ export async function searchProjectTaskIds(input: {
     return createError(400, "query-too-long");
   }
 
+  const agentScopeAccess = requireAgentProjectScopes({
+    agentAccess: input.agentAccess,
+    projectId,
+    requiredScopes: ["task:read"],
+  });
+  if (!agentScopeAccess.ok) {
+    return createError(agentScopeAccess.status, agentScopeAccess.error);
+  }
+
+  const normalizedLimit =
+    typeof input.limit === "number" && Number.isFinite(input.limit)
+      ? Math.min(Math.max(Math.trunc(input.limit), 1), MAX_TASK_SEARCH_LIMIT)
+      : null;
+  // Agent credentials are always bounded; session callers stay unbounded
+  // unless they pass an explicit limit, which keeps the kanban UI unchanged.
+  const effectiveLimit =
+    normalizedLimit ??
+    (input.agentAccess ? AGENT_TASK_SEARCH_DEFAULT_LIMIT : null);
+
   try {
     return await withActorRlsContext(actorUserId, async (db) => {
       const access = await requireProjectRole({
@@ -74,7 +108,10 @@ export async function searchProjectTaskIds(input: {
       const tasks = await db.task.findMany({
         where: { projectId },
         orderBy: [
-          { archivedAt: "asc" },
+          // Postgres ASC defaults to NULLS LAST, so archived rows would
+          // precede active ones and the bounded agent slice could drop
+          // active matches entirely.
+          { archivedAt: { sort: "asc", nulls: "first" } },
           { status: "asc" },
           { position: "asc" },
           { createdAt: "asc" },
@@ -113,7 +150,7 @@ export async function searchProjectTaskIds(input: {
 
       const actorRegistry = await loadProjectActorRegistry({ db, projectId });
       const normalizedQuery = normalizeSearchValue(query);
-      const taskIds = tasks
+      const matchedTaskIds = tasks
         .filter((task) => {
           const assigneeTag =
             task.assigneeUser?.username &&
@@ -159,7 +196,19 @@ export async function searchProjectTaskIds(input: {
         })
         .map((task) => task.id);
 
-      return { ok: true, data: { taskIds } };
+      const taskIds =
+        effectiveLimit === null
+          ? matchedTaskIds
+          : matchedTaskIds.slice(0, effectiveLimit);
+
+      return {
+        ok: true,
+        data: {
+          taskIds,
+          totalMatches: matchedTaskIds.length,
+          truncated: taskIds.length < matchedTaskIds.length,
+        },
+      };
     });
   } catch (error) {
     logServerError("searchProjectTaskIds", error, { actorUserId, projectId });

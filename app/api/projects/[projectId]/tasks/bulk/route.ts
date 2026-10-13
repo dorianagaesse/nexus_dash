@@ -21,6 +21,7 @@ import {
   type TaskStatusTransitionPayload,
   type UpdateTaskPayload,
   type UpdatedTaskPayload,
+  type InvalidRelatedTaskDiagnostic,
 } from "@/lib/services/project-task-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 
@@ -61,6 +62,7 @@ interface BulkResult {
   taskId?: string;
   task?: UpdatedTaskPayload;
   error?: string;
+  invalidRelatedTask?: InvalidRelatedTaskDiagnostic;
 }
 
 function serializeJsonField(value: unknown): string {
@@ -235,7 +237,10 @@ export async function POST(
         buildCreateInput(operation, actorUserId, projectId, agentAccess)
       );
       if (!result.ok) {
-        results.push({ index, ok: false, status: result.status, error: result.error });
+        results.push({
+          index, ok: false, status: result.status, error: result.error,
+          ...(result.invalidRelatedTask ? { invalidRelatedTask: result.invalidRelatedTask } : {}),
+        });
         continue;
       }
 
@@ -260,7 +265,10 @@ export async function POST(
         agentAccess
       );
       if (!result.ok) {
-        results.push({ index, ok: false, status: result.status, error: result.error });
+        results.push({
+          index, ok: false, status: result.status, error: result.error,
+          ...(result.invalidRelatedTask ? { invalidRelatedTask: result.invalidRelatedTask } : {}),
+        });
         continue;
       }
 

@@ -109,7 +109,10 @@ export async function PATCH(
   );
   if (!result.ok) {
     return NextResponse.json(
-      contentErrorBody(result),
+      {
+        ...contentErrorBody(result),
+        ...(result.invalidRelatedTask ? { invalidRelatedTask: result.invalidRelatedTask } : {}),
+      },
       { status: result.status, headers: result.current ? withContentEtag(timing.headers(), "task", result.current) : timing.headers() }
     );
   }

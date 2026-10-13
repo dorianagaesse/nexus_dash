@@ -58,6 +58,15 @@ the transaction-local marker uses one bounded JSON setting rather than a new
 configuration key for every entity. Triggers retain forced RLS and do not
 grant another project's content visibility or mutation rights.
 
+Replacing task relations changes only added or removed pairs. An identical
+snapshot preserves both endpoints' revisions and ETags, including for legacy
+clients. Reciprocal guarded relation edits can contend on parent and unique-key
+locks; a deadlock or serialization failure retries the entire actor transaction
+at most twice, after 25 and 50 ms. Every retry reauthorizes and compares the
+original expected revision again, so a competing committed edit returns 412
+without replaying its stale payload or side effects. Other errors and writes
+without a guaranteed transaction are never retried through this path.
+
 ## Release gates
 
 The remaining ND-433/ND-434 work owns client integration, required browser and
@@ -72,3 +81,6 @@ database. The browser probe checks simultaneous task saves, stale rejection
 without activity growth, comment revision stability, legacy writes, partial
 meeting updates, todo invalidation, and conditional context edits. Preview
 validation follows [the workflow runbook](github-actions-workflows.md).
+Relation coverage also checks identical legacy/guarded snapshots, reciprocal
+HTTP saves, and a deterministic PostgreSQL deadlock schedule followed by a fresh
+revision check. API tests cover reauthorization and bounded retry exhaustion.

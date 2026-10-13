@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
+  $executeRaw: vi.fn(),
+  $transaction: vi.fn(),
   project: { findFirst: vi.fn() },
   task: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
   taskRelation: { deleteMany: vi.fn(), createMany: vi.fn() },
@@ -27,11 +30,11 @@ const agentAccess = {
   scopes: ["task:write"] as const,
 };
 
-function patch(payload: unknown) {
+function patch(payload: unknown, etag?: string) {
   return PATCH(
     new Request("http://localhost/api/projects/p1/tasks/t2", {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(etag ? { "X-Content-If-Match": etag } : {}) },
       body: JSON.stringify(payload),
     }) as never,
     { params: Promise.resolve({ projectId: "p1", taskId: "t2" }) }
@@ -41,6 +44,8 @@ function patch(payload: unknown) {
 describe("additive task relation PATCH", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    db.$queryRaw.mockResolvedValue([{ contentRevision: 1 }]);
+    db.$transaction.mockImplementation(async (operation) => operation(db));
     auth.requireApiPrincipal.mockResolvedValue({
       ok: true,
       principal: { kind: "agent", actorUserId: "owner", ...agentAccess },
@@ -50,7 +55,7 @@ describe("additive task relation PATCH", () => {
     db.apiCredential.findFirst.mockResolvedValue({ id: "codex", label: "Codex" });
     db.task.findMany.mockResolvedValue([{ id: "t3" }]);
     db.task.findUnique.mockResolvedValue({
-      id: "t2", projectId: "p1", referenceNumber: 2,
+      id: "t2", projectId: "p1", referenceNumber: 2, contentRevision: 1,
       title: "Preserve this title", description: "Preserve this body",
       label: "feature", labelsJson: '["feature"]', status: "Backlog", position: 0,
       archivedAt: null, completedAt: null, deadlineAt: null, epicId: null,
@@ -118,6 +123,45 @@ describe("additive task relation PATCH", () => {
     expect(db.taskRelation.deleteMany).not.toHaveBeenCalled();
   });
 
+  test("replacement retains unchanged incoming and archived pairs", async () => {
+    db.task.findMany.mockResolvedValue([{ id: "t1" }, { id: "t4" }]);
+    const response = await patch({ relatedTaskIds: ["t1", "t4", "t1"] }, '"task:t2:1"');
+    expect(response.status).toBe(200);
+    expect(response.headers.get("etag")).toBe('"task:t2:1"');
+    expect(db.taskRelation.deleteMany).not.toHaveBeenCalled();
+    expect(db.taskRelation.createMany).not.toHaveBeenCalled();
+  });
+
+  test("replacement mutates only added and removed pairs", async () => {
+    db.task.findMany.mockResolvedValue([{ id: "t4" }, { id: "t3" }]);
+    expect((await patch({ relatedTaskIds: ["t4", "t3"] })).status).toBe(200);
+    expect(db.taskRelation.deleteMany).toHaveBeenCalledWith({ where: {
+      projectId: "p1", OR: [{ leftTaskId: "t1", rightTaskId: "t2" }],
+    } });
+    expect(db.taskRelation.createMany).toHaveBeenCalledWith({
+      data: [{ projectId: "p1", leftTaskId: "t2", rightTaskId: "t3" }], skipDuplicates: true,
+    });
+  });
+
+  test("a guarded deadlock retries authorization and rejects the newly stale revision", async () => {
+    db.taskRelation.createMany.mockRejectedValueOnce({ code: "P2034" });
+    db.$queryRaw.mockResolvedValueOnce([{ contentRevision: 1 }])
+      .mockResolvedValueOnce([{ contentRevision: 2 }]);
+    const response = await patch({ addRelatedTaskIds: ["t3"] }, '"task:t2:1"');
+    expect(response.status).toBe(412);
+    expect((await response.json()).error).toBe("edit-conflict");
+    expect(db.$transaction).toHaveBeenCalledTimes(2);
+    expect(db.project.findFirst).toHaveBeenCalledTimes(2);
+    expect(db.task.update).toHaveBeenCalledTimes(1);
+    expect(db.taskRelation.createMany).toHaveBeenCalledTimes(1);
+  });
+
+  test("guarded deadlock retries are bounded", async () => {
+    db.taskRelation.createMany.mockRejectedValue({ code: "P2034" });
+    expect((await patch({ addRelatedTaskIds: ["t3"] }, '"task:t2:1"')).status).toBe(500);
+    expect(db.$transaction).toHaveBeenCalledTimes(3);
+  });
+
   test.each([
     [{ relatedTaskIds: [], addRelatedTaskIds: [] }, "related-tasks-mode-conflict"],
     [{ relatedTaskIds: [], removeRelatedTaskIds: [] }, "related-tasks-mode-conflict"],
@@ -126,8 +170,6 @@ describe("additive task relation PATCH", () => {
     [{ removeRelatedTaskIds: null }, "related-tasks-invalid"],
     [{ addRelatedTaskIds: [7] }, "related-tasks-invalid"],
     [{ removeRelatedTaskIds: [" "] }, "related-tasks-invalid"],
-    [{ addRelatedTaskIds: ["t2"] }, "related-tasks-invalid"],
-    [{ removeRelatedTaskIds: ["t2"] }, "related-tasks-invalid"],
   ])("rejects ambiguous or invalid operations before writing: %j", async (payload, error) => {
     const response = await patch(payload);
     expect(response.status).toBe(400);
@@ -144,6 +186,60 @@ describe("additive task relation PATCH", () => {
     expect(db.task.update).not.toHaveBeenCalled();
     expect(db.taskRelation.deleteMany).not.toHaveBeenCalled();
   });
+
+  test.each([
+    { id: "archived", candidate: { id: "archived", projectId: "p1", archivedAt: new Date() }, reason: "archived" },
+    { id: "foreign", candidate: null, reason: "missing" },
+    { id: "missing", candidate: null, reason: "missing" },
+  ])("names the first invalid relation target and reason: $reason", async ({ id, candidate, reason }) => {
+    db.task.findMany.mockResolvedValueOnce([{ id: "t3" }]).mockResolvedValueOnce(candidate ? [candidate] : []);
+    const response = await patch({ title: "Do not save", addRelatedTaskIds: ["t3", id] });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "related-tasks-invalid",
+      invalidRelatedTask: { id, reason },
+    });
+    expect(db.task.findMany).toHaveBeenNthCalledWith(2, {
+      where: { id, projectId: "p1" },
+      select: { id: true, projectId: true, archivedAt: true },
+    });
+    expect(db.task.update).not.toHaveBeenCalled();
+    expect(db.taskRelation.createMany).not.toHaveBeenCalled();
+  });
+
+  test("identifies a cross-project target already visible to a human caller", async () => {
+    auth.requireApiPrincipal.mockResolvedValue({
+      ok: true,
+      principal: { kind: "human", actorUserId: "owner" },
+    });
+    auth.getAgentProjectAccessContext.mockReturnValue(undefined);
+    db.task.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      { id: "foreign", projectId: "p2", archivedAt: null },
+    ]);
+    const response = await patch({ relatedTaskIds: ["foreign"] });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "related-tasks-invalid",
+      invalidRelatedTask: { id: "foreign", reason: "cross-project" },
+    });
+    expect(db.task.findMany).toHaveBeenNthCalledWith(2, {
+      where: { id: "foreign" },
+      select: { id: true, projectId: true, archivedAt: true },
+    });
+  });
+
+  test.each([{ addRelatedTaskIds: ["t2"] }, { removeRelatedTaskIds: ["t2"] }])(
+    "identifies a self relation without querying target tasks: %j",
+    async (payload) => {
+      const response = await patch(payload);
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({
+        error: "related-tasks-invalid",
+        invalidRelatedTask: { id: "t2", reason: "self" },
+      });
+      expect(db.task.findMany).not.toHaveBeenCalled();
+    }
+  );
 
   test.each([
     [{ ...agentAccess, scopes: ["task:read"] }, 403],
