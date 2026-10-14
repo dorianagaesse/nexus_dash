@@ -3,6 +3,30 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-14 - ND-538: Make meeting todo completion immediate in all three views
+
+- Card `cmusc5m80002f04iduk1eqaha` (label "fix", no epic):
+  - Made meeting todo completion/reopen optimistic in all three entry points (meeting note actions list, floating Meeting Todos dialog, project Todos page):
+    - Project Todos page (`components/meeting-todos/project-meeting-todos.tsx`): per-todo `pendingCompletionIds` flips the checkbox, completed-view membership, and "Completed by" attribution at click time; success reconciles from the PATCH `note.actions` payload; failure restores only the affected todo and surfaces the existing error alert. Removed the post-completion `router.refresh()` - nav counts still update through `useProjectTodoSummary` on mutation-finish events, and collaborator freshness through the activity version ack plus polling, matching the ND-534 roadmap precedent.
+    - Meeting notes panel (`components/project-meeting-notes-panel.tsx`): optimistic `localNotes` plus draft update (`applyCompletedAt`) with a per-id pending set; success reconciles from the response (whole-draft replace only when the draft was in sync and no queued mutations, otherwise targeted action sync); failure restores the prior row plus error toast. The quick dialog receives `pendingActionIds` so its buttons disable and expose `data-meeting-todo-pending` while a mutation is in flight.
+    - Floating quick dialog (`components/meeting-todos/meeting-todo-quick-dialog.tsx`): "Recently completed" now renders the optimistic entry during the in-flight completion.
+    - Inline row toggle buttons carry `id="meeting-todo-<actionId>"` and stable aria labels (Complete/Reopen todo N) for test targeting.
+  - Preserved behavior: completion service semantics (RLS transaction, editor role check, `completedAt`/`completedBy*` attribution, note status flip on reopen) untouched; notifications unchanged (same service path, no duplicate events); no meeting-service edits were needed, so no coordination with the autosave Codex owner was required.
+  - Automated tests:
+    - Service coverage re-verified (completes without replacing siblings, reopen clears attribution, viewer 403, agent attribution).
+    - Route tests (`tests/api/project-meeting-notes.route.test.ts`): reopen clears completion attribution; failure path surfaces errors.
+    - Component tests (`tests/components/project-meeting-todos.test.tsx`): immediate completion without a broad refresh, failure restore plus alert, optimistic reopen from the completed view (deferred-promise gates).
+    - Browser tests (`tests/e2e/project-meeting-todos.spec.ts`): gated-PATCH complete/reopen on the Todos page and floating panel, 403 failure restore, cross-view consistency after release.
+  - Preview measurements (20 post-warm-up samples per entry, `.tmp/nd538-harness.mjs`, explicit-branch preview deploys):
+    - Visible latency (click to checkbox/section flip) and PATCH duration p50/p95 in ms:
+      - note entry: visible 337.6/383.7 -> 6.1/8.8; PATCH 325.8/376.6 -> 322.7/395.5
+      - panel entry: visible 352.3/517.7 -> 5.1/7.5; PATCH 334.3/512.1 -> 365.7/558.8
+      - todos entry: visible 283.2/332.1 -> 2.9/6.2; PATCH 270.8/326.1 -> 299.3/328.6
+    - Targets met: pending feedback p95 <= 8.8 ms (target <= 100 ms); PATCH p95 max 558.8 ms (target <= 1000 ms). Baseline PATCH p95 was already <= 512.1 ms, so no server-side PATCH reduction was needed.
+    - Failure scenarios: after revision, all three entries flip optimistically in 5.7-7.8 ms, then revert and show the error within 64-360 ms (baseline never flipped before the failure response).
+    - Cross-view: completion in the note appears in Todos with attribution, and reopen from Todos stays consistent back in the note, on both revisions.
+  - Validation: `npm run lint` passed; related unit suites (86 tests) passed; new e2e specs passed locally plus the existing meeting-todos regression; production build exit 0 with CI-equivalent env; `tsc` error count unchanged from baseline (no new type errors).
+
 # 2026-10-12 - ND-534: Immediate roadmap moves and event status toggles
 
 - Card `cmur7myd3000m04jpy4br0eyp` under epic "Roadmap interaction refinement":
