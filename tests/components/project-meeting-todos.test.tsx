@@ -338,4 +338,82 @@ describe("project meeting todos", () => {
     container.remove();
     fetchMock.mockRestore();
   });
+
+  test("recomputes sibling overdue metadata when reopening a done meeting's todo", async () => {
+    mockSearchParams = new URLSearchParams("view=completed");
+    const doneMeeting = {
+      id: "meeting-done",
+      title: "Closed review",
+      scheduledAt: "2026-07-01T09:00:00.000Z",
+      status: "done",
+    };
+    const completedTodo: ProjectMeetingTodoItem = {
+      ...ownerTodo,
+      id: "todo-reopen",
+      content: "Close the audit loop",
+      completedAt: "2026-07-20T11:00:00.000Z",
+      isOverdue: false,
+      meeting: doneMeeting,
+    };
+    const openSibling: ProjectMeetingTodoItem = {
+      ...ownerTodo,
+      id: "todo-sibling",
+      content: "Ship the release notes",
+      isOverdue: false,
+      meeting: { ...doneMeeting },
+    };
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            note: {
+              status: "actions_in_progress",
+              actions: [{ id: "todo-reopen", completedAt: null, completedBy: null }],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      );
+
+    await act(async () => {
+      root.render(
+        <ProjectMeetingTodos
+          projectId="project-1"
+          canEdit
+          initialTodos={[completedTodo, openSibling]}
+        />
+      );
+    });
+
+    const summaryValues = () =>
+      Array.from(
+        container.querySelectorAll(
+          'section[aria-label="Todo summary"] p.tabular-nums'
+        )
+      ).map((element) => element.textContent);
+
+    expect(summaryValues()).toEqual(["1", "0"]);
+
+    const reopenButton = container.querySelector(
+      'button[aria-label="Reopen todo: Close the audit loop"]'
+    ) as HTMLButtonElement;
+    expect(reopenButton).not.toBeNull();
+    await act(async () => {
+      reopenButton.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    // Optimistically the reopened todo joins the open list and both open
+    // todos become overdue once the meeting leaves the done status.
+    expect(summaryValues()).toEqual(["2", "2"]);
+    expect(container.textContent).toContain("No completed todos yet");
+
+    await act(async () => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
 });

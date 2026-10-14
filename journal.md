@@ -3,6 +3,14 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-15 - ND-538: Reviewer follow-up - fix completion reconciliation races
+
+- Addressed the Codex review on PR #602 (both findings reproduced in new regression tests first):
+  - Out-of-order sibling rollback (notes panel): completion responses now merge only what the mutation owns - the mutated action plus note-level fields the mutation can flip (status/updatedAt/updatedBy). The previous whole-note replace could restore an older sibling action when an overlapping response payload had been read before a sibling write committed. The whole-draft replace is additionally gated on no completion overlap (none in flight at click, none started during the request, via a mutation version ref); the targeted draft sync also adopts the done -> actions_in_progress status flip without clobbering other draft status edits.
+  - Stale sibling overdue metadata (project Todos page): reopening a todo in a done meeting now propagates the done -> actions_in_progress status flip to every todo of that meeting - optimistic prediction at click, server status on reconcile, and status restore on failure - recomputing each open todo's overdue flag and the overdue summary count.
+- Regression tests: "keeps sibling completion state when a stale response arrives last" (notes panel, two gated PATCHes resolved out of order) and "recomputes sibling overdue metadata when reopening a done meeting's todo" (Todos page, overdue summary 1/0 -> 2/2). Both failed on the pre-fix revision and pass after.
+- Validation: focused suites re-run - 79 tests across notes panel, Todos page, quick dialog, route, and service files; `npx tsc --noEmit` error count unchanged from baseline (no errors in changed files); eslint clean on changed files.
+
 # 2026-10-14 - ND-538: Make meeting todo completion immediate in all three views
 
 - Card `cmusc5m80002f04iduk1eqaha` (label "fix", no epic):

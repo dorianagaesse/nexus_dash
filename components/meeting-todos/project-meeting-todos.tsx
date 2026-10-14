@@ -61,6 +61,38 @@ function resolveTodoAssigneeOptions(
   return [...actors, ...todo.participantOptions];
 }
 
+function applyMeetingStatusToTodos(
+  todos: ProjectMeetingTodoItem[],
+  meetingId: string,
+  meetingStatus: string,
+  referenceNowMs: number
+): ProjectMeetingTodoItem[] {
+  return todos.map((entry) => {
+    if (entry.meeting.id !== meetingId) {
+      return entry;
+    }
+
+    const isOverdue =
+      entry.completedAt === null
+        ? isMeetingTodoOverdueAt({
+            scheduledAt: entry.meeting.scheduledAt,
+            completedAt: null,
+            meetingStatus,
+            referenceNowMs,
+          })
+        : false;
+    if (entry.meeting.status === meetingStatus && entry.isOverdue === isOverdue) {
+      return entry;
+    }
+
+    return {
+      ...entry,
+      meeting: { ...entry.meeting, status: meetingStatus },
+      isOverdue,
+    };
+  });
+}
+
 interface ProjectMeetingTodosProps {
   projectId: string;
   canEdit: boolean;
@@ -354,9 +386,14 @@ export function ProjectMeetingTodos({
     const previous = {
       completedAt: todo.completedAt,
       completedBy: todo.completedBy ?? null,
-      isOverdue: todo.isOverdue,
     };
     const optimisticCompletedAt = completed ? new Date().toISOString() : null;
+    // Reopening an action flips a done note back to actions_in_progress,
+    // which changes the overdue status of every open todo in the meeting.
+    const predictedMeetingStatus =
+      !completed && todo.meeting.status === "done"
+        ? "actions_in_progress"
+        : todo.meeting.status;
 
     setPendingCompletionIds((current) => {
       const next = new Set(current);
@@ -366,23 +403,20 @@ export function ProjectMeetingTodos({
     setMutationError(null);
     setFeedback(null);
     setTodos((current) =>
-      current.map((entry) =>
-        entry.id === todo.id
-          ? {
-              ...entry,
-              completedAt: optimisticCompletedAt,
-              completedBy: completed ? entry.completedBy : null,
-              updatedAt: optimisticCompletedAt ?? entry.updatedAt,
-              isOverdue: completed
-                ? false
-                : isMeetingTodoOverdueAt({
-                    scheduledAt: entry.meeting.scheduledAt,
-                    completedAt: null,
-                    meetingStatus: entry.meeting.status,
-                    referenceNowMs: Date.now(),
-                  }),
-            }
-          : entry
+      applyMeetingStatusToTodos(
+        current.map((entry) =>
+          entry.id === todo.id
+            ? {
+                ...entry,
+                completedAt: optimisticCompletedAt,
+                completedBy: completed ? entry.completedBy : null,
+                updatedAt: optimisticCompletedAt ?? entry.updatedAt,
+              }
+            : entry
+        ),
+        todo.meeting.id,
+        predictedMeetingStatus,
+        Date.now()
       )
     );
 
@@ -423,41 +457,40 @@ export function ProjectMeetingTodos({
         payload?.note?.status ?? todo.meeting.status;
 
       setTodos((current) =>
-        current.map((entry) =>
-          entry.id === todo.id
-            ? {
-                ...entry,
-                completedAt: serverCompletedAt,
-                completedBy: serverAction
-                  ? serverAction.completedBy
-                  : entry.completedBy,
-                updatedAt: new Date().toISOString(),
-                isOverdue:
-                  serverCompletedAt === null
-                    ? isMeetingTodoOverdueAt({
-                        scheduledAt: entry.meeting.scheduledAt,
-                        completedAt: null,
-                        meetingStatus: serverMeetingStatus,
-                        referenceNowMs: Date.now(),
-                      })
-                    : false,
-                meeting: { ...entry.meeting, status: serverMeetingStatus },
-              }
-            : entry
+        applyMeetingStatusToTodos(
+          current.map((entry) =>
+            entry.id === todo.id
+              ? {
+                  ...entry,
+                  completedAt: serverCompletedAt,
+                  completedBy: serverAction
+                    ? serverAction.completedBy
+                    : entry.completedBy,
+                  updatedAt: new Date().toISOString(),
+                }
+              : entry
+          ),
+          todo.meeting.id,
+          serverMeetingStatus,
+          Date.now()
         )
       );
       setFeedback(completed ? "Todo completed." : "Todo reopened.");
     } catch {
       setTodos((current) =>
-        current.map((entry) =>
-          entry.id === todo.id
-            ? {
-                ...entry,
-                completedAt: previous.completedAt,
-                completedBy: previous.completedBy,
-                isOverdue: previous.isOverdue,
-              }
-            : entry
+        applyMeetingStatusToTodos(
+          current.map((entry) =>
+            entry.id === todo.id
+              ? {
+                  ...entry,
+                  completedAt: previous.completedAt,
+                  completedBy: previous.completedBy,
+                }
+              : entry
+          ),
+          todo.meeting.id,
+          todo.meeting.status,
+          Date.now()
         )
       );
       setMutationError(

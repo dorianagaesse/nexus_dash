@@ -854,6 +854,7 @@ export function ProjectMeetingNotesPanel({
     Set<string>
   >(new Set());
   const todoMutationCountRef = useRef(0);
+  const todoMutationVersionRef = useRef(0);
   const [pendingStewardNoteId, setPendingStewardNoteId] = useState<
     string | null
   >(null);
@@ -1249,6 +1250,9 @@ export function ProjectMeetingNotesPanel({
       selectedNote !== null &&
       JSON.stringify(notesDraft) ===
         JSON.stringify(buildNotesDraftFromNote(selectedNote));
+    const otherCompletionInFlightAtClick = pendingTodoActionIds.size > 0;
+    todoMutationVersionRef.current += 1;
+    const mutationVersionAtClick = todoMutationVersionRef.current;
 
     const applyCompletedAt = (
       current: ProjectMeetingNotePanelNote[],
@@ -1315,24 +1319,53 @@ export function ProjectMeetingNotesPanel({
         throw new Error(mapMeetingNoteError(payload?.error ?? "unknown"));
       }
 
+      const serverNote = payload.note;
       const serverAction =
-        payload.note.actions.find((action) => action.id === todo.action.id) ??
+        serverNote.actions.find((action) => action.id === todo.action.id) ??
         null;
+      // Merge only what this mutation owns: the mutated action plus the
+      // note fields it can flip. Overlapping completion payloads may have
+      // been read before a sibling write committed, so adopting their whole
+      // action list would roll a sibling back to an older state.
       setLocalNotes((current) =>
         sortNotes(
           current.map((note) =>
-            note.id === payload.note?.id ? payload.note : note
+            note.id === serverNote.id
+              ? {
+                  ...note,
+                  status: serverNote.status,
+                  updatedAt: serverNote.updatedAt,
+                  updatedBy: serverNote.updatedBy ?? note.updatedBy,
+                  actions: note.actions.map((action) =>
+                    action.id === todo.action.id && serverAction
+                      ? {
+                          ...action,
+                          completedAt: serverAction.completedAt,
+                          completedBy: serverAction.completedBy ?? null,
+                        }
+                      : action
+                  ),
+                }
+              : note
           )
         )
       );
-      if (
+      const canReplaceWholeDraft =
         draftWasInSync &&
-        todoMutationCountRef.current === 1
-      ) {
-        setNotesDraft(buildNotesDraftFromNote(payload.note));
+        !otherCompletionInFlightAtClick &&
+        todoMutationCountRef.current === 1 &&
+        todoMutationVersionRef.current === mutationVersionAtClick;
+      if (canReplaceWholeDraft) {
+        setNotesDraft(buildNotesDraftFromNote(serverNote));
       } else {
         setNotesDraft((current) => ({
           ...current,
+          status:
+            current.status === "done"
+              ? serverNote.status === "prepared"
+                ? "actions_in_progress"
+                : serverNote.status
+              : current.status,
           actions: current.actions.map((action) =>
             action.id === todo.action.id && action.persisted
               ? {
