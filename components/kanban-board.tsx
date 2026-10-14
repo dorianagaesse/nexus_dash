@@ -2104,9 +2104,8 @@ export function KanbanBoard({
 
     setTaskModalError(null);
     taskEditRecovery.flush();
-    setIsEditMode(false);
 
-    const didSave = await persistTaskChanges({ exitEditMode: false });
+    const didSave = await persistTaskChanges();
     if (didSave) {
       taskEditRecovery.saved(submittedDraft);
       pushToast({
@@ -2120,7 +2119,6 @@ export function KanbanBoard({
       variant: "error",
       message: "Could not save task changes. Please retry.",
     });
-    setIsEditMode(true);
   }, [editTitle, persistTaskChanges, pushToast, selectedTask, taskEditRecovery, taskEditRecoveryValue]);
 
   const handleMoveTaskToStatus = useCallback(

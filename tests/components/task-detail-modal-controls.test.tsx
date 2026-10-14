@@ -242,7 +242,13 @@ describe("TaskDetailModal header controls", () => {
     const { controlsRow } = readHeaderLayout();
     await clickElement(controlsRow?.querySelector("[aria-label='Task options']") ?? null);
 
-    const editAction = findButtonByText("Edit");
+    // The header Edit control carries the same visible label, so scope the
+    // lookup to the overflow menu that also holds Delete.
+    const menu = findButtonByText("Delete")?.parentElement;
+    expect(menu).not.toBeNull();
+    const editAction = Array.from(menu?.querySelectorAll("button") ?? []).find(
+      (button) => button.textContent === "Edit"
+    );
     expect(editAction).toBeDefined();
     expect(findButtonByText("Delete")).toBeDefined();
 
@@ -267,9 +273,34 @@ describe("TaskDetailModal header controls", () => {
 
     expect(controlsRow?.querySelector("[aria-label='Close task']")).not.toBeNull();
     expect(controlsRow?.querySelector("[aria-label='Task options']")).toBeNull();
+    expect(controlsRow?.querySelector("[aria-label='Edit task']")).toBeNull();
     expect(titleField).not.toBeNull();
     expect(controlsRow?.contains(titleField)).toBe(false);
     expect(contentBlock?.contains(titleField)).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  test("exposes a header Edit control in read mode that enters edit mode", async () => {
+    const { root } = createTestRenderer();
+    const onToggleEditMode = vi.fn();
+
+    await renderModal(root, { onToggleEditMode });
+
+    const { controlsRow } = readHeaderLayout();
+    const editControl = controlsRow?.querySelector("[aria-label='Edit task']");
+    expect(editControl).not.toBeNull();
+    expect(editControl?.textContent).toBe("Edit");
+
+    await clickElement(editControl);
+    expect(onToggleEditMode).toHaveBeenCalledWith(true);
+
+    await renderModal(root, { canEdit: false, onToggleEditMode });
+    expect(
+      readHeaderLayout().controlsRow?.querySelector("[aria-label='Edit task']")
+    ).toBeNull();
 
     await act(async () => {
       root.unmount();

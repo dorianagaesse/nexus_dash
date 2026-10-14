@@ -93,7 +93,7 @@ async function openCreateDialog(page: Page) {
 
 async function enterEditMode(page: Page) {
   await page.getByRole("button", { name: "Task options" }).click();
-  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(openDialog(page).getByLabel("Task title")).toBeVisible();
 }
 

@@ -3,6 +3,24 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-14 - ND-122: Task modal read/edit separation and scroll polish
+
+- Card `cmth7dx1t001b04jumc5uyply` (TASK-133 task UI bug fixing): moved to In Progress, recorded concrete acceptance criteria on the description, then fixed the four defects confirmed by live inspection:
+  - Entering edit mode (or switching tasks in place via a related-task pill) resets the modal content scroll to the top, so the edit form no longer opens mid-scroll with labels/description cut off; the read offset previously carried over and clamped against the new surface.
+  - Entering edit mode moves keyboard focus to the title input (was landing on the dialog container).
+  - `handleTaskUpdate` no longer flips to read mode before the PATCH settles: the edit surface and its 50/50 footer stay on screen with a disabled "Saving..." primary until the request resolves; failures keep edit mode with the error surfaced and the draft intact, and success returns to read mode with the saved values (previously showed a stale title and a lone disabled Close mid-save).
+  - Read mode gains a visible header Edit control (pencil + "Edit", accessible name "Edit task", hidden while editing) beside the overflow and close controls; the Task options menu Edit item and the title double-click shortcut keep working.
+- Automated tests:
+  - New `tests/e2e/nd-122-task-modal-read-edit.spec.ts`: scroll reset + title focus on edit entry, mid-save edit-mode persistence with the Saving state then read mode on success, failed-save edit-mode persistence with the error and intact draft, and related-task switch scroll reset.
+  - Extended `tests/components/task-detail-modal-controls.test.tsx`: header Edit control present/wired in read mode, hidden in edit mode and without edit rights; scoped the menu Edit lookup past the new header control.
+  - `nd-465`/`nd-484` helpers use `exact: true` for the menu Edit item now that a header control shares the visible label.
+- Validation (`fix/nd-122-task-modal-polish` worktree, isolated local DB `nexusdash_nd122`):
+  - `npm run lint`: passed cleanly.
+  - `npm run rls:check`: passed cleanly.
+  - Unit tests (`npm test`): 2,005 passed, 2 skipped.
+  - Production build (`next build`): compiled with 0 errors.
+  - Playwright vs the worktree build on port 3457: 14 modal specs passed (nd-122, nd-465, nd-466, nd-484); 20 save-flow/related specs passed (nd-144, nd-379, nd-380, nd-407, nd-433, nd-434, related-task-bilateral, task-350, task-351, smoke-project-task-calendar; one nd-433 meeting-prep dismissal flake reran green, matching the known signature) plus 5 picker/comment specs (task-352, nd-397, nd-398).
+
 # 2026-10-12 - ND-534: Immediate roadmap moves and event status toggles
 
 - Card `cmur7myd3000m04jpy4br0eyp` under epic "Roadmap interaction refinement":

@@ -389,11 +389,28 @@ export function TaskDetailModal({
 
   useEffect(() => { void loadReactionsForComments(taskComments); }, [taskComments, loadReactionsForComments]);
 
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const editTitleInputRef = useRef<HTMLInputElement | null>(null);
+  const isEditing = canEdit && isEditMode;
+
+  // Read and edit surfaces have different heights, so a scroll offset carried
+  // across the switch clamps against the new content and the form can open
+  // mid-scroll; the same happens when the modal moves to another task in place.
+  useEffect(() => {
+    if (isOpen && contentScrollRef.current) {
+      contentScrollRef.current.scrollTop = 0;
+    }
+  }, [isOpen, isEditing, selectedTaskId]);
+
+  useEffect(() => {
+    if (isOpen && isEditing) {
+      editTitleInputRef.current?.focus();
+    }
+  }, [isOpen, isEditing]);
+
   if (!isOpen || !selectedTask) {
     return null;
   }
-
-  const isEditing = canEdit && isEditMode;
 
   return (
     <>
@@ -441,6 +458,19 @@ export function TaskDetailModal({
                   data-task-modal-controls="true"
                   className="flex shrink-0 items-center gap-1"
                 >
+                  {!isEditing && canEdit ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onToggleEditMode(true)}
+                      aria-label="Edit task"
+                      disabled={isUpdatingTask || isArchivingTask}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Edit
+                    </Button>
+                  ) : null}
                   {!isEditing && canEdit ? (
                     <TaskOptionsMenu
                       currentStatus={selectedTask.status}
@@ -495,6 +525,7 @@ export function TaskDetailModal({
                 ) : (
                   <>
                     <EmojiInputField
+                      ref={editTitleInputRef}
                       aria-label="Task title"
                       value={editTitle}
                       maxLength={MAX_TASK_TITLE_LENGTH}
@@ -517,7 +548,7 @@ export function TaskDetailModal({
                 )}
               </div>
             </CardHeader>
-            <CardContent className="min-h-0 flex-1 overflow-y-auto [scrollbar-color:rgba(148,163,184,0.52)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]">
+            <CardContent ref={contentScrollRef} className="min-h-0 flex-1 overflow-y-auto [scrollbar-color:rgba(148,163,184,0.52)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]">
               {!isEditing ? (
                 <div className="h-full space-y-4 overflow-x-hidden pr-1">
                   <TaskReadOnlyContent
