@@ -36,6 +36,7 @@ interface KanbanBoardSectionProps {
   storageProvider: "local" | "r2";
   collaborators: ProjectCollaboratorIdentitySummary[];
   initialTaskId?: string | null;
+  activityVersion: string;
 }
 
 export async function KanbanBoardSection({
@@ -45,6 +46,7 @@ export async function KanbanBoardSection({
   storageProvider,
   collaborators,
   initialTaskId,
+  activityVersion,
 }: KanbanBoardSectionProps) {
   const [tasks, epics, actorRegistry] = await Promise.all([
     listProjectKanbanTasks(projectId, actorUserId),
@@ -147,6 +149,7 @@ export async function KanbanBoardSection({
       projectId={projectId}
       storageProvider={storageProvider}
       initialTasks={kanbanTasks}
+      initialActivityVersion={activityVersion}
       archivedDoneTasks={archivedDoneTasks}
       epics={epicOptions}
       archivedEpics={archivedEpicOptions}

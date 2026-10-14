@@ -68,6 +68,10 @@ import {
   type ProjectActivityRemoteEventDetail,
 } from "@/lib/project-activity-client";
 import {
+  isProjectActivityVersionNewer,
+  readProjectActivityVersionHeader,
+} from "@/lib/project-activity-version";
+import {
   PROJECT_EPICS_RECONCILED_EVENT,
   reconcileProjectEpics,
   reconcileProjectEpicsAfterTaskMutation,
@@ -104,6 +108,7 @@ interface KanbanBoardProps {
   actorUserId: string;
   storageProvider: "local" | "r2";
   initialTasks: KanbanTask[];
+  initialActivityVersion?: string | null;
   archivedDoneTasks?: KanbanTask[];
   epics: ProjectEpicOption[];
   archivedEpics?: ProjectEpicOption[];
@@ -381,6 +386,12 @@ interface KeyboardDropIntent {
   destination: DraggableLocation;
   movedTaskId: string;
   outcome: "pending" | "saved" | "failed";
+  // Project activity version reported by the early persist response; a remote
+  // column update with a newer version is authoritative over the intent.
+  writeVersion: string | null;
+  // Newest remote version already applied when the intent was submitted; used
+  // as the baseline until the write's own version is known.
+  intentStartVersion: string | null;
 }
 
 export function KanbanBoard({
@@ -389,6 +400,7 @@ export function KanbanBoard({
   actorUserId,
   storageProvider,
   initialTasks,
+  initialActivityVersion,
   archivedDoneTasks: initialArchivedDoneTasks = [],
   epics,
   archivedEpics = [],
@@ -417,6 +429,28 @@ export function KanbanBoard({
   const [isSaving, startTransition] = useTransition();
   const [persistError, setPersistError] = useState<string | null>(null);
   const keyboardDropIntentRef = useRef<KeyboardDropIntent | null>(null);
+  const remoteColumnsVersionRef = useRef<string | null>(null);
+  const remoteColumnsApplyCountRef = useRef(0);
+  // Reshape events and fresh server-rendered props both carry an authoritative
+  // order: every apply is counted (writers avoid reverting over newer columns)
+  // and the newest project activity version is kept (settlements compare it
+  // against the acknowledged write).
+  const markRemoteColumnsApplied = useCallback(
+    (version: string | null | undefined) => {
+      remoteColumnsApplyCountRef.current += 1;
+      if (typeof version !== "string" || !version) {
+        return;
+      }
+      const currentVersion = remoteColumnsVersionRef.current;
+      if (
+        currentVersion === null ||
+        isProjectActivityVersionNewer(version, currentVersion)
+      ) {
+        remoteColumnsVersionRef.current = version;
+      }
+    },
+    []
+  );
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<KanbanTask | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
@@ -568,7 +602,10 @@ export function KanbanBoard({
 
   useEffect(() => {
     setColumns(initialColumns);
-  }, [initialColumns]);
+    // A parent refetch renders the columns at a known activity version; record
+    // it so a keyboard settlement can tell fresh authority from staleness.
+    markRemoteColumnsApplied(initialActivityVersion);
+  }, [initialActivityVersion, initialColumns, markRemoteColumnsApplied]);
 
   useEffect(() => {
     setArchivedDoneTasks(initialArchivedDoneTasks);
@@ -1155,7 +1192,8 @@ export function KanbanBoard({
         previousTask: KanbanTask;
         nextTask: KanbanTask;
       }
-    ): Promise<boolean> => {
+    ): Promise<{ persisted: boolean; version: string | null }> => {
+      const remoteAppliesAtStart = remoteColumnsApplyCountRef.current;
       try {
         const response = await fetchProjectActivityMutation(
           projectId,
@@ -1171,24 +1209,34 @@ export function KanbanBoard({
 
         if (!response.ok) {
           throw new Error("Persist request failed");
-      }
+        }
 
-      setPersistError(null);
-      if (epicTaskMutation) {
-        void reconcileProjectEpicsAfterTaskMutation(
-          projectId,
-          epicTaskMutation.previousTask,
-          epicTaskMutation.nextTask
-        );
+        setPersistError(null);
+        if (epicTaskMutation) {
+          void reconcileProjectEpicsAfterTaskMutation(
+            projectId,
+            epicTaskMutation.previousTask,
+            epicTaskMutation.nextTask
+          );
+        }
+        return {
+          persisted: true,
+          version: readProjectActivityVersionHeader(response),
+        };
+      } catch (error) {
+        console.error("[KanbanBoard.persistColumns]", error);
+        if (remoteColumnsApplyCountRef.current === remoteAppliesAtStart) {
+          setColumns(previousColumns);
+          setPersistError("Could not save task movement. Board reverted.");
+        } else {
+          // A remote order landed after this write started, so the captured
+          // columns no longer match any stored order; keep the remote layout
+          // instead of reverting over it.
+          setPersistError("Could not save task movement.");
+        }
+        return { persisted: false, version: null };
       }
-      return true;
-    } catch (error) {
-      console.error("[KanbanBoard.persistColumns]", error);
-      setColumns(previousColumns);
-      setPersistError("Could not save task movement. Board reverted.");
-      return false;
-    }
-  },
+    },
     [projectId]
   );
 
@@ -1283,6 +1331,8 @@ export function KanbanBoard({
         destination,
         movedTaskId: computed.application.movedTask.id,
         outcome: "pending",
+        writeVersion: null,
+        intentStartVersion: remoteColumnsVersionRef.current,
       };
       keyboardDropIntentRef.current = record;
 
@@ -1296,9 +1346,10 @@ export function KanbanBoard({
           previousTask: computed.application.previousTask,
           nextTask: computed.application.nextTask,
         }
-      ).then((succeeded) => {
+      ).then(({ persisted, version }) => {
         if (keyboardDropIntentRef.current === record) {
-          record.outcome = succeeded ? "saved" : "failed";
+          record.outcome = persisted ? "saved" : "failed";
+          record.writeVersion = version;
         }
       });
     },
@@ -1340,45 +1391,73 @@ export function KanbanBoard({
           return;
         }
 
-        // A typed reorder event or a refetch can replace the columns while the
-        // drop is still completing, so reconcile the acknowledgement by the
-        // submitted task's identity: apply the move at most once, keep the
-        // intervening remote changes of every other card, and never re-move
-        // whichever card now holds the original source index.
+        const findVisibleTaskLocation = (
+          taskId: string
+        ): { status: TaskStatus; index: number; task: KanbanTask } | null => {
+          for (const status of TASK_STATUSES) {
+            const index = visibleColumns[status].findIndex(
+              (task) => task.id === taskId
+            );
+            if (index !== -1) {
+              return { status, index, task: visibleColumns[status][index] };
+            }
+          }
+          return null;
+        };
+
+        const syncMovedTaskSummary = (task: KanbanTask) => {
+          if (relatedTaskGraph.get(task.id)?.length) {
+            syncRelatedTaskSummary(task.id, {
+              title: task.title,
+              status: task.status,
+              archivedAt: null,
+            });
+          }
+        };
+
+        const located = findVisibleTaskLocation(keyboardIntent.movedTaskId);
+
+        // A remote column update carrying a project version newer than the
+        // acknowledgement's write is authoritative: the stored order already
+        // includes the committed move plus whatever landed after it, so the
+        // intent must not be re-derived over it. While the write is still in
+        // flight its version is unknown, so the newest version already applied
+        // when the intent was submitted is the baseline instead.
+        const remoteVersion = remoteColumnsVersionRef.current;
+        const settleBaseline =
+          keyboardIntent.writeVersion ?? keyboardIntent.intentStartVersion;
+        const newerRemoteColumns =
+          remoteVersion !== null &&
+          (settleBaseline === null ||
+            isProjectActivityVersionNewer(remoteVersion, settleBaseline));
+
+        if (newerRemoteColumns) {
+          setPersistError(null);
+          if (located) {
+            syncMovedTaskSummary(located.task);
+          }
+          return;
+        }
+
+        // Otherwise the columns predate the write, so settle the
+        // acknowledgement by the submitted task's identity: apply the move at
+        // most once, keep the intervening remote changes of every other card,
+        // and never re-move whichever card now holds the original source index.
         const settledTask = isTaskStatus(destination.droppableId)
           ? visibleColumns[destination.droppableId][destination.index]
           : undefined;
         if (settledTask?.id === keyboardIntent.movedTaskId) {
           setPersistError(null);
-          if (relatedTaskGraph.get(settledTask.id)?.length) {
-            syncRelatedTaskSummary(settledTask.id, {
-              title: settledTask.title,
-              status: settledTask.status,
-              archivedAt: null,
-            });
-          }
+          syncMovedTaskSummary(settledTask);
           return;
         }
 
-        let currentStatus: TaskStatus | null = null;
-        let currentIndex = -1;
-        for (const status of TASK_STATUSES) {
-          const index = visibleColumns[status].findIndex(
-            (task) => task.id === keyboardIntent.movedTaskId
-          );
-          if (index !== -1) {
-            currentStatus = status;
-            currentIndex = index;
-            break;
-          }
-        }
-
-        if (currentStatus === null) {
+        if (!located) {
           return;
         }
 
         const reconciled = computeDropApplication(
-          { droppableId: currentStatus, index: currentIndex },
+          { droppableId: located.status, index: located.index },
           destination
         );
         if (!reconciled || "error" in reconciled) {
@@ -1387,14 +1466,7 @@ export function KanbanBoard({
 
         setColumns(reconciled.application.nextColumns);
         setPersistError(null);
-
-        if (relatedTaskGraph.get(reconciled.application.movedTask.id)?.length) {
-          syncRelatedTaskSummary(reconciled.application.movedTask.id, {
-            title: reconciled.application.movedTask.title,
-            status: reconciled.application.destinationStatus,
-            archivedAt: null,
-          });
-        }
+        syncMovedTaskSummary(reconciled.application.movedTask);
         return;
       }
 
@@ -2665,6 +2737,7 @@ export function KanbanBoard({
           const remoteTask = readRemoteTaskPayload(activity);
           if (remoteTask) {
             upsertRemoteTask(remoteTask);
+            markRemoteColumnsApplied(activity.version);
             void reconcileProjectEpics(projectId);
             detail.markHandled();
             return;
@@ -2685,6 +2758,7 @@ export function KanbanBoard({
               ...task,
               archivedAt,
             }));
+            markRemoteColumnsApplied(activity.version);
             void reconcileProjectEpics(projectId);
             detail.markHandled();
             return;
@@ -2694,6 +2768,7 @@ export function KanbanBoard({
 
         if (activity.action === "deleted" && activity.entityId) {
           removeLocalTask(activity.entityId);
+          markRemoteColumnsApplied(activity.version);
           void reconcileProjectEpics(projectId);
           detail.markHandled();
           return;
@@ -2706,6 +2781,7 @@ export function KanbanBoard({
           }
 
           applyRemoteReorder(reorderedColumns);
+          markRemoteColumnsApplied(activity.version);
           detail.markHandled();
         }
       }
@@ -2766,6 +2842,7 @@ export function KanbanBoard({
   }, [
     applyRemoteReorder,
     applyTaskMutation,
+    markRemoteColumnsApplied,
     projectId,
     removeLocalTask,
     selectedTask?.id,
