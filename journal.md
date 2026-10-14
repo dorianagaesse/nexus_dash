@@ -3,6 +3,23 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-14 - ND-573: Stabilize the home-entry node-field link-count assertion
+
+- The home-entry spec asserted `data-link-count > 780` while the node field
+  seeds itself from `crypto.getRandomValues` on every load (sampled range
+  ~775-855 over 3,000 seeds), so the threshold could fail on roughly 0.13% of
+  runs unrelated to any branch change (issue #600, first seen in PR #598 CI).
+- The pointer-interaction test now overrides `crypto.getRandomValues` through
+  `page.addInitScript` to pin the seed (delegating every other call shape) and
+  asserts the exact dataset: seed 424242 yields 813 links. Seed-source
+  behavior moved to its own spec that still exercises the real RNG across
+  reloads. No production code changed; visuals untouched.
+- Validation: 20 consecutive spec runs green (6 passed each); lint, rls:check,
+  unit suite (2,004 passed / 2 skipped), coverage (93.9% statements / 85.04%
+  branches / 95.42% functions / 94.19% lines), production build, and the full
+  Playwright suite (111 passed / 2 skipped) against an isolated server
+  (port 3463, database `nexusdash_nd573`).
+
 # 2026-10-12 - ND-534: Immediate roadmap moves and event status toggles
 
 - Card `cmur7myd3000m04jpy4br0eyp` under epic "Roadmap interaction refinement":
