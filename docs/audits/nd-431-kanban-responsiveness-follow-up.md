@@ -1,6 +1,7 @@
 # ND-431 Kanban responsiveness follow-up
 
-Date: 2026-10-08 (first pass), 2026-10-11 (second pass)
+Date: 2026-10-08 (first pass), 2026-10-11 (second pass), 2026-10-12 and
+2026-10-14 (review fixes)
 
 The ND-430 fixture was run against the merged audit baseline and this branch
 using the same production build, local PostgreSQL 16, Chromium, and Windows
@@ -139,3 +140,41 @@ typed reorder between early accept and settle (stays acknowledged order, one
 request), remote reorder that shifts the submitted task (moves the submitted
 task by identity), early failure (stored order kept), late failure (optimistic
 apply reverted). The two race tests fail on the pre-fix revision.
+
+### Review fix (2026-10-14): version-fenced settlement
+
+Review found the identity reconcile from the previous round over-corrected: it
+re-derived the intent over current columns even when those columns were a
+newer authoritative order. Repro: A/B/C, the early save commits B/A/C, a
+collaborator commits C/B/A, the typed reorder applies C/B/A, and the settle
+then recomputed C/A/B from the stale destination index and returned without a
+request - displaying an order the server never had. This also disproved the
+round-1 note that fresh parent props never reach a mounted board: the board
+does reset its columns from `initialTasks` in a prop-sync effect, so refetches
+are a real second delivery path for authoritative columns.
+
+Columns are now version-fenced against the project activity version:
+
+- The early persist reads the reorder response's activity version into the
+  intent (`writeVersion`); while the write is still in flight the newest
+  version already applied at submit time (`intentStartVersion`) is the
+  baseline.
+- Typed reshape events (created/updated/deleted/reordered) and fresh
+  server-rendered props record the newest applied version and increment an
+  apply counter. Props carry their version through a new
+  `initialActivityVersion` prop, plumbed from `project.updatedAt` (the same
+  marker the reorder response reports) via the project page and board section.
+- At settle, a layout whose version is newer than the baseline is kept
+  verbatim - acknowledged, error cleared, no re-derivation, no extra request.
+  Older or equal layouts settle by the round-1 identity reconcile, so a stale
+  delivery still converges to the committed write.
+- The late-failure revert is guarded by the apply counter: a failed write
+  keeps a newer authoritative layout instead of reverting over it and only
+  surfaces the error toast.
+
+Regression coverage now spans nine cases including the reviewer's repro
+(newer typed reorder kept verbatim after acceptance), the stale typed reorder
+that settles by identity, a remote insertion that shifts the submitted card's
+index, a newer parent-prop refetch respected at settle, and a stale
+parent-prop refetch that settles by identity; the reviewer's
+`kanban-newer-remote-review.test.tsx` repro passes against this revision.
