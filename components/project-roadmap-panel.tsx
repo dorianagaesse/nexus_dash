@@ -87,15 +87,9 @@ interface EventDialogState {
 }
 
 interface MilestoneDialogState {
-  mode: "edit" | "create";
-  phaseId: string | null;
+  mode: "edit";
+  phaseId: string;
   phaseIndex: number;
-  pendingEventDrop?: {
-    movedEvent: ProjectRoadmapPanelEvent;
-    sourcePhaseId: string;
-    sourceIndex: number;
-    insertIndex: number;
-  } | null;
 }
 
 interface RoadmapPhaseLayoutMeasurement {
@@ -248,6 +242,50 @@ function moveEventBetweenPhases(
   });
 }
 
+function areRoadmapPhasesEquivalent(
+  a: ProjectRoadmapPanelPhase[],
+  b: ProjectRoadmapPanelPhase[]
+): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+
+  for (let i = 0; i < a.length; i += 1) {
+    const phaseA = a[i];
+    const phaseB = b[i];
+    if (!phaseA || !phaseB) return false;
+    if (
+      phaseA.id !== phaseB.id ||
+      phaseA.title !== phaseB.title ||
+      phaseA.description !== phaseB.description ||
+      phaseA.targetDate !== phaseB.targetDate ||
+      phaseA.status !== phaseB.status ||
+      phaseA.position !== phaseB.position ||
+      phaseA.events.length !== phaseB.events.length
+    ) {
+      return false;
+    }
+
+    for (let j = 0; j < phaseA.events.length; j += 1) {
+      const eventA = phaseA.events[j];
+      const eventB = phaseB.events[j];
+      if (!eventA || !eventB) return false;
+      if (
+        eventA.id !== eventB.id ||
+        eventA.title !== eventB.title ||
+        eventA.description !== eventB.description ||
+        eventA.targetDate !== eventB.targetDate ||
+        eventA.status !== eventB.status ||
+        eventA.position !== eventB.position ||
+        eventA.phaseId !== eventB.phaseId
+      ) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 function mapRoadmapMutationError(errorCode?: string): string {
   switch (errorCode) {
     case "roadmap-title-too-short":
@@ -375,6 +413,8 @@ function RoadmapStatusBadge({
         )}
         onClick={onClick}
         disabled={disabled}
+        aria-busy={disabled ? "true" : undefined}
+        data-status-pending={disabled ? "true" : undefined}
         title={title}
         aria-label={title ?? getRoadmapStatusLabel(status)}
       >
@@ -1377,6 +1417,8 @@ function RoadmapEventCard({
             ref={provided.innerRef}
             {...provided.draggableProps}
             data-roadmap-event-card={event.id}
+            data-roadmap-event-status={event.status}
+            data-roadmap-event-status-pending={isUpdatingStatus ? "true" : undefined}
             className={cn(
               "relative min-h-[212px] rounded-[1.55rem] border p-4 shadow-[0_24px_64px_-46px_rgba(15,23,42,0.58)] transition",
               tone.phaseCard,
@@ -1497,6 +1539,7 @@ function RoadmapMilestoneLane({
   isDesktop,
   maxEventsCount,
   statusMutationEventId,
+  pendingStatusEventIds,
   onViewEvent,
   onEditEvent,
   onDeleteEvent,
@@ -1508,7 +1551,8 @@ function RoadmapMilestoneLane({
   canEdit: boolean;
   isDesktop: boolean;
   maxEventsCount: number;
-  statusMutationEventId: string | null;
+  statusMutationEventId?: string | null;
+  pendingStatusEventIds?: Set<string>;
   onViewEvent: (eventId: string) => void;
   onEditEvent: (event: ProjectRoadmapPanelEvent) => void;
   onDeleteEvent: (eventId: string) => void;
@@ -1657,7 +1701,11 @@ function RoadmapMilestoneLane({
                     event={event}
                     eventIndex={eventIndex}
                     canEdit={canEdit}
-                    isUpdatingStatus={statusMutationEventId === event.id}
+                    isUpdatingStatus={
+                      pendingStatusEventIds
+                        ? pendingStatusEventIds.has(event.id)
+                        : statusMutationEventId === event.id
+                    }
                     onView={onViewEvent}
                     onEdit={onEditEvent}
                     onDelete={onDeleteEvent}
@@ -1790,14 +1838,23 @@ export function ProjectRoadmapPanel({
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [isDesktopLayout, setIsDesktopLayout] = useState(false);
   const [isDraggingEvent, setIsDraggingEvent] = useState(false);
-  const [statusMutationEventId, setStatusMutationEventId] = useState<string | null>(null);
+  const [pendingStatusEventIds, setPendingStatusEventIds] = useState<Set<string>>(() => new Set());
+  const statusMutationEventId = Array.from(pendingStatusEventIds)[0] ?? null;
+  const [isPersistingMove, setIsPersistingMove] = useState(false);
   const [phaseLayoutMeasurements, setPhaseLayoutMeasurements] = useState<
     Record<string, RoadmapPhaseLayoutMeasurement>
   >({});
   const desktopRoadmapRef = useRef<HTMLDivElement | null>(null);
+  const desktopRoadmapScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    setRoadmapPhases(sortRoadmapPhasesForDisplay(phases));
+    setRoadmapPhases((currentPhases) => {
+      const sortedPhases = sortRoadmapPhasesForDisplay(phases);
+      if (areRoadmapPhasesEquivalent(currentPhases, sortedPhases)) {
+        return currentPhases;
+      }
+      return sortedPhases;
+    });
   }, [phases]);
 
   useEffect(() => {
@@ -1963,6 +2020,109 @@ export function ProjectRoadmapPanel({
     };
   }, []);
 
+  useEffect(() => {
+    if (!isDesktopLayout || !isDraggingEvent) {
+      return undefined;
+    }
+
+    const scrollContainer = desktopRoadmapScrollRef.current;
+    if (!scrollContainer) {
+      return undefined;
+    }
+
+    const EDGE_THRESHOLD = 120;
+    const MAX_SPEED = 28;
+    const MIN_SPEED = 4;
+
+    let animationFrameId = 0;
+    let pointerCoords: { x: number; y: number } | null = null;
+
+    const computeScrollSpeed = (clientX: number, clientY: number): number => {
+      const rect = scrollContainer.getBoundingClientRect();
+      if (clientY < rect.top - 160 || clientY > rect.bottom + 160) {
+        return 0;
+      }
+
+      if (clientX <= rect.left + EDGE_THRESHOLD) {
+        const dist = clientX - rect.left;
+        if (dist <= 0) {
+          return -MAX_SPEED;
+        }
+        const ratio = 1 - dist / EDGE_THRESHOLD;
+        return -(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * ratio * ratio);
+      }
+
+      if (clientX >= rect.right - EDGE_THRESHOLD) {
+        const dist = rect.right - clientX;
+        if (dist <= 0) {
+          return MAX_SPEED;
+        }
+        const ratio = 1 - dist / EDGE_THRESHOLD;
+        return MIN_SPEED + (MAX_SPEED - MIN_SPEED) * ratio * ratio;
+      }
+
+      return 0;
+    };
+
+    const step = () => {
+      animationFrameId = 0;
+      if (!pointerCoords) {
+        return;
+      }
+
+      const speed = computeScrollSpeed(pointerCoords.x, pointerCoords.y);
+      if (speed === 0) {
+        return;
+      }
+
+      const currentScroll = scrollContainer.scrollLeft;
+      const maxScroll = scrollContainer.scrollWidth - scrollContainer.clientWidth;
+
+      if (speed < 0 && currentScroll > 0) {
+        scrollContainer.scrollLeft = Math.max(0, currentScroll + speed);
+        animationFrameId = window.requestAnimationFrame(step);
+      } else if (speed > 0 && currentScroll < maxScroll) {
+        scrollContainer.scrollLeft = Math.min(maxScroll, currentScroll + speed);
+        animationFrameId = window.requestAnimationFrame(step);
+      }
+    };
+
+    const handlePointerMove = (event: MouseEvent | PointerEvent) => {
+      pointerCoords = { x: event.clientX, y: event.clientY };
+      if (!animationFrameId) {
+        const speed = computeScrollSpeed(pointerCoords.x, pointerCoords.y);
+        if (speed !== 0) {
+          animationFrameId = window.requestAnimationFrame(step);
+        }
+      }
+    };
+
+    const handlePointerStop = () => {
+      pointerCoords = null;
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+        animationFrameId = 0;
+      }
+    };
+
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    window.addEventListener("pointerup", handlePointerStop, { passive: true });
+    window.addEventListener("pointercancel", handlePointerStop, { passive: true });
+    window.addEventListener("mousemove", handlePointerMove, { passive: true });
+    window.addEventListener("mouseup", handlePointerStop, { passive: true });
+
+    return () => {
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerStop);
+      window.removeEventListener("pointercancel", handlePointerStop);
+      window.removeEventListener("mousemove", handlePointerMove);
+      window.removeEventListener("mouseup", handlePointerStop);
+    };
+  }, [isDesktopLayout, isDraggingEvent]);
+
   const selectedPhase =
     selectedEventId == null
       ? null
@@ -2019,7 +2179,6 @@ export function ProjectRoadmapPanel({
       mode: "edit",
       phaseId: phase.id,
       phaseIndex: phaseIndex >= 0 ? phaseIndex : 0,
-      pendingEventDrop: null,
     });
   }
 
@@ -2185,129 +2344,6 @@ export function ProjectRoadmapPanel({
     milestoneRecovery.flush();
 
     try {
-      if (milestoneDialog.mode === "create") {
-        const { pendingEventDrop } = milestoneDialog;
-        if (!pendingEventDrop) {
-          setIsSubmittingMilestone(false);
-          return;
-        }
-
-        const createResponse = await fetchProjectActivityMutation(
-          projectId,
-          `/api/projects/${projectId}/roadmap`,
-          {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-            },
-            body: JSON.stringify({
-              title: trimmedTitle,
-              description: milestoneDraft.description.trim() ? milestoneDraft.description.trim() : null,
-              targetDate: milestoneDraft.targetDate || null,
-              status: milestoneDraft.status,
-            }),
-          }
-        );
-
-        if (!createResponse.ok) {
-          const errorCode = await readApiError(createResponse);
-          setMilestoneMutationError(mapRoadmapMutationError(errorCode));
-          return;
-        }
-
-        const createPayload = (await createResponse.json()) as {
-          phase: ProjectRoadmapPanelPhase;
-        };
-        const createdPhase = createPayload.phase;
-
-        const insertIndex = pendingEventDrop.insertIndex;
-        const currentPhaseIds = roadmapPhases.map((phase) => phase.id);
-        const reorderedPhaseIds = [
-          ...currentPhaseIds.slice(0, insertIndex),
-          createdPhase.id,
-          ...currentPhaseIds.slice(insertIndex),
-        ];
-
-        const reorderResponse = await fetchProjectActivityMutation(
-          projectId,
-          `/api/projects/${projectId}/roadmap/phases/reorder`,
-          {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-            },
-            body: JSON.stringify({
-              phaseIds: reorderedPhaseIds,
-            }),
-          }
-        );
-
-        if (!reorderResponse.ok) {
-          const errorCode = await readApiError(reorderResponse);
-          setMilestoneMutationError(mapRoadmapMutationError(errorCode));
-          return;
-        }
-
-        await persistEventMove(pendingEventDrop.movedEvent.id, createdPhase.id, 0);
-
-        const sourcePhase = roadmapPhases.find((phase) => phase.id === pendingEventDrop.sourcePhaseId);
-        const isSourceEmptied =
-          sourcePhase &&
-          sourcePhase.events.length === 1 &&
-          sourcePhase.events[0]?.id === pendingEventDrop.movedEvent.id;
-
-        if (isSourceEmptied) {
-          await deletePhaseById(sourcePhase.id);
-        }
-
-        const updatedSourcePhases = roadmapPhases.map((phase) => {
-          if (phase.id === pendingEventDrop.sourcePhaseId) {
-            return {
-              ...phase,
-              events: phase.events
-                .filter((event) => event.id !== pendingEventDrop.movedEvent.id)
-                .map((event, idx) => ({ ...event, position: idx })),
-            };
-          }
-          return phase;
-        });
-
-        const filteredPhases = isSourceEmptied
-          ? updatedSourcePhases.filter((phase) => phase.id !== pendingEventDrop.sourcePhaseId)
-          : updatedSourcePhases;
-
-        const createdPhaseWithEvent: ProjectRoadmapPanelPhase = {
-          ...createdPhase,
-          position: insertIndex,
-          events: [
-            {
-              ...pendingEventDrop.movedEvent,
-              phaseId: createdPhase.id,
-              position: 0,
-            },
-          ],
-        };
-
-        const finalPhases = [
-          ...filteredPhases.slice(0, insertIndex),
-          createdPhaseWithEvent,
-          ...filteredPhases.slice(insertIndex),
-        ].map((phase, idx) => ({
-          ...phase,
-          position: idx,
-        }));
-
-        setRoadmapPhases(sortRoadmapPhasesForDisplay(finalPhases));
-
-        pushToast({
-          message: `Milestone "${createdPhase.title}" created with "${pendingEventDrop.movedEvent.title}".`,
-          variant: "success",
-        });
-
-        closeMilestoneDialog();
-        return;
-      }
-
       const response = await fetchProjectActivityMutation(
         projectId,
         `/api/projects/${projectId}/roadmap/phases/${milestoneDialog.phaseId}`,
@@ -2477,14 +2513,13 @@ export function ProjectRoadmapPanel({
   }
 
   async function cycleEventStatus(event: ProjectRoadmapPanelEvent) {
-    if (statusMutationEventId !== null) {
+    if (pendingStatusEventIds.has(event.id)) {
       return;
     }
 
-    const previousPhases = roadmapPhases;
     const nextStatus = getNextRoadmapStatus(event.status);
 
-    setStatusMutationEventId(event.id);
+    setPendingStatusEventIds((previous) => new Set(previous).add(event.id));
     setRoadmapPhases((currentPhases) =>
       sortRoadmapPhasesForDisplay(
         currentPhases.map((phase) =>
@@ -2541,13 +2576,35 @@ export function ProjectRoadmapPanel({
       });
     } catch (error) {
       console.error("[ProjectRoadmapPanel.cycleEventStatus]", error);
-      setRoadmapPhases(previousPhases);
+      setRoadmapPhases((currentPhases) =>
+        sortRoadmapPhasesForDisplay(
+          currentPhases.map((phase) =>
+            phase.id === event.phaseId
+              ? {
+                  ...phase,
+                  events: phase.events.map((phaseEvent) =>
+                    phaseEvent.id === event.id
+                      ? {
+                          ...phaseEvent,
+                          status: event.status,
+                        }
+                      : phaseEvent
+                  ),
+                }
+              : phase
+          )
+        )
+      );
       pushToast({
         message: error instanceof Error ? error.message : mapRoadmapMutationError(),
         variant: "error",
       });
     } finally {
-      setStatusMutationEventId(null);
+      setPendingStatusEventIds((previous) => {
+        const next = new Set(previous);
+        next.delete(event.id);
+        return next;
+      });
     }
   }
 
@@ -2601,6 +2658,7 @@ export function ProjectRoadmapPanel({
         );
 
         setRoadmapPhases(sortRoadmapPhasesForDisplay(reordered));
+        setIsPersistingMove(true);
 
         try {
           const response = await fetchProjectActivityMutation(
@@ -2632,29 +2690,129 @@ export function ProjectRoadmapPanel({
             message: error instanceof Error ? error.message : mapRoadmapMutationError(),
             variant: "error",
           });
+        } finally {
+          setIsPersistingMove(false);
         }
 
         return;
       }
 
-      setMilestoneDraft({
+      const optimisticPhaseId = `optimistic-phase-${Date.now()}`;
+      const optimisticPhase: ProjectRoadmapPanelPhase = {
+        id: optimisticPhaseId,
         title: getMilestoneLabel(intermediateInsertIndex),
-        description: "",
-        targetDate: movedEvent.targetDate ?? "",
+        description: null,
+        targetDate: movedEvent.targetDate ?? null,
         status: movedEvent.status || "planned",
+        position: intermediateInsertIndex,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        events: [
+          {
+            ...movedEvent,
+            phaseId: optimisticPhaseId,
+            position: 0,
+          },
+        ],
+      };
+
+      const previousPhases = roadmapPhases;
+      const updatedSourcePhases = previousPhases.map((phase) => {
+        if (phase.id === sourcePhaseId) {
+          return {
+            ...phase,
+            events: phase.events
+              .filter((event) => event.id !== draggableId)
+              .map((event, eventIndex) => ({
+                ...event,
+                position: eventIndex,
+              })),
+          };
+        }
+        return phase;
       });
-      setMilestoneMutationError(null);
-      setMilestoneDialog({
-        mode: "create",
-        phaseId: null,
-        phaseIndex: intermediateInsertIndex,
-        pendingEventDrop: {
-          movedEvent,
-          sourcePhaseId,
-          sourceIndex: source.index,
-          insertIndex: intermediateInsertIndex,
-        },
-      });
+
+      const nextPhasesWithInserted = [
+        ...updatedSourcePhases.slice(0, intermediateInsertIndex),
+        optimisticPhase,
+        ...updatedSourcePhases.slice(intermediateInsertIndex),
+      ].map((phase, idx) => ({
+        ...phase,
+        position: idx,
+      }));
+
+      setRoadmapPhases(sortRoadmapPhasesForDisplay(nextPhasesWithInserted));
+      setIsPersistingMove(true);
+
+      let createdPhase: ProjectRoadmapPanelPhase | null = null;
+      try {
+        createdPhase = await createPhaseForMilestone(movedEvent, intermediateInsertIndex);
+
+        const reorderedPhaseIds = [
+          ...previousPhases.slice(0, intermediateInsertIndex).map((p) => p.id),
+          createdPhase.id,
+          ...previousPhases.slice(intermediateInsertIndex).map((p) => p.id),
+        ];
+
+        const reorderResponse = await fetchProjectActivityMutation(
+          projectId,
+          `/api/projects/${projectId}/roadmap/phases/reorder`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              phaseIds: reorderedPhaseIds,
+            }),
+          }
+        );
+
+        if (!reorderResponse.ok) {
+          throw new Error(mapRoadmapMutationError(await readApiError(reorderResponse)));
+        }
+
+        await persistEventMove(draggableId, createdPhase.id, 0);
+
+        const reconciledPhase = createdPhase;
+        setRoadmapPhases((currentPhases) =>
+          sortRoadmapPhasesForDisplay(
+            currentPhases.map((phase) =>
+              phase.id === optimisticPhaseId
+                ? {
+                    ...reconciledPhase,
+                    position: phase.position,
+                    events: [
+                      {
+                        ...movedEvent,
+                        phaseId: reconciledPhase.id,
+                        position: 0,
+                      },
+                    ],
+                  }
+                : phase
+            )
+          )
+        );
+
+        pushToast({
+          message: `Milestone "${reconciledPhase.title}" created with "${movedEvent.title}".`,
+          variant: "success",
+        });
+      } catch (error) {
+        console.error("[ProjectRoadmapPanel.handleDragEnd.intermediateNewMilestone]", error);
+        if (createdPhase) {
+          await deletePhaseById(createdPhase.id).catch(() => undefined);
+        }
+        setRoadmapPhases(previousPhases);
+        pushToast({
+          message: error instanceof Error ? error.message : mapRoadmapMutationError(),
+          variant: "error",
+        });
+      } finally {
+        setIsPersistingMove(false);
+      }
+
       return;
     }
 
@@ -2688,6 +2846,7 @@ export function ProjectRoadmapPanel({
         );
 
         setRoadmapPhases(sortRoadmapPhasesForDisplay(reordered));
+        setIsPersistingMove(true);
 
         try {
           const response = await fetchProjectActivityMutation(
@@ -2719,53 +2878,98 @@ export function ProjectRoadmapPanel({
             message: error instanceof Error ? error.message : mapRoadmapMutationError(),
             variant: "error",
           });
+        } finally {
+          setIsPersistingMove(false);
         }
 
         return;
       }
 
+      const optimisticPhaseId = `optimistic-phase-${Date.now()}`;
+      const optimisticPhase: ProjectRoadmapPanelPhase = {
+        id: optimisticPhaseId,
+        title: getMilestoneLabel(roadmapPhases.length),
+        description: null,
+        targetDate: movedEvent.targetDate ?? null,
+        status: movedEvent.status || "planned",
+        position: roadmapPhases.length,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        events: [
+          {
+            ...movedEvent,
+            phaseId: optimisticPhaseId,
+            position: 0,
+          },
+        ],
+      };
+
+      const previousPhases = roadmapPhases;
+      let optimisticNextPhases = sortRoadmapPhasesForDisplay([
+        ...previousPhases.map((phase) =>
+          phase.id === sourcePhaseId
+            ? {
+                ...phase,
+                events: phase.events
+                  .filter((event) => event.id !== draggableId)
+                  .map((event, eventIndex) => ({
+                    ...event,
+                    position: eventIndex,
+                  })),
+              }
+            : phase
+        ),
+        optimisticPhase,
+      ]);
+
+      const emptiedSource = optimisticNextPhases.find((phase) => phase.id === sourcePhaseId);
+      if (emptiedSource && emptiedSource.events.length === 0) {
+        optimisticNextPhases = optimisticNextPhases.filter((phase) => phase.id !== emptiedSource.id);
+      }
+
+      setRoadmapPhases(sortRoadmapPhasesForDisplay(optimisticNextPhases));
+      setIsPersistingMove(true);
+
+      let createdPhase: ProjectRoadmapPanelPhase | null = null;
       try {
-        const createdPhase = await createPhaseForMilestone(movedEvent, roadmapPhases.length);
+        createdPhase = await createPhaseForMilestone(movedEvent, roadmapPhases.length);
         await persistEventMove(draggableId, createdPhase.id, 0);
 
-        let nextPhases = sortRoadmapPhasesForDisplay([
-          ...roadmapPhases.map((phase) =>
-            phase.id === sourcePhaseId
-              ? {
-                  ...phase,
-                  events: phase.events
-                    .filter((event) => event.id !== draggableId)
-                    .map((event, eventIndex) => ({
-                      ...event,
-                      position: eventIndex,
-                    })),
-                }
-              : phase
-          ),
-          {
-            ...createdPhase,
-            events: [
-              {
-                ...movedEvent,
-                phaseId: createdPhase.id,
-                position: 0,
-              },
-            ],
-          },
-        ]);
-
-        const emptiedSource = nextPhases.find((phase) => phase.id === sourcePhaseId);
         if (emptiedSource && emptiedSource.events.length === 0) {
           await deletePhaseById(emptiedSource.id);
-          nextPhases = nextPhases.filter((phase) => phase.id !== emptiedSource.id);
         }
 
-        setRoadmapPhases(sortRoadmapPhasesForDisplay(nextPhases));
+        const reconciledPhase = createdPhase;
+        setRoadmapPhases((currentPhases) =>
+          sortRoadmapPhasesForDisplay(
+            currentPhases.map((phase) =>
+              phase.id === optimisticPhaseId
+                ? {
+                    ...reconciledPhase,
+                    events: [
+                      {
+                        ...movedEvent,
+                        phaseId: reconciledPhase.id,
+                        position: 0,
+                      },
+                    ],
+                  }
+                : phase
+            )
+          )
+        );
       } catch (error) {
+        console.error("[ProjectRoadmapPanel.handleDragEnd.newMilestone]", error);
+        if (createdPhase) {
+          await deletePhaseById(createdPhase.id).catch(() => undefined);
+        }
+        setRoadmapPhases(previousPhases);
         pushToast({
           message: error instanceof Error ? error.message : mapRoadmapMutationError(),
           variant: "error",
         });
+      } finally {
+        setIsPersistingMove(false);
       }
 
       return;
@@ -2782,7 +2986,14 @@ export function ProjectRoadmapPanel({
       )
     );
 
-    setRoadmapPhases(nextPhases);
+    const emptiedSource = nextPhases.find((phase) => phase.id === sourcePhaseId);
+    const finalOptimisticPhases =
+      emptiedSource && emptiedSource.events.length === 0
+        ? nextPhases.filter((phase) => phase.id !== emptiedSource.id)
+        : nextPhases;
+
+    setRoadmapPhases(sortRoadmapPhasesForDisplay(finalOptimisticPhases));
+    setIsPersistingMove(true);
 
     try {
       if (sourcePhaseId === destinationPhaseId) {
@@ -2793,22 +3004,19 @@ export function ProjectRoadmapPanel({
         );
       } else {
         await persistEventMove(draggableId, destinationPhaseId, destination.index);
-        const emptiedSource = nextPhases.find((phase) => phase.id === sourcePhaseId);
         if (emptiedSource && emptiedSource.events.length === 0) {
           await deletePhaseById(emptiedSource.id);
-          setRoadmapPhases((currentPhases) =>
-            sortRoadmapPhasesForDisplay(
-              currentPhases.filter((phase) => phase.id !== emptiedSource.id)
-            )
-          );
         }
       }
     } catch (error) {
+      console.error("[ProjectRoadmapPanel.handleDragEnd.move]", error);
       setRoadmapPhases(previousPhases);
       pushToast({
         message: error instanceof Error ? error.message : mapRoadmapMutationError(),
         variant: "error",
       });
+    } finally {
+      setIsPersistingMove(false);
     }
   }
 
@@ -2855,12 +3063,13 @@ export function ProjectRoadmapPanel({
       className={PROJECT_SECTION_CARD_CLASS}
       data-project-live-refresh-lock={
         isDraggingEvent ||
+        isPersistingMove ||
         Boolean(eventDialog) ||
         isSubmittingEvent ||
         Boolean(milestoneDialog) ||
         isSubmittingMilestone ||
         Boolean(pendingDeleteEventId) ||
-        Boolean(statusMutationEventId)
+        pendingStatusEventIds.size > 0
           ? "true"
           : undefined
       }
@@ -3015,6 +3224,8 @@ export function ProjectRoadmapPanel({
               onDragEnd={handleDragEnd}
             >
               <div
+                ref={isDesktopLayout ? desktopRoadmapScrollRef : null}
+                data-roadmap-scroll-container="true"
                 className={cn(
                   isDesktopLayout &&
                     "overflow-x-auto pb-4 [scrollbar-color:rgba(148,163,184,0.52)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[rgba(148,163,184,0.14)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]"
@@ -3039,6 +3250,7 @@ export function ProjectRoadmapPanel({
                         isDesktop={isDesktopLayout}
                         maxEventsCount={maxEventsCount}
                         statusMutationEventId={statusMutationEventId}
+                        pendingStatusEventIds={pendingStatusEventIds}
                         onViewEvent={setSelectedEventId}
                         onEditEvent={openEditEvent}
                         onDeleteEvent={setPendingDeleteEventId}
@@ -3113,11 +3325,23 @@ export function ProjectRoadmapPanel({
       >
         <RoadmapEntityForm
           draft={eventDraft}
-          recoveryNotice={<RecoveryDraftNotice draft={eventRecovery} onDiscard={() => {
-            eventRecovery.discard();
-            setEventDraft(eventRecoveryBase);
-            if (eventDialog) setEventDialog({ ...eventDialog, targetPhaseId: eventRecoveryBase.targetPhaseId });
-          }} />}
+          recoveryNotice={
+            eventRecovery.conflict || eventRecovery.error ? (
+              <RecoveryDraftNotice
+                draft={eventRecovery}
+                onDiscard={() => {
+                  eventRecovery.discard();
+                  setEventDraft(eventRecoveryBase);
+                  if (eventDialog) {
+                    setEventDialog({
+                      ...eventDialog,
+                      targetPhaseId: eventRecoveryBase.targetPhaseId,
+                    });
+                  }
+                }}
+              />
+            ) : null
+          }
           submitLabel={eventDialog?.mode === "create" ? "Create event" : "Save event"}
           targetDateLabel="Event date"
           statusLabel="Event status"
@@ -3159,16 +3383,12 @@ export function ProjectRoadmapPanel({
       </RoadmapDialogShell>
 
       <RoadmapDialogShell
-        title={milestoneDialog?.mode === "create" ? "New milestone" : "Edit milestone"}
+        title="Edit milestone"
         subtitle={
           milestoneDialog
-            ? milestoneDialog.mode === "create"
-              ? milestoneDialog.phaseIndex > 0 && milestoneDialog.phaseIndex < roadmapPhases.length
-                ? `Insert a new milestone between ${getMilestoneDisplayTitle(roadmapPhases[milestoneDialog.phaseIndex - 1], milestoneDialog.phaseIndex - 1)} and ${getMilestoneDisplayTitle(roadmapPhases[milestoneDialog.phaseIndex], milestoneDialog.phaseIndex)}.`
-                : `Create a new milestone at position ${milestoneDialog.phaseIndex + 1}.`
-              : `Update details for ${getMilestoneLabel(
-                  milestoneDialog.phaseIndex
-                )}.`
+            ? `Update details for ${getMilestoneLabel(
+                milestoneDialog.phaseIndex
+              )}.`
             : undefined
         }
         headerBadge={
@@ -3176,7 +3396,7 @@ export function ProjectRoadmapPanel({
             variant="outline"
             className="rounded-full border-border/70 bg-muted/30 px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground"
           >
-            {milestoneDialog?.mode === "create" ? "New" : "Editing"}
+            Editing
           </Badge>
         }
         isOpen={milestoneDialog !== null}
@@ -3185,15 +3405,21 @@ export function ProjectRoadmapPanel({
       >
         <RoadmapEntityForm
           draft={milestoneDraft}
-          recoveryNotice={<RecoveryDraftNotice draft={milestoneRecovery} onDiscard={() => { milestoneRecovery.discard(); setMilestoneDraft(milestoneRecoveryBase); }} />}
-          idPrefix="roadmap-milestone"
-          titlePlaceholder={
-            milestoneDialog?.mode === "create"
-              ? getMilestoneLabel(milestoneDialog.phaseIndex)
-              : "No title yet"
+          recoveryNotice={
+            milestoneRecovery.conflict || milestoneRecovery.error ? (
+              <RecoveryDraftNotice
+                draft={milestoneRecovery}
+                onDiscard={() => {
+                  milestoneRecovery.discard();
+                  setMilestoneDraft(milestoneRecoveryBase);
+                }}
+              />
+            ) : null
           }
+          idPrefix="roadmap-milestone"
+          titlePlaceholder="No title yet"
           descriptionPlaceholder="No description yet"
-          submitLabel={milestoneDialog?.mode === "create" ? "Create milestone" : "Save milestone"}
+          submitLabel="Save milestone"
           targetDateLabel="Milestone date"
           statusLabel="Milestone status"
           statusOptions={statusSelectOptions}
