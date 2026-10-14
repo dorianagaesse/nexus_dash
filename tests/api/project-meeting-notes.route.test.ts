@@ -387,6 +387,71 @@ describe("project meeting notes routes", () => {
     });
   });
 
+  test("PATCH reopens one meeting todo completion state", async () => {
+    meetingNoteServiceMock.setProjectMeetingNoteActionCompletion.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        note: {
+          ...sampleNote(),
+          actions: [
+            {
+              ...sampleNote().actions[0],
+              completedAt: null,
+            },
+          ],
+        },
+      },
+    });
+
+    const response = await updateMeetingTodo(
+      new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes/note-1/actions/action-1",
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ completed: false }),
+        }
+      ),
+      actionParams("project-1", "note-1", "action-1")
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      meetingNoteServiceMock.setProjectMeetingNoteActionCompletion
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId: "user-1",
+        completed: false,
+      })
+    );
+  });
+
+  test("PATCH surfaces the service status when a todo completion fails", async () => {
+    meetingNoteServiceMock.setProjectMeetingNoteActionCompletion.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      error: "forbidden",
+    });
+
+    const response = await updateMeetingTodo(
+      new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes/note-1/actions/action-1",
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ completed: true }),
+        }
+      ),
+      actionParams("project-1", "note-1", "action-1")
+    );
+
+    expect(response.status).toBe(403);
+    await expect(readJson(response)).resolves.toEqual({ error: "forbidden" });
+    expect(
+      activityEventResponseMock.recordProjectActivityEventVersion
+    ).not.toHaveBeenCalled();
+  });
+
   test("PATCH rejects an invalid todo completion payload", async () => {
     const response = await updateMeetingTodo(
       new NextRequest(

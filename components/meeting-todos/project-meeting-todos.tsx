@@ -151,6 +151,8 @@ function TodoCompletionControl({
     <button
       type="button"
       disabled={isPending}
+      aria-busy={isPending || undefined}
+      data-meeting-todo-pending={isPending ? "true" : undefined}
       onClick={() => onSetCompleted(todo, !isCompleted)}
       aria-label={`${isCompleted ? "Reopen" : "Complete"} todo: ${todo.content}`}
       className={cn(
@@ -268,7 +270,7 @@ function TodoRow({
             prefix="Created by"
             compact
           />
-          {isCompleted ? (
+          {isCompleted && (todo.completedBy || !isPending) ? (
             <MeetingTodoActorIdentity
               actor={todo.completedBy ?? null}
               prefix="Completed by"
@@ -297,6 +299,9 @@ export function ProjectMeetingTodos({
   );
   const [todos, setTodos] = useState(initialTodos);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+  const [pendingCompletionIds, setPendingCompletionIds] = useState<Set<string>>(
+    new Set()
+  );
   const [feedback, setFeedback] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
@@ -342,13 +347,44 @@ export function ProjectMeetingTodos({
     todo: ProjectMeetingTodoItem,
     completed: boolean
   ) => {
-    if (!canEdit || pendingActionId) {
+    if (!canEdit || pendingCompletionIds.has(todo.id)) {
       return;
     }
 
-    setPendingActionId(todo.id);
+    const previous = {
+      completedAt: todo.completedAt,
+      completedBy: todo.completedBy ?? null,
+      isOverdue: todo.isOverdue,
+    };
+    const optimisticCompletedAt = completed ? new Date().toISOString() : null;
+
+    setPendingCompletionIds((current) => {
+      const next = new Set(current);
+      next.add(todo.id);
+      return next;
+    });
     setMutationError(null);
     setFeedback(null);
+    setTodos((current) =>
+      current.map((entry) =>
+        entry.id === todo.id
+          ? {
+              ...entry,
+              completedAt: optimisticCompletedAt,
+              completedBy: completed ? entry.completedBy : null,
+              updatedAt: optimisticCompletedAt ?? entry.updatedAt,
+              isOverdue: completed
+                ? false
+                : isMeetingTodoOverdueAt({
+                    scheduledAt: entry.meeting.scheduledAt,
+                    completedAt: null,
+                    meetingStatus: entry.meeting.status,
+                    referenceNowMs: Date.now(),
+                  }),
+            }
+          : entry
+      )
+    );
 
     try {
       const response = await fetchProjectActivityMutation(
@@ -364,40 +400,75 @@ export function ProjectMeetingTodos({
       );
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
+        note?: {
+          status: string;
+          actions: Array<{
+            id: string;
+            completedAt: string | null;
+            completedBy: MeetingTodoActorSummary | null;
+          }>;
+        };
       } | null;
 
       if (!response.ok) {
         throw new Error(payload?.error ?? "meeting-todo-update-failed");
       }
 
-      const updatedAt = new Date().toISOString();
+      const serverAction =
+        payload?.note?.actions.find((entry) => entry.id === todo.id) ?? null;
+      const serverCompletedAt = serverAction
+        ? serverAction.completedAt
+        : optimisticCompletedAt;
+      const serverMeetingStatus =
+        payload?.note?.status ?? todo.meeting.status;
+
       setTodos((current) =>
         current.map((entry) =>
           entry.id === todo.id
             ? {
                 ...entry,
-                completedAt: completed ? updatedAt : null,
-                updatedAt,
-                isOverdue: completed
-                  ? false
-                  : isMeetingTodoOverdueAt({
-                      scheduledAt: entry.meeting.scheduledAt,
-                      completedAt: null,
-                      meetingStatus: entry.meeting.status,
-                      referenceNowMs: Date.now(),
-                    }),
+                completedAt: serverCompletedAt,
+                completedBy: serverAction
+                  ? serverAction.completedBy
+                  : entry.completedBy,
+                updatedAt: new Date().toISOString(),
+                isOverdue:
+                  serverCompletedAt === null
+                    ? isMeetingTodoOverdueAt({
+                        scheduledAt: entry.meeting.scheduledAt,
+                        completedAt: null,
+                        meetingStatus: serverMeetingStatus,
+                        referenceNowMs: Date.now(),
+                      })
+                    : false,
+                meeting: { ...entry.meeting, status: serverMeetingStatus },
               }
             : entry
         )
       );
       setFeedback(completed ? "Todo completed." : "Todo reopened.");
-      router.refresh();
     } catch {
+      setTodos((current) =>
+        current.map((entry) =>
+          entry.id === todo.id
+            ? {
+                ...entry,
+                completedAt: previous.completedAt,
+                completedBy: previous.completedBy,
+                isOverdue: previous.isOverdue,
+              }
+            : entry
+        )
+      );
       setMutationError(
         "Could not update this todo. Check your access and retry."
       );
     } finally {
-      setPendingActionId(null);
+      setPendingCompletionIds((current) => {
+        const next = new Set(current);
+        next.delete(todo.id);
+        return next;
+      });
     }
   };
 
@@ -566,7 +637,10 @@ export function ProjectMeetingTodos({
                 todo={todo}
                 projectId={projectId}
                 canEdit={canEdit}
-                isPending={pendingActionId === todo.id}
+                isPending={
+                  pendingActionId === todo.id ||
+                  pendingCompletionIds.has(todo.id)
+                }
                 onSetCompleted={(entry, completed) => {
                   void setTodoCompleted(entry, completed);
                 }}

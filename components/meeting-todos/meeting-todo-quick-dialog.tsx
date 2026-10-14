@@ -46,7 +46,7 @@ interface MeetingTodoQuickDialogProps {
   canEdit: boolean;
   currentActorUserId: string;
   referenceNowMs: number;
-  pendingActionId: string | null;
+  pendingActionIds: ReadonlySet<string>;
   onOpenMeeting: (note: ProjectMeetingNotePanelNote) => void;
   onSetCompleted: (todo: ProjectMeetingTodo, completed: boolean) => void;
 }
@@ -161,16 +161,16 @@ function storeMeetingTodoDialogPosition(position: DialogPosition) {
 function TodoCompletionButton({
   todo,
   canEdit,
-  pendingActionId,
+  pendingActionIds,
   onSetCompleted,
 }: {
   todo: ProjectMeetingTodo;
   canEdit: boolean;
-  pendingActionId: string | null;
+  pendingActionIds: ReadonlySet<string>;
   onSetCompleted: (todo: ProjectMeetingTodo, completed: boolean) => void;
 }) {
   const isCompleted = todo.action.completedAt !== null;
-  const isPending = pendingActionId === todo.action.id;
+  const isPending = pendingActionIds.has(todo.action.id);
 
   if (!canEdit) {
     return (
@@ -188,6 +188,8 @@ function TodoCompletionButton({
     <button
       type="button"
       disabled={isPending}
+      aria-busy={isPending || undefined}
+      data-meeting-todo-pending={isPending ? "true" : undefined}
       onClick={() => onSetCompleted(todo, !isCompleted)}
       aria-label={
         isCompleted
@@ -209,13 +211,13 @@ function TodoCompletionButton({
 function OpenTodoItem({
   todo,
   canEdit,
-  pendingActionId,
+  pendingActionIds,
   onOpenMeeting,
   onSetCompleted,
 }: {
   todo: ProjectMeetingTodo;
   canEdit: boolean;
-  pendingActionId: string | null;
+  pendingActionIds: ReadonlySet<string>;
   onOpenMeeting: (note: ProjectMeetingNotePanelNote) => void;
   onSetCompleted: (todo: ProjectMeetingTodo, completed: boolean) => void;
 }) {
@@ -229,7 +231,7 @@ function OpenTodoItem({
       <TodoCompletionButton
         todo={todo}
         canEdit={canEdit}
-        pendingActionId={pendingActionId}
+        pendingActionIds={pendingActionIds}
         onSetCompleted={onSetCompleted}
       />
       <div className="min-w-0 flex-1 py-0.5">
@@ -266,13 +268,13 @@ function OpenTodoItem({
 function CompletedTodoRow({
   todo,
   canEdit,
-  pendingActionId,
+  pendingActionIds,
   onOpenMeeting,
   onSetCompleted,
 }: {
   todo: ProjectMeetingTodo;
   canEdit: boolean;
-  pendingActionId: string | null;
+  pendingActionIds: ReadonlySet<string>;
   onOpenMeeting: (note: ProjectMeetingNotePanelNote) => void;
   onSetCompleted: (todo: ProjectMeetingTodo, completed: boolean) => void;
 }) {
@@ -281,7 +283,7 @@ function CompletedTodoRow({
       <TodoCompletionButton
         todo={todo}
         canEdit={canEdit}
-        pendingActionId={pendingActionId}
+        pendingActionIds={pendingActionIds}
         onSetCompleted={onSetCompleted}
       />
       <button
@@ -322,7 +324,7 @@ export function MeetingTodoQuickDialog({
   canEdit,
   currentActorUserId,
   referenceNowMs,
-  pendingActionId,
+  pendingActionIds,
   onOpenMeeting,
   onSetCompleted,
 }: MeetingTodoQuickDialogProps) {
@@ -738,7 +740,7 @@ export function MeetingTodoQuickDialog({
                   key={todo.action.id}
                   todo={todo}
                   canEdit={canEdit}
-                  pendingActionId={pendingActionId}
+                  pendingActionIds={pendingActionIds}
                   onOpenMeeting={openSourceMeeting}
                   onSetCompleted={onSetCompleted}
                 />
@@ -764,7 +766,7 @@ export function MeetingTodoQuickDialog({
                     key={todo.action.id}
                     todo={todo}
                     canEdit={canEdit}
-                    pendingActionId={pendingActionId}
+                    pendingActionIds={pendingActionIds}
                     onOpenMeeting={openSourceMeeting}
                     onSetCompleted={onSetCompleted}
                   />

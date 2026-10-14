@@ -850,9 +850,10 @@ export function ProjectMeetingNotesPanel({
     null
   );
   const [isDeleting, setIsDeleting] = useState(false);
-  const [pendingTodoActionId, setPendingTodoActionId] = useState<string | null>(
-    null
-  );
+  const [pendingTodoActionIds, setPendingTodoActionIds] = useState<
+    Set<string>
+  >(new Set());
+  const todoMutationCountRef = useRef(0);
   const [pendingStewardNoteId, setPendingStewardNoteId] = useState<
     string | null
   >(null);
@@ -1234,11 +1235,65 @@ export function ProjectMeetingNotesPanel({
     todo: ProjectMeetingTodo,
     completed: boolean
   ) => {
-    if (!canEdit || pendingTodoActionId) {
+    if (!canEdit || pendingTodoActionIds.has(todo.action.id)) {
       return;
     }
 
-    setPendingTodoActionId(todo.action.id);
+    const previousCompletedAt = todo.action.completedAt;
+    const previousCompletedBy = todo.action.completedBy ?? null;
+    const optimisticCompletedAt = completed
+      ? new Date().toISOString()
+      : null;
+    const draftWasInSync =
+      selectedNoteId === todo.note.id &&
+      selectedNote !== null &&
+      JSON.stringify(notesDraft) ===
+        JSON.stringify(buildNotesDraftFromNote(selectedNote));
+
+    const applyCompletedAt = (
+      current: ProjectMeetingNotePanelNote[],
+      actionId: string,
+      noteId: string,
+      completedAt: string | null,
+      completedBy: MeetingTodoActorSummary | null
+    ) =>
+      current.map((note) =>
+        note.id === noteId
+          ? {
+              ...note,
+              actions: note.actions.map((action) =>
+                action.id === actionId
+                  ? { ...action, completedAt, completedBy }
+                  : action
+              ),
+            }
+          : note
+      );
+
+    todoMutationCountRef.current += 1;
+    setPendingTodoActionIds((current) => {
+      const next = new Set(current);
+      next.add(todo.action.id);
+      return next;
+    });
+    setLocalNotes((current) =>
+      applyCompletedAt(
+        current,
+        todo.action.id,
+        todo.note.id,
+        optimisticCompletedAt,
+        previousCompletedBy
+      )
+    );
+    setNotesDraft((current) => ({
+      ...current,
+      actions: current.actions.map((action) =>
+        action.id === todo.action.id && action.persisted
+          ? { ...action, completedAt: optimisticCompletedAt }
+          : action
+      ),
+    }));
+
     try {
       const response = await fetchProjectActivityMutation(
         projectId,
@@ -1260,6 +1315,9 @@ export function ProjectMeetingNotesPanel({
         throw new Error(mapMeetingNoteError(payload?.error ?? "unknown"));
       }
 
+      const serverAction =
+        payload.note.actions.find((action) => action.id === todo.action.id) ??
+        null;
       setLocalNotes((current) =>
         sortNotes(
           current.map((note) =>
@@ -1267,9 +1325,28 @@ export function ProjectMeetingNotesPanel({
           )
         )
       );
-      if (selectedNoteId === payload.note.id && selectedNote &&
-        JSON.stringify(notesDraft) === JSON.stringify(buildNotesDraftFromNote(selectedNote))) {
+      if (
+        draftWasInSync &&
+        todoMutationCountRef.current === 1
+      ) {
         setNotesDraft(buildNotesDraftFromNote(payload.note));
+      } else {
+        setNotesDraft((current) => ({
+          ...current,
+          actions: current.actions.map((action) =>
+            action.id === todo.action.id && action.persisted
+              ? {
+                  ...action,
+                  completedAt: serverAction
+                    ? serverAction.completedAt
+                    : optimisticCompletedAt,
+                  completedBy: serverAction
+                    ? (serverAction.completedBy ?? null)
+                    : action.completedBy,
+                }
+              : action
+          ),
+        }));
       }
       pushToast({
         variant: "success",
@@ -1278,6 +1355,27 @@ export function ProjectMeetingNotesPanel({
           : "Meeting todo reopened.",
       });
     } catch (error) {
+      setLocalNotes((current) =>
+        applyCompletedAt(
+          current,
+          todo.action.id,
+          todo.note.id,
+          previousCompletedAt,
+          previousCompletedBy
+        )
+      );
+      setNotesDraft((current) => ({
+        ...current,
+        actions: current.actions.map((action) =>
+          action.id === todo.action.id && action.persisted
+            ? {
+                ...action,
+                completedAt: previousCompletedAt,
+                completedBy: previousCompletedBy,
+              }
+            : action
+        ),
+      }));
       pushToast({
         variant: "error",
         message:
@@ -1286,7 +1384,12 @@ export function ProjectMeetingNotesPanel({
             : "Could not update meeting todo.",
       });
     } finally {
-      setPendingTodoActionId(null);
+      todoMutationCountRef.current -= 1;
+      setPendingTodoActionIds((current) => {
+        const next = new Set(current);
+        next.delete(todo.action.id);
+        return next;
+      });
     }
   };
 
@@ -1666,7 +1769,7 @@ export function ProjectMeetingNotesPanel({
     Boolean(prepareDialog) ||
     Boolean(selectedNoteId) ||
     isSaving ||
-    Boolean(pendingTodoActionId) ||
+    pendingTodoActionIds.size > 0 ||
     Boolean(pendingDeleteNoteId) ||
     isDeleting;
 
@@ -1986,7 +2089,7 @@ export function ProjectMeetingNotesPanel({
         canEdit={canEdit}
         currentActorUserId={currentActorUserId}
         referenceNowMs={referenceNowMs}
-        pendingActionId={pendingTodoActionId}
+        pendingActionIds={pendingTodoActionIds}
         onOpenMeeting={openNoteFromTodoPanel}
         onSetCompleted={(todo, completed) => {
           void setTodoCompleted(todo, completed);
@@ -2622,7 +2725,16 @@ export function ProjectMeetingNotesPanel({
                                 disabled={
                                   !canEdit ||
                                   isSaving ||
-                                  pendingTodoActionId === action.id
+                                  pendingTodoActionIds.has(action.id)
+                                }
+                                aria-busy={
+                                  pendingTodoActionIds.has(action.id) ||
+                                  undefined
+                                }
+                                data-meeting-todo-pending={
+                                  pendingTodoActionIds.has(action.id)
+                                    ? "true"
+                                    : undefined
                                 }
                                 onClick={() => {
                                   const persistedAction =

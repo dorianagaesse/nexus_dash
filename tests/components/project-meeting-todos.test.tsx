@@ -139,15 +139,88 @@ describe("project meeting todos", () => {
     expect(result).toContain("Meeting todos are temporarily unavailable.");
   });
 
-  test("completes editable todos with pending-safe feedback and refresh", async () => {
+  test("completes editable todos immediately and reconciles without a broad refresh", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    let resolveFetch!: (value: Response) => void;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        })
+    );
+
+    await act(async () => {
+      root.render(
+        <ProjectMeetingTodos
+          projectId="project-1"
+          canEdit
+          initialTodos={[ownerTodo]}
+        />
+      );
+    });
+
+    const completeButton = container.querySelector(
+      'button[aria-label="Complete todo: Confirm the mobile navigation pattern"]'
+    ) as HTMLButtonElement;
+    await act(async () => {
+      completeButton.click();
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/projects/project-1/meeting-notes/meeting-1/actions/todo-owner",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ completed: true }),
+      })
+    );
+    expect(container.textContent).not.toContain(
+      "Confirm the mobile navigation pattern"
+    );
+    expect(container.textContent).toContain("All caught up");
+    expect(navigationMock.refresh).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveFetch(
+        new Response(
+          JSON.stringify({
+            note: {
+              status: "actions_in_progress",
+              actions: [
+                {
+                  id: "todo-owner",
+                  completedAt: "2026-07-20T12:00:00.000Z",
+                  completedBy: null,
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(container.textContent).toContain("Todo completed.");
+    expect(navigationMock.refresh).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+
+    await act(async () => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
+
+  test("restores the todo and surfaces an error when completion fails", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(
-        new Response(JSON.stringify({ note: { id: "meeting-1" } }), {
-          status: 200,
+        new Response(JSON.stringify({ error: "forbidden" }), {
+          status: 403,
           headers: { "Content-Type": "application/json" },
         })
       );
@@ -167,7 +240,68 @@ describe("project meeting todos", () => {
     ) as HTMLButtonElement;
     await act(async () => {
       completeButton.click();
-      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(
+      container.querySelector(
+        'button[aria-label="Complete todo: Confirm the mobile navigation pattern"]'
+      )
+    ).not.toBeNull();
+    expect(container.textContent).toContain("Overdue");
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      "Could not update this todo. Check your access and retry."
+    );
+    expect(navigationMock.refresh).not.toHaveBeenCalled();
+
+    await act(async () => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
+
+  test("reopens a completed todo optimistically from the completed view", async () => {
+    mockSearchParams = new URLSearchParams("view=completed");
+    const completedTodo: ProjectMeetingTodoItem = {
+      ...ownerTodo,
+      completedAt: "2026-07-20T11:00:00.000Z",
+      isOverdue: false,
+      completedBy: {
+        kind: "human",
+        id: "user-1",
+        displayName: "owner",
+        usernameTag: "owner#0001",
+        avatarSeed: "seed-owner",
+        status: "active",
+        isAssignable: true,
+      },
+    };
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    let resolveFetch!: (value: Response) => void;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        })
+    );
+
+    await act(async () => {
+      root.render(
+        <ProjectMeetingTodos
+          projectId="project-1"
+          canEdit
+          initialTodos={[completedTodo]}
+        />
+      );
+    });
+
+    const reopenButton = container.querySelector(
+      'button[aria-label="Reopen todo: Confirm the mobile navigation pattern"]'
+    ) as HTMLButtonElement;
+    expect(reopenButton).not.toBeNull();
+    await act(async () => {
+      reopenButton.click();
       await Promise.resolve();
     });
 
@@ -175,12 +309,30 @@ describe("project meeting todos", () => {
       "/api/projects/project-1/meeting-notes/meeting-1/actions/todo-owner",
       expect.objectContaining({
         method: "PATCH",
-        body: JSON.stringify({ completed: true }),
+        body: JSON.stringify({ completed: false }),
       })
     );
-    expect(container.textContent).toContain("Todo completed.");
-    expect(container.textContent).toContain("All caught up");
-    expect(navigationMock.refresh).toHaveBeenCalled();
+    expect(container.textContent).toContain("No completed todos yet");
+    expect(navigationMock.refresh).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveFetch(
+        new Response(
+          JSON.stringify({
+            note: {
+              status: "actions_in_progress",
+              actions: [
+                { id: "todo-owner", completedAt: null, completedBy: null },
+              ],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(container.textContent).toContain("Todo reopened.");
 
     await act(async () => root.unmount());
     container.remove();
