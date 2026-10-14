@@ -544,6 +544,29 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
       case "accepted": {
         this.acceptedBase = result.representation;
         this.acceptedRevision = result.revision;
+        // The acknowledgement is authoritative for every field the user has
+        // not edited since the submitted snapshot: adopt its canonical value
+        // internally and into the form. Without this, server-side
+        // normalization (for example a trimmed title) would leave the field
+        // dirty against the new base and re-save at response speed.
+        const beforeAdoption = this.effectiveValue();
+        const adopted = { ...beforeAdoption };
+        const adoptedFields: string[] = [];
+        for (const field of this.opts.fields) {
+          // A value typed while the write was in flight wins over the
+          // acknowledgement and must never be erased by adoption.
+          if (!this.equal(beforeAdoption[field], submitted[field], field)) continue;
+          if (this.equal(beforeAdoption[field], result.representation[field], field)) {
+            continue;
+          }
+          (adopted as Record<string, unknown>)[field] = result.representation[field];
+          adoptedFields.push(field);
+        }
+        if (adoptedFields.length > 0) {
+          this.pendingRepresentation = null;
+          this.value = adopted;
+          this.opts.applyRepresentation?.(result.representation, adoptedFields);
+        }
         // Edits made while this write was in flight stay dirty against the
         // new base; restart their max-wait clock so the next request observes
         // a fresh quiet window instead of firing on a stale 30 s deadline.

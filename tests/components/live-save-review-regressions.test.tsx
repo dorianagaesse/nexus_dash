@@ -153,6 +153,87 @@ test("maximum wait resets after an accepted save with a newer edit in flight", a
   expect(save).toHaveBeenCalledTimes(1);
 });
 
+test("an accepted normalized value is adopted instead of being autosaved repeatedly", async () => {
+  const normalized = { title: "Trimmed title" };
+  const save = vi
+    .fn()
+    .mockResolvedValueOnce({ kind: "accepted", revision: 2, representation: normalized })
+    .mockImplementation(() => new Promise(() => {}));
+  const apply = vi.fn();
+  const scheduler = new LiveSaveScheduler({
+    adapter: { save },
+    value: base,
+    base,
+    baseRevision: 1,
+    fields,
+    enabled: true,
+    applyRepresentation: apply,
+  });
+  scheduler.setValue({ title: "  Trimmed title  " });
+  await vi.advanceTimersByTimeAsync(2_001);
+  scheduler.destroy();
+  expect(save).toHaveBeenCalledTimes(1);
+  expect(apply).toHaveBeenCalledWith(normalized, ["title"]);
+});
+
+test("accepted rich-text markup is adopted without resubmitting the draft", async () => {
+  type RichFields = { description: string };
+  const richBase = { description: "<p>Hello</p>" };
+  const richFields = ["description"] as const;
+  const normalized = { description: "<p>Hello world</p>" };
+  const save = vi
+    .fn()
+    .mockResolvedValueOnce({ kind: "accepted", revision: 2, representation: normalized })
+    .mockImplementation(() => new Promise(() => {}));
+  const apply = vi.fn();
+  const scheduler = new LiveSaveScheduler({
+    adapter: { save },
+    value: richBase,
+    base: richBase,
+    baseRevision: 1,
+    fields: richFields,
+    enabled: true,
+    applyRepresentation: apply,
+  });
+  scheduler.setValue({ description: "<p>Hello world </p>" });
+  await vi.advanceTimersByTimeAsync(2_001);
+  scheduler.destroy();
+  expect(save).toHaveBeenCalledTimes(1);
+  expect(apply).toHaveBeenCalledWith(normalized, ["description"]);
+});
+
+test("a newer edit typed in flight survives acknowledgement adoption", async () => {
+  let resolve!: (value: LiveSaveWriteResult<Fields>) => void;
+  const first = new Promise<LiveSaveWriteResult<Fields>>((r) => {
+    resolve = r;
+  });
+  const save = vi
+    .fn()
+    .mockImplementationOnce(() => first)
+    .mockResolvedValue({ kind: "accepted", revision: 3, representation: { title: "Second draft" } });
+  const apply = vi.fn();
+  const scheduler = new LiveSaveScheduler({
+    adapter: { save },
+    value: base,
+    base,
+    baseRevision: 1,
+    fields,
+    enabled: true,
+    applyRepresentation: apply,
+  });
+  scheduler.setValue({ title: "  First draft  " });
+  await vi.advanceTimersByTimeAsync(2_001);
+  expect(save).toHaveBeenCalledTimes(1);
+  scheduler.setValue({ title: "Second draft" });
+  resolve({ kind: "accepted", revision: 2, representation: { title: "First draft" } });
+  await vi.advanceTimersByTimeAsync(1);
+  expect(apply).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(2_000);
+  scheduler.destroy();
+  expect(save).toHaveBeenCalledTimes(2);
+  expect(save.mock.calls[1][0].fields).toEqual({ title: "Second draft" });
+});
+
 test("conflict review exposes the differences beyond the shared first 240 characters", async () => {
   const prefix = "a".repeat(300);
   const local = { title: `${prefix} local ending` };
