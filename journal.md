@@ -11,6 +11,38 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Validation: lint, RLS inventory, 2,007 unit tests (2 skipped) against an isolated local database, coverage gate with the live-save files added (92.61% statements / 85.19% branches), and production build. Browser suite not run: no surface mounts the live-save UI while the Live gate is empty, and the CI e2e smoke flow is unaffected.
 - Review round 2026-10-12 (reviewed head `7fe1522`): merged `origin/main` (only `journal.md` conflicted; both entries kept newest-first) and fixed five findings. A clean remote update now adopts the new representation into the form instead of silently resubmitting the stale value (P1). Construction is inert and scheduling starts from the committed lifecycle after the real online/visibility state is applied, so a discarded StrictMode render or an unmount before the debounce can no longer leave a timer that writes (P1). An accepted write restarts the max-wait clock for edits that stayed dirty while it was in flight (P1). Conflict review shows full values in bounded, keyboard-scrollable previews instead of truncating at 240 characters (P2). The adapter contract now specifies the ND-565 transport: `X-Content-If-Match` with the exact entity ETag derived purely from the numeric `contentRevision`, never standard `If-Match`, and the precondition error codes map to a non-retryable failure (P2). Also replaced the NUL cache-key separators in `lib/hooks/use-live-save.ts` with `\n` escapes so the file diffs as text.
 - Review-round validation (CI-mirroring env, isolated database): lint and `rls:check` clean; 2,047 unit tests passed (2 skipped); coverage gate passed (93.7% statements / 85.96% branches); production build passed. The reviewer's four regressions plus StrictMode, unmount-before-debounce, and inert-construction coverage live in `tests/components/live-save-review-regressions.test.tsx`.
+# 2026-10-12 - ND-534: Immediate roadmap moves and event status toggles
+
+- Card `cmur7myd3000m04jpy4br0eyp` under epic "Roadmap interaction refinement":
+  - Made roadmap event status transitions and drag moves feel immediate and smooth with zero layout flicker or full-panel refreshes:
+    - Added granular per-event pending status tracking (`pendingStatusEventIds`) so individual status changes update the card immediately and reflect pending state locally without blocking unrelated UI interactions.
+    - Status cycle failures gracefully reconcile and restore only the affected event's previous status with error toast notification.
+    - Drag-and-drop moves (reordering within milestone, moving across milestones, moving to intermediate milestone drop zones, or moving into new milestones at the end) update local roadmap phases optimistically and immediately before server persistence completes.
+    - Dropping an event between milestones now creates and inserts a new milestone immediately and optimistically without any modal popup or "draft saved locally" banner. New milestones start with clean default titles ("Milestone X") and placeholders ("No title yet" / "No description yet"), allowing detail edits directly via the milestone edit button.
+    - Dropping an event into a new milestone creates an optimistic placeholder milestone phase and renders the event in place instantly while creation and reordering run in the background. If creation or reorder fails, optimistic state is cleanly reverted with error toast feedback.
+    - Added `areRoadmapPhasesEquivalent` phase equality check to avoid full-panel re-measurements and re-renders when server responses or realtime activity return identical phase data.
+    - Locked live-refresh polling during in-flight status changes and drag moves via `data-project-live-refresh-lock` to protect optimistic UI integrity.
+    - Removed routine "Draft saved locally in this browser." notice from roadmap event authoring and milestone editing modals: only display `RecoveryDraftNotice` when actionable draft conflicts or errors occur, matching `create-task-dialog` and context modals.
+    - Fixed horizontal auto-scrolling during roadmap event drag-and-drop: added continuous RAF-driven edge auto-scrolling on the desktop roadmap scroll container that smoothly scrolls all the way to `scrollLeft = 0` (and symmetrically to the right edge) even when the user drags their pointer all the way to the screen/card margin where library bounding boxes would otherwise halt scrolling.
+  - Automated tests:
+    - Added and updated unit tests in `tests/components/project-roadmap-panel.test.tsx` verifying:
+      - Immediate event status toggling with card updates while persistence is in flight and refresh lock is engaged.
+      - Graceful error reconciliation restoring affected event status upon server failure.
+      - Immediate reordering within the same milestone without full-panel reload.
+      - Immediate intermediate milestone creation and event movement without modal dialog.
+      - Failure rollback when dropping between milestones cleanly reverting optimistic state.
+      - Immediate new milestone creation and event movement upon dropping into new milestone drop lane.
+      - Reversion of optimistic milestone and error toast on mutation failure.
+      - Elimination of routine "Draft saved locally" notice when creating or editing events.
+      - Smooth horizontal auto-scrolling all the way to `scrollLeft = 0` (Milestone 1) when dragging an event near or beyond the container's left boundary.
+  - Validation:
+    - `npm run lint`: passed cleanly.
+    - `npm run rls:check`: passed cleanly.
+    - Unit tests (`npm test`): 1,983 passed, 2 skipped.
+    - Coverage (`npm run test:coverage`): 94.07% lines, meeting all thresholds.
+    - Production build (`next build --webpack`): compiled and generated all static and dynamic pages with 0 errors.
+    - Playwright browser test (`nd-433-long-form-recovery.spec.ts`): passed cleanly.
+
 # 2026-10-12 - ND-452: Explain invalid relation targets
 
 - Read the live ND-452 card, moved it to In Progress, and started
