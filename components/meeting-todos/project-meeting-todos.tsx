@@ -336,12 +336,18 @@ export function ProjectMeetingTodos({
   );
   const [feedback, setFeedback] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
-  // Meeting statuses server-confirmed by a successful mutation. A failed
-  // mutation must not roll its stale click-time status over these.
+  // Meeting statuses from server-confirmed data: the latest refresh baseline
+  // plus statuses confirmed by successful mutations. A failed mutation must
+  // not roll its click-time status over these - that status may itself be a
+  // sibling's unconfirmed optimistic update.
   const confirmedMeetingStatusRef = useRef<Map<string, string>>(new Map());
+  const serverMeetingStatusRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     confirmedMeetingStatusRef.current.clear();
+    serverMeetingStatusRef.current = new Map(
+      initialTodos.map((entry) => [entry.meeting.id, entry.meeting.status])
+    );
     setTodos(initialTodos);
   }, [initialTodos]);
 
@@ -484,6 +490,7 @@ export function ProjectMeetingTodos({
     } catch {
       const confirmedMeetingStatus =
         confirmedMeetingStatusRef.current.get(todo.meeting.id) ??
+        serverMeetingStatusRef.current.get(todo.meeting.id) ??
         todo.meeting.status;
       setTodos((current) =>
         applyMeetingStatusToTodos(

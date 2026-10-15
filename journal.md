@@ -3,6 +3,15 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-16 - ND-538: Final review - server-baseline failure fallback and main refresh
+
+- Refreshed main: merged `d065fd3` (ND-565 content revision preconditions). The only conflict was this journal; retained both the ND-538 entries and the ND-565 main-refresh entries. Verified integration: the ND-565 revision preconditions apply to the whole-note PATCH only (expectedRevision/ETag are optional and the action-completion path `setProjectMeetingNoteActionCompletion` is untouched), so optimistic completion payloads and status semantics are unchanged. Ran `npx prisma generate` for the merged content-revisions migration.
+- Addressed the fourth review finding (inline `[P2]` at project-meeting-todos.tsx:487, reproduced in a failing test first, "falls back to the server baseline meeting status when all overlapping reopens fail"):
+  - Problem: the failure fallback read the todo's click-time meeting status, which may itself be a sibling's unconfirmed optimistic update. Reopen A then B in a done meeting (completed A/B plus open C), then fail both: B's click-time snapshot had picked up A's optimistic actions_in_progress, so B's failure applied actions_in_progress and made C overdue even though no mutation ever committed.
+  - Fix (project Todos page): a `serverMeetingStatusRef` baseline map is rebuilt from `initialTodos` on every refresh; the failure path now resolves the meeting status as success-confirmed -> refresh baseline -> click-time status, so failure restores the last server-known status instead of another request's optimistic guess.
+  - Regression test: done meeting with completed A/B plus open C; reopen A then B with responses rejected 403 in order; overdue summary must settle at 1/0 (open C not overdue). Pre-fix it read 1/1; the intermediate assertions pin the optimistic states (1/0 -> 3/3 -> 2/0 -> 1/0).
+- Validation: 108 focused tests across Todos page, notes panel, quick dialog, route, and service files pass on the merged tree (131 including the ND-565 content-revision and transaction-retry suites); `npx tsc --noEmit` error count unchanged from baseline (192, none in changed files); eslint clean on changed files.
+
 # 2026-10-15 - ND-538: Reviewer follow-up - fix completion reconciliation races
 
 - Addressed the Codex review on PR #602 (both findings reproduced in new regression tests first):
