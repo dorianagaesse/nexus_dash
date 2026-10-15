@@ -23,7 +23,7 @@ import {
   requireProjectRole,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
-import { withActorRlsContext } from "@/lib/services/rls-context";
+import { withActorRlsContext, type DbClient } from "@/lib/services/rls-context";
 import {
   contextCardAttachmentSelect,
   contextCardCardSelect,
@@ -32,6 +32,8 @@ import {
   recordContextCardEditor,
   type ContextCardProjection,
 } from "@/lib/services/context-card-projection-service";
+import type { VersionedContent } from "@/lib/content-revision";
+import { editConflict, lockContentRevision } from "@/lib/services/content-revision-service";
 
 const MIN_TITLE_LENGTH = 2;
 const MAX_CONTEXT_TITLE_LENGTH = 120;
@@ -41,6 +43,7 @@ interface ServiceErrorResult {
   ok: false;
   status: number;
   error: string;
+  current?: VersionedContent;
 }
 
 interface ServiceSuccessResult<T> {
@@ -65,9 +68,10 @@ interface UpdateContextCardInput {
   actorUserId: string;
   projectId: string;
   cardId: string;
-  title: string;
-  content: string;
-  color: string;
+  title?: string;
+  content?: string;
+  color?: string;
+  expectedRevision?: number;
   agentAccess?: AgentProjectAccessContext;
 }
 
@@ -90,6 +94,7 @@ export interface ContextCardAttachmentResponsePayload {
 
 export interface ContextCardResponse {
   id: string;
+  contentRevision: number;
   title: string;
   content: string;
   color: string;
@@ -126,6 +131,7 @@ function mapContextCardResponse(input: {
   projectId: string;
   card: {
     id: string;
+    contentRevision: number;
     name: string;
     content: string;
     color: string | null;
@@ -144,6 +150,7 @@ function mapContextCardResponse(input: {
 }): ContextCardResponse {
   return {
     id: input.card.id,
+    contentRevision: input.card.contentRevision,
     title: input.card.name,
     content: input.card.content,
     color: input.card.color ?? CONTEXT_CARD_COLORS[0],
@@ -303,6 +310,7 @@ export async function createContextCardForProject(
         projectId: input.projectId,
         card: {
           id: createdCard.id,
+          contentRevision: createdCardWithAttachments.contentRevision,
           name: title,
           content,
           color,
@@ -354,7 +362,7 @@ export async function updateContextCardForProject(
     return createError(400, "context-card-missing");
   }
 
-  if (title.length < MIN_TITLE_LENGTH) {
+  if (input.title !== undefined && title.length < MIN_TITLE_LENGTH) {
     return createError(400, "context-title-too-short");
   }
 
@@ -366,7 +374,7 @@ export async function updateContextCardForProject(
     return createError(400, "context-content-too-long");
   }
 
-  if (!color) {
+  if (input.color !== undefined && !color) {
     return createError(400, "context-color-invalid");
   }
 
@@ -401,6 +409,15 @@ export async function updateContextCardForProject(
     }
 
     try {
+      const precondition = await lockContentRevision({
+        db, domain: "context-card", projectId: input.projectId,
+        id: cardId, expectedRevision: input.expectedRevision,
+      });
+      if (precondition === "missing") return createError(404, "context-card-not-found");
+      if (precondition === "conflict") {
+        const current = await readContextCardById(db, input.projectId, cardId);
+        return current ? editConflict(current) : createError(404, "context-card-not-found");
+      }
       const existingCard = await db.resource.findFirst({
         where: {
           id: cardId,
@@ -417,9 +434,9 @@ export async function updateContextCardForProject(
       await db.resource.update({
         where: { id: cardId },
         data: {
-          name: title,
-          content,
-          color,
+          ...(input.title !== undefined ? { name: title } : {}),
+          ...(input.content !== undefined ? { content } : {}),
+          ...(input.color !== undefined ? { color: color! } : {}),
         },
       });
 
@@ -438,6 +455,9 @@ export async function updateContextCardForProject(
         where: { id: cardId },
         select: {
           ...contextCardCardSelect,
+          name: true,
+          content: true,
+          color: true,
           createdAt: true,
           attachments: {
             orderBy: [{ createdAt: "desc" }],
@@ -467,9 +487,10 @@ export async function updateContextCardForProject(
           projectId: input.projectId,
           card: {
             id: updatedCard.id,
-            name: title,
-            content,
-            color,
+            contentRevision: updatedCard.contentRevision,
+            name: updatedCard.name,
+            content: updatedCard.content,
+            color: updatedCard.color,
             createdAt: updatedCard.createdAt,
             updatedAt: updatedCard.updatedAt,
           },
@@ -481,6 +502,36 @@ export async function updateContextCardForProject(
       logServerError("updateContextCardForProject", error);
       return createError(500, "context-update-failed");
     }
+  }, { forceTransaction: input.expectedRevision !== undefined });
+}
+
+async function readContextCardById(db: DbClient, projectId: string, cardId: string): Promise<ContextCardResponse | null> {
+  const card = await db.resource.findFirst({
+    where: { id: cardId, projectId, type: RESOURCE_TYPE_CONTEXT_CARD },
+    select: {
+      ...contextCardCardSelect, name: true, content: true, color: true, createdAt: true,
+      attachments: { orderBy: [{ createdAt: "desc" }], select: contextCardAttachmentSelect },
+    },
+  });
+  if (!card) return null;
+  const registry = await loadContextCardActorRegistry({ db, projectId });
+  return mapContextCardResponse({
+    projectId, card, attachments: card.attachments,
+    projection: projectContextCard({ card, registry }),
+  });
+}
+
+export async function getContextCardForProject(input: {
+  actorUserId: string; projectId: string; cardId: string; agentAccess?: AgentProjectAccessContext;
+}): Promise<ServiceResult<ContextCardResponse>> {
+  if (!input.actorUserId.trim()) return createError(401, "unauthorized");
+  const scope = requireAgentProjectScopes({ agentAccess: input.agentAccess, projectId: input.projectId, requiredScopes: ["context:read"] });
+  if (!scope.ok) return createError(scope.status, scope.error);
+  return withActorRlsContext(input.actorUserId, async (db) => {
+    const access = await requireProjectRole({ actorUserId: input.actorUserId, projectId: input.projectId, minimumRole: "viewer", db });
+    if (!access.ok) return createError(access.status, access.error);
+    const card = await readContextCardById(db, input.projectId, input.cardId);
+    return card ? { ok: true, data: card } : createError(404, "context-card-not-found");
   });
 }
 

@@ -182,6 +182,7 @@ export function projectContextCard(input: {
 
 export const contextCardCardSelect = {
   id: true,
+  contentRevision: true,
   projectId: true,
   updatedAt: true,
   createdByUserId: true,

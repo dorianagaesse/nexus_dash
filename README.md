@@ -225,6 +225,7 @@ Runbooks:
 
 - `docs/runbooks/vercel-env-contract-and-secrets.md`
 - `docs/runbooks/database-connection-hardening.md`
+- `docs/runbooks/content-revision-preconditions.md`
 - `docs/runbooks/rls-tenant-isolation.md`
 - `docs/runbooks/notification-email-dispatch.md`
 - `docs/runbooks/release-versioning.md`
