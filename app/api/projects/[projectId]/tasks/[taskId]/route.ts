@@ -8,6 +8,7 @@ import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
+import { contentErrorBody, parseContentPrecondition, withContentEtag } from "@/lib/content-revision";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
 import { loadProjectActorRegistryForActor } from "@/lib/services/project-actor-service";
 import { getProjectKanbanTaskById } from "@/lib/services/project-service";
@@ -59,7 +60,7 @@ export async function GET(
     actorRegistry
   );
 
-  return NextResponse.json({ task }, { headers: timing.headers() });
+  return NextResponse.json({ task }, { headers: withContentEtag(timing.headers(), "task", task) });
 }
 
 export async function PATCH(
@@ -81,6 +82,8 @@ export async function PATCH(
   }
 
   let payload: UpdateTaskPayload;
+  const precondition = parseContentPrecondition(request.headers, "task", taskId);
+  if (!precondition.ok) return NextResponse.json({ error: precondition.error }, { status: 400 });
 
   try {
     payload = (await request.json()) as UpdateTaskPayload;
@@ -92,21 +95,25 @@ export async function PATCH(
     );
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return NextResponse.json({ error: "invalid-request-body" }, { status: 400 });
+  }
 
   const result = await updateTaskForProject(
     projectId,
     taskId,
     payload,
     actorUserId,
-    agentAccess
+    agentAccess,
+    ...((precondition.expectedRevision === undefined ? [] : [precondition.expectedRevision]) as [] | [number])
   );
   if (!result.ok) {
     return NextResponse.json(
       {
-        error: result.error,
+        ...contentErrorBody(result),
         ...(result.invalidRelatedTask ? { invalidRelatedTask: result.invalidRelatedTask } : {}),
       },
-      { status: result.status, headers: timing.headers() }
+      { status: result.status, headers: result.current ? withContentEtag(timing.headers(), "task", result.current) : timing.headers() }
     );
   }
 
@@ -124,10 +131,10 @@ export async function PATCH(
   return NextResponse.json(
     { task },
     {
-      headers: withProjectActivityVersionHeader(
+      headers: withContentEtag(withProjectActivityVersionHeader(
         timing.headers(),
         result.data.activityVersion
-      ),
+      ), "task", rawTask),
     }
   );
 }

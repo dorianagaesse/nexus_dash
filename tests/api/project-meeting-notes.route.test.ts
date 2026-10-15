@@ -288,13 +288,7 @@ describe("project meeting notes routes", () => {
       projectId: "project-1",
       noteId: "note-1",
       title: "Weekly execution review",
-      scheduledAt: null,
       participants: [{ userId: null, displayName: "Dorian" }],
-      labels: [],
-      status: null,
-      inputNotes: "",
-      outputNotes: "",
-      decisions: "",
       actions: [
         {
           id: "action-1",

@@ -428,12 +428,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         content: "Waiting on IAM role",
       },
     });
-    expect(prismaMock.taskRelation.deleteMany).toHaveBeenCalledWith({
-      where: {
-        projectId: "p1",
-        OR: [{ leftTaskId: "t1" }, { rightTaskId: "t1" }],
-      },
-    });
+    expect(prismaMock.taskRelation.deleteMany).not.toHaveBeenCalled();
     expect(prismaMock.taskRelation.createMany).toHaveBeenCalledWith({
       data: [
         {

@@ -266,17 +266,17 @@ aggregate already has a revision vocabulary).
 
 - Read responses include the revision and a strong `ETag` derived from the
   artifact id plus revision.
-- Edit PATCH requests send `If-Match` for the base revision. Services enforce
+- Edit PATCH requests send `X-Content-If-Match` for the base revision. Services enforce
   the expected revision atomically in the same RLS transaction as the update
   and increment it once for the accepted content mutation.
 - Content-affecting commands within the same aggregate increment the revision.
   Activity-only events such as a new task comment do not increment the task's
   content revision.
-- A stale `If-Match` precondition returns HTTP `412 Precondition Failed` with a
+- A stale `X-Content-If-Match` precondition returns HTTP `412 Precondition Failed` with a
   stable `edit-conflict` code,
   the current revision, and the authorized current representation needed for
   reconciliation. It never applies the stale payload.
-- Routes remain transport adapters. Parsing `If-Match` and mapping the response
+- Routes remain transport adapters. Parsing `X-Content-If-Match` and mapping the response
   happens at the route; authorization, the compare-and-update, and revision
   increment remain in `lib/services/**`.
 - The same precondition applies to explicit Save once a surface adopts the
@@ -285,11 +285,11 @@ aggregate already has a revision vocabulary).
 #### Agent API compatibility and enforcement
 
 The shared task PATCH route is already published in the agent v1 contract, so
-`If-Match` cannot become mandatory for existing bearer clients without a
+`X-Content-If-Match` cannot become mandatory for existing bearer clients without a
 transition. Enforcement is staged and principal-aware:
 
 1. **Additive revision release:** reads and successful mutations return
-   `contentRevision` and `ETag`; PATCH accepts and enforces `If-Match` when it
+   `contentRevision` and `ETag`; PATCH accepts and enforces `X-Content-If-Match` when it
    is supplied. The browser/session client is upgraded in the same release.
    Existing agent v1 calls without the header remain compatible temporarily,
    but every accepted v1 write still increments `contentRevision`.
@@ -300,7 +300,7 @@ transition. Enforcement is staged and principal-aware:
    paths stay shared; a duplicate task route is not introduced.
 3. **Required precondition:** human session mutations after the browser rollout
    and agent v2 mutations return `428 Precondition Required` with
-   `edit-precondition-required` when `If-Match` is missing. A supplied but
+   `edit-precondition-required` when `X-Content-If-Match` is missing. A supplied but
    stale value returns `412 edit-conflict` for every principal.
 4. **v1 sunset:** mark the v1 task mutation deprecated, publish the migration
    window, update repository-owned examples/clients, stop issuing v1 tokens at
@@ -483,3 +483,14 @@ and the server revision check.
 - `components/project-calendar-panel.tsx`
 - `lib/services/project-task-service.ts`
 - `lib/services/project-meeting-note-service.ts`
+
+## 2026-10-12 transport amendment (ND-565)
+
+Vercel re-evaluates a standard `If-Match` against the post-mutation response
+ETag, producing a platform 412 even after an accepted database write. Private
+no-store headers, omitting the response ETag, and middleware forwarding did
+not prevent that behavior in explicit-branch Preview probes. Use
+`X-Content-If-Match` with the exact entity ETag for content writes. Standard
+`If-Match` is rejected with 400 `edit-precondition-transport` before mutation.
+The atomic revision comparison, authorized 412 response, additive legacy
+compatibility and Live release gates are unchanged.
