@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CalendarDays,
@@ -336,8 +336,12 @@ export function ProjectMeetingTodos({
   );
   const [feedback, setFeedback] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  // Meeting statuses server-confirmed by a successful mutation. A failed
+  // mutation must not roll its stale click-time status over these.
+  const confirmedMeetingStatusRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
+    confirmedMeetingStatusRef.current.clear();
     setTodos(initialTodos);
   }, [initialTodos]);
 
@@ -455,6 +459,7 @@ export function ProjectMeetingTodos({
         : optimisticCompletedAt;
       const serverMeetingStatus =
         payload?.note?.status ?? todo.meeting.status;
+      confirmedMeetingStatusRef.current.set(todo.meeting.id, serverMeetingStatus);
 
       setTodos((current) =>
         applyMeetingStatusToTodos(
@@ -477,6 +482,9 @@ export function ProjectMeetingTodos({
       );
       setFeedback(completed ? "Todo completed." : "Todo reopened.");
     } catch {
+      const confirmedMeetingStatus =
+        confirmedMeetingStatusRef.current.get(todo.meeting.id) ??
+        todo.meeting.status;
       setTodos((current) =>
         applyMeetingStatusToTodos(
           current.map((entry) =>
@@ -489,7 +497,7 @@ export function ProjectMeetingTodos({
               : entry
           ),
           todo.meeting.id,
-          todo.meeting.status,
+          confirmedMeetingStatus,
           Date.now()
         )
       );

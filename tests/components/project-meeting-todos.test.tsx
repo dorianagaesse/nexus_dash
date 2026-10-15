@@ -416,4 +416,133 @@ describe("project meeting todos", () => {
     container.remove();
     fetchMock.mockRestore();
   });
+
+  test("does not roll back a sibling's acknowledged meeting status when another reopen fails", async () => {
+    mockSearchParams = new URLSearchParams("view=completed");
+    const doneMeeting = {
+      id: "meeting-done",
+      title: "Closed review",
+      scheduledAt: "2026-07-01T09:00:00.000Z",
+      status: "done",
+    };
+    const completedA: ProjectMeetingTodoItem = {
+      ...ownerTodo,
+      id: "todo-a",
+      content: "Close the audit loop",
+      completedAt: "2026-07-20T11:00:00.000Z",
+      isOverdue: false,
+      meeting: doneMeeting,
+    };
+    const completedB: ProjectMeetingTodoItem = {
+      ...ownerTodo,
+      id: "todo-b",
+      content: "Ship the release notes",
+      completedAt: "2026-07-21T11:00:00.000Z",
+      isOverdue: false,
+      meeting: { ...doneMeeting },
+    };
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    let resolveA!: (value: Response) => void;
+    let resolveB!: (value: Response) => void;
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveA = resolve;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveB = resolve;
+          })
+      );
+
+    await act(async () => {
+      root.render(
+        <ProjectMeetingTodos
+          projectId="project-1"
+          canEdit
+          initialTodos={[completedA, completedB]}
+        />
+      );
+    });
+
+    const summaryValues = () =>
+      Array.from(
+        container.querySelectorAll(
+          'section[aria-label="Todo summary"] p.tabular-nums'
+        )
+      ).map((element) => element.textContent);
+
+    expect(summaryValues()).toEqual(["0", "0"]);
+
+    const reopenA = container.querySelector(
+      'button[aria-label="Reopen todo: Close the audit loop"]'
+    ) as HTMLButtonElement;
+    const reopenB = container.querySelector(
+      'button[aria-label="Reopen todo: Ship the release notes"]'
+    ) as HTMLButtonElement;
+    expect(reopenA).not.toBeNull();
+    expect(reopenB).not.toBeNull();
+    await act(async () => {
+      reopenA.click();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      reopenB.click();
+      await Promise.resolve();
+    });
+
+    // Both reopens are optimistic; the done meeting is predicted to flip back
+    // to actions_in_progress, so both open todos read as overdue.
+    expect(summaryValues()).toEqual(["2", "2"]);
+
+    // B's reopen commits actions_in_progress; A is still awaiting a response.
+    await act(async () => {
+      resolveB(
+        new Response(
+          JSON.stringify({
+            note: {
+              status: "actions_in_progress",
+              actions: [{ id: "todo-b", completedAt: null, completedBy: null }],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(summaryValues()).toEqual(["2", "2"]);
+
+    // A's reopen then fails: only A's completion rolls back. The meeting
+    // status B already committed must survive, so B stays overdue.
+    await act(async () => {
+      resolveA(
+        new Response(JSON.stringify({ error: "forbidden" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(
+      container.querySelector(
+        'button[aria-label="Reopen todo: Close the audit loop"]'
+      )
+    ).not.toBeNull();
+    expect(summaryValues()).toEqual(["1", "1"]);
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      "Could not update this todo. Check your access and retry."
+    );
+    expect(navigationMock.refresh).not.toHaveBeenCalled();
+
+    await act(async () => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
 });
