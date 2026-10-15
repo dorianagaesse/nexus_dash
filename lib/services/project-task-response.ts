@@ -21,6 +21,7 @@ import {
 
 export interface TaskResponseRecord {
   id: string;
+  contentRevision: number;
   reference: string;
   title: string;
   description: string | null;
@@ -80,6 +81,7 @@ export function mapProjectKanbanTaskToTaskResponse(
 ): TaskResponseRecord {
   return {
     id: task.id,
+    contentRevision: task.contentRevision,
     reference: formatTaskReference(task.referenceNumber),
     title: task.title,
     description: task.description,

@@ -5,10 +5,12 @@ import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
+import { contentErrorBody, parseContentPrecondition, withContentEtag } from "@/lib/content-revision";
 import type { ProjectMeetingParticipantInput } from "@/lib/meeting-participant";
 import { isMeetingTodoActorReference } from "@/lib/meeting-todo-actor";
 import {
   deleteProjectMeetingNote,
+  getProjectMeetingNote,
   updateProjectMeetingNote,
   type MeetingNoteActionInput,
   type ProjectMeetingNoteSummary,
@@ -119,6 +121,15 @@ async function readJsonPayload(
   }
 }
 
+export async function GET(request: NextRequest, props: { params: Promise<{ projectId: string; noteId: string }> }) {
+  const params = await props.params;
+  const user = await requireAuthenticatedApiUser(request);
+  if (!user.ok) return user.response;
+  const result = await getProjectMeetingNote({ ...params, actorUserId: user.userId });
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+  return NextResponse.json({ note: serializeMeetingNote(result.data.note) }, { headers: withContentEtag({}, "meeting-note", result.data.note) });
+}
+
 export async function PATCH(
   request: NextRequest,
   props: { params: Promise<{ projectId: string; noteId: string }> }
@@ -129,6 +140,8 @@ export async function PATCH(
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;
   }
+  const precondition = parseContentPrecondition(request.headers, "meeting-note", params.noteId);
+  if (!precondition.ok) return NextResponse.json({ error: precondition.error }, { status: 400 });
 
   const payload = await readJsonPayload(
     request,
@@ -137,36 +150,42 @@ export async function PATCH(
   if (payload instanceof NextResponse) {
     return payload;
   }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload) ||
+    [payload.participants, payload.labels, payload.actions].some((value) => value !== undefined && !Array.isArray(value)) ||
+    [payload.title, payload.inputNotes, payload.outputNotes, payload.decisions].some((value) => value !== undefined && typeof value !== "string")) {
+    return NextResponse.json({ error: "invalid-request-body" }, { status: 400 });
+  }
 
   const result = await updateProjectMeetingNote({
     actorUserId: authenticatedUser.userId,
     projectId: params.projectId,
     noteId: params.noteId,
-    title: readString(payload.title),
-    scheduledAt: readOptionalString(payload.scheduledAt),
-    participants: readParticipants(payload.participants),
-    labels: readStringArray(payload.labels),
-    status: readOptionalString(payload.status),
-    inputNotes: readString(payload.inputNotes),
-    outputNotes: readString(payload.outputNotes),
-    decisions: readString(payload.decisions),
-    actions: readActions(payload.actions),
+    ...(payload.title === undefined ? {} : { title: readString(payload.title) }),
+    ...(payload.scheduledAt === undefined ? {} : { scheduledAt: readOptionalString(payload.scheduledAt) }),
+    ...(payload.participants === undefined ? {} : { participants: readParticipants(payload.participants) }),
+    ...(payload.labels === undefined ? {} : { labels: readStringArray(payload.labels) }),
+    ...(payload.status === undefined ? {} : { status: readOptionalString(payload.status) }),
+    ...(payload.inputNotes === undefined ? {} : { inputNotes: readString(payload.inputNotes) }),
+    ...(payload.outputNotes === undefined ? {} : { outputNotes: readString(payload.outputNotes) }),
+    ...(payload.decisions === undefined ? {} : { decisions: readString(payload.decisions) }),
+    ...(payload.actions === undefined ? {} : { actions: readActions(payload.actions) }),
+    ...(precondition.expectedRevision === undefined ? {} : { expectedRevision: precondition.expectedRevision }),
   });
 
   if (!result.ok) {
     return NextResponse.json(
-      { error: result.error },
-      { status: result.status, headers: timing.headers() }
+      contentErrorBody(result),
+      { status: result.status, headers: result.current ? withContentEtag(timing.headers(), "meeting-note", result.current) : timing.headers() }
     );
   }
 
   return NextResponse.json(
     { note: serializeMeetingNote(result.data.note) },
     {
-      headers: withProjectActivityVersionHeader(
+      headers: withContentEtag(withProjectActivityVersionHeader(
         timing.headers(),
         result.data.activityVersion
-      ),
+      ), "meeting-note", result.data.note),
     }
   );
 }
