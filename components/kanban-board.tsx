@@ -387,11 +387,44 @@ interface KeyboardDropIntent {
   movedTaskId: string;
   outcome: "pending" | "saved" | "failed";
   // Project activity version reported by the early persist response; a remote
-  // column update with a newer version is authoritative over the intent.
+  // full-order delivery with a newer version is authoritative over the intent.
   writeVersion: string | null;
-  // Newest remote version already applied when the intent was submitted; used
-  // as the baseline until the write's own version is known.
+  // Newest authoritative version already applied when the intent was submitted;
+  // used as the baseline until the write's own version is known.
   intentStartVersion: string | null;
+  // Lane orders the write payload persists; restored around the settle so the
+  // board shows the stored order without re-deriving the move by index.
+  committedOrders: Array<{ status: TaskStatus; taskIds: string[] }>;
+  settled: boolean;
+}
+
+// Restores the committed lane order while keeping partial deltas (task
+// upserts, deletions, insertions) where they currently sit, mirroring how the
+// server replays those events over the stored order.
+function reconcileColumnOrder<T extends { id: string }>(
+  tasks: T[],
+  committedIds: string[]
+): T[] {
+  const taskById = new Map(tasks.map((task) => [task.id, task]));
+  const committedSet = new Set(committedIds);
+  const ordered = committedIds.flatMap((id) => {
+    const task = taskById.get(id);
+    return task ? [task] : [];
+  });
+  const extras = tasks.filter((task) => !committedSet.has(task.id));
+  if (extras.length === 0) {
+    const unchanged =
+      ordered.length === tasks.length &&
+      ordered.every((task, index) => task === tasks[index]);
+    return unchanged ? tasks : ordered;
+  }
+
+  const merged = [...ordered];
+  for (const extra of extras) {
+    const index = Math.min(tasks.indexOf(extra), merged.length);
+    merged.splice(index, 0, extra);
+  }
+  return merged;
 }
 
 export function KanbanBoard({
@@ -431,10 +464,14 @@ export function KanbanBoard({
   const keyboardDropIntentRef = useRef<KeyboardDropIntent | null>(null);
   const remoteColumnsVersionRef = useRef<string | null>(null);
   const remoteColumnsApplyCountRef = useRef(0);
-  // Reshape events and fresh server-rendered props both carry an authoritative
-  // order: every apply is counted (writers avoid reverting over newer columns)
-  // and the newest project activity version is kept (settlements compare it
-  // against the acknowledged write).
+  // Every remote columns mutation is counted so writers avoid reverting over
+  // it. Only full-order deliveries - typed reorder events and fresh
+  // server-rendered props - also record the activity version; partial task
+  // deltas (upserts, deletions) say nothing about the whole-board order, so a
+  // newer version on one of them must not outrank an acknowledged write.
+  const markRemoteColumnsMutated = useCallback(() => {
+    remoteColumnsApplyCountRef.current += 1;
+  }, []);
   const markRemoteColumnsApplied = useCallback(
     (version: string | null | undefined) => {
       remoteColumnsApplyCountRef.current += 1;
@@ -1315,6 +1352,27 @@ export function KanbanBoard({
     [columns, currentActorSummary, visibleColumns]
   );
 
+  const applyCommittedOrders = useCallback(
+    (orders: Array<{ status: TaskStatus; taskIds: string[] }>) => {
+      setColumns((previousColumns) => {
+        let hasChanges = false;
+        const nextColumns = { ...previousColumns };
+        for (const order of orders) {
+          const reconciled = reconcileColumnOrder(
+            previousColumns[order.status],
+            order.taskIds
+          );
+          if (reconciled !== previousColumns[order.status]) {
+            hasChanges = true;
+            nextColumns[order.status] = reconciled;
+          }
+        }
+        return hasChanges ? nextColumns : previousColumns;
+      });
+    },
+    []
+  );
+
   const handleKeyboardDropIntent = useCallback(
     (source: DraggableLocation, destination: DraggableLocation) => {
       if (!canEdit || keyboardDropIntentRef.current) {
@@ -1333,6 +1391,13 @@ export function KanbanBoard({
         outcome: "pending",
         writeVersion: null,
         intentStartVersion: remoteColumnsVersionRef.current,
+        committedOrders: TASK_STATUSES.map((status) => ({
+          status,
+          taskIds: computed.application.nextColumns[status].map(
+            (task) => task.id
+          ),
+        })),
+        settled: false,
       };
       keyboardDropIntentRef.current = record;
 
@@ -1347,13 +1412,34 @@ export function KanbanBoard({
           nextTask: computed.application.nextTask,
         }
       ).then(({ persisted, version }) => {
-        if (keyboardDropIntentRef.current === record) {
-          record.outcome = persisted ? "saved" : "failed";
-          record.writeVersion = version;
+        record.outcome = persisted ? "saved" : "failed";
+        record.writeVersion = version;
+
+        if (keyboardDropIntentRef.current !== null || !record.settled) {
+          // An active intent (this one or a successor) settles the outcome; a
+          // replaced intent was never settled and must not reapply.
+          return;
         }
+        if (!persisted) {
+          // The failure path already reverted or kept the remote layout.
+          return;
+        }
+        // The acknowledgement arrived after the drop settled: the write's
+        // committed order is the stored order unless a newer full-order
+        // delivery landed in the meantime.
+        const remoteVersion = remoteColumnsVersionRef.current;
+        if (
+          version === null ||
+          (remoteVersion !== null &&
+            !isProjectActivityVersionNewer(version, remoteVersion))
+        ) {
+          return;
+        }
+        applyCommittedOrders(record.committedOrders);
+        setPersistError(null);
       });
     },
-    [canEdit, computeDropApplication, persistColumns]
+    [applyCommittedOrders, canEdit, computeDropApplication, persistColumns]
   );
 
   const onDragEnd = useCallback(
@@ -1385,6 +1471,7 @@ export function KanbanBoard({
         keyboardIntent.destination.index === destination.index;
 
       if (matchesKeyboardIntent) {
+        keyboardIntent.settled = true;
         if (keyboardIntent.outcome === "failed") {
           // The early persist already reverted and surfaced the error; leave
           // the board on the stored order instead of applying the drop locally.
@@ -1417,12 +1504,13 @@ export function KanbanBoard({
 
         const located = findVisibleTaskLocation(keyboardIntent.movedTaskId);
 
-        // A remote column update carrying a project version newer than the
-        // acknowledgement's write is authoritative: the stored order already
-        // includes the committed move plus whatever landed after it, so the
-        // intent must not be re-derived over it. While the write is still in
-        // flight its version is unknown, so the newest version already applied
-        // when the intent was submitted is the baseline instead.
+        // A full-order remote delivery (typed reorder event or fresh
+        // server-rendered props) carrying a project version newer than the
+        // acknowledgement's write is authoritative: its order already includes
+        // the committed move plus whatever landed after it, so the intent must
+        // not be restored over it. While the write is still in flight its
+        // version is unknown, so the newest version already applied when the
+        // intent was submitted is the baseline instead.
         const remoteVersion = remoteColumnsVersionRef.current;
         const settleBaseline =
           keyboardIntent.writeVersion ?? keyboardIntent.intentStartVersion;
@@ -1439,34 +1527,16 @@ export function KanbanBoard({
           return;
         }
 
-        // Otherwise the columns predate the write, so settle the
-        // acknowledgement by the submitted task's identity: apply the move at
-        // most once, keep the intervening remote changes of every other card,
-        // and never re-move whichever card now holds the original source index.
-        const settledTask = isTaskStatus(destination.droppableId)
-          ? visibleColumns[destination.droppableId][destination.index]
-          : undefined;
-        if (settledTask?.id === keyboardIntent.movedTaskId) {
-          setPersistError(null);
-          syncMovedTaskSummary(settledTask);
-          return;
-        }
-
-        if (!located) {
-          return;
-        }
-
-        const reconciled = computeDropApplication(
-          { droppableId: located.status, index: located.index },
-          destination
-        );
-        if (!reconciled || "error" in reconciled) {
-          return;
-        }
-
-        setColumns(reconciled.application.nextColumns);
+        // Otherwise the local layout predates (or only partially reflects)
+        // the write, so restore the committed payload orders: the stored
+        // order of every lane wins while partial deltas that landed around the
+        // acknowledgement keep their current positions. Re-deriving the move
+        // by index is never correct once other events may have shifted cards.
+        applyCommittedOrders(keyboardIntent.committedOrders);
         setPersistError(null);
-        syncMovedTaskSummary(reconciled.application.movedTask);
+        if (located) {
+          syncMovedTaskSummary(located.task);
+        }
         return;
       }
 
@@ -1502,6 +1572,7 @@ export function KanbanBoard({
       }
     },
     [
+      applyCommittedOrders,
       canEdit,
       computeDropApplication,
       persistColumns,
@@ -2737,7 +2808,7 @@ export function KanbanBoard({
           const remoteTask = readRemoteTaskPayload(activity);
           if (remoteTask) {
             upsertRemoteTask(remoteTask);
-            markRemoteColumnsApplied(activity.version);
+            markRemoteColumnsMutated();
             void reconcileProjectEpics(projectId);
             detail.markHandled();
             return;
@@ -2758,7 +2829,7 @@ export function KanbanBoard({
               ...task,
               archivedAt,
             }));
-            markRemoteColumnsApplied(activity.version);
+            markRemoteColumnsMutated();
             void reconcileProjectEpics(projectId);
             detail.markHandled();
             return;
@@ -2768,7 +2839,7 @@ export function KanbanBoard({
 
         if (activity.action === "deleted" && activity.entityId) {
           removeLocalTask(activity.entityId);
-          markRemoteColumnsApplied(activity.version);
+          markRemoteColumnsMutated();
           void reconcileProjectEpics(projectId);
           detail.markHandled();
           return;
@@ -2843,6 +2914,7 @@ export function KanbanBoard({
     applyRemoteReorder,
     applyTaskMutation,
     markRemoteColumnsApplied,
+    markRemoteColumnsMutated,
     projectId,
     removeLocalTask,
     selectedTask?.id,

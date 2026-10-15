@@ -123,6 +123,20 @@ function dispatchCreatedEvent(task: Partial<Record<string, unknown>>, version: s
   });
 }
 
+function dispatchUpdatedEvent(task: Partial<Record<string, unknown>>, version: string): boolean {
+  return dispatchProjectActivityRemoteEvent({
+    eventId: `event-${version}`,
+    projectId: "project",
+    version,
+    serverTime: "2026-10-12T00:00:00Z",
+    actorUserId: "other",
+    domain: "task",
+    action: "updated",
+    entityId: typeof task.id === "string" ? task.id : null,
+    payload: { task: { ...task, createdBy: person, updatedBy: person } },
+  });
+}
+
 const source = { droppableId: "Backlog", index: 0 };
 const destination = { droppableId: "Backlog", index: 1 };
 const MOUNT_VERSION = "2026-10-12T00:00:00.000Z";
@@ -271,8 +285,8 @@ test("a stale remote order delivered after acceptance does not override the comm
       capture.grid.onDragEnd(dropResult());
     });
 
-    // The committed write is newer than the stale layout, so the
-    // acknowledgement applies the move from where the task actually sits.
+    // The committed write is newer than the stale layout, so the settle
+    // restores the stored order the write committed.
     expect(backlogOrder()).toEqual(["b", "a", "c"]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   } finally {
@@ -283,7 +297,7 @@ test("a stale remote order delivered after acceptance does not override the comm
   }
 });
 
-test("a remote insertion between acceptance and settle is respected at drop settle", async () => {
+test("a remote insertion between acceptance and settle keeps the committed order", async () => {
   const fetchMock = vi.fn(async () => persistResponse("2026-10-12T00:00:01.000Z"));
   vi.stubGlobal("fetch", fetchMock);
   const root = createRoot(document.createElement("div"));
@@ -294,7 +308,9 @@ test("a remote insertion between acceptance and settle is respected at drop sett
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    // A newer task lands at the top of the column while the drop settles.
+    // A newer task lands at the top of the column while the drop settles. The
+    // created event patches one task position; it does not carry the board
+    // order, so it must not outrank the acknowledged write.
     await act(async () => {
       expect(
         dispatchCreatedEvent(
@@ -313,7 +329,7 @@ test("a remote insertion between acceptance and settle is respected at drop sett
             updatedAt: "2026-10-12T00:00:00Z",
             blockedFollowUps: [],
             status: "Backlog",
-            position: 0,
+            position: -1,
             archivedAt: null,
             relatedTasks: [],
             attachments: [],
@@ -322,17 +338,63 @@ test("a remote insertion between acceptance and settle is respected at drop sett
         )
       ).toBe(true);
     });
-    const insertedOrder = backlogOrder();
-    expect(insertedOrder).toContain("d");
+    expect(backlogOrder()).toEqual(["d", "a", "b", "c"]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       capture.grid.onDragEnd(dropResult());
     });
 
-    // The newer authoritative layout is kept verbatim; the submitted card is
-    // not moved a second time because an insertion shifted its index.
-    expect(backlogOrder()).toEqual(insertedOrder);
+    // The settled board matches the stored order: the committed move (b before
+    // a) is preserved and the insertion stays where it landed.
+    expect(backlogOrder()).toEqual(["d", "b", "a", "c"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  } finally {
+    await act(async () => {
+      root.unmount();
+    });
+    vi.unstubAllGlobals();
+  }
+});
+
+test("a partial task event after acceptance does not cancel the committed keyboard move", async () => {
+  const fetchMock = vi.fn(async () => persistResponse("2026-10-12T00:00:01.000Z"));
+  vi.stubGlobal("fetch", fetchMock);
+  const root = createRoot(document.createElement("div"));
+  await renderBoard(root, makeTasks(["a", "b", "c"]));
+  try {
+    await act(async () => {
+      capture.grid.onKeyboardDropIntent(source, destination);
+    });
+    await flushAsync();
+
+    // A rename lands at a newer version but patches only C: a task delta says
+    // nothing about the whole-board order the write committed, so it must not
+    // stand in for an authoritative layout.
+    await act(async () => {
+      expect(
+        dispatchUpdatedEvent(
+          {
+            ...makeTasks(["a", "b", "c"])[2],
+            title: "C renamed",
+            label: null,
+            labelsJson: null,
+          },
+          "2026-10-12T00:00:02.000Z"
+        )
+      ).toBe(true);
+    });
+
+    await act(async () => {
+      capture.grid.onDragEnd(dropResult());
+    });
+
+    // The committed move is preserved and the rename stays in place.
+    expect(backlogOrder()).toEqual(["b", "a", "c"]);
+    expect(
+      capture.grid.columns.Backlog.find((task: KanbanTask) => task.id === "c")
+        .title
+    ).toBe("C renamed");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   } finally {
     await act(async () => {
@@ -379,7 +441,7 @@ test("a parent-prop refetch newer than the acknowledged write is respected at se
   }
 });
 
-test("a stale parent-prop refetch settles the acknowledged move by identity", async () => {
+test("a stale parent-prop refetch does not override the committed write at settle", async () => {
   const fetchMock = vi.fn(async () => persistResponse("2026-10-12T00:00:05.000Z"));
   vi.stubGlobal("fetch", fetchMock);
   const root = createRoot(document.createElement("div"));
@@ -403,9 +465,54 @@ test("a stale parent-prop refetch settles the acknowledged move by identity", as
       capture.grid.onDragEnd(dropResult());
     });
 
-    // The committed write outranks the stale layout, so the acknowledgement
-    // applies the move from where the task actually sits.
-    expect(backlogOrder()).toEqual(["c", "a", "b"]);
+    // The committed write outranks the stale layout, so the settle restores
+    // the stored order the write committed.
+    expect(backlogOrder()).toEqual(["b", "a", "c"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  } finally {
+    await act(async () => {
+      root.unmount();
+    });
+    vi.unstubAllGlobals();
+  }
+});
+
+test("a write acknowledged after the drop settled reconciles against its actual version", async () => {
+  let resolvePersist!: (response: Response) => void;
+  const pendingResponse = new Promise<Response>((resolve) => {
+    resolvePersist = resolve;
+  });
+  const fetchMock = vi.fn(() => pendingResponse);
+  vi.stubGlobal("fetch", fetchMock);
+  const root = createRoot(document.createElement("div"));
+  await renderBoard(root, makeTasks(["a", "b", "c"]));
+  try {
+    await act(async () => {
+      capture.grid.onKeyboardDropIntent(source, destination);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // A refetch already in progress lands the collaborator's order before the
+    // write commits; the write's version is still unknown, so the newer
+    // full-order layout is respected at settle.
+    await renderBoard(
+      root,
+      makeTasks(["c", "b", "a"]),
+      "2026-10-12T00:00:02.000Z"
+    );
+    await act(async () => {
+      capture.grid.onDragEnd(dropResult());
+    });
+    expect(backlogOrder()).toEqual(["c", "b", "a"]);
+
+    // The held request then commits after the remote layout and reports its
+    // version: the write is the newest authority, so the board converges to
+    // its stored order without another request.
+    await act(async () => {
+      resolvePersist(persistResponse("2026-10-12T00:00:03.000Z"));
+    });
+    await flushAsync();
+    expect(backlogOrder()).toEqual(["b", "a", "c"]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   } finally {
     await act(async () => {
