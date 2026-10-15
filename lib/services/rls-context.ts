@@ -17,26 +17,30 @@ function normalizeActorUserId(actorUserId: string | null | undefined): string {
 
 export async function withActorRlsContext<T>(
   actorUserId: string | null | undefined,
-  operation: (db: Prisma.TransactionClient) => Promise<T>
+  operation: (db: Prisma.TransactionClient) => Promise<T>,
+  options?: { forceTransaction?: boolean }
 ): Promise<T> {
   const normalizedActorUserId = normalizeActorUserId(actorUserId);
   if (!normalizedActorUserId) {
     throw new Error("unauthorized");
   }
 
-  if (!shouldUseActorRlsContext()) {
+  const useActorContext = shouldUseActorRlsContext();
+  if (!useActorContext && !options?.forceTransaction) {
     return operation(prisma as unknown as Prisma.TransactionClient);
   }
 
   return prisma.$transaction(
     async (db) => {
-      if (typeof db.$executeRaw !== "function") {
+      if (useActorContext && typeof db.$executeRaw !== "function") {
         throw new Error(
           "Prisma client does not support $executeRaw; cannot set RLS context"
         );
       }
 
-      await db.$executeRaw`SELECT set_config('app.user_id', ${normalizedActorUserId}, true)`;
+      if (useActorContext) {
+        await db.$executeRaw`SELECT set_config('app.user_id', ${normalizedActorUserId}, true)`;
+      }
       return operation(db);
     },
     {

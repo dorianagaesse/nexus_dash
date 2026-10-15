@@ -3,6 +3,44 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-14 - ND-565: Refresh main integration
+
+- Merged main at `75433a9` after ND-534 landed. The only conflict was this
+  journal; retained both the ND-565 review evidence and ND-534 execution log.
+- ND-565 service, API, schema and concurrency-test code is unchanged from the
+  validated implementation. Main's roadmap changes remain intact.
+- Reviewed conflict markers, whitespace and references; fresh PR CI validates
+  the integrated branch before handoff. Live remains off.
+
+# 2026-10-13 - ND-565: Address relation revision review
+
+- Merged current main into the ND-565 branch and retained both the ND-452
+  invalid-relation diagnostics and ND-565 revision conflict responses.
+- Replaced delete/recreate relation snapshots with added/removed pair writes,
+  preserving both endpoints' revisions when the requested set is unchanged.
+- Added bounded whole-transaction retries for guarded task edits after a
+  PostgreSQL deadlock or serialization failure. Every attempt repeats project
+  authorization and the original revision check; other failures and unguarded
+  operations are not replayed.
+- Added API checks for retained relations, revision rechecks and retry limits,
+  plus real-database browser regressions for legacy snapshots, reciprocal
+  conditional saves and a deliberately forced reciprocal lock schedule.
+- Local lint, RLS inventory, 2,026 unit/API tests (2 skipped), coverage
+  (93.71% statements / 84.98% branches / 95.42% functions / 94.11% lines),
+  production build, the least-privilege PostgreSQL matrix and the full browser
+  suite (112 passed / 2 expected skips) passed.
+- Implementation `ea9d20d97199d6df51f482b2e983ac37be72cb66` passed every gate in
+  [CI run 38463067569](https://github.com/dorianagaesse/nexus_dash/actions/runs/38463067569).
+- [Preview run 38463093280](https://github.com/dorianagaesse/nexus_dash/actions/runs/38463093280)
+  checked out that implementation SHA. Its first dependency install aborted
+  during a network download; rerunning the failed job succeeded. The immutable
+  [deployment](https://nexus-dash-dcaej573a-dorian-agaesses-projects.vercel.app)
+  passed protected HTTP checks for the original revision contract, identical
+  legacy/guarded relation snapshots retaining both ETags, and reciprocal saves
+  yielding 200/412 with one committed activity. Temporary fixtures were removed.
+- Both review threads have implementation/test replies and are resolved.
+  Main conflicts are resolved; Live remains off and merge belongs to the reviewer.
+
 # 2026-10-12 - ND-433: Shared live-save client scheduler and conflict UI
 
 - Picked up the ND-433 live-save work from the board and started `feature/nd-433-live-save-scheduler` from `origin/main` at `24d4496` in a dedicated worktree.
@@ -13,6 +51,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Review-round validation (CI-mirroring env, isolated database): lint and `rls:check` clean; 2,047 unit tests passed (2 skipped); coverage gate passed (93.7% statements / 85.96% branches); production build passed. The reviewer's four regressions plus StrictMode, unmount-before-debounce, and inert-construction coverage live in `tests/components/live-save-review-regressions.test.tsx`.
 - Re-review round 2026-10-14 (re-reviewed head `3999b3c`): the five findings verified fixed; one new P1 addressed. The accepted branch now adopts the acknowledgement's canonical value for every declared field the user has not edited since the submitted snapshot - internally and through `applyRepresentation` - so server normalization (for example a trimmed title) no longer reads dirty against the new base and re-saves at response speed; values typed in flight win over the acknowledgement. Merged `origin/main` (ND-534; `journal.md` conflicted again, both entries kept newest-first). New coverage in `tests/components/live-save-review-regressions.test.tsx`: the reviewer's normalized-value regression, an accepted rich-text canonicalization case, and an in-flight newer-edit preservation case.
 - Re-review validation (CI-mirroring env, isolated database): lint and `rls:check` clean; 2,063 unit tests passed (2 skipped); coverage gate passed (93.76% statements / 86.08% branches); production build passed.
+- Merge-forward 2026-10-16 (ND-565, #595): merged `origin/main` at `d065fd3`; `journal.md` conflicted again (both entries kept newest-first) and `adr/task-432-autosave-contract.md` auto-merged with the ND-565 4.4 wording and transport amendment intact alongside section 4.7. Re-validated on a fresh isolated database with the ND-565 `content_revisions` migration applied: lint and `rls:check` clean; 2,091 unit tests passed (2 skipped); coverage gate passed (93.64% statements / 86.03% branches); production build passed.
+
 # 2026-10-12 - ND-534: Immediate roadmap moves and event status toggles
 
 - Card `cmur7myd3000m04jpy4br0eyp` under epic "Roadmap interaction refinement":
@@ -10042,3 +10082,39 @@ Low-value entries to avoid going forward:
 - Delivery: PR #593, implementation commit 36f2f45. Initial CI Quality Core and
   Tenant Isolation passed; hosted E2E was still running at handoff. Copilot
   could not review because its quota was exhausted; manual review is needed.
+
+## 2026-10-11 - ND-565: Conditional content revision foundation
+
+- Split the shared server foundation from ND-433/ND-434 into ND-565 and started
+  `feature/nd-565-content-revisions` from current main in a separate worktree.
+- Added additive entity revisions and ETag-based checks inside authorized
+  actor transactions for task, meeting-note, and context-card edits. Stale
+  requests return the current authorized content without mutation side effects.
+- Meeting and context edits preserve omitted fields. Database invoker triggers
+  track legacy and offboarding writes, task relations, and meeting participants
+  and todos; metadata-only task activity keeps the content revision stable.
+- Preview exposed Vercel re-evaluating standard If-Match against the advanced
+  response ETag, changing an accepted write into a platform 412. Private cache
+  headers, a separate response validator, and request-proxy forwarding did not
+  prevent it. The final transport uses X-Content-If-Match with the same strong
+  entity ETag and rejects standard If-Match with 400 before mutation. Amended
+  the ND-432 contract; Live and agent v2/sunset gates remain separate.
+- Validation completed 2026-10-12: lint, RLS inventory, 1,990 unit/API tests
+  (2 skipped), coverage, and production build passed. Coverage: 93.58%
+  statements, 84.07% branches, 95.42% functions, 93.98% lines. The real
+  PostgreSQL isolation matrix passed in a separate database. Full local browser
+  baseline: 109 passed, 2 skipped; final transport/aggregate regression and the
+  newly merged ND-451 relation scenario also passed separately.
+- [Preview run 38250393051](https://github.com/dorianagaesse/nexus_dash/actions/runs/38250393051)
+  checked out `feature/nd-565-content-revisions` at
+  `0b724b9ae8bb8a7aff3ce81426839f4a7b404698`; checkout logs and readiness
+  metadata confirmed the revision and Preview environment. The immutable URL
+  was <https://nexus-dash-8apzb9fz5-dorian-agaesses-projects.vercel.app>.
+  Protected-deployment HTTP probes passed concurrent task 200/412 responses,
+  stale rejection without activity, weak/header-transport rejection, preserved
+  meeting participants/todos, todo invalidation, and conditional context edits.
+  Temporary fixture projects, sessions and users were removed.
+- Delivery: [PR #595](https://github.com/dorianagaesse/nexus_dash/pull/595),
+  validated implementation `0b724b9`. Copilot could not review because its quota
+  was exhausted; manual review is needed before merge. The card stays In
+  Progress for the reviewer.
