@@ -166,7 +166,7 @@ function renderPanel({
         canEdit={canEdit}
         currentActorUserId={currentActorUserId}
         referenceNowMs={new Date("2026-07-20T12:00:00.000Z").getTime()}
-        pendingActionId={null}
+        pendingActionIds={new Set()}
         onOpenMeeting={onOpenMeeting}
         onSetCompleted={onSetCompleted}
       />
