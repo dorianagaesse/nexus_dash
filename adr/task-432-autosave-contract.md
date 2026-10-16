@@ -165,6 +165,12 @@ Rules:
 - Save locally 300 ms after the last serializable change. Flush the local
   draft on modal close, component unmount, `visibilitychange` to hidden, and
   `pagehide`. None of those lifecycle events starts a network save.
+- Keep routine persistence silent. Storing, updating, or clearing a local
+  draft renders no banner, badge, toast, or live-region announcement. Only
+  actionable recovery states (restored draft, conflict, storage failure,
+  incompatible draft) may render a notice, and they must never leave empty
+  banner space when a state clears. Browser storage is an implementation
+  detail; a routine local-draft state is never announced as saved.
 - Do not write during IME composition. The completed composition schedules a
   normal draft write.
 - Restore only after client hydration and only for the same authenticated user,
@@ -210,10 +216,11 @@ For matrix rows marked Live:
   timer per entity. An explicit Save retries immediately.
 - An explicit Save cancels the timer, validates, and sends immediately through
   the same mutation and conflict path. It is not an unguarded overwrite path.
-- The UI has distinct states: `Draft saved locally`, `Saving changes`, `Saved`,
+- The UI has distinct network-save states: `Saving changes`, `Saved`,
   `Offline - draft safe locally`, `Save failed - draft safe locally`, and
   `Conflict - review changes`. A local draft must never be labelled simply
-  `Saved`.
+  `Saved`, and routine local persistence never renders a status; restored
+  drafts show `Draft restored` with their Discard action.
 
 Live-save requests carry the documented
 `NexusDash-Mutation-Intent: autosave` header. The header does not weaken

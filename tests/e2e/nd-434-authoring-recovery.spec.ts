@@ -92,7 +92,7 @@ test("create forms recover after close and reload without creating records", asy
     await page.getByRole("button", { name: "Context card options" }).click();
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await expect(page.locator("#context-edit-title")).toHaveValue("Recovered context edit");
-    await expect(page.getByText("Draft restored from this browser.")).toHaveCount(0);
+    await expect(page.getByText("Draft restored.")).toHaveCount(0);
     await page.getByRole("button", { name: "Discard", exact: true }).click();
     await expect(page.locator("#context-edit-title")).toHaveValue("Recovered context card");
     await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
@@ -102,7 +102,7 @@ test("create forms recover after close and reload without creating records", asy
     await page.locator("#context-create-title").fill("Context draft to discard");
     await page.getByRole("button", { name: "Close New context card" }).click();
     await page.getByRole("button", { name: "Add card" }).click();
-    await expect(page.getByText("Draft restored from this browser.")).toHaveCount(0);
+    await expect(page.getByText("Draft restored.")).toHaveCount(0);
     await page.getByRole("button", { name: "Discard", exact: true }).click();
     await expect(page.locator("#context-create-title")).toHaveValue("");
     await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
@@ -115,7 +115,7 @@ test("create forms recover after close and reload without creating records", asy
     await page.locator("#task-title").fill("Task draft to discard");
     await page.getByRole("button", { name: "Close task creation" }).click();
     await page.getByRole("button", { name: "New task" }).click();
-    await expect(page.getByText("Draft restored from this browser.")).toHaveCount(0);
+    await expect(page.getByText("Draft restored.")).toHaveCount(0);
     await page.getByRole("button", { name: "Discard", exact: true }).click();
     await expect(page.locator("#task-title")).toHaveValue("");
     await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
@@ -163,6 +163,14 @@ test("calendar create draft recovers without a Google write", async ({ page }) =
     await expect(page.getByRole("button", { name: "New event" })).toHaveCount(2);
     await page.getByRole("button", { name: "New event" }).last().click();
     await page.locator("#calendar-event-summary").fill("Recovered calendar event");
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Object.keys(localStorage).filter((key) => key.startsWith("nexusdash.draft.v1:")).length
+        )
+      )
+      .toBeGreaterThan(0);
+    await expect(page.getByText("Draft saved locally in this browser.")).toHaveCount(0);
     await page.getByRole("button", { name: "Close calendar event" }).click();
     await page.evaluate((projectId) => {
       localStorage.setItem(`nexusdash:project:${projectId}:calendar-expanded`, "0");
