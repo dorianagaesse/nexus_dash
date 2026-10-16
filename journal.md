@@ -3,6 +3,53 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-16 - ND-577: Remove routine local-draft save messages
+
+- Card `cmva686t7000504jvty97redc`: removed "Draft saved locally in this
+  browser." and equivalent routine local-draft indicators app-wide, following
+  the 2026-10-16 product decision that browser storage is an implementation
+  detail and must not add banners, badges, toasts, or status noise while
+  users write.
+- Inventoried every recovery-enabled surface: task create, task detail edit,
+  task comments, meeting preparation, meeting outputs, context-card
+  create/edit, calendar event create/edit, and roadmap event/milestone edit.
+  Meeting preparation/outputs and roadmap, context-card, and task-create
+  surfaces already rendered the notice only for conflicts/errors (gated when
+  the ND-433/ND-434 autosave chunks landed, plus ND-534 for roadmap); the
+  task detail edit, task comment,
+  and calendar event modals still rendered the routine saved-locally message
+  via the shared notice. Meeting todos have no local-draft UI.
+- `components/recovery-draft-notice.tsx` now returns null for the routine
+  locally-stored state (no banner space, no `role="status"` announcement) and
+  keeps actionable states: restored draft (copy shortened to `Draft
+  restored.`, no storage narration), conflict, storage failure (including
+  quota errors), and incompatible-draft copy. Discard/Keep/Confirm actions
+  are unchanged. Local draft persistence, recovery, Cancel/Discard
+  semantics, and explicit save flows are untouched.
+- Updated the shared contract in `adr/task-432-autosave-contract.md`:
+  routine persistence must stay silent (no banner, badge, toast, or
+  live-region announcement; no empty banner space), and the 4.3 state list
+  drops `Draft saved locally` (network-save states
+  `Saving changes`/`Saved`/paused/failed/conflict remain).
+- Tests: added `tests/components/recovery-draft-notice.test.tsx` covering
+  silent routine storage, restored/conflict/failure/incompatible rendering,
+  and confirmed discard. Extended `tests/e2e/nd-433-long-form-recovery.spec.ts`
+  with silent-while-typing assertions for task comment and task edit, and a
+  new mobile-viewport (390x844) test covering silent typing, restored notice
+  within the viewport, discard, and the retained quota-failure error. Updated
+  `tests/e2e/nd-434-authoring-recovery.spec.ts` for the new restored copy
+  and added the silent-storage assertion to the calendar flow.
+- Validation: `npm run lint` and `npm run rls:check` passed. Unit suite
+  2,038 passed / 2 skipped. Coverage 94.11% lines / 93.71% statements /
+  84.98% branches / 95.42% functions. Production build passed. The four
+  affected Playwright tests and the full browser suite (113 passed /
+  2 skipped) passed against a verified local production server built from
+  this worktree.
+- Shared-recovery coordination: commented on ND-433 PR #597 that
+  `live-save-status.tsx`'s header comment about the recovery notice showing
+  local state while dirty will be stale after this change; its
+  silent-while-dirty behavior remains correct.
+
 # 2026-10-14 - ND-565: Refresh main integration
 
 - Merged main at `75433a9` after ND-534 landed. The only conflict was this
