@@ -1,7 +1,7 @@
 # ND-431 Kanban responsiveness follow-up
 
-Date: 2026-10-08 (first pass), 2026-10-11 (second pass), 2026-10-12 and
-2026-10-14 (review fixes)
+Date: 2026-10-08 (first pass), 2026-10-11 (second pass), 2026-10-12,
+2026-10-14, and 2026-10-16 (review fixes)
 
 The ND-430 fixture was run against the merged audit baseline and this branch
 using the same production build, local PostgreSQL 16, Chromium, and Windows
@@ -178,3 +178,43 @@ that settles by identity, a remote insertion that shifts the submitted card's
 index, a newer parent-prop refetch respected at settle, and a stale
 parent-prop refetch that settles by identity; the reviewer's
 `kanban-newer-remote-review.test.tsx` repro passes against this revision.
+
+### Review fix (2026-10-16): committed-order settlement
+
+Review found two cases where the version fence still settled a keyboard drop
+against the wrong order:
+
+- A partial task event (created, updated, or deleted) carried a newer version
+  than the acknowledged write but patched only one task. The fence treated it
+  as a newer authoritative layout and skipped the outstanding move: after an
+  accepted A-to-index-1 write at version 1, a collaborator renaming C at
+  version 2 left the board at A/B/C although the server stored B/A/C.
+- A successful acknowledgement that resolved after the drop settled was
+  discarded because `onDragEnd` cleared the intent record: with the request
+  held, a refetch applying C/B/A at version 2 settled the drop verbatim, and
+  the write then committing B/A/C at version 3 never reached the board.
+
+The settle now separates column mutations from full-order authority and
+reconciles against the write's committed payload (the reorder route stores the
+request's lane task ids verbatim):
+
+- Partial deltas (task upserts, archive flags, deletions) increment the apply
+  counter used by the failure-revert guard but no longer record an activity
+  version; only typed reorder events and fresh server-rendered props do.
+- Each keyboard intent captures the lane orders its payload persists
+  (`committedOrders`). At settle, unless a full-order delivery newer than the
+  write (or, while the write is in flight, newer than the intent-start
+  baseline) has been applied, the columns are restored to the committed
+  orders: the stored order of every lane wins while partial deltas keep their
+  current positions, so the move is never re-derived by index.
+- The intent is marked settled rather than discarded, and an acknowledgement
+  that resolves after the settle restores the committed orders unless a newer
+  full-order delivery landed in the meantime.
+
+Regression coverage in `tests/components/kanban-board-keyboard-reconcile.test.tsx`
+now spans eleven cases, including a partial task rename after acceptance (move
+preserved, rename kept in place) and a held request acknowledged after the
+settle (the board converges to the committed order with one request). The
+reviewer's `kanban-pending-ack-review.test.tsx` repros pass against this
+revision, as do the earlier `kanban-newer-remote-review.test.tsx` and
+`kanban-review-regressions.test.tsx` files.
