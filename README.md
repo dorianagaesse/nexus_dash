@@ -35,6 +35,8 @@ Implemented today:
   - Task comments with agent-authored comment attribution through the project
     credential label and a shared agent avatar
 - Per-user Google Calendar connection and calendar target setting (`/account/settings`)
+- Kanban cards, search results, and archived Done rows display each task's stable
+  ND reference so tasks can be identified without opening their detail modal.
 - Attachment storage abstraction:
   - `local` provider (filesystem)
   - `r2` provider (Cloudflare R2)

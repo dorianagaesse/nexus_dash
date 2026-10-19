@@ -10106,3 +10106,13 @@ Low-value entries to avoid going forward:
   validated implementation `0b724b9`. Copilot could not review because its quota
   was exhausted; manual review is needed before merge. The card stays In
   Progress for the reviewer.
+
+## 2026-10-19 - ND-582: Task references in Kanban lists
+
+- Created ND-582 and GitHub issue #611 after searching the live board; related
+  it to ND-581. Used a dedicated branch and worktree from current origin/main.
+- Active Kanban cards and archived Done rows now show their canonical ND
+  reference. Cards reserve both title lines; tasks without a reference omit
+  it. The same presentation applies to search results and mobile lanes.
+- Added a browser regression using multiple results mentioning the same ND
+  reference, covering every lane, archived rows, mobile layout, and opening.
