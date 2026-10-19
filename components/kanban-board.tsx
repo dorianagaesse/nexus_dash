@@ -401,6 +401,14 @@ export function KanbanBoard({
   const [isSaving, startTransition] = useTransition();
   const [persistError, setPersistError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
+  const selectedTaskId = selectedTask?.id ?? null;
+
+  useEffect(() => {
+    // Creation can replace a selected optimistic card with its persisted ID.
+    if (selectedTaskId) {
+      synchronizeTaskUrl(selectedTaskId);
+    }
+  }, [selectedTaskId]);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<KanbanTask | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const [isArchivingTask, setIsArchivingTask] = useState(false);

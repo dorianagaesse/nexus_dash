@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check, Link2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { buildTaskUrl } from "@/lib/task-url";
+import { buildTaskUrl, isOptimisticTaskId } from "@/lib/task-url";
 
 export function CopyTaskLinkButton({
   projectId,
@@ -32,6 +32,7 @@ export function CopyTaskLinkButton({
         type="button"
         variant="ghost"
         size="sm"
+        disabled={isOptimisticTaskId(taskId)}
         onClick={() => void copyLink()}
       >
         {feedback === "copied" ? (
@@ -39,7 +40,9 @@ export function CopyTaskLinkButton({
         ) : (
           <Link2 className="h-4 w-4" />
         )}
-        {feedback === "copied" ? "Copied" : "Copy link"}
+        {isOptimisticTaskId(taskId)
+          ? "Saving task..."
+          : feedback === "copied" ? "Copied" : "Copy link"}
       </Button>
       <span
         role="status"

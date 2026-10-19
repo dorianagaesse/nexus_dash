@@ -65,4 +65,12 @@ describe("task-open-client", () => {
     synchronizeTaskUrl(null);
     expect(push).toHaveBeenCalledTimes(2);
   });
+
+  test("does not expose temporary task IDs before creation completes", () => {
+    window.history.replaceState(null, "", "/projects/demo?filter=bug");
+    synchronizeTaskUrl("optimistic-task-pending");
+    expect(window.location.search).toBe("?filter=bug");
+    synchronizeTaskUrl("persisted-task");
+    expect(window.location.search).toBe("?filter=bug&taskId=persisted-task");
+  });
 });

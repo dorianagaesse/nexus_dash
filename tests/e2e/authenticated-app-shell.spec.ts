@@ -94,12 +94,12 @@ test.describe("responsive authenticated app shell", () => {
       page,
       userId
     );
-    const projectPath = `/projects/${projectId}?taskId=${taskId}#kanban`;
-    await page.goto(projectPath);
+    const projectPath = `/projects/${projectId}#kanban`;
+    await page.goto(`/projects/${projectId}?taskId=${taskId}#kanban`);
 
     // The taskId deep link opens a modal dialog that aria-hides the shell nav,
-    // so dismiss it before asserting on the aside navigation. Closing keeps
-    // the taskId in the URL.
+    // so dismiss it before asserting on the aside navigation. Closing clears
+    // the taskId while preserving the project and fragment.
     await page.getByRole("button", { name: "Close task" }).click();
     await expect(page.getByRole("button", { name: "Close task" })).toHaveCount(0);
 
@@ -113,9 +113,12 @@ test.describe("responsive authenticated app shell", () => {
       desktopNavigation.locator("a", { hasText: "All projects" })
     ).not.toHaveAttribute("aria-current", "page");
 
-    const notificationsHref = await desktopNavigation
-      .locator("a", { hasText: "Notifications" })
-      .getAttribute("href");
+    const notificationsLink = desktopNavigation.locator("a", { hasText: "Notifications" });
+    await expect(notificationsLink).toHaveAttribute(
+      "href",
+      `/account/notifications?returnTo=${encodeURIComponent(projectPath)}`
+    );
+    const notificationsHref = await notificationsLink.getAttribute("href");
     expect(notificationsHref).toBeTruthy();
     await page.goto(notificationsHref!);
     await expect(page).toHaveURL(/\/account\/notifications\?returnTo=/);
@@ -152,7 +155,7 @@ test.describe("responsive authenticated app shell", () => {
 
     await page.getByRole("link", { name: "Return to project" }).click();
     await expect(page).toHaveURL(
-      new RegExp(`${projectId}\\?taskId=${taskId}#kanban$`)
+      new RegExp(`${projectId}#kanban$`)
     );
 
     await page.goto(
@@ -161,7 +164,7 @@ test.describe("responsive authenticated app shell", () => {
     await expect(page).toHaveURL(/\/account\/settings\?returnTo=/);
     await page.goBack();
     await expect(page).toHaveURL(
-      new RegExp(`${projectId}\\?taskId=${taskId}#kanban$`)
+      new RegExp(`${projectId}#kanban$`)
     );
   });
 

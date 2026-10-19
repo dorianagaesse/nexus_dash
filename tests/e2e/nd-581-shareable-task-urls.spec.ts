@@ -78,3 +78,35 @@ test("task URLs survive reload, close, history, and related-task navigation", as
   await page.getByRole("button", { name: "Sign in to NexusDash", exact: true }).click();
   await expect(page.getByRole("dialog", { name: a.title, exact: true })).toBeVisible();
 });
+
+test("waits for a permanent task ID before offering a shareable link", async ({ page }) => {
+  const userId = await signInAsVerifiedUser(page);
+  const project = await prisma.project.create({
+    data: {
+      name: uniqueProjectName("nd581-pending"), ownerId: userId,
+      memberships: { create: { userId, role: "owner" } },
+    },
+  });
+  let releaseCreate!: () => void;
+  const creationHeld = new Promise<void>((resolve) => { releaseCreate = resolve; });
+  await page.route(`**/api/projects/${project.id}/tasks`, async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+    const response = await route.fetch();
+    await creationHeld;
+    await route.fulfill({ response });
+  });
+  await page.goto(`/projects/${project.id}#kanban`);
+  await page.getByRole("button", { name: "New task", exact: true }).click();
+  await page.locator("#task-title").fill("Task awaiting its permanent ID");
+  await page.getByRole("button", { name: "Create task", exact: true }).click();
+  const pendingCard = page.locator('[data-kanban-task-card^="optimistic-task-"]');
+  await pendingCard.click();
+  await expect(page.getByRole("button", { name: "Saving task...", exact: true })).toBeDisabled();
+  expect(new URL(page.url()).searchParams.get("taskId")).toBeNull();
+  releaseCreate();
+  await expect(page.getByRole("button", { name: "Copy link", exact: true })).toBeEnabled();
+  await expect.poll(() => new URL(page.url()).searchParams.get("taskId")).toMatch(/^c/);
+});

@@ -1,16 +1,19 @@
 "use client";
 
+import { isOptimisticTaskId } from "@/lib/task-url";
+
 export const TASK_OPEN_REQUEST_EVENT = "nexusdash:task-open-request";
 
 /** Keep task navigation in browser history without reloading the project. */
 export function synchronizeTaskUrl(taskId: string | null): void {
+  const persistedTaskId = taskId && !isOptimisticTaskId(taskId) ? taskId : null;
   const url = new URL(window.location.href);
-  if (url.searchParams.get("taskId") === taskId) {
+  if (url.searchParams.get("taskId") === persistedTaskId) {
     return;
   }
 
-  if (taskId) {
-    url.searchParams.set("taskId", taskId);
+  if (persistedTaskId) {
+    url.searchParams.set("taskId", persistedTaskId);
   } else {
     url.searchParams.delete("taskId");
   }
