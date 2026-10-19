@@ -381,21 +381,19 @@ function KanbanColumn({
                     onMouseEnter={() => onTaskHoverChange(task.id)}
                     onMouseLeave={() => onTaskHoverChange(null)}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <TaskCardReference reference={task.reference} />
-                        <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground/90">
-                          <Archive
-                            aria-hidden="true"
-                            className="h-3.5 w-3.5 shrink-0 text-emerald-400/80"
-                          />
-                          <span className="truncate">{task.title}</span>
-                        </p>
-                      </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <TaskCardReference reference={task.reference} />
                       <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.18em] text-emerald-300/80">
                         Archived
                       </span>
                     </div>
+                    <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground/90">
+                      <Archive
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5 shrink-0 text-emerald-400/80"
+                      />
+                      <span className="truncate">{task.title}</span>
+                    </p>
                     <TaskCardIndicators task={task} className="mt-1" />
                     {task.description ? (
                       <p className="mt-1 text-xs text-muted-foreground">
