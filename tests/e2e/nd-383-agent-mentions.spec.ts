@@ -120,11 +120,7 @@ test.describe("ND-383 agent mentions in task comments", () => {
     });
 
     await page.reload();
-    const reloadedCard = page
-      .getByRole("button", { name: new RegExp(task.title) })
-      .first();
-    await expect(reloadedCard).toBeVisible();
-    await reloadedCard.click();
+    await expect(page.getByRole("dialog", { name: task.title })).toBeVisible();
     await expect(page.locator(`#task-comment-body-${comment?.id}`)).toContainText(
       `@${label}`
     );
