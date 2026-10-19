@@ -3,6 +3,11 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-20 - ND-538: Refresh main (dependency bumps) before re-review
+
+- Merged main at `458624e` (Dependabot safe-production-utilities `@radix-ui/react-slot` 1.5.0 / `lucide-react` 1.55.0 and safe-dev-dependencies `postcss` 8.5.30 bumps) via a clean merge with no conflicts. Ran `npm ci` against the merged lockfile.
+- Re-ran the required validation on the refreshed tree: 108 focused ND-538 tests pass, including the overlap regression cases (stale sibling completion response, sibling overdue recompute, acknowledged-status failure, all-fail baseline fallback); `npx tsc --noEmit` error count unchanged from baseline (192); eslint clean on changed files.
+
 # 2026-10-16 - ND-538: Final review - server-baseline failure fallback and main refresh
 
 - Refreshed main: merged `d065fd3` (ND-565 content revision preconditions). The only conflict was this journal; retained both the ND-538 entries and the ND-565 main-refresh entries. Verified integration: the ND-565 revision preconditions apply to the whole-note PATCH only (expectedRevision/ETag are optional and the action-completion path `setProjectMeetingNoteActionCompletion` is untouched), so optimistic completion payloads and status semantics are unchanged. Ran `npx prisma generate` for the merged content-revisions migration.
