@@ -10106,3 +10106,18 @@ Low-value entries to avoid going forward:
   validated implementation `0b724b9`. Copilot could not review because its quota
   was exhausted; manual review is needed before merge. The card stays In
   Progress for the reviewer.
+
+## 2026-10-19 - ND-581: Shareable task modal URLs
+
+- Created ND-581 and GitHub issue #610 after checking the live board for
+  overlapping work; related it to ND-582. Started from current origin/main in
+  a separate worktree because the user's checkout contains other changes.
+- Task opening, editing, related-task navigation, and closing now update the
+  existing taskId URL contract. Browser Back/Forward follow modal selection;
+  stale task fetches cannot overwrite a newer selection. Copy link reports
+  clipboard success or failure and keeps the existing access boundary.
+- Found and fixed loss of project/task destinations during sign-in and email
+  verification. Proxy-derived internal destinations replace caller headers.
+- Added browser regression coverage for copying, reload, URL preservation,
+  history, related tasks, clipboard failure, responsive layouts, and signing
+  in from a shared link; recorded the navigation contract in adr/decisions.md.

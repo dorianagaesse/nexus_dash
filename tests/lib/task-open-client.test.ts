@@ -5,6 +5,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   TASK_OPEN_REQUEST_EVENT,
   requestTaskOpen,
+  synchronizeTaskUrl,
   type TaskOpenRequestDetail,
 } from "@/lib/task-open-client";
 
@@ -47,5 +48,21 @@ describe("task-open-client", () => {
     expect(listener).not.toHaveBeenCalled();
 
     window.removeEventListener(TASK_OPEN_REQUEST_EVENT, listener);
+  });
+
+  test("preserves other URL state and avoids duplicate task history entries", () => {
+    window.history.replaceState({ retained: true, __NA: true, _N: true }, "", "/projects/demo?filter=bug#kanban");
+    const push = vi.spyOn(window.history, "pushState");
+    synchronizeTaskUrl("task/one");
+    expect(window.location.search).toBe("?filter=bug&taskId=task%2Fone");
+    expect(window.location.hash).toBe("#kanban");
+    expect(window.history.state).toEqual({ retained: true });
+    synchronizeTaskUrl("task/one");
+    expect(push).toHaveBeenCalledTimes(1);
+    synchronizeTaskUrl(null);
+    expect(window.location.search).toBe("?filter=bug");
+    expect(push).toHaveBeenCalledTimes(2);
+    synchronizeTaskUrl(null);
+    expect(push).toHaveBeenCalledTimes(2);
   });
 });

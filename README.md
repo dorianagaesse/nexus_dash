@@ -35,6 +35,9 @@ Implemented today:
   - Task comments with agent-authored comment attribution through the project
     credential label and a shared agent avatar
 - Per-user Google Calendar connection and calendar target setting (`/account/settings`)
+- Opening a task updates the browser URL; task modals offer **Copy link**.
+  Shared links reopen that task after sign-in for people with project access.
+  Closing a task clears its URL selection, and Back/Forward follow task navigation.
 - Attachment storage abstraction:
   - `local` provider (filesystem)
   - `r2` provider (Cloudflare R2)
