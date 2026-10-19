@@ -26,7 +26,7 @@ test("shows each result's own reference on cards and archived rows, including mo
     description: "<p>Related to ND-567</p>", archivedAt: new Date(),
   } });
 
-  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`/projects/${project.id}#kanban`);
   const toggle = page.getByRole("button", { name: /Kanban board/ });
   if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
@@ -37,6 +37,7 @@ test("shows each result's own reference on cards and archived rows, including mo
   for (const task of [...tasks, archived]) {
     await expect(page.getByLabel(`Task reference ND-${task.referenceNumber}`, { exact: true })).toBeVisible();
   }
+  await expect(page.getByText(archived.title, { exact: true })).toBeVisible();
   await page.locator('[data-kanban-lane="Backlog"]').scrollIntoViewIfNeeded();
   await page.screenshot({ path: "test-results/nd-582-desktop.png" });
   await page.setViewportSize({ width: 390, height: 844 });
