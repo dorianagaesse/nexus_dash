@@ -3,6 +3,22 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-20 - ND-573: Refresh main before merge
+
+- Merged `origin/main` at `1051415` (ND-581 shareable task URLs, ND-582 Kanban
+  task references, plus the ND-577 and ND-538 merges) into the ND-573 branch to
+  clear the PR #603 conflict. The only conflict was this journal; kept both
+  entries newest-first.
+- Re-validated on the merged tree: ran `npm ci` against the merged lockfile and
+  `npx prisma generate`; applied all migrations to a fresh isolated database
+  (`nexusdash_nd573`) including `20261012000000_content_revisions`. Lint,
+  `rls:check`, release version policy, and the production build (with
+  `REALTIME_TRANSPORT=polling` as in CI) passed. Unit suite 2,111 passed /
+  2 skipped; one 30s timeout in `tests/scripts/release-version.test.ts` under
+  full-suite load passed 8/8 when rerun alone. The home-entry spec passed 3/3
+  runs against a local production server.
+- PR #603 CI green on `ebf1d2c`; PR MERGEABLE.
+
 # 2026-10-20 - ND-577: Refresh main before merge
 
 - Merged `origin/main` at `133487d` (ND-538 optimistic meeting-todo completion
