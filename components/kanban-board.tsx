@@ -85,6 +85,7 @@ import {
 } from "@/lib/task-label";
 import {
   TASK_OPEN_REQUEST_EVENT,
+  synchronizeTaskUrl,
   type TaskOpenRequestDetail,
 } from "@/lib/task-open-client";
 import { createRelatedTaskMap } from "@/lib/task-related";
@@ -407,6 +408,7 @@ export function KanbanBoard({
   const previousSelectedTaskIdRef = useRef<string | null>(null);
   const commentDraftTaskIdRef = useRef<string | null>(null);
   const openedInitialTaskIdRef = useRef<string | null>(null);
+  const taskOpenRequestRef = useRef(0);
   // Anchored to the card element rather than its task id: an optimistic card
   // swaps to the persisted task id while it stays mounted.
   const taskCardReturnFocusRef = useRef<HTMLElement | null>(null);
@@ -569,6 +571,7 @@ export function KanbanBoard({
       null;
 
     if (!nextTask) {
+      synchronizeTaskUrl(null);
       setSelectedTask(null);
       return;
     }
@@ -660,6 +663,13 @@ export function KanbanBoard({
   const selectedTaskId = selectedTask?.id ?? null;
   const selectedTaskCommentCount = selectedTask?.commentCount ?? 0;
   const selectedTaskUpdatedAt = selectedTask?.updatedAt ?? null;
+
+  useEffect(() => {
+    // Creation can replace a selected optimistic card with its persisted ID.
+    if (selectedTaskId) {
+      synchronizeTaskUrl(selectedTaskId);
+    }
+  }, [selectedTaskId]);
 
   useEffect(() => {
     if (!selectedTaskId) {
@@ -1291,6 +1301,8 @@ export function KanbanBoard({
   }, []);
 
   const closeTaskModal = useCallback(() => {
+    taskOpenRequestRef.current += 1;
+    synchronizeTaskUrl(null);
     taskEditRecovery.flush();
     commentRecovery.flush();
     // The task detail modal opens from card interactions instead of a Radix
@@ -1318,6 +1330,8 @@ export function KanbanBoard({
   }, [restoreTaskCardFocus, taskEditRecovery, commentRecovery]);
 
   const handleSelectTask = useCallback((task: KanbanTask) => {
+    taskOpenRequestRef.current += 1;
+    synchronizeTaskUrl(task.id);
     taskEditRecovery.flush();
     commentRecovery.flush();
     commentDraftTaskIdRef.current = task.id;
@@ -1337,6 +1351,9 @@ export function KanbanBoard({
       return;
     }
 
+    synchronizeTaskUrl(task.id);
+
+    taskOpenRequestRef.current += 1;
     taskEditRecovery.flush();
     commentRecovery.flush();
     commentDraftTaskIdRef.current = task.id;
@@ -1358,6 +1375,9 @@ export function KanbanBoard({
         return;
       }
 
+      synchronizeTaskUrl(relatedTask.id);
+
+      taskOpenRequestRef.current += 1;
       taskEditRecovery.flush();
       commentRecovery.flush();
 
@@ -1551,6 +1571,7 @@ export function KanbanBoard({
 
   const openTaskById = useCallback(
     (rawTaskId: string) => {
+      const requestId = ++taskOpenRequestRef.current;
       const taskId = rawTaskId.trim();
       if (!taskId) {
         return;
@@ -1577,7 +1598,11 @@ export function KanbanBoard({
             task?: TaskMutationResponseTask;
           };
           const remoteTask = payload.task;
-          if (!remoteTask || !isTaskStatus(remoteTask.status)) {
+          if (
+            requestId !== taskOpenRequestRef.current ||
+            !remoteTask ||
+            !isTaskStatus(remoteTask.status)
+          ) {
             return;
           }
           const mappedTask = mapTaskMutationResponseTask(remoteTask);
@@ -1606,6 +1631,19 @@ export function KanbanBoard({
     openedInitialTaskIdRef.current = normalizedInitialTaskId;
     openTaskById(normalizedInitialTaskId);
   }, [normalizedInitialTaskId, openTaskById]);
+
+  useEffect(() => {
+    const followHistory = () => {
+      const taskId = new URL(window.location.href).searchParams.get("taskId");
+      if (taskId) {
+        openTaskById(taskId);
+      } else {
+        closeTaskModal();
+      }
+    };
+    window.addEventListener("popstate", followHistory);
+    return () => window.removeEventListener("popstate", followHistory);
+  }, [closeTaskModal, openTaskById]);
 
   useEffect(() => {
     const handleTaskOpenRequest = (event: Event) => {
