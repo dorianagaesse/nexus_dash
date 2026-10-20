@@ -322,9 +322,15 @@ test("pointer drag under a label filter keeps hidden tasks in order", async ({
   await expect(columnCards(page, "In Progress")).toHaveCount(3);
 
   const dropzone = page.locator('[data-kanban-dropzone="In Progress"]');
+  await page.getByRole("button", { name: /^Filter/ }).click();
+  await expect(page.locator("#kanban-filter-panel")).toBeHidden();
   // Taller cards can put the last drop target below the lane's scroll viewport.
   await dropzone.scrollIntoViewIfNeeded();
   await page.locator(`[data-kanban-task-card="${created.get("v5")}"]`).scrollIntoViewIfNeeded();
+  // Keep the drop point away from the window's automatic scrolling edge.
+  await dropzone.evaluate((element) => {
+    window.scrollBy(0, element.getBoundingClientRect().bottom - window.innerHeight * 0.7);
+  });
   const dropzoneBox = (await dropzone.boundingBox())!;
   const visibleThree = page.locator(
     `[data-kanban-task-card="${created.get("v3")}"]`
@@ -336,6 +342,12 @@ test("pointer drag under a label filter keeps hidden tasks in order", async ({
     visibleThreeBox.y + visibleThreeBox.height / 2
   );
   await page.mouse.down();
+  await page.mouse.move(
+    visibleThreeBox.x + visibleThreeBox.width / 2 + 8,
+    visibleThreeBox.y + visibleThreeBox.height / 2 + 8,
+    { steps: 4 }
+  );
+  await expect(visibleThree).toHaveCSS("position", "fixed");
   await page.mouse.move(
     dropzoneBox.x + dropzoneBox.width / 2,
     dropzoneBox.y + dropzoneBox.height - 8,
