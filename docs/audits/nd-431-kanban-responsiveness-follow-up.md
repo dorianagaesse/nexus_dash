@@ -1,7 +1,7 @@
 # ND-431 Kanban responsiveness follow-up
 
 Date: 2026-10-08 (first pass), 2026-10-11 (second pass), 2026-10-12,
-2026-10-14, and 2026-10-16 (review fixes)
+2026-10-14, 2026-10-16, and 2026-10-20 (review fixes)
 
 The ND-430 fixture was run against the merged audit baseline and this branch
 using the same production build, local PostgreSQL 16, Chromium, and Windows
@@ -218,3 +218,37 @@ settle (the board converges to the committed order with one request). The
 reviewer's `kanban-pending-ack-review.test.tsx` repros pass against this
 revision, as do the earlier `kanban-newer-remote-review.test.tsx` and
 `kanban-review-regressions.test.tsx` files.
+
+### Review fix (2026-10-20): cross-lane committed settlement
+
+Review found that the committed-order settle from the previous round was
+lane-local: it reconciled each lane in isolation against only the tasks that
+lane currently held. A keyboard move between lanes never applied. Repro:
+confirm A from Backlog 0 to In Progress 0; the request persists Backlog B/C
+and In Progress A, but after the acknowledgement and settle the board still
+shows Backlog A/B/C and an empty In Progress lane with one request, because
+the source lane treated the moved task as an uncommitted extra and kept it
+while the destination lane could not find it. The same happened for
+acknowledgements that resolved before and after settlement.
+
+The reconcile now runs over the complete board with the complete committed
+payload:
+
+- one task map is built across all lanes, and every task named in the payload
+  is placed in its committed lane, with its status stamped when the committed
+  lane differs from where it currently sits;
+- tasks that are not named in any committed lane (partial creations) keep
+  their current lane and index, and deleted task ids are skipped so they are
+  never resurrected;
+- a task already placed is never placed again, so payload and partial deltas
+  cannot duplicate a card; lanes that are already correct keep their array
+  identity.
+
+Regression coverage in `tests/components/kanban-board-keyboard-reconcile.test.tsx`
+adds a parameterized cross-lane case for both acknowledgement timings (before
+and after settlement), asserting the moved task's lane, its status, the
+source lane's remaining order, and a single request; the eleven earlier cases
+pass unchanged. The reviewer's `kanban-lane-order-review.test.tsx` repro
+passes 2/2, and the earlier `kanban-pending-ack-review.test.tsx` (2/2),
+`kanban-newer-remote-review.test.tsx` (4/4), and
+`kanban-review-regressions.test.tsx` (1/1) still pass on this revision.
