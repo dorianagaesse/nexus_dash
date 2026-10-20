@@ -3,6 +3,19 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-20 - ND-577: Refresh main before merge
+
+- Merged `origin/main` at `133487d` (ND-538 optimistic meeting-todo completion
+  plus `@radix-ui/react-slot` 1.5.0, `lucide-react` 1.55.0, and `postcss`
+  8.5.30 bumps) into the ND-577 branch. The only conflict was this journal;
+  kept both entries newest-first. ND-538's panel changes are confined to todo
+  completion state (preparation save/dismissal logic untouched).
+- Ran `npm ci` against the merged lockfile. Re-validated on the merged tree:
+  `npm run lint` and `npm run rls:check` passed; unit suite 2,046 passed /
+  2 skipped; production build passed. The four affected Playwright recovery
+  tests passed against a local production server built from the merged tree
+  (one cold-start run hit the known nd-433 dismissal flake; clean on rerun).
+
 # 2026-10-20 - ND-538: Refresh main (dependency bumps) before re-review
 
 - Merged main at `458624e` (Dependabot safe-production-utilities `@radix-ui/react-slot` 1.5.0 / `lucide-react` 1.55.0 and safe-dev-dependencies `postcss` 8.5.30 bumps) via a clean merge with no conflicts. Ran `npm ci` against the merged lockfile.
