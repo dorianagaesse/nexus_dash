@@ -3,6 +3,18 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-20 - ND-577: Refresh main before merge
+
+- Merged `origin/main` at `133487d` (ND-538 optimistic meeting-todo completion
+  plus `@radix-ui/react-slot` 1.5.0, `lucide-react` 1.55.0, and `postcss`
+  8.5.30 bumps) into the ND-577 branch. The only conflict was this journal;
+  kept both entries newest-first. ND-538's panel changes are confined to todo
+  completion state (preparation save/dismissal logic untouched).
+- Ran `npm ci` against the merged lockfile. Re-validated on the merged tree:
+  `npm run lint` and `npm run rls:check` passed; unit suite 2,046 passed /
+  2 skipped; production build passed. The four affected Playwright recovery
+  tests passed against a local production server built from the merged tree
+  (one cold-start run hit the known nd-433 dismissal flake; clean on rerun).
 # 2026-10-20 - ND-431: Review round 4 - cross-lane committed settlement
 
 - Merged `origin/main` (`204bc7b`: ND-433 live-save scheduler, ND-538 meeting-todo completion, and dependency bumps including `@playwright/test` 1.64) into `fix/nd-431-kanban-p95-targets` (`4e79cc9`); the only conflict was `journal.md`, resolved keeping both entries newest-first. Ran `npm ci` against the merged lockfile and `npx playwright install chromium` for the new browser build.
@@ -25,6 +37,52 @@ Use it for important implementation milestones, blockers, validation runs, and r
   - Regression test: done meeting with completed A/B plus open C; reopen A then B with responses rejected 403 in order; overdue summary must settle at 1/0 (open C not overdue). Pre-fix it read 1/1; the intermediate assertions pin the optimistic states (1/0 -> 3/3 -> 2/0 -> 1/0).
 - Validation: 108 focused tests across Todos page, notes panel, quick dialog, route, and service files pass on the merged tree (131 including the ND-565 content-revision and transaction-retry suites); `npx tsc --noEmit` error count unchanged from baseline (192, none in changed files); eslint clean on changed files.
 
+# 2026-10-16 - ND-577: Remove routine local-draft save messages
+
+- Card `cmva686t7000504jvty97redc`: removed "Draft saved locally in this
+  browser." and equivalent routine local-draft indicators app-wide, following
+  the 2026-10-16 product decision that browser storage is an implementation
+  detail and must not add banners, badges, toasts, or status noise while
+  users write.
+- Inventoried every recovery-enabled surface: task create, task detail edit,
+  task comments, meeting preparation, meeting outputs, context-card
+  create/edit, calendar event create/edit, and roadmap event/milestone edit.
+  Meeting preparation/outputs and roadmap, context-card, and task-create
+  surfaces already rendered the notice only for conflicts/errors (gated when
+  the ND-433/ND-434 autosave chunks landed, plus ND-534 for roadmap); the
+  task detail edit, task comment,
+  and calendar event modals still rendered the routine saved-locally message
+  via the shared notice. Meeting todos have no local-draft UI.
+- `components/recovery-draft-notice.tsx` now returns null for the routine
+  locally-stored state (no banner space, no `role="status"` announcement) and
+  keeps actionable states: restored draft (copy shortened to `Draft
+  restored.`, no storage narration), conflict, storage failure (including
+  quota errors), and incompatible-draft copy. Discard/Keep/Confirm actions
+  are unchanged. Local draft persistence, recovery, Cancel/Discard
+  semantics, and explicit save flows are untouched.
+- Updated the shared contract in `adr/task-432-autosave-contract.md`:
+  routine persistence must stay silent (no banner, badge, toast, or
+  live-region announcement; no empty banner space), and the 4.3 state list
+  drops `Draft saved locally` (network-save states
+  `Saving changes`/`Saved`/paused/failed/conflict remain).
+- Tests: added `tests/components/recovery-draft-notice.test.tsx` covering
+  silent routine storage, restored/conflict/failure/incompatible rendering,
+  and confirmed discard. Extended `tests/e2e/nd-433-long-form-recovery.spec.ts`
+  with silent-while-typing assertions for task comment and task edit, and a
+  new mobile-viewport (390x844) test covering silent typing, restored notice
+  within the viewport, discard, and the retained quota-failure error. Updated
+  `tests/e2e/nd-434-authoring-recovery.spec.ts` for the new restored copy
+  and added the silent-storage assertion to the calendar flow.
+- Validation: `npm run lint` and `npm run rls:check` passed. Unit suite
+  2,038 passed / 2 skipped. Coverage 94.11% lines / 93.71% statements /
+  84.98% branches / 95.42% functions. Production build passed. The four
+  affected Playwright tests and the full browser suite (113 passed /
+  2 skipped) passed against a verified local production server built from
+  this worktree.
+- Shared-recovery coordination: commented on ND-433 PR #597 that
+  `live-save-status.tsx`'s header comment about the recovery notice showing
+  local state while dirty will be stale after this change; its
+  silent-while-dirty behavior remains correct.
 # 2026-10-16 - ND-431: Review round 3 - committed-order settlement
 
 - Merged `origin/main` (`d065fd3`, ND-565) into `fix/nd-431-kanban-p95-targets` (`7d72c80`); the only conflict was `journal.md`, resolved keeping both entries newest-first. The new `content_revisions` migration was deployed to the local E2E database and the Prisma client regenerated; the build now also needs `DIRECT_URL` and a `REALTIME_TRANSPORT=polling` pin (or Supabase realtime secrets) plus `OUTBOUND_EMAIL_DELIVERY_MODE=disabled` during page-data collection.
@@ -10204,3 +10262,29 @@ Low-value entries to avoid going forward:
   validated implementation `0b724b9`. Copilot could not review because its quota
   was exhausted; manual review is needed before merge. The card stays In
   Progress for the reviewer.
+
+## 2026-10-19 - ND-582: Task references in Kanban lists
+
+- Created ND-582 and GitHub issue #611 after searching the live board; related
+  it to ND-581. Used a dedicated branch and worktree from current origin/main.
+- Active Kanban cards and archived Done rows now show their canonical ND
+  reference. Cards reserve both title lines; tasks without a reference omit
+  it. The same presentation applies to search results and mobile lanes.
+- Added a browser regression using multiple results mentioning the same ND
+  reference, covering every lane, archived rows, mobile layout, and opening.
+- Final validation completed 2026-10-20: lint, RLS inventory, 2,032 unit/API
+  tests (2 skipped), coverage, and production build passed. Coverage: 93.71%
+  statements, 84.98% branches, 95.42% functions, 94.11% lines. The final full
+  local browser suite passed 113 tests with 2 skips. Vitest used bounded
+  thread workers on Windows; local builds used polling.
+- Desktop and mobile visual checks passed. Archived rows reserve a separate
+  title row so narrow lanes keep the title readable. Updated the pointer-drag
+  regression to keep its drop point inside the viewport after taller cards;
+  both pointer and keyboard reorder checks passed.
+- [CI run 39413374240](https://github.com/dorianagaesse/nexus_dash/actions/runs/39413374240)
+  passed Quality Core and PostgreSQL Tenant Isolation for `caec2c7`; its E2E
+  job was still running when this handoff entry was written.
+- Delivery: [PR #612](https://github.com/dorianagaesse/nexus_dash/pull/612),
+  closing issue #611, related to ND-581 / PR #613. Copilot review was requested
+  but no review result was available at handoff; human review remains pending.
+  The card stays In Progress for the reviewer.

@@ -12,15 +12,14 @@ export function RecoveryDraftNotice({
   onDiscard: () => void;
 }) {
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
-  if (!draft.restored && !draft.locallyStored && !draft.conflict && !draft.error) return null;
+  // Routine local persistence stays silent; only actionable recovery states render.
+  if (!draft.restored && !draft.conflict && !draft.error) return null;
   return (
     <div role="status" className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">
       {draft.conflict ? (
         <p>Another version of this draft or saved record exists. Your changes are kept locally. Check the current record before saving.</p>
       ) : draft.restored ? (
-        <p>Draft restored from this browser.</p>
-      ) : draft.locallyStored ? (
-        <p>Draft saved locally in this browser.</p>
+        <p>Draft restored.</p>
       ) : null}
       {draft.error ? <p className="text-destructive">{draft.error}</p> : null}
       {draft.incompatibleDraft ? <details className="mt-2">
