@@ -10226,3 +10226,29 @@ Low-value entries to avoid going forward:
   validated implementation `0b724b9`. Copilot could not review because its quota
   was exhausted; manual review is needed before merge. The card stays In
   Progress for the reviewer.
+
+## 2026-10-19 - ND-582: Task references in Kanban lists
+
+- Created ND-582 and GitHub issue #611 after searching the live board; related
+  it to ND-581. Used a dedicated branch and worktree from current origin/main.
+- Active Kanban cards and archived Done rows now show their canonical ND
+  reference. Cards reserve both title lines; tasks without a reference omit
+  it. The same presentation applies to search results and mobile lanes.
+- Added a browser regression using multiple results mentioning the same ND
+  reference, covering every lane, archived rows, mobile layout, and opening.
+- Final validation completed 2026-10-20: lint, RLS inventory, 2,032 unit/API
+  tests (2 skipped), coverage, and production build passed. Coverage: 93.71%
+  statements, 84.98% branches, 95.42% functions, 94.11% lines. The final full
+  local browser suite passed 113 tests with 2 skips. Vitest used bounded
+  thread workers on Windows; local builds used polling.
+- Desktop and mobile visual checks passed. Archived rows reserve a separate
+  title row so narrow lanes keep the title readable. Updated the pointer-drag
+  regression to keep its drop point inside the viewport after taller cards;
+  both pointer and keyboard reorder checks passed.
+- [CI run 39413374240](https://github.com/dorianagaesse/nexus_dash/actions/runs/39413374240)
+  passed Quality Core and PostgreSQL Tenant Isolation for `caec2c7`; its E2E
+  job was still running when this handoff entry was written.
+- Delivery: [PR #612](https://github.com/dorianagaesse/nexus_dash/pull/612),
+  closing issue #611, related to ND-581 / PR #613. Copilot review was requested
+  but no review result was available at handoff; human review remains pending.
+  The card stays In Progress for the reviewer.

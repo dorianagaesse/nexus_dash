@@ -60,7 +60,7 @@ test("task references stay stable and identify related-task candidates", async (
 
   await page.goto(`/projects/${project.id}?taskId=${currentTask.id}`);
   await expect(
-    page.getByLabel(`Task reference ${currentReference}`)
+    page.getByRole("dialog").getByLabel(`Task reference ${currentReference}`)
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Task options" }).click();
@@ -100,12 +100,12 @@ test("task references stay stable and identify related-task candidates", async (
   };
   expect(updatePayload.task.reference).toBe(currentReference);
   await expect(
-    page.getByLabel(`Task reference ${currentReference}`)
+    page.getByRole("dialog").getByLabel(`Task reference ${currentReference}`)
   ).toBeVisible();
 
   await page.reload();
   await expect(
-    page.getByLabel(`Task reference ${currentReference}`)
+    page.getByRole("dialog").getByLabel(`Task reference ${currentReference}`)
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Close task" }).click();
@@ -146,6 +146,6 @@ test("task references stay stable and identify related-task candidates", async (
 
   await page.getByRole("button", { name: /Created with stable reference/ }).click();
   await expect(
-    page.getByLabel(`Task reference ${createPayload.task.reference}`)
+    page.getByRole("dialog").getByLabel(`Task reference ${createPayload.task.reference}`)
   ).toBeVisible();
 });
