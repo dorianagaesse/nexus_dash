@@ -38,6 +38,7 @@ Implemented today:
 - Opening a task updates the browser URL; task modals offer **Copy link**.
   Shared links reopen that task after sign-in for people with project access.
   Closing a task clears its URL selection, and Back/Forward follow task navigation.
+  New task links become available when saving finishes.
 - Attachment storage abstraction:
   - `local` provider (filesystem)
   - `r2` provider (Cloudflare R2)

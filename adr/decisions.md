@@ -1170,3 +1170,5 @@ Keep UI-only or task-only notes in `journal.md`.
   shared task links survive authentication without accepting external redirects.
 - Consequences: No new public task endpoint or database schema is needed.
   Unrelated project query parameters and fragments survive modal navigation.
+  Newly created tasks become shareable only after saving assigns their permanent
+  ID; a selected task's URL follows that identity change.

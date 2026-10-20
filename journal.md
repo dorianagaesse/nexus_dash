@@ -10121,3 +10121,18 @@ Low-value entries to avoid going forward:
 - Added browser regression coverage for copying, reload, URL preservation,
   history, related tasks, clipboard failure, responsive layouts, and signing
   in from a shared link; recorded the navigation contract in adr/decisions.md.
+- Pending tasks do not expose temporary IDs. Copy link becomes available after
+  creation, and the URL follows the permanent task identity.
+- Validation completed 2026-10-20: lint, RLS inventory, 2,039 unit/API tests
+  (2 skipped), coverage, and production build passed. Coverage: 93.71%
+  statements, 84.98% branches, 95.42% functions, 94.11% lines. The final local
+  browser suite passed 114 tests with 2 skips, including pending-task sharing.
+  Vitest used one thread worker on Windows; local builds used polling.
+- [CI run 39343359329](https://github.com/dorianagaesse/nexus_dash/actions/runs/39343359329)
+  passed Quality Core, Tenant Isolation, E2E Smoke, and Container Image for
+  validated implementation `9d2e088`. Desktop and mobile screenshots passed
+  visual inspection. Updated existing reload and account-return expectations
+  to match URL-driven modal selection.
+- Delivery: [PR #613](https://github.com/dorianagaesse/nexus_dash/pull/613),
+  closing issue #610. Copilot review was requested but no review result was
+  available at handoff; human review remains pending. The card stays In Progress.
