@@ -1,7 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
@@ -179,6 +179,34 @@ async function assignTodoToUser(todoId: string, userId: string) {
     assigneeUserId: userId,
     assigneeDisplayNameSnapshot: "Dorian",
   });
+}
+
+async function gateMeetingTodoPatches(page: Page) {
+  let pending = 0;
+  const releases: Array<() => void> = [];
+  const pattern = "**/api/projects/*/meeting-notes/*/actions/*";
+  const handler = async (route: Route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.continue();
+      return;
+    }
+    pending += 1;
+    await new Promise<void>((resolve) => releases.push(resolve));
+    await route.continue();
+  };
+  await page.route(pattern, handler);
+
+  return {
+    async waitForPending() {
+      await expect.poll(() => pending).toBeGreaterThan(0);
+    },
+    releaseAll() {
+      while (releases.length > 0) {
+        releases.shift()!();
+      }
+    },
+    unroute: () => page.unroute(pattern, handler),
+  };
 }
 
 test.describe("project meeting todos", () => {
@@ -859,5 +887,125 @@ test.describe("project meeting todos", () => {
     await expect(
       page.getByRole("button", { name: "Todos, 1 open" })
     ).toBeVisible();
+  });
+
+  test("applies completion and reopen immediately without a broad refresh", async ({
+    page,
+  }) => {
+    const userId = await signInAsVerifiedUser(page);
+    const fixture = await createProjectTodoFixture(userId);
+
+    await page.goto(`/projects/${fixture.ownerProjectId}/todos`);
+    const completionGate = await gateMeetingTodoPatches(page);
+    await page
+      .getByRole("button", {
+        name: "Complete todo: Complete the mobile navigation audit",
+      })
+      .click();
+    await completionGate.waitForPending();
+    await expect(
+      page.getByText("Complete the mobile navigation audit")
+    ).toBeHidden();
+    completionGate.releaseAll();
+    await expect(
+      page.locator("[aria-live='polite']").getByText("Todo completed.")
+    ).toBeVisible();
+    await completionGate.unroute();
+
+    await page.goto(
+      `/projects/${fixture.ownerProjectId}?meetingNoteId=${fixture.ownerMeetingId}`
+    );
+    const noteTodoButton = page
+      .locator(`#meeting-todo-${fixture.auditTodoId}`)
+      .getByRole("button", { name: /(?:Complete|Reopen) todo 1/ });
+    await expect(noteTodoButton).toHaveAttribute("aria-label", "Reopen todo 1");
+
+    const reopenGate = await gateMeetingTodoPatches(page);
+    await noteTodoButton.click();
+    await reopenGate.waitForPending();
+    await expect(noteTodoButton).toHaveAttribute("aria-label", "Complete todo 1");
+    reopenGate.releaseAll();
+    await expect(
+      page.locator("[role='status']").getByText("Meeting todo reopened.")
+    ).toBeVisible();
+    await reopenGate.unroute();
+
+    await page.goto(`/projects/${fixture.ownerProjectId}/todos`);
+    await expect(
+      page.getByRole("button", {
+        name: "Complete todo: Complete the mobile navigation audit",
+      })
+    ).toBeVisible();
+  });
+
+  test("keeps floating panel completion optimistic and restores failed updates", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const userId = await signInAsVerifiedUser(page);
+    const fixture = await createProjectTodoFixture(userId);
+    await assignTodoToUser(fixture.sourceTodoId, userId);
+
+    await page.goto(`/projects/${fixture.ownerProjectId}`);
+    const todosTrigger = page.getByRole("button", {
+      name: /^Todos, \d+ open/,
+    });
+    await expect(todosTrigger).toBeVisible();
+    const todosDialog = page.getByRole("dialog", { name: "Meeting todos" });
+    await expect(async () => {
+      await todosTrigger.click();
+      await expect(todosDialog).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 15000 });
+    await expect(todosDialog.getByText("Recently completed")).toHaveCount(0);
+
+    const completionGate = await gateMeetingTodoPatches(page);
+    await todosDialog
+      .getByRole("button", {
+        name: "Complete todo: Open the source meeting from Todos",
+      })
+      .click();
+    await completionGate.waitForPending();
+    await expect(todosDialog.getByText("Recently completed")).toBeVisible();
+    await expect(
+      todosDialog.getByRole("button", {
+        name: "Reopen todo: Open the source meeting from Todos",
+      })
+    ).toBeVisible();
+    await expect(
+      todosDialog.locator('[data-meeting-todo-pending="true"]')
+    ).toHaveCount(1);
+    completionGate.releaseAll();
+    await expect(
+      page.locator("[role='status']").getByText("Meeting todo completed.")
+    ).toBeVisible();
+    await completionGate.unroute();
+
+    const patchPattern = "**/api/projects/*/meeting-notes/*/actions/*";
+    await page.route(patchPattern, (route) =>
+      route.request().method() === "PATCH"
+        ? route.fulfill({
+            status: 403,
+            contentType: "application/json",
+            body: JSON.stringify({ error: "forbidden" }),
+          })
+        : route.continue()
+    );
+    await todosDialog
+      .getByRole("button", {
+        name: "Reopen todo: Open the source meeting from Todos",
+      })
+      .click();
+    await expect(
+      page.locator("[role='alert']").filter({
+        hasText: "You do not have permission to change meeting notes.",
+      })
+    ).toBeVisible();
+    await expect(todosDialog.getByText("Recently completed")).toBeVisible();
+    await expect(
+      todosDialog.getByRole("button", {
+        name: "Reopen todo: Open the source meeting from Todos",
+      })
+    ).toBeVisible();
+    await page.unroute(patchPattern);
   });
 });
