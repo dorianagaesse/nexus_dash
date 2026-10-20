@@ -3,6 +3,123 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-20 - ND-577: Refresh main before merge
+
+- Merged `origin/main` at `133487d` (ND-538 optimistic meeting-todo completion
+  plus `@radix-ui/react-slot` 1.5.0, `lucide-react` 1.55.0, and `postcss`
+  8.5.30 bumps) into the ND-577 branch. The only conflict was this journal;
+  kept both entries newest-first. ND-538's panel changes are confined to todo
+  completion state (preparation save/dismissal logic untouched).
+- Ran `npm ci` against the merged lockfile. Re-validated on the merged tree:
+  `npm run lint` and `npm run rls:check` passed; unit suite 2,046 passed /
+  2 skipped; production build passed. The four affected Playwright recovery
+  tests passed against a local production server built from the merged tree
+  (one cold-start run hit the known nd-433 dismissal flake; clean on rerun).
+
+# 2026-10-20 - ND-538: Refresh main (dependency bumps) before re-review
+
+- Merged main at `458624e` (Dependabot safe-production-utilities `@radix-ui/react-slot` 1.5.0 / `lucide-react` 1.55.0 and safe-dev-dependencies `postcss` 8.5.30 bumps) via a clean merge with no conflicts. Ran `npm ci` against the merged lockfile.
+- Re-ran the required validation on the refreshed tree: 108 focused ND-538 tests pass, including the overlap regression cases (stale sibling completion response, sibling overdue recompute, acknowledged-status failure, all-fail baseline fallback); `npx tsc --noEmit` error count unchanged from baseline (192); eslint clean on changed files.
+
+# 2026-10-16 - ND-538: Final review - server-baseline failure fallback and main refresh
+
+- Refreshed main: merged `d065fd3` (ND-565 content revision preconditions). The only conflict was this journal; retained both the ND-538 entries and the ND-565 main-refresh entries. Verified integration: the ND-565 revision preconditions apply to the whole-note PATCH only (expectedRevision/ETag are optional and the action-completion path `setProjectMeetingNoteActionCompletion` is untouched), so optimistic completion payloads and status semantics are unchanged. Ran `npx prisma generate` for the merged content-revisions migration.
+- Addressed the fourth review finding (inline `[P2]` at project-meeting-todos.tsx:487, reproduced in a failing test first, "falls back to the server baseline meeting status when all overlapping reopens fail"):
+  - Problem: the failure fallback read the todo's click-time meeting status, which may itself be a sibling's unconfirmed optimistic update. Reopen A then B in a done meeting (completed A/B plus open C), then fail both: B's click-time snapshot had picked up A's optimistic actions_in_progress, so B's failure applied actions_in_progress and made C overdue even though no mutation ever committed.
+  - Fix (project Todos page): a `serverMeetingStatusRef` baseline map is rebuilt from `initialTodos` on every refresh; the failure path now resolves the meeting status as success-confirmed -> refresh baseline -> click-time status, so failure restores the last server-known status instead of another request's optimistic guess.
+  - Regression test: done meeting with completed A/B plus open C; reopen A then B with responses rejected 403 in order; overdue summary must settle at 1/0 (open C not overdue). Pre-fix it read 1/1; the intermediate assertions pin the optimistic states (1/0 -> 3/3 -> 2/0 -> 1/0).
+- Validation: 108 focused tests across Todos page, notes panel, quick dialog, route, and service files pass on the merged tree (131 including the ND-565 content-revision and transaction-retry suites); `npx tsc --noEmit` error count unchanged from baseline (192, none in changed files); eslint clean on changed files.
+
+# 2026-10-16 - ND-577: Remove routine local-draft save messages
+
+- Card `cmva686t7000504jvty97redc`: removed "Draft saved locally in this
+  browser." and equivalent routine local-draft indicators app-wide, following
+  the 2026-10-16 product decision that browser storage is an implementation
+  detail and must not add banners, badges, toasts, or status noise while
+  users write.
+- Inventoried every recovery-enabled surface: task create, task detail edit,
+  task comments, meeting preparation, meeting outputs, context-card
+  create/edit, calendar event create/edit, and roadmap event/milestone edit.
+  Meeting preparation/outputs and roadmap, context-card, and task-create
+  surfaces already rendered the notice only for conflicts/errors (gated when
+  the ND-433/ND-434 autosave chunks landed, plus ND-534 for roadmap); the
+  task detail edit, task comment,
+  and calendar event modals still rendered the routine saved-locally message
+  via the shared notice. Meeting todos have no local-draft UI.
+- `components/recovery-draft-notice.tsx` now returns null for the routine
+  locally-stored state (no banner space, no `role="status"` announcement) and
+  keeps actionable states: restored draft (copy shortened to `Draft
+  restored.`, no storage narration), conflict, storage failure (including
+  quota errors), and incompatible-draft copy. Discard/Keep/Confirm actions
+  are unchanged. Local draft persistence, recovery, Cancel/Discard
+  semantics, and explicit save flows are untouched.
+- Updated the shared contract in `adr/task-432-autosave-contract.md`:
+  routine persistence must stay silent (no banner, badge, toast, or
+  live-region announcement; no empty banner space), and the 4.3 state list
+  drops `Draft saved locally` (network-save states
+  `Saving changes`/`Saved`/paused/failed/conflict remain).
+- Tests: added `tests/components/recovery-draft-notice.test.tsx` covering
+  silent routine storage, restored/conflict/failure/incompatible rendering,
+  and confirmed discard. Extended `tests/e2e/nd-433-long-form-recovery.spec.ts`
+  with silent-while-typing assertions for task comment and task edit, and a
+  new mobile-viewport (390x844) test covering silent typing, restored notice
+  within the viewport, discard, and the retained quota-failure error. Updated
+  `tests/e2e/nd-434-authoring-recovery.spec.ts` for the new restored copy
+  and added the silent-storage assertion to the calendar flow.
+- Validation: `npm run lint` and `npm run rls:check` passed. Unit suite
+  2,038 passed / 2 skipped. Coverage 94.11% lines / 93.71% statements /
+  84.98% branches / 95.42% functions. Production build passed. The four
+  affected Playwright tests and the full browser suite (113 passed /
+  2 skipped) passed against a verified local production server built from
+  this worktree.
+- Shared-recovery coordination: commented on ND-433 PR #597 that
+  `live-save-status.tsx`'s header comment about the recovery notice showing
+  local state while dirty will be stale after this change; its
+  silent-while-dirty behavior remains correct.
+
+# 2026-10-15 - ND-538: Reviewer follow-up - fix completion reconciliation races
+
+- Addressed the Codex review on PR #602 (both findings reproduced in new regression tests first):
+  - Out-of-order sibling rollback (notes panel): completion responses now merge only what the mutation owns - the mutated action plus note-level fields the mutation can flip (status/updatedAt/updatedBy). The previous whole-note replace could restore an older sibling action when an overlapping response payload had been read before a sibling write committed. The whole-draft replace is additionally gated on no completion overlap (none in flight at click, none started during the request, via a mutation version ref); the targeted draft sync also adopts the done -> actions_in_progress status flip without clobbering other draft status edits.
+  - Stale sibling overdue metadata (project Todos page): reopening a todo in a done meeting now propagates the done -> actions_in_progress status flip to every todo of that meeting - optimistic prediction at click, server status on reconcile, and status restore on failure - recomputing each open todo's overdue flag and the overdue summary count.
+- Addressed the re-review follow-up (third finding): a failed reopen no longer rolls back a sibling's acknowledged meeting status. Reopening A and B in an old done meeting, letting B commit actions_in_progress, then failing A used to restore the click-time done status across the meeting and drop the overdue summary to 0.
+  - Fix (project Todos page): successful mutations record the server-confirmed meeting status per meeting in a `confirmedMeetingStatusRef` map (cleared whenever fresh server todos arrive via the `initialTodos` effect). The failure path restores only the failed todo's completion state and passes the confirmed status when recomputing sibling overdue flags, falling back to the click-time status when no mutation has been confirmed. Confirmed meeting status is now separated from optimistic per-action state.
+- Regression tests: "keeps sibling completion state when a stale response arrives last" (notes panel, two gated PATCHes resolved out of order), "recomputes sibling overdue metadata when reopening a done meeting's todo" (Todos page, overdue summary 1/0 -> 2/2), and "does not roll back a sibling's acknowledged meeting status when another reopen fails" (Todos page, deferred reopen A fails after reopen B commits; overdue summary 1/0 before the fix, 1/1 after). All failed on their pre-fix revisions and pass after.
+- Validation: focused suites re-run - 107 tests across notes panel, Todos page, quick dialog, route, and service files; `npx tsc --noEmit` error count unchanged from baseline (192, none in changed files); eslint clean on changed files.
+
+# 2026-10-14 - ND-538: Make meeting todo completion immediate in all three views
+
+- Card `cmusc5m80002f04iduk1eqaha` (label "fix", no epic):
+  - Made meeting todo completion/reopen optimistic in all three entry points (meeting note actions list, floating Meeting Todos dialog, project Todos page):
+    - Project Todos page (`components/meeting-todos/project-meeting-todos.tsx`): per-todo `pendingCompletionIds` flips the checkbox, completed-view membership, and "Completed by" attribution at click time; success reconciles from the PATCH `note.actions` payload; failure restores only the affected todo and surfaces the existing error alert. Removed the post-completion `router.refresh()` - nav counts still update through `useProjectTodoSummary` on mutation-finish events, and collaborator freshness through the activity version ack plus polling, matching the ND-534 roadmap precedent.
+    - Meeting notes panel (`components/project-meeting-notes-panel.tsx`): optimistic `localNotes` plus draft update (`applyCompletedAt`) with a per-id pending set; success reconciles from the response (whole-draft replace only when the draft was in sync and no queued mutations, otherwise targeted action sync); failure restores the prior row plus error toast. The quick dialog receives `pendingActionIds` so its buttons disable and expose `data-meeting-todo-pending` while a mutation is in flight.
+    - Floating quick dialog (`components/meeting-todos/meeting-todo-quick-dialog.tsx`): "Recently completed" now renders the optimistic entry during the in-flight completion.
+    - Inline row toggle buttons carry `id="meeting-todo-<actionId>"` and stable aria labels (Complete/Reopen todo N) for test targeting.
+  - Preserved behavior: completion service semantics (RLS transaction, editor role check, `completedAt`/`completedBy*` attribution, note status flip on reopen) untouched; notifications unchanged (same service path, no duplicate events); no meeting-service edits were needed, so no coordination with the autosave Codex owner was required.
+  - Automated tests:
+    - Service coverage re-verified (completes without replacing siblings, reopen clears attribution, viewer 403, agent attribution).
+    - Route tests (`tests/api/project-meeting-notes.route.test.ts`): reopen clears completion attribution; failure path surfaces errors.
+    - Component tests (`tests/components/project-meeting-todos.test.tsx`): immediate completion without a broad refresh, failure restore plus alert, optimistic reopen from the completed view (deferred-promise gates).
+    - Browser tests (`tests/e2e/project-meeting-todos.spec.ts`): gated-PATCH complete/reopen on the Todos page and floating panel, 403 failure restore, cross-view consistency after release.
+  - Preview measurements (20 post-warm-up samples per entry, `.tmp/nd538-harness.mjs`, explicit-branch preview deploys):
+    - Visible latency (click to checkbox/section flip) and PATCH duration p50/p95 in ms:
+      - note entry: visible 337.6/383.7 -> 6.1/8.8; PATCH 325.8/376.6 -> 322.7/395.5
+      - panel entry: visible 352.3/517.7 -> 5.1/7.5; PATCH 334.3/512.1 -> 365.7/558.8
+      - todos entry: visible 283.2/332.1 -> 2.9/6.2; PATCH 270.8/326.1 -> 299.3/328.6
+    - Targets met: pending feedback p95 <= 8.8 ms (target <= 100 ms); PATCH p95 max 558.8 ms (target <= 1000 ms). Baseline PATCH p95 was already <= 512.1 ms, so no server-side PATCH reduction was needed.
+    - Failure scenarios: after revision, all three entries flip optimistically in 5.7-7.8 ms, then revert and show the error within 64-360 ms (baseline never flipped before the failure response).
+    - Cross-view: completion in the note appears in Todos with attribution, and reopen from Todos stays consistent back in the note, on both revisions.
+  - Validation: `npm run lint` passed; related unit suites (86 tests) passed; new e2e specs passed locally plus the existing meeting-todos regression; production build exit 0 with CI-equivalent env; `tsc` error count unchanged from baseline (no new type errors).
+
+# 2026-10-14 - ND-565: Refresh main integration
+
+- Merged main at `75433a9` after ND-534 landed. The only conflict was this
+  journal; retained both the ND-565 review evidence and ND-534 execution log.
+- ND-565 service, API, schema and concurrency-test code is unchanged from the
+  validated implementation. Main's roadmap changes remain intact.
+- Reviewed conflict markers, whitespace and references; fresh PR CI validates
+  the integrated branch before handoff. Live remains off.
+
 # 2026-10-14 - ND-573: Stabilize the home-entry node-field link-count assertion
 
 - The home-entry spec asserted `data-link-count > 780` while the node field
@@ -19,6 +136,47 @@ Use it for important implementation milestones, blockers, validation runs, and r
   branches / 95.42% functions / 94.19% lines), production build, and the full
   Playwright suite (111 passed / 2 skipped) against an isolated server
   (port 3463, database `nexusdash_nd573`).
+
+# 2026-10-13 - ND-565: Address relation revision review
+
+- Merged current main into the ND-565 branch and retained both the ND-452
+  invalid-relation diagnostics and ND-565 revision conflict responses.
+- Replaced delete/recreate relation snapshots with added/removed pair writes,
+  preserving both endpoints' revisions when the requested set is unchanged.
+- Added bounded whole-transaction retries for guarded task edits after a
+  PostgreSQL deadlock or serialization failure. Every attempt repeats project
+  authorization and the original revision check; other failures and unguarded
+  operations are not replayed.
+- Added API checks for retained relations, revision rechecks and retry limits,
+  plus real-database browser regressions for legacy snapshots, reciprocal
+  conditional saves and a deliberately forced reciprocal lock schedule.
+- Local lint, RLS inventory, 2,026 unit/API tests (2 skipped), coverage
+  (93.71% statements / 84.98% branches / 95.42% functions / 94.11% lines),
+  production build, the least-privilege PostgreSQL matrix and the full browser
+  suite (112 passed / 2 expected skips) passed.
+- Implementation `ea9d20d97199d6df51f482b2e983ac37be72cb66` passed every gate in
+  [CI run 38463067569](https://github.com/dorianagaesse/nexus_dash/actions/runs/38463067569).
+- [Preview run 38463093280](https://github.com/dorianagaesse/nexus_dash/actions/runs/38463093280)
+  checked out that implementation SHA. Its first dependency install aborted
+  during a network download; rerunning the failed job succeeded. The immutable
+  [deployment](https://nexus-dash-dcaej573a-dorian-agaesses-projects.vercel.app)
+  passed protected HTTP checks for the original revision contract, identical
+  legacy/guarded relation snapshots retaining both ETags, and reciprocal saves
+  yielding 200/412 with one committed activity. Temporary fixtures were removed.
+- Both review threads have implementation/test replies and are resolved.
+  Main conflicts are resolved; Live remains off and merge belongs to the reviewer.
+
+# 2026-10-12 - ND-433: Shared live-save client scheduler and conflict UI
+
+- Picked up the ND-433 live-save work from the board and started `feature/nd-433-live-save-scheduler` from `origin/main` at `24d4496` in a dedicated worktree.
+- Added the framework-free `LiveSaveScheduler` (2 s quiet debounce, 30 s max wait, single-flight coalescing of dirty-field writes, offline/hidden/auth/invalid pauses, bounded 5/15/60 s retries, one disjoint auto-rebase, conflict review preserving both versions), the `useLiveSave` React binding on top of the existing recovery drafts, the injected-adapter contract in `lib/live-save/types.ts`, a per-surface Live gate (still disabled), a status strip, and conflict review UI with per-field Use latest/Keep my version.
+- The adapter contract is documented in the ND-432 ADR section 4.7. Prisma, service, route, agent-compatibility, and server-side side-effect work remain with Codex.
+- Validation: lint, RLS inventory, 2,007 unit tests (2 skipped) against an isolated local database, coverage gate with the live-save files added (92.61% statements / 85.19% branches), and production build. Browser suite not run: no surface mounts the live-save UI while the Live gate is empty, and the CI e2e smoke flow is unaffected.
+- Review round 2026-10-12 (reviewed head `7fe1522`): merged `origin/main` (only `journal.md` conflicted; both entries kept newest-first) and fixed five findings. A clean remote update now adopts the new representation into the form instead of silently resubmitting the stale value (P1). Construction is inert and scheduling starts from the committed lifecycle after the real online/visibility state is applied, so a discarded StrictMode render or an unmount before the debounce can no longer leave a timer that writes (P1). An accepted write restarts the max-wait clock for edits that stayed dirty while it was in flight (P1). Conflict review shows full values in bounded, keyboard-scrollable previews instead of truncating at 240 characters (P2). The adapter contract now specifies the ND-565 transport: `X-Content-If-Match` with the exact entity ETag derived purely from the numeric `contentRevision`, never standard `If-Match`, and the precondition error codes map to a non-retryable failure (P2). Also replaced the NUL cache-key separators in `lib/hooks/use-live-save.ts` with `\n` escapes so the file diffs as text.
+- Review-round validation (CI-mirroring env, isolated database): lint and `rls:check` clean; 2,047 unit tests passed (2 skipped); coverage gate passed (93.7% statements / 85.96% branches); production build passed. The reviewer's four regressions plus StrictMode, unmount-before-debounce, and inert-construction coverage live in `tests/components/live-save-review-regressions.test.tsx`.
+- Re-review round 2026-10-14 (re-reviewed head `3999b3c`): the five findings verified fixed; one new P1 addressed. The accepted branch now adopts the acknowledgement's canonical value for every declared field the user has not edited since the submitted snapshot - internally and through `applyRepresentation` - so server normalization (for example a trimmed title) no longer reads dirty against the new base and re-saves at response speed; values typed in flight win over the acknowledgement. Merged `origin/main` (ND-534; `journal.md` conflicted again, both entries kept newest-first). New coverage in `tests/components/live-save-review-regressions.test.tsx`: the reviewer's normalized-value regression, an accepted rich-text canonicalization case, and an in-flight newer-edit preservation case.
+- Re-review validation (CI-mirroring env, isolated database): lint and `rls:check` clean; 2,063 unit tests passed (2 skipped); coverage gate passed (93.76% statements / 86.08% branches); production build passed.
+- Merge-forward 2026-10-16 (ND-565, #595): merged `origin/main` at `d065fd3`; `journal.md` conflicted again (both entries kept newest-first) and `adr/task-432-autosave-contract.md` auto-merged with the ND-565 4.4 wording and transport amendment intact alongside section 4.7. Re-validated on a fresh isolated database with the ND-565 `content_revisions` migration applied: lint and `rls:check` clean; 2,091 unit tests passed (2 skipped); coverage gate passed (93.64% statements / 86.03% branches); production build passed.
 
 # 2026-10-12 - ND-534: Immediate roadmap moves and event status toggles
 
@@ -10049,3 +10207,110 @@ Low-value entries to avoid going forward:
 - Delivery: PR #593, implementation commit 36f2f45. Initial CI Quality Core and
   Tenant Isolation passed; hosted E2E was still running at handoff. Copilot
   could not review because its quota was exhausted; manual review is needed.
+
+## 2026-10-11 - ND-565: Conditional content revision foundation
+
+- Split the shared server foundation from ND-433/ND-434 into ND-565 and started
+  `feature/nd-565-content-revisions` from current main in a separate worktree.
+- Added additive entity revisions and ETag-based checks inside authorized
+  actor transactions for task, meeting-note, and context-card edits. Stale
+  requests return the current authorized content without mutation side effects.
+- Meeting and context edits preserve omitted fields. Database invoker triggers
+  track legacy and offboarding writes, task relations, and meeting participants
+  and todos; metadata-only task activity keeps the content revision stable.
+- Preview exposed Vercel re-evaluating standard If-Match against the advanced
+  response ETag, changing an accepted write into a platform 412. Private cache
+  headers, a separate response validator, and request-proxy forwarding did not
+  prevent it. The final transport uses X-Content-If-Match with the same strong
+  entity ETag and rejects standard If-Match with 400 before mutation. Amended
+  the ND-432 contract; Live and agent v2/sunset gates remain separate.
+- Validation completed 2026-10-12: lint, RLS inventory, 1,990 unit/API tests
+  (2 skipped), coverage, and production build passed. Coverage: 93.58%
+  statements, 84.07% branches, 95.42% functions, 93.98% lines. The real
+  PostgreSQL isolation matrix passed in a separate database. Full local browser
+  baseline: 109 passed, 2 skipped; final transport/aggregate regression and the
+  newly merged ND-451 relation scenario also passed separately.
+- [Preview run 38250393051](https://github.com/dorianagaesse/nexus_dash/actions/runs/38250393051)
+  checked out `feature/nd-565-content-revisions` at
+  `0b724b9ae8bb8a7aff3ce81426839f4a7b404698`; checkout logs and readiness
+  metadata confirmed the revision and Preview environment. The immutable URL
+  was <https://nexus-dash-8apzb9fz5-dorian-agaesses-projects.vercel.app>.
+  Protected-deployment HTTP probes passed concurrent task 200/412 responses,
+  stale rejection without activity, weak/header-transport rejection, preserved
+  meeting participants/todos, todo invalidation, and conditional context edits.
+  Temporary fixture projects, sessions and users were removed.
+- Delivery: [PR #595](https://github.com/dorianagaesse/nexus_dash/pull/595),
+  validated implementation `0b724b9`. Copilot could not review because its quota
+  was exhausted; manual review is needed before merge. The card stays In
+  Progress for the reviewer.
+
+## 2026-10-19 - ND-581: Shareable task modal URLs
+
+- Created ND-581 and GitHub issue #610 after checking the live board for
+  overlapping work; related it to ND-582. Started from current origin/main in
+  a separate worktree because the user's checkout contains other changes.
+- Task opening, editing, related-task navigation, and closing now update the
+  existing taskId URL contract. Browser Back/Forward follow modal selection;
+  stale task fetches cannot overwrite a newer selection. Copy link reports
+  clipboard success or failure and keeps the existing access boundary.
+- Found and fixed loss of project/task destinations during sign-in and email
+  verification. Proxy-derived internal destinations replace caller headers.
+- Added browser regression coverage for copying, reload, URL preservation,
+  history, related tasks, clipboard failure, responsive layouts, and signing
+  in from a shared link; recorded the navigation contract in adr/decisions.md.
+- Pending tasks do not expose temporary IDs. Copy link becomes available after
+  creation, and the URL follows the permanent task identity.
+- Validation completed 2026-10-20: lint, RLS inventory, 2,039 unit/API tests
+  (2 skipped), coverage, and production build passed. Coverage: 93.71%
+  statements, 84.98% branches, 95.42% functions, 94.11% lines. The final local
+  browser suite passed 114 tests with 2 skips, including pending-task sharing.
+  Vitest used one thread worker on Windows; local builds used polling.
+- [CI run 39343359329](https://github.com/dorianagaesse/nexus_dash/actions/runs/39343359329)
+  passed Quality Core, Tenant Isolation, E2E Smoke, and Container Image for
+  validated implementation `9d2e088`. Desktop and mobile screenshots passed
+  visual inspection. Updated existing reload and account-return expectations
+  to match URL-driven modal selection.
+- Delivery: [PR #613](https://github.com/dorianagaesse/nexus_dash/pull/613),
+  closing issue #610. Copilot review was requested but no review result was
+  available at handoff; human review remains pending. The card stays In Progress.
+
+## 2026-10-19 - ND-582: Task references in Kanban lists
+
+- Created ND-582 and GitHub issue #611 after searching the live board; related
+  it to ND-581. Used a dedicated branch and worktree from current origin/main.
+- Active Kanban cards and archived Done rows now show their canonical ND
+  reference. Cards reserve both title lines; tasks without a reference omit
+  it. The same presentation applies to search results and mobile lanes.
+- Added a browser regression using multiple results mentioning the same ND
+  reference, covering every lane, archived rows, mobile layout, and opening.
+- Final validation completed 2026-10-20: lint, RLS inventory, 2,032 unit/API
+  tests (2 skipped), coverage, and production build passed. Coverage: 93.71%
+  statements, 84.98% branches, 95.42% functions, 94.11% lines. The final full
+  local browser suite passed 113 tests with 2 skips. Vitest used bounded
+  thread workers on Windows; local builds used polling.
+- Desktop and mobile visual checks passed. Archived rows reserve a separate
+  title row so narrow lanes keep the title readable. Updated the pointer-drag
+  regression to keep its drop point inside the viewport after taller cards;
+  both pointer and keyboard reorder checks passed.
+- [CI run 39413374240](https://github.com/dorianagaesse/nexus_dash/actions/runs/39413374240)
+  passed Quality Core and PostgreSQL Tenant Isolation for `caec2c7`; its E2E
+  job was still running when this handoff entry was written.
+- Delivery: [PR #612](https://github.com/dorianagaesse/nexus_dash/pull/612),
+  closing issue #611, related to ND-581 / PR #613. Copilot review was requested
+  but no review result was available at handoff; human review remains pending.
+  The card stays In Progress for the reviewer.
+
+## 2026-10-20 - ND-581: Resolve PR #613 merge conflicts
+
+- Merged current origin/main (`188e6ab`) into the task branch. Both conflicts
+  were documentation additions: retained the shareable-link and visible-ID
+  README entries and both task histories. No implementation conflict required
+  a code edit. Reviewed the combined documentation and ran git diff --check.
+
+## 2026-10-20 - ND-581: Post-merge mobile recovery regression
+
+- CI run 39486283330 passed Quality Core and tenant isolation but timed out in
+  the mobile comment-recovery test added on main. Its quota-error scenario
+  clicked the background task card after reload, although the task URL had
+  already reopened the modal. Updated it to assert the reopened modal before
+  continuing; retained the restored-draft, discard, and quota-error assertions.

@@ -117,7 +117,7 @@ test.describe("ND-144 screenshot attachments", () => {
     await expect(draftPreview).toBeVisible();
 
     await page.reload();
-    await page.getByRole("button", { name: new RegExp(taskTitle) }).first().click();
+    await expect(page.getByRole("dialog", { name: taskTitle })).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Preview image comment-paste.png" })
     ).toBeVisible();

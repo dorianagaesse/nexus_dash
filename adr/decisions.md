@@ -1128,3 +1128,47 @@ Keep UI-only or task-only notes in `journal.md`.
 - Links: `adr/task-372-supabase-realtime-authorization.md`,
   `docs/reports/nd-374-realtime-load-test.md`,
   `docs/runbooks/vercel-env-contract-and-secrets.md`.
+## 2026-10-11 - ND-565: Database-owned aggregate content revisions
+
+- Status: Accepted.
+- Context: ND-432 requires monotonic content revisions, but legacy clients and
+  owner offboarding functions also mutate authoring content. Updating revisions
+  only in the new PATCH handlers would leave those writers outside the contract.
+- Decision: Invoker PostgreSQL triggers advance Task, ProjectMeetingNote, and
+  Resource content revisions. Child relation/participant/todo changes advance
+  their parent. Metadata-only activity does not. Nested writes advance each
+  affected aggregate once per transaction using one transaction-local JSON
+  marker. Services authorize and lock before comparing an optional content precondition,
+  then mutate inside that same RLS transaction.
+- Consequences: Existing clients remain compatible in the additive release;
+  guarded writes reject stale content with 412 and return the authorized current
+  representation. Live remains disabled until browser/agent enforcement,
+  v1 sunset, and measured load gates pass. Trigger behavior is covered by the
+  least-privilege PostgreSQL matrix and concurrent HTTP edit probes.
+- Transport amendment (2026-10-12): use X-Content-If-Match with the exact entity
+  ETag. Vercel evaluates standard If-Match against post-mutation responses and
+  can replace an accepted write with a platform 412. Reject the standard header
+  before mutation; preserve normal response ETags and the atomic service guard.
+- Relation review amendment (2026-10-13): replace relation sets by their pair
+  differences, so unchanged endpoints retain their ETags. Guarded task edits
+  retry a deadlocked/serialization-aborted actor transaction at most twice,
+  repeating authorization and the original revision check on every attempt.
+  A competing committed edit therefore becomes a 412, not a stale replay.
+- Links: `task-432-autosave-contract.md`,
+  `../docs/runbooks/content-revision-preconditions.md`, Nexus Dash ND-565.
+
+## 2026-10-19 - ND-581: Task URLs and authentication return destinations
+
+- Status: Accepted.
+- Decision: Keep the existing project `taskId` query parameter as the task
+  deep-link contract. Modal navigation adds browser history entries without
+  reloading the project; Back/Forward reopen or close the task. Copy link emits
+  the canonical project/task URL and continues to require project access.
+- Authentication: The request proxy overwrites a private return-path header
+  for project routes with the actual pathname and query. Server guards carry
+  that normalized internal path through sign-in and email verification, so
+  shared task links survive authentication without accepting external redirects.
+- Consequences: No new public task endpoint or database schema is needed.
+  Unrelated project query parameters and fragments survive modal navigation.
+  Newly created tasks become shareable only after saving assigns their permanent
+  ID; a selected task's URL follows that identity change.

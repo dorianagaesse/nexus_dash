@@ -43,6 +43,7 @@ import {
   type RelatedTaskOption,
 } from "@/components/kanban/related-task-field";
 import { TaskCommentBody } from "@/components/kanban/task-comment-body";
+import { CopyTaskLinkButton } from "@/components/kanban/copy-task-link-button";
 import { AttachmentFileList } from "@/components/kanban/attachment-file-list";
 import { ImageAttachmentGrid } from "@/components/kanban/image-attachment-grid";
 import { TaskDeadlineField } from "@/components/kanban/task-deadline-field";
@@ -441,6 +442,11 @@ export function TaskDetailModal({
                   data-task-modal-controls="true"
                   className="flex shrink-0 items-center gap-1"
                 >
+                  <CopyTaskLinkButton
+                    key={selectedTask.id}
+                    projectId={projectId}
+                    taskId={selectedTask.id}
+                  />
                   {!isEditing && canEdit ? (
                     <TaskOptionsMenu
                       currentStatus={selectedTask.status}

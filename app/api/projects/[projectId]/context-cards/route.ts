@@ -98,6 +98,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ proje
         const projection = projectContextCard({ card: cardRecord, registry });
         return {
           id: card.id,
+      contentRevision: card.contentRevision,
           title: card.name,
           content: card.content,
           color: card.color ?? CONTEXT_CARD_COLORS[0],

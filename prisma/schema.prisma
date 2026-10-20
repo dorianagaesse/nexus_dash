@@ -239,6 +239,7 @@ model Project {
 
 model ProjectMeetingNote {
   id                         String                @id @default(cuid())
+  contentRevision            Int                   @default(0)
   projectId                  String
   title                      String                @db.VarChar(140)
   scheduledAt                DateTime?
@@ -589,6 +590,7 @@ model RoadmapEvent {
 
 model Task {
   id                                    String                    @id @default(cuid())
+  contentRevision                       Int                       @default(0)
   referenceNumber                       Int                       @unique @default(autoincrement())
   title                                 String
   description                           String?
@@ -729,6 +731,7 @@ model TaskRelation {
 
 model Resource {
   id                            String                @id @default(cuid())
+  contentRevision               Int                   @default(0)
   type                          String
   name                          String
   content                       String

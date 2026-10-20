@@ -146,7 +146,7 @@ test.describe("ND-399 comment file attachments", () => {
     expect(await downloadResponse.text()).toBe(REPORT_CONTENT);
 
     await page.reload();
-    await page.getByRole("button", { name: new RegExp(taskTitle) }).first().click();
+    await expect(page.getByRole("dialog", { name: taskTitle })).toBeVisible();
     await expect(
       page.getByRole("link", { name: "status-report.txt" })
     ).toBeVisible();

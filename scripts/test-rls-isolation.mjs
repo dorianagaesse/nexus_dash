@@ -1312,6 +1312,26 @@ try {
   );
   assert.equal(missingLookup.rowCount, 0);
 
+  await runtimeTransaction(ids.editorB, async () => {
+    const before = await runtime.query(`SELECT "contentRevision" FROM "Task" WHERE id = $1`, [ids.taskB]);
+    const metadata = await runtime.query(`UPDATE "Task" SET "updatedAt" = now() WHERE id = $1 RETURNING "contentRevision"`, [ids.taskB]);
+    assert.equal(metadata.rows[0].contentRevision, before.rows[0].contentRevision);
+    const changed = await runtime.query(`UPDATE "Task" SET description = 'Revision probe' WHERE id = $1 RETURNING "contentRevision"`, [ids.taskB]);
+    assert.equal(changed.rows[0].contentRevision, before.rows[0].contentRevision + 1);
+    const repeated = await runtime.query(`UPDATE "Task" SET title = 'Same aggregate transaction' WHERE id = $1 RETURNING "contentRevision"`, [ids.taskB]);
+    assert.equal(repeated.rows[0].contentRevision, changed.rows[0].contentRevision);
+  });
+  await runtimeTransaction(ids.editorB, async () => {
+    const before = await runtime.query(`SELECT "contentRevision" FROM "ProjectMeetingNote" WHERE id = $1`, [ids.meetingB]);
+    await runtime.query(`UPDATE "ProjectMeetingNoteAction" SET content = content || ' revised' WHERE id = $1`, [ids.meetingActionB]);
+    const after = await runtime.query(`SELECT "contentRevision" FROM "ProjectMeetingNote" WHERE id = $1`, [ids.meetingB]);
+    assert.equal(after.rows[0].contentRevision, before.rows[0].contentRevision + 1);
+  });
+  const hiddenRevision = await runtimeTransaction(ids.ownerA, () => runtime.query(
+    `SELECT "contentRevision" FROM "Task" WHERE id = $1 FOR UPDATE`, [ids.taskB]
+  ));
+  assert.equal(hiddenRevision.rowCount, 0, "conditional edit locks cannot expose another project's revision");
+
   console.log(
     "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, append-only assignment history, revoked membership, safe project actor reads, responsibility resolution, ownership transfer, Calendar connections/sources/preferences, and agent credentials."
   );

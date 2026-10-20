@@ -35,6 +35,12 @@ Implemented today:
   - Task comments with agent-authored comment attribution through the project
     credential label and a shared agent avatar
 - Per-user Google Calendar connection and calendar target setting (`/account/settings`)
+- Opening a task updates the browser URL; task modals offer **Copy link**.
+  Shared links reopen that task after sign-in for people with project access.
+  Closing a task clears its URL selection, and Back/Forward follow task navigation.
+  New task links become available when saving finishes.
+- Kanban cards, search results, and archived Done rows display each task's stable
+  ND reference so tasks can be identified without opening their detail modal.
 - Attachment storage abstraction:
   - `local` provider (filesystem)
   - `r2` provider (Cloudflare R2)
@@ -225,6 +231,7 @@ Runbooks:
 
 - `docs/runbooks/vercel-env-contract-and-secrets.md`
 - `docs/runbooks/database-connection-hardening.md`
+- `docs/runbooks/content-revision-preconditions.md`
 - `docs/runbooks/rls-tenant-isolation.md`
 - `docs/runbooks/notification-email-dispatch.md`
 - `docs/runbooks/release-versioning.md`

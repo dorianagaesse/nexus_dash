@@ -61,6 +61,9 @@ import {
   type ResolvedProjectActorPersistence,
 } from "@/lib/services/project-actor-service";
 import { mapTaskStoredActor } from "@/lib/services/project-task-response";
+import type { VersionedContent } from "@/lib/content-revision";
+import { editConflict, lockContentRevision } from "@/lib/services/content-revision-service";
+import { isRetryableTransactionError, retryTransaction } from "@/lib/services/transaction-retry";
 
 const MIN_TITLE_LENGTH = 2;
 const TASK_ASSIGNEE_INVALID = "assignee-invalid";
@@ -76,6 +79,7 @@ interface ServiceErrorResult {
   ok: false;
   status: number;
   error: string;
+  current?: VersionedContent;
   invalidRelatedTask?: InvalidRelatedTaskDiagnostic;
 }
 
@@ -96,7 +100,7 @@ export interface ReorderPayload {
 }
 
 export interface UpdateTaskPayload {
-  title: string;
+  title?: string;
   label?: string;
   labels?: string[];
   description?: string;
@@ -128,6 +132,7 @@ export interface CreateTaskForProjectInput {
 
 export interface UpdatedTaskPayload {
   id: string;
+  contentRevision: number;
   reference: string;
   title: string;
   label: string | null;
@@ -369,6 +374,7 @@ async function loadTaskMutationPayload(
     where: { id: taskId },
     select: {
       id: true,
+      contentRevision: true,
       referenceNumber: true,
       title: true,
       label: true,
@@ -461,6 +467,7 @@ async function loadTaskMutationPayload(
 
   return {
     id: task.id,
+    contentRevision: task.contentRevision,
     reference: formatTaskReference(task.referenceNumber),
     title: task.title,
     label: task.label,
@@ -940,24 +947,14 @@ async function replaceTaskRelations(input: {
   projectId: string;
   taskId: string;
   relatedTaskIds: string[];
+  existingRelatedTaskIds?: string[];
 }) {
-  await input.db.taskRelation.deleteMany({
-    where: {
-      projectId: input.projectId,
-      OR: [{ leftTaskId: input.taskId }, { rightTaskId: input.taskId }],
-    },
-  });
-
-  if (input.relatedTaskIds.length === 0) {
-    return;
-  }
-
-  await input.db.taskRelation.createMany({
-    data: input.relatedTaskIds.map((relatedTaskId) => ({
-      ...buildCanonicalTaskRelation(input.taskId, relatedTaskId),
-      projectId: input.projectId,
-    })),
-    skipDuplicates: true,
+  const existingIds = new Set(input.existingRelatedTaskIds ?? []);
+  const requestedIds = new Set(input.relatedTaskIds);
+  await editTaskRelationPairs({
+    ...input,
+    removeTaskIds: [...existingIds].filter((id) => !requestedIds.has(id)),
+    addTaskIds: [...requestedIds].filter((id) => !existingIds.has(id)),
   });
 }
 
@@ -1662,7 +1659,8 @@ export async function updateTaskForProject(
   taskId: string,
   payload: UpdateTaskPayload,
   actorUserId: string,
-  agentAccess?: AgentProjectAccessContext
+  agentAccess?: AgentProjectAccessContext,
+  expectedRevision?: number
 ): Promise<
   ServiceResult<{ task: UpdatedTaskPayload; activityVersion: Date }>
 > {
@@ -1774,7 +1772,9 @@ export async function updateTaskForProject(
     return createError(400, "title-too-long");
   }
 
-  return withActorRlsContext(normalizedActorUserId, async (db) => {
+  const update = () => withActorRlsContext<
+    ServiceResult<{ task: UpdatedTaskPayload; activityVersion: Date }>
+  >(normalizedActorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId: normalizedActorUserId,
       projectId,
@@ -1786,6 +1786,20 @@ export async function updateTaskForProject(
     }
 
     try {
+      const precondition = await lockContentRevision({
+        db, domain: "task", projectId, id: taskId, expectedRevision,
+      });
+      if (precondition === "missing") return createError(404, "Task not found");
+      if (precondition === "conflict") {
+        const current = await loadTaskMutationPayload(db, projectId, taskId, true);
+        if (!current) return createError(404, "Task not found");
+        return editConflict({
+          ...current,
+          attachments: current.attachments.map((attachment) =>
+            mapTaskAttachmentResponse(projectId, taskId, attachment)
+          ),
+        });
+      }
       const existingTask = await db.task.findUnique({
         where: { id: taskId },
         select: {
@@ -1959,6 +1973,7 @@ export async function updateTaskForProject(
             projectId,
             taskId,
             relatedTaskIds: relatedTaskValidation.data.relatedTaskIds,
+            existingRelatedTaskIds,
           });
         } else if (additiveRelationsProvided) {
           await editTaskRelationPairs({
@@ -2058,10 +2073,19 @@ export async function updateTaskForProject(
         },
       };
     } catch (error) {
+      if (expectedRevision !== undefined && isRetryableTransactionError(error)) {
+        throw error;
+      }
       logServerError("updateTaskForProject", error);
       return createError(500, "Failed to update task");
     }
-  });
+  }, { forceTransaction: expectedRevision !== undefined });
+  try {
+    return await retryTransaction(update, expectedRevision !== undefined);
+  } catch (error) {
+    logServerError("updateTaskForProject", error);
+    return createError(500, "Failed to update task");
+  }
 }
 
 export async function archiveTaskForProject(

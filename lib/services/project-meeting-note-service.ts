@@ -39,6 +39,8 @@ import {
 } from "@/lib/services/project-meeting-todo-actor-service";
 import { type ResolvedProjectActorPersistence } from "@/lib/services/project-actor-service";
 import { type DbClient, withActorRlsContext } from "@/lib/services/rls-context";
+import type { VersionedContent } from "@/lib/content-revision";
+import { editConflict, lockContentRevision } from "@/lib/services/content-revision-service";
 import {
   normalizeTaskLabels,
   parseTaskLabelsJson,
@@ -73,6 +75,7 @@ interface ServiceErrorResult {
   ok: false;
   status: number;
   error: string;
+  current?: VersionedContent;
 }
 
 interface ServiceSuccessResult<T> {
@@ -104,8 +107,10 @@ export interface MeetingNoteMutationInput {
   agentAccess?: AgentProjectAccessContext;
 }
 
-export interface MeetingNoteUpdateInput extends MeetingNoteMutationInput {
+export interface MeetingNoteUpdateInput extends Omit<MeetingNoteMutationInput, "title"> {
   noteId: string;
+  title?: string;
+  expectedRevision?: number;
 }
 
 export interface MeetingNoteStewardInput {
@@ -118,6 +123,7 @@ export interface MeetingNoteStewardInput {
 
 export interface ProjectMeetingNoteSummary {
   id: string;
+  contentRevision?: number;
   projectId: string;
   title: string;
   scheduledAt: Date | null;
@@ -195,6 +201,7 @@ type MeetingTodoStoredActorFields = {
 
 type MeetingNoteRecord = {
   id: string;
+  contentRevision: number;
   projectId: string;
   title: string;
   scheduledAt: Date | null;
@@ -579,6 +586,7 @@ function mapMeetingNote(
   );
   return {
     id: note.id,
+    contentRevision: note.contentRevision,
     projectId: note.projectId,
     title: note.title,
     scheduledAt: note.scheduledAt,
@@ -1345,14 +1353,11 @@ export async function updateProjectMeetingNote(
     return createError(400, "meeting-note-not-found");
   }
 
-  const draft = buildDraft(input);
-  const validationError = validateMeetingNoteDraft({
-    ...draft,
+  const partialValidation = validateMeetingNoteDraft({
+    ...buildDraft({ ...input, title: input.title ?? "Existing meeting" }),
     scheduledAtRaw: input.scheduledAt,
   });
-  if (validationError) {
-    return validationError;
-  }
+  if (partialValidation) return partialValidation;
 
   if (input.agentAccess) {
     const agentScopeAccess = requireAgentProjectScopes({
@@ -1376,6 +1381,15 @@ export async function updateProjectMeetingNote(
       return createError(access.status, access.error);
     }
 
+    const precondition = await lockContentRevision({
+      db, domain: "meeting-note", projectId: input.projectId,
+      id: noteId, expectedRevision: input.expectedRevision,
+    });
+    if (precondition === "missing") return createError(404, "meeting-note-not-found");
+    if (precondition === "conflict") {
+      const current = await readMeetingNoteById({ db, projectId: input.projectId, noteId });
+      return current ? editConflict({ ...current, contentRevision: current.contentRevision! }) : createError(404, "meeting-note-not-found");
+    }
     const existing = await db.projectMeetingNote.findFirst({
       where: {
         id: noteId,
@@ -1383,6 +1397,13 @@ export async function updateProjectMeetingNote(
       },
       select: {
         id: true,
+        title: true,
+        scheduledAt: true,
+        labelsJson: true,
+        status: true,
+        inputNotes: true,
+        outputNotes: true,
+        decisions: true,
         participants: {
           orderBy: [{ position: "asc" }, { createdAt: "asc" }],
           select: {
@@ -1395,6 +1416,7 @@ export async function updateProjectMeetingNote(
           select: {
             id: true,
             content: true,
+            completedAt: true,
             position: true,
             assigneeKind: true,
             assigneeUserId: true,
@@ -1407,12 +1429,26 @@ export async function updateProjectMeetingNote(
     if (!existing) {
       return createError(404, "meeting-note-not-found");
     }
+    const draft = buildDraft({
+      ...input,
+      title: input.title ?? existing.title,
+      scheduledAt: input.scheduledAt === undefined ? existing.scheduledAt : input.scheduledAt,
+      participants: input.participants ?? existing.participants,
+      labels: input.labels ?? parseTaskLabelsJson(existing.labelsJson ?? ""),
+      status: input.status === undefined ? existing.status : input.status,
+      inputNotes: input.inputNotes ?? existing.inputNotes,
+      outputNotes: input.outputNotes ?? existing.outputNotes,
+      decisions: input.decisions ?? existing.decisions,
+      actions: input.actions ?? existing.actions,
+    });
+    const validationError = validateMeetingNoteDraft({ ...draft, scheduledAtRaw: input.scheduledAt });
+    if (validationError) return validationError;
     const existingActions = existing.actions ?? [];
     const existingActionById = new Map(
       existingActions.map((action) => [action.id, action])
     );
     const existingParticipants = existing.participants ?? [];
-    const participantsAlreadyMatch =
+    const participantsAlreadyMatch = input.participants === undefined || (
       existingParticipants.length === draft.participants.length &&
       existingParticipants.every((participant, index) => {
         const nextParticipant = draft.participants[index];
@@ -1422,7 +1458,7 @@ export async function updateProjectMeetingNote(
           participant.displayName === nextParticipant.displayName &&
           participant.position === index
         );
-      });
+      }));
 
     try {
       const [participantResolution, actorRegistry] = await Promise.all([
@@ -1518,7 +1554,7 @@ export async function updateProjectMeetingNote(
         next: MeetingActionAssigneeFields;
       }> = [];
 
-      const updates = actionPlans.flatMap(
+      const updates = input.actions === undefined ? [] : actionPlans.flatMap(
         ({ action, assignment, existingAction, assignmentChanged }) => {
         if (!action.id) {
           return [];
@@ -1562,7 +1598,7 @@ export async function updateProjectMeetingNote(
         ];
         }
       );
-      const creates = actionPlans.flatMap(({ action, assignment }) => {
+      const creates = input.actions === undefined ? [] : actionPlans.flatMap(({ action, assignment }) => {
         if (action.id) {
           return [];
         }
@@ -1604,10 +1640,10 @@ export async function updateProjectMeetingNote(
         ];
       });
       const retainedActionIdSet = new Set(retainedActionIds);
-      const deletedActionIds = existingActions.flatMap((action) =>
+      const deletedActionIds = input.actions === undefined ? [] : existingActions.flatMap((action) =>
         retainedActionIdSet.has(action.id) ? [] : [action.id]
       );
-      const participantsChanged =
+      const participantsChanged = input.participants !== undefined && (
         existingParticipants.length !==
           participantResolution.participants.length ||
         existingParticipants.some((participant, index) => {
@@ -1618,13 +1654,13 @@ export async function updateProjectMeetingNote(
             participant.displayName !== nextParticipant.displayName ||
             participant.position !== nextParticipant.position
           );
-        });
+        }));
 
       await db.projectMeetingNote.update({
         where: { id: noteId },
         data: {
-          title: draft.title,
-          scheduledAt: draft.scheduledAt,
+          ...(input.title !== undefined ? { title: draft.title } : {}),
+          ...(input.scheduledAt !== undefined ? { scheduledAt: draft.scheduledAt } : {}),
           ...(participantsChanged
             ? {
                 participants: {
@@ -1633,11 +1669,11 @@ export async function updateProjectMeetingNote(
                 },
               }
             : {}),
-          labelsJson: serializeTaskLabels(draft.labels),
-          status: draft.status,
-          inputNotes: draft.inputNotes,
-          outputNotes: draft.outputNotes,
-          decisions: draft.decisions,
+          ...(input.labels !== undefined ? { labelsJson: serializeTaskLabels(draft.labels) } : {}),
+          ...(input.status !== undefined ? { status: draft.status } : {}),
+          ...(input.inputNotes !== undefined ? { inputNotes: draft.inputNotes } : {}),
+          ...(input.outputNotes !== undefined ? { outputNotes: draft.outputNotes } : {}),
+          ...(input.decisions !== undefined ? { decisions: draft.decisions } : {}),
           updatedByUserId: actorUserId,
           ...(deletedActionIds.length > 0 || updates.length > 0 || creates.length > 0
             ? {
@@ -1698,6 +1734,18 @@ export async function updateProjectMeetingNote(
       logServerError("updateProjectMeetingNote", error);
       return createError(500, "meeting-note-update-failed");
     }
+  }, { forceTransaction: input.expectedRevision !== undefined });
+}
+
+export async function getProjectMeetingNote(input: {
+  actorUserId: string; projectId: string; noteId: string;
+}): Promise<ServiceResult<{ note: ProjectMeetingNoteSummary }>> {
+  if (!normalizeText(input.actorUserId)) return createError(401, "unauthorized");
+  return withActorRlsContext(input.actorUserId, async (db) => {
+    const access = await requireProjectRole({ actorUserId: input.actorUserId, projectId: input.projectId, minimumRole: "viewer", db });
+    if (!access.ok) return createError(access.status, access.error);
+    const note = await readMeetingNoteById({ db, projectId: input.projectId, noteId: input.noteId });
+    return note ? { ok: true, data: { note } } : createError(404, "meeting-note-not-found");
   });
 }
 

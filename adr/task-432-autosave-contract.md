@@ -165,6 +165,12 @@ Rules:
 - Save locally 300 ms after the last serializable change. Flush the local
   draft on modal close, component unmount, `visibilitychange` to hidden, and
   `pagehide`. None of those lifecycle events starts a network save.
+- Keep routine persistence silent. Storing, updating, or clearing a local
+  draft renders no banner, badge, toast, or live-region announcement. Only
+  actionable recovery states (restored draft, conflict, storage failure,
+  incompatible draft) may render a notice, and they must never leave empty
+  banner space when a state clears. Browser storage is an implementation
+  detail; a routine local-draft state is never announced as saved.
 - Do not write during IME composition. The completed composition schedules a
   normal draft write.
 - Restore only after client hydration and only for the same authenticated user,
@@ -210,10 +216,11 @@ For matrix rows marked Live:
   timer per entity. An explicit Save retries immediately.
 - An explicit Save cancels the timer, validates, and sends immediately through
   the same mutation and conflict path. It is not an unguarded overwrite path.
-- The UI has distinct states: `Draft saved locally`, `Saving changes`, `Saved`,
+- The UI has distinct network-save states: `Saving changes`, `Saved`,
   `Offline - draft safe locally`, `Save failed - draft safe locally`, and
   `Conflict - review changes`. A local draft must never be labelled simply
-  `Saved`.
+  `Saved`, and routine local persistence never renders a status; restored
+  drafts show `Draft restored` with their Discard action.
 
 Live-save requests carry the documented
 `NexusDash-Mutation-Intent: autosave` header. The header does not weaken
@@ -266,17 +273,17 @@ aggregate already has a revision vocabulary).
 
 - Read responses include the revision and a strong `ETag` derived from the
   artifact id plus revision.
-- Edit PATCH requests send `If-Match` for the base revision. Services enforce
+- Edit PATCH requests send `X-Content-If-Match` for the base revision. Services enforce
   the expected revision atomically in the same RLS transaction as the update
   and increment it once for the accepted content mutation.
 - Content-affecting commands within the same aggregate increment the revision.
   Activity-only events such as a new task comment do not increment the task's
   content revision.
-- A stale `If-Match` precondition returns HTTP `412 Precondition Failed` with a
+- A stale `X-Content-If-Match` precondition returns HTTP `412 Precondition Failed` with a
   stable `edit-conflict` code,
   the current revision, and the authorized current representation needed for
   reconciliation. It never applies the stale payload.
-- Routes remain transport adapters. Parsing `If-Match` and mapping the response
+- Routes remain transport adapters. Parsing `X-Content-If-Match` and mapping the response
   happens at the route; authorization, the compare-and-update, and revision
   increment remain in `lib/services/**`.
 - The same precondition applies to explicit Save once a surface adopts the
@@ -285,11 +292,11 @@ aggregate already has a revision vocabulary).
 #### Agent API compatibility and enforcement
 
 The shared task PATCH route is already published in the agent v1 contract, so
-`If-Match` cannot become mandatory for existing bearer clients without a
+`X-Content-If-Match` cannot become mandatory for existing bearer clients without a
 transition. Enforcement is staged and principal-aware:
 
 1. **Additive revision release:** reads and successful mutations return
-   `contentRevision` and `ETag`; PATCH accepts and enforces `If-Match` when it
+   `contentRevision` and `ETag`; PATCH accepts and enforces `X-Content-If-Match` when it
    is supplied. The browser/session client is upgraded in the same release.
    Existing agent v1 calls without the header remain compatible temporarily,
    but every accepted v1 write still increments `contentRevision`.
@@ -300,7 +307,7 @@ transition. Enforcement is staged and principal-aware:
    paths stay shared; a duplicate task route is not introduced.
 3. **Required precondition:** human session mutations after the browser rollout
    and agent v2 mutations return `428 Precondition Required` with
-   `edit-precondition-required` when `If-Match` is missing. A supplied but
+   `edit-precondition-required` when `X-Content-If-Match` is missing. A supplied but
    stale value returns `412 edit-conflict` for every principal.
 4. **v1 sunset:** mark the v1 task mutation deprecated, publish the migration
    window, update repository-owned examples/clients, stop issuing v1 tokens at
@@ -360,6 +367,44 @@ and the server revision check.
 - Changing project, user, calendar source, or create/edit mode changes the key;
   drafts cannot cross those boundaries.
 
+### 4.7 Client live-save scheduler and adapter contract (ND-433)
+
+ND-433 ships the shared client half of rollout step 3: a framework-free
+scheduler (`lib/live-save/scheduler.ts`), a React binding
+(`lib/hooks/use-live-save.ts`), the status strip and conflict review
+(`components/live-save/`), and a per-surface Live gate
+(`lib/live-save/rollout.ts`, initially empty). The scheduler implements the
+timing, single-flight, pause/retry, rebase, and conflict rules of 4.3-4.5;
+surfaces keep owning their form state and inject the transport adapter, so no
+route or surface starts live-saving until its gate is enabled.
+
+The adapter contract is `LiveSaveAdapter<F>` in `lib/live-save/types.ts`. The
+surface adapter must:
+
+- Send one conditional `PATCH` of only `input.fields` against
+  `input.baseRevision`, forwarding `input.intent` as the mutation intent of
+  4.3 and honouring `input.signal` so an abandoned write is aborted. The
+  precondition is the ND-565 transport: `X-Content-If-Match` carrying the
+  exact entity ETag `"<domain>:<encodeURIComponent(entityId)>:<revision>"`.
+  The ETag is a pure function of the entity identity and the numeric
+  `contentRevision` (`lib/content-revision.ts`), so the adapter derives it
+  from the route it patches; standard `If-Match` must never be sent (Vercel
+  evaluates it against the post-mutation response and the server rejects it
+  with `400 edit-precondition-transport`), and a stale precondition is never
+  retried without user-visible reconciliation.
+- Translate the server response into `LiveSaveWriteResult`: `accepted` with
+  the new revision and the current representation; `conflict` with the latest
+  revision and representation (412 `edit-conflict`); `invalid` with a message
+  (422 validation); `unauthorized`; `gone` for deletion or lost access;
+  `offline`; or `failed` with a retryability flag. The precondition errors
+  `400 edit-precondition-transport` and `400 edit-precondition-invalid` are
+  adapter contract violations, so they map to `failed` with
+  `retryable: false`. Thrown errors are treated as retryable failures, and an
+  aborted request never surfaces as a user error or an implicit retry.
+- Treat the returned representation as the merged, authorized current state:
+  the scheduler rebases disjoint remote fields from it and keeps both sides
+  for review on overlap.
+
 ## 5) Consequences
 
 ### Technical impact
@@ -415,6 +460,10 @@ and the server revision check.
 3. Add content revisions, conditional partial PATCH contracts, conflict UI,
    autosave mutation intent, and the coalesced invalidation/activity producer
    for Task and ProjectMeetingNote.
+   ND-433 first lands the shared client scheduler, hook, status strip, conflict
+   review, and adapter contract (4.7). Surfaces adopt them against the server
+   revision and conditional PATCH contract only after the ND-428/ND-429 gate
+   and the 4.4 v1 sunset; Live flags stay per surface and off until then.
 4. Publish the additive agent v1 revision fields and agent v2 precondition
    contract, migrate repository-owned clients/examples, complete the announced
    v1 sunset, and verify missing/stale precondition behavior.
@@ -483,3 +532,14 @@ and the server revision check.
 - `components/project-calendar-panel.tsx`
 - `lib/services/project-task-service.ts`
 - `lib/services/project-meeting-note-service.ts`
+
+## 2026-10-12 transport amendment (ND-565)
+
+Vercel re-evaluates a standard `If-Match` against the post-mutation response
+ETag, producing a platform 412 even after an accepted database write. Private
+no-store headers, omitting the response ETag, and middleware forwarding did
+not prevent that behavior in explicit-branch Preview probes. Use
+`X-Content-If-Match` with the exact entity ETag for content writes. Standard
+`If-Match` is rejected with 400 `edit-precondition-transport` before mutation.
+The atomic revision comparison, authorized 412 response, additive legacy
+compatibility and Live release gates are unchanged.
