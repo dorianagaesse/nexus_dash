@@ -169,7 +169,7 @@ test("comment recovery stays silent on mobile and keeps actionable error states"
       Object.defineProperty(window.localStorage, "setItem", { configurable: true, value: deny });
     });
     await page.reload();
-    await page.locator(`[data-kanban-task-card="${taskId}"]`).click();
+    await expect(page.getByRole("button", { name: "Close task" })).toBeVisible();
     await composer.fill("Comment that cannot be stored");
     await expect(
       page.getByText("This draft could not be stored in this browser. Copy your changes before leaving.")

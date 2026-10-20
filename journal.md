@@ -10289,3 +10289,11 @@ Low-value entries to avoid going forward:
   were documentation additions: retained the shareable-link and visible-ID
   README entries and both task histories. No implementation conflict required
   a code edit. Reviewed the combined documentation and ran git diff --check.
+
+## 2026-10-20 - ND-581: Post-merge mobile recovery regression
+
+- CI run 39486283330 passed Quality Core and tenant isolation but timed out in
+  the mobile comment-recovery test added on main. Its quota-error scenario
+  clicked the background task card after reload, although the task URL had
+  already reopened the modal. Updated it to assert the reopened modal before
+  continuing; retained the restored-draft, discard, and quota-error assertions.
