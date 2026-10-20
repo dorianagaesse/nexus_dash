@@ -641,3 +641,58 @@ test("a late persist failure after a newer remote order keeps the authoritative 
     vi.unstubAllGlobals();
   }
 });
+
+test.each(["before", "after"] as const)(
+  "a cross-lane keyboard move survives acknowledgement %s drop settlement",
+  async (ackTiming) => {
+    let resolvePersist!: (response: Response) => void;
+    const pendingResponse = new Promise<Response>((resolve) => {
+      resolvePersist = resolve;
+    });
+    const fetchMock = vi.fn(() => pendingResponse);
+    vi.stubGlobal("fetch", fetchMock);
+    const root = createRoot(document.createElement("div"));
+    await renderBoard(root, makeTasks(["a", "b", "c"]));
+    const next = { droppableId: "In Progress", index: 0 };
+    try {
+      await act(async () => {
+        capture.grid.onKeyboardDropIntent(source, next);
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const payload = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+      expect(
+        payload.columns.find(
+          (lane: { status: string }) => lane.status === "In Progress"
+        ).taskIds
+      ).toEqual(["a"]);
+
+      if (ackTiming === "before") {
+        await act(async () => {
+          resolvePersist(persistResponse("2026-10-12T00:00:01.000Z"));
+        });
+      }
+
+      await act(async () => {
+        capture.grid.onDragEnd({ ...dropResult(), destination: next });
+      });
+
+      if (ackTiming === "after") {
+        await act(async () => {
+          resolvePersist(persistResponse("2026-10-12T00:00:01.000Z"));
+        });
+      }
+      await flushAsync();
+
+      const movedLane = capture.grid.columns["In Progress"];
+      expect(movedLane.map((task: KanbanTask) => task.id)).toEqual(["a"]);
+      expect(movedLane[0].status).toBe("In Progress");
+      expect(backlogOrder()).toEqual(["b", "c"]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      vi.unstubAllGlobals();
+    }
+  }
+);

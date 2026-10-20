@@ -392,39 +392,70 @@ interface KeyboardDropIntent {
   // Newest authoritative version already applied when the intent was submitted;
   // used as the baseline until the write's own version is known.
   intentStartVersion: string | null;
-  // Lane orders the write payload persists; restored around the settle so the
-  // board shows the stored order without re-deriving the move by index.
+  // Lane membership and orders the write payload persists; restored around
+  // the settle so the board shows the stored layout without re-deriving the
+  // move by index.
   committedOrders: Array<{ status: TaskStatus; taskIds: string[] }>;
   settled: boolean;
 }
 
-// Restores the committed lane order while keeping partial deltas (task
-// upserts, deletions, insertions) where they currently sit, mirroring how the
-// server replays those events over the stored order.
-function reconcileColumnOrder<T extends { id: string }>(
-  tasks: T[],
-  committedIds: string[]
-): T[] {
-  const taskById = new Map(tasks.map((task) => [task.id, task]));
-  const committedSet = new Set(committedIds);
-  const ordered = committedIds.flatMap((id) => {
-    const task = taskById.get(id);
-    return task ? [task] : [];
+// Restores the committed payload's lane membership and lane order around a
+// keyboard settle. The payload captured every lane at write time, so tasks
+// that moved between lanes during the intent are placed in their committed
+// lane with the matching status; partial deltas that landed afterwards (task
+// creations) keep their current positions and deleted tasks are never
+// resurrected, mirroring how the server replays those events over the stored
+// order.
+function reconcileCommittedColumns(
+  previousColumns: TaskColumns<KanbanTask>,
+  orders: Array<{ status: TaskStatus; taskIds: string[] }>
+): TaskColumns<KanbanTask> {
+  const taskById = new Map<string, KanbanTask>();
+  TASK_STATUSES.forEach((status) => {
+    previousColumns[status].forEach((task) => {
+      taskById.set(task.id, task);
+    });
   });
-  const extras = tasks.filter((task) => !committedSet.has(task.id));
-  if (extras.length === 0) {
-    const unchanged =
-      ordered.length === tasks.length &&
-      ordered.every((task, index) => task === tasks[index]);
-    return unchanged ? tasks : ordered;
-  }
 
-  const merged = [...ordered];
-  for (const extra of extras) {
-    const index = Math.min(tasks.indexOf(extra), merged.length);
-    merged.splice(index, 0, extra);
-  }
-  return merged;
+  const committedStatusByTaskId = new Map<string, TaskStatus>();
+  orders.forEach((order) => {
+    order.taskIds.forEach((taskId) => {
+      committedStatusByTaskId.set(taskId, order.status);
+    });
+  });
+
+  const placedTaskIds = new Set<string>();
+  const nextColumns = createEmptyColumns<KanbanTask>();
+  let hasChanges = false;
+
+  TASK_STATUSES.forEach((status) => {
+    const committedIds =
+      orders.find((order) => order.status === status)?.taskIds ?? [];
+    const ordered = committedIds.flatMap((taskId) => {
+      const task = taskById.get(taskId);
+      if (!task || placedTaskIds.has(taskId)) {
+        return [];
+      }
+      placedTaskIds.add(taskId);
+      return [task.status === status ? task : { ...task, status }];
+    });
+
+    const merged = [...ordered];
+    previousColumns[status].forEach((task, index) => {
+      if (committedStatusByTaskId.has(task.id) || placedTaskIds.has(task.id)) {
+        return;
+      }
+      merged.splice(Math.min(index, merged.length), 0, task);
+    });
+
+    const unchanged =
+      merged.length === previousColumns[status].length &&
+      merged.every((task, index) => task === previousColumns[status][index]);
+    nextColumns[status] = unchanged ? previousColumns[status] : merged;
+    hasChanges = hasChanges || !unchanged;
+  });
+
+  return hasChanges ? nextColumns : previousColumns;
 }
 
 export function KanbanBoard({
@@ -1354,21 +1385,9 @@ export function KanbanBoard({
 
   const applyCommittedOrders = useCallback(
     (orders: Array<{ status: TaskStatus; taskIds: string[] }>) => {
-      setColumns((previousColumns) => {
-        let hasChanges = false;
-        const nextColumns = { ...previousColumns };
-        for (const order of orders) {
-          const reconciled = reconcileColumnOrder(
-            previousColumns[order.status],
-            order.taskIds
-          );
-          if (reconciled !== previousColumns[order.status]) {
-            hasChanges = true;
-            nextColumns[order.status] = reconciled;
-          }
-        }
-        return hasChanges ? nextColumns : previousColumns;
-      });
+      setColumns((previousColumns) =>
+        reconcileCommittedColumns(previousColumns, orders)
+      );
     },
     []
   );
