@@ -388,3 +388,118 @@ describe("project-meeting-notes-panel guest stewardship", () => {
     expect(labels).toEqual(["All1", "Stewarded by me0", "Unstewarded0"]);
   });
 });
+
+describe("project-meeting-notes-panel todo reconciliation", () => {
+  let renderer: { container: HTMLDivElement; root: Root };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    renderer = createTestRenderer();
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      renderer.root.unmount();
+    });
+    renderer.container.remove();
+    document.body.innerHTML = "";
+  });
+
+  function todoNote() {
+    return baseNote({
+      id: "note-todos",
+      title: "Sprint sync",
+      actions: [
+        {
+          id: "action-a",
+          content: "Audit navigation",
+          completedAt: null,
+          position: 0,
+        },
+        {
+          id: "action-b",
+          content: "Draft release notes",
+          completedAt: null,
+          position: 1,
+        },
+      ],
+    });
+  }
+
+  function completionPayload(
+    note: ProjectMeetingNotePanelNote,
+    completions: Record<string, string | null>
+  ) {
+    return {
+      ok: true,
+      json: async () => ({
+        note: {
+          ...note,
+          updatedAt: "2026-10-15T09:59:30.000Z",
+          actions: note.actions.map((action) => ({
+            ...action,
+            completedAt: completions[action.id] ?? null,
+          })),
+        },
+      }),
+    };
+  }
+
+  test("keeps sibling completion state when a stale response arrives last", async () => {
+    const note = todoNote();
+    let resolveFirst!: (value: unknown) => void;
+    let resolveSecond!: (value: unknown) => void;
+    activityClientMock.fetchProjectActivityMutation
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecond = resolve;
+          })
+      );
+
+    await renderPanel(renderer.root, [note], true);
+    await clickButtonLike(findButton(renderer.container, "Sprint sync"));
+
+    await clickButtonLike(
+      document.querySelector("button[aria-label='Complete todo 1']")
+    );
+    await clickButtonLike(
+      document.querySelector("button[aria-label='Complete todo 2']")
+    );
+
+    // First response: server processed both completions.
+    await act(async () => {
+      resolveFirst(
+        completionPayload(note, {
+          "action-a": "2026-10-15T09:59:20.000Z",
+          "action-b": "2026-10-15T09:59:30.000Z",
+        })
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    // Second response was read before the first write committed: it only
+    // knows about action-b and must not roll action-a back.
+    await act(async () => {
+      resolveSecond(
+        completionPayload(note, {
+          "action-b": "2026-10-15T09:59:30.000Z",
+        })
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(
+      document.querySelector("button[aria-label='Reopen todo 1']")
+    ).not.toBeNull();
+    expect(
+      document.querySelector("button[aria-label='Reopen todo 2']")
+    ).not.toBeNull();
+  });
+});

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CalendarDays,
@@ -59,6 +59,38 @@ function resolveTodoAssigneeOptions(
     return actors;
   }
   return [...actors, ...todo.participantOptions];
+}
+
+function applyMeetingStatusToTodos(
+  todos: ProjectMeetingTodoItem[],
+  meetingId: string,
+  meetingStatus: string,
+  referenceNowMs: number
+): ProjectMeetingTodoItem[] {
+  return todos.map((entry) => {
+    if (entry.meeting.id !== meetingId) {
+      return entry;
+    }
+
+    const isOverdue =
+      entry.completedAt === null
+        ? isMeetingTodoOverdueAt({
+            scheduledAt: entry.meeting.scheduledAt,
+            completedAt: null,
+            meetingStatus,
+            referenceNowMs,
+          })
+        : false;
+    if (entry.meeting.status === meetingStatus && entry.isOverdue === isOverdue) {
+      return entry;
+    }
+
+    return {
+      ...entry,
+      meeting: { ...entry.meeting, status: meetingStatus },
+      isOverdue,
+    };
+  });
 }
 
 interface ProjectMeetingTodosProps {
@@ -151,6 +183,8 @@ function TodoCompletionControl({
     <button
       type="button"
       disabled={isPending}
+      aria-busy={isPending || undefined}
+      data-meeting-todo-pending={isPending ? "true" : undefined}
       onClick={() => onSetCompleted(todo, !isCompleted)}
       aria-label={`${isCompleted ? "Reopen" : "Complete"} todo: ${todo.content}`}
       className={cn(
@@ -268,7 +302,7 @@ function TodoRow({
             prefix="Created by"
             compact
           />
-          {isCompleted ? (
+          {isCompleted && (todo.completedBy || !isPending) ? (
             <MeetingTodoActorIdentity
               actor={todo.completedBy ?? null}
               prefix="Completed by"
@@ -297,10 +331,23 @@ export function ProjectMeetingTodos({
   );
   const [todos, setTodos] = useState(initialTodos);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+  const [pendingCompletionIds, setPendingCompletionIds] = useState<Set<string>>(
+    new Set()
+  );
   const [feedback, setFeedback] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  // Meeting statuses from server-confirmed data: the latest refresh baseline
+  // plus statuses confirmed by successful mutations. A failed mutation must
+  // not roll its click-time status over these - that status may itself be a
+  // sibling's unconfirmed optimistic update.
+  const confirmedMeetingStatusRef = useRef<Map<string, string>>(new Map());
+  const serverMeetingStatusRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
+    confirmedMeetingStatusRef.current.clear();
+    serverMeetingStatusRef.current = new Map(
+      initialTodos.map((entry) => [entry.meeting.id, entry.meeting.status])
+    );
     setTodos(initialTodos);
   }, [initialTodos]);
 
@@ -342,13 +389,46 @@ export function ProjectMeetingTodos({
     todo: ProjectMeetingTodoItem,
     completed: boolean
   ) => {
-    if (!canEdit || pendingActionId) {
+    if (!canEdit || pendingCompletionIds.has(todo.id)) {
       return;
     }
 
-    setPendingActionId(todo.id);
+    const previous = {
+      completedAt: todo.completedAt,
+      completedBy: todo.completedBy ?? null,
+    };
+    const optimisticCompletedAt = completed ? new Date().toISOString() : null;
+    // Reopening an action flips a done note back to actions_in_progress,
+    // which changes the overdue status of every open todo in the meeting.
+    const predictedMeetingStatus =
+      !completed && todo.meeting.status === "done"
+        ? "actions_in_progress"
+        : todo.meeting.status;
+
+    setPendingCompletionIds((current) => {
+      const next = new Set(current);
+      next.add(todo.id);
+      return next;
+    });
     setMutationError(null);
     setFeedback(null);
+    setTodos((current) =>
+      applyMeetingStatusToTodos(
+        current.map((entry) =>
+          entry.id === todo.id
+            ? {
+                ...entry,
+                completedAt: optimisticCompletedAt,
+                completedBy: completed ? entry.completedBy : null,
+                updatedAt: optimisticCompletedAt ?? entry.updatedAt,
+              }
+            : entry
+        ),
+        todo.meeting.id,
+        predictedMeetingStatus,
+        Date.now()
+      )
+    );
 
     try {
       const response = await fetchProjectActivityMutation(
@@ -364,40 +444,79 @@ export function ProjectMeetingTodos({
       );
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
+        note?: {
+          status: string;
+          actions: Array<{
+            id: string;
+            completedAt: string | null;
+            completedBy: MeetingTodoActorSummary | null;
+          }>;
+        };
       } | null;
 
       if (!response.ok) {
         throw new Error(payload?.error ?? "meeting-todo-update-failed");
       }
 
-      const updatedAt = new Date().toISOString();
+      const serverAction =
+        payload?.note?.actions.find((entry) => entry.id === todo.id) ?? null;
+      const serverCompletedAt = serverAction
+        ? serverAction.completedAt
+        : optimisticCompletedAt;
+      const serverMeetingStatus =
+        payload?.note?.status ?? todo.meeting.status;
+      confirmedMeetingStatusRef.current.set(todo.meeting.id, serverMeetingStatus);
+
       setTodos((current) =>
-        current.map((entry) =>
-          entry.id === todo.id
-            ? {
-                ...entry,
-                completedAt: completed ? updatedAt : null,
-                updatedAt,
-                isOverdue: completed
-                  ? false
-                  : isMeetingTodoOverdueAt({
-                      scheduledAt: entry.meeting.scheduledAt,
-                      completedAt: null,
-                      meetingStatus: entry.meeting.status,
-                      referenceNowMs: Date.now(),
-                    }),
-              }
-            : entry
+        applyMeetingStatusToTodos(
+          current.map((entry) =>
+            entry.id === todo.id
+              ? {
+                  ...entry,
+                  completedAt: serverCompletedAt,
+                  completedBy: serverAction
+                    ? serverAction.completedBy
+                    : entry.completedBy,
+                  updatedAt: new Date().toISOString(),
+                }
+              : entry
+          ),
+          todo.meeting.id,
+          serverMeetingStatus,
+          Date.now()
         )
       );
       setFeedback(completed ? "Todo completed." : "Todo reopened.");
-      router.refresh();
     } catch {
+      const confirmedMeetingStatus =
+        confirmedMeetingStatusRef.current.get(todo.meeting.id) ??
+        serverMeetingStatusRef.current.get(todo.meeting.id) ??
+        todo.meeting.status;
+      setTodos((current) =>
+        applyMeetingStatusToTodos(
+          current.map((entry) =>
+            entry.id === todo.id
+              ? {
+                  ...entry,
+                  completedAt: previous.completedAt,
+                  completedBy: previous.completedBy,
+                }
+              : entry
+          ),
+          todo.meeting.id,
+          confirmedMeetingStatus,
+          Date.now()
+        )
+      );
       setMutationError(
         "Could not update this todo. Check your access and retry."
       );
     } finally {
-      setPendingActionId(null);
+      setPendingCompletionIds((current) => {
+        const next = new Set(current);
+        next.delete(todo.id);
+        return next;
+      });
     }
   };
 
@@ -566,7 +685,10 @@ export function ProjectMeetingTodos({
                 todo={todo}
                 projectId={projectId}
                 canEdit={canEdit}
-                isPending={pendingActionId === todo.id}
+                isPending={
+                  pendingActionId === todo.id ||
+                  pendingCompletionIds.has(todo.id)
+                }
                 onSetCompleted={(entry, completed) => {
                   void setTodoCompleted(entry, completed);
                 }}
