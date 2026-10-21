@@ -392,11 +392,20 @@ interface KeyboardDropIntent {
   // Newest authoritative version already applied when the intent was submitted;
   // used as the baseline until the write's own version is known.
   intentStartVersion: string | null;
+  // Number of remote task representations applied when the intent was
+  // submitted; only later representations can carry newer lane authority.
+  intentStartTaskSeq: number;
   // Lane membership and orders the write payload persists; restored around
   // the settle so the board shows the stored layout without re-deriving the
   // move by index.
   committedOrders: Array<{ status: TaskStatus; taskIds: string[] }>;
   settled: boolean;
+}
+
+interface RemoteTaskRepresentation {
+  version: string;
+  status: TaskStatus;
+  seq: number;
 }
 
 // Restores the committed payload's lane membership and lane order around a
@@ -405,15 +414,21 @@ interface KeyboardDropIntent {
 // lane with the matching status; partial deltas that landed afterwards (task
 // creations) keep their current positions and deleted tasks are never
 // resurrected, mirroring how the server replays those events over the stored
-// order.
+// order. A newer remote representation of a single task (task upserts carry
+// its current status) outranks the payload's captured membership for that
+// task, so its newer lane is kept even though the payload still lists it in
+// the lane it occupied at write time.
 function reconcileCommittedColumns(
   previousColumns: TaskColumns<KanbanTask>,
-  orders: Array<{ status: TaskStatus; taskIds: string[] }>
+  orders: Array<{ status: TaskStatus; taskIds: string[] }>,
+  preservedStatusByTaskId: ReadonlyMap<string, TaskStatus>
 ): TaskColumns<KanbanTask> {
   const taskById = new Map<string, KanbanTask>();
+  const currentStatusByTaskId = new Map<string, TaskStatus>();
   TASK_STATUSES.forEach((status) => {
     previousColumns[status].forEach((task) => {
       taskById.set(task.id, task);
+      currentStatusByTaskId.set(task.id, status);
     });
   });
 
@@ -424,6 +439,23 @@ function reconcileCommittedColumns(
     });
   });
 
+  const targetStatusByTaskId = new Map<string, TaskStatus>();
+  taskById.forEach((_task, taskId) => {
+    targetStatusByTaskId.set(
+      taskId,
+      preservedStatusByTaskId.get(taskId) ??
+        committedStatusByTaskId.get(taskId) ??
+        (currentStatusByTaskId.get(taskId) as TaskStatus)
+    );
+  });
+
+  const preservedIdsByStatus = createEmptyColumns<string>();
+  preservedStatusByTaskId.forEach((status, taskId) => {
+    if (taskById.has(taskId)) {
+      preservedIdsByStatus[status].push(taskId);
+    }
+  });
+
   const placedTaskIds = new Set<string>();
   const nextColumns = createEmptyColumns<KanbanTask>();
   let hasChanges = false;
@@ -431,16 +463,36 @@ function reconcileCommittedColumns(
   TASK_STATUSES.forEach((status) => {
     const committedIds =
       orders.find((order) => order.status === status)?.taskIds ?? [];
-    const ordered = committedIds.flatMap((taskId) => {
+    const merged = committedIds.flatMap((taskId) => {
       const task = taskById.get(taskId);
-      if (!task || placedTaskIds.has(taskId)) {
+      if (
+        !task ||
+        placedTaskIds.has(taskId) ||
+        targetStatusByTaskId.get(taskId) !== status
+      ) {
         return [];
       }
       placedTaskIds.add(taskId);
       return [task.status === status ? task : { ...task, status }];
     });
 
-    const merged = [...ordered];
+    preservedIdsByStatus[status].forEach((taskId) => {
+      if (placedTaskIds.has(taskId)) {
+        return;
+      }
+      placedTaskIds.add(taskId);
+      const task = taskById.get(taskId) as KanbanTask;
+      const stamped = task.status === status ? task : { ...task, status };
+      const currentIndex = previousColumns[status].findIndex(
+        (currentTask) => currentTask.id === taskId
+      );
+      if (currentIndex === -1) {
+        merged.push(stamped);
+      } else {
+        merged.splice(Math.min(currentIndex, merged.length), 0, stamped);
+      }
+    });
+
     previousColumns[status].forEach((task, index) => {
       if (committedStatusByTaskId.has(task.id) || placedTaskIds.has(task.id)) {
         return;
@@ -495,6 +547,15 @@ export function KanbanBoard({
   const keyboardDropIntentRef = useRef<KeyboardDropIntent | null>(null);
   const remoteColumnsVersionRef = useRef<string | null>(null);
   const remoteColumnsApplyCountRef = useRef(0);
+  // Per-task authority from applied remote representations (task upserts and
+  // creations), keyed by task id. A representation says nothing about the
+  // whole-board order, but its status is authoritative for that one task, so
+  // a settle must not restore an older committed lane over it. The sequence
+  // marks arrival order; the version decides authority against the write.
+  const remoteTaskRepresentationsRef = useRef<
+    Map<string, RemoteTaskRepresentation>
+  >(new Map());
+  const remoteTaskRepresentationSeqRef = useRef(0);
   // Every remote columns mutation is counted so writers avoid reverting over
   // it. Only full-order deliveries - typed reorder events and fresh
   // server-rendered props - also record the activity version; partial task
@@ -516,6 +577,24 @@ export function KanbanBoard({
       ) {
         remoteColumnsVersionRef.current = version;
       }
+      remoteTaskRepresentationsRef.current.forEach((representation, taskId) => {
+        if (
+          !isProjectActivityVersionNewer(representation.version, version)
+        ) {
+          remoteTaskRepresentationsRef.current.delete(taskId);
+        }
+      });
+    },
+    []
+  );
+  const recordRemoteTaskRepresentation = useCallback(
+    (taskId: string, status: TaskStatus, version: string) => {
+      remoteTaskRepresentationSeqRef.current += 1;
+      remoteTaskRepresentationsRef.current.set(taskId, {
+        version,
+        status,
+        seq: remoteTaskRepresentationSeqRef.current,
+      });
     },
     []
   );
@@ -1384,9 +1463,30 @@ export function KanbanBoard({
   );
 
   const applyCommittedOrders = useCallback(
-    (orders: Array<{ status: TaskStatus; taskIds: string[] }>) => {
+    (
+      orders: Array<{ status: TaskStatus; taskIds: string[] }>,
+      baselineVersion: string | null,
+      minTaskSeq: number
+    ) => {
+      const preservedStatusByTaskId = new Map<string, TaskStatus>();
+      remoteTaskRepresentationsRef.current.forEach((representation, taskId) => {
+        if (representation.seq <= minTaskSeq) {
+          return;
+        }
+        if (
+          baselineVersion !== null &&
+          !isProjectActivityVersionNewer(representation.version, baselineVersion)
+        ) {
+          return;
+        }
+        preservedStatusByTaskId.set(taskId, representation.status);
+      });
       setColumns((previousColumns) =>
-        reconcileCommittedColumns(previousColumns, orders)
+        reconcileCommittedColumns(
+          previousColumns,
+          orders,
+          preservedStatusByTaskId
+        )
       );
     },
     []
@@ -1410,6 +1510,7 @@ export function KanbanBoard({
         outcome: "pending",
         writeVersion: null,
         intentStartVersion: remoteColumnsVersionRef.current,
+        intentStartTaskSeq: remoteTaskRepresentationSeqRef.current,
         committedOrders: TASK_STATUSES.map((status) => ({
           status,
           taskIds: computed.application.nextColumns[status].map(
@@ -1454,7 +1555,11 @@ export function KanbanBoard({
         ) {
           return;
         }
-        applyCommittedOrders(record.committedOrders);
+        applyCommittedOrders(
+          record.committedOrders,
+          version,
+          record.intentStartTaskSeq
+        );
         setPersistError(null);
       });
     },
@@ -1551,7 +1656,11 @@ export function KanbanBoard({
         // order of every lane wins while partial deltas that landed around the
         // acknowledgement keep their current positions. Re-deriving the move
         // by index is never correct once other events may have shifted cards.
-        applyCommittedOrders(keyboardIntent.committedOrders);
+        applyCommittedOrders(
+          keyboardIntent.committedOrders,
+          settleBaseline,
+          keyboardIntent.intentStartTaskSeq
+        );
         setPersistError(null);
         if (located) {
           syncMovedTaskSummary(located.task);
@@ -1998,6 +2107,7 @@ export function KanbanBoard({
 
   const removeLocalTask = useCallback(
     (taskId: string) => {
+      remoteTaskRepresentationsRef.current.delete(taskId);
       setColumns((previousColumns) => {
         const nextColumns = createEmptyColumns<KanbanTask>();
         TASK_STATUSES.forEach((status) => {
@@ -2827,6 +2937,13 @@ export function KanbanBoard({
           const remoteTask = readRemoteTaskPayload(activity);
           if (remoteTask) {
             upsertRemoteTask(remoteTask);
+            // The representation's status is authoritative for this task even
+            // though it says nothing about the whole-board order.
+            recordRemoteTaskRepresentation(
+              remoteTask.id,
+              remoteTask.status,
+              activity.version
+            );
             markRemoteColumnsMutated();
             void reconcileProjectEpics(projectId);
             detail.markHandled();
@@ -2935,6 +3052,7 @@ export function KanbanBoard({
     markRemoteColumnsApplied,
     markRemoteColumnsMutated,
     projectId,
+    recordRemoteTaskRepresentation,
     removeLocalTask,
     selectedTask?.id,
     upsertRemoteTask,

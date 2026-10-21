@@ -145,6 +145,10 @@ function backlogOrder(): string[] {
   return capture.grid.columns.Backlog.map((task: KanbanTask) => task.id);
 }
 
+function columnOrder(status: string): string[] {
+  return capture.grid.columns[status].map((task: KanbanTask) => task.id);
+}
+
 function dropResult() {
   return {
     draggableId: "a",
@@ -696,3 +700,203 @@ test.each(["before", "after"] as const)(
     }
   }
 );
+
+test("a newer remote status on another card survives settlement", async () => {
+  const fetchMock = vi.fn(async () => persistResponse("2026-10-12T00:00:01.000Z"));
+  vi.stubGlobal("fetch", fetchMock);
+  const root = createRoot(document.createElement("div"));
+  await renderBoard(root, makeTasks(["a", "b", "c"]));
+  try {
+    await act(async () => {
+      capture.grid.onKeyboardDropIntent(source, destination);
+    });
+    await flushAsync();
+
+    // Our B/A/C write is accepted at v1. A collaborator then moves B to
+    // Blocked and edits it; the task representation carries that status even
+    // though it says nothing about the whole-board order.
+    await act(async () => {
+      expect(
+        dispatchUpdatedEvent(
+          {
+            ...makeTasks(["a", "b", "c"])[1],
+            status: "Blocked",
+            position: 0,
+            title: "B renamed",
+            label: null,
+            labelsJson: null,
+          },
+          "2026-10-12T00:00:02.000Z"
+        )
+      ).toBe(true);
+    });
+    expect(columnOrder("Blocked")).toEqual(["b"]);
+
+    await act(async () => {
+      capture.grid.onDragEnd(dropResult());
+    });
+
+    // The newer representation's lane is authoritative for B; the committed
+    // order of the lane it left still applies to the other cards.
+    expect(columnOrder("Blocked")).toEqual(["b"]);
+    expect(capture.grid.columns.Blocked[0].status).toBe("Blocked");
+    expect(capture.grid.columns.Blocked[0].title).toBe("B renamed");
+    expect(backlogOrder()).toEqual(["a", "c"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  } finally {
+    await act(async () => {
+      root.unmount();
+    });
+    vi.unstubAllGlobals();
+  }
+});
+
+test("a newer remote status on the locally moved card survives settlement", async () => {
+  const fetchMock = vi.fn(async () => persistResponse("2026-10-12T00:00:01.000Z"));
+  vi.stubGlobal("fetch", fetchMock);
+  const root = createRoot(document.createElement("div"));
+  await renderBoard(root, makeTasks(["a", "b", "c"]));
+  try {
+    await act(async () => {
+      capture.grid.onKeyboardDropIntent(source, destination);
+    });
+    await flushAsync();
+
+    // The submitted card itself is moved again by a collaborator after the
+    // write committed; that newer status outranks the captured Backlog slot.
+    await act(async () => {
+      expect(
+        dispatchUpdatedEvent(
+          {
+            ...makeTasks(["a", "b", "c"])[0],
+            status: "Done",
+            position: 0,
+            label: null,
+            labelsJson: null,
+          },
+          "2026-10-12T00:00:02.000Z"
+        )
+      ).toBe(true);
+    });
+    expect(columnOrder("Done")).toEqual(["a"]);
+
+    await act(async () => {
+      capture.grid.onDragEnd(dropResult());
+    });
+
+    expect(columnOrder("Done")).toEqual(["a"]);
+    expect(capture.grid.columns.Done[0].status).toBe("Done");
+    expect(backlogOrder()).toEqual(["b", "c"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  } finally {
+    await act(async () => {
+      root.unmount();
+    });
+    vi.unstubAllGlobals();
+  }
+});
+
+test("a newer remote status survives a late acknowledgement", async () => {
+  let resolvePersist!: (response: Response) => void;
+  const pendingResponse = new Promise<Response>((resolve) => {
+    resolvePersist = resolve;
+  });
+  const fetchMock = vi.fn(() => pendingResponse);
+  vi.stubGlobal("fetch", fetchMock);
+  const root = createRoot(document.createElement("div"));
+  await renderBoard(root, makeTasks(["a", "b", "c"]));
+  try {
+    await act(async () => {
+      capture.grid.onKeyboardDropIntent(source, destination);
+    });
+
+    await act(async () => {
+      expect(
+        dispatchUpdatedEvent(
+          {
+            ...makeTasks(["a", "b", "c"])[1],
+            status: "Blocked",
+            position: 0,
+            label: null,
+            labelsJson: null,
+          },
+          "2026-10-12T00:00:02.000Z"
+        )
+      ).toBe(true);
+    });
+
+    // The drop settles while the write is still in flight, so its version is
+    // unknown and the newer representation is preserved.
+    await act(async () => {
+      capture.grid.onDragEnd(dropResult());
+    });
+    expect(columnOrder("Blocked")).toEqual(["b"]);
+
+    // The held write then commits at v1, older than the collaborator's move.
+    // The late acknowledgement must still honour the newer representation.
+    await act(async () => {
+      resolvePersist(persistResponse("2026-10-12T00:00:01.000Z"));
+    });
+    await flushAsync();
+    expect(columnOrder("Blocked")).toEqual(["b"]);
+    expect(backlogOrder()).toEqual(["a", "c"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  } finally {
+    await act(async () => {
+      root.unmount();
+    });
+    vi.unstubAllGlobals();
+  }
+});
+
+test("an older remote representation does not override the acknowledged write", async () => {
+  let resolvePersist!: (response: Response) => void;
+  const pendingResponse = new Promise<Response>((resolve) => {
+    resolvePersist = resolve;
+  });
+  const fetchMock = vi.fn(() => pendingResponse);
+  vi.stubGlobal("fetch", fetchMock);
+  const root = createRoot(document.createElement("div"));
+  await renderBoard(root, makeTasks(["a", "b", "c"]));
+  try {
+    await act(async () => {
+      capture.grid.onKeyboardDropIntent(source, destination);
+    });
+
+    // The representation is applied after the intent was submitted but its
+    // version predates the write's commit, so the write's stored layout wins.
+    await act(async () => {
+      expect(
+        dispatchUpdatedEvent(
+          {
+            ...makeTasks(["a", "b", "c"])[1],
+            status: "Blocked",
+            position: 0,
+            label: null,
+            labelsJson: null,
+          },
+          "2026-10-12T00:00:00.500Z"
+        )
+      ).toBe(true);
+    });
+    expect(columnOrder("Blocked")).toEqual(["b"]);
+
+    await act(async () => {
+      resolvePersist(persistResponse("2026-10-12T00:00:04.000Z"));
+    });
+    await flushAsync();
+
+    await act(async () => {
+      capture.grid.onDragEnd(dropResult());
+    });
+
+    expect(columnOrder("Blocked")).toEqual([]);
+    expect(backlogOrder()).toEqual(["b", "a", "c"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  } finally {
+    await act(async () => {
+      root.unmount();
+    });
+    vi.unstubAllGlobals();
+  }
+});
