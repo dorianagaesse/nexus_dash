@@ -13,6 +13,9 @@ const envMock = vi.hoisted(() => ({
 }));
 
 const redirectMock = vi.hoisted(() => vi.fn());
+const headersMock = vi.hoisted(() => vi.fn());
+
+vi.mock("next/headers", () => ({ headers: headersMock }));
 
 vi.mock("@/lib/auth/session-user", () => ({
   getSessionUserIdFromServer: sessionUserMock.getSessionUserIdFromServer,
@@ -38,6 +41,7 @@ import {
 describe("server-guard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    headersMock.mockResolvedValue(new Headers());
     envMock.isLiveProductionDeployment.mockReturnValue(true);
     emailVerificationMock.isEmailVerifiedForUser.mockResolvedValue(true);
   });
@@ -69,6 +73,33 @@ describe("server-guard", () => {
 
     expect(result).toBe("user-1");
     expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  test("preserves shared task destinations through sign-in", async () => {
+    sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce(null);
+    headersMock.mockResolvedValueOnce(new Headers({
+      "x-nexusdash-return-to": "/projects/demo?taskId=task-1",
+    }));
+    redirectMock.mockImplementationOnce(() => { throw new Error("NEXT_REDIRECT"); });
+    await expect(requireSessionUserIdFromServer()).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirectMock).toHaveBeenCalledWith("/?returnTo=%2Fprojects%2Fdemo%3FtaskId%3Dtask-1");
+  });
+
+  test("rejects external return destinations", async () => {
+    sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce(null);
+    headersMock.mockResolvedValueOnce(new Headers({ "x-nexusdash-return-to": "https://example.com" }));
+    redirectMock.mockImplementationOnce(() => { throw new Error("NEXT_REDIRECT"); });
+    await expect(requireSessionUserIdFromServer()).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirectMock).toHaveBeenCalledWith("/");
+  });
+
+  test("preserves shared task destinations through verification", async () => {
+    sessionUserMock.getSessionUserIdFromServer.mockResolvedValueOnce("user-1");
+    emailVerificationMock.isEmailVerifiedForUser.mockResolvedValueOnce(false);
+    headersMock.mockResolvedValueOnce(new Headers({ "x-nexusdash-return-to": "/projects/demo?taskId=task-1" }));
+    redirectMock.mockImplementationOnce(() => { throw new Error("NEXT_REDIRECT"); });
+    await expect(requireVerifiedSessionUserIdFromServer()).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirectMock).toHaveBeenCalledWith("/verify-email?returnTo=%2Fprojects%2Fdemo%3FtaskId%3Dtask-1");
   });
 
   test("redirects to verify-email when session is unverified", async () => {

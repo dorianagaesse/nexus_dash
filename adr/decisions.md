@@ -1156,3 +1156,19 @@ Keep UI-only or task-only notes in `journal.md`.
   A competing committed edit therefore becomes a 412, not a stale replay.
 - Links: `task-432-autosave-contract.md`,
   `../docs/runbooks/content-revision-preconditions.md`, Nexus Dash ND-565.
+
+## 2026-10-19 - ND-581: Task URLs and authentication return destinations
+
+- Status: Accepted.
+- Decision: Keep the existing project `taskId` query parameter as the task
+  deep-link contract. Modal navigation adds browser history entries without
+  reloading the project; Back/Forward reopen or close the task. Copy link emits
+  the canonical project/task URL and continues to require project access.
+- Authentication: The request proxy overwrites a private return-path header
+  for project routes with the actual pathname and query. Server guards carry
+  that normalized internal path through sign-in and email verification, so
+  shared task links survive authentication without accepting external redirects.
+- Consequences: No new public task endpoint or database schema is needed.
+  Unrelated project query parameters and fragments survive modal navigation.
+  Newly created tasks become shareable only after saving assigns their permanent
+  ID; a selected task's URL follows that identity change.

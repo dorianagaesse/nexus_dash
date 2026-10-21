@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { REQUEST_RETURN_TO_HEADER } from "@/lib/navigation/return-to";
 
 const REQUEST_ID_MAX_LENGTH = 128;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
@@ -24,6 +25,14 @@ export function proxy(request: NextRequest): NextResponse {
   const requestId = resolveRequestId(request);
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-request-id", requestId);
+  // Derive this on the server; never trust a caller-supplied return destination.
+  requestHeaders.delete(REQUEST_RETURN_TO_HEADER);
+  if (request.nextUrl.pathname.startsWith("/projects")) {
+    requestHeaders.set(
+      REQUEST_RETURN_TO_HEADER,
+      `${request.nextUrl.pathname}${request.nextUrl.search}`
+    );
+  }
 
   const response = NextResponse.next({
     request: {
@@ -36,5 +45,5 @@ export function proxy(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ["/api/:path*"],
+  matcher: ["/api/:path*", "/projects/:path*"],
 };

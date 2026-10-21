@@ -3,6 +3,20 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-20 - ND-375: Unblock production staging builds
+
+- Auto-staged and manual `deploy-production-staged` builds have failed since
+  ND-374 merged: the production build defaults to Broadcast and fails the
+  environment assertion without `SUPABASE_JWT_SECRET`, which Vercel hides from
+  `vercel pull` in CI. Pinned `REALTIME_TRANSPORT=polling` on the two
+  production `vercel build` commands only; the deployment runtime is unchanged
+  and Production keeps the Broadcast default. Updated the env-contract runbook
+  to state that the pin is build-scoped.
+- Review round: pinned the preview `vercel build` path as well and added a
+  pre-promote smoke of the staged root route (health/ready is DB-only and
+  cannot catch missing Broadcast config). The module-scope validation root
+  cause is tracked as issue #616 / ND-611.
+
 # 2026-10-20 - ND-577: Refresh main before merge
 
 - Merged `origin/main` at `133487d` (ND-538 optimistic meeting-todo completion
@@ -10264,6 +10278,36 @@ Low-value entries to avoid going forward:
   was exhausted; manual review is needed before merge. The card stays In
   Progress for the reviewer.
 
+## 2026-10-19 - ND-581: Shareable task modal URLs
+
+- Created ND-581 and GitHub issue #610 after checking the live board for
+  overlapping work; related it to ND-582. Started from current origin/main in
+  a separate worktree because the user's checkout contains other changes.
+- Task opening, editing, related-task navigation, and closing now update the
+  existing taskId URL contract. Browser Back/Forward follow modal selection;
+  stale task fetches cannot overwrite a newer selection. Copy link reports
+  clipboard success or failure and keeps the existing access boundary.
+- Found and fixed loss of project/task destinations during sign-in and email
+  verification. Proxy-derived internal destinations replace caller headers.
+- Added browser regression coverage for copying, reload, URL preservation,
+  history, related tasks, clipboard failure, responsive layouts, and signing
+  in from a shared link; recorded the navigation contract in adr/decisions.md.
+- Pending tasks do not expose temporary IDs. Copy link becomes available after
+  creation, and the URL follows the permanent task identity.
+- Validation completed 2026-10-20: lint, RLS inventory, 2,039 unit/API tests
+  (2 skipped), coverage, and production build passed. Coverage: 93.71%
+  statements, 84.98% branches, 95.42% functions, 94.11% lines. The final local
+  browser suite passed 114 tests with 2 skips, including pending-task sharing.
+  Vitest used one thread worker on Windows; local builds used polling.
+- [CI run 39343359329](https://github.com/dorianagaesse/nexus_dash/actions/runs/39343359329)
+  passed Quality Core, Tenant Isolation, E2E Smoke, and Container Image for
+  validated implementation `9d2e088`. Desktop and mobile screenshots passed
+  visual inspection. Updated existing reload and account-return expectations
+  to match URL-driven modal selection.
+- Delivery: [PR #613](https://github.com/dorianagaesse/nexus_dash/pull/613),
+  closing issue #610. Copilot review was requested but no review result was
+  available at handoff; human review remains pending. The card stays In Progress.
+
 ## 2026-10-19 - ND-582: Task references in Kanban lists
 
 - Created ND-582 and GitHub issue #611 after searching the live board; related
@@ -10289,3 +10333,18 @@ Low-value entries to avoid going forward:
   closing issue #611, related to ND-581 / PR #613. Copilot review was requested
   but no review result was available at handoff; human review remains pending.
   The card stays In Progress for the reviewer.
+
+## 2026-10-20 - ND-581: Resolve PR #613 merge conflicts
+
+- Merged current origin/main (`188e6ab`) into the task branch. Both conflicts
+  were documentation additions: retained the shareable-link and visible-ID
+  README entries and both task histories. No implementation conflict required
+  a code edit. Reviewed the combined documentation and ran git diff --check.
+
+## 2026-10-20 - ND-581: Post-merge mobile recovery regression
+
+- CI run 39486283330 passed Quality Core and tenant isolation but timed out in
+  the mobile comment-recovery test added on main. Its quota-error scenario
+  clicked the background task card after reload, although the task URL had
+  already reopened the modal. Updated it to assert the reopened modal before
+  continuing; retained the restored-draft, discard, and quota-error assertions.

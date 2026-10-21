@@ -1,3 +1,5 @@
+export const REQUEST_RETURN_TO_HEADER = "x-nexusdash-return-to";
+
 export function normalizeReturnToPath(
   value: string | null | undefined,
   fallback = "/projects"
