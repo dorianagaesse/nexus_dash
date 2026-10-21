@@ -3,6 +3,36 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-22 - ND-431: Review round 5 - newer per-task lane authority
+
+- Round-5 P1: the round-4 complete-board restore stamped every payload task
+  into its captured committed lane, so a `task/updated` representation applied
+  at a version newer than the write (a collaborator moving B to Blocked) was
+  pulled back into its captured lane at settlement with no second mutation.
+  Applied representations now record status, version, and arrival sequence;
+  settle and late acknowledgement preserve the lane of representations applied
+  after the intent started whose version is newer than the layout being
+  restored, while the committed order still applies to every other task.
+  Older representations lose to the write even when they arrive later, and
+  full-order deliveries keep their existing authority and prune superseded
+  representations.
+- Coverage: the reviewer's `kanban-newer-status-review.test.tsx` repro passes
+  (fails on `577601d`); the reconcile suite grows to 17 cases with newer
+  status on another card, newer status on the locally moved card, a late-ack
+  variant, and an older-version event that must lose. The three newer-status
+  cases fail on `577601d`; the older-version case guards over-preservation.
+- Merged `origin/main` at `1968da5` (ND-581 shareable task URLs #613, ND-375
+  production staging pin #614) with no conflicts.
+- Validation: lint, rls:check, 2,131 unit passed / 2 skipped (248 files),
+  coverage 93.64/86.03/95.7/95.01, production build, full Chromium E2E 116
+  passed / 2 skipped with the two known flakes (calendar zoom geometry and
+  nd-433 dismissal) passing on isolated rerun, `git diff --check` clean.
+  The machine had no running Postgres; started the worktree compose service,
+  created `nexusdash_nd431_e2e`, and applied migrations.
+- Performance acceptance remains open: the ND-430 p95 targets still need the
+  quiet-environment rerun and structural follow-up tracked by ND-543; ND-431
+  stays In Progress and this PR merges as partial progress.
+
 # 2026-10-20 - ND-375: Unblock production staging builds
 
 - Auto-staged and manual `deploy-production-staged` builds have failed since

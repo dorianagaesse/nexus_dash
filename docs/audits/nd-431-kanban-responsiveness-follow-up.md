@@ -1,7 +1,7 @@
 # ND-431 Kanban responsiveness follow-up
 
 Date: 2026-10-08 (first pass), 2026-10-11 (second pass), 2026-10-12,
-2026-10-14, 2026-10-16, and 2026-10-20 (review fixes)
+2026-10-14, 2026-10-16, 2026-10-20, and 2026-10-22 (review fixes)
 
 The ND-430 fixture was run against the merged audit baseline and this branch
 using the same production build, local PostgreSQL 16, Chromium, and Windows
@@ -252,3 +252,39 @@ pass unchanged. The reviewer's `kanban-lane-order-review.test.tsx` repro
 passes 2/2, and the earlier `kanban-pending-ack-review.test.tsx` (2/2),
 `kanban-newer-remote-review.test.tsx` (4/4), and
 `kanban-review-regressions.test.tsx` (1/1) still pass on this revision.
+
+### Review fix (2026-10-22): newer per-task lane authority
+
+Review found that the complete-board restore from the previous round
+overwrote a newer task representation's lane. Repro: start Backlog A/B/C; the
+early keyboard reorder accepts B/A/C at version 1; a collaborator moves B to
+Blocked and edits it, and the version-2 `task/updated` representation (which
+carries B's current Blocked status) is applied; when `onDragEnd` settles, the
+committed restore puts B back in Backlog and empties Blocked with no second
+mutation. Partial events do not advance the full-order fence, so neither the
+settlement nor a late acknowledgement protected them.
+
+The settle now weighs per-task authority against the write version:
+
+- every applied remote task representation (created or updated) records its
+  status, activity version, and arrival sequence;
+- at settlement or late acknowledgement, a representation applied after the
+  intent was submitted and newer than the version whose layout is being
+  restored (the write's version, or the intent-start baseline while the write
+  is in flight) keeps its lane; the committed order still applies to every
+  other task, and the newer representation's lane order places it at its
+  current slot;
+- representations older than the write lose even when they arrive later, and
+  full-order deliveries (typed reorder events, fresh props) keep their
+  existing authority; a full-order delivery also prunes the representations
+  it supersedes.
+
+Regression coverage in `tests/components/kanban-board-keyboard-reconcile.test.tsx`
+grows to seventeen cases: the reviewer's newer-status sequence, the same
+sequence with the status change on the locally moved card, a late
+acknowledgement variant, and an older-version representation that must lose to
+the acknowledgement. The three newer-status cases fail on the previous head;
+the older-version case guards against over-preservation. The reviewer's
+`kanban-newer-status-review.test.tsx` repro passes, and the earlier cross-lane,
+partial-rename, insertion/deletion, full-order-version, and
+late-acknowledgement cases pass unchanged.
