@@ -16,3 +16,17 @@ export function withProjectActivityVersionHeader(
 export function readProjectActivityVersionHeader(response: Response): string | null {
   return response.headers?.get ? response.headers.get(PROJECT_ACTIVITY_VERSION_HEADER) : null;
 }
+
+function parseProjectActivityVersion(value: string): number {
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+export function isProjectActivityVersionNewer(
+  candidate: string,
+  baseline: string
+): boolean {
+  return (
+    parseProjectActivityVersion(candidate) > parseProjectActivityVersion(baseline)
+  );
+}

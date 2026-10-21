@@ -4,12 +4,35 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+const dragDropContextHandlers = vi.hoisted(
+  () =>
+    ({} as {
+      onDragStart?: (start: unknown) => void;
+      onDragUpdate?: (update: unknown) => void;
+      onDragEnd?: (result: unknown) => void;
+    })
+);
+
 vi.mock("@hello-pangea/dnd", async () => {
   const ReactModule = await import("react");
 
   return {
-    DragDropContext: ({ children }: { children: React.ReactNode }) =>
-      ReactModule.createElement(ReactModule.Fragment, null, children),
+    DragDropContext: ({
+      children,
+      onDragStart,
+      onDragUpdate,
+      onDragEnd,
+    }: {
+      children: React.ReactNode;
+      onDragStart?: (start: unknown) => void;
+      onDragUpdate?: (update: unknown) => void;
+      onDragEnd?: (result: unknown) => void;
+    }) => {
+      dragDropContextHandlers.onDragStart = onDragStart;
+      dragDropContextHandlers.onDragUpdate = onDragUpdate;
+      dragDropContextHandlers.onDragEnd = onDragEnd;
+      return ReactModule.createElement(ReactModule.Fragment, null, children);
+    },
     Droppable: ({
       children,
       droppableId,
@@ -97,6 +120,10 @@ async function renderGrid(
   options: {
     canEdit?: boolean;
     isFiltering?: boolean;
+    onKeyboardDropIntent?: (
+      source: { droppableId: string; index: number },
+      destination: { droppableId: string; index: number }
+    ) => void;
     onSelectTask?: (task: KanbanTask) => void;
     relatedTaskGraph?: Map<string, string[]>;
     titleOverride?: string;
@@ -127,6 +154,7 @@ async function renderGrid(
         relatedTaskGraph={options.relatedTaskGraph ?? new Map()}
         isFiltering={options.isFiltering ?? false}
         onDragEnd={vi.fn()}
+        onKeyboardDropIntent={options.onKeyboardDropIntent ?? vi.fn()}
         onSelectTask={options.onSelectTask ?? vi.fn()}
         onEditTask={vi.fn()}
       />
@@ -525,6 +553,93 @@ describe("KanbanColumnsGrid overlong task titles", () => {
     expect(heading?.textContent).toBe(longWord);
     expect(heading?.className).toContain("line-clamp-2");
     expect(heading?.className).toContain("[overflow-wrap:anywhere]");
+
+    await act(async () => root.unmount());
+  });
+});
+
+describe("KanbanColumnsGrid keyboard drop intent", () => {
+  function startKeyboardDrag(source: { droppableId: string; index: number }) {
+    dragDropContextHandlers.onDragStart?.({
+      mode: "SNAP",
+      draggableId: "1",
+      type: "DEFAULT",
+      source,
+    });
+  }
+
+  function pressSpace(card: HTMLElement | null) {
+    return act(async () => {
+      card?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: " ",
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+  }
+
+  test("reports the SNAP drop intent once per drag when Space confirms a move", async () => {
+    const { container, root } = createRenderer();
+    const onKeyboardDropIntent = vi.fn();
+    await renderGrid(root, { onKeyboardDropIntent });
+
+    await act(async () => {
+      startKeyboardDrag({ droppableId: "Backlog", index: 0 });
+      dragDropContextHandlers.onDragUpdate?.({
+        destination: { droppableId: "Backlog", index: 1 },
+      });
+    });
+
+    const card = container.querySelector<HTMLElement>(
+      '[data-kanban-task-card="1"]'
+    );
+    await pressSpace(card);
+
+    expect(onKeyboardDropIntent).toHaveBeenCalledTimes(1);
+    expect(onKeyboardDropIntent).toHaveBeenCalledWith(
+      { droppableId: "Backlog", index: 0 },
+      { droppableId: "Backlog", index: 1 }
+    );
+
+    await pressSpace(card);
+    expect(onKeyboardDropIntent).toHaveBeenCalledTimes(1);
+
+    await act(async () => root.unmount());
+  });
+
+  test("skips the intent for same-slot keyboard drops and pointer drags", async () => {
+    const { container, root } = createRenderer();
+    const onKeyboardDropIntent = vi.fn();
+    await renderGrid(root, { onKeyboardDropIntent });
+
+    const card = container.querySelector<HTMLElement>(
+      '[data-kanban-task-card="1"]'
+    );
+
+    await act(async () => {
+      startKeyboardDrag({ droppableId: "Backlog", index: 0 });
+      dragDropContextHandlers.onDragUpdate?.({
+        destination: { droppableId: "Backlog", index: 0 },
+      });
+    });
+    await pressSpace(card);
+    expect(onKeyboardDropIntent).not.toHaveBeenCalled();
+
+    await act(async () => {
+      dragDropContextHandlers.onDragStart?.({
+        mode: "FLUID",
+        draggableId: "1",
+        type: "DEFAULT",
+        source: { droppableId: "Backlog", index: 0 },
+      });
+      dragDropContextHandlers.onDragUpdate?.({
+        destination: { droppableId: "Backlog", index: 1 },
+      });
+    });
+    await pressSpace(card);
+    expect(onKeyboardDropIntent).not.toHaveBeenCalled();
 
     await act(async () => root.unmount());
   });

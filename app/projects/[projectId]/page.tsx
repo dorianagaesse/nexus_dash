@@ -304,6 +304,7 @@ export default async function ProjectDashboardPage({
           storageProvider={storageProvider}
           collaborators={collaborators}
           initialTaskId={initialTaskId}
+          activityVersion={project.updatedAt.toISOString()}
         />
       </Suspense>
 
