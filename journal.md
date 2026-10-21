@@ -3,6 +3,20 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-20 - ND-375: Unblock production staging builds
+
+- Auto-staged and manual `deploy-production-staged` builds have failed since
+  ND-374 merged: the production build defaults to Broadcast and fails the
+  environment assertion without `SUPABASE_JWT_SECRET`, which Vercel hides from
+  `vercel pull` in CI. Pinned `REALTIME_TRANSPORT=polling` on the two
+  production `vercel build` commands only; the deployment runtime is unchanged
+  and Production keeps the Broadcast default. Updated the env-contract runbook
+  to state that the pin is build-scoped.
+- Review round: pinned the preview `vercel build` path as well and added a
+  pre-promote smoke of the staged root route (health/ready is DB-only and
+  cannot catch missing Broadcast config). The module-scope validation root
+  cause is tracked as issue #616 / ND-611.
+
 # 2026-10-20 - ND-577: Refresh main before merge
 
 - Merged `origin/main` at `133487d` (ND-538 optimistic meeting-todo completion

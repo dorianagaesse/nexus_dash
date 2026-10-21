@@ -241,9 +241,12 @@ Production rollback from Broadcast to polling:
 Preview validation of the fallback confirms the dashboard loads with no
 Realtime socket — for example with the token endpoint blocked — and that
 activity/notification freshness still flows through bounded polling. CI quality
-gates pin `REALTIME_TRANSPORT=polling` because production-like builds default
-to Broadcast, which requires Supabase Realtime configuration CI does not
-provision.
+gates and both `vercel build` paths (preview and staged production) pin
+`REALTIME_TRANSPORT=polling` at build time because production-like builds
+default to Broadcast, which requires Supabase Realtime configuration CI does
+not provision. The pin is build-scoped: preview deployments take the runtime
+transport from the dispatch override or Preview environment, and Production
+still defaults to Broadcast.
 
 Spend budgets, usage inspection, retention, and the realtime cost context are
 documented in `docs/runbooks/vercel-usage-and-spend-guardrails.md`.
