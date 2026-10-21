@@ -12,6 +12,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   production `vercel build` commands only; the deployment runtime is unchanged
   and Production keeps the Broadcast default. Updated the env-contract runbook
   to state that the pin is build-scoped.
+- Review round: pinned the preview `vercel build` path as well and added a
+  pre-promote smoke of the staged root route (health/ready is DB-only and
+  cannot catch missing Broadcast config). The module-scope validation root
+  cause is tracked as issue #616 / ND-611.
 
 # 2026-10-20 - ND-577: Refresh main before merge
 
