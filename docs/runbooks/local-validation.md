@@ -5,8 +5,7 @@ validation baseline from a clean checkout.
 
 ## Toolchain
 
-Use Node.js `20.19+`, `22.13+`, or `24+`. The pinned local baseline is recorded
-in `.node-version` as `20.19.0` to match the CI Node 20 lane.
+Use Node.js `24.x`; `24.22.1` or newer carries the October 2026 security\nfixes. The pinned local baseline is recorded in `.node-version` as `24.22.1`\nand CI/deploy use the latest 24.x.
 
 PowerShell options:
 
@@ -25,8 +24,8 @@ If you prefer a version manager, install one first, then use the repo pin:
 
 ```pwsh
 winget install --id Schniz.fnm --source winget
-fnm install 20.19.0
-fnm use 20.19.0
+fnm install 24.22.1
+fnm use 24.22.1
 node -v
 ```
 
