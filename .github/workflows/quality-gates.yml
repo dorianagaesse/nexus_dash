@@ -40,6 +40,7 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24
+          check-latest: true
           cache: npm
 
       - name: Check product version policy
@@ -110,6 +111,7 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24
+          check-latest: true
           cache: npm
 
       - name: Install dependencies
@@ -172,6 +174,7 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24
+          check-latest: true
           cache: npm
 
       - name: Install dependencies
