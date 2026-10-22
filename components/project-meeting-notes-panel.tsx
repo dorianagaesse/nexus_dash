@@ -16,6 +16,8 @@ import {
   ClipboardList,
   Circle,
   ListTodo,
+  Lock,
+  LockOpen,
   Pencil,
   PlusSquare,
   Tag,
@@ -37,6 +39,7 @@ import {
 } from "@/components/meeting-notes/meeting-note-zoom-control";
 import type {
   MeetingNoteStatus,
+  MeetingNoteVisibility,
   ProjectMeetingNotePanelAction,
   ProjectMeetingNotePanelNote,
 } from "@/components/meeting-todos/meeting-note-types";
@@ -185,12 +188,14 @@ interface PrepareDraft {
   participantInput: string;
   labels: string[];
   labelInput: string;
+  visibility: MeetingNoteVisibility;
   inputNotes: string;
 }
 
 interface NotesDraft {
   outputNotes: string;
   status: MeetingNoteStatus;
+  visibility: MeetingNoteVisibility;
   actions: DraftAction[];
 }
 
@@ -206,14 +211,50 @@ const EMPTY_PREPARE_DRAFT: PrepareDraft = {
   participantInput: "",
   labels: [],
   labelInput: "",
+  visibility: "private",
   inputNotes: "",
 };
 
 const EMPTY_NOTES_DRAFT: NotesDraft = {
   outputNotes: "",
   status: "actions_in_progress",
+  visibility: "private",
   actions: [],
 };
+
+const VISIBILITY_LABELS: Record<MeetingNoteVisibility, string> = {
+  private: "private",
+  team: "public",
+};
+
+const VISIBILITY_BADGE_CLASS: Record<MeetingNoteVisibility, string> = {
+  private:
+    "border-slate-500/30 bg-slate-500/15 text-slate-700 dark:border-slate-400/30 dark:bg-slate-400/15 dark:text-slate-200",
+  team: "border-blue-500/30 bg-blue-500/15 text-blue-700 dark:border-blue-400/30 dark:bg-blue-400/15 dark:text-blue-200",
+};
+
+function resolveNoteVisibility(
+  note: Pick<ProjectMeetingNotePanelNote, "visibility"> | null | undefined
+): MeetingNoteVisibility {
+  return note?.visibility === "private" ? "private" : "team";
+}
+
+function canActorChangeNoteVisibility(
+  note: ProjectMeetingNotePanelNote | null,
+  currentActorUserId: string,
+  canEdit: boolean
+): boolean {
+  if (!canEdit) {
+    return false;
+  }
+  if (!note) {
+    return true;
+  }
+  if (!note.createdBy?.id || !currentActorUserId) {
+    return true;
+  }
+  return note.createdBy.id === currentActorUserId;
+}
 
 const STATUS_LABELS: Record<MeetingNoteStatus, string> = {
   prepared: "Prepared",
@@ -382,6 +423,7 @@ function buildPrepareDraftFromNote(
     participantInput: "",
     labels: note.labels,
     labelInput: "",
+    visibility: resolveNoteVisibility(note),
     inputNotes: coerceRichTextHtml(note.inputNotes) ?? "",
   };
 }
@@ -392,6 +434,7 @@ function buildNotesDraftFromNote(
   return {
     outputNotes: coerceRichTextHtml(note.outputNotes) ?? "",
     status: note.status === "prepared" ? "actions_in_progress" : note.status,
+    visibility: resolveNoteVisibility(note),
     actions: note.actions.map((action) => ({
       id: action.id,
       content: action.content,
@@ -420,6 +463,7 @@ function buildBasePayload(note: ProjectMeetingNotePanelNote) {
     participants: buildParticipantPayload(note.participants),
     labels: note.labels,
     status: note.status,
+    visibility: resolveNoteVisibility(note),
     inputNotes: note.inputNotes,
     outputNotes: note.outputNotes,
     decisions: note.decisions ?? "",
@@ -459,6 +503,8 @@ function mapMeetingNoteError(errorCode: string): string {
       return "That assignee no longer has access to this project. Pick a current project member or active agent.";
     case "meeting-note-steward-update-failed":
       return "Could not update the steward. Please retry.";
+    case "meeting-note-visibility-invalid":
+      return "Selected meeting note visibility is invalid.";
     case "meeting-note-not-found":
       return "Meeting note not found.";
     case "forbidden":
@@ -466,6 +512,69 @@ function mapMeetingNoteError(errorCode: string): string {
     default:
       return "Could not save meeting notes. Please retry.";
   }
+}
+
+function MeetingVisibilityBadge({
+  visibility,
+  className,
+}: {
+  visibility: MeetingNoteVisibility;
+  className?: string;
+}) {
+  const Icon = visibility === "private" ? Lock : LockOpen;
+  return (
+    <Badge
+      variant="outline"
+      data-meeting-visibility={VISIBILITY_LABELS[visibility]}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 text-[11px]",
+        VISIBILITY_BADGE_CLASS[visibility],
+        className
+      )}
+    >
+      <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
+      <span>{VISIBILITY_LABELS[visibility]}</span>
+    </Badge>
+  );
+}
+
+function MeetingVisibilityToggle({
+  visibility,
+  disabled = false,
+  onChange,
+  className,
+}: {
+  visibility: MeetingNoteVisibility;
+  disabled?: boolean;
+  onChange: (nextVisibility: MeetingNoteVisibility) => void;
+  className?: string;
+}) {
+  const Icon = visibility === "private" ? Lock : LockOpen;
+  const nextVisibility: MeetingNoteVisibility =
+    visibility === "private" ? "team" : "private";
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      data-meeting-visibility-toggle={VISIBILITY_LABELS[visibility]}
+      aria-pressed={visibility === "team"}
+      title={
+        visibility === "private"
+          ? "Private to you — click to make public to the project"
+          : "Public to the project — click to make private"
+      }
+      onClick={() => onChange(nextVisibility)}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
+        VISIBILITY_BADGE_CLASS[visibility],
+        !disabled && "cursor-pointer hover:opacity-90",
+        className
+      )}
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span>{VISIBILITY_LABELS[visibility]}</span>
+    </button>
+  );
 }
 
 function LabelPill({ label }: { label: string }) {
@@ -1524,6 +1633,7 @@ export function ProjectMeetingNotesPanel({
       participants: buildParticipantPayload(prepareDraft.participants),
       labels: prepareDraft.labels,
       status: prepareNote?.status ?? "prepared",
+      visibility: prepareDraft.visibility,
       inputNotes: coerceRichTextHtml(prepareDraft.inputNotes) ?? "",
       outputNotes: prepareNote?.outputNotes ?? "",
       decisions: prepareNote?.decisions ?? "",
@@ -1676,6 +1786,7 @@ export function ProjectMeetingNotesPanel({
       ...buildBasePayload(selectedNote),
       outputNotes: coerceRichTextHtml(notesDraft.outputNotes) ?? "",
       status: notesDraft.status,
+      visibility: notesDraft.visibility,
       actions: notesDraft.actions
         .map((action) => ({
           id: action.persisted ? action.id : null,
@@ -2055,15 +2166,20 @@ export function ProjectMeetingNotesPanel({
                           {formatShortDate(note.scheduledAt)}
                         </p>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "shrink-0 text-[11px]",
-                          STATUS_BADGE_CLASS[note.status]
-                        )}
-                      >
-                        {STATUS_LABELS[note.status]}
-                      </Badge>
+                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                        <MeetingVisibilityBadge
+                          visibility={resolveNoteVisibility(note)}
+                        />
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "shrink-0 text-[11px]",
+                            STATUS_BADGE_CLASS[note.status]
+                          )}
+                        >
+                          {STATUS_LABELS[note.status]}
+                        </Badge>
+                      </div>
                     </div>
 
                     {isOverdue ? (
@@ -2186,6 +2302,40 @@ export function ProjectMeetingNotesPanel({
                 placeholder="Weekly execution review"
                 maxLength={140}
               />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
+              <div className="space-y-0.5">
+                <span className="text-sm font-medium text-foreground">
+                  Visibility
+                </span>
+                <p className="text-xs text-muted-foreground">
+                  {prepareDraft.visibility === "private"
+                    ? "Only you can view this meeting note and its todos."
+                    : "All project members and agents can view this meeting note."}
+                </p>
+              </div>
+              {canActorChangeNoteVisibility(
+                prepareNote,
+                currentActorUserId,
+                canEdit
+              ) ? (
+                <MeetingVisibilityToggle
+                  visibility={prepareDraft.visibility}
+                  disabled={isSaving}
+                  onChange={(visibility) =>
+                    setPrepareDraft((current) => ({
+                      ...current,
+                      visibility,
+                    }))
+                  }
+                />
+              ) : (
+                <MeetingVisibilityBadge
+                  visibility={prepareDraft.visibility}
+                  className="text-xs"
+                />
+              )}
             </div>
 
             <div className="grid gap-2">
@@ -2445,7 +2595,28 @@ export function ProjectMeetingNotesPanel({
                 </Button>
               </div>
             ) : null}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {canActorChangeNoteVisibility(
+                selectedNote,
+                currentActorUserId,
+                canEdit
+              ) ? (
+                <MeetingVisibilityToggle
+                  visibility={notesDraft.visibility}
+                  disabled={isSaving}
+                  onChange={(visibility) =>
+                    setNotesDraft((current) => ({
+                      ...current,
+                      visibility,
+                    }))
+                  }
+                />
+              ) : (
+                <MeetingVisibilityBadge
+                  visibility={resolveNoteVisibility(selectedNote)}
+                  className="text-xs"
+                />
+              )}
               <Badge
                 variant="outline"
                 className={cn("text-xs", STATUS_BADGE_CLASS[notesDraft.status])}

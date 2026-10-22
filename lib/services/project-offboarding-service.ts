@@ -147,6 +147,7 @@ export async function countActiveProjectResponsibilities(
     db.projectMeetingNote.count({
       where: {
         projectId,
+        visibility: "team",
         stewardKind: actor.kind,
         NOT: { status: "done" },
         ...(humanId
@@ -156,7 +157,7 @@ export async function countActiveProjectResponsibilities(
     }),
     db.projectMeetingNoteAction.count({
       where: {
-        meetingNote: { projectId },
+        meetingNote: { projectId, visibility: "team" },
         completedAt: null,
         assigneeKind: actor.kind,
         ...(humanId
@@ -409,6 +410,7 @@ export async function resolveActiveProjectResponsibilities(input: {
           FROM "ProjectMeetingNoteAction" action
           JOIN "ProjectMeetingNote" note ON note."id" = action."meetingNoteId"
           WHERE note."projectId" = ${input.projectId}
+            AND note."visibility" = 'team'
             AND action."completedAt" IS NULL
             AND action."assigneeKind"::text = ${input.actor.kind}
             AND (

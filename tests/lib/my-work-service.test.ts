@@ -137,7 +137,10 @@ describe("my work service", () => {
           completedAt: null,
           assigneeKind: "human",
           assigneeUserId: "user-1",
-          meetingNote: { project: principalWhere },
+          meetingNote: {
+            project: principalWhere,
+            OR: [{ visibility: "team" }, { createdByUserId: "user-1" }],
+          },
         }),
         orderBy: [{ updatedAt: "desc" }],
         take: MY_WORK_TYPE_LIMIT + 1,

@@ -3,6 +3,35 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-22 - ND-539: Private/team visibility toggle for meeting notes
+
+- Card `cmusy8e0n000w04l0pry2ao7r`: added creator-controlled meeting note
+  visibility (`private` by default for new notes, `team` for project-shared
+  notes) with SQL migration `20261022010000_nd539_meeting_note_visibility`
+  backfilling existing notes to `'team'`.
+- Enforced visibility in both service and PostgreSQL RLS layers:
+  - Added optional `actorKind?: "human" | "agent"` to `withActorRlsContext`
+    (`app.actor_kind` transaction-local config) and `app.is_human_actor()` in
+    SQL so owner-attributed agent bearer tokens cannot read or mutate private
+    notes owned by the project owner.
+  - Updated `ProjectMeetingNote`, `ProjectMeetingNoteParticipant`,
+    `ProjectMeetingNoteAction`, and `ProjectMeetingNoteActionAssigneeChange`
+    RLS policies plus the `meeting_note_visibility_guard` trigger and
+    `app.resolve_project_actor_responsibilities` offboarding function.
+  - Restricted private notes and their todos/outputs/history to the human
+    creator across `project-meeting-note-service`, `project-meeting-todo-service`,
+    `my-work-service`, `project-agent-attention-service`,
+    `project-notification-email-service`, `project-offboarding-service`, and
+    `project-service` summary counts. Suppressed `ProjectActivityEvent` and
+    `touchProjectActivity` on private-only note mutations while emitting when a
+    note is `'team'` or transitions between `'private'` and `'team'`.
+- Added the lock/unlocked visibility badge and toggle (`private` in grey,
+  `public` in blue) to meeting note cards, the Prepare meeting dialog, and the
+  Note detail dialog (interactive for the creator, read-only for other members).
+- Validated with `npm run lint`, `npm run rls:check`, `npm run test:rls`,
+  `npm test`, `npm run test:coverage`, `npm run build`, and Playwright E2E
+  (`tests/e2e/nd-539-meeting-note-visibility.spec.ts`).
+
 # 2026-10-20 - ND-375: Unblock production staging builds
 
 - Auto-staged and manual `deploy-production-staged` builds have failed since

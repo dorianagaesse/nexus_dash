@@ -949,6 +949,10 @@ async function findMeetingTodoOverdueReminderCandidates(input: {
         AND note."scheduledAt" IS NOT NULL
         AND note."scheduledAt" <= ${overdueSinceTimestamp}
         AND note."status" <> 'done'
+        AND (
+          note."visibility" = 'team'
+          OR note."createdByUserId" = ${input.recipientUserId}
+        )
         AND action."assigneeKind" = 'human'
         AND action."assigneeUserId" = ${input.recipientUserId}
         AND (

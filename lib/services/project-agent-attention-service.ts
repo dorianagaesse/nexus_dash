@@ -475,7 +475,9 @@ export async function listAgentAssignments(
         ? { completedAt: null }
         : {};
 
-  return withActorRlsContext(actorUserId, async (db) => {
+  return withActorRlsContext(
+    actorUserId,
+    async (db) => {
     const projectAccess = await requireProjectRole({
       actorUserId,
       projectId: input.projectId,
@@ -547,7 +549,7 @@ export async function listAgentAssignments(
           ? db.projectMeetingNoteAction.findMany({
               where: {
                 assigneeCredentialId: access.credentialId,
-                meetingNote: { projectId: input.projectId },
+                meetingNote: { projectId: input.projectId, visibility: "team" },
                 ...(occurredAtRange ? { assignedAt: occurredAtRange } : {}),
                 ...meetingTodoStateWhere,
                 ...(meetingTodoCursorWhere ?? {}),

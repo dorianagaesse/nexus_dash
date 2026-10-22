@@ -18,7 +18,7 @@ function normalizeActorUserId(actorUserId: string | null | undefined): string {
 export async function withActorRlsContext<T>(
   actorUserId: string | null | undefined,
   operation: (db: Prisma.TransactionClient) => Promise<T>,
-  options?: { forceTransaction?: boolean }
+  options?: { forceTransaction?: boolean; actorKind?: "human" | "agent" }
 ): Promise<T> {
   const normalizedActorUserId = normalizeActorUserId(actorUserId);
   if (!normalizedActorUserId) {
@@ -40,6 +40,9 @@ export async function withActorRlsContext<T>(
 
       if (useActorContext) {
         await db.$executeRaw`SELECT set_config('app.user_id', ${normalizedActorUserId}, true)`;
+        if (options?.actorKind) {
+          await db.$executeRaw`SELECT set_config('app.actor_kind', ${options.actorKind}, true)`;
+        }
       }
       return operation(db);
     },

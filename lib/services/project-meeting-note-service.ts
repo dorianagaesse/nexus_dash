@@ -71,6 +71,74 @@ export type MeetingNoteStatus = (typeof MEETING_NOTE_STATUSES)[number];
 
 const DEFAULT_MEETING_NOTE_STATUS: MeetingNoteStatus = "prepared";
 
+export const MEETING_NOTE_VISIBILITIES = [
+  "private",
+  "team",
+] as const;
+
+export type MeetingNoteVisibility = (typeof MEETING_NOTE_VISIBILITIES)[number];
+
+export const DEFAULT_MEETING_NOTE_VISIBILITY: MeetingNoteVisibility = "private";
+
+export function parseMeetingNoteVisibility(
+  value: unknown
+): MeetingNoteVisibility | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "private") {
+    return "private";
+  }
+  if (normalized === "team" || normalized === "public") {
+    return "team";
+  }
+  return null;
+}
+
+function normalizeVisibility(
+  value: string | null | undefined,
+  fallback: MeetingNoteVisibility = DEFAULT_MEETING_NOTE_VISIBILITY
+): MeetingNoteVisibility {
+  return parseMeetingNoteVisibility(value) ?? fallback;
+}
+
+export function buildMeetingNoteVisibilityWhere(input: {
+  actorUserId: string;
+  agentAccess?: AgentProjectAccessContext;
+}): Prisma.ProjectMeetingNoteWhereInput {
+  if (input.agentAccess) {
+    return { visibility: "team" };
+  }
+  return {
+    OR: [
+      { visibility: "team" },
+      { createdByUserId: input.actorUserId },
+    ],
+  };
+}
+
+export function canActorViewMeetingNote(input: {
+  actorUserId: string;
+  agentAccess?: AgentProjectAccessContext;
+  note: {
+    visibility?: string | null;
+    createdByUserId?: string | null;
+    createdByUser?: { id: string } | null;
+  };
+}): boolean {
+  const visibility = normalizeVisibility(input.note.visibility, "team");
+  if (visibility === "team") {
+    return true;
+  }
+  if (input.agentAccess) {
+    return false;
+  }
+  const creatorId =
+    input.note.createdByUserId ?? input.note.createdByUser?.id ?? null;
+  return creatorId === null || creatorId === input.actorUserId;
+}
+
 interface ServiceErrorResult {
   ok: false;
   status: number;
@@ -100,6 +168,7 @@ export interface MeetingNoteMutationInput {
   participants?: Array<string | ProjectMeetingParticipantInput>;
   labels?: string[];
   status?: string | null;
+  visibility?: string | null;
   inputNotes?: string;
   outputNotes?: string;
   decisions?: string;
@@ -130,6 +199,7 @@ export interface ProjectMeetingNoteSummary {
   participants: ProjectMeetingParticipantIdentity[];
   labels: string[];
   status: MeetingNoteStatus;
+  visibility: MeetingNoteVisibility;
   inputNotes: string;
   outputNotes: string;
   decisions: string;
@@ -213,6 +283,8 @@ type MeetingNoteRecord = {
   }>;
   labelsJson: string | null;
   status: string;
+  visibility?: string;
+  createdByUserId?: string;
   inputNotes: string;
   outputNotes: string;
   decisions: string;
@@ -372,11 +444,21 @@ function validateMeetingNoteDraft(input: {
   participants: NormalizedMeetingParticipantInput[];
   labels: string[];
   status: MeetingNoteStatus;
+  visibility: MeetingNoteVisibility;
+  visibilityRaw?: unknown;
   inputNotes: string;
   outputNotes: string;
   decisions: string;
   actions: Array<{ id: string | null; content: string }>;
 }): ServiceErrorResult | null {
+  if (
+    input.visibilityRaw !== undefined &&
+    input.visibilityRaw !== null &&
+    parseMeetingNoteVisibility(input.visibilityRaw) === null
+  ) {
+    return createError(400, "meeting-note-visibility-invalid");
+  }
+
   if (input.title.length < MIN_TITLE_LENGTH) {
     return createError(400, "meeting-note-title-too-short");
   }
@@ -611,6 +693,7 @@ function mapMeetingNote(
       }),
     labels: parseTaskLabelsJson(note.labelsJson ?? ""),
     status: normalizeStatus(note.status),
+    visibility: normalizeVisibility(note.visibility, "team"),
     inputNotes: note.inputNotes,
     outputNotes: note.outputNotes,
     decisions: note.decisions,
@@ -735,6 +818,8 @@ async function readMeetingNoteById(input: {
   db: DbClient;
   projectId: string;
   noteId: string;
+  actorUserId?: string;
+  agentAccess?: AgentProjectAccessContext;
   actorRegistry?: MeetingTodoActorRegistry | null;
 }): Promise<ProjectMeetingNoteSummary | null> {
   const [note, registry] = await Promise.all([
@@ -767,6 +852,18 @@ async function readMeetingNoteById(input: {
       : Promise.resolve(input.actorRegistry),
   ]);
 
+  if (
+    note &&
+    input.actorUserId &&
+    !canActorViewMeetingNote({
+      actorUserId: input.actorUserId,
+      agentAccess: input.agentAccess,
+      note,
+    })
+  ) {
+    return null;
+  }
+
   return note ? mapMeetingNote(note, registry) : null;
 }
 
@@ -776,6 +873,10 @@ function buildDraft(input: MeetingNoteMutationInput) {
   const participants = normalizeParticipants(input.participants);
   const labels = normalizeTaskLabels(input.labels ?? []);
   const status = normalizeStatus(input.status);
+  const defaultVisibility: MeetingNoteVisibility = input.agentAccess
+    ? "team"
+    : DEFAULT_MEETING_NOTE_VISIBILITY;
+  const visibility = normalizeVisibility(input.visibility, defaultVisibility);
   const inputNotes =
     coerceRichTextHtml(normalizeLongText(input.inputNotes)) ?? "";
   const outputNotes =
@@ -789,6 +890,7 @@ function buildDraft(input: MeetingNoteMutationInput) {
     participants,
     labels,
     status,
+    visibility,
     inputNotes,
     outputNotes,
     decisions,
@@ -1138,6 +1240,13 @@ export async function listProjectMeetingNotes(input: {
 
     const query = normalizeText(input.query).toLocaleLowerCase();
     return notes
+      .filter((note) =>
+        canActorViewMeetingNote({
+          actorUserId,
+          agentAccess: input.agentAccess,
+          note,
+        })
+      )
       .map((note) => mapMeetingNote(note, registry))
       .filter((note) => noteMatchesSearch(note, query))
       .filter((note) =>
@@ -1147,7 +1256,7 @@ export async function listProjectMeetingNotes(input: {
           currentActor,
         })
       );
-  }) as Promise<ProjectMeetingNoteSummary[]>;
+  }, input.agentAccess ? { actorKind: "agent" } : undefined) as Promise<ProjectMeetingNoteSummary[]>;
 }
 
 export async function createProjectMeetingNote(
@@ -1164,6 +1273,7 @@ export async function createProjectMeetingNote(
   const validationError = validateMeetingNoteDraft({
     ...draft,
     scheduledAtRaw: input.scheduledAt,
+    visibilityRaw: input.visibility,
   });
   if (validationError) {
     return validationError;
@@ -1177,6 +1287,13 @@ export async function createProjectMeetingNote(
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
+    }
+    if (
+      input.visibility !== undefined &&
+      input.visibility !== null &&
+      parseMeetingNoteVisibility(input.visibility) === "private"
+    ) {
+      return createError(403, "forbidden");
     }
   }
 
@@ -1245,6 +1362,7 @@ export async function createProjectMeetingNote(
           },
           labelsJson: serializeTaskLabels(draft.labels),
           status: draft.status,
+          visibility: draft.visibility,
           inputNotes: draft.inputNotes,
           outputNotes: draft.outputNotes,
           decisions: draft.decisions,
@@ -1310,6 +1428,8 @@ export async function createProjectMeetingNote(
         db,
         projectId: input.projectId,
         noteId: created.id,
+        actorUserId,
+        agentAccess: input.agentAccess,
         actorRegistry,
       });
       if (!note) {
@@ -1317,16 +1437,18 @@ export async function createProjectMeetingNote(
       }
 
       const activityVersion = new Date();
-      await recordProjectActivityEvent({
-        db,
-        projectId: input.projectId,
-        actorUserId,
-        domain: "meeting-note",
-        action: "created",
-        entityId: created.id,
-        payload: { noteId: created.id },
-        occurredAt: activityVersion,
-      });
+      if (draft.visibility === "team") {
+        await recordProjectActivityEvent({
+          db,
+          projectId: input.projectId,
+          actorUserId,
+          domain: "meeting-note",
+          action: "created",
+          entityId: created.id,
+          payload: { noteId: created.id },
+          occurredAt: activityVersion,
+        });
+      }
 
       return {
         ok: true,
@@ -1336,7 +1458,7 @@ export async function createProjectMeetingNote(
       logServerError("createProjectMeetingNote", error);
       return createError(500, "meeting-note-create-failed");
     }
-  });
+  }, input.agentAccess ? { actorKind: "agent" } : undefined);
 }
 
 export async function updateProjectMeetingNote(
@@ -1356,6 +1478,7 @@ export async function updateProjectMeetingNote(
   const partialValidation = validateMeetingNoteDraft({
     ...buildDraft({ ...input, title: input.title ?? "Existing meeting" }),
     scheduledAtRaw: input.scheduledAt,
+    visibilityRaw: input.visibility,
   });
   if (partialValidation) return partialValidation;
 
@@ -1387,7 +1510,13 @@ export async function updateProjectMeetingNote(
     });
     if (precondition === "missing") return createError(404, "meeting-note-not-found");
     if (precondition === "conflict") {
-      const current = await readMeetingNoteById({ db, projectId: input.projectId, noteId });
+      const current = await readMeetingNoteById({
+        db,
+        projectId: input.projectId,
+        noteId,
+        actorUserId,
+        agentAccess: input.agentAccess,
+      });
       return current ? editConflict({ ...current, contentRevision: current.contentRevision! }) : createError(404, "meeting-note-not-found");
     }
     const existing = await db.projectMeetingNote.findFirst({
@@ -1401,6 +1530,8 @@ export async function updateProjectMeetingNote(
         scheduledAt: true,
         labelsJson: true,
         status: true,
+        visibility: true,
+        createdByUserId: true,
         inputNotes: true,
         outputNotes: true,
         decisions: true,
@@ -1426,8 +1557,30 @@ export async function updateProjectMeetingNote(
         },
       },
     });
-    if (!existing) {
+    if (
+      !existing ||
+      !canActorViewMeetingNote({
+        actorUserId,
+        agentAccess: input.agentAccess,
+        note: existing,
+      })
+    ) {
       return createError(404, "meeting-note-not-found");
+    }
+    const existingVisibility = normalizeVisibility(existing.visibility, "team");
+    const existingCreatorId = existing.createdByUserId ?? actorUserId;
+    if (input.visibility !== undefined && input.visibility !== null) {
+      const requestedVisibility = parseMeetingNoteVisibility(input.visibility);
+      if (!requestedVisibility) {
+        return createError(400, "meeting-note-visibility-invalid");
+      }
+      if (
+        (requestedVisibility !== existingVisibility ||
+          requestedVisibility === "private") &&
+        (Boolean(input.agentAccess) || existingCreatorId !== actorUserId)
+      ) {
+        return createError(403, "forbidden");
+      }
     }
     const draft = buildDraft({
       ...input,
@@ -1436,12 +1589,20 @@ export async function updateProjectMeetingNote(
       participants: input.participants ?? existing.participants,
       labels: input.labels ?? parseTaskLabelsJson(existing.labelsJson ?? ""),
       status: input.status === undefined ? existing.status : input.status,
+      visibility:
+        input.visibility === undefined || input.visibility === null
+          ? existingVisibility
+          : input.visibility,
       inputNotes: input.inputNotes ?? existing.inputNotes,
       outputNotes: input.outputNotes ?? existing.outputNotes,
       decisions: input.decisions ?? existing.decisions,
       actions: input.actions ?? existing.actions,
     });
-    const validationError = validateMeetingNoteDraft({ ...draft, scheduledAtRaw: input.scheduledAt });
+    const validationError = validateMeetingNoteDraft({
+      ...draft,
+      scheduledAtRaw: input.scheduledAt,
+      visibilityRaw: input.visibility,
+    });
     if (validationError) return validationError;
     const existingActions = existing.actions ?? [];
     const existingActionById = new Map(
@@ -1671,6 +1832,9 @@ export async function updateProjectMeetingNote(
             : {}),
           ...(input.labels !== undefined ? { labelsJson: serializeTaskLabels(draft.labels) } : {}),
           ...(input.status !== undefined ? { status: draft.status } : {}),
+          ...(input.visibility !== undefined && input.visibility !== null
+            ? { visibility: draft.visibility }
+            : {}),
           ...(input.inputNotes !== undefined ? { inputNotes: draft.inputNotes } : {}),
           ...(input.outputNotes !== undefined ? { outputNotes: draft.outputNotes } : {}),
           ...(input.decisions !== undefined ? { decisions: draft.decisions } : {}),
@@ -1708,6 +1872,8 @@ export async function updateProjectMeetingNote(
         db,
         projectId: input.projectId,
         noteId,
+        actorUserId,
+        agentAccess: input.agentAccess,
         actorRegistry,
       });
       if (!note) {
@@ -1715,16 +1881,18 @@ export async function updateProjectMeetingNote(
       }
 
       const activityVersion = new Date();
-      await recordProjectActivityEvent({
-        db,
-        projectId: input.projectId,
-        actorUserId,
-        domain: "meeting-note",
-        action: "updated",
-        entityId: noteId,
-        payload: { noteId },
-        occurredAt: activityVersion,
-      });
+      if (existingVisibility === "team" || draft.visibility === "team") {
+        await recordProjectActivityEvent({
+          db,
+          projectId: input.projectId,
+          actorUserId,
+          domain: "meeting-note",
+          action: "updated",
+          entityId: noteId,
+          payload: { noteId },
+          occurredAt: activityVersion,
+        });
+      }
 
       return {
         ok: true,
@@ -1734,19 +1902,47 @@ export async function updateProjectMeetingNote(
       logServerError("updateProjectMeetingNote", error);
       return createError(500, "meeting-note-update-failed");
     }
-  }, { forceTransaction: input.expectedRevision !== undefined });
+  }, {
+    forceTransaction: input.expectedRevision !== undefined,
+    ...(input.agentAccess ? { actorKind: "agent" as const } : {}),
+  });
 }
 
 export async function getProjectMeetingNote(input: {
-  actorUserId: string; projectId: string; noteId: string;
+  actorUserId: string;
+  projectId: string;
+  noteId: string;
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<{ note: ProjectMeetingNoteSummary }>> {
-  if (!normalizeText(input.actorUserId)) return createError(401, "unauthorized");
-  return withActorRlsContext(input.actorUserId, async (db) => {
-    const access = await requireProjectRole({ actorUserId: input.actorUserId, projectId: input.projectId, minimumRole: "viewer", db });
+  const actorUserId = normalizeText(input.actorUserId);
+  if (!actorUserId) return createError(401, "unauthorized");
+  if (input.agentAccess) {
+    const agentScopeAccess = requireAgentProjectScopes({
+      agentAccess: input.agentAccess,
+      projectId: input.projectId,
+      requiredScopes: ["task:read"],
+    });
+    if (!agentScopeAccess.ok) {
+      return createError(agentScopeAccess.status, agentScopeAccess.error);
+    }
+  }
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "viewer",
+      db,
+    });
     if (!access.ok) return createError(access.status, access.error);
-    const note = await readMeetingNoteById({ db, projectId: input.projectId, noteId: input.noteId });
+    const note = await readMeetingNoteById({
+      db,
+      projectId: input.projectId,
+      noteId: input.noteId,
+      actorUserId,
+      agentAccess: input.agentAccess,
+    });
     return note ? { ok: true, data: { note } } : createError(404, "meeting-note-not-found");
-  });
+  }, input.agentAccess ? { actorKind: "agent" } : undefined);
 }
 
 export async function setProjectMeetingNoteActionCompletion(
@@ -1800,11 +1996,21 @@ export async function setProjectMeetingNoteActionCompletion(
         meetingNote: {
           select: {
             status: true,
+            visibility: true,
+            createdByUserId: true,
           },
         },
       },
     });
-    if (!action) {
+    if (
+      !action ||
+      (action.meetingNote &&
+        !canActorViewMeetingNote({
+          actorUserId,
+          agentAccess: input.agentAccess,
+          note: action.meetingNote,
+        }))
+    ) {
       return createError(404, "meeting-note-action-not-found");
     }
 
@@ -1852,12 +2058,16 @@ export async function setProjectMeetingNoteActionCompletion(
         db,
         projectId: input.projectId,
         noteId,
+        actorUserId,
+        agentAccess: input.agentAccess,
       });
       if (!note) {
         return createError(404, "meeting-note-not-found");
       }
 
-      await touchProjectActivity({ db, projectId: input.projectId });
+      if (normalizeVisibility(action.meetingNote?.visibility, "team") === "team") {
+        await touchProjectActivity({ db, projectId: input.projectId });
+      }
 
       return {
         ok: true,
@@ -1867,7 +2077,7 @@ export async function setProjectMeetingNoteActionCompletion(
       logServerError("setProjectMeetingNoteActionCompletion", error);
       return createError(500, "meeting-note-action-update-failed");
     }
-  });
+  }, input.agentAccess ? { actorKind: "agent" } : undefined);
 }
 
 export async function setProjectMeetingNoteActionAssignee(
@@ -1917,9 +2127,23 @@ export async function setProjectMeetingNoteActionAssignee(
         assigneeUserId: true,
         assigneeCredentialId: true,
         assigneeDisplayNameSnapshot: true,
+        meetingNote: {
+          select: {
+            visibility: true,
+            createdByUserId: true,
+          },
+        },
       },
     });
-    if (!action) {
+    if (
+      !action ||
+      (action.meetingNote &&
+        !canActorViewMeetingNote({
+          actorUserId,
+          agentAccess: input.agentAccess,
+          note: action.meetingNote,
+        }))
+    ) {
       return createError(404, "meeting-note-action-not-found");
     }
 
@@ -2031,17 +2255,21 @@ export async function setProjectMeetingNoteActionAssignee(
         db,
         projectId: input.projectId,
         noteId,
+        actorUserId,
+        agentAccess: input.agentAccess,
       });
       if (!note) {
         return createError(404, "meeting-note-not-found");
       }
-      await touchProjectActivity({ db, projectId: input.projectId });
+      if (normalizeVisibility(action.meetingNote?.visibility, "team") === "team") {
+        await touchProjectActivity({ db, projectId: input.projectId });
+      }
       return { ok: true, data: { note } };
     } catch (error) {
       logServerError("setProjectMeetingNoteActionAssignee", error);
       return createError(500, "meeting-note-action-update-failed");
     }
-  });
+  }, input.agentAccess ? { actorKind: "agent" } : undefined);
 }
 
 export async function setProjectMeetingNoteSteward(
@@ -2082,6 +2310,8 @@ export async function setProjectMeetingNoteSteward(
       where: { id: noteId, projectId: input.projectId },
       select: {
         id: true,
+        visibility: true,
+        createdByUserId: true,
         participants: {
           where: { userId: null },
           orderBy: [{ position: "asc" }, { createdAt: "asc" }],
@@ -2089,7 +2319,14 @@ export async function setProjectMeetingNoteSteward(
         },
       },
     });
-    if (!existing) {
+    if (
+      !existing ||
+      !canActorViewMeetingNote({
+        actorUserId,
+        agentAccess: input.agentAccess,
+        note: existing,
+      })
+    ) {
       return createError(404, "meeting-note-not-found");
     }
 
@@ -2144,17 +2381,21 @@ export async function setProjectMeetingNoteSteward(
         db,
         projectId: input.projectId,
         noteId,
+        actorUserId,
+        agentAccess: input.agentAccess,
       });
       if (!note) {
         return createError(404, "meeting-note-not-found");
       }
-      await touchProjectActivity({ db, projectId: input.projectId });
+      if (normalizeVisibility(existing.visibility, "team") === "team") {
+        await touchProjectActivity({ db, projectId: input.projectId });
+      }
       return { ok: true, data: { note } };
     } catch (error) {
       logServerError("setProjectMeetingNoteSteward", error);
       return createError(500, "meeting-note-steward-update-failed");
     }
-  });
+  }, input.agentAccess ? { actorKind: "agent" } : undefined);
 }
 
 export async function deleteProjectMeetingNote(input: {
@@ -2162,7 +2403,7 @@ export async function deleteProjectMeetingNote(input: {
   projectId: string;
   noteId: string;
   agentAccess?: AgentProjectAccessContext;
-}): Promise<ServiceResult<{ ok: true }>> {
+}): Promise<ServiceResult<{ ok: true; visibility?: MeetingNoteVisibility }>> {
   const actorUserId = normalizeText(input.actorUserId);
   const noteId = normalizeText(input.noteId);
   if (!actorUserId) {
@@ -2170,6 +2411,17 @@ export async function deleteProjectMeetingNote(input: {
   }
   if (!noteId) {
     return createError(400, "meeting-note-not-found");
+  }
+
+  if (input.agentAccess) {
+    const agentScopeAccess = requireAgentProjectScopes({
+      agentAccess: input.agentAccess,
+      projectId: input.projectId,
+      requiredScopes: ["task:write"],
+    });
+    if (!agentScopeAccess.ok) {
+      return createError(agentScopeAccess.status, agentScopeAccess.error);
+    }
   }
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -2188,26 +2440,46 @@ export async function deleteProjectMeetingNote(input: {
         id: noteId,
         projectId: input.projectId,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        visibility: true,
+        createdByUserId: true,
+      },
     });
-    if (!existing) {
+    if (
+      !existing ||
+      !canActorViewMeetingNote({
+        actorUserId,
+        agentAccess: input.agentAccess,
+        note: existing,
+      })
+    ) {
       return createError(404, "meeting-note-not-found");
     }
+
+    const existingVisibility = normalizeVisibility(existing.visibility, "team");
 
     try {
       await db.projectMeetingNote.delete({
         where: { id: noteId },
       });
 
-      await touchProjectActivity({ db, projectId: input.projectId });
+      if (existingVisibility === "team") {
+        await touchProjectActivity({ db, projectId: input.projectId });
+      }
 
       return {
         ok: true,
-        data: { ok: true },
+        data: {
+          ok: true,
+          ...(existing.visibility !== undefined
+            ? { visibility: existingVisibility }
+            : {}),
+        },
       };
     } catch (error) {
       logServerError("deleteProjectMeetingNote", error);
       return createError(500, "meeting-note-delete-failed");
     }
-  });
+  }, input.agentAccess ? { actorKind: "agent" } : undefined);
 }

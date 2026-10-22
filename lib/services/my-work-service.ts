@@ -150,7 +150,10 @@ export async function listMyWork(input: {
           completedAt: null,
           assigneeKind: "human",
           assigneeUserId: actorUserId,
-          meetingNote: { project: principalWhere },
+          meetingNote: {
+            project: principalWhere,
+            OR: [{ visibility: "team" }, { createdByUserId: actorUserId }],
+          },
         },
         orderBy: [{ updatedAt: "desc" }],
         take: fetchTake,

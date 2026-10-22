@@ -36,14 +36,18 @@ const ids = {
   reactionB: `rls_reaction_b_${suffix}`,
   meetingA: `rls_meeting_a_${suffix}`,
   meetingB: `rls_meeting_b_${suffix}`,
+  meetingPrivateB: `rls_meeting_private_b_${suffix}`,
   meetingActionB: `rls_meeting_action_b_${suffix}`,
+  meetingActionPrivateB: `rls_meeting_action_private_b_${suffix}`,
   meetingResponsibilityB: `rls_meeting_responsibility_b_${suffix}`,
   resourceB: `rls_resource_b_${suffix}`,
   participantA: `rls_participant_a_${suffix}`,
   participantB: `rls_participant_b_${suffix}`,
+  participantPrivateB: `rls_participant_private_b_${suffix}`,
   meetingActionA: `rls_meeting_action_a_${suffix}`,
   meetingActionChangeA: `rls_meeting_action_change_a_${suffix}`,
   meetingActionChangeB: `rls_meeting_action_change_b_${suffix}`,
+  meetingActionChangePrivateB: `rls_meeting_action_change_private_b_${suffix}`,
   credentialA: `rls_credential_a_${suffix}`,
   credentialB: `rls_credential_b_${suffix}`,
   credentialB2: `rls_credential_b2_${suffix}`,
@@ -60,12 +64,17 @@ const ids = {
 const admin = new Client({ connectionString: adminDatabaseUrl });
 const runtime = new Client({ connectionString: runtimeDatabaseUrl });
 
-async function runtimeTransaction(actorUserId, operation) {
+async function runtimeTransaction(actorUserId, operation, actorKind) {
   await runtime.query("BEGIN");
   try {
     if (actorUserId !== undefined) {
       await runtime.query("SELECT set_config('app.user_id', $1, true)", [
         actorUserId,
+      ]);
+    }
+    if (actorKind !== undefined) {
+      await runtime.query("SELECT set_config('app.actor_kind', $1, true)", [
+        actorKind,
       ]);
     }
     const result = await operation();
@@ -195,10 +204,11 @@ async function seed() {
   );
   await admin.query(
     `INSERT INTO "ProjectMeetingNote"
-      ("id", "projectId", "title", "createdByUserId", "updatedByUserId", "createdAt", "updatedAt")
+      ("id", "projectId", "title", "visibility", "createdByUserId", "updatedByUserId", "createdAt", "updatedAt")
      VALUES
-       ($1, $2, 'Meeting A', $3, $3, NOW(), NOW()),
-       ($4, $5, 'Meeting B', $6, $6, NOW(), NOW())`,
+       ($1, $2, 'Meeting A', 'team', $3, $3, NOW(), NOW()),
+       ($4, $5, 'Meeting B', 'team', $6, $6, NOW(), NOW()),
+       ($7, $5, 'Private Meeting B', 'private', $6, $6, NOW(), NOW())`,
     [
       ids.meetingA,
       ids.projectA,
@@ -206,6 +216,7 @@ async function seed() {
       ids.meetingB,
       ids.projectB,
       ids.editorB,
+      ids.meetingPrivateB,
     ]
   );
   await admin.query(
@@ -221,17 +232,26 @@ async function seed() {
      SET "stewardUserId" = $1,
          "stewardKind" = 'human',
          "stewardDisplayNameSnapshot" = 'Editor B'
-     WHERE "id" = $2`,
-    [ids.editorB, ids.meetingB]
+     WHERE "id" IN ($2, $3)`,
+    [ids.editorB, ids.meetingB, ids.meetingPrivateB]
   );
   await admin.query(
     `INSERT INTO "ProjectMeetingNoteAction"
       ("id", "meetingNoteId", "content", "createdByUserId", "creatorKind",
        "creatorDisplayNameSnapshot", "assigneeUserId", "assigneeKind",
        "assigneeDisplayNameSnapshot", "createdAt", "updatedAt")
-     VALUES ($1, $2, 'Responsibility B', $3, 'human', 'Editor B',
-       $3, 'human', 'Editor B', NOW(), NOW())`,
-    [ids.meetingResponsibilityB, ids.meetingB, ids.editorB]
+     VALUES
+       ($1, $2, 'Responsibility B', $3, 'human', 'Editor B',
+        $3, 'human', 'Editor B', NOW(), NOW()),
+       ($4, $5, 'Private Responsibility B', $3, 'human', 'Editor B',
+        $3, 'human', 'Editor B', NOW(), NOW())`,
+    [
+      ids.meetingResponsibilityB,
+      ids.meetingB,
+      ids.editorB,
+      ids.meetingActionPrivateB,
+      ids.meetingPrivateB,
+    ]
   );
   await admin.query(
     `INSERT INTO "Resource"
@@ -248,8 +268,16 @@ async function seed() {
       ("id", "meetingNoteId", "displayName", "position", "createdAt", "updatedAt")
      VALUES
        ($1, $2, 'Guest A', 0, NOW(), NOW()),
-       ($3, $4, 'Guest B', 0, NOW(), NOW())`,
-    [ids.participantA, ids.meetingA, ids.participantB, ids.meetingB]
+       ($3, $4, 'Guest B', 0, NOW(), NOW()),
+       ($5, $6, 'Private Guest B', 0, NOW(), NOW())`,
+    [
+      ids.participantA,
+      ids.meetingA,
+      ids.participantB,
+      ids.meetingB,
+      ids.participantPrivateB,
+      ids.meetingPrivateB,
+    ]
   );
   await admin.query(
     `INSERT INTO "ProjectMeetingNoteAction"
@@ -286,7 +314,8 @@ async function seed() {
       ("id", "actionId", "nextAssigneeKind", "nextAssigneeUserId", "nextAssigneeDisplayNameSnapshot", "changedByKind", "changedByUserId", "changedByDisplayNameSnapshot", "createdAt")
      VALUES
        ($1, $2, 'human', $3, 'Owner A', 'human', $3, 'Owner A', NOW()),
-       ($4, $5, 'human', $6, 'Owner B', 'human', $6, 'Owner B', NOW())`,
+       ($4, $5, 'human', $6, 'Owner B', 'human', $6, 'Owner B', NOW()),
+       ($7, $8, 'human', $9, 'Editor B', 'human', $9, 'Editor B', NOW())`,
     [
       ids.meetingActionChangeA,
       ids.meetingActionA,
@@ -294,6 +323,9 @@ async function seed() {
       ids.meetingActionChangeB,
       ids.meetingActionB,
       ids.ownerB,
+      ids.meetingActionChangePrivateB,
+      ids.meetingActionPrivateB,
+      ids.editorB,
     ]
   );
   await admin.query(
@@ -670,6 +702,135 @@ try {
     )
   );
   assert.equal(editorParticipantInsert.rowCount, 1);
+
+  const creatorPrivateMeetingRead = await runtimeTransaction(ids.editorB, () =>
+    runtime.query(
+      `SELECT "id", "visibility" FROM "ProjectMeetingNote" WHERE "id" = $1`,
+      [ids.meetingPrivateB]
+    )
+  );
+  assert.equal(creatorPrivateMeetingRead.rowCount, 1);
+  assert.equal(creatorPrivateMeetingRead.rows[0].visibility, "private");
+
+  const creatorPrivateChildrenRead = await runtimeTransaction(
+    ids.editorB,
+    async () => {
+      const participants = await runtime.query(
+        `SELECT "id" FROM "ProjectMeetingNoteParticipant" WHERE "id" = $1`,
+        [ids.participantPrivateB]
+      );
+      const actions = await runtime.query(
+        `SELECT "id" FROM "ProjectMeetingNoteAction" WHERE "id" = $1`,
+        [ids.meetingActionPrivateB]
+      );
+      const history = await runtime.query(
+        `SELECT "id" FROM "ProjectMeetingNoteActionAssigneeChange" WHERE "id" = $1`,
+        [ids.meetingActionChangePrivateB]
+      );
+      return { participants, actions, history };
+    }
+  );
+  assert.equal(creatorPrivateChildrenRead.participants.rowCount, 1);
+  assert.equal(creatorPrivateChildrenRead.actions.rowCount, 1);
+  assert.equal(creatorPrivateChildrenRead.history.rowCount, 1);
+
+  const creatorVisibilityToggle = await runtimeTransaction(
+    ids.editorB,
+    async () => {
+      const toTeam = await runtime.query(
+        `UPDATE "ProjectMeetingNote" SET "visibility" = 'team' WHERE "id" = $1 RETURNING "visibility"`,
+        [ids.meetingPrivateB]
+      );
+      const backToPrivate = await runtime.query(
+        `UPDATE "ProjectMeetingNote" SET "visibility" = 'private' WHERE "id" = $1 RETURNING "visibility"`,
+        [ids.meetingPrivateB]
+      );
+      return { toTeam, backToPrivate };
+    }
+  );
+  assert.equal(creatorVisibilityToggle.toTeam.rows[0].visibility, "team");
+  assert.equal(
+    creatorVisibilityToggle.backToPrivate.rows[0].visibility,
+    "private"
+  );
+
+  for (const nonCreatorId of [ids.ownerB, ids.viewerB]) {
+    const privateNoteRead = await runtimeTransaction(nonCreatorId, () =>
+      runtime.query(`SELECT "id" FROM "ProjectMeetingNote" WHERE "id" = $1`, [
+        ids.meetingPrivateB,
+      ])
+    );
+    assert.equal(privateNoteRead.rowCount, 0);
+
+    const privateParticipantRead = await runtimeTransaction(nonCreatorId, () =>
+      runtime.query(
+        `SELECT "id" FROM "ProjectMeetingNoteParticipant" WHERE "id" = $1`,
+        [ids.participantPrivateB]
+      )
+    );
+    assert.equal(privateParticipantRead.rowCount, 0);
+
+    const privateActionRead = await runtimeTransaction(nonCreatorId, () =>
+      runtime.query(
+        `SELECT "id" FROM "ProjectMeetingNoteAction" WHERE "id" = $1`,
+        [ids.meetingActionPrivateB]
+      )
+    );
+    assert.equal(privateActionRead.rowCount, 0);
+
+    const privateHistoryRead = await runtimeTransaction(nonCreatorId, () =>
+      runtime.query(
+        `SELECT "id" FROM "ProjectMeetingNoteActionAssigneeChange" WHERE "id" = $1`,
+        [ids.meetingActionChangePrivateB]
+      )
+    );
+    assert.equal(privateHistoryRead.rowCount, 0);
+  }
+
+  await expectRlsViolation(
+    () =>
+      runtimeTransaction(ids.ownerB, () =>
+        runtime.query(
+          `UPDATE "ProjectMeetingNote" SET "visibility" = 'private' WHERE "id" = $1`,
+          [ids.meetingB]
+        )
+      ),
+    "non-creator meeting note visibility change"
+  );
+
+  const agentPrivateRead = await runtimeTransaction(
+    ids.editorB,
+    () =>
+      runtime.query(`SELECT "id" FROM "ProjectMeetingNote" WHERE "id" = $1`, [
+        ids.meetingPrivateB,
+      ]),
+    "agent"
+  );
+  assert.equal(agentPrivateRead.rowCount, 0);
+
+  const agentTeamRead = await runtimeTransaction(
+    ids.editorB,
+    () =>
+      runtime.query(`SELECT "id" FROM "ProjectMeetingNote" WHERE "id" = $1`, [
+        ids.meetingB,
+      ]),
+    "agent"
+  );
+  assert.equal(agentTeamRead.rowCount, 1);
+
+  await expectRlsViolation(
+    () =>
+      runtimeTransaction(
+        ids.editorB,
+        () =>
+          runtime.query(
+            `UPDATE "ProjectMeetingNote" SET "visibility" = 'private' WHERE "id" = $1`,
+            [ids.meetingB]
+          ),
+        "agent"
+      ),
+    "agent meeting note visibility change"
+  );
 
   await expectRlsViolation(
     () =>
@@ -1214,6 +1375,21 @@ try {
     `${ids.ownerB}@example.test`
   );
   assert.equal(responsibilityResolution.action.rows[0].createdByUserId, ids.editorB);
+  const untouchedPrivateResponsibility = await admin.query(
+    `SELECT note."stewardUserId", action."assigneeUserId"
+     FROM "ProjectMeetingNote" note
+     JOIN "ProjectMeetingNoteAction" action ON action."meetingNoteId" = note."id"
+     WHERE note."id" = $1 AND action."id" = $2`,
+    [ids.meetingPrivateB, ids.meetingActionPrivateB]
+  );
+  assert.equal(
+    untouchedPrivateResponsibility.rows[0].stewardUserId,
+    ids.editorB
+  );
+  assert.equal(
+    untouchedPrivateResponsibility.rows[0].assigneeUserId,
+    ids.editorB
+  );
   assert.equal(
     responsibilityResolution.agentResolution.rows[0].result,
     "ok"

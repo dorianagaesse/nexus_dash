@@ -94,6 +94,7 @@ export async function listProjectMeetingTodos(input: {
         },
         meetingNotes: {
           where: {
+            OR: [{ visibility: "team" }, { createdByUserId: actorUserId }],
             actions: {
               some: {},
             },
@@ -334,6 +335,7 @@ export async function getProjectMeetingTodoNavigationSummary(input: {
         id: true,
         meetingNotes: {
           where: {
+            OR: [{ visibility: "team" }, { createdByUserId: actorUserId }],
             actions: {
               some: { completedAt: null },
             },

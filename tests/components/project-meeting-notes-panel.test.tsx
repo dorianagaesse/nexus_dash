@@ -503,3 +503,99 @@ describe("project-meeting-notes-panel todo reconciliation", () => {
     ).not.toBeNull();
   });
 });
+
+describe("project-meeting-notes-panel visibility badge and toggle", () => {
+  let renderer: { container: HTMLDivElement; root: Root };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    renderer = createTestRenderer();
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      renderer.root.unmount();
+    });
+    renderer.container.remove();
+    document.body.innerHTML = "";
+  });
+
+  test("renders private and public badges on cards and defaults new notes to private with a working toggle", async () => {
+    const privateNote = baseNote({
+      id: "note-priv",
+      title: "Private 1:1",
+      visibility: "private",
+      createdBy: {
+        kind: "human",
+        id: "user-1",
+        displayName: "Owner",
+        usernameTag: "owner#0001",
+        avatarSeed: "seed-owner",
+        status: "active",
+        isAssignable: true,
+      },
+    });
+    const publicNote = baseNote({
+      id: "note-pub",
+      title: "Team standup",
+      visibility: "team",
+      createdBy: {
+        kind: "human",
+        id: "user-2",
+        displayName: "Editor",
+        usernameTag: "editor#0002",
+        avatarSeed: "seed-editor",
+        status: "active",
+        isAssignable: true,
+      },
+    });
+
+    await act(async () => {
+      renderer.root.render(
+        <ToastProvider>
+          <ProjectMeetingNotesPanel
+            projectId="project-1"
+            canEdit={true}
+            currentActorUserId="user-1"
+            notes={[privateNote, publicNote]}
+            collaborators={collaborators}
+            todoActors={[]}
+          />
+        </ToastProvider>
+      );
+    });
+
+    const cardBadges = Array.from(
+      renderer.container.querySelectorAll("[data-meeting-visibility]")
+    ).map((el) => el.getAttribute("data-meeting-visibility"));
+    expect(cardBadges).toEqual(expect.arrayContaining(["private", "public"]));
+
+    // Open Prepare meeting dialog -> defaults to private
+    await clickButtonLike(findButton(renderer.container, "Prepare meeting"));
+    const prepareToggle = document.querySelector(
+      "button[data-meeting-visibility-toggle]"
+    );
+    expect(prepareToggle?.getAttribute("data-meeting-visibility-toggle")).toBe(
+      "private"
+    );
+    expect(prepareToggle?.textContent).toBe("private");
+
+    // Toggle to public and back to private so draft is clean before Cancel
+    await clickButtonLike(prepareToggle);
+    expect(prepareToggle?.getAttribute("data-meeting-visibility-toggle")).toBe(
+      "public"
+    );
+    expect(prepareToggle?.textContent).toBe("public");
+    await clickButtonLike(prepareToggle);
+    expect(prepareToggle?.getAttribute("data-meeting-visibility-toggle")).toBe(
+      "private"
+    );
+
+    // Close Prepare dialog and open the non-creator's public note -> read-only badge, no toggle button
+    await clickButtonLike(findButton(document.body, "Cancel"));
+    await clickButtonLike(findButton(renderer.container, "Team standup"));
+    expect(
+      document.querySelector("button[data-meeting-visibility-toggle]")
+    ).toBeNull();
+  });
+});

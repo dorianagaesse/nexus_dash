@@ -508,6 +508,7 @@ describe("project meeting todo service", () => {
         id: true,
         meetingNotes: {
           where: {
+            OR: [{ visibility: "team" }, { createdByUserId: "user-1" }],
             actions: {
               some: { completedAt: null },
             },
