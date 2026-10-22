@@ -3,6 +3,20 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-22 - ND-616: Patch production dependency advisories (ND-613)
+
+- Live production serves `fa46f3d` (2 Oct); `6ebda43` is staged, not promoted. Both lock
+  Next.js 16.2.7. `npm audit --omit=dev` on `main` reported 1 critical, 6 high,
+  1 moderate.
+- Upgraded `next`/`eslint-config-next` 16.4.2, `prisma`/`@prisma/client`/
+  `@prisma/adapter-pg` 7.10.1 (clears `@prisma/config` -> `deepmerge-ts` and `mysql2`),
+  `sanitize-html` 2.18.1, and the `next` -> `postcss` override to 8.5.31.
+  `npm audit --omit=dev`: 0 vulnerabilities.
+- Next 16.4 type-checks all tsconfig includes at build, which surfaced ~190 existing
+  test-file type errors. Added `tsconfig.build.json` (excludes tests) via
+  `typescript.tsconfigPath`; test typing is left as follow-up work.
+- Validation: lint, rls:check, tests (2112 passed), coverage, build, migrations, RLS matrix,
+  and Playwright e2e (118 passed, 2 skipped) all green locally.
 # 2026-10-20 - ND-375: Unblock production staging builds
 
 - Auto-staged and manual `deploy-production-staged` builds have failed since
