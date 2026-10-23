@@ -3,6 +3,23 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-24 - ND-618: Dependency Security fail-closed and alerting
+
+- All 14 scheduled runs from 2026-07-27 through 2026-10-19 failed on real
+  production findings, not scanner errors; the latest run (39265962690) reported
+  7 high/critical production vulnerabilities. ND-616 cleared the production tree.
+- Added `scripts/check-npm-audit.mjs`: missing, empty, malformed, or npm
+  error-payload JSON exits 2 with a distinct `Scanner error: ... Failing closed`
+  message; high/critical production findings exit 1; full-tree findings stay
+  informational.
+- The workflow opens or updates the `Dependency Security scan failing` issue with
+  the failure type and run link, and the next green run comments on and closes it.
+  Alert jobs use `issues: write`; audit JSON, status, and stderr diagnostics are
+  uploaded on every run.
+- Runbook documents the failure classes and alert lifecycle.
+- Validation: lint, rls:check, tests (2120 passed, 2 skipped), coverage, build,
+  and 8 new script tests green locally.
+
 # 2026-10-23 - ND-615: Move runtime to patched Node 24 (ND-613)
 
 - Node 20 is end-of-life and misses the 21 Oct 2026 security release (Brotli decoder
