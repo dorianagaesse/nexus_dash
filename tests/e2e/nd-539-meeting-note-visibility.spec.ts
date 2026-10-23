@@ -12,6 +12,7 @@ test("ND-539: meeting notes default to private, hide from other members and agen
   browser,
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1440, height: 900 });
   const creatorId = await signInAsVerifiedUser(page);
   const projectName = uniqueProjectName("nd539-visibility");

@@ -64,6 +64,11 @@ model has no committed enable/force migration.
   or project/credential administration.
 - `viewer` is read-only.
 - Child-table policies derive tenant ownership through their parent relation.
+- Meeting todos remain project-visible even when their note is private. Dedicated
+  todo operations opt into `allowPrivateNoteTodoContext` for parent joins and
+  status updates; responses redact private note content. This option must never
+  wrap general meeting-note reads or edits. A database trigger blocks private
+  content and visibility changes by anyone other than the human creator.
 - Pre-authentication database functions must be narrowly scoped,
   `SECURITY DEFINER`, use a fixed safe `search_path`, and expose only the fields
   required for that operation.
