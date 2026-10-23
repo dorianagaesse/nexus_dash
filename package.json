@@ -3,7 +3,7 @@
   "version": "0.73.0",
   "private": true,
   "engines": {
-    "node": "^20.19.0 || ^22.13.0 || >=24.0.0",
+    "node": "24.x",
     "npm": ">=10"
   },
   "scripts": {
@@ -37,8 +37,8 @@
     "@aws-sdk/client-s3": "^3.1150.0",
     "@aws-sdk/s3-request-presigner": "^3.1089.0",
     "@hello-pangea/dnd": "^18.0.1",
-    "@prisma/adapter-pg": "^7.10.0",
-    "@prisma/client": "^7.9.1",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "@radix-ui/react-dialog": "^1.2.0",
     "@radix-ui/react-slot": "^1.5.0",
     "@supabase/supabase-js": "2.109.0",
@@ -46,12 +46,12 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "emojibase-data": "^17.0.0",
-    "lucide-react": "^1.55.0",
-    "next": "^16.2.7",
+    "lucide-react": "^1.59.0",
+    "next": "^16.4.2",
     "pg": "^8.23.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "sanitize-html": "^2.18.0",
+    "sanitize-html": "^2.18.1",
     "tailwind-merge": "^3.7.0",
     "tailwindcss-animate": "^1.0.7"
   },
@@ -65,10 +65,10 @@
     "@vitest/coverage-v8": "^4.1.11",
     "autoprefixer": "^10.6.1",
     "eslint": "^9.39.4",
-    "eslint-config-next": "^16.3.8",
+    "eslint-config-next": "^16.4.2",
     "jsdom": "^29.1.1",
-    "postcss": "^8.5.30",
-    "prisma": "^7.10.0",
+    "postcss": "^8.5.31",
+    "prisma": "^7.10.1",
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.3",
     "vitest": "^4.1.7",
@@ -84,7 +84,7 @@
     "picomatch@^2.0.0": "2.3.2",
     "picomatch@^4.0.0": "4.0.4",
     "next": {
-      "postcss": "8.5.15"
+      "postcss": "8.5.31"
     }
   }
 }

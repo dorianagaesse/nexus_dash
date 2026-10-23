@@ -29,6 +29,7 @@ describe("GET /api/health/ready", () => {
       status: string;
       checks: { database: string };
       deployment: { environment: string; revision: string | null };
+      runtime: { node: string };
       service: string;
       timestamp: string;
       requestId: string | null;
@@ -39,6 +40,7 @@ describe("GET /api/health/ready", () => {
     expect(payload.status).toBe("ready");
     expect(payload.checks.database).toBe("ok");
     expect(payload.deployment.environment).toBe("test");
+    expect(payload.runtime.node).toBe(process.version);
     expect(payload.service).toBe("nexusdash");
     expect(typeof payload.timestamp).toBe("string");
     expect(payload.requestId).toBe("req-ready-1");

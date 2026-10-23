@@ -32,6 +32,33 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `npm test`, `npm run test:coverage`, `npm run build`, and Playwright E2E
   (`tests/e2e/nd-539-meeting-note-visibility.spec.ts`).
 
+# 2026-10-23 - ND-615: Move runtime to patched Node 24 (ND-613)
+
+- Node 20 is end-of-life and misses the 21 Oct 2026 security release (Brotli decoder
+  RCE CVE-2026-111497, TLS/DNS fixes; patched 24.22.1). Production builds ran on
+  Node 20.20.2 in CI; the deployed Vercel runtime was not evidenced.
+- `.node-version` 24.22.1, Docker `node:24.22.1-bookworm`, `engines.node` 24.x, and
+  Node 24 in the quality-gates, deploy, and dependency-security workflows.
+- `/api/health/ready` now reports `runtime.node`; the preview deploy validation fails
+  unless the deployed runtime is Node 24.
+- Preview run 39868280206 on 86f7754 reported `runtime.node` v24.21.0 (Vercel-managed runtime) and
+  the runner resolved Node 24.21.0, both below the patched 24.22.1. Workflows now use
+  `check-latest: true`; the Vercel runtime patch level must be re-checked after promotion.
+- Production promotion must be verified against `runtime.node` on the live URL.
+# 2026-10-22 - ND-616: Patch production dependency advisories (ND-613)
+
+- Live production serves `fa46f3d` (2 Oct); `6ebda43` is staged, not promoted. Both lock
+  Next.js 16.2.7. `npm audit --omit=dev` on `main` reported 1 critical, 6 high,
+  1 moderate.
+- Upgraded `next`/`eslint-config-next` 16.4.2, `prisma`/`@prisma/client`/
+  `@prisma/adapter-pg` 7.10.1 (clears `@prisma/config` -> `deepmerge-ts` and `mysql2`),
+  `sanitize-html` 2.18.1, and the `next` -> `postcss` override to 8.5.31.
+  `npm audit --omit=dev`: 0 vulnerabilities.
+- Next 16.4 type-checks all tsconfig includes at build, which surfaced ~190 existing
+  test-file type errors. Added `tsconfig.build.json` (excludes tests) via
+  `typescript.tsconfigPath`; test typing is left as follow-up work.
+- Validation: lint, rls:check, tests (2112 passed), coverage, build, migrations, RLS matrix,
+  and Playwright e2e (118 passed, 2 skipped) all green locally.
 # 2026-10-20 - ND-375: Unblock production staging builds
 
 - Auto-staged and manual `deploy-production-staged` builds have failed since

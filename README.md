@@ -58,11 +58,11 @@ Implemented today:
 
 ### 1. Prerequisites
 
-- Node.js 20.19+ (v20), 22.13+ (v22), or 24+
+- Node.js 24.x (24.22.1+; Node 20 is end-of-life)
 - npm
 - PostgreSQL database (local Docker Compose service or remote)
 
-The repo pins the local Node baseline in `.node-version` as `20.19.0`.
+The repo pins the local Node baseline in `.node-version` as `24.22.1`.
 
 ### 2. Environment
 
