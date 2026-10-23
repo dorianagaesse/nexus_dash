@@ -133,8 +133,21 @@ describe("project meeting todo service", () => {
     );
     expect(rlsContextMock.withActorRlsContext).toHaveBeenCalledWith(
       "user-1",
-      expect.any(Function)
+      expect.any(Function),
+      { allowPrivateNoteTodoContext: true }
     );
+  });
+
+  test("shows another member's private-meeting todos without private note context", async () => {
+    dbMock.project.findFirst.mockResolvedValueOnce({
+      id: "project-owned", name: "Alpha", ownerId: "user-2", memberships: [{ role: "editor" }],
+      meetingNotes: [{ id: "private-note", title: "Secret discussion", visibility: "private", createdByUserId: "user-2",
+        scheduledAt: null, status: "actions_in_progress", createdAt: new Date(), participants: [],
+        actions: [{ id: "assigned-todo", content: "Send the report", completedAt: null, updatedAt: new Date() }],
+      }],
+    });
+    const result = await listProjectMeetingTodos({ actorUserId: "user-1", projectId: "project-owned" });
+    expect(result?.open[0]).toMatchObject({ content: "Send the report", meeting: { title: "Private meeting", canOpenNote: false } });
   });
 
   test("returns view-only permissions for a viewer membership", async () => {
@@ -508,7 +521,6 @@ describe("project meeting todo service", () => {
         id: true,
         meetingNotes: {
           where: {
-            OR: [{ visibility: "team" }, { createdByUserId: "user-1" }],
             actions: {
               some: { completedAt: null },
             },

@@ -12,6 +12,7 @@ import type { ProjectMeetingNotePanelNote } from "@/components/meeting-todos/mee
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listProjectMeetingNotes } from "@/lib/services/project-meeting-note-service";
 import { listProjectMeetingTodoActors } from "@/lib/services/project-meeting-todo-actor-service";
+import { listProjectMeetingTodos } from "@/lib/services/project-meeting-todo-service";
 import { listProjectCollaborators } from "@/lib/services/project-service";
 
 interface ProjectMeetingNotesPanelSectionProps {
@@ -49,14 +50,38 @@ export async function ProjectMeetingNotesPanelSection({
   initialMeetingNoteId,
   initialMeetingTodoId,
 }: ProjectMeetingNotesPanelSectionProps) {
-  const [notes, collaborators, todoActors] = await Promise.all([
+  const [notes, collaborators, todoActors, todos] = await Promise.all([
     listProjectMeetingNotes({
       projectId,
       actorUserId,
     }),
     listProjectCollaborators(projectId, actorUserId),
     listProjectMeetingTodoActors({ projectId, actorUserId }),
+    listProjectMeetingTodos({ projectId, actorUserId }),
   ]);
+
+  // Supply only shared todo data for meetings the actor cannot open.
+  const todoOnlyByNote = new Map<string, ProjectMeetingNotePanelNote>();
+  for (const todo of [...(todos?.open ?? []), ...(todos?.completed ?? [])]) {
+    if (todo.meeting.canOpenNote !== false) continue;
+    let note = todoOnlyByNote.get(todo.meeting.id);
+    if (!note) {
+      note = {
+        id: todo.meeting.id, projectId, title: "Private meeting", canOpenNote: false,
+        visibility: "private", scheduledAt: todo.meeting.scheduledAt?.toISOString() ?? null,
+        status: todo.meeting.status as ProjectMeetingNotePanelNote["status"],
+        participants: [], labels: [], inputNotes: "", outputNotes: "", decisions: "",
+        createdAt: todo.updatedAt.toISOString(), updatedAt: todo.updatedAt.toISOString(), actions: [],
+      };
+      todoOnlyByNote.set(note.id, note);
+    }
+    note.actions.push({
+      id: todo.id, content: todo.content, position: note.actions.length,
+      completedAt: todo.completedAt?.toISOString() ?? null,
+      assignedAt: todo.assignedAt?.toISOString() ?? null,
+      creator: todo.creator, assignee: todo.assignee, assignedBy: todo.assignedBy, completedBy: todo.completedBy,
+    });
+  }
 
   return (
     <ProjectMeetingNotesPanel
@@ -66,6 +91,7 @@ export async function ProjectMeetingNotesPanelSection({
       stewardFilter={stewardFilter}
       initialQuery={query}
       notes={notes.map((note) => serializeMeetingNote(note))}
+      todoOnlyNotes={[...todoOnlyByNote.values()]}
       collaborators={collaborators}
       todoActors={todoActors}
       initialMeetingNoteId={initialMeetingNoteId}

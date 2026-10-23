@@ -617,7 +617,7 @@ describe("listAgentAssignments", () => {
       expect.objectContaining({
         where: {
           assigneeCredentialId: "credential-1",
-          meetingNote: { projectId: "project-1", visibility: "team" },
+          meetingNote: { projectId: "project-1" },
         },
       })
     );

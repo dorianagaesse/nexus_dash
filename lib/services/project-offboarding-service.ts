@@ -157,7 +157,7 @@ export async function countActiveProjectResponsibilities(
     }),
     db.projectMeetingNoteAction.count({
       where: {
-        meetingNote: { projectId, visibility: "team" },
+        meetingNote: { projectId },
         completedAt: null,
         assigneeKind: actor.kind,
         ...(humanId
@@ -410,7 +410,6 @@ export async function resolveActiveProjectResponsibilities(input: {
           FROM "ProjectMeetingNoteAction" action
           JOIN "ProjectMeetingNote" note ON note."id" = action."meetingNoteId"
           WHERE note."projectId" = ${input.projectId}
-            AND note."visibility" = 'team'
             AND action."completedAt" IS NULL
             AND action."assigneeKind"::text = ${input.actor.kind}
             AND (
@@ -508,7 +507,7 @@ export async function getProjectResponsibilityInventory(input: {
       }
     );
     return createSuccess(200, { inventory });
-  });
+  }, { allowPrivateNoteTodoContext: true });
 }
 
 export async function transferProjectOwnership(input: {
@@ -596,5 +595,5 @@ export async function transferProjectOwnership(input: {
       previousOwnerLeft: input.previousOwnerLeaves,
       resolvedInventory,
     });
-  });
+  }, { allowPrivateNoteTodoContext: true });
 }

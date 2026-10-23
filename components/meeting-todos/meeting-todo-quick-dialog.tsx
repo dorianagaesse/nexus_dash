@@ -238,6 +238,7 @@ function OpenTodoItem({
         <div className="flex min-h-11 min-w-0 items-center gap-2">
           <button
             type="button"
+            disabled={todo.note.canOpenNote === false}
             onClick={() => onOpenMeeting(todo.note)}
             title={todo.action.content}
             className="min-w-0 flex-1 rounded-lg py-1 text-left transition-colors duration-200 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -247,7 +248,7 @@ function OpenTodoItem({
             </span>
             <span className="inline-flex max-w-full items-center gap-1 text-xs font-medium text-muted-foreground">
               <span className="truncate">{todo.note.title}</span>
-              <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {todo.note.canOpenNote !== false ? <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
             </span>
           </button>
           <span className="shrink-0">
@@ -288,7 +289,8 @@ function CompletedTodoRow({
       />
       <button
         type="button"
-        onClick={() => onOpenMeeting(todo.note)}
+        disabled={todo.note.canOpenNote === false}
+            onClick={() => onOpenMeeting(todo.note)}
         title={todo.action.content}
         className="min-h-11 min-w-0 flex-1 rounded-lg py-1 text-left transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >

@@ -227,6 +227,7 @@ async function seed() {
      WHERE "id" = $2`,
     [ids.editorB, ids.taskB]
   );
+  await admin.query("SELECT set_config('app.user_id', $1, false)", [ids.editorB]);
   await admin.query(
     `UPDATE "ProjectMeetingNote"
      SET "stewardUserId" = $1,
@@ -235,6 +236,7 @@ async function seed() {
      WHERE "id" IN ($2, $3)`,
     [ids.editorB, ids.meetingB, ids.meetingPrivateB]
   );
+  await admin.query("SELECT set_config('app.user_id', '', false)");
   await admin.query(
     `INSERT INTO "ProjectMeetingNoteAction"
       ("id", "meetingNoteId", "content", "createdByUserId", "creatorKind",
@@ -776,7 +778,7 @@ try {
         [ids.meetingActionPrivateB]
       )
     );
-    assert.equal(privateActionRead.rowCount, 0);
+    assert.equal(privateActionRead.rowCount, 1);
 
     const privateHistoryRead = await runtimeTransaction(nonCreatorId, () =>
       runtime.query(
@@ -784,8 +786,21 @@ try {
         [ids.meetingActionChangePrivateB]
       )
     );
-    assert.equal(privateHistoryRead.rowCount, 0);
+    assert.equal(privateHistoryRead.rowCount, 1);
   }
+
+  const sharedPrivateTodoUpdate = await runtimeTransaction(ids.ownerB, async () => {
+    await runtime.query("SELECT set_config('app.allow_private_note_todo_context', 'true', true)");
+    await runtime.query(`UPDATE "ProjectMeetingNote" SET "updatedByUserId" = $1 WHERE id = $2`, [ids.ownerB, ids.meetingPrivateB]);
+    const action = await runtime.query(`UPDATE "ProjectMeetingNoteAction" SET "completedAt" = NOW() WHERE id = $1 RETURNING id`, [ids.meetingActionPrivateB]);
+    return action;
+  });
+  assert.equal(sharedPrivateTodoUpdate.rowCount, 1);
+  await expectRlsViolation(() => runtimeTransaction(ids.ownerB, async () => {
+    await runtime.query("SELECT set_config('app.allow_private_note_todo_context', 'true', true)");
+    return runtime.query(`UPDATE "ProjectMeetingNote" SET title = 'Forbidden edit' WHERE id = $1`, [ids.meetingPrivateB]);
+  }), "todo context cannot edit private meeting content");
+  await runtimeTransaction(ids.editorB, () => runtime.query(`UPDATE "ProjectMeetingNoteAction" SET "completedAt" = NULL WHERE id = $1`, [ids.meetingActionPrivateB]));
 
   await expectRlsViolation(
     () =>
@@ -1343,6 +1358,8 @@ try {
          FROM "Task" WHERE "id" = $1`,
         [ids.taskAgentB]
       );
+      const privateAction = await runtime.query(`SELECT "assigneeUserId" FROM "ProjectMeetingNoteAction" WHERE id = $1`, [ids.meetingActionPrivateB]);
+      assert.equal(privateAction.rows[0].assigneeUserId, ids.ownerB);
       return { resolution, task, resource, note, action, agentResolution, agentTask };
     }
   );

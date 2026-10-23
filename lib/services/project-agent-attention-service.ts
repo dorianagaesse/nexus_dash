@@ -549,7 +549,7 @@ export async function listAgentAssignments(
           ? db.projectMeetingNoteAction.findMany({
               where: {
                 assigneeCredentialId: access.credentialId,
-                meetingNote: { projectId: input.projectId, visibility: "team" },
+                meetingNote: { projectId: input.projectId },
                 ...(occurredAtRange ? { assignedAt: occurredAtRange } : {}),
                 ...meetingTodoStateWhere,
                 ...(meetingTodoCursorWhere ?? {}),
@@ -579,7 +579,7 @@ export async function listAgentAssignments(
                   select: taskPersonSummarySelect,
                 },
                 meetingNote: {
-                  select: { id: true, title: true },
+                  select: { id: true, title: true, visibility: true },
                 },
               },
             })
@@ -663,11 +663,11 @@ export async function listAgentAssignments(
                 id: todo.id,
                 content: todo.content,
                 meetingNoteId: todo.meetingNoteId,
-                meetingNoteTitle: todo.meetingNote.title,
+                meetingNoteTitle: todo.meetingNote.visibility === "private" ? "Private meeting" : todo.meetingNote.title,
               },
               summary: `${actor?.displayName ?? "Unknown actor"} assigned ${formatAgentDisplayName(
                 registrySelfLabel ?? todo.assigneeDisplayNameSnapshot
-              )} to the meeting to-do "${todo.content}" in "${todo.meetingNote.title}"`,
+              )} to the meeting to-do "${todo.content}" in "${todo.meetingNote.visibility === "private" ? "Private meeting" : todo.meetingNote.title}"`,
               actor,
               currentState: {
                 assignmentState,
@@ -720,7 +720,7 @@ export async function listAgentAssignments(
       });
       return createError(500, "agent-attention-list-failed");
     }
-  });
+  }, { actorKind: "agent", allowPrivateNoteTodoContext: true });
 }
 
 export interface AgentAttentionItemResponse {

@@ -465,7 +465,7 @@ describe("project-meeting-note-service", () => {
     });
     expect(
       projectActivityServiceMock.recordProjectActivityEvent
-    ).not.toHaveBeenCalled();
+    ).toHaveBeenCalled();
   });
 
   test("coerces plain-text and markup sections into canonical sanitized rich-text HTML", async () => {
@@ -2035,7 +2035,7 @@ describe("project-meeting-note-service", () => {
       });
     });
 
-    test("blocks non-creators and agents from mutating todos, stewards, or deleting a private note", async () => {
+    test("allows project todo mutations with redacted responses, but keeps private note administration restricted", async () => {
       dbMock.projectMeetingNoteAction.findFirst.mockResolvedValue({
         id: "action-1",
         meetingNoteId: "note-private-1",
@@ -2051,6 +2051,7 @@ describe("project-meeting-note-service", () => {
         },
       });
 
+      dbMock.projectMeetingNote.findFirst.mockResolvedValue(privateNoteByUser1);
       const nonCreatorCompletion = await setProjectMeetingNoteActionCompletion({
         actorUserId: "user-2",
         projectId: "project-1",
@@ -2058,10 +2059,8 @@ describe("project-meeting-note-service", () => {
         actionId: "action-1",
         completed: true,
       });
-      expect(nonCreatorCompletion).toEqual({
-        ok: false,
-        status: 404,
-        error: "meeting-note-action-not-found",
+      expect(nonCreatorCompletion).toMatchObject({
+        ok: true, data: { note: { title: "Private meeting", inputNotes: "", outputNotes: "", decisions: "", participants: [], labels: [] } },
       });
 
       const agentAssignee = await setProjectMeetingNoteActionAssignee({
@@ -2072,10 +2071,8 @@ describe("project-meeting-note-service", () => {
         assignee: null,
         agentAccess,
       });
-      expect(agentAssignee).toEqual({
-        ok: false,
-        status: 404,
-        error: "meeting-note-action-not-found",
+      expect(agentAssignee).toMatchObject({
+        ok: true, data: { note: { title: "Private meeting", inputNotes: "", outputNotes: "" } },
       });
 
       dbMock.projectMeetingNote.findFirst.mockResolvedValue({

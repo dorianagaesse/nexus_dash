@@ -152,7 +152,6 @@ export async function listMyWork(input: {
           assigneeUserId: actorUserId,
           meetingNote: {
             project: principalWhere,
-            OR: [{ visibility: "team" }, { createdByUserId: actorUserId }],
           },
         },
         orderBy: [{ updatedAt: "desc" }],
@@ -234,5 +233,5 @@ export async function listMyWork(input: {
       typeCounts,
       projects,
     };
-  });
+  }, { allowPrivateNoteTodoContext: true });
 }

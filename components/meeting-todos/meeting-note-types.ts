@@ -25,6 +25,7 @@ export interface ProjectMeetingNotePanelNote {
   labels: string[];
   status: MeetingNoteStatus;
   visibility?: MeetingNoteVisibility;
+  canOpenNote?: boolean;
   inputNotes: string;
   outputNotes: string;
   decisions?: string;

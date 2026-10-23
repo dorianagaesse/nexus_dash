@@ -115,6 +115,7 @@ interface ProjectMeetingNotesPanelProps {
   canEdit: boolean;
   currentActorUserId?: string;
   notes: ProjectMeetingNotePanelNote[];
+  todoOnlyNotes?: ProjectMeetingNotePanelNote[];
   collaborators: ProjectMeetingParticipantCollaborator[];
   todoActors: MeetingTodoActorSummary[];
   stewardFilter?: StewardFilterValue;
@@ -565,14 +566,14 @@ function MeetingVisibilityToggle({
       }
       onClick={() => onChange(nextVisibility)}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
         VISIBILITY_BADGE_CLASS[visibility],
         !disabled && "cursor-pointer hover:opacity-90",
         className
       )}
     >
       <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <span>{VISIBILITY_LABELS[visibility]}</span>
+      <span className="sr-only">{VISIBILITY_LABELS[visibility]}</span>
     </button>
   );
 }
@@ -825,6 +826,7 @@ function MeetingDialogShell({
   onClose,
   children,
   footer,
+  headerActions,
   maxWidthClassName = "max-w-2xl",
   dismissible = true,
 }: {
@@ -833,6 +835,7 @@ function MeetingDialogShell({
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  headerActions?: ReactNode;
   maxWidthClassName?: string;
   dismissible?: boolean;
 }) {
@@ -865,17 +868,20 @@ function MeetingDialogShell({
                 </DialogDescription>
               ) : null}
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-full"
-              onClick={onClose}
-              aria-label={`Close ${title}`}
-              disabled={!dismissible}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex shrink-0 items-center gap-1">
+              {headerActions}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+                onClick={onClose}
+                aria-label={`Close ${title}`}
+                disabled={!dismissible}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
@@ -899,6 +905,7 @@ export function ProjectMeetingNotesPanel({
   canEdit,
   currentActorUserId = "",
   notes,
+  todoOnlyNotes,
   collaborators,
   todoActors,
   stewardFilter = "all",
@@ -924,7 +931,7 @@ export function ProjectMeetingNotesPanel({
     logLabel: "ProjectMeetingNotesPanel",
   });
   const [localNotes, setLocalNotes] = useState<ProjectMeetingNotePanelNote[]>(
-    () => sortNotes(notes)
+    () => sortNotes([...notes, ...(todoOnlyNotes ?? [])])
   );
   const [referenceNowMs] = useState(() => Date.now());
   const [query, setQuery] = useState(activeQuery);
@@ -975,14 +982,14 @@ export function ProjectMeetingNotesPanel({
   }, [activeQuery]);
 
   useEffect(() => {
-    const sortedNotes = sortNotes(notes);
+    const sortedNotes = sortNotes([...notes, ...(todoOnlyNotes ?? [])]);
     setLocalNotes(sortedNotes);
     setSelectedNoteId((current) =>
       current && sortedNotes.some((note) => note.id === current)
         ? current
         : null
     );
-  }, [notes]);
+  }, [notes, todoOnlyNotes]);
 
   useEffect(() => {
     if (
@@ -993,7 +1000,7 @@ export function ProjectMeetingNotesPanel({
     }
 
     const initialNote = localNotes.find(
-      (note) => note.id === initialMeetingNoteId
+      (note) => note.id === initialMeetingNoteId && note.canOpenNote !== false
     );
     if (!initialNote) {
       return;
@@ -1047,11 +1054,11 @@ export function ProjectMeetingNotesPanel({
   }, [projectId]);
 
   const activeNotes = useMemo(
-    () => localNotes.filter((note) => note.status !== "done"),
+    () => localNotes.filter((note) => note.canOpenNote !== false && note.status !== "done"),
     [localNotes]
   );
   const archivedNotes = useMemo(
-    () => localNotes.filter((note) => note.status === "done"),
+    () => localNotes.filter((note) => note.canOpenNote !== false && note.status === "done"),
     [localNotes]
   );
   const meetingTodos = useMemo(
@@ -1333,6 +1340,7 @@ export function ProjectMeetingNotesPanel({
   };
 
   const openNoteFromTodoPanel = (note: ProjectMeetingNotePanelNote) => {
+    if (note.canOpenNote === false) return;
     notesRecovery.flush();
     setListView(note.status === "done" ? "archived" : "active");
     setIsExpanded(true);
@@ -2254,6 +2262,29 @@ export function ProjectMeetingNotesPanel({
           }
           subtitle="Set the meeting frame first. Outputs and todos are captured after opening the note."
           onClose={closePrepareDialog}
+          headerActions={
+              canActorChangeNoteVisibility(
+                prepareNote,
+                currentActorUserId,
+                canEdit
+              ) ? (
+                <MeetingVisibilityToggle
+                  visibility={prepareDraft.visibility}
+                  disabled={isSaving}
+                  onChange={(visibility) =>
+                    setPrepareDraft((current) => ({
+                      ...current,
+                      visibility,
+                    }))
+                  }
+                />
+              ) : (
+                <MeetingVisibilityBadge
+                  visibility={prepareDraft.visibility}
+                  className="text-xs"
+                />
+              )
+          }
           dismissible={!isSaving}
           footer={
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -2302,40 +2333,6 @@ export function ProjectMeetingNotesPanel({
                 placeholder="Weekly execution review"
                 maxLength={140}
               />
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
-              <div className="space-y-0.5">
-                <span className="text-sm font-medium text-foreground">
-                  Visibility
-                </span>
-                <p className="text-xs text-muted-foreground">
-                  {prepareDraft.visibility === "private"
-                    ? "Only you can view this meeting note and its todos."
-                    : "All project members and agents can view this meeting note."}
-                </p>
-              </div>
-              {canActorChangeNoteVisibility(
-                prepareNote,
-                currentActorUserId,
-                canEdit
-              ) ? (
-                <MeetingVisibilityToggle
-                  visibility={prepareDraft.visibility}
-                  disabled={isSaving}
-                  onChange={(visibility) =>
-                    setPrepareDraft((current) => ({
-                      ...current,
-                      visibility,
-                    }))
-                  }
-                />
-              ) : (
-                <MeetingVisibilityBadge
-                  visibility={prepareDraft.visibility}
-                  className="text-xs"
-                />
-              )}
             </div>
 
             <div className="grid gap-2">
@@ -2550,6 +2547,29 @@ export function ProjectMeetingNotesPanel({
           title={selectedNote.title}
           subtitle={formatMeetingTime(selectedNote.scheduledAt)}
           onClose={closeNoteDialog}
+          headerActions={
+              canActorChangeNoteVisibility(
+                selectedNote,
+                currentActorUserId,
+                canEdit
+              ) ? (
+                <MeetingVisibilityToggle
+                  visibility={notesDraft.visibility}
+                  disabled={isSaving}
+                  onChange={(visibility) =>
+                    setNotesDraft((current) => ({
+                      ...current,
+                      visibility,
+                    }))
+                  }
+                />
+              ) : (
+                <MeetingVisibilityBadge
+                  visibility={resolveNoteVisibility(selectedNote)}
+                  className="text-xs"
+                />
+              )
+          }
           dismissible={!isSaving}
           maxWidthClassName="max-w-4xl"
           footer={
@@ -2596,27 +2616,6 @@ export function ProjectMeetingNotesPanel({
               </div>
             ) : null}
             <div className="flex flex-wrap items-center gap-2">
-              {canActorChangeNoteVisibility(
-                selectedNote,
-                currentActorUserId,
-                canEdit
-              ) ? (
-                <MeetingVisibilityToggle
-                  visibility={notesDraft.visibility}
-                  disabled={isSaving}
-                  onChange={(visibility) =>
-                    setNotesDraft((current) => ({
-                      ...current,
-                      visibility,
-                    }))
-                  }
-                />
-              ) : (
-                <MeetingVisibilityBadge
-                  visibility={resolveNoteVisibility(selectedNote)}
-                  className="text-xs"
-                />
-              )}
               <Badge
                 variant="outline"
                 className={cn("text-xs", STATUS_BADGE_CLASS[notesDraft.status])}

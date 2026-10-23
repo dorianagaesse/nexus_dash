@@ -10340,3 +10340,10 @@ Low-value entries to avoid going forward:
   clicked the background task card after reload, although the task URL had
   already reopened the modal. Updated it to assert the reopened modal before
   continuing; retained the restored-draft, discard, and quota-error assertions.
+
+## 2026-10-24 ? ND-539 Codex takeover
+
+- Continued Gemini PR #617 and preserved its unfinished todo visibility work. Updated the board criteria to reflect the user correction: todos are project-visible while private meeting content remains creator-only.
+- Moved the visibility lock immediately left of the dialog close button, removed the extra field, and retained explicit save behavior.
+- Restored project todo discovery, My Work, assigned-agent feeds, reminders, completion/reassignment and offboarding across private meetings; redacted private note titles/content in shared responses. Added an additive RLS migration and coverage for shared todo writes without private content edits.
+- PostgreSQL isolation matrix passed against a fresh local database with the realtime stub installed before migrations. Coverage passed: 2,119 tests, 93.64% statements, 95.01% lines. Build and RLS inventory passed; final browser and unit checks continue below.

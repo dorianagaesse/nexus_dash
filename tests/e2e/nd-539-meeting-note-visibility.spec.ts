@@ -72,6 +72,16 @@ test("ND-539: meeting notes default to private, hide from other members and agen
     );
     await expect(prepareVisibilityToggle).toBeVisible();
     await expect(prepareVisibilityToggle).toHaveText(/private/i);
+    const close = prepareDialog.getByRole("button", { name: "Close Prepare meeting" });
+    const lockBox = await prepareVisibilityToggle.boundingBox();
+    const closeBox = await close.boundingBox();
+    expect(lockBox!.x + lockBox!.width).toBeLessThanOrEqual(closeBox!.x);
+    expect(Math.abs(lockBox!.y - closeBox!.y)).toBeLessThan(2);
+    await page.screenshot({ path: "test-results/nd539-header-desktop.png" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(prepareVisibilityToggle).toBeVisible();
+    await page.screenshot({ path: "test-results/nd539-header-mobile.png" });
+    await page.setViewportSize({ width: 1440, height: 900 });
 
     await prepareDialog.locator("#meeting-title").fill(meetingTitle);
     const createMeetingResponse = page.waitForResponse(
@@ -123,6 +133,31 @@ test("ND-539: meeting notes default to private, hide from other members and agen
       notes: Array<{ id: string }>;
     };
     expect(agentPrivateNotes.notes.some((n) => n.id === noteId)).toBe(false);
+
+    // Private meeting todos remain project work for the assignee.
+    const todoContent = `Follow up ${suffix}`;
+    const todoResponse = await page.request.patch(`/api/projects/${projectIdValue}/meeting-notes/${noteId}`, {
+      data: { outputNotes: "Creator-only output", actions: [{ content: todoContent, assignee: { kind: "human", id: memberId } }] },
+    });
+    expect(todoResponse.ok()).toBeTruthy();
+    const todoId = (await todoResponse.json()).note.actions[0].id as string;
+    await memberPage.goto(`/projects/${projectIdValue}`);
+    await memberPage.getByRole("button", { name: /^Todos, / }).click();
+    await expect(memberPage.getByText(todoContent, { exact: true })).toBeVisible();
+    await expect(memberPage.getByText(meetingTitle, { exact: true })).toHaveCount(0);
+    await memberPage.goto(`/projects/${projectIdValue}/todos`);
+    await expect(memberPage.getByText(todoContent, { exact: true })).toBeVisible();
+    await expect(memberPage.getByText(meetingTitle, { exact: true })).toHaveCount(0);
+    await expect(memberPage.getByText("Creator-only output", { exact: true })).toHaveCount(0);
+    const completion = await memberPage.request.patch(`/api/projects/${projectIdValue}/meeting-notes/${noteId}/actions/${todoId}`, {
+      data: { completed: true },
+    });
+    expect(completion.ok()).toBeTruthy();
+    const completedNote = (await completion.json()).note;
+    expect(completedNote.title).toBe("Private meeting");
+    expect(completedNote.outputNotes).toBe("");
+    expect(completedNote.actions[0].completedAt).toBeTruthy();
+    await page.reload();
 
     // Creator opens note detail dialog and toggles visibility to public ("team")
     await creatorCard.click();

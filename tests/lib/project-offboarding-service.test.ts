@@ -155,7 +155,7 @@ describe("project-offboarding-service", () => {
     });
     expect(dbMock.projectMeetingNoteAction.count).toHaveBeenCalledWith({
       where: {
-        meetingNote: { projectId: "project-1", visibility: "team" },
+        meetingNote: { projectId: "project-1" },
         completedAt: null,
         assigneeKind: "human",
         assigneeUserId: "user-1",

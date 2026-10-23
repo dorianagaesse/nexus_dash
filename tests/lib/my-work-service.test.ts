@@ -113,7 +113,8 @@ describe("my work service", () => {
 
     expect(rlsContextMock.withActorRlsContext).toHaveBeenCalledWith(
       "user-1",
-      expect.any(Function)
+      expect.any(Function),
+      { allowPrivateNoteTodoContext: true }
     );
     expect(projectAccessMock.buildProjectPrincipalWhere).toHaveBeenCalledWith(
       "user-1"
@@ -139,7 +140,6 @@ describe("my work service", () => {
           assigneeUserId: "user-1",
           meetingNote: {
             project: principalWhere,
-            OR: [{ visibility: "team" }, { createdByUserId: "user-1" }],
           },
         }),
         orderBy: [{ updatedAt: "desc" }],
