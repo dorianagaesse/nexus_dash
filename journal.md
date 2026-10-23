@@ -3,6 +3,19 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-23 - ND-615: Move runtime to patched Node 24 (ND-613)
+
+- Node 20 is end-of-life and misses the 21 Oct 2026 security release (Brotli decoder
+  RCE CVE-2026-111497, TLS/DNS fixes; patched 24.22.1). Production builds ran on
+  Node 20.20.2 in CI; the deployed Vercel runtime was not evidenced.
+- `.node-version` 24.22.1, Docker `node:24.22.1-bookworm`, `engines.node` 24.x, and
+  Node 24 in the quality-gates, deploy, and dependency-security workflows.
+- `/api/health/ready` now reports `runtime.node`; the preview deploy validation fails
+  unless the deployed runtime is Node 24.
+- Preview run 39868280206 on 86f7754 reported `runtime.node` v24.21.0 (Vercel-managed runtime) and
+  the runner resolved Node 24.21.0, both below the patched 24.22.1. Workflows now use
+  `check-latest: true`; the Vercel runtime patch level must be re-checked after promotion.
+- Production promotion must be verified against `runtime.node` on the live URL.
 # 2026-10-22 - ND-616: Patch production dependency advisories (ND-613)
 
 - Live production serves `fa46f3d` (2 Oct); `6ebda43` is staged, not promoted. Both lock

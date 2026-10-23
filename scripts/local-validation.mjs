@@ -2,11 +2,7 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 
-const MIN_NODE_RANGES = [
-  { major: 20, minor: 19 },
-  { major: 22, minor: 13 },
-  { major: 24, minor: 0 },
-];
+const MIN_NODE_RANGES = [{ major: 24, minor: 0 }];
 
 const DEFAULT_DATABASE_URL =
   process.env.LOCAL_DATABASE_URL ||
@@ -91,7 +87,7 @@ function run(label, command, args, env = commonEnv) {
 const nodeVersion = parseNodeVersion();
 if (!isSupportedNodeVersion(nodeVersion)) {
   console.error(
-    `Unsupported Node.js ${process.versions.node}. Use Node 20.19+, 22.13+, or 24+.`
+    `Unsupported Node.js ${process.versions.node}. Use Node 24.x (24.22.1+ carries the October 2026 security fixes).`
   );
   process.exit(1);
 }
