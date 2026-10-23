@@ -475,7 +475,9 @@ export async function listAgentAssignments(
         ? { completedAt: null }
         : {};
 
-  return withActorRlsContext(actorUserId, async (db) => {
+  return withActorRlsContext(
+    actorUserId,
+    async (db) => {
     const projectAccess = await requireProjectRole({
       actorUserId,
       projectId: input.projectId,
@@ -577,7 +579,7 @@ export async function listAgentAssignments(
                   select: taskPersonSummarySelect,
                 },
                 meetingNote: {
-                  select: { id: true, title: true },
+                  select: { id: true, title: true, visibility: true },
                 },
               },
             })
@@ -661,11 +663,11 @@ export async function listAgentAssignments(
                 id: todo.id,
                 content: todo.content,
                 meetingNoteId: todo.meetingNoteId,
-                meetingNoteTitle: todo.meetingNote.title,
+                meetingNoteTitle: todo.meetingNote.visibility === "private" ? "Private meeting" : todo.meetingNote.title,
               },
               summary: `${actor?.displayName ?? "Unknown actor"} assigned ${formatAgentDisplayName(
                 registrySelfLabel ?? todo.assigneeDisplayNameSnapshot
-              )} to the meeting to-do "${todo.content}" in "${todo.meetingNote.title}"`,
+              )} to the meeting to-do "${todo.content}" in "${todo.meetingNote.visibility === "private" ? "Private meeting" : todo.meetingNote.title}"`,
               actor,
               currentState: {
                 assignmentState,
@@ -718,7 +720,7 @@ export async function listAgentAssignments(
       });
       return createError(500, "agent-attention-list-failed");
     }
-  });
+  }, { actorKind: "agent", allowPrivateNoteTodoContext: true });
 }
 
 export interface AgentAttentionItemResponse {

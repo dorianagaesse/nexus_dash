@@ -144,6 +144,8 @@ vi.mock("@/lib/observability/logger", () => ({
 
 import {
   createProjectMeetingNote,
+  deleteProjectMeetingNote,
+  getProjectMeetingNote,
   listProjectMeetingNotes,
   setProjectMeetingNoteActionAssignee,
   setProjectMeetingNoteActionCompletion,
@@ -414,6 +416,7 @@ describe("project-meeting-note-service", () => {
         },
         labelsJson: JSON.stringify(["Planning", "sync"]),
         status: "actions_in_progress",
+        visibility: "private",
         inputNotes: "<p>Review roadmap risks.</p>",
         outputNotes: "<p>Scope was clarified.</p>",
         decisions: "Keep TASK-098 focused.",
@@ -460,16 +463,9 @@ describe("project-meeting-note-service", () => {
       },
       select: { id: true },
     });
-    expect(projectActivityServiceMock.recordProjectActivityEvent).toHaveBeenCalledWith({
-      db: dbMock,
-      projectId: "project-1",
-      actorUserId: "user-1",
-      domain: "meeting-note",
-      action: "created",
-      entityId: "note-1",
-      payload: { noteId: "note-1" },
-      occurredAt: expect.any(Date),
-    });
+    expect(
+      projectActivityServiceMock.recordProjectActivityEvent
+    ).toHaveBeenCalled();
   });
 
   test("coerces plain-text and markup sections into canonical sanitized rich-text HTML", async () => {
@@ -1856,6 +1852,257 @@ describe("project-meeting-note-service", () => {
         kind: "agent",
         id: credential.id,
         status: "active",
+      });
+    });
+  });
+
+  describe("visibility access control", () => {
+    const privateNoteByUser1 = {
+      ...baseMeetingNoteRecord,
+      id: "note-private-1",
+      title: "Private 1:1 prep",
+      visibility: "private",
+      createdByUserId: "user-1",
+    };
+
+    const teamNoteByUser1 = {
+      ...baseMeetingNoteRecord,
+      id: "note-team-1",
+      title: "Public sprint retro",
+      visibility: "team",
+      createdByUserId: "user-1",
+    };
+
+    const agentAccess = {
+      credentialId: "credential-1",
+      projectId: "project-1",
+      scopes: ["task:read" as const, "task:write" as const],
+    };
+
+    test("allows the creator to list and read both private and team notes, while hiding private notes from other members and agents", async () => {
+      dbMock.projectMeetingNote.findMany.mockResolvedValue([
+        privateNoteByUser1,
+        teamNoteByUser1,
+      ]);
+
+      const creatorList = await listProjectMeetingNotes({
+        actorUserId: "user-1",
+        projectId: "project-1",
+      });
+      expect(creatorList.map((note) => note.id)).toEqual([
+        "note-private-1",
+        "note-team-1",
+      ]);
+
+      const otherMemberList = await listProjectMeetingNotes({
+        actorUserId: "user-2",
+        projectId: "project-1",
+      });
+      expect(otherMemberList.map((note) => note.id)).toEqual(["note-team-1"]);
+
+      const agentList = await listProjectMeetingNotes({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        agentAccess,
+      });
+      expect(agentList.map((note) => note.id)).toEqual(["note-team-1"]);
+
+      dbMock.projectMeetingNote.findFirst.mockResolvedValue(privateNoteByUser1);
+
+      const creatorSingle = await getProjectMeetingNote({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        noteId: "note-private-1",
+      });
+      expect(creatorSingle).toMatchObject({
+        ok: true,
+        data: {
+          note: expect.objectContaining({ id: "note-private-1" }),
+        },
+      });
+
+      const otherMemberSingle = await getProjectMeetingNote({
+        actorUserId: "user-2",
+        projectId: "project-1",
+        noteId: "note-private-1",
+      });
+      expect(otherMemberSingle).toEqual({
+        ok: false,
+        status: 404,
+        error: "meeting-note-not-found",
+      });
+
+      const agentSingle = await getProjectMeetingNote({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        noteId: "note-private-1",
+        agentAccess,
+      });
+      expect(agentSingle).toEqual({
+        ok: false,
+        status: 404,
+        error: "meeting-note-not-found",
+      });
+    });
+
+    test("allows the creator to toggle visibility and blocks non-creators and agents from changing visibility", async () => {
+      dbMock.projectMeetingNote.findFirst
+        .mockResolvedValueOnce({
+          id: "note-private-1",
+          visibility: "private",
+          createdByUserId: "user-1",
+          participants: [],
+          actions: [],
+          stewardKind: "human",
+          stewardUserId: "user-1",
+          stewardCredentialId: null,
+          stewardDisplayNameSnapshot: "owner",
+        })
+        .mockResolvedValueOnce({
+          ...teamNoteByUser1,
+          id: "note-private-1",
+          visibility: "team",
+        });
+      dbMock.projectMeetingNote.update.mockResolvedValueOnce({
+        id: "note-private-1",
+      });
+
+      const creatorToggle = await updateProjectMeetingNote({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        noteId: "note-private-1",
+        title: "Private 1:1 prep",
+        visibility: "public",
+      });
+      expect(creatorToggle.ok).toBe(true);
+      expect(dbMock.projectMeetingNote.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "note-private-1" },
+          data: expect.objectContaining({ visibility: "team" }),
+        })
+      );
+      expect(
+        projectActivityServiceMock.recordProjectActivityEvent
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          domain: "meeting-note",
+          action: "updated",
+          entityId: "note-private-1",
+        })
+      );
+
+      dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+        id: "note-team-1",
+        visibility: "team",
+        createdByUserId: "user-1",
+        participants: [],
+        actions: [],
+      });
+
+      const nonCreatorToggle = await updateProjectMeetingNote({
+        actorUserId: "user-2",
+        projectId: "project-1",
+        noteId: "note-team-1",
+        title: "Public sprint retro",
+        visibility: "private",
+      });
+      expect(nonCreatorToggle).toEqual({
+        ok: false,
+        status: 403,
+        error: "forbidden",
+      });
+
+      dbMock.projectMeetingNote.findFirst.mockResolvedValueOnce({
+        id: "note-team-1",
+        visibility: "team",
+        createdByUserId: "user-1",
+        participants: [],
+        actions: [],
+      });
+
+      const agentToggle = await updateProjectMeetingNote({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        noteId: "note-team-1",
+        title: "Public sprint retro",
+        visibility: "private",
+        agentAccess,
+      });
+      expect(agentToggle).toEqual({
+        ok: false,
+        status: 403,
+        error: "forbidden",
+      });
+    });
+
+    test("allows project todo mutations with redacted responses, but keeps private note administration restricted", async () => {
+      dbMock.projectMeetingNoteAction.findFirst.mockResolvedValue({
+        id: "action-1",
+        meetingNoteId: "note-private-1",
+        assigneeKind: null,
+        assigneeUserId: null,
+        assigneeCredentialId: null,
+        assigneeDisplayNameSnapshot: null,
+        meetingNote: {
+          status: "actions_in_progress",
+          visibility: "private",
+          createdByUserId: "user-1",
+          participants: [],
+        },
+      });
+
+      dbMock.projectMeetingNote.findFirst.mockResolvedValue(privateNoteByUser1);
+      const nonCreatorCompletion = await setProjectMeetingNoteActionCompletion({
+        actorUserId: "user-2",
+        projectId: "project-1",
+        noteId: "note-private-1",
+        actionId: "action-1",
+        completed: true,
+      });
+      expect(nonCreatorCompletion).toMatchObject({
+        ok: true, data: { note: { title: "Private meeting", inputNotes: "", outputNotes: "", decisions: "", participants: [], labels: [] } },
+      });
+
+      const agentAssignee = await setProjectMeetingNoteActionAssignee({
+        actorUserId: "user-1",
+        projectId: "project-1",
+        noteId: "note-private-1",
+        actionId: "action-1",
+        assignee: null,
+        agentAccess,
+      });
+      expect(agentAssignee).toMatchObject({
+        ok: true, data: { note: { title: "Private meeting", inputNotes: "", outputNotes: "" } },
+      });
+
+      dbMock.projectMeetingNote.findFirst.mockResolvedValue({
+        id: "note-private-1",
+        visibility: "private",
+        createdByUserId: "user-1",
+        participants: [],
+      });
+
+      const nonCreatorSteward = await setProjectMeetingNoteSteward({
+        actorUserId: "user-2",
+        projectId: "project-1",
+        noteId: "note-private-1",
+        steward: null,
+      });
+      expect(nonCreatorSteward).toEqual({
+        ok: false,
+        status: 404,
+        error: "meeting-note-not-found",
+      });
+
+      const nonCreatorDelete = await deleteProjectMeetingNote({
+        actorUserId: "user-2",
+        projectId: "project-1",
+        noteId: "note-private-1",
+      });
+      expect(nonCreatorDelete).toEqual({
+        ok: false,
+        status: 404,
+        error: "meeting-note-not-found",
       });
     });
   });

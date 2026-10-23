@@ -48,6 +48,8 @@ export interface ProjectMeetingTodoItem {
     title: string;
     scheduledAt: string | null;
     status: string;
+    canOpenNote?: boolean;
+    visibility?: "private" | "team";
   };
 }
 
@@ -269,13 +271,15 @@ function TodoRow({
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
-          <Link
+          {todo.meeting.canOpenNote === false ? (
+            <span className="inline-flex min-h-11 items-center py-2 font-medium">Private meeting</span>
+          ) : <Link
             href={meetingHref}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-lg py-2 font-medium underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="max-w-[16rem] truncate">{todo.meeting.title}</span>
             <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          </Link>
+          </Link>}
           {meetingDate ? (
             <span className="inline-flex items-center gap-1.5">
               <CalendarDays className="h-3.5 w-3.5" aria-hidden />

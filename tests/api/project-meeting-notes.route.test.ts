@@ -606,4 +606,114 @@ describe("project meeting notes routes", () => {
     await expect(readJson(response)).resolves.toEqual({ error: "invalid-json" });
     expect(meetingNoteServiceMock.createProjectMeetingNote).not.toHaveBeenCalled();
   });
+
+  test("POST and PATCH validate and forward visibility", async () => {
+    const invalidCreateResponse = await createMeetingNote(
+      new NextRequest("http://localhost/api/projects/project-1/meeting-notes", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: "Weekly execution review",
+          visibility: "secret",
+        }),
+      }),
+      projectParams("project-1")
+    );
+    expect(invalidCreateResponse.status).toBe(400);
+    await expect(readJson(invalidCreateResponse)).resolves.toEqual({
+      error: "meeting-note-visibility-invalid",
+    });
+
+    meetingNoteServiceMock.createProjectMeetingNote.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        note: { ...sampleNote(), visibility: "private" },
+        activityVersion: null,
+      },
+    });
+
+    const validCreateResponse = await createMeetingNote(
+      new NextRequest("http://localhost/api/projects/project-1/meeting-notes", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: "Weekly execution review",
+          visibility: "public",
+        }),
+      }),
+      projectParams("project-1")
+    );
+    expect(validCreateResponse.status).toBe(201);
+    expect(meetingNoteServiceMock.createProjectMeetingNote).toHaveBeenCalledWith(
+      expect.objectContaining({
+        visibility: "team",
+      })
+    );
+
+    const invalidUpdateResponse = await updateMeetingNote(
+      new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes/note-1",
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            title: "Weekly execution review",
+            visibility: "invalid",
+          }),
+        }
+      ),
+      noteParams("project-1", "note-1")
+    );
+    expect(invalidUpdateResponse.status).toBe(400);
+    await expect(readJson(invalidUpdateResponse)).resolves.toEqual({
+      error: "meeting-note-visibility-invalid",
+    });
+  });
+
+  test("DELETE and todo PATCH suppress realtime activity broadcast for private notes", async () => {
+    meetingNoteServiceMock.deleteProjectMeetingNote.mockResolvedValueOnce({
+      ok: true,
+      data: { ok: true, visibility: "private" },
+    });
+
+    const deleteResponse = await deleteMeetingNote(
+      new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes/note-1",
+        { method: "DELETE" }
+      ),
+      noteParams("project-1", "note-1")
+    );
+    expect(deleteResponse.status).toBe(200);
+    expect(
+      activityEventResponseMock.recordProjectActivityEventVersion
+    ).not.toHaveBeenCalled();
+
+    meetingNoteServiceMock.setProjectMeetingNoteActionCompletion.mockResolvedValueOnce(
+      {
+        ok: true,
+        data: {
+          note: {
+            ...sampleNote(),
+            visibility: "private",
+          },
+        },
+      }
+    );
+
+    const patchTodoResponse = await updateMeetingTodo(
+      new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes/note-1/actions/action-1",
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ completed: true }),
+        }
+      ),
+      actionParams("project-1", "note-1", "action-1")
+    );
+    expect(patchTodoResponse.status).toBe(200);
+    expect(
+      activityEventResponseMock.recordProjectActivityEventVersion
+    ).not.toHaveBeenCalled();
+  });
 });

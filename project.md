@@ -16,9 +16,10 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 - Project sharing v2 with owner-managed invites, role-based membership, email-bound invitation flows, and resumable invite acceptance.
 - Project dashboard with core panels:
   - Context cards (create/edit/delete + attachments)
-  - Meeting notes with searchable project-scoped history, task-style labels,
-    label filters, structured participants, preparation inputs, meeting outputs,
-    todo tracking, overdue highlights, state, and archived done notes
+  - Meeting notes with searchable project-scoped history, creator-controlled
+    private/team visibility, task-style labels, label filters, structured
+    participants, preparation inputs, meeting outputs, todo tracking, overdue
+    highlights, state, and archived done notes
   - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`) with reorder, deadline/comment visibility, task epic links, and task detail modal
   - Project epics registry with dedicated epic CRUD, automatic status/progress, and linked-task rollups
@@ -92,7 +93,8 @@ Current schema includes:
 - Domain: `Project`, `ProjectActivityEvent`, `RoadmapPhase`, `RoadmapEvent`,
   `Epic`, `Task`, `Resource` (context cards), `ProjectMeetingNote`,
   `ProjectMeetingNoteAction`, `TaskBlockedFollowUp`. Meeting notes store
-  task-style `labelsJson` and a simple state (`prepared`,
+  task-style `labelsJson`, creator-controlled `visibility` (`private` by
+  default, or `team`), and a simple state (`prepared`,
   `actions_in_progress`, `done`) so done notes can be shown in an archived
   list; open todos are considered overdue seven days after the meeting date for
   project-page highlighting.

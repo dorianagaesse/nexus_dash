@@ -69,7 +69,7 @@
       "classification": "project-scoped-direct-rls",
       "enforcement": "rls",
       "owner": "project meeting note service",
-      "rationale": "Rows carry projectId and follow project membership read/write rules."
+      "rationale": "Rows carry projectId and follow project membership read/write rules, with private notes restricted to their human creator."
     },
     {
       "model": "ProjectMeetingNoteAction",

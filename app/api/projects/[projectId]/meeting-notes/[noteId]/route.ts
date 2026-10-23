@@ -22,6 +22,7 @@ interface MeetingNoteRequestBody {
   participants?: unknown;
   labels?: unknown;
   status?: unknown;
+  visibility?: unknown;
   inputNotes?: unknown;
   outputNotes?: unknown;
   decisions?: unknown;
@@ -34,6 +35,28 @@ function readString(value: unknown): string {
 
 function readOptionalString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
+}
+
+function readOptionalVisibility(
+  value: unknown
+): { ok: true; value: "private" | "team" | undefined } | { ok: false } {
+  if (value === undefined || value === null) {
+    return { ok: true, value: undefined };
+  }
+  if (typeof value !== "string") {
+    return { ok: false };
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "") {
+    return { ok: true, value: undefined };
+  }
+  if (normalized === "private") {
+    return { ok: true, value: "private" };
+  }
+  if (normalized === "team" || normalized === "public") {
+    return { ok: true, value: "team" };
+  }
+  return { ok: false };
 }
 
 function readStringArray(value: unknown): string[] {
@@ -156,6 +179,14 @@ export async function PATCH(
     return NextResponse.json({ error: "invalid-request-body" }, { status: 400 });
   }
 
+  const visibility = readOptionalVisibility(payload.visibility);
+  if (!visibility.ok) {
+    return NextResponse.json(
+      { error: "meeting-note-visibility-invalid" },
+      { status: 400 }
+    );
+  }
+
   const result = await updateProjectMeetingNote({
     actorUserId: authenticatedUser.userId,
     projectId: params.projectId,
@@ -165,6 +196,7 @@ export async function PATCH(
     ...(payload.participants === undefined ? {} : { participants: readParticipants(payload.participants) }),
     ...(payload.labels === undefined ? {} : { labels: readStringArray(payload.labels) }),
     ...(payload.status === undefined ? {} : { status: readOptionalString(payload.status) }),
+    ...(visibility.value === undefined ? {} : { visibility: visibility.value }),
     ...(payload.inputNotes === undefined ? {} : { inputNotes: readString(payload.inputNotes) }),
     ...(payload.outputNotes === undefined ? {} : { outputNotes: readString(payload.outputNotes) }),
     ...(payload.decisions === undefined ? {} : { decisions: readString(payload.decisions) }),
@@ -210,14 +242,17 @@ export async function DELETE(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  const version = await recordProjectActivityEventVersion({
-    actorUserId: authenticatedUser.userId,
-    projectId: params.projectId,
-    domain: "meeting-note",
-    action: "deleted",
-    entityId: params.noteId,
-    payload: { noteId: params.noteId },
-  });
+  const version =
+    result.data.visibility === "private"
+      ? new Date()
+      : await recordProjectActivityEventVersion({
+          actorUserId: authenticatedUser.userId,
+          projectId: params.projectId,
+          domain: "meeting-note",
+          action: "deleted",
+          entityId: params.noteId,
+          payload: { noteId: params.noteId },
+        });
 
   return NextResponse.json(
     { ok: true },

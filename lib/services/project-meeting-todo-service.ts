@@ -36,6 +36,8 @@ export interface ProjectMeetingTodoSummary {
     title: string;
     scheduledAt: Date | null;
     status: string;
+    visibility?: "private" | "team";
+    canOpenNote?: boolean;
   };
 }
 
@@ -103,6 +105,8 @@ export async function listProjectMeetingTodos(input: {
             title: true,
             scheduledAt: true,
             status: true,
+            visibility: true,
+            createdByUserId: true,
             createdAt: true,
             participants: {
               orderBy: [{ position: "asc" }, { createdAt: "asc" }],
@@ -173,7 +177,7 @@ export async function listProjectMeetingTodos(input: {
     const todos = project.meetingNotes.flatMap((meeting) => {
       const participantOptions: MeetingTodoActorSummary[] = [];
       const noteExternalParticipantNameKeys = new Set<string>();
-      for (const participant of meeting.participants) {
+      for (const participant of meeting.visibility === "private" && meeting.createdByUserId !== actorUserId ? [] : meeting.participants) {
         if (participant.userId !== null) {
           continue;
         }
@@ -270,9 +274,14 @@ export async function listProjectMeetingTodos(input: {
         participantOptions,
         meeting: {
           id: meeting.id,
-          title: meeting.title,
+          title: meeting.visibility === "private" && meeting.createdByUserId !== actorUserId
+            ? "Private meeting" : meeting.title,
           scheduledAt: meeting.scheduledAt,
           status: meeting.status,
+          visibility: meeting.visibility === "private" ? "private" : "team",
+          canOpenNote:
+            meeting.visibility !== "private" ||
+            meeting.createdByUserId === actorUserId,
         },
       }));
     });
@@ -310,7 +319,7 @@ export async function listProjectMeetingTodos(input: {
       open,
       completed,
     };
-  }) as Promise<ProjectMeetingTodoList | null>;
+  }, { allowPrivateNoteTodoContext: true }) as Promise<ProjectMeetingTodoList | null>;
 }
 
 export async function getProjectMeetingTodoNavigationSummary(input: {
@@ -374,5 +383,5 @@ export async function getProjectMeetingTodoNavigationSummary(input: {
     }
 
     return { activeCount, hasOverdue };
-  }) as Promise<ProjectMeetingTodoNavigationSummary | null>;
+  }, { allowPrivateNoteTodoContext: true }) as Promise<ProjectMeetingTodoNavigationSummary | null>;
 }

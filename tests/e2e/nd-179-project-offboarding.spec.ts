@@ -77,6 +77,7 @@ test("owners review and unassign active responsibility before removing a collabo
       projectId: project.id,
       title: "Continuity meeting",
       status: "prepared",
+      visibility: "team",
       createdByUserId: member.id,
       updatedByUserId: member.id,
       stewardUserId: member.id,
