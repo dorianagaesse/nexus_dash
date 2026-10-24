@@ -20,6 +20,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Validation: lint, rls:check, tests (2120 passed, 2 skipped), coverage, build,
   and 8 new script tests green locally.
 
+# 2026-10-24 - ND-617: Clear dev-tooling audit findings (ND-613)
+
+- Current main after ND-616 reported 13 high and 3 moderate findings, all in dev
+  tooling: eslint -> minimatch/brace-expansion, eslintrc -> js-yaml,
+  jsdom -> undici, vitest -> vite/@vitest/mocker, and react-hooks -> zod.
+- Patched within existing ranges: brace-expansion 1.1.21/5.0.12, js-yaml 4.3.2,
+  undici 7.30.1, vite 8.3.5, and zod 4.6.7 overrides, plus vitest and
+  @vitest/coverage-v8 4.1.12.
+- `npm audit` and `npm audit --omit=dev` now report 0 vulnerabilities.
+- Major upgrades assessed but not needed for audit hygiene: eslint 10 is accepted
+  by the current eslint-config-next and typescript-eslint peer ranges but changes
+  config/plugin behavior; vitest 5 is a new major. Both are deferred to separate
+  work.
+- Validation: lint, rls:check, tests (2112 passed, 2 skipped), coverage, build.
+
 # 2026-10-23 - ND-615: Move runtime to patched Node 24 (ND-613)
 
 - Node 20 is end-of-life and misses the 21 Oct 2026 security release (Brotli decoder
