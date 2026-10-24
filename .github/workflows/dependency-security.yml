@@ -17,6 +17,8 @@ jobs:
     name: npm audit baseline
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      failure_kind: ${{ steps.classify.outputs.kind }}
 
     steps:
       - name: Checkout
@@ -35,53 +37,53 @@ jobs:
       - name: Audit production dependencies
         shell: bash
         run: |
-          npm audit --omit=dev --audit-level=high --json > npm-audit-prod.json || true
-          node <<'NODE'
-          const fs = require("fs");
-          const audit = JSON.parse(fs.readFileSync("npm-audit-prod.json", "utf8"));
-          const meta = audit.metadata?.vulnerabilities ?? {};
-          const highOrCritical = (meta.high ?? 0) + (meta.critical ?? 0);
-
-          fs.appendFileSync(
-            process.env.GITHUB_STEP_SUMMARY,
-            [
-              "## Production Dependency Audit",
-              "",
-              `- Critical: \`${meta.critical ?? 0}\``,
-              `- High: \`${meta.high ?? 0}\``,
-              "",
-            ].join("\n")
-          );
-
-          if (highOrCritical > 0) {
-            console.error(
-              `High/Critical production vulnerabilities detected: ${highOrCritical}`
-            );
-            process.exit(1);
-          }
-          NODE
+          set +e
+          npm audit --omit=dev --audit-level=high --json > npm-audit-prod.json 2> npm-audit-prod.stderr
+          npm_exit=$?
+          node scripts/check-npm-audit.mjs \
+            --file npm-audit-prod.json \
+            --mode production \
+            --npm-exit "$npm_exit" \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --status npm-audit-prod.status.json
+          exit $?
 
       - name: Audit full dependency tree
         if: always()
         shell: bash
         run: |
-          npm audit --json > npm-audit-full.json || true
-          node <<'NODE'
-          const fs = require("fs");
-          const audit = JSON.parse(fs.readFileSync("npm-audit-full.json", "utf8"));
-          const meta = audit.metadata?.vulnerabilities ?? {};
-          const lines = [
-            "## Full Dependency Security Scan",
-            "",
-            `- Total: \`${meta.total ?? 0}\``,
-            `- Critical: \`${meta.critical ?? 0}\``,
-            `- High: \`${meta.high ?? 0}\``,
-            `- Moderate: \`${meta.moderate ?? 0}\``,
-            `- Low: \`${meta.low ?? 0}\``,
-            "",
-          ];
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n"));
-          NODE
+          set +e
+          npm audit --json > npm-audit-full.json 2> npm-audit-full.stderr
+          npm_exit=$?
+          node scripts/check-npm-audit.mjs \
+            --file npm-audit-full.json \
+            --mode full \
+            --npm-exit "$npm_exit" \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --status npm-audit-full.status.json
+          exit $?
+
+      - name: Classify failure
+        id: classify
+        if: always()
+        shell: bash
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          kind=none
+          for status_file in npm-audit-prod.status.json npm-audit-full.status.json; do
+            if [ -f "$status_file" ]; then
+              file_kind=$(node -p "JSON.parse(require('fs').readFileSync('$status_file', 'utf8')).kind" 2>/dev/null || echo "scanner-error")
+              if [ "$file_kind" != "none" ]; then
+                kind="$file_kind"
+                break
+              fi
+            fi
+          done
+          if [ "$kind" = "none" ] && [ "$JOB_STATUS" = "failure" ]; then
+            kind="infrastructure-error"
+          fi
+          echo "kind=$kind" >> "$GITHUB_OUTPUT"
 
       - name: Upload audit artifacts
         if: always()
@@ -90,5 +92,97 @@ jobs:
           name: dependency-security-audit
           path: |
             npm-audit-prod.json
+            npm-audit-prod.status.json
+            npm-audit-prod.stderr
             npm-audit-full.json
+            npm-audit-full.status.json
+            npm-audit-full.stderr
           if-no-files-found: error
+
+  alert:
+    name: Open or update alert issue
+    needs: npm-audit
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Open or update alert issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FAILURE_KIND: ${{ needs.npm-audit.outputs.failure_kind }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          title="Dependency Security scan failing"
+          case "$FAILURE_KIND" in
+            findings)
+              reason="High or critical production vulnerabilities were detected."
+              action="Patch or mitigate the advisories, then confirm the next scheduled run is green."
+              ;;
+            scanner-error)
+              reason="npm audit did not produce valid JSON. Findings are unknown because the scan failed closed."
+              action="Check npm registry availability and the uploaded audit artifacts, then re-run the workflow."
+              ;;
+            infrastructure-error)
+              reason="The workflow failed before the audit could complete."
+              action="Open the run log, fix the failure, then re-run the workflow."
+              ;;
+            *)
+              reason="The dependency security scan failed for an unclassified reason."
+              action="Open the run log, fix the cause, then re-run the workflow."
+              ;;
+          esac
+          body=$(cat <<EOF
+          The dependency security scan failed.
+
+          - Failure type: **${FAILURE_KIND}**
+          - Reason: ${reason}
+          - Commit: \`${COMMIT_SHA}\`
+          - Trigger: \`${EVENT_NAME}\`
+          - Run: ${RUN_URL}
+
+          ## Next action
+
+          ${action}
+
+          This issue is updated on every failed scan and closed automatically by the next green scan.
+          EOF
+          )
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi
+
+  resolve-alert:
+    name: Close alert issue after recovery
+    needs: npm-audit
+    if: success()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Close open alert issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          title="Dependency Security scan failing"
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          if [ -z "$number" ]; then
+            echo "No open dependency security alert."
+            exit 0
+          fi
+          gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "The dependency security scan is green again on \`${COMMIT_SHA}\`."
+          gh issue close "$number" --repo "$GITHUB_REPOSITORY" --reason completed
