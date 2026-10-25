@@ -12,7 +12,7 @@ because each owns a distinct operational lane.
 | Quality Gates | `.github/workflows/quality-gates.yml` | Run RLS inventory validation, lint, unit/API tests, coverage, build, a least-privilege PostgreSQL tenant-isolation matrix, Playwright smoke, and container-image build. | `pull_request`, `push` to `main`, `workflow_dispatch` | `contents: read` | local CI placeholders for DB/email/agent signing; separate admin/runtime PostgreSQL URLs in the isolation job | Playwright report on failure; container image metadata |
 | Deploy Vercel (CD + Rollback) | `.github/workflows/deploy-vercel.yml` | Create staged production deployments after green `main`, and run manual preview deploy, staged deploy, promote, or rollback. | successful `Quality Gates` workflow on `main`, `workflow_dispatch` | `contents: read` | Vercel project/token secrets, database/migration URLs, production runtime secrets, OAuth/R2/email/agent secrets as needed | preview/staged deployment URL artifacts and job summaries |
 | Notification Email Dispatch Scheduler | `.github/workflows/notification-email-dispatch.yml` | Call the protected notification email dispatcher on the active no-new-cost production cadence. | schedule every 30 minutes, `workflow_dispatch` | none | `NOTIFICATION_EMAIL_DISPATCH_SECRET` or legacy `CRON_SECRET` | dispatcher response and parsed summary in job summary |
-| Dependency Security | `.github/workflows/dependency-security.yml` | Run the scheduled/manual npm audit baseline and persist audit JSON. | weekly schedule, `workflow_dispatch` | `contents: read` | none | production/full npm audit JSON |
+| Dependency Security | `.github/workflows/dependency-security.yml` | Run the scheduled/manual npm audit baseline, fail closed on scanner errors, and alert on failures. | weekly schedule, `workflow_dispatch` | `contents: read`; alert jobs also use `issues: write` | none | production/full npm audit JSON plus status/stderr diagnostics; alert issue create/update/close |
 | Dependabot Auto Triage | `.github/workflows/dependabot-auto-triage.yml` | Label and approve safe Dependabot lanes, then merge safe green Dependabot PRs. | `pull_request_target` for Dependabot, `workflow_run` after required PR checks | per-job `contents`, `issues`, and `pull-requests` write where needed | `GITHUB_TOKEN` | labels/reviews/merge state; no artifact |
 | Dependabot Repair Agent | `.github/workflows/dependabot-repair-agent.yml` | Scan red Dependabot PRs and use Copilot CLI to open repo-owned repair PRs when possible. | weekly schedule, `workflow_dispatch` | per-job read for scan; write for repair PR creation/status updates | `COPILOT_ACTIONS_TOKEN` to activate Copilot CLI; `GITHUB_TOKEN` | PR comments/branches created by repair script; job summary when skipped |
 
@@ -164,6 +164,25 @@ summary shows the dispatcher response and parsed send/reconciliation metrics.
   PRs after required checks pass.
 - `Dependabot Repair Agent` runs every Monday at 09:15 UTC. It needs
   `COPILOT_ACTIONS_TOKEN`; without that secret it records a skip summary.
+
+#### Dependency Security failure handling
+
+- `scripts/check-npm-audit.mjs` validates each audit JSON before reporting.
+  Missing, empty, malformed, or error-payload JSON exits with code 2 and the
+  distinct message `Scanner error: ... Failing closed`; findings are unknown
+  until the scanner is repaired. High or critical production findings exit
+  with code 1. Full-tree findings are reported in the job summary but remain
+  informational.
+- A failed run opens or updates the GitHub issue titled
+  `Dependency Security scan failing`. The issue body records the failure type
+  (`findings`, `scanner-error`, or `infrastructure-error`) and the run link.
+- The next green run comments on and closes that issue automatically.
+- The audit job always uploads the JSON, status, and stderr diagnostics so a
+  scanner error can be triaged without re-running the workflow.
+- Historical note: the scheduled runs from 2026-07-27 through 2026-10-19
+  failed on real high/critical production findings, not scanner errors.
+  ND-616 patched the production tree; ND-618 added fail-closed handling and
+  the alert issue lifecycle.
 
 ## Change Rules
 

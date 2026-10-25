@@ -3,6 +3,38 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-24 - ND-618: Dependency Security fail-closed and alerting
+
+- All 14 scheduled runs from 2026-07-27 through 2026-10-19 failed on real
+  production findings, not scanner errors; the latest run (39265962690) reported
+  7 high/critical production vulnerabilities. ND-616 cleared the production tree.
+- Added `scripts/check-npm-audit.mjs`: missing, empty, malformed, or npm
+  error-payload JSON exits 2 with a distinct `Scanner error: ... Failing closed`
+  message; high/critical production findings exit 1; full-tree findings stay
+  informational.
+- The workflow opens or updates the `Dependency Security scan failing` issue with
+  the failure type and run link, and the next green run comments on and closes it.
+  Alert jobs use `issues: write`; audit JSON, status, and stderr diagnostics are
+  uploaded on every run.
+- Runbook documents the failure classes and alert lifecycle.
+- Validation: lint, rls:check, tests (2120 passed, 2 skipped), coverage, build,
+  and 8 new script tests green locally.
+
+# 2026-10-24 - ND-617: Clear dev-tooling audit findings (ND-613)
+
+- Current main after ND-616 reported 13 high and 3 moderate findings, all in dev
+  tooling: eslint -> minimatch/brace-expansion, eslintrc -> js-yaml,
+  jsdom -> undici, vitest -> vite/@vitest/mocker, and react-hooks -> zod.
+- Patched within existing ranges: brace-expansion 1.1.21/5.0.12, js-yaml 4.3.2,
+  undici 7.30.1, vite 8.3.5, and zod 4.6.7 overrides, plus vitest and
+  @vitest/coverage-v8 4.1.12.
+- `npm audit` and `npm audit --omit=dev` now report 0 vulnerabilities.
+- Major upgrades assessed but not needed for audit hygiene: eslint 10 is accepted
+  by the current eslint-config-next and typescript-eslint peer ranges but changes
+  config/plugin behavior; vitest 5 is a new major. Both are deferred to separate
+  work.
+- Validation: lint, rls:check, tests (2112 passed, 2 skipped), coverage, build.
+
 # 2026-10-22 - ND-539: Private/team visibility toggle for meeting notes
 
 - Card `cmusy8e0n000w04l0pry2ao7r`: added creator-controlled meeting note
