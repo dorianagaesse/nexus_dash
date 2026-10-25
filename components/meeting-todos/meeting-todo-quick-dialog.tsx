@@ -246,10 +246,12 @@ function OpenTodoItem({
             <span className="block truncate text-sm font-medium leading-5 text-foreground">
               {todo.action.content}
             </span>
-            <span className="inline-flex max-w-full items-center gap-1 text-xs font-medium text-muted-foreground">
-              <span className="truncate">{todo.note.title}</span>
-              {todo.note.canOpenNote !== false ? <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
-            </span>
+            {todo.note.canOpenNote !== false ? (
+              <span className="inline-flex max-w-full items-center gap-1 text-xs font-medium text-muted-foreground">
+                <span className="truncate">{todo.note.title}</span>
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              </span>
+            ) : null}
           </button>
           <span className="shrink-0">
             <MeetingTodoAssigneeChipReadonly actor={todo.action.assignee ?? null} />
@@ -302,20 +304,24 @@ function CompletedTodoRow({
             <MeetingTodoAssigneeChipReadonly actor={todo.action.assignee ?? null} bordered={false} />
           </span>
         </span>
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 truncate text-[11px] text-muted-foreground">
-            {todo.note.title}
+        {todo.note.canOpenNote !== false || todo.action.completedBy ? (
+          <span className="flex min-w-0 items-center gap-2">
+            {todo.note.canOpenNote !== false ? (
+              <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+                {todo.note.title}
+              </span>
+            ) : null}
+            {todo.action.completedBy ? (
+              <span className="shrink-0 leading-none">
+                <MeetingTodoActorIdentity
+                  actor={todo.action.completedBy}
+                  prefix="Completed by"
+                  compact
+                />
+              </span>
+            ) : null}
           </span>
-          {todo.action.completedBy ? (
-            <span className="shrink-0 leading-none">
-              <MeetingTodoActorIdentity
-                actor={todo.action.completedBy}
-                prefix="Completed by"
-                compact
-              />
-            </span>
-          ) : null}
-        </span>
+        ) : null}
       </button>
     </li>
   );
