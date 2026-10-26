@@ -244,6 +244,7 @@ model ProjectMeetingNote {
   title                      String                @db.VarChar(140)
   scheduledAt                DateTime?
   status                     String                @default("prepared") @db.VarChar(40)
+  visibility                 String                @default("private") @db.VarChar(20)
   labelsJson                 String?
   inputNotes                 String                @default("")
   outputNotes                String                @default("")
@@ -267,6 +268,7 @@ model ProjectMeetingNote {
 
   @@index([projectId, scheduledAt])
   @@index([projectId, status, scheduledAt])
+  @@index([projectId, visibility, scheduledAt])
   @@index([projectId, updatedAt])
   @@index([createdByUserId])
   @@index([updatedByUserId])

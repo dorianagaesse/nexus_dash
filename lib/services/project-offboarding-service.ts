@@ -147,6 +147,7 @@ export async function countActiveProjectResponsibilities(
     db.projectMeetingNote.count({
       where: {
         projectId,
+        visibility: "team",
         stewardKind: actor.kind,
         NOT: { status: "done" },
         ...(humanId
@@ -506,7 +507,7 @@ export async function getProjectResponsibilityInventory(input: {
       }
     );
     return createSuccess(200, { inventory });
-  });
+  }, { allowPrivateNoteTodoContext: true });
 }
 
 export async function transferProjectOwnership(input: {
@@ -594,5 +595,5 @@ export async function transferProjectOwnership(input: {
       previousOwnerLeft: input.previousOwnerLeaves,
       resolvedInventory,
     });
-  });
+  }, { allowPrivateNoteTodoContext: true });
 }

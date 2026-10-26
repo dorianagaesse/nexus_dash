@@ -1172,3 +1172,10 @@ Keep UI-only or task-only notes in `journal.md`.
   Unrelated project query parameters and fragments survive modal navigation.
   Newly created tasks become shareable only after saving assigns their permanent
   ID; a selected task's URL follows that identity change.
+
+## 2026-10-24 - ND-539: Private meeting notes and shared todos
+
+- Status: Accepted.
+- Decision: Meeting note privacy protects note content, while todos remain project work visible to members and assigned agents. Project editors may complete or reassign these todos without reading the private note.
+- Enforcement: Services use a transaction-local todo context for parent joins and status updates. RLS still requires project membership and editor rights for mutations; a trigger rejects private content or visibility edits by non-creators. Shared service responses redact note titles, text, participants, labels and stewardship.
+- Consequences: The project Todos route, floating panel, My Work, reminders, agent assignments and offboarding agree on todo visibility. Private notes stay absent from meeting lists and direct reads.

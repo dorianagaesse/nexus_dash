@@ -35,6 +35,35 @@ Use it for important implementation milestones, blockers, validation runs, and r
   work.
 - Validation: lint, rls:check, tests (2112 passed, 2 skipped), coverage, build.
 
+# 2026-10-22 - ND-539: Private/team visibility toggle for meeting notes
+
+- Card `cmusy8e0n000w04l0pry2ao7r`: added creator-controlled meeting note
+  visibility (`private` by default for new notes, `team` for project-shared
+  notes) with SQL migration `20261022010000_nd539_meeting_note_visibility`
+  backfilling existing notes to `'team'`.
+- Enforced visibility in both service and PostgreSQL RLS layers:
+  - Added optional `actorKind?: "human" | "agent"` to `withActorRlsContext`
+    (`app.actor_kind` transaction-local config) and `app.is_human_actor()` in
+    SQL so owner-attributed agent bearer tokens cannot read or mutate private
+    notes owned by the project owner.
+  - Updated `ProjectMeetingNote`, `ProjectMeetingNoteParticipant`,
+    `ProjectMeetingNoteAction`, and `ProjectMeetingNoteActionAssigneeChange`
+    RLS policies plus the `meeting_note_visibility_guard` trigger and
+    `app.resolve_project_actor_responsibilities` offboarding function.
+  - Restricted private notes and their todos/outputs/history to the human
+    creator across `project-meeting-note-service`, `project-meeting-todo-service`,
+    `my-work-service`, `project-agent-attention-service`,
+    `project-notification-email-service`, `project-offboarding-service`, and
+    `project-service` summary counts. Suppressed `ProjectActivityEvent` and
+    `touchProjectActivity` on private-only note mutations while emitting when a
+    note is `'team'` or transitions between `'private'` and `'team'`.
+- Added the lock/unlocked visibility badge and toggle (`private` in grey,
+  `public` in blue) to meeting note cards, the Prepare meeting dialog, and the
+  Note detail dialog (interactive for the creator, read-only for other members).
+- Validated with `npm run lint`, `npm run rls:check`, `npm run test:rls`,
+  `npm test`, `npm run test:coverage`, `npm run build`, and Playwright E2E
+  (`tests/e2e/nd-539-meeting-note-visibility.spec.ts`).
+
 # 2026-10-23 - ND-615: Move runtime to patched Node 24 (ND-613)
 
 - Node 20 is end-of-life and misses the 21 Oct 2026 security release (Brotli decoder
@@ -10370,3 +10399,16 @@ Low-value entries to avoid going forward:
   clicked the background task card after reload, although the task URL had
   already reopened the modal. Updated it to assert the reopened modal before
   continuing; retained the restored-draft, discard, and quota-error assertions.
+
+## 2026-10-24 ? ND-539 Codex takeover
+
+- Continued Gemini PR #617 and preserved its unfinished todo visibility work. Updated the board criteria to reflect the user correction: todos are project-visible while private meeting content remains creator-only.
+- Moved the visibility lock immediately left of the dialog close button, removed the extra field, and retained explicit save behavior.
+- Restored project todo discovery, My Work, assigned-agent feeds, reminders, completion/reassignment and offboarding across private meetings; redacted private note titles/content in shared responses. Added an additive RLS migration and coverage for shared todo writes without private content edits.
+- PostgreSQL isolation matrix passed against a fresh local database with the realtime stub installed before migrations. Coverage passed: 2,119 tests, 93.64% statements, 95.01% lines. Build and RLS inventory passed; final browser and unit checks continue below.
+
+### ND-539 final verification
+
+- Integrated current `origin/main` through merge commit `37a0c40` after the repository rejected history rewriting; preserved both execution logs. The initial preview failed its newly required Node 24 health contract on the older branch. Replacement workflow [40035776622](https://github.com/dorianagaesse/nexus_dash/actions/runs/40035776622) succeeded and its checkout log confirms `37a0c403a6afed8dbbf336e085bc1725d9445440`. Preview: https://nexus-dash-4dacgpkr4-dorian-agaesses-projects.vercel.app.
+- Local lint, RLS inventory, 2,119 unit/API/component tests, coverage (93.64% statements / 95.01% lines), build, and PostgreSQL matrix passed. The broad local browser run passed 119 checks (two intentional skips); final-implementation GitHub quality, E2E and RLS jobs passed in [40035762869](https://github.com/dorianagaesse/nexus_dash/actions/runs/40035762869). The two-account test covers private todo discovery, completion, redacted responses, and the desktop/mobile lock placement.
+- Inspected desktop/mobile captures and ran the Impeccable detector with no findings. The optional standalone `tsc --noEmit` includes legacy tests with route-param and read-only `NODE_ENV` typing errors; the configured production build type-check passes. Copilot review was requested, but no review response had returned at handoff preparation.

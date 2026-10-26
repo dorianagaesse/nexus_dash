@@ -23,6 +23,7 @@ interface MeetingNoteRequestBody {
   participants?: unknown;
   labels?: unknown;
   status?: unknown;
+  visibility?: unknown;
   inputNotes?: unknown;
   outputNotes?: unknown;
   decisions?: unknown;
@@ -35,6 +36,28 @@ function readString(value: unknown): string {
 
 function readOptionalString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
+}
+
+function readOptionalVisibility(
+  value: unknown
+): { ok: true; value: "private" | "team" | undefined } | { ok: false } {
+  if (value === undefined || value === null) {
+    return { ok: true, value: undefined };
+  }
+  if (typeof value !== "string") {
+    return { ok: false };
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "") {
+    return { ok: true, value: undefined };
+  }
+  if (normalized === "private") {
+    return { ok: true, value: "private" };
+  }
+  if (normalized === "team" || normalized === "public") {
+    return { ok: true, value: "team" };
+  }
+  return { ok: false };
 }
 
 function readStringArray(value: unknown): string[] {
@@ -178,6 +201,14 @@ export async function POST(
     return payload;
   }
 
+  const visibility = readOptionalVisibility(payload.visibility);
+  if (!visibility.ok) {
+    return NextResponse.json(
+      { error: "meeting-note-visibility-invalid" },
+      { status: 400 }
+    );
+  }
+
   const result = await createProjectMeetingNote({
     actorUserId: authenticatedUser.userId,
     projectId: params.projectId,
@@ -186,6 +217,9 @@ export async function POST(
     participants: readParticipants(payload.participants),
     labels: readStringArray(payload.labels),
     status: readOptionalString(payload.status),
+    ...(visibility.value === undefined
+      ? {}
+      : { visibility: visibility.value }),
     inputNotes: readString(payload.inputNotes),
     outputNotes: readString(payload.outputNotes),
     decisions: readString(payload.decisions),
