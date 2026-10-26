@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
+import { clickUntilVisible } from "./helpers/interaction-helpers";
 import {
   createProjectFromProjectsPage,
   openNewestProjectDashboard,
@@ -143,8 +144,10 @@ test("ND-539: meeting notes default to private, hide from other members and agen
     expect(todoResponse.ok()).toBeTruthy();
     const todoId = (await todoResponse.json()).note.actions[0].id as string;
     await memberPage.goto(`/projects/${projectIdValue}`);
-    await memberPage.getByRole("button", { name: /^Todos, / }).click();
-    await expect(memberPage.getByText(todoContent, { exact: true })).toBeVisible();
+    await clickUntilVisible(
+      memberPage.getByRole("button", { name: /^Todos, / }),
+      memberPage.getByText(todoContent, { exact: true })
+    );
     await expect(memberPage.getByText(meetingTitle, { exact: true })).toHaveCount(0);
     await memberPage.goto(`/projects/${projectIdValue}/todos`);
     await expect(memberPage.getByText(todoContent, { exact: true })).toBeVisible();
