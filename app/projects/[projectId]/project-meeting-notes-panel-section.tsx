@@ -67,7 +67,7 @@ export async function ProjectMeetingNotesPanelSection({
     let note = todoOnlyByNote.get(todo.meeting.id);
     if (!note) {
       note = {
-        id: todo.meeting.id, projectId, title: "Private meeting", canOpenNote: false,
+        id: todo.meeting.id, contentRevision: 0, projectId, title: "Private meeting", canOpenNote: false,
         visibility: "private", scheduledAt: todo.meeting.scheduledAt?.toISOString() ?? null,
         status: todo.meeting.status as ProjectMeetingNotePanelNote["status"],
         participants: [], labels: [], inputNotes: "", outputNotes: "", decisions: "",

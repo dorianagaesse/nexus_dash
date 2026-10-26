@@ -21,6 +21,7 @@ vi.mock("@/lib/project-activity-client", () => ({
 import { ProjectMeetingNotesPanel } from "@/components/project-meeting-notes-panel";
 import type { ProjectMeetingNotePanelNote } from "@/components/meeting-todos/meeting-note-types";
 import { ToastProvider } from "@/components/toast-provider";
+import { contentEtag } from "@/lib/content-revision";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
@@ -28,6 +29,7 @@ import { ToastProvider } from "@/components/toast-provider";
 function baseNote(overrides: Partial<ProjectMeetingNotePanelNote>): ProjectMeetingNotePanelNote {
   return {
     id: "note-1",
+    contentRevision: 1,
     projectId: "project-1",
     title: "Rich prep review",
     scheduledAt: "2026-09-01T09:00:00.000Z",
@@ -116,6 +118,15 @@ function findButton(container: Element, text: string): Element | null {
       button.textContent?.includes(text)
     ) ?? null
   );
+}
+
+function setInputValue(input: HTMLInputElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value"
+  )?.set;
+  setter?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 describe("project-meeting-notes-panel rich sections", () => {
@@ -597,5 +608,147 @@ describe("project-meeting-notes-panel visibility badge and toggle", () => {
     expect(
       document.querySelector("button[data-meeting-visibility-toggle]")
     ).toBeNull();
+  });
+});
+
+describe("project-meeting-notes-panel guarded explicit save", () => {
+  let renderer: { container: HTMLDivElement; root: Root };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    renderer = createTestRenderer();
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      renderer.root.unmount();
+    });
+    renderer.container.remove();
+    document.body.innerHTML = "";
+  });
+
+  test("saves preparation content through one conditional PATCH with explicit intent", async () => {
+    const note = baseNote({ id: "note-save-prep", title: "Weekly sync" });
+    await renderPanel(renderer.root, [note], true);
+    await clickButtonLike(findButton(renderer.container, "Weekly sync"));
+    await clickButtonLike(findButton(document.body, "Edit prep"));
+
+    const titleInput = document.querySelector<HTMLInputElement>("#meeting-title");
+    expect(titleInput).not.toBeNull();
+    await act(async () => {
+      setInputValue(titleInput as HTMLInputElement, "Weekly sync v2");
+    });
+
+    activityClientMock.fetchProjectActivityMutation.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        note: baseNote({
+          id: "note-save-prep",
+          title: "Weekly sync v2",
+          contentRevision: 2,
+        }),
+      }),
+    });
+
+    await clickButtonLike(findButton(document.body, "Save preparation"));
+
+    const call = activityClientMock.fetchProjectActivityMutation.mock.calls.at(-1);
+    expect(call?.[0]).toBe("project-1");
+    expect(call?.[1]).toBe("/api/projects/project-1/meeting-notes/note-save-prep");
+    expect(call?.[2]).toMatchObject({
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-content-if-match": contentEtag("meeting-note", "note-save-prep", 1),
+        "NexusDash-Mutation-Intent": "explicit",
+      },
+      body: JSON.stringify({ title: "Weekly sync v2" }),
+    });
+    expect(call?.[2].signal).toBeInstanceOf(AbortSignal);
+    expect(document.querySelector("#meeting-title")).toBeNull();
+    expect(document.body.textContent).toContain(
+      "Meeting preparation saved."
+    );
+  });
+
+  test("keeps the preparation dialog open with a conflict review on 412", async () => {
+    const note = baseNote({ id: "note-conflict", title: "Planning" });
+    await renderPanel(renderer.root, [note], true);
+    await clickButtonLike(findButton(renderer.container, "Planning"));
+    await clickButtonLike(findButton(document.body, "Edit prep"));
+
+    const titleInput = document.querySelector<HTMLInputElement>("#meeting-title");
+    await act(async () => {
+      setInputValue(titleInput as HTMLInputElement, "Planning locally");
+    });
+
+    activityClientMock.fetchProjectActivityMutation.mockResolvedValueOnce({
+      ok: false,
+      status: 412,
+      json: async () => ({
+        error: "edit-conflict",
+        current: baseNote({
+          id: "note-conflict",
+          title: "Planning remotely",
+          contentRevision: 3,
+        }),
+      }),
+    });
+
+    await clickButtonLike(findButton(document.body, "Save preparation"));
+
+    const conflictReview = document.querySelector("[data-conflict-review]");
+    expect(conflictReview).not.toBeNull();
+    expect(conflictReview?.textContent).toContain("Title");
+    expect(document.querySelector("#meeting-title")).not.toBeNull();
+    expect(findButton(document.body, "Save preparation")?.hasAttribute("disabled")).toBe(
+      true
+    );
+
+    await clickButtonLike(findButton(document.body, "Use latest for all conflicts"));
+
+    expect(document.querySelector("#meeting-title")).toBeNull();
+    expect(document.body.textContent).toContain(
+      "Meeting preparation saved."
+    );
+  });
+
+  test("archives through an explicit status command without duplicating content fields", async () => {
+    const note = baseNote({ id: "note-status", title: "Retro" });
+    await renderPanel(renderer.root, [note], true);
+    await clickButtonLike(findButton(renderer.container, "Retro"));
+
+    await clickButtonLike(document.querySelector("button#meeting-status"));
+    const doneOption = Array.from(
+      document.querySelectorAll("[role='option']")
+    ).find((option) => option.textContent?.includes("Done"));
+    expect(doneOption).toBeDefined();
+    await clickButtonLike(doneOption ?? null);
+
+    activityClientMock.fetchProjectActivityMutation.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        note: baseNote({
+          id: "note-status",
+          title: "Retro",
+          status: "done",
+          contentRevision: 2,
+        }),
+      }),
+    });
+
+    await clickButtonLike(findButton(document.body, "Save notes"));
+
+    const call = activityClientMock.fetchProjectActivityMutation.mock.calls.at(-1);
+    expect(call?.[2]).toMatchObject({
+      method: "PATCH",
+      headers: {
+        "x-content-if-match": contentEtag("meeting-note", "note-status", 1),
+        "NexusDash-Mutation-Intent": "explicit",
+      },
+      body: JSON.stringify({ status: "done" }),
+    });
+    expect(findButton(document.body, "Save notes")).toBeNull();
+    expect(document.body.textContent).toContain("Meeting note archived.");
   });
 });

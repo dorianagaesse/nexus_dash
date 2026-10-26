@@ -61,15 +61,40 @@ describe("LiveSaveScheduler", () => {
     vi.useRealTimers();
   });
 
-  test("stays inert while disabled", async () => {
-    const { scheduler, calls } = setup({ enabled: false });
+  test("keeps timed saves inert while disabled but allows guarded explicit save", async () => {
+    const { scheduler, calls, results } = setup({ enabled: false });
     scheduler.setValue({ ...BASE, title: "New" });
     await vi.advanceTimersByTimeAsync(120_000);
     expect(calls).toHaveLength(0);
     expect(scheduler.getSnapshot().phase).toBe("disabled");
+
+    results.push(accepted("r2", { ...BASE, title: "New" }));
     const outcome = await scheduler.saveNow();
-    expect(outcome.status).toBe("disabled");
-    expect(calls).toHaveLength(0);
+    expect(outcome).toEqual({ status: "accepted", revision: "r2" });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].intent).toBe("explicit");
+    expect(calls[0].fields).toEqual({ title: "New" });
+    expect(scheduler.getSnapshot().phase).toBe("disabled");
+
+    // Acknowledged explicit work never arms a background timer while the
+    // surface remains gated.
+    scheduler.setValue({ ...BASE, title: "Newer" });
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(calls).toHaveLength(1);
+  });
+
+  test("allowEmpty sends command-only explicit writes while clean", async () => {
+    const { scheduler, calls, results } = setup({ enabled: false });
+    results.push(accepted("r2", { ...BASE }));
+    const outcome = await scheduler.saveNow({ allowEmpty: true });
+    expect(outcome).toEqual({ status: "accepted", revision: "r2" });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].intent).toBe("explicit");
+    expect(calls[0].fields).toEqual({});
+
+    const clean = await scheduler.saveNow();
+    expect(clean.status).toBe("clean");
+    expect(calls).toHaveLength(1);
   });
 
   test("sends only dirty fields 2 seconds after the last change", async () => {

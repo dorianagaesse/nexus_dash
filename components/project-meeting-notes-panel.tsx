@@ -1,7 +1,14 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -49,6 +56,8 @@ import {
 } from "@/components/meeting-todos/meeting-todo-assignee-chip";
 import { MeetingTodoActorIdentity } from "@/components/meeting-todos/meeting-todo-actor-control";
 import { MeetingTodoQuickDialog } from "@/components/meeting-todos/meeting-todo-quick-dialog";
+import { ConflictReview } from "@/components/live-save/conflict-review";
+import { LiveSaveStatus } from "@/components/live-save/live-save-status";
 import {
   PROJECT_SECTION_CARD_CLASS,
   PROJECT_SECTION_CONTENT_CLASS,
@@ -71,8 +80,19 @@ import { EmojiInputField } from "@/components/ui/emoji-field";
 import { ListSearchInput } from "@/components/ui/list-search-input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { TokenInput } from "@/components/ui/token-input";
+import { useLiveSave } from "@/lib/hooks/use-live-save";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import { recoveryDraftKey, useRecoveryDraft } from "@/lib/hooks/use-recovery-draft";
+import { createContentSaveAdapter } from "@/lib/live-save/content-adapter";
+import { isLiveSaveSurfaceEnabled } from "@/lib/live-save/rollout";
+import type {
+  LiveSaveAcceptedInfo,
+  LiveSaveAdapter,
+  LiveSaveFieldMetaMap,
+  LiveSaveIntent,
+  LiveSaveOutcome,
+  LiveSaveValidation,
+} from "@/lib/live-save/types";
 import {
   getMeetingParticipantKey,
   type ProjectMeetingParticipantCollaborator,
@@ -513,6 +533,384 @@ function mapMeetingNoteError(errorCode: string): string {
     default:
       return "Could not save meeting notes. Please retry.";
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+type MeetingPreparationLiveDocument = {
+  title: string;
+  scheduledAtLocal: string;
+  participants: ProjectMeetingParticipantIdentity[];
+  labels: string[];
+  inputNotes: string;
+  contentRevision: number;
+  note: ProjectMeetingNotePanelNote | null;
+};
+
+const MEETING_PREPARATION_LIVE_FIELDS = [
+  "title",
+  "scheduledAtLocal",
+  "participants",
+  "labels",
+  "inputNotes",
+] as const;
+
+const MEETING_PREPARATION_FIELD_META: LiveSaveFieldMetaMap<MeetingPreparationLiveDocument> =
+  {
+    title: { label: "Title" },
+    scheduledAtLocal: { label: "Meeting time" },
+    participants: { label: "Participants" },
+    labels: { label: "Labels" },
+    inputNotes: { label: "Inputs", richText: true },
+  };
+
+const EMPTY_MEETING_PREPARATION_DOCUMENT: MeetingPreparationLiveDocument = {
+  title: "",
+  scheduledAtLocal: "",
+  participants: [],
+  labels: [],
+  inputNotes: "",
+  contentRevision: 0,
+  note: null,
+};
+
+type MeetingOutputLiveDocument = {
+  outputNotes: string;
+  contentRevision: number;
+  note: ProjectMeetingNotePanelNote | null;
+};
+
+const MEETING_OUTPUT_LIVE_FIELDS = ["outputNotes"] as const;
+
+const MEETING_OUTPUT_FIELD_META: LiveSaveFieldMetaMap<MeetingOutputLiveDocument> =
+  {
+    outputNotes: { label: "Outputs", richText: true },
+  };
+
+const EMPTY_MEETING_OUTPUT_DOCUMENT: MeetingOutputLiveDocument = {
+  outputNotes: "",
+  contentRevision: 0,
+  note: null,
+};
+
+function emptyMeetingLiveAdapter<
+  F extends Record<string, unknown>,
+>(): LiveSaveAdapter<F> {
+  return { save: async () => ({ kind: "gone" }) };
+}
+
+// Network boundary: accept only complete note payloads from our own API before
+// they replace local state. The action/participant entries stay trusted.
+function readMeetingNotePanelNote(
+  value: unknown
+): ProjectMeetingNotePanelNote | null {
+  if (!isRecord(value)) return null;
+  if (
+    typeof value.id !== "string" ||
+    typeof value.contentRevision !== "number" ||
+    typeof value.title !== "string" ||
+    typeof value.inputNotes !== "string" ||
+    typeof value.outputNotes !== "string" ||
+    typeof value.createdAt !== "string" ||
+    typeof value.updatedAt !== "string" ||
+    (value.scheduledAt !== null && typeof value.scheduledAt !== "string") ||
+    (value.status !== "prepared" &&
+      value.status !== "actions_in_progress" &&
+      value.status !== "done") ||
+    !Array.isArray(value.participants) ||
+    !Array.isArray(value.labels) ||
+    !Array.isArray(value.actions)
+  ) {
+    return null;
+  }
+  return value as unknown as ProjectMeetingNotePanelNote;
+}
+
+function toMeetingPreparationLiveDocument(
+  note: ProjectMeetingNotePanelNote
+): MeetingPreparationLiveDocument {
+  return {
+    title: note.title,
+    scheduledAtLocal: toDateTimeLocal(note.scheduledAt),
+    participants: note.participants,
+    labels: note.labels,
+    inputNotes: coerceRichTextHtml(note.inputNotes) ?? "",
+    contentRevision: note.contentRevision,
+    note,
+  };
+}
+
+function toMeetingPreparationLiveValue(
+  draft: PrepareDraft,
+  note: ProjectMeetingNotePanelNote | null
+): MeetingPreparationLiveDocument {
+  return {
+    title: draft.title,
+    scheduledAtLocal: draft.scheduledAtLocal,
+    participants: draft.participants,
+    labels: draft.labels,
+    inputNotes: coerceRichTextHtml(draft.inputNotes) ?? "",
+    contentRevision: note?.contentRevision ?? 0,
+    note,
+  };
+}
+
+function toMeetingOutputLiveDocument(
+  note: ProjectMeetingNotePanelNote
+): MeetingOutputLiveDocument {
+  return {
+    outputNotes: coerceRichTextHtml(note.outputNotes) ?? "",
+    contentRevision: note.contentRevision,
+    note,
+  };
+}
+
+function toMeetingOutputLiveValue(
+  draft: NotesDraft,
+  note: ProjectMeetingNotePanelNote | null
+): MeetingOutputLiveDocument {
+  return {
+    outputNotes: coerceRichTextHtml(draft.outputNotes) ?? "",
+    contentRevision: note?.contentRevision ?? 0,
+    note,
+  };
+}
+
+function validateMeetingPreparationLiveDocument(
+  value: MeetingPreparationLiveDocument
+): LiveSaveValidation {
+  const title = value.title.trim();
+  if (title.length < 2) {
+    return { valid: false, message: "Meeting title must be at least 2 characters." };
+  }
+  if (title.length > 140) {
+    return {
+      valid: false,
+      message: "Meeting title must be 140 characters or fewer.",
+    };
+  }
+  if (
+    value.scheduledAtLocal &&
+    Number.isNaN(new Date(value.scheduledAtLocal).getTime())
+  ) {
+    return { valid: false, message: "Meeting time is not valid." };
+  }
+  if (value.participants.length > 40) {
+    return { valid: false, message: "Keep participants to 40 people or fewer." };
+  }
+  return { valid: true };
+}
+
+function meetingLiveSaveErrorMessage<F extends Record<string, unknown>>(
+  outcome: LiveSaveOutcome<F>
+): string | null {
+  switch (outcome.status) {
+    case "accepted":
+    case "adopted":
+    case "clean":
+      return null;
+    case "conflict":
+      return "This note changed elsewhere. Review the conflicting changes below.";
+    case "invalid":
+      return mapMeetingNoteError(outcome.message);
+    case "unauthorized":
+      return "You no longer have permission to edit this meeting note.";
+    case "gone":
+      return "This meeting note is no longer available.";
+    case "offline":
+      return "You're offline. Your draft is safe locally; try again when the connection returns.";
+    case "failed":
+      return mapMeetingNoteError(outcome.message);
+    case "busy":
+      return "A save is already in progress. Try again.";
+    case "disabled":
+      return "Live save is unavailable for this note.";
+  }
+}
+
+function readMeetingLiveFullySynced(ref: {
+  current: { fullySynced: boolean } | null;
+}): boolean {
+  return ref.current?.fullySynced ?? true;
+}
+
+// A content PATCH response can be read before a sibling todo-completion write
+// commits; keep this client's in-flight optimistic completions on top of the
+// accepted note so their state is never rolled back.
+function mergeAcceptedMeetingNote(
+  current: ProjectMeetingNotePanelNote,
+  accepted: ProjectMeetingNotePanelNote,
+  pendingActionIds: ReadonlySet<string>
+): ProjectMeetingNotePanelNote {
+  if (current.contentRevision > accepted.contentRevision) {
+    return current;
+  }
+  if (pendingActionIds.size === 0) {
+    return accepted;
+  }
+  const pendingActions = new Map(
+    current.actions
+      .filter((action) => pendingActionIds.has(action.id))
+      .map((action) => [action.id, action])
+  );
+  return {
+    ...accepted,
+    actions: accepted.actions.map((action) => {
+      const pending = pendingActions.get(action.id);
+      return pending
+        ? {
+            ...action,
+            completedAt: pending.completedAt,
+            completedBy: pending.completedBy ?? action.completedBy,
+          }
+        : action;
+    }),
+  };
+}
+
+type MeetingActionCommandEntry = {
+  id: string | null;
+  content: string;
+  completedAt: string | null;
+  assignee?: { kind: string; id: string } | null;
+};
+
+// Mirrors the explicit action payload shape so unchanged action lists are
+// omitted from PATCHes; resending stale lists would clobber concurrent todo
+// completions.
+function buildMeetingActionCommandEntry(input: {
+  id: string | null;
+  content: string;
+  completedAt: string | null;
+  assignee: MeetingTodoActorSummary | null;
+}): MeetingActionCommandEntry {
+  const entry: MeetingActionCommandEntry = {
+    id: input.id,
+    content: input.content.trim(),
+    completedAt: input.completedAt,
+  };
+  if (input.assignee?.isAssignable !== false) {
+    entry.assignee = input.assignee
+      ? { kind: input.assignee.kind, id: input.assignee.id }
+      : null;
+  }
+  return entry;
+}
+
+function buildDraftActionCommandEntries(
+  actions: DraftAction[]
+): MeetingActionCommandEntry[] {
+  return actions
+    .map((action) =>
+      buildMeetingActionCommandEntry({
+        id: action.persisted ? action.id : null,
+        content: action.content,
+        completedAt: action.completedAt,
+        assignee: action.assignee,
+      })
+    )
+    .filter((entry) => entry.content.length > 0);
+}
+
+function buildNoteActionCommandEntries(
+  note: ProjectMeetingNotePanelNote
+): MeetingActionCommandEntry[] {
+  return note.actions
+    .map((action) =>
+      buildMeetingActionCommandEntry({
+        id: action.id,
+        content: action.content,
+        completedAt: action.completedAt,
+        assignee: action.assignee ?? null,
+      })
+    )
+    .filter((entry) => entry.content.length > 0);
+}
+
+function normalizedNotesStatus(status: MeetingNoteStatus): MeetingNoteStatus {
+  return status === "prepared" ? "actions_in_progress" : status;
+}
+
+// Commands are explicit-only and diffed against the note the draft started
+// from, never the latest server note: an untouched field must never be resent
+// just because another actor changed it while this draft was open.
+function buildPrepareCommandPayload(
+  draft: PrepareDraft,
+  baseNote: ProjectMeetingNotePanelNote | null
+): Record<string, unknown> {
+  if (!baseNote) return {};
+  const payload: Record<string, unknown> = {};
+  if (draft.visibility !== resolveNoteVisibility(baseNote)) {
+    payload.visibility = draft.visibility;
+  }
+  return payload;
+}
+
+function buildOutputCommandPayload(
+  draft: NotesDraft,
+  baseNote: ProjectMeetingNotePanelNote | null
+): Record<string, unknown> {
+  if (!baseNote) return {};
+  const payload: Record<string, unknown> = {};
+  if (draft.status !== normalizedNotesStatus(baseNote.status)) {
+    payload.status = draft.status;
+  }
+  if (draft.visibility !== resolveNoteVisibility(baseNote)) {
+    payload.visibility = draft.visibility;
+  }
+  if (
+    JSON.stringify(buildDraftActionCommandEntries(draft.actions)) !==
+    JSON.stringify(buildNoteActionCommandEntries(baseNote))
+  ) {
+    payload.actions = buildDraftActionCommandEntries(draft.actions);
+  }
+  return payload;
+}
+
+function buildPrepareLivePayload(
+  draft: PrepareDraft,
+  fields: Partial<MeetingPreparationLiveDocument>,
+  intent: LiveSaveIntent,
+  baseNote: ProjectMeetingNotePanelNote | null
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+  if (Object.prototype.hasOwnProperty.call(fields, "title")) {
+    payload.title = draft.title.trim();
+  }
+  if (Object.prototype.hasOwnProperty.call(fields, "scheduledAtLocal")) {
+    payload.scheduledAt = fromDateTimeLocal(draft.scheduledAtLocal);
+  }
+  if (Object.prototype.hasOwnProperty.call(fields, "participants")) {
+    payload.participants = buildParticipantPayload(draft.participants);
+  }
+  if (Object.prototype.hasOwnProperty.call(fields, "labels")) {
+    payload.labels = draft.labels;
+  }
+  if (Object.prototype.hasOwnProperty.call(fields, "inputNotes")) {
+    payload.inputNotes = coerceRichTextHtml(draft.inputNotes) ?? "";
+  }
+  if (intent === "explicit") {
+    Object.assign(payload, buildPrepareCommandPayload(draft, baseNote));
+  }
+  return payload;
+}
+
+function buildOutputLivePayload(
+  draft: NotesDraft,
+  fields: Partial<MeetingOutputLiveDocument>,
+  intent: LiveSaveIntent,
+  baseNote: ProjectMeetingNotePanelNote | null
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+  if (Object.prototype.hasOwnProperty.call(fields, "outputNotes")) {
+    payload.outputNotes = coerceRichTextHtml(draft.outputNotes) ?? "";
+  }
+  if (intent === "explicit") {
+    Object.assign(payload, buildOutputCommandPayload(draft, baseNote));
+  }
+  return payload;
 }
 
 function MeetingVisibilityBadge({
@@ -976,6 +1374,21 @@ export function ProjectMeetingNotesPanel({
   >(null);
   const [stewardError, setStewardError] = useState<string | null>(null);
   const appliedInitialMeetingNoteIdRef = useRef<string | null>(null);
+  const [prepareRecoveryBaseNote, setPrepareRecoveryBaseNote] =
+    useState<ProjectMeetingNotePanelNote | null>(initialSelectedNote);
+  const [notesRecoveryBaseNote, setNotesRecoveryBaseNote] =
+    useState<ProjectMeetingNotePanelNote | null>(initialSelectedNote);
+  const pendingTodoActionIdsRef = useRef<ReadonlySet<string>>(
+    pendingTodoActionIds
+  );
+  const prepareLiveLastAcceptedRef = useRef<{ fullySynced: boolean } | null>(
+    null
+  );
+  const notesLiveLastAcceptedRef = useRef<{ fullySynced: boolean } | null>(
+    null
+  );
+  const prepareRecoveryBaseAckRef = useRef(false);
+  const notesRecoveryBaseAckRef = useRef(false);
 
   useEffect(() => {
     setQuery(activeQuery);
@@ -1011,6 +1424,7 @@ export function ProjectMeetingNotesPanel({
     setListView(initialNote.status === "done" ? "archived" : "active");
     setSelectedNoteId(initialNote.id);
     setNotesDraft(buildNotesDraftFromNote(initialNote));
+    setNotesRecoveryBaseNote(initialNote);
     setDraftError(null);
   }, [initialMeetingNoteId, localNotes, setIsExpanded]);
 
@@ -1029,16 +1443,78 @@ export function ProjectMeetingNotesPanel({
   }, [initialMeetingTodoId, selectedNoteId]);
 
   useEffect(() => {
+    // Re-read the mutated note instead of reloading the page: a reload would
+    // discard an actively edited draft. The fetched note advances the
+    // live-save base, which rebases disjoint remote fields or raises the
+    // conflict review; the local draft itself is never reset here.
+    const controller = new AbortController();
     const handleProjectActivity = (event: Event) => {
       const detail = (event as CustomEvent<ProjectActivityRemoteEventDetail>)
         .detail;
+      const activity = detail?.activity;
       if (
-        detail?.activity?.projectId === projectId &&
-        detail.activity.domain === "meeting-note"
+        activity?.projectId !== projectId ||
+        activity.domain !== "meeting-note"
       ) {
-        detail.markHandled();
-        window.location.reload();
+        return;
       }
+      detail.markHandled();
+      const noteId = activity.entityId;
+      if (!noteId) {
+        return;
+      }
+
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/projects/${projectId}/meeting-notes/${noteId}`,
+            {
+              headers: { Accept: "application/json" },
+              signal: controller.signal,
+            }
+          );
+          if (response.status === 404 || response.status === 403) {
+            setLocalNotes((current) =>
+              current.filter((note) => note.id !== noteId)
+            );
+            setSelectedNoteId((current) =>
+              current === noteId ? null : current
+            );
+            setPrepareDialog((current) =>
+              current?.noteId === noteId ? null : current
+            );
+            return;
+          }
+          if (!response.ok) {
+            return;
+          }
+          const payload = (await response.json().catch(() => null)) as unknown;
+          const note = isRecord(payload)
+            ? readMeetingNotePanelNote(payload.note)
+            : null;
+          if (!note) {
+            return;
+          }
+          setLocalNotes((current) => {
+            if (!current.some((entry) => entry.id === note.id)) {
+              return sortNotes([...current, note]);
+            }
+            return sortNotes(
+              current.map((entry) =>
+                entry.id === note.id
+                  ? mergeAcceptedMeetingNote(
+                      entry,
+                      note,
+                      pendingTodoActionIdsRef.current
+                    )
+                  : entry
+              )
+            );
+          });
+        } catch {
+          // Best-effort refresh; the next activity event or page load retries.
+        }
+      })();
     };
 
     window.addEventListener(
@@ -1046,6 +1522,7 @@ export function ProjectMeetingNotesPanel({
       handleProjectActivity
     );
     return () => {
+      controller.abort();
       window.removeEventListener(
         PROJECT_ACTIVITY_REMOTE_EVENT,
         handleProjectActivity
@@ -1183,13 +1660,28 @@ export function ProjectMeetingNotesPanel({
         : null,
     [localNotes, prepareDialog]
   );
+  // The recovery baseline is decoupled from the live record: it advances only
+  // when the local draft is clean or our own write fully synced, so an
+  // acknowledgement never re-flags the draft as conflicting with itself.
+  const prepareRecoveryBase =
+    prepareRecoveryBaseNote?.id === prepareNote?.id
+      ? prepareRecoveryBaseNote
+      : prepareNote;
+  const notesRecoveryBase =
+    notesRecoveryBaseNote?.id === selectedNote?.id
+      ? notesRecoveryBaseNote
+      : selectedNote;
   const prepareRecovery = useRecoveryDraft({
     storageKey: canEdit && currentActorUserId && prepareDialog
       ? recoveryDraftKey({ userId: currentActorUserId, projectId, surface: "meeting-preparation", mode: prepareDialog.mode, entityId: prepareDialog.noteId })
       : null,
     value: prepareDraft,
-    base: prepareNote ? buildPrepareDraftFromNote(prepareNote) : EMPTY_PREPARE_DRAFT,
-    baseRevision: prepareNote?.updatedAt ?? null,
+    base: prepareRecoveryBase
+      ? buildPrepareDraftFromNote(prepareRecoveryBase)
+      : EMPTY_PREPARE_DRAFT,
+    baseRevision: prepareRecoveryBase
+      ? String(prepareRecoveryBase.contentRevision)
+      : null,
     restore: setPrepareDraft,
   });
   const notesRecovery = useRecoveryDraft({
@@ -1197,10 +1689,316 @@ export function ProjectMeetingNotesPanel({
       ? recoveryDraftKey({ userId: currentActorUserId, projectId, surface: "meeting-output", mode: "edit", entityId: selectedNoteId })
       : null,
     value: notesDraft,
-    base: selectedNote ? buildNotesDraftFromNote(selectedNote) : EMPTY_NOTES_DRAFT,
-    baseRevision: selectedNote?.updatedAt ?? null,
+    base: notesRecoveryBase
+      ? buildNotesDraftFromNote(notesRecoveryBase)
+      : EMPTY_NOTES_DRAFT,
+    baseRevision: notesRecoveryBase
+      ? String(notesRecoveryBase.contentRevision)
+      : null,
     restore: setNotesDraft,
   });
+
+  useLayoutEffect(() => {
+    pendingTodoActionIdsRef.current = pendingTodoActionIds;
+  });
+
+  // Remote changes may advance the record while the form is clean. Adopt the
+  // new representation and move the recovery base with it; a dirty draft keeps
+  // its older base so live-save rebase/conflict review owns the decision.
+  useEffect(() => {
+    if (prepareDialog?.mode !== "edit" || !prepareNote) return;
+    if (!prepareRecoveryBaseNote || prepareRecoveryBaseNote.id !== prepareNote.id) {
+      return;
+    }
+    if (prepareRecoveryBaseNote.contentRevision === prepareNote.contentRevision) {
+      return;
+    }
+    if (
+      JSON.stringify(prepareDraft) !==
+      JSON.stringify(buildPrepareDraftFromNote(prepareRecoveryBaseNote))
+    ) {
+      return;
+    }
+    setPrepareRecoveryBaseNote(prepareNote);
+    setPrepareDraft(buildPrepareDraftFromNote(prepareNote));
+  }, [prepareDialog?.mode, prepareDraft, prepareNote, prepareRecoveryBaseNote]);
+
+  useEffect(() => {
+    if (!selectedNote || !notesRecoveryBaseNote) return;
+    if (notesRecoveryBaseNote.id !== selectedNote.id) return;
+    if (notesRecoveryBaseNote.contentRevision === selectedNote.contentRevision) {
+      return;
+    }
+    if (
+      JSON.stringify(notesDraft) !==
+      JSON.stringify(buildNotesDraftFromNote(notesRecoveryBaseNote))
+    ) {
+      return;
+    }
+    setNotesRecoveryBaseNote(selectedNote);
+    setNotesDraft(buildNotesDraftFromNote(selectedNote));
+  }, [notesDraft, notesRecoveryBaseNote, selectedNote]);
+
+  // A live acknowledgement may advance the recovery base while explicit-only
+  // command edits are still pending. That server change is ours and already
+  // reflected in the draft, so do not show a recovery conflict for it.
+  useEffect(() => {
+    if (!prepareRecoveryBaseAckRef.current) return;
+    prepareRecoveryBaseAckRef.current = false;
+    prepareRecovery.acceptConflict();
+  }, [prepareRecoveryBaseNote, prepareRecovery]);
+
+  useEffect(() => {
+    if (!notesRecoveryBaseAckRef.current) return;
+    notesRecoveryBaseAckRef.current = false;
+    notesRecovery.acceptConflict();
+  }, [notesRecoveryBaseNote, notesRecovery]);
+
+  const prepareLiveNoteId =
+    prepareDialog?.mode === "edit" ? prepareDialog.noteId : null;
+  const prepareLiveBase = useMemo<MeetingPreparationLiveDocument>(
+    () =>
+      prepareNote
+        ? toMeetingPreparationLiveDocument(prepareNote)
+        : EMPTY_MEETING_PREPARATION_DOCUMENT,
+    [prepareNote]
+  );
+  const prepareLiveValue = useMemo<MeetingPreparationLiveDocument>(() => {
+    if (!prepareNote || prepareDialog?.mode !== "edit") return prepareLiveBase;
+    return toMeetingPreparationLiveValue(prepareDraft, prepareNote);
+  }, [prepareDialog?.mode, prepareDraft, prepareLiveBase, prepareNote]);
+  const prepareLiveAdapter = useMemo<
+    LiveSaveAdapter<MeetingPreparationLiveDocument>
+  >(() => {
+    if (!prepareLiveNoteId) {
+      return emptyMeetingLiveAdapter<MeetingPreparationLiveDocument>();
+    }
+    return createContentSaveAdapter<MeetingPreparationLiveDocument>({
+      projectId,
+      domain: "meeting-note",
+      entityId: prepareLiveNoteId,
+      url: `/api/projects/${projectId}/meeting-notes/${prepareLiveNoteId}`,
+      buildPayload: (fields, intent) =>
+        buildPrepareLivePayload(
+          prepareDraft,
+          fields,
+          intent,
+          prepareRecoveryBase
+        ),
+      mapAccepted: (body) => {
+        if (!isRecord(body)) return null;
+        const note = readMeetingNotePanelNote(body.note);
+        if (!note) return null;
+        const representation = toMeetingPreparationLiveDocument(note);
+        return {
+          representation,
+          revision: representation.contentRevision,
+        };
+      },
+      mapConflict: (body) => {
+        if (!isRecord(body) || body.error !== "edit-conflict") return null;
+        const note = readMeetingNotePanelNote(body.current);
+        if (!note) return null;
+        const representation = toMeetingPreparationLiveDocument(note);
+        return {
+          representation,
+          revision: representation.contentRevision,
+        };
+      },
+    });
+  }, [prepareDraft, prepareLiveNoteId, prepareRecoveryBase, projectId]);
+  const applyPrepareLiveRepresentation = useCallback(
+    (representation: MeetingPreparationLiveDocument, fields: string[]) => {
+      const note = representation.note;
+      if (!note) return;
+      const canonical = buildPrepareDraftFromNote(note);
+      setPrepareDraft((current) => {
+        let next = current;
+        for (const field of fields) {
+          switch (field) {
+            case "title":
+              next = { ...next, title: canonical.title };
+              break;
+            case "scheduledAtLocal":
+              next = { ...next, scheduledAtLocal: canonical.scheduledAtLocal };
+              break;
+            case "participants":
+              next = { ...next, participants: canonical.participants };
+              break;
+            case "labels":
+              next = { ...next, labels: canonical.labels };
+              break;
+            case "inputNotes":
+              next = { ...next, inputNotes: canonical.inputNotes };
+              break;
+            default:
+              break;
+          }
+        }
+        return next;
+      });
+    },
+    []
+  );
+  const applyAcceptedMeetingNote = useCallback(
+    (acceptedNote: ProjectMeetingNotePanelNote) => {
+      setLocalNotes((current) =>
+        sortNotes(
+          current.map((note) =>
+            note.id === acceptedNote.id
+              ? mergeAcceptedMeetingNote(
+                  note,
+                  acceptedNote,
+                  pendingTodoActionIdsRef.current
+                )
+              : note
+          )
+        )
+      );
+    },
+    []
+  );
+  const handlePrepareLiveAccepted = useCallback(
+    (info: LiveSaveAcceptedInfo<MeetingPreparationLiveDocument>) => {
+      prepareLiveLastAcceptedRef.current = {
+        fullySynced: info.fullySynced,
+      };
+      const acceptedNote = info.representation.note;
+      if (!acceptedNote) return;
+      applyAcceptedMeetingNote(acceptedNote);
+      if (!info.fullySynced) return;
+      const pendingCommands = buildPrepareCommandPayload(
+        prepareDraft,
+        acceptedNote
+      );
+      if (Object.keys(pendingCommands).length > 0) return;
+      setPrepareRecoveryBaseNote(acceptedNote);
+      prepareRecoveryBaseAckRef.current = true;
+      prepareRecovery.saved(prepareDraft);
+    },
+    [applyAcceptedMeetingNote, prepareDraft, prepareRecovery]
+  );
+  const prepareLive = useLiveSave<MeetingPreparationLiveDocument>({
+    adapter: prepareLiveAdapter,
+    value: prepareLiveValue,
+    base: prepareLiveBase,
+    baseRevision: prepareLiveBase.contentRevision,
+    fields: MEETING_PREPARATION_LIVE_FIELDS,
+    fieldMeta: MEETING_PREPARATION_FIELD_META,
+    enabled:
+      canEdit &&
+      prepareLiveNoteId !== null &&
+      !prepareRecovery.conflict &&
+      isLiveSaveSurfaceEnabled("meeting-preparation"),
+    entityKey: prepareLiveNoteId,
+    validate: validateMeetingPreparationLiveDocument,
+    applyRepresentation: applyPrepareLiveRepresentation,
+    onAccepted: handlePrepareLiveAccepted,
+  });
+
+  const notesLiveNoteId = selectedNote?.id ?? null;
+  const notesLiveBase = useMemo<MeetingOutputLiveDocument>(
+    () =>
+      selectedNote
+        ? toMeetingOutputLiveDocument(selectedNote)
+        : EMPTY_MEETING_OUTPUT_DOCUMENT,
+    [selectedNote]
+  );
+  const notesLiveValue = useMemo<MeetingOutputLiveDocument>(() => {
+    if (!selectedNote) return notesLiveBase;
+    return toMeetingOutputLiveValue(notesDraft, selectedNote);
+  }, [notesDraft, notesLiveBase, selectedNote]);
+  const notesLiveAdapter = useMemo<LiveSaveAdapter<MeetingOutputLiveDocument>>(
+    () => {
+      if (!notesLiveNoteId) {
+        return emptyMeetingLiveAdapter<MeetingOutputLiveDocument>();
+      }
+      return createContentSaveAdapter<MeetingOutputLiveDocument>({
+        projectId,
+        domain: "meeting-note",
+        entityId: notesLiveNoteId,
+        url: `/api/projects/${projectId}/meeting-notes/${notesLiveNoteId}`,
+        buildPayload: (fields, intent) =>
+          buildOutputLivePayload(
+            notesDraft,
+            fields,
+            intent,
+            notesRecoveryBase
+          ),
+        mapAccepted: (body) => {
+          if (!isRecord(body)) return null;
+          const note = readMeetingNotePanelNote(body.note);
+          if (!note) return null;
+          const representation = toMeetingOutputLiveDocument(note);
+          return {
+            representation,
+            revision: representation.contentRevision,
+          };
+        },
+        mapConflict: (body) => {
+          if (!isRecord(body) || body.error !== "edit-conflict") return null;
+          const note = readMeetingNotePanelNote(body.current);
+          if (!note) return null;
+          const representation = toMeetingOutputLiveDocument(note);
+          return {
+            representation,
+            revision: representation.contentRevision,
+          };
+        },
+      });
+    },
+    [notesDraft, notesLiveNoteId, notesRecoveryBase, projectId]
+  );
+  const applyNotesLiveRepresentation = useCallback(
+    (representation: MeetingOutputLiveDocument, fields: string[]) => {
+      const note = representation.note;
+      if (!note) return;
+      const canonical = buildNotesDraftFromNote(note);
+      setNotesDraft((current) =>
+        fields.includes("outputNotes")
+          ? { ...current, outputNotes: canonical.outputNotes }
+          : current
+      );
+    },
+    []
+  );
+  const handleNotesLiveAccepted = useCallback(
+    (info: LiveSaveAcceptedInfo<MeetingOutputLiveDocument>) => {
+      notesLiveLastAcceptedRef.current = {
+        fullySynced: info.fullySynced,
+      };
+      const acceptedNote = info.representation.note;
+      if (!acceptedNote) return;
+      applyAcceptedMeetingNote(acceptedNote);
+      if (!info.fullySynced) return;
+      const pendingCommands = buildOutputCommandPayload(
+        notesDraft,
+        acceptedNote
+      );
+      if (Object.keys(pendingCommands).length > 0) return;
+      setNotesRecoveryBaseNote(acceptedNote);
+      notesRecoveryBaseAckRef.current = true;
+      notesRecovery.saved(notesDraft);
+    },
+    [applyAcceptedMeetingNote, notesDraft, notesRecovery]
+  );
+  const notesLive = useLiveSave<MeetingOutputLiveDocument>({
+    adapter: notesLiveAdapter,
+    value: notesLiveValue,
+    base: notesLiveBase,
+    baseRevision: notesLiveBase.contentRevision,
+    fields: MEETING_OUTPUT_LIVE_FIELDS,
+    fieldMeta: MEETING_OUTPUT_FIELD_META,
+    enabled:
+      canEdit &&
+      notesLiveNoteId !== null &&
+      !notesRecovery.conflict &&
+      isLiveSaveSurfaceEnabled("meeting-output"),
+    entityKey: notesLiveNoteId,
+    applyRepresentation: applyNotesLiveRepresentation,
+    onAccepted: handleNotesLiveAccepted,
+  });
+
   const savedParticipantKeys = useMemo(
     () =>
       new Set(
@@ -1294,6 +2092,7 @@ export function ProjectMeetingNotesPanel({
 
     notesRecovery.flush();
     resetPrepareDraft();
+    setPrepareRecoveryBaseNote(null);
     setPrepareDialog({ mode: "create", noteId: null });
     setIsExpanded(true);
   };
@@ -1304,6 +2103,8 @@ export function ProjectMeetingNotesPanel({
     }
 
     notesRecovery.flush();
+    setNotesRecoveryBaseNote(null);
+    setPrepareRecoveryBaseNote(note);
     setPrepareDraft(buildPrepareDraftFromNote(note));
     setDraftError(null);
     setPrepareDialog({ mode: "edit", noteId: note.id });
@@ -1315,12 +2116,25 @@ export function ProjectMeetingNotesPanel({
       return;
     }
 
-    const base = prepareNote ? buildPrepareDraftFromNote(prepareNote) : EMPTY_PREPARE_DRAFT;
+    if (prepareLive.snapshot.conflict) {
+      // The conflict review owns the next write; keep the local draft and let
+      // the user leave without forcing a stale save.
+      prepareRecovery.flush();
+      setPrepareRecoveryBaseNote(null);
+      setPrepareDialog(null);
+      resetPrepareDraft();
+      return;
+    }
+
+    const base = prepareRecoveryBase
+      ? buildPrepareDraftFromNote(prepareRecoveryBase)
+      : EMPTY_PREPARE_DRAFT;
     if (JSON.stringify(prepareDraft) !== JSON.stringify(base)) {
       void savePrepareDialog();
       return;
     }
     prepareRecovery.flush();
+    setPrepareRecoveryBaseNote(null);
     setPrepareDialog(null);
     resetPrepareDraft();
   };
@@ -1328,12 +2142,14 @@ export function ProjectMeetingNotesPanel({
   const openNoteDialog = (note: ProjectMeetingNotePanelNote) => {
     if (selectedNoteId === note.id) {
       notesRecovery.flush();
+      setNotesRecoveryBaseNote(null);
       setSelectedNoteId(null);
       setNotesDraft(EMPTY_NOTES_DRAFT);
       return;
     }
 
     notesRecovery.flush();
+    setNotesRecoveryBaseNote(note);
     setSelectedNoteId(note.id);
     setNotesDraft(buildNotesDraftFromNote(note));
     setDraftError(null);
@@ -1344,6 +2160,7 @@ export function ProjectMeetingNotesPanel({
     notesRecovery.flush();
     setListView(note.status === "done" ? "archived" : "active");
     setIsExpanded(true);
+    setNotesRecoveryBaseNote(note);
     setSelectedNoteId(note.id);
     setNotesDraft(buildNotesDraftFromNote(note));
     setDraftError(null);
@@ -1451,6 +2268,7 @@ export function ProjectMeetingNotesPanel({
               ? {
                   ...note,
                   status: serverNote.status,
+                  contentRevision: serverNote.contentRevision,
                   updatedAt: serverNote.updatedAt,
                   updatedBy: serverNote.updatedBy ?? note.updatedBy,
                   actions: note.actions.map((action) =>
@@ -1619,6 +2437,7 @@ export function ProjectMeetingNotesPanel({
     }
 
     notesRecovery.flush();
+    setNotesRecoveryBaseNote(null);
     setSelectedNoteId(null);
     setNotesDraft(EMPTY_NOTES_DRAFT);
     setDraftError(null);
@@ -1632,77 +2451,117 @@ export function ProjectMeetingNotesPanel({
       setDraftError("This preparation changed elsewhere. Review it before saving.");
       return;
     }
+    if (prepareLive.snapshot.conflict) {
+      setDraftError(
+        "This preparation changed elsewhere. Review the conflicting changes below."
+      );
+      return;
+    }
     const submittedDraft = prepareDraft;
 
-    const payload = {
-      ...(prepareNote ? buildBasePayload(prepareNote) : {}),
-      title: prepareDraft.title.trim(),
-      scheduledAt: fromDateTimeLocal(prepareDraft.scheduledAtLocal),
-      participants: buildParticipantPayload(prepareDraft.participants),
-      labels: prepareDraft.labels,
-      status: prepareNote?.status ?? "prepared",
-      visibility: prepareDraft.visibility,
-      inputNotes: coerceRichTextHtml(prepareDraft.inputNotes) ?? "",
-      outputNotes: prepareNote?.outputNotes ?? "",
-      decisions: prepareNote?.decisions ?? "",
-      actions: prepareNote?.actions ?? [],
-    };
+    if (prepareDialog.mode === "create") {
+      const payload = {
+        title: prepareDraft.title.trim(),
+        scheduledAt: fromDateTimeLocal(prepareDraft.scheduledAtLocal),
+        participants: buildParticipantPayload(prepareDraft.participants),
+        labels: prepareDraft.labels,
+        status: "prepared",
+        visibility: prepareDraft.visibility,
+        inputNotes: coerceRichTextHtml(prepareDraft.inputNotes) ?? "",
+        outputNotes: "",
+        decisions: "",
+        actions: [],
+      };
 
-    if (!payload.title) {
-      setDraftError("Meeting title is required.");
+      if (!payload.title) {
+        setDraftError("Meeting title is required.");
+        return;
+      }
+
+      setIsSaving(true);
+      setDraftError(null);
+
+      try {
+        const response = await fetchProjectActivityMutation(
+          projectId,
+          `/api/projects/${projectId}/meeting-notes`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          }
+        );
+
+        const responsePayload = (await response.json().catch(() => null)) as {
+          error?: string;
+          note?: ProjectMeetingNotePanelNote;
+        } | null;
+
+        if (!response.ok || !responsePayload?.note) {
+          throw new Error(
+            mapMeetingNoteError(responsePayload?.error ?? "unknown")
+          );
+        }
+
+        const savedNote = responsePayload.note;
+        prepareRecovery.saved(submittedDraft);
+        prepareRecovery.flush();
+        setLocalNotes((current) => sortNotes([savedNote, ...current]));
+        setPrepareRecoveryBaseNote(null);
+        setPrepareDialog(null);
+        resetPrepareDraft();
+        setSelectedNoteId(null);
+        pushToast({
+          variant: "success",
+          message: "Meeting prepared.",
+        });
+      } catch (error) {
+        setDraftError(
+          error instanceof Error ? error.message : "Could not save meeting note."
+        );
+      } finally {
+        setIsSaving(false);
+      }
       return;
     }
 
     setIsSaving(true);
     setDraftError(null);
+    prepareLiveLastAcceptedRef.current = null;
 
     try {
-      const response = await fetchProjectActivityMutation(
-        projectId,
-        prepareDialog.mode === "create"
-          ? `/api/projects/${projectId}/meeting-notes`
-          : `/api/projects/${projectId}/meeting-notes/${prepareDialog.noteId}`,
-        {
-          method: prepareDialog.mode === "create" ? "POST" : "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
+      // Explicit Save runs through the same guarded revision path as live
+      // save. Visibility (a command) is only attached here, never by a timer.
+      const commands = buildPrepareCommandPayload(
+        prepareDraft,
+        prepareRecoveryBase
       );
-
-      const responsePayload = (await response.json().catch(() => null)) as {
-        error?: string;
-        note?: ProjectMeetingNotePanelNote;
-      } | null;
-
-      if (!response.ok || !responsePayload?.note) {
-        throw new Error(
-          mapMeetingNoteError(responsePayload?.error ?? "unknown")
-        );
+      const outcome = await prepareLive.saveNow({
+        allowEmpty: Object.keys(commands).length > 0,
+      });
+      const message = meetingLiveSaveErrorMessage(outcome);
+      if (message !== null) {
+        setDraftError(message);
+        return;
       }
-
-      const savedNote = responsePayload.note;
+      const fullySynced =
+        outcome.status === "clean" ||
+        outcome.status === "adopted" ||
+        readMeetingLiveFullySynced(prepareLiveLastAcceptedRef);
+      if (!fullySynced) {
+        return;
+      }
       prepareRecovery.saved(submittedDraft);
       prepareRecovery.flush();
-      setLocalNotes((current) =>
-        sortNotes(
-          prepareDialog.mode === "create"
-            ? [savedNote, ...current]
-            : current.map((note) =>
-                note.id === savedNote.id ? savedNote : note
-              )
-        )
-      );
+      setPrepareRecoveryBaseNote(null);
       setPrepareDialog(null);
       resetPrepareDraft();
       setSelectedNoteId(null);
       pushToast({
         variant: "success",
-        message:
-          prepareDialog.mode === "create"
-            ? "Meeting prepared."
-            : "Meeting preparation saved.",
+        message: "Meeting preparation saved.",
       });
     } catch (error) {
       setDraftError(
@@ -1788,74 +2647,53 @@ export function ProjectMeetingNotesPanel({
       setDraftError("This note changed elsewhere. Review it before saving.");
       return;
     }
+    if (notesLive.snapshot.conflict) {
+      setDraftError(
+        "This note changed elsewhere. Review the conflicting changes below."
+      );
+      return;
+    }
     const submittedDraft = notesDraft;
-
-    const payload = {
-      ...buildBasePayload(selectedNote),
-      outputNotes: coerceRichTextHtml(notesDraft.outputNotes) ?? "",
-      status: notesDraft.status,
-      visibility: notesDraft.visibility,
-      actions: notesDraft.actions
-        .map((action) => ({
-          id: action.persisted ? action.id : null,
-          content: action.content.trim(),
-          completedAt: action.completedAt,
-          ...(action.assignee?.isAssignable === false
-            ? {}
-            : {
-                assignee: action.assignee
-                  ? { kind: action.assignee.kind, id: action.assignee.id }
-                  : null,
-              }),
-        }))
-        .filter((action) => action.content.length > 0),
-    };
 
     setIsSaving(true);
     setDraftError(null);
+    notesLiveLastAcceptedRef.current = null;
 
     try {
-      const response = await fetchProjectActivityMutation(
-        projectId,
-        `/api/projects/${projectId}/meeting-notes/${selectedNote.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
+      // Status changes (including Done/archive), visibility, and action-list
+      // edits stay explicit: they ride this guarded request, never a timer.
+      const commands = buildOutputCommandPayload(
+        notesDraft,
+        notesRecoveryBase
       );
-
-      const responsePayload = (await response.json().catch(() => null)) as {
-        error?: string;
-        note?: ProjectMeetingNotePanelNote;
-      } | null;
-
-      if (!response.ok || !responsePayload?.note) {
-        throw new Error(
-          mapMeetingNoteError(responsePayload?.error ?? "unknown")
-        );
+      const outcome = await notesLive.saveNow({
+        allowEmpty: Object.keys(commands).length > 0,
+      });
+      const message = meetingLiveSaveErrorMessage(outcome);
+      if (message !== null) {
+        setDraftError(message);
+        return;
       }
-
-      const savedNote = responsePayload.note;
+      const fullySynced =
+        outcome.status === "clean" ||
+        outcome.status === "adopted" ||
+        readMeetingLiveFullySynced(notesLiveLastAcceptedRef);
+      if (!fullySynced) {
+        return;
+      }
       notesRecovery.saved(submittedDraft);
       notesRecovery.flush();
-      setLocalNotes((current) =>
-        sortNotes(
-          current.map((note) => (note.id === savedNote.id ? savedNote : note))
-        )
-      );
+      setNotesRecoveryBaseNote(null);
       setSelectedNoteId(null);
       setNotesDraft(EMPTY_NOTES_DRAFT);
       setDraftError(null);
-      if (savedNote.status === "done") {
+      if (submittedDraft.status === "done") {
         setListView("archived");
       }
       pushToast({
         variant: "success",
         message:
-          savedNote.status === "done"
+          submittedDraft.status === "done"
             ? "Meeting note archived."
             : "Meeting note saved.",
       });
@@ -1863,6 +2701,89 @@ export function ProjectMeetingNotesPanel({
       setDraftError(
         error instanceof Error ? error.message : "Could not save meeting notes."
       );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePrepareLiveConflictResolve = async (
+    choices: Record<string, "local" | "latest">
+  ) => {
+    if (!prepareDialog || isSaving) {
+      return;
+    }
+    setIsSaving(true);
+    setDraftError(null);
+    prepareLiveLastAcceptedRef.current = null;
+    try {
+      const outcome = await prepareLive.resolveConflict(choices);
+      const message = meetingLiveSaveErrorMessage(outcome);
+      if (message !== null) {
+        setDraftError(message);
+        pushToast({ variant: "error", message });
+        return;
+      }
+      const fullySynced =
+        outcome.status === "clean" ||
+        outcome.status === "adopted" ||
+        readMeetingLiveFullySynced(prepareLiveLastAcceptedRef);
+      if (!fullySynced) {
+        return;
+      }
+      prepareRecovery.flush();
+      setPrepareRecoveryBaseNote(null);
+      setPrepareDialog(null);
+      resetPrepareDraft();
+      setSelectedNoteId(null);
+      pushToast({
+        variant: "success",
+        message: "Meeting preparation saved.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleNotesLiveConflictResolve = async (
+    choices: Record<string, "local" | "latest">
+  ) => {
+    if (!selectedNote || isSaving) {
+      return;
+    }
+    setIsSaving(true);
+    setDraftError(null);
+    notesLiveLastAcceptedRef.current = null;
+    try {
+      const outcome = await notesLive.resolveConflict(choices);
+      const message = meetingLiveSaveErrorMessage(outcome);
+      if (message !== null) {
+        setDraftError(message);
+        pushToast({ variant: "error", message });
+        return;
+      }
+      const fullySynced =
+        outcome.status === "clean" ||
+        outcome.status === "adopted" ||
+        readMeetingLiveFullySynced(notesLiveLastAcceptedRef);
+      if (!fullySynced) {
+        return;
+      }
+      const savedStatus = notesDraft.status;
+      notesRecovery.flush();
+      setNotesRecoveryBaseNote(null);
+      setSelectedNoteId(null);
+      setNotesDraft(EMPTY_NOTES_DRAFT);
+      setDraftError(null);
+      if (savedStatus === "done") {
+        setListView("archived");
+      }
+      pushToast({
+        variant: "success",
+        message:
+          savedStatus === "done"
+            ? "Meeting note archived."
+            : "Meeting note saved.",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -2299,7 +3220,11 @@ export function ProjectMeetingNotesPanel({
               <Button
                 type="button"
                 onClick={() => void savePrepareDialog()}
-                disabled={isSaving}
+                disabled={
+                  isSaving ||
+                  prepareRecovery.conflict ||
+                  prepareLive.snapshot.conflict !== null
+                }
               >
                 {isSaving ? "Saving..." : "Save preparation"}
               </Button>
@@ -2314,6 +3239,19 @@ export function ProjectMeetingNotesPanel({
                   Use my changes
                 </Button>
               </div>
+            ) : null}
+            {prepareDialog.mode === "edit" ? (
+              <LiveSaveStatus snapshot={prepareLive.snapshot} />
+            ) : null}
+            {prepareDialog.mode === "edit" && prepareLive.snapshot.conflict ? (
+              <ConflictReview
+                conflict={prepareLive.snapshot.conflict}
+                fieldMeta={MEETING_PREPARATION_FIELD_META}
+                pending={isSaving}
+                onResolve={(choices) =>
+                  void handlePrepareLiveConflictResolve(choices)
+                }
+              />
             ) : null}
             <div className="grid gap-2">
               <label htmlFor="meeting-title" className="text-sm font-medium">
@@ -2598,7 +3536,11 @@ export function ProjectMeetingNotesPanel({
                 <Button
                   type="button"
                   onClick={() => void saveNotesDialog()}
-                  disabled={isSaving}
+                  disabled={
+                    isSaving ||
+                    notesRecovery.conflict ||
+                    notesLive.snapshot.conflict !== null
+                  }
                 >
                   {isSaving ? "Saving..." : "Save notes"}
                 </Button>
@@ -2614,6 +3556,15 @@ export function ProjectMeetingNotesPanel({
                   Use my changes
                 </Button>
               </div>
+            ) : null}
+            {canEdit ? <LiveSaveStatus snapshot={notesLive.snapshot} /> : null}
+            {canEdit && notesLive.snapshot.conflict ? (
+              <ConflictReview
+                conflict={notesLive.snapshot.conflict}
+                fieldMeta={MEETING_OUTPUT_FIELD_META}
+                pending={isSaving}
+                onResolve={(choices) => void handleNotesLiveConflictResolve(choices)}
+              />
             ) : null}
             <div className="flex flex-wrap items-center gap-2">
               <Badge

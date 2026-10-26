@@ -192,7 +192,7 @@ export interface MeetingNoteStewardInput {
 
 export interface ProjectMeetingNoteSummary {
   id: string;
-  contentRevision?: number;
+  contentRevision: number;
   projectId: string;
   title: string;
   scheduledAt: Date | null;

@@ -18,6 +18,7 @@ function createTask(
   return {
     id,
     reference: "ND-1",
+    contentRevision: 1,
     title,
     description: null,
     deadlineDate: null,

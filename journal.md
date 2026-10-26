@@ -3,6 +3,33 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-26 - ND-433: Live-save surfaces for task details and meetings
+
+- Integrated task detail edits plus meeting preparation and output with the
+  shared `useLiveSave` scheduler from ND-433. Timed autosaves stay off
+  (`LIVE_SAVE_ENABLED_SURFACES` is empty); the explicit Save button now runs
+  through the same guarded revision path, attaching explicit-only commands
+  (assignment, relations, follow-up entries, meeting visibility, status, and
+  action lists) only on that save or on an explicit conflict-resolution write.
+- Added a transport-only `createContentSaveAdapter` helper for ND-565
+  conditional PATCHes: strong ETag in `x-content-if-match`, mutation-intent
+  header, project-activity acknowledgement, and mapping for 412/401/403/404/
+  400/422/5xx/offline/abort. Comments remain an explicit POST-only surface.
+- Recovery baselines are decoupled from the live record: they advance only when
+  the draft is clean or an acknowledgement fully synced, and conflict review
+  disables Save until resolved. Command payloads are diffed against the draft's
+  starting base so untouched fields are never resent over concurrent changes.
+  Meeting action commands use a material JSON diff and preserve other actors'
+  todo completions in accepted representations.
+- Explicit save supports command-only writes through `saveNow({ allowEmpty })`;
+  retries continue to use the autosave intent so commands never ride a timer.
+- Validation: full lint, rls:check, `npm test` (2140 passed, 2 skipped),
+  coverage thresholds, production build with `REALTIME_TRANSPORT=polling`, and
+  `release:check` all green locally (CI will re-run on the PR).
+- Remaining gates are server-owned: service-validated autosave intent,
+  coalesced activity/invalidation, and agent v1/v2 migration. Live flags stay
+  empty and ND-433 stays In Progress until those contracts land.
+
 # 2026-10-24 - ND-618: Dependency Security fail-closed and alerting
 
 - All 14 scheduled runs from 2026-07-27 through 2026-10-19 failed on real

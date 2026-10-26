@@ -18,6 +18,7 @@ export interface ProjectMeetingNotePanelAction {
 
 export interface ProjectMeetingNotePanelNote {
   id: string;
+  contentRevision: number;
   projectId: string;
   title: string;
   scheduledAt: string | null;

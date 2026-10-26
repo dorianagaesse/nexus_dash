@@ -285,12 +285,19 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
 
   /**
    * Explicit save: cancels timers, validates, and sends immediately through
-   * the same conditional path. During a conflict it keeps every local value as
+   * the same conditional path. It remains available while the surface's Live
+   * gate is off, because the explicit button is the user's trusted save path
+   * and must already carry the revision precondition. Timed autosaves stay
+   * disabled in that state. During a conflict it keeps every local value as
    * one guarded write against the displayed latest revision; it never
    * overwrites unconditionally.
+   *
+   * `allowEmpty` lets a surface flush explicit-only commands (assignment,
+   * follow-up entries, status, todos) through the same guarded request when no
+   * live-content field is dirty.
    */
-  async saveNow(): Promise<LiveSaveOutcome<F>> {
-    if (this.destroyed || !this.enabled) return { status: "disabled" };
+  async saveNow(options?: { allowEmpty?: boolean }): Promise<LiveSaveOutcome<F>> {
+    if (this.destroyed) return { status: "disabled" };
     if (this.conflict) {
       const choices: Record<string, LiveSaveConflictChoice> = {};
       for (const field of this.conflict.conflictingFields) choices[field] = "local";
@@ -303,7 +310,7 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
     this.retryAt = null;
     this.serverInvalidMessage = null;
     this.clearSendTimer();
-    return this.attemptSend("explicit");
+    return this.attemptSend("explicit", { allowEmpty: options?.allowEmpty });
   }
 
   /**
@@ -484,15 +491,19 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
       fields?: string[];
       submittedValue?: F;
       allowAutoRebase?: boolean;
+      allowEmpty?: boolean;
     }
   ): Promise<LiveSaveOutcome<F>> {
-    if (this.destroyed || !this.enabled) return { status: "disabled" };
+    if (this.destroyed) return { status: "disabled" };
+    // The gate suppresses timed autosaves only; an explicit Save still uses
+    // the same guarded adapter while Live is disabled.
+    if (!this.enabled && intent !== "explicit") return { status: "disabled" };
     if (this.inFlight) return { status: "busy" };
     if (this.conflict) return { status: "conflict" };
     if (this.goneBlocked) return { status: "gone" };
     const value = override?.submittedValue ?? this.effectiveValue();
     const fields = override?.fields ?? this.dirtyFields(value);
-    if (fields.length === 0) return { status: "clean" };
+    if (fields.length === 0 && !override?.allowEmpty) return { status: "clean" };
     if (!this.online && intent !== "explicit") return { status: "offline" };
     const invalid = this.validationMessage(value);
     if (invalid !== null) {
