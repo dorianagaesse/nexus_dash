@@ -2,13 +2,18 @@ import {
   DragDropContext,
   Draggable,
   Droppable,
+  type DragStart,
+  type DragUpdate,
+  type DraggableLocation,
   type DropResult,
 } from "@hello-pangea/dnd";
 import {
   memo,
+  useCallback,
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
@@ -108,6 +113,13 @@ interface KanbanColumnsGridProps {
   relatedTaskGraph: Map<string, string[]>;
   isFiltering: boolean;
   onDragEnd: (result: DropResult) => void;
+  // Keyboard (SNAP mode) drops confirm on Space, but the library only reports
+  // the drop after its transitionend, so the board also receives the drop
+  // intent as soon as the key is pressed to start persisting early.
+  onKeyboardDropIntent: (
+    source: DraggableLocation,
+    destination: DraggableLocation
+  ) => void;
   onSelectTask: (task: KanbanTask) => void;
   onEditTask: (task: KanbanTask) => void;
 }
@@ -130,6 +142,7 @@ export const KanbanColumnsGrid = memo(function KanbanColumnsGrid({
   relatedTaskGraph,
   isFiltering,
   onDragEnd,
+  onKeyboardDropIntent,
   onSelectTask,
   onEditTask,
 }: KanbanColumnsGridProps) {
@@ -169,17 +182,92 @@ export const KanbanColumnsGrid = memo(function KanbanColumnsGrid({
     setMobileLaneState({ activeStatus: status, focusDirection });
   }
 
+  // Latest-ref indirection keeps the drag responders below referentially
+  // stable, so re-rendering the grid never re-renders all mounted draggables.
+  const onDragEndRef = useRef(onDragEnd);
+  const onKeyboardDropIntentRef = useRef(onKeyboardDropIntent);
+  useEffect(() => {
+    onDragEndRef.current = onDragEnd;
+    onKeyboardDropIntentRef.current = onKeyboardDropIntent;
+  }, [onDragEnd, onKeyboardDropIntent]);
+
+  const keyboardDragRef = useRef<{
+    source: DraggableLocation;
+    destination: DraggableLocation | null;
+    intentPassed: boolean;
+  } | null>(null);
+
+  const handleDragStart = useCallback((start: DragStart) => {
+    keyboardDragRef.current =
+      start.mode === "SNAP"
+        ? {
+            source: start.source,
+            destination: start.source,
+            intentPassed: false,
+          }
+        : null;
+  }, []);
+
+  const handleDragUpdate = useCallback((update: DragUpdate) => {
+    const current = keyboardDragRef.current;
+    if (current) {
+      current.destination = update.destination;
+    }
+  }, []);
+
+  const handleDragEnd = useCallback((result: DropResult) => {
+    keyboardDragRef.current = null;
+    onDragEndRef.current(result);
+  }, []);
+
+  const handleGridKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== " ") {
+        return;
+      }
+
+      const current = keyboardDragRef.current;
+      if (!current || current.intentPassed || !current.destination) {
+        return;
+      }
+
+      const target = event.target;
+      if (
+        !(target instanceof HTMLElement) ||
+        !target.closest("[data-kanban-task-card]")
+      ) {
+        return;
+      }
+
+      const { source, destination } = current;
+      if (
+        source.droppableId === destination.droppableId &&
+        source.index === destination.index
+      ) {
+        return;
+      }
+
+      current.intentPassed = true;
+      onKeyboardDropIntentRef.current(source, destination);
+    },
+    []
+  );
+
   const activeMobileTaskCount =
     columns[activeMobileStatus].length +
     (activeMobileStatus === "Done" ? archivedDoneTasks.length : 0);
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
+    <DragDropContext
+      onDragEnd={handleDragEnd}
+      onDragStart={handleDragStart}
+      onDragUpdate={handleDragUpdate}
+    >
       <p className="sr-only xl:hidden" aria-live="polite" aria-atomic="true">
         Showing {activeMobileStatus} list, {activeMobileTaskCount}{" "}
         {activeMobileTaskCount === 1 ? "task" : "tasks"}
       </p>
-      <div className="grid gap-4 xl:grid-cols-4">
+      <div className="grid gap-4 xl:grid-cols-4" onKeyDown={handleGridKeyDown}>
         {TASK_STATUSES.map((status, index) => {
           const previousStatus = TASK_STATUSES[index - 1] ?? null;
           const nextStatus = TASK_STATUSES[index + 1] ?? null;
@@ -494,10 +582,6 @@ const MemoizedTaskCard = memo(function MemoizedTaskCard({
       isDragDisabled={!canEdit}
     >
       {(draggableProvided, draggableSnapshot) => {
-        const epicColor = task.epic
-          ? getEpicColorFromName(task.epic.name)
-          : null;
-
         return (
           <article
             ref={draggableProvided.innerRef}
@@ -543,131 +627,155 @@ const MemoizedTaskCard = memo(function MemoizedTaskCard({
               onEditTask(task);
             }}
           >
-            <div className="mb-2 flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1 space-y-1">
-                <TaskCardReference reference={task.reference} />
-                <h3 className="text-sm font-medium leading-snug [overflow-wrap:anywhere] line-clamp-2">
-                  {task.title}
-                </h3>
-              </div>
-              <div className="flex items-center gap-1">
-                {status === "Blocked" ? (
-                  <span
-                    className="rounded-sm p-1 text-amber-500"
-                    aria-label="Blocked task"
-                    title="Blocked task"
-                  >
-                    <TriangleAlert className="h-4 w-4" />
-                  </span>
-                ) : null}
-                {canEdit ? (
-                  <span
-                    className="rounded-sm p-1 text-muted-foreground"
-                    aria-label="Drag task"
-                    title="Drag task"
-                  >
-                    <GripVertical className="h-4 w-4" />
-                  </span>
-                ) : null}
-              </div>
-            </div>
-
-            <TaskCardIndicators task={task} className="-mt-1 mb-2" />
-
-            {task.description ? (
-              <p className="break-words text-xs text-muted-foreground">
-                {renderContentWithMentions(
-                  getDescriptionPreview(task.description),
-                  {
-                    mentionUsers,
-                  }
-                )}
-              </p>
-            ) : null}
-
-            {task.epic && epicColor ? (
-              <div className="mt-3">
-                <span
-                  className="inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium"
-                  style={{
-                    backgroundColor: epicColor.soft,
-                    borderColor: epicColor.border,
-                    color: epicColor.accent,
-                  }}
-                  title={task.epic.name}
-                >
-                  <Flag className="h-3 w-3" />
-                  <span className="truncate">{task.epic.name}</span>
-                </span>
-              </div>
-            ) : null}
-
-            {task.assignee ? (
-              <div
-                className={cn(
-                  "mt-3 flex items-center gap-2 rounded-full border px-2 py-1 text-xs",
-                  task.assignee.isAssignable
-                    ? "border-border/60 bg-background/70 text-muted-foreground"
-                    : "border-amber-500/45 bg-amber-500/[0.08] text-amber-700 dark:text-amber-300"
-                )}
-                title={task.assignee.usernameTag ?? task.assignee.displayName}
-              >
-                {task.assignee.kind === "agent" ? (
-                  <AgentAvatar
-                    displayName={task.assignee.displayName}
-                    className="h-5 w-5"
-                    decorative
-                  />
-                ) : task.assignee.avatarSeed ? (
-                  <UserAvatar
-                    avatarSeed={task.assignee.avatarSeed}
-                    displayName={task.assignee.displayName}
-                    className="h-5 w-5 border-border/70"
-                    decorative
-                  />
-                ) : (
-                  <span
-                    aria-hidden
-                    className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border/60 bg-primary/10 text-[10px] font-semibold text-primary"
-                  >
-                    {task.assignee.displayName.trim().charAt(0).toUpperCase() ||
-                      "?"}
-                  </span>
-                )}
-                <span className="truncate">{task.assignee.displayName}</span>
-                {task.assignee.kind === "agent" ? (
-                  <span className="shrink-0 text-[10px] text-muted-foreground">
-                    agent
-                  </span>
-                ) : null}
-                {!task.assignee.isAssignable ? (
-                  <TriangleAlert
-                    aria-label="Needs reassignment"
-                    className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-300"
-                  />
-                ) : null}
-              </div>
-            ) : null}
-
-            {task.labels.length > 0 ? (
-              <div className="mt-3 flex flex-wrap gap-1">
-                {task.labels.map((label) => (
-                  <span
-                    key={label}
-                    className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium text-slate-900"
-                    style={{
-                      backgroundColor: getTaskLabelColor(label),
-                    }}
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
-            ) : null}
+            <MemoizedTaskCardContent
+              task={task}
+              status={status}
+              canEdit={canEdit}
+              mentionUsers={mentionUsers}
+            />
           </article>
         );
       }}
     </Draggable>
+  );
+});
+
+// Card content is referentially memoized on its own so the drag library's
+// render-prop re-renders (and every grid re-render) reuse the same subtree
+// instead of rebuilding up to hundreds of card bodies per interaction.
+const MemoizedTaskCardContent = memo(function MemoizedTaskCardContent({
+  task,
+  status,
+  canEdit,
+  mentionUsers,
+}: {
+  task: KanbanTask;
+  status: TaskStatus;
+  canEdit: boolean;
+  mentionUsers: ProjectTaskCollaborator[];
+}) {
+  const epicColor = task.epic ? getEpicColorFromName(task.epic.name) : null;
+
+  return (
+    <>
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1 space-y-1">
+          <TaskCardReference reference={task.reference} />
+          <h3 className="text-sm font-medium leading-snug [overflow-wrap:anywhere] line-clamp-2">
+            {task.title}
+          </h3>
+        </div>
+        <div className="flex items-center gap-1">
+          {status === "Blocked" ? (
+            <span
+              className="rounded-sm p-1 text-amber-500"
+              aria-label="Blocked task"
+              title="Blocked task"
+            >
+              <TriangleAlert className="h-4 w-4" />
+            </span>
+          ) : null}
+          {canEdit ? (
+            <span
+              className="rounded-sm p-1 text-muted-foreground"
+              aria-label="Drag task"
+              title="Drag task"
+            >
+              <GripVertical className="h-4 w-4" />
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <TaskCardIndicators task={task} className="-mt-1 mb-2" />
+
+      {task.description ? (
+        <p className="break-words text-xs text-muted-foreground">
+          {renderContentWithMentions(getDescriptionPreview(task.description), {
+            mentionUsers,
+          })}
+        </p>
+      ) : null}
+
+      {task.epic && epicColor ? (
+        <div className="mt-3">
+          <span
+            className="inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium"
+            style={{
+              backgroundColor: epicColor.soft,
+              borderColor: epicColor.border,
+              color: epicColor.accent,
+            }}
+            title={task.epic.name}
+          >
+            <Flag className="h-3 w-3" />
+            <span className="truncate">{task.epic.name}</span>
+          </span>
+        </div>
+      ) : null}
+
+      {task.assignee ? (
+        <div
+          className={cn(
+            "mt-3 flex items-center gap-2 rounded-full border px-2 py-1 text-xs",
+            task.assignee.isAssignable
+              ? "border-border/60 bg-background/70 text-muted-foreground"
+              : "border-amber-500/45 bg-amber-500/[0.08] text-amber-700 dark:text-amber-300"
+          )}
+          title={task.assignee.usernameTag ?? task.assignee.displayName}
+        >
+          {task.assignee.kind === "agent" ? (
+            <AgentAvatar
+              displayName={task.assignee.displayName}
+              className="h-5 w-5"
+              decorative
+            />
+          ) : task.assignee.avatarSeed ? (
+            <UserAvatar
+              avatarSeed={task.assignee.avatarSeed}
+              displayName={task.assignee.displayName}
+              className="h-5 w-5 border-border/70"
+              decorative
+            />
+          ) : (
+            <span
+              aria-hidden
+              className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border/60 bg-primary/10 text-[10px] font-semibold text-primary"
+            >
+              {task.assignee.displayName.trim().charAt(0).toUpperCase() || "?"}
+            </span>
+          )}
+          <span className="truncate">{task.assignee.displayName}</span>
+          {task.assignee.kind === "agent" ? (
+            <span className="shrink-0 text-[10px] text-muted-foreground">
+              agent
+            </span>
+          ) : null}
+          {!task.assignee.isAssignable ? (
+            <TriangleAlert
+              aria-label="Needs reassignment"
+              className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-300"
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {task.labels.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-1">
+          {task.labels.map((label) => (
+            <span
+              key={label}
+              className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium text-slate-900"
+              style={{
+                backgroundColor: getTaskLabelColor(label),
+              }}
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </>
   );
 });
 

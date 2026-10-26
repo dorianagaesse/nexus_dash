@@ -99,6 +99,7 @@ describe("KanbanBoardSection task attribution", () => {
       canEdit: true,
       storageProvider: "local",
       collaborators: [],
+      activityVersion: "2026-09-06T11:00:00.000Z",
     });
     const props = element.props as {
       initialTasks: KanbanTask[];
@@ -207,6 +208,7 @@ describe("KanbanBoardSection task attribution", () => {
       canEdit: true,
       storageProvider: "local",
       collaborators: [],
+      activityVersion: "2026-09-06T11:00:00.000Z",
     });
     const props = element.props as {
       initialTasks: KanbanTask[];
@@ -275,6 +277,7 @@ describe("KanbanBoardSection task attribution", () => {
       canEdit: true,
       storageProvider: "local",
       collaborators: [],
+      activityVersion: "2026-09-06T11:00:00.000Z",
     });
     const props = element.props as {
       epics: Array<Record<string, unknown>>;
