@@ -3,6 +3,29 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-26 - ND-431: Per-card DOM reduction for remaining p95 targets
+
+- Focused follow-up on `nd431-p95-followup`, stacked on PR #598. CDP profiles
+  showed the remaining interaction costs scaled with mounted card count: the
+  grip rendered a lucide `GripVertical` SVG with six `<circle>` nodes per
+  editable card, and the card header nested two wrapper elements per card.
+- The grip is now one span painted from a CSS mask in `app/globals.css` with
+  the same six-dot shape and existing aria/title semantics; the header stacks
+  reference/title directly and positions the grip and Blocked badge
+  absolutely. Closed-archive fixture DOM fell 5,248 -> 3,128 (-40%); project
+  HTML fell 988,598 -> 858,116 bytes.
+- Four ND-430 runs (20 post-warm-up samples each) versus the a045626 run:
+  navigation p95 426.7 -> 285.9-393.4, modal 147.6 -> 121.1-167.6, lift 94.2
+  -> 61.5-85.0, release 233.6 -> 181.2-203.9, dispatch 140.3 -> 96.7-106.1,
+  HTTP 54.2 -> 47.8-69.7, remote 16.8 -> 15.5-18.6. Primary run (control nav
+  256.3): 305.6 / 121.1 / 73.2 / 187.6 / 96.7 / 62.5 / 18.6.
+- Dispatch p50 is now 75-84 ms, at the Playwright round-trip floor; remaining
+  lift/dispatch variance is the drag library's re-render wave across the 240
+  mounted draggables, owned by ND-543. ND-431 stays In Progress.
+- Validation: lint, rls:check, tests (2147 passed, 2 skipped), coverage
+  93.64/86.03/95.7/95.01, build, full Chromium E2E (119 passed, 2 skipped,
+  5.1 min), diff-check.
+
 # 2026-10-24 - ND-618: Dependency Security fail-closed and alerting
 
 - All 14 scheduled runs from 2026-07-27 through 2026-10-19 failed on real
