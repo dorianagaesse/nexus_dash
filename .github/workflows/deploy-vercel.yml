@@ -109,7 +109,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
+          check-latest: true
           cache: npm
 
       - name: Resolve app metadata
@@ -300,7 +301,8 @@ jobs:
         if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' || inputs.action == 'promote' }}
         uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
+          check-latest: true
           cache: npm
 
       - name: Resolve app metadata
@@ -491,6 +493,10 @@ jobs:
           }
           if (actualRevision !== expectedRevision) {
             throw new Error("Deployed application revision does not match the checked-out git ref.");
+          }
+          const nodeMajor = Number(readiness.runtime?.node?.replace(/^v/, "").split(".")[0]);
+          if (nodeMajor !== 24) {
+            throw new Error(`Deployed runtime must be Node 24, received ${readiness.runtime?.node ?? "unknown"}.`);
           }
 
           console.log(`Verified preview runtime ${actualRevision} and database readiness.`);

@@ -3,6 +3,38 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-24 - ND-618: Dependency Security fail-closed and alerting
+
+- All 14 scheduled runs from 2026-07-27 through 2026-10-19 failed on real
+  production findings, not scanner errors; the latest run (39265962690) reported
+  7 high/critical production vulnerabilities. ND-616 cleared the production tree.
+- Added `scripts/check-npm-audit.mjs`: missing, empty, malformed, or npm
+  error-payload JSON exits 2 with a distinct `Scanner error: ... Failing closed`
+  message; high/critical production findings exit 1; full-tree findings stay
+  informational.
+- The workflow opens or updates the `Dependency Security scan failing` issue with
+  the failure type and run link, and the next green run comments on and closes it.
+  Alert jobs use `issues: write`; audit JSON, status, and stderr diagnostics are
+  uploaded on every run.
+- Runbook documents the failure classes and alert lifecycle.
+- Validation: lint, rls:check, tests (2120 passed, 2 skipped), coverage, build,
+  and 8 new script tests green locally.
+
+# 2026-10-24 - ND-617: Clear dev-tooling audit findings (ND-613)
+
+- Current main after ND-616 reported 13 high and 3 moderate findings, all in dev
+  tooling: eslint -> minimatch/brace-expansion, eslintrc -> js-yaml,
+  jsdom -> undici, vitest -> vite/@vitest/mocker, and react-hooks -> zod.
+- Patched within existing ranges: brace-expansion 1.1.21/5.0.12, js-yaml 4.3.2,
+  undici 7.30.1, vite 8.3.5, and zod 4.6.7 overrides, plus vitest and
+  @vitest/coverage-v8 4.1.12.
+- `npm audit` and `npm audit --omit=dev` now report 0 vulnerabilities.
+- Major upgrades assessed but not needed for audit hygiene: eslint 10 is accepted
+  by the current eslint-config-next and typescript-eslint peer ranges but changes
+  config/plugin behavior; vitest 5 is a new major. Both are deferred to separate
+  work.
+- Validation: lint, rls:check, tests (2112 passed, 2 skipped), coverage, build.
+
 # 2026-10-22 - ND-431: Review round 5 - newer per-task lane authority
 
 - Round-5 P1: the round-4 complete-board restore stamped every payload task
@@ -33,6 +65,62 @@ Use it for important implementation milestones, blockers, validation runs, and r
   quiet-environment rerun and structural follow-up tracked by ND-543; ND-431
   stays In Progress and this PR merges as partial progress.
 
+# 2026-10-22 - ND-539: Private/team visibility toggle for meeting notes
+
+- Card `cmusy8e0n000w04l0pry2ao7r`: added creator-controlled meeting note
+  visibility (`private` by default for new notes, `team` for project-shared
+  notes) with SQL migration `20261022010000_nd539_meeting_note_visibility`
+  backfilling existing notes to `'team'`.
+- Enforced visibility in both service and PostgreSQL RLS layers:
+  - Added optional `actorKind?: "human" | "agent"` to `withActorRlsContext`
+    (`app.actor_kind` transaction-local config) and `app.is_human_actor()` in
+    SQL so owner-attributed agent bearer tokens cannot read or mutate private
+    notes owned by the project owner.
+  - Updated `ProjectMeetingNote`, `ProjectMeetingNoteParticipant`,
+    `ProjectMeetingNoteAction`, and `ProjectMeetingNoteActionAssigneeChange`
+    RLS policies plus the `meeting_note_visibility_guard` trigger and
+    `app.resolve_project_actor_responsibilities` offboarding function.
+  - Restricted private notes and their todos/outputs/history to the human
+    creator across `project-meeting-note-service`, `project-meeting-todo-service`,
+    `my-work-service`, `project-agent-attention-service`,
+    `project-notification-email-service`, `project-offboarding-service`, and
+    `project-service` summary counts. Suppressed `ProjectActivityEvent` and
+    `touchProjectActivity` on private-only note mutations while emitting when a
+    note is `'team'` or transitions between `'private'` and `'team'`.
+- Added the lock/unlocked visibility badge and toggle (`private` in grey,
+  `public` in blue) to meeting note cards, the Prepare meeting dialog, and the
+  Note detail dialog (interactive for the creator, read-only for other members).
+- Validated with `npm run lint`, `npm run rls:check`, `npm run test:rls`,
+  `npm test`, `npm run test:coverage`, `npm run build`, and Playwright E2E
+  (`tests/e2e/nd-539-meeting-note-visibility.spec.ts`).
+
+# 2026-10-23 - ND-615: Move runtime to patched Node 24 (ND-613)
+
+- Node 20 is end-of-life and misses the 21 Oct 2026 security release (Brotli decoder
+  RCE CVE-2026-111497, TLS/DNS fixes; patched 24.22.1). Production builds ran on
+  Node 20.20.2 in CI; the deployed Vercel runtime was not evidenced.
+- `.node-version` 24.22.1, Docker `node:24.22.1-bookworm`, `engines.node` 24.x, and
+  Node 24 in the quality-gates, deploy, and dependency-security workflows.
+- `/api/health/ready` now reports `runtime.node`; the preview deploy validation fails
+  unless the deployed runtime is Node 24.
+- Preview run 39868280206 on 86f7754 reported `runtime.node` v24.21.0 (Vercel-managed runtime) and
+  the runner resolved Node 24.21.0, both below the patched 24.22.1. Workflows now use
+  `check-latest: true`; the Vercel runtime patch level must be re-checked after promotion.
+- Production promotion must be verified against `runtime.node` on the live URL.
+# 2026-10-22 - ND-616: Patch production dependency advisories (ND-613)
+
+- Live production serves `fa46f3d` (2 Oct); `6ebda43` is staged, not promoted. Both lock
+  Next.js 16.2.7. `npm audit --omit=dev` on `main` reported 1 critical, 6 high,
+  1 moderate.
+- Upgraded `next`/`eslint-config-next` 16.4.2, `prisma`/`@prisma/client`/
+  `@prisma/adapter-pg` 7.10.1 (clears `@prisma/config` -> `deepmerge-ts` and `mysql2`),
+  `sanitize-html` 2.18.1, and the `next` -> `postcss` override to 8.5.31.
+  `npm audit --omit=dev`: 0 vulnerabilities.
+- Next 16.4 type-checks all tsconfig includes at build, which surfaced ~190 existing
+  test-file type errors. Added `tsconfig.build.json` (excludes tests) via
+  `typescript.tsconfigPath`; test typing is left as follow-up work.
+- Validation: lint, rls:check, tests (2112 passed), coverage, build, migrations, RLS matrix,
+  and Playwright e2e (118 passed, 2 skipped) all green locally.
 # 2026-10-20 - ND-375: Unblock production staging builds
 
 - Auto-staged and manual `deploy-production-staged` builds have failed since
@@ -10378,3 +10466,16 @@ Low-value entries to avoid going forward:
   clicked the background task card after reload, although the task URL had
   already reopened the modal. Updated it to assert the reopened modal before
   continuing; retained the restored-draft, discard, and quota-error assertions.
+
+## 2026-10-24 ? ND-539 Codex takeover
+
+- Continued Gemini PR #617 and preserved its unfinished todo visibility work. Updated the board criteria to reflect the user correction: todos are project-visible while private meeting content remains creator-only.
+- Moved the visibility lock immediately left of the dialog close button, removed the extra field, and retained explicit save behavior.
+- Restored project todo discovery, My Work, assigned-agent feeds, reminders, completion/reassignment and offboarding across private meetings; redacted private note titles/content in shared responses. Added an additive RLS migration and coverage for shared todo writes without private content edits.
+- PostgreSQL isolation matrix passed against a fresh local database with the realtime stub installed before migrations. Coverage passed: 2,119 tests, 93.64% statements, 95.01% lines. Build and RLS inventory passed; final browser and unit checks continue below.
+
+### ND-539 final verification
+
+- Integrated current `origin/main` through merge commit `37a0c40` after the repository rejected history rewriting; preserved both execution logs. The initial preview failed its newly required Node 24 health contract on the older branch. Replacement workflow [40035776622](https://github.com/dorianagaesse/nexus_dash/actions/runs/40035776622) succeeded and its checkout log confirms `37a0c403a6afed8dbbf336e085bc1725d9445440`. Preview: https://nexus-dash-4dacgpkr4-dorian-agaesses-projects.vercel.app.
+- Local lint, RLS inventory, 2,119 unit/API/component tests, coverage (93.64% statements / 95.01% lines), build, and PostgreSQL matrix passed. The broad local browser run passed 119 checks (two intentional skips); final-implementation GitHub quality, E2E and RLS jobs passed in [40035762869](https://github.com/dorianagaesse/nexus_dash/actions/runs/40035762869). The two-account test covers private todo discovery, completion, redacted responses, and the desktop/mobile lock placement.
+- Inspected desktop/mobile captures and ran the Impeccable detector with no findings. The optional standalone `tsc --noEmit` includes legacy tests with route-param and read-only `NODE_ENV` typing errors; the configured production build type-check passes. Copilot review was requested, but no review response had returned at handoff preparation.

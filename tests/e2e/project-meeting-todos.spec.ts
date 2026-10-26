@@ -104,6 +104,7 @@ async function createProjectTodoFixture(userId: string) {
         create: {
           title: viewerMeetingTitle,
           scheduledAt: new Date(),
+          visibility: "team",
           participants: {
             create: {
               displayName: "Camille",

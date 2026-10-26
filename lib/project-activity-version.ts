@@ -6,10 +6,12 @@ function toVersionString(version: Date): string {
 
 export function withProjectActivityVersionHeader(
   headers: HeadersInit = {},
-  version = new Date()
+  version: Date | null = new Date()
 ): Headers {
   const nextHeaders = new Headers(headers);
-  nextHeaders.set(PROJECT_ACTIVITY_VERSION_HEADER, toVersionString(version));
+  if (version) {
+    nextHeaders.set(PROJECT_ACTIVITY_VERSION_HEADER, toVersionString(version));
+  }
   return nextHeaders;
 }
 

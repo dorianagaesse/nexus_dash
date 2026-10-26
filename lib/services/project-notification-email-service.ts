@@ -934,7 +934,8 @@ async function findMeetingTodoOverdueReminderCandidates(input: {
         action."id" AS "actionId",
         action."content" AS "actionContent",
         note."id" AS "meetingNoteId",
-        note."title" AS "meetingTitle",
+        CASE WHEN note."visibility" = 'private' AND note."createdByUserId" IS DISTINCT FROM ${input.recipientUserId}
+          THEN 'Private meeting' ELSE note."title" END AS "meetingTitle",
         note."scheduledAt" AS "scheduledAt",
         project."id" AS "projectId",
         project."name" AS "projectName",

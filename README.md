@@ -58,11 +58,11 @@ Implemented today:
 
 ### 1. Prerequisites
 
-- Node.js 20.19+ (v20), 22.13+ (v22), or 24+
+- Node.js 24.x (24.22.1+; Node 20 is end-of-life)
 - npm
 - PostgreSQL database (local Docker Compose service or remote)
 
-The repo pins the local Node baseline in `.node-version` as `20.19.0`.
+The repo pins the local Node baseline in `.node-version` as `24.22.1`.
 
 ### 2. Environment
 
@@ -592,3 +592,12 @@ Copilot repair-lane prerequisite:
 Claude Code v2.1.277+ loads `AGENTS.md` by default when no project
 `CLAUDE.md` is present; older versions need a `CLAUDE.md` import. See the
 [Claude Code project-instructions documentation](https://code.claude.com/docs/en/memory).
+
+### Meeting note visibility
+
+New meeting notes are private to their creator. Use the lock immediately left of
+the dialog close button to switch between Private and Team, then save as usual.
+Only the creator can change visibility. Team notes are shared with project members
+and agents. Todos remain project-visible even when their meeting is private;
+project editors can complete and reassign them. Private note text, participants,
+labels and titles are not revealed through shared todo views or mutation responses.

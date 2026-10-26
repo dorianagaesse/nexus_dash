@@ -140,19 +140,22 @@ export async function PATCH(
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  const version = await recordProjectActivityEventVersion({
-    actorUserId: principal.actorUserId,
-    projectId: params.projectId,
-    domain: "meeting-note",
-    action: "updated",
-    entityId: result.data.note.id,
-    payload: {
-      noteId: result.data.note.id,
-      actionId: params.actionId,
-      actorCredentialId:
-        principal.kind === "agent" ? principal.credentialId : null,
-    },
-  });
+  const version =
+    result.data.note.visibility === "private"
+      ? new Date()
+      : await recordProjectActivityEventVersion({
+          actorUserId: principal.actorUserId,
+          projectId: params.projectId,
+          domain: "meeting-note",
+          action: "updated",
+          entityId: result.data.note.id,
+          payload: {
+            noteId: result.data.note.id,
+            actionId: params.actionId,
+            actorCredentialId:
+              principal.kind === "agent" ? principal.credentialId : null,
+          },
+        });
 
   return NextResponse.json(
     { note: serializeMeetingNote(result.data.note) },

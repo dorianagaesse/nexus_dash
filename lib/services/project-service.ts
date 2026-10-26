@@ -575,6 +575,14 @@ export async function getProjectSummaryById(
         where: {
           projectId,
           project: principalWhere,
+          ...(agentAccess
+            ? { visibility: "team" }
+            : {
+                OR: [
+                  { visibility: "team" },
+                  { createdByUserId: normalizedActorUserId },
+                ],
+              }),
         },
       }),
       db.taskAttachment.count({
