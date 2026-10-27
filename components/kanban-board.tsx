@@ -413,11 +413,7 @@ function readRemoteTaskPayload(
   }
 
   const task = activity.payload.task as Partial<TaskMutationResponseTask>;
-  if (
-    typeof task.id !== "string" ||
-    typeof task.status !== "string" ||
-    typeof task.contentRevision !== "number"
-  ) {
+  if (typeof task.id !== "string" || typeof task.status !== "string") {
     return null;
   }
 
