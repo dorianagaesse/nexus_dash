@@ -64,8 +64,14 @@ export interface LiveSaveController<F extends Record<string, unknown>> {
    * when no live-content field is dirty.
    */
   saveNow: (options?: { allowEmpty?: boolean }) => Promise<LiveSaveOutcome<F>>;
+  /**
+   * Resolve a conflict with the per-field choices. `allowEmpty` flushes
+   * explicit-only commands (save/archive/assignment) through one guarded write
+   * even when the resolution writes no content field itself.
+   */
   resolveConflict: (
-    choices: Record<string, LiveSaveConflictChoice>
+    choices: Record<string, LiveSaveConflictChoice>,
+    options?: { allowEmpty?: boolean }
   ) => Promise<LiveSaveOutcome<F>>;
 }
 
@@ -188,8 +194,10 @@ export function useLiveSave<F extends Record<string, unknown>>(
     [scheduler]
   );
   const resolveConflict = useCallback(
-    (choices: Record<string, LiveSaveConflictChoice>) =>
-      scheduler.resolveConflict(choices),
+    (
+      choices: Record<string, LiveSaveConflictChoice>,
+      conflictOptions?: { allowEmpty?: boolean }
+    ) => scheduler.resolveConflict(choices, conflictOptions),
     [scheduler]
   );
 

@@ -106,10 +106,13 @@ import { createRelatedTaskMap } from "@/lib/task-related";
 import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 import { MAX_TASK_TITLE_LENGTH } from "@/lib/task-title";
 import {
-  hasProjectActorChanged,
   type ProjectActorReference,
   type ProjectActorSummary,
 } from "@/lib/project-actor";
+import {
+  buildTaskCommandPayload,
+  remainingTaskCommands,
+} from "@/components/kanban-board-task-commands";
 
 export type { KanbanTask } from "@/components/kanban-board-types";
 
@@ -395,39 +398,6 @@ function readTaskLiveFullySynced(ref: {
   current: { fullySynced: boolean } | null;
 }): boolean {
   return ref.current?.fullySynced ?? true;
-}
-
-function sameStringSet(left: string[], right: string[]): boolean {
-  if (left.length !== right.length) return false;
-  const sortedLeft = [...left].sort();
-  const sortedRight = [...right].sort();
-  return sortedLeft.every((value, index) => value === sortedRight[index]);
-}
-
-/**
- * Explicit-only commands. Assignment, relation, and follow-up writes never go
- * through a timed autosave, but explicit Save sends them in the same guarded
- * request as the dirty content fields.
- */
-function buildTaskCommandPayload(
-  task: KanbanTask,
-  assignee: ProjectActorReference | null,
-  relatedTasks: TaskRelatedSummary[],
-  followUpEntry: string
-): Record<string, unknown> {
-  const payload: Record<string, unknown> = {};
-  if (hasProjectActorChanged(task.assignee, assignee)) {
-    payload.assignee = assignee;
-  }
-  const relatedTaskIds = relatedTasks.map((relatedTask) => relatedTask.id);
-  if (!sameStringSet(task.relatedTasks.map((relatedTask) => relatedTask.id), relatedTaskIds)) {
-    payload.relatedTaskIds = relatedTaskIds;
-  }
-  const entry = followUpEntry.trim();
-  if (entry) {
-    payload.blockedFollowUpEntry = entry;
-  }
-  return payload;
 }
 
 function readRemoteTaskPayload(
@@ -1722,10 +1692,13 @@ export function KanbanBoard({
           payload.epicId = fields.epicId || null;
         }
         if (intent === "explicit") {
+          // Commands diff against the draft's starting base, not the board's
+          // latest copy: an untouched field must never be resent just because
+          // another actor changed it while this draft was open.
           Object.assign(
             payload,
             buildTaskCommandPayload(
-              task,
+              taskRecoveryBase ?? task,
               editAssignee,
               editRelatedTasks,
               newBlockedFollowUpEntry
@@ -1755,6 +1728,7 @@ export function KanbanBoard({
     newBlockedFollowUpEntry,
     projectId,
     selectedTask,
+    taskRecoveryBase,
   ]);
 
   const applyTaskLiveRepresentation = useCallback(
@@ -1786,7 +1760,6 @@ export function KanbanBoard({
 
   const handleTaskLiveAccepted = useCallback(
     (info: LiveSaveAcceptedInfo<TaskLiveSaveDocument>) => {
-      taskLiveLastAcceptedRef.current = { fullySynced: info.fullySynced };
       const submittedEntry = taskLiveSubmittedEntryRef.current;
       if (submittedEntry !== null) {
         taskLiveSubmittedEntryRef.current = null;
@@ -1796,25 +1769,35 @@ export function KanbanBoard({
       }
 
       const acceptedTask = info.representation.task;
-      if (!acceptedTask) return;
+      if (!acceptedTask) {
+        taskLiveLastAcceptedRef.current = { fullySynced: info.fullySynced };
+        return;
+      }
       applyTaskToBoard(acceptedTask);
       void reconcileProjectEpicsAfterTaskMutation(projectId, selectedTask, acceptedTask);
 
-      if (!info.fullySynced) return;
-      setTaskRecoveryBaseTask(acceptedTask);
-      taskRecoveryBaseAckRef.current = true;
       const pendingEntry = submittedEntry === null
         ? newBlockedFollowUpEntry.trim()
         : newBlockedFollowUpEntry.trim() === submittedEntry
           ? ""
           : newBlockedFollowUpEntry.trim();
-      const pendingCommands = buildTaskCommandPayload(
+      const pendingCommands = remainingTaskCommands(
+        taskRecoveryBase,
         acceptedTask,
         editAssignee,
         editRelatedTasks,
         pendingEntry
       );
-      if (Object.keys(pendingCommands).length === 0) {
+      // An accepted content write never counts as full success while an
+      // explicit-only command (assignee, relations, follow-up) is still
+      // awaiting the server's acknowledgement.
+      const fullySynced =
+        info.fullySynced && Object.keys(pendingCommands).length === 0;
+      taskLiveLastAcceptedRef.current = { fullySynced };
+      if (!info.fullySynced) return;
+      setTaskRecoveryBaseTask(acceptedTask);
+      taskRecoveryBaseAckRef.current = true;
+      if (fullySynced) {
         taskEditRecovery.saved(taskEditRecoveryValue);
       }
     },
@@ -1827,6 +1810,7 @@ export function KanbanBoard({
       selectedTask,
       taskEditRecovery,
       taskEditRecoveryValue,
+      taskRecoveryBase,
     ]
   );
 
@@ -2400,7 +2384,7 @@ export function KanbanBoard({
         // Commands (assignment, relations, follow-up entries) are only
         // attached here or in the conflict resolution write, never by a timer.
         const commands = buildTaskCommandPayload(
-          selectedTask,
+          taskRecoveryBase ?? selectedTask,
           editAssignee,
           editRelatedTasks,
           newBlockedFollowUpEntry
@@ -2420,7 +2404,9 @@ export function KanbanBoard({
         if (options?.exitEditMode !== false && fullySynced) {
           setIsEditMode(false);
         }
-        return true;
+        // Commands that did not land stay pending; callers must not report a
+        // successful save or leave edit mode for partially rejected work.
+        return fullySynced;
       } catch (error) {
         console.error("[KanbanBoard.persistTaskChanges]", error);
         setTaskModalError(
@@ -2442,6 +2428,7 @@ export function KanbanBoard({
       selectedTask,
       taskEditRecovery.conflict,
       taskLive,
+      taskRecoveryBase,
     ]
   );
 
@@ -2535,19 +2522,32 @@ export function KanbanBoard({
       taskLiveLastAcceptedRef.current = null;
       recordSubmittedFollowUpEntry(newBlockedFollowUpEntry.trim() || null);
       try {
-        const outcome = await taskLive.resolveConflict(choices);
+        // Assignment, relations, and follow-up commands must survive conflict
+        // adoption, so an outstanding command still performs one guarded write
+        // even when the resolution itself writes no content.
+        const commands = buildTaskCommandPayload(
+          taskRecoveryBase ?? selectedTask,
+          editAssignee,
+          editRelatedTasks,
+          newBlockedFollowUpEntry
+        );
+        const outcome = await taskLive.resolveConflict(choices, {
+          allowEmpty: Object.keys(commands).length > 0,
+        });
         const message = taskLiveSaveErrorMessage(outcome);
         if (message !== null) {
           setTaskModalError(message);
           pushToast({ variant: "error", message });
           return;
         }
-        pushToast({ variant: "success", message: "Task saved." });
         const fullySynced =
           outcome.status === "clean" ||
           outcome.status === "adopted" ||
           readTaskLiveFullySynced(taskLiveLastAcceptedRef);
+        // Rejected or still-pending commands keep the editor open and never
+        // surface a success toast.
         if (fullySynced) {
+          pushToast({ variant: "success", message: "Task saved." });
           setIsEditMode(false);
         }
       } finally {
@@ -2557,11 +2557,14 @@ export function KanbanBoard({
     },
     [
       canEdit,
+      editAssignee,
+      editRelatedTasks,
       newBlockedFollowUpEntry,
       pushToast,
       recordSubmittedFollowUpEntry,
       selectedTask,
       taskLive,
+      taskRecoveryBase,
     ]
   );
 

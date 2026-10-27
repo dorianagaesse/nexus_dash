@@ -913,6 +913,77 @@ function buildOutputLivePayload(
   return payload;
 }
 
+function actionCommandReflected(
+  command: MeetingActionCommandEntry[],
+  acceptedActions: ProjectMeetingNotePanelNote["actions"]
+): boolean {
+  const accepted = acceptedActions.map((action) =>
+    buildMeetingActionCommandEntry({
+      id: action.id,
+      content: action.content,
+      completedAt: action.completedAt,
+      assignee: action.assignee ?? null,
+    })
+  );
+  const used = new Set<number>();
+  for (const entry of command) {
+    const index = accepted.findIndex((candidate, candidateIndex) => {
+      if (used.has(candidateIndex)) return false;
+      // A todo created in this draft has no id yet; the server assigns one, so
+      // the accepted entry must match on content instead of identity.
+      if (entry.id !== null && candidate.id !== entry.id) return false;
+      return (
+        entry.content === candidate.content &&
+        entry.completedAt === candidate.completedAt &&
+        JSON.stringify(entry.assignee ?? null) ===
+          JSON.stringify(candidate.assignee ?? null)
+      );
+    });
+    if (index === -1) return false;
+    used.add(index);
+  }
+  return true;
+}
+
+// A command is still pending after an acknowledgement only when it was a
+// local intent against the draft's starting base and the accepted note does
+// not already reflect it. Diffing the draft against the accepted note would
+// resurrect a remote-only change as a phantom local edit, and raw id compare
+// would keep a newly created todo pending forever once the server assigns it
+// an id.
+function meetingCommandReflected(
+  key: string,
+  command: unknown,
+  acceptedNote: ProjectMeetingNotePanelNote
+): boolean {
+  switch (key) {
+    case "status":
+      return normalizedNotesStatus(acceptedNote.status) === command;
+    case "visibility":
+      return resolveNoteVisibility(acceptedNote) === command;
+    case "actions":
+      return (
+        Array.isArray(command) &&
+        actionCommandReflected(command as MeetingActionCommandEntry[], acceptedNote.actions)
+      );
+    default:
+      return false;
+  }
+}
+
+function remainingMeetingCommands(
+  buildForBase: (base: ProjectMeetingNotePanelNote) => Record<string, unknown>,
+  startingBase: ProjectMeetingNotePanelNote | null,
+  acceptedNote: ProjectMeetingNotePanelNote
+): Record<string, unknown> {
+  if (!startingBase) return {};
+  const pending: Record<string, unknown> = {};
+  for (const [key, command] of Object.entries(buildForBase(startingBase))) {
+    if (!meetingCommandReflected(key, command, acceptedNote)) pending[key] = command;
+  }
+  return pending;
+}
+
 function MeetingVisibilityBadge({
   visibility,
   className,
@@ -1860,23 +1931,30 @@ export function ProjectMeetingNotesPanel({
   );
   const handlePrepareLiveAccepted = useCallback(
     (info: LiveSaveAcceptedInfo<MeetingPreparationLiveDocument>) => {
-      prepareLiveLastAcceptedRef.current = {
-        fullySynced: info.fullySynced,
-      };
       const acceptedNote = info.representation.note;
       if (!acceptedNote) return;
       applyAcceptedMeetingNote(acceptedNote);
-      if (!info.fullySynced) return;
-      const pendingCommands = buildPrepareCommandPayload(
-        prepareDraft,
+      const pendingCommands = remainingMeetingCommands(
+        (baseNote) => buildPrepareCommandPayload(prepareDraft, baseNote),
+        prepareRecoveryBase,
         acceptedNote
       );
-      if (Object.keys(pendingCommands).length > 0) return;
+      // An acceptance covering only content never counts as full success
+      // while an explicit-only command is still unsent.
+      const fullySynced =
+        info.fullySynced && Object.keys(pendingCommands).length === 0;
+      prepareLiveLastAcceptedRef.current = { fullySynced };
+      if (!fullySynced) return;
       setPrepareRecoveryBaseNote(acceptedNote);
       prepareRecoveryBaseAckRef.current = true;
       prepareRecovery.saved(prepareDraft);
     },
-    [applyAcceptedMeetingNote, prepareDraft, prepareRecovery]
+    [
+      applyAcceptedMeetingNote,
+      prepareDraft,
+      prepareRecovery,
+      prepareRecoveryBase,
+    ]
   );
   const prepareLive = useLiveSave<MeetingPreparationLiveDocument>({
     adapter: prepareLiveAdapter,
@@ -1964,23 +2042,25 @@ export function ProjectMeetingNotesPanel({
   );
   const handleNotesLiveAccepted = useCallback(
     (info: LiveSaveAcceptedInfo<MeetingOutputLiveDocument>) => {
-      notesLiveLastAcceptedRef.current = {
-        fullySynced: info.fullySynced,
-      };
       const acceptedNote = info.representation.note;
       if (!acceptedNote) return;
       applyAcceptedMeetingNote(acceptedNote);
-      if (!info.fullySynced) return;
-      const pendingCommands = buildOutputCommandPayload(
-        notesDraft,
+      const pendingCommands = remainingMeetingCommands(
+        (baseNote) => buildOutputCommandPayload(notesDraft, baseNote),
+        notesRecoveryBase,
         acceptedNote
       );
-      if (Object.keys(pendingCommands).length > 0) return;
+      // Status/archive, visibility, and action commands stay pending until the
+      // acknowledgement proves the server applied them.
+      const fullySynced =
+        info.fullySynced && Object.keys(pendingCommands).length === 0;
+      notesLiveLastAcceptedRef.current = { fullySynced };
+      if (!fullySynced) return;
       setNotesRecoveryBaseNote(acceptedNote);
       notesRecoveryBaseAckRef.current = true;
       notesRecovery.saved(notesDraft);
     },
-    [applyAcceptedMeetingNote, notesDraft, notesRecovery]
+    [applyAcceptedMeetingNote, notesDraft, notesRecovery, notesRecoveryBase]
   );
   const notesLive = useLiveSave<MeetingOutputLiveDocument>({
     adapter: notesLiveAdapter,
@@ -2716,7 +2796,15 @@ export function ProjectMeetingNotesPanel({
     setDraftError(null);
     prepareLiveLastAcceptedRef.current = null;
     try {
-      const outcome = await prepareLive.resolveConflict(choices);
+      // Resolving a conflict must never drop a pending visibility command: if
+      // one is outstanding, the resolution still performs one guarded write.
+      const commands = buildPrepareCommandPayload(
+        prepareDraft,
+        prepareRecoveryBase
+      );
+      const outcome = await prepareLive.resolveConflict(choices, {
+        allowEmpty: Object.keys(commands).length > 0,
+      });
       const message = meetingLiveSaveErrorMessage(outcome);
       if (message !== null) {
         setDraftError(message);
@@ -2754,7 +2842,13 @@ export function ProjectMeetingNotesPanel({
     setDraftError(null);
     notesLiveLastAcceptedRef.current = null;
     try {
-      const outcome = await notesLive.resolveConflict(choices);
+      // Status (including Done/archive), visibility, and action commands stay
+      // explicit and must survive conflict adoption, so they ride this
+      // guarded write even when the resolution itself writes no content.
+      const commands = buildOutputCommandPayload(notesDraft, notesRecoveryBase);
+      const outcome = await notesLive.resolveConflict(choices, {
+        allowEmpty: Object.keys(commands).length > 0,
+      });
       const message = meetingLiveSaveErrorMessage(outcome);
       if (message !== null) {
         setDraftError(message);

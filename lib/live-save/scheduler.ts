@@ -193,6 +193,10 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
       this.emit();
       return;
     }
+    // Each remote base advance is a fresh comparison, not a retry loop: a
+    // previous attempt already spent its one auto-rebase, but a later disjoint
+    // remote event may still rebase cleanly.
+    this.autoRebaseUsed = false;
     this.handleServerChange(base, revision, { allowAutoRebase: true });
   }
 
@@ -301,7 +305,7 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
     if (this.conflict) {
       const choices: Record<string, LiveSaveConflictChoice> = {};
       for (const field of this.conflict.conflictingFields) choices[field] = "local";
-      return this.resolveConflict(choices);
+      return this.resolveConflict(choices, options);
     }
     if (this.goneBlocked) return { status: "gone" };
     this.authPaused = false;
@@ -317,9 +321,16 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
    * Apply per-field choices. Local values win for `local`; `latest` adopts the
    * server value. Remaining differences are submitted as one conditional write
    * against the displayed latest revision.
+   *
+   * `allowEmpty` keeps an explicit-only command (save/archive/assignment) in
+   * flight when the resolution itself writes no content field: the adapter
+   * still needs one guarded request to carry those commands. Without it a
+   * pure adoption would acknowledge the conflict while the command silently
+   * never reaches the server.
    */
   async resolveConflict(
-    choices: Record<string, LiveSaveConflictChoice>
+    choices: Record<string, LiveSaveConflictChoice>,
+    options?: { allowEmpty?: boolean }
   ): Promise<LiveSaveOutcome<F>> {
     if (this.destroyed) return { status: "disabled" };
     const conflict = this.conflict;
@@ -358,7 +369,7 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
     this.autoRebaseUsed = false;
     this.clearSendTimer();
 
-    if (writeFields.length === 0) {
+    if (writeFields.length === 0 && !options?.allowEmpty) {
       // The server already holds the merged representation; no write is sent,
       // but the surface baseline must still advance to it.
       this.opts.onAccepted?.({
@@ -374,6 +385,7 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
       fields: writeFields,
       submittedValue: merged,
       allowAutoRebase: false,
+      allowEmpty: options?.allowEmpty,
     });
   }
 
@@ -607,9 +619,14 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
         });
         if (this.conflict === null) {
           // Disjoint server changes were rebased; retry once against the new
-          // revision instead of waiting for the next timer.
+          // revision instead of waiting for the next timer. `allowEmpty` must
+          // survive the rebase: an explicit save that was flushing commands
+          // alone still has to reach the server after the retry.
           this.clearSendTimer();
-          return this.attemptSend(intent, { allowAutoRebase: false });
+          return this.attemptSend(intent, {
+            allowAutoRebase: false,
+            allowEmpty: override?.allowEmpty,
+          });
         }
         return { status: "conflict" };
       case "invalid":
@@ -661,16 +678,20 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
     revision: LiveSaveRevision,
     options: { allowAutoRebase: boolean }
   ): void {
-    const changedLocally = this.changedFields(
-      this.effectiveValue(),
-      this.acceptedBase
-    );
+    const local = this.effectiveValue();
+    const changedLocally = this.changedFields(local, this.acceptedBase);
     const changedOnServer = this.changedFields(
       representation,
       this.acceptedBase
     );
-    const conflictingFields = changedOnServer.filter((field) =>
-      changedLocally.includes(field)
+    // Both sides touching a field is only a conflict when they actually
+    // disagree. Two actors setting the same value (for example adding the same
+    // relation) must rebase; demanding a review for identical values would
+    // stall Save behind a distinction the user cannot see.
+    const conflictingFields = changedOnServer.filter(
+      (field) =>
+        changedLocally.includes(field) &&
+        !this.equal(local[field], representation[field], field)
     );
     if (
       options.allowAutoRebase &&
@@ -722,8 +743,10 @@ export class LiveSaveScheduler<F extends Record<string, unknown>> {
       latestRevision,
       changedLocally,
       changedOnServer,
-      conflictingFields: changedOnServer.filter((field) =>
-        changedLocally.includes(field)
+      conflictingFields: changedOnServer.filter(
+        (field) =>
+          changedLocally.includes(field) &&
+          !this.equal(local[field], latest[field], field)
       ),
     };
   }
