@@ -23,7 +23,6 @@ import {
   ChevronRight,
   Clock3,
   Flag,
-  GripVertical,
   Link2,
   MessageSquare,
   Paperclip,
@@ -658,33 +657,39 @@ const MemoizedTaskCardContent = memo(function MemoizedTaskCardContent({
 
   return (
     <>
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1 space-y-1">
-          <TaskCardReference reference={task.reference} />
-          <h3 className="text-sm font-medium leading-snug [overflow-wrap:anywhere] line-clamp-2">
-            {task.title}
-          </h3>
-        </div>
-        <div className="flex items-center gap-1">
-          {status === "Blocked" ? (
-            <span
-              className="rounded-sm p-1 text-amber-500"
-              aria-label="Blocked task"
-              title="Blocked task"
-            >
-              <TriangleAlert className="h-4 w-4" />
-            </span>
-          ) : null}
-          {canEdit ? (
-            <span
-              className="rounded-sm p-1 text-muted-foreground"
-              aria-label="Drag task"
-              title="Drag task"
-            >
-              <GripVertical className="h-4 w-4" />
-            </span>
-          ) : null}
-        </div>
+      <div
+        className={cn(
+          "relative mb-2",
+          status === "Blocked" && canEdit
+            ? "pr-14"
+            : status === "Blocked" || canEdit
+              ? "pr-7"
+              : undefined
+        )}
+      >
+        <TaskCardReference reference={task.reference} />
+        <h3 className="mt-1 text-sm font-medium leading-snug [overflow-wrap:anywhere] line-clamp-2">
+          {task.title}
+        </h3>
+        {status === "Blocked" ? (
+          <span
+            className={cn(
+              "absolute top-0 rounded-sm p-1 text-amber-500",
+              canEdit ? "right-7" : "right-0"
+            )}
+            aria-label="Blocked task"
+            title="Blocked task"
+          >
+            <TriangleAlert className="h-4 w-4" />
+          </span>
+        ) : null}
+        {canEdit ? (
+          <span
+            className="task-card-grip absolute right-0 top-0 h-6 w-6 text-muted-foreground"
+            aria-label="Drag task"
+            title="Drag task"
+          />
+        ) : null}
       </div>
 
       <TaskCardIndicators task={task} className="-mt-1 mb-2" />

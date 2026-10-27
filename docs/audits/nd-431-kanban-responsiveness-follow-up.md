@@ -1,7 +1,8 @@
 # ND-431 Kanban responsiveness follow-up
 
 Date: 2026-10-08 (first pass), 2026-10-11 (second pass), 2026-10-12,
-2026-10-14, 2026-10-16, 2026-10-20, and 2026-10-22 (review fixes)
+2026-10-14, 2026-10-16, 2026-10-20, and 2026-10-22 (review fixes),
+2026-10-26 (third performance pass)
 
 The ND-430 fixture was run against the merged audit baseline and this branch
 using the same production build, local PostgreSQL 16, Chromium, and Windows
@@ -288,3 +289,59 @@ the older-version case guards against over-preservation. The reviewer's
 `kanban-newer-status-review.test.tsx` repro passes, and the earlier cross-lane,
 partial-rename, insertion/deletion, full-order-version, and
 late-acknowledgement cases pass unchanged.
+
+## Third performance pass (2026-10-26): per-card DOM reduction
+
+The remaining gap after the merge-forward round was concentrated in costs that
+scale with the mounted card count. CDP profiles of the fixture showed two
+per-card costs: the grip rendered a lucide `GripVertical` SVG with six
+`<circle>` nodes per editable card, and the card header added two nested
+wrapper elements per card. The 240-card fixture mounted 5,248 DOM elements.
+
+Changes on `nd431-p95-followup` (stacked on the ND-431 branch):
+
+- The drag grip is now a single span painted from a CSS mask
+  (`.task-card-grip` in `app/globals.css`), keeping the six-dot shape and the
+  span's `aria-label`/`title` without the SVG. This removes 1,680 elements
+  from the fixture board.
+- The card header stacks the reference and title directly and positions the
+  grip and Blocked badge absolutely against the header; the title and icon
+  wrapper divs are gone. This removes two more elements per card.
+
+Closed-archive fixture DOM fell from 5,248 to 3,128 elements (-40%), and the
+server-rendered project HTML fell from 988,598 to 858,116 bytes because the
+mask replaces per-card SVG markup. Card reference/title spacing, title
+clamping, the Blocked badge, and drag-label semantics are unchanged; the
+component and keyboard-reconcile suites pass unmodified.
+
+Four runs on the usual machine (240 active + 60 archived tasks, two warm-ups
+plus 20 measured samples, 12-task control) measured p95. All four finished in
+31-34 s, inside the established 75 s quiescence gate; control-board navigation
+p95 brackets them at 256.3-288.0 ms.
+
+| Metric, p95 ms | Pre-change clean run | Post-change range (4 runs) | ND-431 target |
+| --- | ---: | ---: | ---: |
+| Navigation to 240 cards | 426.7 | 285.9 - 393.4 | 350 |
+| Task detail open | 147.6 | 121.1 - 167.6 | 130 |
+| Keyboard drag lift | 94.2 | 61.5 - 85.0 | 70 |
+| Drop key to settled card | 233.6 | 181.2 - 203.9 | 200 |
+| Drop key to reorder request | 140.3 | 96.7 - 106.1 | 100 |
+| Reorder HTTP duration | 54.2 | 47.8 - 69.7 | 100 |
+| Typed remote comment event to painted card | 16.8 | 15.5 - 18.6 | 60 |
+
+The pre-change column is the `a045626` merge-forward run, whose control-board
+navigation p95 was 273.7 ms. The primary run (control nav 256.3, 32 s) reads navigation
+305.6, modal 121.1, lift 73.2, release 187.6, dispatch 96.7, HTTP 62.5, and
+remote 18.6. Against the pre-change run that is -28% navigation, -18% modal,
+-22% lift, -20% release, and -31% dispatch. Reorder HTTP and the typed remote
+metric stay inside target with margin in every run.
+
+Reorder dispatch moved from 140.3 to 96.7 - 106.1 p95, with p50 at 75 - 84 ms
+in every run, so the in-page keypress-to-request leg is now at the harness's
+Playwright round-trip floor; its remaining board-size share is the drag
+library's store-change re-render wave across all mounted draggables, the same
+cost visible in lift. In the primary run navigation has 44 ms of headroom,
+release 12 ms, and modal 9 ms; lift (73.2) and dispatch (96.7) are at the
+target boundary and cross it on the noisiest runs. The structural remainder
+stays with ND-543 (fewer mounted draggables and a leaner reorder route);
+ND-431 remains In Progress.
