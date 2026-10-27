@@ -29,6 +29,7 @@ type ServiceResult<T extends Record<string, unknown>> =
 
 interface GoogleCalendarApiEvent {
   id?: string;
+  etag?: string;
   status?: string;
   summary?: string;
   location?: string;
@@ -46,6 +47,8 @@ interface GoogleCalendarApiEvent {
 
 export interface CalendarEventResponseItem {
   id: string;
+  /** Google ETag; the conditional-write precondition for event edits. */
+  etag?: string;
   summary: string;
   start: string;
   end: string | null;
@@ -78,6 +81,8 @@ interface UpsertEventRequestPayload {
   location?: string;
   description?: string;
   calendarSourceId?: string;
+  /** Provider revision captured when the edit draft was started. */
+  expectedEtag?: string;
 }
 
 function createError(
@@ -163,6 +168,7 @@ function normalizeGoogleEvent(
 
   return {
     id: event.id,
+    ...(typeof event.etag === "string" && event.etag ? { etag: event.etag } : {}),
     summary: event.summary?.trim() || "(No title)",
     start,
     end,
@@ -269,6 +275,7 @@ function parseUpsertEventPayload(
     location?: unknown;
     description?: unknown;
     calendarSourceId?: unknown;
+    expectedEtag?: unknown;
   };
 
   const summary =
@@ -292,6 +299,11 @@ function parseUpsertEventPayload(
     typeof payload.calendarSourceId === "string"
       ? payload.calendarSourceId.trim()
       : "";
+  const expectedEtag =
+    typeof payload.expectedEtag === "string" ? payload.expectedEtag.trim() : "";
+  if (expectedEtag.length > 512) {
+    return { ok: false, error: "invalid-precondition" };
+  }
 
   if (isAllDay) {
     if (!isDateOnly(start) || !isDateOnly(end)) {
@@ -323,6 +335,7 @@ function parseUpsertEventPayload(
       location: location || undefined,
       description: description || undefined,
       calendarSourceId: calendarSourceId || undefined,
+      expectedEtag: expectedEtag || undefined,
     },
   };
 }
@@ -774,6 +787,9 @@ export async function updateCalendarEvent(
       eventId,
       method: "PATCH",
       body: toGoogleEventRequest(parsedPayload.payload),
+      ...(parsedPayload.payload.expectedEtag
+        ? { headers: { "If-Match": parsedPayload.payload.expectedEtag } }
+        : {}),
     });
 
     const responsePayload = (await response
@@ -788,6 +804,10 @@ export async function updateCalendarEvent(
 
       if (response.status === 401) {
         return createError(401, { error: "reauthorization-required" });
+      }
+
+      if (response.status === 412) {
+        return createError(412, { error: "calendar-edit-conflict" });
       }
 
       if (response.status === 404) {

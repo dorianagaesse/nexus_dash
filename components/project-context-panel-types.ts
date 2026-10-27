@@ -39,6 +39,7 @@ export interface ProjectContextCardProjection {
 
 export interface ProjectContextCard {
   id: string;
+  contentRevision: number;
   title: string;
   content: string;
   color: string;

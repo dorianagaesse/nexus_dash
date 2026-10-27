@@ -35,6 +35,7 @@ interface CalendarEventModalProps {
   eventFormError: string | null;
   recovery: RecoveryDraftState;
   onDiscardRecovery: () => void;
+  onAcceptRecoveryConflict: () => void;
   connectUrl: string;
   onClose: () => void;
   onSubmit: () => void | Promise<void>;
@@ -71,6 +72,7 @@ export function CalendarEventModal({
   eventFormError,
   recovery,
   onDiscardRecovery,
+  onAcceptRecoveryConflict,
   connectUrl,
   onClose,
   onSubmit,
@@ -140,7 +142,13 @@ export function CalendarEventModal({
               void onSubmit();
             }}
           >
-            {!isReadOnly ? <RecoveryDraftNotice draft={recovery} onDiscard={onDiscardRecovery} /> : null}
+            {!isReadOnly ? (
+              <RecoveryDraftNotice
+                draft={recovery}
+                onDiscard={onDiscardRecovery}
+                onAcceptConflict={onAcceptRecoveryConflict}
+              />
+            ) : null}
             {eventModalMode === "create" ? (
               <div className="grid gap-2">
                 <label htmlFor="calendar-event-source" className="text-sm font-medium">

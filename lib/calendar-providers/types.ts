@@ -37,5 +37,7 @@ export interface CalendarProviderAdapter {
     eventId?: string;
     method?: "GET" | "POST" | "PATCH" | "DELETE";
     body?: unknown;
+    /** Provider conditional-write headers, such as `If-Match`. */
+    headers?: Record<string, string>;
   }): Promise<Response>;
 }

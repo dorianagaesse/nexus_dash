@@ -91,6 +91,7 @@ export async function ProjectContextPanelSection({
 
     return {
       id: resource.id,
+      contentRevision: cardRecord.contentRevision,
       title: resource.name,
       content: resource.content,
       color: resource.color ?? getContextCardColorFromSeed(resource.id),

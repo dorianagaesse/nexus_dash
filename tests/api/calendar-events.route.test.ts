@@ -373,6 +373,7 @@ describe("calendar events routes", () => {
             items: [
               {
                 id: "event-one",
+                etag: '"event-etag-1"',
                 summary: "Available event",
                 start: { dateTime: "2026-02-14T08:00:00.000Z" },
               },
@@ -391,6 +392,7 @@ describe("calendar events routes", () => {
     expect(payload.events).toEqual([
       expect.objectContaining({
         id: "event-one",
+        etag: '"event-etag-1"',
         calendarSourceId: "source-1",
         calendarName: "One",
         calendarColor: "#111111",

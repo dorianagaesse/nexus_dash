@@ -3,6 +3,35 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-27 - ND-434: Calendar provider preconditions and guarded context-card edits
+
+- Calendar event edits now send the provider ETag captured with the draft as
+  `expectedEtag`. The service forwards it as Google `If-Match`, and a provider
+  412 maps to `calendar-edit-conflict` instead of overwriting an event that
+  changed after the draft was restored. The modal keeps the local draft and
+  refreshes the week so closing and reopening shows the latest event.
+- Reopening a stale Calendar draft shows the recovery conflict notice. "I
+  reviewed; keep my changes" adopts the reviewed event's ETag before the
+  retry, so the save stays conditional on the latest provider revision.
+  Source/event identity remains in the recovery key and payload.
+- Context-card edits reuse the merged #627 guard: explicit Save sends one
+  conditional PATCH with `X-Content-If-Match`, a 412 opens the in-modal
+  conflict review, and the retry is written against the reviewed revision.
+  Conflict adoption applies the merged top-level document fields instead of
+  the nested server snapshot, so "Keep my version" no longer leaves the form
+  dirty and loops into a new conflict.
+- Creation, comments, roadmap, and Calendar stay explicit. Context cards are
+  registered as a Live-eligible surface while `LIVE_SAVE_ENABLED_SURFACES`
+  stays empty.
+- Committed regression coverage: Google provider conditional-header test,
+  Calendar PATCH precondition and 412 route tests, context-panel explicit
+  conflict-save tests, and the browser recovery spec including the stale
+  Calendar draft flow.
+- Validation: Prisma generate, db:migrate, release:check, rls:check, lint,
+  unit tests (2180 passed, 2 skipped), coverage 93.59/86.04/96.13/95.02,
+  build, RLS setup/stub/isolation matrix, full Chromium E2E (120 passed,
+  2 skipped, 6.6 min).
+
 # 2026-10-27 - ND-433: Preserve explicit commands through retries and adoption
 
 - Review round on PR #627 (`feature/nd-433-live-save-surfaces`). Commands are

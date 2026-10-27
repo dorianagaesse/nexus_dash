@@ -2,7 +2,13 @@ import type { FormEvent } from "react";
 import { Link2, Trash2, Upload } from "lucide-react";
 
 import { ContextColorPicker } from "@/components/context-panel/context-color-picker";
+import {
+  CONTEXT_CARD_LIVE_FIELD_META,
+  type ContextCardLiveDocument,
+} from "@/components/context-panel/context-live-save";
 import { ContextModalFrame } from "@/components/context-panel/context-modal-frame";
+import { ConflictReview } from "@/components/live-save/conflict-review";
+import { LiveSaveStatus } from "@/components/live-save/live-save-status";
 import type {
   ProjectContextAttachment,
   ProjectContextCard,
@@ -11,6 +17,10 @@ import { resolveAttachmentHref } from "@/components/project-context-panel-utils"
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { RecoveryDraftNotice } from "@/components/recovery-draft-notice";
 import type { RecoveryDraftState } from "@/lib/hooks/use-recovery-draft";
+import type {
+  LiveSaveConflictChoice,
+  LiveSaveSnapshot,
+} from "@/lib/live-save/types";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
 import { EmojiInputField } from "@/components/ui/emoji-field";
@@ -34,6 +44,7 @@ interface ContextEditModalProps {
   mentionProjectId: string;
   editContent: string;
   editingCardAttachments: ProjectContextAttachment[];
+  liveSaveSnapshot: LiveSaveSnapshot<ContextCardLiveDocument>;
   isUpdatingCard: boolean;
   isSubmittingAttachment: boolean;
   isEditLinkComposerOpen: boolean;
@@ -43,6 +54,9 @@ interface ContextEditModalProps {
   editError: string | null;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
+  onResolveLiveConflict: (
+    choices: Record<string, LiveSaveConflictChoice>
+  ) => void;
   onEditingColorChange: (color: string) => void;
   onEditTitleChange: (title: string) => void;
   onEditContentChange: (value: string) => void;
@@ -63,6 +77,7 @@ export function ContextEditModal({
   mentionProjectId,
   editContent,
   editingCardAttachments,
+  liveSaveSnapshot,
   isUpdatingCard,
   isSubmittingAttachment,
   isEditLinkComposerOpen,
@@ -72,6 +87,7 @@ export function ContextEditModal({
   editError,
   onClose,
   onSubmit,
+  onResolveLiveConflict,
   onEditingColorChange,
   onEditTitleChange,
   onEditContentChange,
@@ -95,6 +111,15 @@ export function ContextEditModal({
       <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
         {recovery.conflict || recovery.error ? (
           <RecoveryDraftNotice draft={recovery} onDiscard={onDiscardRecovery} />
+        ) : null}
+        <LiveSaveStatus snapshot={liveSaveSnapshot} />
+        {liveSaveSnapshot.conflict ? (
+          <ConflictReview
+            conflict={liveSaveSnapshot.conflict}
+            fieldMeta={CONTEXT_CARD_LIVE_FIELD_META}
+            pending={isUpdatingCard}
+            onResolve={onResolveLiveConflict}
+          />
         ) : null}
         <input type="hidden" name="cardId" value={editingCard.id} />
         <div className="grid gap-2">
@@ -251,7 +276,12 @@ export function ContextEditModal({
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
           <Button
             type="submit"
-            disabled={isUpdatingCard || isSubmittingAttachment}
+            disabled={
+              isUpdatingCard ||
+              isSubmittingAttachment ||
+              recovery.conflict ||
+              Boolean(liveSaveSnapshot.conflict)
+            }
             className="w-full sm:w-auto"
           >
             {isUpdatingCard ? "Saving..." : "Save card"}

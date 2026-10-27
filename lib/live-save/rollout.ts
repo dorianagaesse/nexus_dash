@@ -9,11 +9,13 @@
  */
 export type LiveSaveSurface =
   | "task-detail"
+  | "context-card"
   | "meeting-preparation"
   | "meeting-output";
 
 export const LIVE_SAVE_SURFACES: readonly LiveSaveSurface[] = [
   "task-detail",
+  "context-card",
   "meeting-preparation",
   "meeting-output",
 ];

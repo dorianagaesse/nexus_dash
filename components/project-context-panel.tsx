@@ -38,6 +38,15 @@ import {
   readApiError,
 } from "@/components/project-context-panel-utils";
 import {
+  buildContextCardLivePayload,
+  CONTEXT_CARD_LIVE_FIELDS,
+  CONTEXT_CARD_LIVE_FIELD_META,
+  EMPTY_CONTEXT_CARD_LIVE_DOCUMENT,
+  toContextCardLiveDocument,
+  validateContextCardLiveDocument,
+  type ContextCardLiveDocument,
+} from "@/components/context-panel/context-live-save";
+import {
   ATTACHMENT_KIND_FILE,
   ATTACHMENT_KIND_LINK,
   DIRECT_UPLOAD_MAX_ATTACHMENT_FILE_SIZE_BYTES,
@@ -60,7 +69,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
+import { useLiveSave } from "@/lib/hooks/use-live-save";
 import { recoveryDraftKey, useRecoveryDraft } from "@/lib/hooks/use-recovery-draft";
+import { createContentSaveAdapter } from "@/lib/live-save/content-adapter";
+import { isLiveSaveSurfaceEnabled } from "@/lib/live-save/rollout";
+import type {
+  LiveSaveAcceptedInfo,
+  LiveSaveAdapter,
+  LiveSaveConflictChoice,
+  LiveSaveOutcome,
+} from "@/lib/live-save/types";
 import { cn } from "@/lib/utils";
 
 interface ProjectContextPanelProps {
@@ -118,6 +136,39 @@ function hasContextCardAttachments(
     typeof card.color === "string" &&
     Array.isArray(card.attachments)
   );
+}
+
+type RemoteContextCardResponsePayload = Omit<ProjectContextCard, "attachments"> & {
+  attachments: Omit<ProjectContextAttachment, "downloadUrl">[];
+};
+
+function readRemoteContextCardResponse(
+  value: unknown
+): RemoteContextCardResponsePayload | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  if (
+    typeof value.id !== "string" ||
+    typeof value.contentRevision !== "number" ||
+    typeof value.title !== "string" ||
+    typeof value.content !== "string" ||
+    typeof value.color !== "string" ||
+    typeof value.createdAt !== "string" ||
+    typeof value.updatedAt !== "string" ||
+    !isRecord(value.projection) ||
+    !Array.isArray(value.attachments) ||
+    !value.attachments.every(
+      (attachment) =>
+        isRecord(attachment) &&
+        typeof attachment.id === "string" &&
+        typeof attachment.kind === "string" &&
+        typeof attachment.name === "string"
+    )
+  ) {
+    return null;
+  }
+  return value as unknown as RemoteContextCardResponsePayload;
 }
 
 export function ProjectContextPanel({
@@ -239,7 +290,7 @@ export function ProjectContextPanel({
       : null,
     value: editRecoveryValue,
     base: editRecoveryBase,
-    baseRevision: editingCard?.updatedAt ?? null,
+    baseRevision: editingCard ? String(editingCard.contentRevision) : null,
     restore: (draft) => {
       setEditTitle(draft.title);
       setEditContent(draft.content);
@@ -332,6 +383,148 @@ export function ProjectContextPanel({
     })),
   }), [projectId]);
 
+  const readLiveContextCard = useCallback(
+    (value: unknown): ProjectContextCard | null => {
+      const payload = readRemoteContextCardResponse(value);
+      if (!payload) {
+        return null;
+      }
+      const card = withDownloadUrls(payload);
+      return {
+        ...card,
+        content: normalizeContextCardContentHtml(card.content),
+      };
+    },
+    [withDownloadUrls]
+  );
+
+  const editLiveBase = useMemo<ContextCardLiveDocument>(
+    () =>
+      editingCard
+        ? toContextCardLiveDocument(editingCard)
+        : EMPTY_CONTEXT_CARD_LIVE_DOCUMENT,
+    [editingCard]
+  );
+  const editLiveValue = useMemo<ContextCardLiveDocument>(() => {
+    if (!editingCard) {
+      return editLiveBase;
+    }
+    return {
+      title: editTitle,
+      content: normalizeContextCardContentHtml(editContent),
+      color: editingColor,
+      contentRevision: editingCard.contentRevision,
+      card: editingCard,
+    };
+  }, [editContent, editLiveBase, editTitle, editingCard, editingColor]);
+  const editLiveAdapter = useMemo<LiveSaveAdapter<ContextCardLiveDocument>>(() => {
+    if (!editingCard) {
+      return { save: async () => ({ kind: "gone" }) };
+    }
+    const cardId = editingCard.id;
+    return createContentSaveAdapter<ContextCardLiveDocument>({
+      projectId,
+      domain: "context-card",
+      entityId: cardId,
+      url: `/api/projects/${projectId}/context-cards/${cardId}`,
+      buildPayload: (fields) =>
+        buildContextCardLivePayload(
+          { title: editTitle, content: editContent, color: editingColor },
+          fields
+        ),
+      mapAccepted: (body) => {
+        if (!isRecord(body)) return null;
+        const card = readLiveContextCard(body.card);
+        if (!card) return null;
+        return {
+          representation: toContextCardLiveDocument(card),
+          revision: card.contentRevision,
+        };
+      },
+      mapConflict: (body) => {
+        if (!isRecord(body) || body.error !== "edit-conflict") return null;
+        const card = readLiveContextCard(body.current);
+        if (!card) return null;
+        return {
+          representation: toContextCardLiveDocument(card),
+          revision: card.contentRevision,
+        };
+      },
+    });
+  }, [
+    editContent,
+    editingCard,
+    editTitle,
+    editingColor,
+    projectId,
+    readLiveContextCard,
+  ]);
+  const applyEditLiveRepresentation = useCallback(
+    (representation: ContextCardLiveDocument, fields: string[]) => {
+      // Use the document fields: during conflict resolution the scheduler
+      // merges per field, while the embedded `card` stays at the latest
+      // server snapshot.
+      if (fields.includes("title")) {
+        setEditTitle(representation.title);
+      }
+      if (fields.includes("content")) {
+        setEditContent(normalizeContextCardContentHtml(representation.content));
+      }
+      if (fields.includes("color")) {
+        setEditingColor(representation.color);
+      }
+    },
+    []
+  );
+  const editLiveLastAcceptedRef = useRef<{ fullySynced: boolean } | null>(null);
+  const editRecoveryBaseAckRef = useRef(false);
+  const handleEditLiveAccepted = useCallback(
+    (info: LiveSaveAcceptedInfo<ContextCardLiveDocument>) => {
+      const acceptedCard = info.representation.card;
+      if (!acceptedCard) {
+        return;
+      }
+      editLiveLastAcceptedRef.current = { fullySynced: info.fullySynced };
+      if (info.fullySynced) {
+        editRecoveryBaseAckRef.current = true;
+      }
+      setLocalCards((previous) =>
+        previous.map((card) =>
+          card.id === acceptedCard.id ? acceptedCard : card
+        )
+      );
+      setCardAttachmentsById((previous) => ({
+        ...previous,
+        [acceptedCard.id]: acceptedCard.attachments,
+      }));
+    },
+    []
+  );
+  const editLive = useLiveSave<ContextCardLiveDocument>({
+    adapter: editLiveAdapter,
+    value: editLiveValue,
+    base: editLiveBase,
+    baseRevision: editLiveBase.contentRevision,
+    fields: CONTEXT_CARD_LIVE_FIELDS,
+    fieldMeta: CONTEXT_CARD_LIVE_FIELD_META,
+    enabled:
+      canEdit &&
+      editingCard !== null &&
+      !editRecovery.conflict &&
+      isLiveSaveSurfaceEnabled("context-card"),
+    entityKey: editingCard?.id ?? null,
+    validate: validateContextCardLiveDocument,
+    applyRepresentation: applyEditLiveRepresentation,
+    onAccepted: handleEditLiveAccepted,
+  });
+  useEffect(() => {
+    if (!editRecoveryBaseAckRef.current) {
+      return;
+    }
+    editRecoveryBaseAckRef.current = false;
+    editRecovery.acceptConflict();
+  }, [editRecovery, editingCard]);
+
   useEffect(() => {
     const handleProjectActivity = (event: Event) => {
       const { activity, markHandled } = (
@@ -408,6 +601,10 @@ export function ProjectContextPanel({
                     typeof remoteCard.color === "string"
                       ? remoteCard.color
                       : card.color,
+                  contentRevision:
+                    typeof remoteCard.contentRevision === "number"
+                      ? remoteCard.contentRevision
+                      : card.contentRevision,
                   updatedAt:
                     typeof remoteCard.updatedAt === "string"
                       ? remoteCard.updatedAt
@@ -643,6 +840,7 @@ export function ProjectContextPanel({
     setLocalCards((previous) => [
       {
         id: optimisticCardId,
+        contentRevision: 0,
         title: optimisticTitle,
         content: normalizeContextCardContentHtml(optimisticContent),
         color: optimisticColor,
@@ -807,101 +1005,128 @@ export function ProjectContextPanel({
     })();
   };
 
+  const mapContextLiveSaveOutcome = (
+    outcome: LiveSaveOutcome<ContextCardLiveDocument>
+  ): string | null => {
+    switch (outcome.status) {
+      case "accepted":
+      case "adopted":
+      case "clean":
+        return null;
+      case "conflict":
+        return "This context card changed elsewhere. Review the conflicting changes below.";
+      case "invalid":
+        return mapContextMutationError(
+          outcome.message,
+          "Could not update context card. Please retry."
+        );
+      case "unauthorized":
+        return "You no longer have permission to edit this context card.";
+      case "gone":
+        return "This context card is no longer available.";
+      case "offline":
+        return "You're offline. Your draft is safe locally; try again when the connection returns.";
+      case "failed":
+        return mapContextMutationError(
+          outcome.message,
+          "Could not update context card. Please retry."
+        );
+      case "busy":
+        return "A save is already in progress. Try again.";
+      case "disabled":
+        return "Live save is unavailable for this card.";
+    }
+  };
+
+  const isEditLiveFullySynced = (
+    outcome: LiveSaveOutcome<ContextCardLiveDocument>
+  ): boolean =>
+    outcome.status === "clean" ||
+    outcome.status === "adopted" ||
+    (editLiveLastAcceptedRef.current?.fullySynced ?? true);
+
   const handleUpdateCardSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!editingCard || isUpdatingCard) {
+      return;
+    }
+    if (editRecovery.conflict) {
+      setEditError("This context card changed elsewhere. Review it before saving.");
+      return;
+    }
+    if (editLive.snapshot.conflict) {
+      setEditError(
+        "This context card changed elsewhere. Review the conflicting changes below."
+      );
+      return;
+    }
+
+    const submittedRecovery = editRecoveryValue;
+    setIsUpdatingCard(true);
+    setEditError(null);
+    editLiveLastAcceptedRef.current = null;
+
+    try {
+      // Explicit Save runs through the guarded revision path: one conditional
+      // partial PATCH carrying only the fields the user changed. Creation and
+      // attachments stay on their own explicit routes.
+      const outcome = await editLive.saveNow();
+      const message = mapContextLiveSaveOutcome(outcome);
+      if (message !== null) {
+        setEditError(message);
+        return;
+      }
+      if (!isEditLiveFullySynced(outcome)) {
+        return;
+      }
+      editRecovery.saved(submittedRecovery);
+      closeEditModal();
+      pushToast({
+        variant: "success",
+        message: "Context card saved.",
+      });
+    } catch (error) {
+      console.error("[ProjectContextPanel.handleUpdateCardSubmit]", error);
+      setEditError("Could not update context card. Please retry.");
+    } finally {
+      setIsUpdatingCard(false);
+    }
+  };
+
+  const handleEditLiveConflictResolve = async (
+    choices: Record<string, LiveSaveConflictChoice>
+  ) => {
     if (!editingCard || isUpdatingCard) {
       return;
     }
 
     setIsUpdatingCard(true);
     setEditError(null);
-    const submittedRecovery = editRecoveryValue;
-    editRecovery.flush();
+    editLiveLastAcceptedRef.current = null;
 
-    const formData = new FormData(event.currentTarget);
-    const editingCardIdSnapshot = editingCard.id;
-    const previousEditingCard = editingCard;
-    const nextTitle = formData.get("title")?.toString().trim() ?? editingCard.title;
-    const nextContent = formData.get("content")?.toString().trim() ?? editingCard.content;
-    const nextColor = formData.get("color")?.toString().trim() ?? editingCard.color;
-    closeEditModal();
-    setIsUpdatingCard(false);
-    setLocalCards((previous) =>
-      previous.map((card) =>
-        card.id === editingCardIdSnapshot
-          ? {
-              ...card,
-              title: nextTitle,
-              content: normalizeContextCardContentHtml(nextContent),
-              color: nextColor,
-            }
-          : card
-      )
-    );
-
-    void (async () => {
-      try {
-        const response = await fetchProjectActivityMutation(
-          projectId,
-          `/api/projects/${projectId}/context-cards/${editingCardIdSnapshot}`,
-          {
-            method: "PATCH",
-            body: formData,
-          }
-        );
-
-        const payload = (await response.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-
-        if (!response.ok) {
-          const message = mapContextMutationError(
-            payload?.error ?? "context-update-failed",
-            "Could not update context card. Please retry."
-          );
-          if (!isMountedRef.current) {
-            return;
-          }
-          setLocalCards((previous) =>
-            previous.map((card) =>
-              card.id === editingCardIdSnapshot ? previousEditingCard : card
-            )
-          );
-          setEditError(message);
-          pushToast({
-            variant: "error",
-            message,
-          });
-          return;
-        }
-        if (!isMountedRef.current) {
-          return;
-        }
-
-        editRecovery.saved(submittedRecovery);
-
-        pushToast({
-          variant: "success",
-          message: "Context card saved.",
-        });
-      } catch (error) {
-        console.error("[ProjectContextPanel.handleUpdateCardSubmit]", error);
-        const message = "Could not update context card. Please retry.";
-        if (!isMountedRef.current) {
-          return;
-        }
-        setLocalCards((previous) =>
-          previous.map((card) =>
-            card.id === editingCardIdSnapshot ? previousEditingCard : card
-          )
-        );
+    try {
+      const outcome = await editLive.resolveConflict(choices);
+      const message = mapContextLiveSaveOutcome(outcome);
+      if (message !== null) {
         setEditError(message);
-        pushToast({
-          variant: "error",
-          message,
-        });
+        pushToast({ variant: "error", message });
+        return;
       }
-    })();
+      if (!isEditLiveFullySynced(outcome)) {
+        return;
+      }
+      editRecovery.flush();
+      closeEditModal();
+      pushToast({
+        variant: "success",
+        message: "Context card saved.",
+      });
+    } catch (error) {
+      console.error("[ProjectContextPanel.handleEditLiveConflictResolve]", error);
+      setEditError("Could not update context card. Please retry.");
+    } finally {
+      setIsUpdatingCard(false);
+    }
   };
 
   const requestDeleteCard = (cardId: string) => {
@@ -1302,6 +1527,7 @@ export function ProjectContextPanel({
         mentionProjectId={projectId}
         editContent={editContent}
         editingCardAttachments={editingCardAttachments}
+        liveSaveSnapshot={editLive.snapshot}
         isUpdatingCard={isUpdatingCard}
         isSubmittingAttachment={isSubmittingAttachment}
         isEditLinkComposerOpen={isEditLinkComposerOpen}
@@ -1311,6 +1537,9 @@ export function ProjectContextPanel({
         editError={editError}
         onClose={closeEditModal}
         onSubmit={handleUpdateCardSubmit}
+        onResolveLiveConflict={(choices) =>
+          void handleEditLiveConflictResolve(choices)
+        }
         onEditingColorChange={setEditingColor}
         onEditTitleChange={setEditTitle}
         onEditContentChange={setEditContent}

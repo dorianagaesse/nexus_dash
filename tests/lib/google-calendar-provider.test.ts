@@ -88,4 +88,31 @@ describe("Google Calendar provider adapter", () => {
       googleCalendarProvider.discoverCalendars("secret-access-token")
     ).rejects.toThrow("google-calendar-discovery-failed:403");
   });
+
+  test("forwards conditional write headers to the Events API", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: "evt-1" }), { status: 200 })
+      );
+
+    await googleCalendarProvider.requestEvents({
+      accessToken: "access-token",
+      calendarId: "primary@example.com",
+      eventId: "evt-1",
+      method: "PATCH",
+      body: { summary: "Updated" },
+      headers: { "If-Match": '"etag-1"' },
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls[0][1]).toMatchObject({
+      method: "PATCH",
+      headers: {
+        Authorization: "Bearer access-token",
+        "Content-Type": "application/json",
+        "If-Match": '"etag-1"',
+      },
+    });
+  });
 });

@@ -7,9 +7,11 @@ import type { RecoveryDraftState } from "@/lib/hooks/use-recovery-draft";
 export function RecoveryDraftNotice({
   draft,
   onDiscard,
+  onAcceptConflict,
 }: {
   draft: RecoveryDraftState;
   onDiscard: () => void;
+  onAcceptConflict?: () => void;
 }) {
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   // Routine local persistence stays silent; only actionable recovery states render.
@@ -28,7 +30,15 @@ export function RecoveryDraftNotice({
       </details> : null}
       <div className="mt-2 flex gap-2">
         {draft.conflict ? (
-          <Button type="button" size="sm" variant="outline" onClick={draft.acceptConflict}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              draft.acceptConflict();
+              onAcceptConflict?.();
+            }}
+          >
             I reviewed; keep my changes
           </Button>
         ) : null}

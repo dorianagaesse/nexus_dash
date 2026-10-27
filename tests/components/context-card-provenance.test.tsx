@@ -48,6 +48,7 @@ const human: ProjectContextActorSummary = {
 
 const card: ProjectContextCard = {
   id: "card-1",
+  contentRevision: 1,
   title: "Launch context",
   content: "<p>Notes</p>",
   color: "#FDE2E4",

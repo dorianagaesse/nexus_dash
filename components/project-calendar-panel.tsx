@@ -54,6 +54,8 @@ interface CalendarRecoveryValue {
   location: string;
   description: string;
   calendarSourceId: string;
+  /** Provider ETag captured when this draft started; the save precondition. */
+  etag: string;
 }
 
 export function ProjectCalendarPanel({
@@ -92,9 +94,10 @@ export function ProjectCalendarPanel({
   const [eventEndDateTime, setEventEndDateTime] = useState("");
   const [eventLocation, setEventLocation] = useState("");
   const [eventDescription, setEventDescription] = useState("");
+  const [eventEtag, setEventEtag] = useState("");
   const [recoveryBase, setRecoveryBase] = useState<CalendarRecoveryValue>({
     summary: "", allDay: false, startDate: "", endDate: "", startDateTime: "",
-    endDateTime: "", location: "", description: "", calendarSourceId: "",
+    endDateTime: "", location: "", description: "", calendarSourceId: "", etag: "",
   });
   const recoveryValue: CalendarRecoveryValue = useMemo(() => ({
     summary: eventSummary,
@@ -106,8 +109,9 @@ export function ProjectCalendarPanel({
     location: eventLocation,
     description: eventDescription,
     calendarSourceId: eventCalendarSourceId,
+    etag: eventEtag,
   }), [eventSummary, eventAllDay, eventStartDate, eventEndDate, eventStartDateTime,
-    eventEndDateTime, eventLocation, eventDescription, eventCalendarSourceId]);
+    eventEndDateTime, eventLocation, eventDescription, eventCalendarSourceId, eventEtag]);
   const applyRecoveryValue = (draft: CalendarRecoveryValue) => {
     setEventSummary(draft.summary);
     setEventAllDay(draft.allDay);
@@ -118,6 +122,7 @@ export function ProjectCalendarPanel({
     setEventLocation(draft.location);
     setEventDescription(draft.description);
     setEventCalendarSourceId(draft.calendarSourceId);
+    setEventEtag(draft.etag);
   };
   const eventRecovery = useRecoveryDraft({
     storageKey: actorUserId && isEventModalOpen && eventModalMode !== "view"
@@ -155,10 +160,12 @@ export function ProjectCalendarPanel({
     setEventLocation("");
     setEventDescription("");
     setEventCalendarSourceId(defaultCalendarSourceId);
+    setEventEtag("");
     setRecoveryBase({
       summary: "", allDay: false, startDate: today, endDate: today,
       startDateTime: defaults.start, endDateTime: defaults.end,
       location: "", description: "", calendarSourceId: defaultCalendarSourceId,
+      etag: "",
     });
     setEditingEventId(null);
     setSelectedEvent(null);
@@ -189,6 +196,7 @@ export function ProjectCalendarPanel({
     setEventLocation(parsed.location);
     setEventDescription(parsed.description);
     setEventCalendarSourceId(event.calendarSourceId);
+    setEventEtag(event.etag ?? "");
     setRecoveryBase({
       summary: parsed.summary,
       allDay: parsed.isAllDay,
@@ -199,6 +207,7 @@ export function ProjectCalendarPanel({
       location: parsed.location,
       description: parsed.description,
       calendarSourceId: event.calendarSourceId,
+      etag: event.etag ?? "",
     });
     setEventFormError(null);
     setIsEventModalOpen(true);
@@ -212,6 +221,12 @@ export function ProjectCalendarPanel({
     eventRecovery.flush();
     setIsEventModalOpen(false);
     setEventFormError(null);
+  };
+
+  // After reviewing a restored draft, the next save stays conditional on the
+  // event revision shown when the modal opened, not the draft's stale ETag.
+  const acceptRecoveryConflict = () => {
+    setEventEtag(recoveryBase.etag);
   };
 
   const openEventDetails = (event: CalendarEventItem) => {
@@ -351,6 +366,9 @@ export function ProjectCalendarPanel({
           location: eventLocation.trim(),
           description: eventDescription.trim(),
           calendarSourceId: eventCalendarSourceId || undefined,
+          ...(eventModalMode === "edit" && eventEtag
+            ? { expectedEtag: eventEtag }
+            : {}),
         }),
       });
 
@@ -359,6 +377,10 @@ export function ProjectCalendarPanel({
         | null;
 
       if (!response.ok) {
+        if (payload?.error === "calendar-edit-conflict") {
+          // Refresh so closing and reopening the event shows the latest version.
+          await loadEvents();
+        }
         throw new Error(mapEventMutationError(payload?.error ?? "calendar-internal-error"));
       }
 
@@ -613,6 +635,7 @@ export function ProjectCalendarPanel({
         eventFormError={eventFormError}
         recovery={eventRecovery}
         onDiscardRecovery={() => { eventRecovery.discard(); applyRecoveryValue(recoveryBase); }}
+        onAcceptRecoveryConflict={acceptRecoveryConflict}
         connectUrl={connectUrl}
         onClose={closeEventModal}
         onSubmit={submitEventForm}
