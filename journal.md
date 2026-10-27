@@ -3,6 +3,35 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-27 - ND-433: Preserve explicit commands through retries and adoption
+
+- Review round on PR #627 (`feature/nd-433-live-save-surfaces`). Commands are
+  now diffed against the draft's starting base and a command is only cleared
+  once an accepted representation reflects it, so explicit status, visibility,
+  assignment, relation, and follow-up changes survive a disjoint 412 rebase,
+  a conflict adopted with "Use latest", or a save whose body is otherwise
+  empty (`allowEmpty`). Meeting todos compare by content when the local entry
+  has no id yet, so a server-assigned id is not read as unsynced work.
+- The editor closes, recovery clears, and success toasts fire only after the
+  write is fully synced; rejected work keeps the conflict review open. Timed
+  autosaves still never carry commands, and `LIVE_SAVE_ENABLED_SURFACES`
+  stays empty.
+- Same-value both-sides edits no longer surface as conflicts, and a remote
+  `setBase` resets the one-shot auto-rebase allowance.
+- Fixed both failing browser smoke flows: the task lifecycle/attachment flow
+  no longer trips a phantom Epic conflict, and the no-op meeting preparation
+  Save now asserts the dialog closes with zero PATCHes instead of a write.
+- Merge of main (8cbaaf6) kept remote task events without a `contentRevision`
+  instead of dropping them (main's keyboard-reconcile coverage).
+- Committed regression coverage: scheduler command lifecycle tests, task
+  command helpers, and `tests/components/meeting-command-review.test.tsx`
+  (archive after stale revision, adoption without discarding archive, todo
+  id adoption).
+- Validation: Prisma generate, db:migrate, release:check, rls:check, lint,
+  unit tests (2175 passed, 2 skipped), coverage 93.59/86.04/96.13/95.02,
+  build, RLS setup/stub/isolation matrix, full Chromium E2E (119 passed,
+  2 skipped, 5.0 min).
+
 # 2026-10-26 - ND-431: Per-card DOM reduction for remaining p95 targets
 
 - Focused follow-up on `nd431-p95-followup`, stacked on PR #598. CDP profiles
