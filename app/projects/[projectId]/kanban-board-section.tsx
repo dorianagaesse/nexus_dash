@@ -83,6 +83,7 @@ export async function KanbanBoardSection({
     const normalizedTask: KanbanTask = {
       id: task.id,
       reference: formatTaskReference(task.referenceNumber) ?? null,
+      contentRevision: task.contentRevision,
       title: task.title,
       description: task.description,
       deadlineDate: formatTaskDeadlineDate(task.deadlineAt),

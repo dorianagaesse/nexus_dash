@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Request as PlaywrightRequest } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
@@ -456,14 +456,23 @@ test.describe("critical UI smoke flows", () => {
     await expect(inputZoomControls).toContainText("125%");
     await expect(preparationInput).toHaveCSS("font-size", "17.5px");
     await expect(preparationInput).toContainText("Review TASK-098 scope and risks.");
-    const savePreparationRequest = page.waitForResponse(
-      (response) =>
-        response.request().method() === "PATCH" &&
-        response.url().endsWith(`/meeting-notes/${createdMeetingId}`) &&
-        response.ok()
-    );
+    // The editor content is unchanged, so explicit Save must close without a
+    // write instead of issuing an unnecessary no-op PATCH.
+    const preparationPatches: string[] = [];
+    const recordPreparationPatch = (request: PlaywrightRequest) => {
+      if (
+        request.method() === "PATCH" &&
+        request.url().endsWith(`/meeting-notes/${createdMeetingId}`)
+      ) {
+        preparationPatches.push(request.url());
+      }
+    };
+    page.on("request", recordPreparationPatch);
     await page.getByRole("button", { name: "Save preparation" }).click();
-    await savePreparationRequest;
+    await expect(prepareDialog).toBeHidden();
+    await expect(page.getByText("Meeting preparation saved.")).toBeVisible();
+    page.off("request", recordPreparationPatch);
+    expect(preparationPatches).toEqual([]);
 
     const afterPreparationResponse = await page.request.get(
       `/api/projects/${projectIdValue}/meeting-notes`

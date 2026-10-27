@@ -3,6 +3,35 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-27 - ND-433: Preserve explicit commands through retries and adoption
+
+- Review round on PR #627 (`feature/nd-433-live-save-surfaces`). Commands are
+  now diffed against the draft's starting base and a command is only cleared
+  once an accepted representation reflects it, so explicit status, visibility,
+  assignment, relation, and follow-up changes survive a disjoint 412 rebase,
+  a conflict adopted with "Use latest", or a save whose body is otherwise
+  empty (`allowEmpty`). Meeting todos compare by content when the local entry
+  has no id yet, so a server-assigned id is not read as unsynced work.
+- The editor closes, recovery clears, and success toasts fire only after the
+  write is fully synced; rejected work keeps the conflict review open. Timed
+  autosaves still never carry commands, and `LIVE_SAVE_ENABLED_SURFACES`
+  stays empty.
+- Same-value both-sides edits no longer surface as conflicts, and a remote
+  `setBase` resets the one-shot auto-rebase allowance.
+- Fixed both failing browser smoke flows: the task lifecycle/attachment flow
+  no longer trips a phantom Epic conflict, and the no-op meeting preparation
+  Save now asserts the dialog closes with zero PATCHes instead of a write.
+- Merge of main (8cbaaf6) kept remote task events without a `contentRevision`
+  instead of dropping them (main's keyboard-reconcile coverage).
+- Committed regression coverage: scheduler command lifecycle tests, task
+  command helpers, and `tests/components/meeting-command-review.test.tsx`
+  (archive after stale revision, adoption without discarding archive, todo
+  id adoption).
+- Validation: Prisma generate, db:migrate, release:check, rls:check, lint,
+  unit tests (2175 passed, 2 skipped), coverage 93.59/86.04/96.13/95.02,
+  build, RLS setup/stub/isolation matrix, full Chromium E2E (119 passed,
+  2 skipped, 5.0 min).
+
 # 2026-10-26 - ND-431: Per-card DOM reduction for remaining p95 targets
 
 - Focused follow-up on `nd431-p95-followup`, stacked on PR #598. CDP profiles
@@ -25,6 +54,33 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Validation: lint, rls:check, tests (2147 passed, 2 skipped), coverage
   93.64/86.03/95.7/95.01, build, full Chromium E2E (119 passed, 2 skipped,
   5.1 min), diff-check.
+
+# 2026-10-26 - ND-433: Live-save surfaces for task details and meetings
+
+- Integrated task detail edits plus meeting preparation and output with the
+  shared `useLiveSave` scheduler from ND-433. Timed autosaves stay off
+  (`LIVE_SAVE_ENABLED_SURFACES` is empty); the explicit Save button now runs
+  through the same guarded revision path, attaching explicit-only commands
+  (assignment, relations, follow-up entries, meeting visibility, status, and
+  action lists) only on that save or on an explicit conflict-resolution write.
+- Added a transport-only `createContentSaveAdapter` helper for ND-565
+  conditional PATCHes: strong ETag in `x-content-if-match`, mutation-intent
+  header, project-activity acknowledgement, and mapping for 412/401/403/404/
+  400/422/5xx/offline/abort. Comments remain an explicit POST-only surface.
+- Recovery baselines are decoupled from the live record: they advance only when
+  the draft is clean or an acknowledgement fully synced, and conflict review
+  disables Save until resolved. Command payloads are diffed against the draft's
+  starting base so untouched fields are never resent over concurrent changes.
+  Meeting action commands use a material JSON diff and preserve other actors'
+  todo completions in accepted representations.
+- Explicit save supports command-only writes through `saveNow({ allowEmpty })`;
+  retries continue to use the autosave intent so commands never ride a timer.
+- Validation: full lint, rls:check, `npm test` (2140 passed, 2 skipped),
+  coverage thresholds, production build with `REALTIME_TRANSPORT=polling`, and
+  `release:check` all green locally (CI will re-run on the PR).
+- Remaining gates are server-owned: service-validated autosave intent,
+  coalesced activity/invalidation, and agent v1/v2 migration. Live flags stay
+  empty and ND-433 stays In Progress until those contracts land.
 
 # 2026-10-24 - ND-618: Dependency Security fail-closed and alerting
 

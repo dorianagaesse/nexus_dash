@@ -61,15 +61,40 @@ describe("LiveSaveScheduler", () => {
     vi.useRealTimers();
   });
 
-  test("stays inert while disabled", async () => {
-    const { scheduler, calls } = setup({ enabled: false });
+  test("keeps timed saves inert while disabled but allows guarded explicit save", async () => {
+    const { scheduler, calls, results } = setup({ enabled: false });
     scheduler.setValue({ ...BASE, title: "New" });
     await vi.advanceTimersByTimeAsync(120_000);
     expect(calls).toHaveLength(0);
     expect(scheduler.getSnapshot().phase).toBe("disabled");
+
+    results.push(accepted("r2", { ...BASE, title: "New" }));
     const outcome = await scheduler.saveNow();
-    expect(outcome.status).toBe("disabled");
-    expect(calls).toHaveLength(0);
+    expect(outcome).toEqual({ status: "accepted", revision: "r2" });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].intent).toBe("explicit");
+    expect(calls[0].fields).toEqual({ title: "New" });
+    expect(scheduler.getSnapshot().phase).toBe("disabled");
+
+    // Acknowledged explicit work never arms a background timer while the
+    // surface remains gated.
+    scheduler.setValue({ ...BASE, title: "Newer" });
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(calls).toHaveLength(1);
+  });
+
+  test("allowEmpty sends command-only explicit writes while clean", async () => {
+    const { scheduler, calls, results } = setup({ enabled: false });
+    results.push(accepted("r2", { ...BASE }));
+    const outcome = await scheduler.saveNow({ allowEmpty: true });
+    expect(outcome).toEqual({ status: "accepted", revision: "r2" });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].intent).toBe("explicit");
+    expect(calls[0].fields).toEqual({});
+
+    const clean = await scheduler.saveNow();
+    expect(clean.status).toBe("clean");
+    expect(calls).toHaveLength(1);
   });
 
   test("sends only dirty fields 2 seconds after the last change", async () => {
@@ -404,6 +429,126 @@ describe("LiveSaveScheduler", () => {
       ["title"]
     );
     expect(scheduler.getSnapshot().phase).toBe("clean");
+  });
+
+  test("keeps an explicit command-only save alive through a disjoint 412 rebase", async () => {
+    const { scheduler, calls, results } = setup({ enabled: false });
+    results.push({
+      kind: "conflict",
+      latest: {
+        revision: "r9",
+        representation: { ...BASE, title: "Server title" },
+      },
+    });
+    results.push(accepted("r10", { ...BASE, title: "Server title" }));
+    // No live content is dirty; the request exists only to flush commands
+    // (archive, status, assignment) that ride explicit intent.
+    const outcome = await scheduler.saveNow({ allowEmpty: true });
+    expect(outcome).toEqual({ status: "accepted", revision: "r10" });
+    expect(calls).toHaveLength(2);
+    expect(calls[0].intent).toBe("explicit");
+    expect(calls[0].fields).toEqual({});
+    expect(calls[1].intent).toBe("explicit");
+    expect(calls[1].fields).toEqual({});
+    expect(calls[1].baseRevision).toBe("r9");
+  });
+
+  test("a rebased explicit retry still carries the dirty content fields", async () => {
+    const { scheduler, calls, results } = setup({ enabled: false });
+    results.push({
+      kind: "conflict",
+      latest: {
+        revision: "r9",
+        representation: { ...BASE, title: "Server title" },
+      },
+    });
+    results.push(
+      accepted("r10", { ...BASE, title: "Server title", description: "Mine" })
+    );
+    scheduler.setValue({ ...BASE, description: "Mine" });
+    const outcome = await scheduler.saveNow({ allowEmpty: true });
+    expect(outcome.status).toBe("accepted");
+    expect(calls).toHaveLength(2);
+    expect(calls[1].intent).toBe("explicit");
+    expect(calls[1].fields).toEqual({ description: "Mine" });
+    expect(calls[1].baseRevision).toBe("r9");
+  });
+
+  test("resolving a conflict with allowEmpty flushes a command even when adopting latest", async () => {
+    const { scheduler, calls, results } = setup();
+    results.push({
+      kind: "conflict",
+      latest: { revision: "r9", representation: { ...BASE, title: "Server title" } },
+    });
+    scheduler.setValue({ ...BASE, title: "Mine" });
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(scheduler.getSnapshot().phase).toBe("conflict");
+
+    results.push(accepted("r10", { ...BASE, title: "Server title" }));
+    const outcome = await scheduler.resolveConflict(
+      { title: "latest" },
+      { allowEmpty: true }
+    );
+    // Adoption alone would silently drop the pending command; the scheduler
+    // must still send one guarded request against the reviewed revision.
+    expect(outcome.status).toBe("accepted");
+    expect(calls).toHaveLength(2);
+    expect(calls[1].intent).toBe("explicit");
+    expect(calls[1].baseRevision).toBe("r9");
+    expect(calls[1].fields).toEqual({});
+  });
+
+  test("adopting the latest version still skips the write when no command is pending", async () => {
+    const { scheduler, calls, results } = setup();
+    results.push({
+      kind: "conflict",
+      latest: { revision: "r9", representation: { ...BASE, title: "Server title" } },
+    });
+    scheduler.setValue({ ...BASE, title: "Mine" });
+    await vi.advanceTimersByTimeAsync(2_000);
+    const outcome = await scheduler.resolveConflict(
+      { title: "latest" },
+      { allowEmpty: false }
+    );
+    expect(outcome.status).toBe("adopted");
+    expect(calls).toHaveLength(1);
+  });
+
+  test("rebases instead of conflicting when both sides landed on the same value", async () => {
+    const { scheduler, calls, results } = setup();
+    results.push({
+      kind: "conflict",
+      latest: { revision: "r9", representation: { ...BASE, title: "Same" } },
+    });
+    scheduler.setValue({ ...BASE, title: "Same" });
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(scheduler.getSnapshot().conflict).toBeNull();
+    expect(scheduler.getSnapshot().phase).toBe("clean");
+    // The retry observes no dirty content, so no second request is needed.
+    expect(calls).toHaveLength(1);
+  });
+
+  test("a later disjoint remote base update still rebases after a prior auto-rebase", async () => {
+    const applyRepresentation = vi.fn();
+    const { scheduler, calls, results } = setup({ applyRepresentation });
+    results.push({
+      kind: "conflict",
+      latest: { revision: "r9", representation: { ...BASE, title: "Server title" } },
+    });
+    results.push({ kind: "failed", message: "Network down.", retryable: true });
+    scheduler.setValue({ ...BASE, description: "Mine" });
+    const outcome = await scheduler.saveNow({ allowEmpty: true });
+    expect(outcome.status).toBe("failed");
+    expect(calls).toHaveLength(2);
+
+    scheduler.setBase({ ...BASE, title: "Server title 2" }, "r10");
+    const snapshot = scheduler.getSnapshot();
+    expect(snapshot.conflict).toBeNull();
+    expect(snapshot.dirtyFields).toEqual(["description"]);
+    expect(applyRepresentation).toHaveBeenLastCalledWith(
+      { ...BASE, title: "Server title 2" },
+      ["title"]
+    );
   });
 
   test("shows conflict review again when a resolution write is stale", async () => {

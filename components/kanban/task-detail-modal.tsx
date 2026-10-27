@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import {
   Archive,
   ArrowRightLeft,
@@ -144,6 +145,9 @@ interface TaskDetailModalProps {
   taskModalError: string | null;
   taskEditRecovery?: RecoveryDraftState;
   onDiscardTaskEditRecovery?: () => void;
+  liveSaveStatus?: ReactNode;
+  liveSaveConflictReview?: ReactNode;
+  isTaskLiveSaveConflicted?: boolean;
   attachmentError: string | null;
   isSubmittingAttachment: boolean;
   isArchivingTask: boolean;
@@ -240,6 +244,9 @@ export function TaskDetailModal({
   taskModalError,
   taskEditRecovery = EMPTY_RECOVERY_STATE,
   onDiscardTaskEditRecovery = () => undefined,
+  liveSaveStatus = null,
+  liveSaveConflictReview = null,
+  isTaskLiveSaveConflicted = false,
   attachmentError,
   isSubmittingAttachment,
   isArchivingTask,
@@ -619,13 +626,19 @@ export function TaskDetailModal({
                   </div>
                 ) : null}
                 {isEditing ? <RecoveryDraftNotice draft={taskEditRecovery} onDiscard={onDiscardTaskEditRecovery} /> : null}
+                {isEditing ? liveSaveStatus : null}
+                {isEditing ? liveSaveConflictReview : null}
 
                 {isEditing ? (
                   <div className="flex w-full gap-2">
                     <Button
                       type="button"
                       onClick={() => void onSaveTask()}
-                      disabled={isUpdatingTask || taskEditRecovery.conflict}
+                      disabled={
+                        isUpdatingTask ||
+                        taskEditRecovery.conflict ||
+                        isTaskLiveSaveConflicted
+                      }
                       aria-busy={isUpdatingTask ? "true" : undefined}
                       aria-label={isUpdatingTask ? "Saving changes..." : "Save changes"}
                       className="flex-1"
