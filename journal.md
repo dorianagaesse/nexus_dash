@@ -15,6 +15,14 @@ Use it for important implementation milestones, blockers, validation runs, and r
   and a reproducible real-database two-editor context-card traffic/latency
   fixture. See `docs/reports/nd-434-review-validation.md` for methodology and
   the Live release boundary.
+- Validation passed: lint, RLS inventory, 2,188 tests (2 skipped), coverage,
+  production build, and the PostgreSQL isolation matrix. Preview workflow
+  40960231850 succeeded; checkout logs verify
+  `1499f830a17f713721dd5b7c4424c0ead4aa96c3`. All five focused hosted browser
+  tests passed. Two-editor local/Preview probes observed zero idle/timed
+  writes and no notification/email increase; Preview explicit API p50/p95 was
+  268.1/477.8 ms. Raw metrics and immutable URL are in the report. Live stays
+  disabled pending its separate release gates.
 
 # 2026-10-27 - ND-434: Calendar provider preconditions and guarded context-card edits
 
