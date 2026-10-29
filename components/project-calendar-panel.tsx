@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { CalendarEventModal } from "@/components/calendar-panel/calendar-event-modal";
+import { isCalendarEventEtag } from "@/lib/calendar-event-precondition";
 import { CalendarWeekGrid } from "@/components/calendar-panel/calendar-week-grid";
 import {
   PROJECT_SECTION_CARD_CLASS,
@@ -122,7 +123,8 @@ export function ProjectCalendarPanel({
     setEventLocation(draft.location);
     setEventDescription(draft.description);
     setEventCalendarSourceId(draft.calendarSourceId);
-    setEventEtag(draft.etag);
+    // Pre-ETag recovery drafts remain recoverable, but cannot save until reviewed.
+    setEventEtag(isCalendarEventEtag(draft.etag) ? draft.etag : "");
   };
   const eventRecovery = useRecoveryDraft({
     storageKey: actorUserId && isEventModalOpen && eventModalMode !== "view"
@@ -227,6 +229,7 @@ export function ProjectCalendarPanel({
   // event revision shown when the modal opened, not the draft's stale ETag.
   const acceptRecoveryConflict = () => {
     setEventEtag(recoveryBase.etag);
+    setEventFormError(null);
   };
 
   const openEventDetails = (event: CalendarEventItem) => {
@@ -317,6 +320,14 @@ export function ProjectCalendarPanel({
     if (!isWritable || eventModalMode === "view") {
       return;
     }
+    if (eventRecovery.conflict) {
+      setEventFormError("Review the recovered draft before saving your changes.");
+      return;
+    }
+    if (eventModalMode === "edit" && !isCalendarEventEtag(eventEtag)) {
+      setEventFormError(mapEventMutationError("calendar-edit-precondition-required"));
+      return;
+    }
 
     const trimmedSummary = eventSummary.trim();
     if (!trimmedSummary) {
@@ -366,7 +377,7 @@ export function ProjectCalendarPanel({
           location: eventLocation.trim(),
           description: eventDescription.trim(),
           calendarSourceId: eventCalendarSourceId || undefined,
-          ...(eventModalMode === "edit" && eventEtag
+          ...(eventModalMode === "edit"
             ? { expectedEtag: eventEtag }
             : {}),
         }),
@@ -633,6 +644,7 @@ export function ProjectCalendarPanel({
         eventCalendarSourceId={eventCalendarSourceId}
         selectedEvent={selectedEvent}
         eventFormError={eventFormError}
+        editPreconditionAvailable={isCalendarEventEtag(eventEtag)}
         recovery={eventRecovery}
         onDiscardRecovery={() => { eventRecovery.discard(); applyRecoveryValue(recoveryBase); }}
         onAcceptRecoveryConflict={acceptRecoveryConflict}

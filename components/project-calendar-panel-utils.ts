@@ -503,6 +503,8 @@ export function mapEventMutationError(errorCode: string): string {
       return "This event changed in Google Calendar after you opened it. Your changes were not saved and your draft is kept locally. Close and reopen the event to review the latest version, then try again.";
     case "invalid-precondition":
       return "The saved event revision is invalid. Close and reopen the event before saving.";
+    case "calendar-edit-precondition-required":
+      return "The event revision is unavailable. Your draft is kept locally. Close and reopen the event before saving.";
     case "calendar-create-failed":
       return "Could not create event in Google Calendar.";
     case "calendar-update-failed":

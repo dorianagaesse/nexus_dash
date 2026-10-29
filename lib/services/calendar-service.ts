@@ -4,6 +4,7 @@ import {
   hasCalendarWriteScope,
 } from "@/lib/google-calendar-access";
 import { getCalendarProvider } from "@/lib/calendar-providers/google";
+import { isCalendarEventEtag } from "@/lib/calendar-event-precondition";
 import { logServerError, logServerWarning } from "@/lib/observability/logger";
 import { requireProjectRole } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
@@ -301,7 +302,8 @@ function parseUpsertEventPayload(
       : "";
   const expectedEtag =
     typeof payload.expectedEtag === "string" ? payload.expectedEtag.trim() : "";
-  if (expectedEtag.length > 512) {
+  if (payload.expectedEtag !== undefined &&
+    (!expectedEtag || !isCalendarEventEtag(expectedEtag))) {
     return { ok: false, error: "invalid-precondition" };
   }
 
@@ -781,15 +783,17 @@ export async function updateCalendarEvent(
       return createError(400, { error: parsedPayload.error });
     }
 
+    if (!parsedPayload.payload.expectedEtag) {
+      return createError(428, { error: "calendar-edit-precondition-required" });
+    }
+
     const response = await getCalendarProvider("google").requestEvents({
       accessToken: auth.body.context.accessToken,
       calendarId: auth.body.context.calendarId,
       eventId,
       method: "PATCH",
       body: toGoogleEventRequest(parsedPayload.payload),
-      ...(parsedPayload.payload.expectedEtag
-        ? { headers: { "If-Match": parsedPayload.payload.expectedEtag } }
-        : {}),
+      headers: { "If-Match": parsedPayload.payload.expectedEtag },
     });
 
     const responsePayload = (await response

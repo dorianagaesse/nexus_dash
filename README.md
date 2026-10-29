@@ -109,6 +109,16 @@ Open `http://localhost:3000`.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
 
+Calendar creation and edits use explicit Save; recovery drafts never write to
+Google on a timer. Calendar edit PATCH requests require `expectedEtag` containing
+one strong ETag from the event listing. Missing preconditions return 428
+`calendar-edit-precondition-required`, invalid values return 400
+`invalid-precondition`, and stale provider revisions return 412
+`calendar-edit-conflict` without changing the event. Restored drafts from before
+ETags were recorded require review before adopting the current event revision.
+If the provider revision is unavailable, the draft remains recoverable and Save
+stays disabled until the event can be reopened with a valid revision.
+
 ## Database and Migrations
 
 Scripts:

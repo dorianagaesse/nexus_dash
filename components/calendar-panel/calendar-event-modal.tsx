@@ -33,6 +33,7 @@ interface CalendarEventModalProps {
   eventCalendarSourceId: string;
   selectedEvent: CalendarEventItem | null;
   eventFormError: string | null;
+  editPreconditionAvailable: boolean;
   recovery: RecoveryDraftState;
   onDiscardRecovery: () => void;
   onAcceptRecoveryConflict: () => void;
@@ -70,6 +71,7 @@ export function CalendarEventModal({
   eventCalendarSourceId,
   selectedEvent,
   eventFormError,
+  editPreconditionAvailable,
   recovery,
   onDiscardRecovery,
   onAcceptRecoveryConflict,
@@ -324,6 +326,11 @@ export function CalendarEventModal({
               />
             </div>
 
+            {eventModalMode === "edit" && !editPreconditionAvailable && !recovery.conflict ? (
+              <p role="alert" className="text-sm text-destructive">
+                The event revision is unavailable. Your draft is kept locally. Close and reopen the event before saving.
+              </p>
+            ) : null}
             {eventFormError ? (
               <div className="space-y-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive dark:text-red-200">
                 <p>{eventFormError}</p>
@@ -354,7 +361,8 @@ export function CalendarEventModal({
               {eventModalMode !== "view" ? (
                 <Button
                   type="submit"
-                  disabled={isEventMutationPending}
+                  disabled={isEventMutationPending || recovery.conflict ||
+                    (eventModalMode === "edit" && !editPreconditionAvailable)}
                   className="w-full sm:w-auto"
                 >
                   {isSavingEvent

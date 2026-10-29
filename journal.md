@@ -3,6 +3,19 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-29 - ND-434: close legacy Calendar draft precondition bypass
+
+- PR #630 review follow-up requires a strong provider ETag on every Calendar
+  edit. Missing preconditions return 428; wildcard, weak, multiple, malformed,
+  and oversized preconditions return 400 without a provider write.
+- Pre-ETag drafts remain recoverable. Calendar Save and programmatic submit
+  are blocked until recovery review; review adopts the current event ETag.
+  Missing provider revisions leave Save disabled and the draft intact.
+- Added API regression cases, current/legacy Calendar browser recovery cases,
+  and a reproducible real-database two-editor context-card traffic/latency
+  fixture. See `docs/reports/nd-434-review-validation.md` for methodology and
+  the Live release boundary.
+
 # 2026-10-27 - ND-434: Calendar provider preconditions and guarded context-card edits
 
 - Calendar event edits now send the provider ETag captured with the draft as

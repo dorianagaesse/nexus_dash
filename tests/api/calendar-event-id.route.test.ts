@@ -92,6 +92,7 @@ describe("calendar event by id routes", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           projectId: PROJECT_ID,
+          expectedEtag: '"etag-1"',
           summary: "Updated title",
           start: "2026-02-14T10:00:00.000Z",
           end: "2026-02-14T11:00:00.000Z",
@@ -141,6 +142,7 @@ describe("calendar event by id routes", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           projectId: PROJECT_ID,
+          expectedEtag: '"etag-1"',
           summary: "Updated by viewer",
           start: "2026-02-14T10:00:00.000Z",
           end: "2026-02-14T11:00:00.000Z",
@@ -183,6 +185,7 @@ describe("calendar event by id routes", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           projectId: PROJECT_ID,
+          expectedEtag: '"etag-1"',
           summary: "Updated title",
           start: "2026-02-14T10:00:00.000Z",
           end: "2026-02-14T11:00:00.000Z",
@@ -217,6 +220,7 @@ describe("calendar event by id routes", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           projectId: PROJECT_ID,
+          expectedEtag: '"etag-1"',
           summary: "Updated title",
           start: "2026-02-14T10:00:00.000Z",
           end: "2026-02-14T11:00:00.000Z",
@@ -251,6 +255,7 @@ describe("calendar event by id routes", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           projectId: PROJECT_ID,
+          expectedEtag: '"etag-1"',
           summary: "Updated title",
           start: "2026-02-14T10:00:00.000Z",
           end: "2026-02-14T11:00:00.000Z",
@@ -294,6 +299,7 @@ describe("calendar event by id routes", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           projectId: PROJECT_ID,
+          expectedEtag: '"etag-1"',
           summary: "Updated title",
           start: "2026-02-14T10:00:00.000Z",
           end: "2026-02-14T11:00:00.000Z",
@@ -373,6 +379,41 @@ describe("calendar event by id routes", () => {
     expect(forwardedBody).not.toHaveProperty("expectedEtag");
   });
 
+  test.each([
+    [undefined, 428, "calendar-edit-precondition-required"],
+    ["", 400, "invalid-precondition"],
+    ["*", 400, "invalid-precondition"],
+    ['W/"etag-1"', 400, "invalid-precondition"],
+    ['"etag-1", "etag-2"', 400, "invalid-precondition"],
+    [42, 400, "invalid-precondition"],
+    ['"bad\r\netag"', 400, "invalid-precondition"],
+    [`"${"x".repeat(513)}"`, 400, "invalid-precondition"],
+  ])("PATCH rejects unsafe precondition %j without a provider write", async (expectedEtag, status, error) => {
+    googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
+      ok: true,
+      context: { accessToken: "token", calendarId: "primary", scope: "write-scope" },
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const response = await PATCH(
+      new NextRequest("http://localhost/api/calendar/events/evt-1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          projectId: PROJECT_ID,
+          summary: "Recovered draft",
+          start: "2026-02-14T10:00:00.000Z",
+          end: "2026-02-14T11:00:00.000Z",
+          isAllDay: false,
+          expectedEtag,
+        }),
+      }),
+      { params: { eventId: "evt-1" } }
+    );
+    expect(response.status).toBe(status);
+    await expect(readJson(response)).resolves.toEqual({ error });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   test("PATCH maps Google 412 to calendar-edit-conflict", async () => {
     googleCalendarAccessMock.getAuthorizedGoogleCalendarContext.mockResolvedValueOnce({
       ok: true,
@@ -432,6 +473,7 @@ describe("calendar event by id routes", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           projectId: PROJECT_ID,
+          expectedEtag: '"etag-1"',
           summary: "Updated title",
           start: "2026-02-14T10:00:00.000Z",
           end: "2026-02-14T11:00:00.000Z",
@@ -464,6 +506,7 @@ describe("calendar event by id routes", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           projectId: PROJECT_ID,
+          expectedEtag: '"etag-1"',
           summary: "Updated title",
           start: "2026-02-14T10:00:00.000Z",
           end: "2026-02-14T11:00:00.000Z",

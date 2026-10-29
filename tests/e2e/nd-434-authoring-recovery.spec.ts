@@ -127,7 +127,8 @@ test("create forms recover after close and reload without creating records", asy
   }
 });
 
-test("calendar edit preconditions refuse to overwrite a newer event", async ({ page }) => {
+for (const legacyDraft of [false, true]) {
+test(`calendar ${legacyDraft ? "legacy" : "current"} edit draft preconditions refuse to overwrite a newer event`, async ({ page }, testInfo) => {
   const userId = await signInAsVerifiedUser(page);
   const project = await prisma.project.create({
     data: {
@@ -247,6 +248,19 @@ test("calendar edit preconditions refuse to overwrite a newer event", async ({ p
     await page.locator("#calendar-event-summary").fill("My planning edit");
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
+    if (legacyDraft) {
+      // Seed the exact version-1 envelope shape written before ETags existed.
+      await page.evaluate(({ userId, projectId }) => {
+        const key = `nexusdash.draft.v1:${userId}:${projectId}:calendar-event:edit:source-1:evt-stale`;
+        const envelope = JSON.parse(localStorage.getItem(key)!);
+        delete envelope.payload.etag;
+        const base = JSON.parse(envelope.base);
+        delete base.etag;
+        envelope.base = JSON.stringify(base);
+        localStorage.setItem(key, JSON.stringify(envelope));
+      }, { userId, projectId: project.id });
+    }
+
     // The event changes in Google after the draft was stored.
     eventVersion = 2;
     await reloadWithCalendarExpanded();
@@ -261,9 +275,20 @@ test("calendar edit preconditions refuse to overwrite a newer event", async ({ p
     await expect(page.locator("#calendar-event-summary")).toHaveValue(
       "My planning edit"
     );
+    await expect(reopened.getByRole("button", { name: "Save changes", exact: true })).toBeDisabled();
+    if (legacyDraft) {
+      await page.screenshot({ path: testInfo.outputPath("calendar-legacy-review-desktop.png") });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.screenshot({ path: testInfo.outputPath("calendar-legacy-review-mobile.png") });
+      await page.setViewportSize({ width: 1280, height: 720 });
+    }
+    // Even a programmatic form submission cannot bypass review.
+    await reopened.locator("form").evaluate((form: HTMLFormElement) => form.requestSubmit());
+    expect(patchBodies).toHaveLength(0);
     await reopened
       .getByRole("button", { name: "I reviewed; keep my changes" })
       .click();
+    await expect(reopened.getByRole("button", { name: "Save changes", exact: true })).toBeEnabled();
     await reopened.getByRole("button", { name: "Save changes" }).click();
 
     await expect.poll(() => patchBodies.length).toBe(1);
@@ -301,6 +326,7 @@ test("calendar edit preconditions refuse to overwrite a newer event", async ({ p
     await prisma.project.delete({ where: { id: project.id } });
   }
 });
+}
 
 test("calendar create draft recovers without a Google write", async ({ page }) => {
   const userId = await signInAsVerifiedUser(page);
