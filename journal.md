@@ -3,6 +3,13 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-29 - ND-573: Refresh PR #603 for merge
+
+- Merged current `origin/main`; resolved the journal-only conflict by retaining
+  both histories in date order. The deterministic home-entry test is unchanged.
+- Fresh quality, Playwright, RLS, and container CI must pass before merge.
+
+
 # 2026-10-27 - ND-433: Preserve explicit commands through retries and adoption
 
 - Review round on PR #627 (`feature/nd-433-live-save-surfaces`). Commands are
@@ -214,6 +221,22 @@ Use it for important implementation milestones, blockers, validation runs, and r
   cannot catch missing Broadcast config). The module-scope validation root
   cause is tracked as issue #616 / ND-611.
 
+# 2026-10-20 - ND-573: Refresh main before merge
+
+- Merged `origin/main` at `1051415` (ND-581 shareable task URLs, ND-582 Kanban
+  task references, plus the ND-577 and ND-538 merges) into the ND-573 branch to
+  clear the PR #603 conflict. The only conflict was this journal; kept both
+  entries newest-first.
+- Re-validated on the merged tree: ran `npm ci` against the merged lockfile and
+  `npx prisma generate`; applied all migrations to a fresh isolated database
+  (`nexusdash_nd573`) including `20261012000000_content_revisions`. Lint,
+  `rls:check`, release version policy, and the production build (with
+  `REALTIME_TRANSPORT=polling` as in CI) passed. Unit suite 2,111 passed /
+  2 skipped; one 30s timeout in `tests/scripts/release-version.test.ts` under
+  full-suite load passed 8/8 when rerun alone. The home-entry spec passed 3/3
+  runs against a local production server.
+- PR #603 CI green on `ebf1d2c`; PR MERGEABLE.
+
 # 2026-10-20 - ND-577: Refresh main before merge
 
 - Merged `origin/main` at `133487d` (ND-538 optimistic meeting-todo completion
@@ -360,6 +383,23 @@ Use it for important implementation milestones, blockers, validation runs, and r
   validated implementation. Main's roadmap changes remain intact.
 - Reviewed conflict markers, whitespace and references; fresh PR CI validates
   the integrated branch before handoff. Live remains off.
+
+# 2026-10-14 - ND-573: Stabilize the home-entry node-field link-count assertion
+
+- The home-entry spec asserted `data-link-count > 780` while the node field
+  seeds itself from `crypto.getRandomValues` on every load (sampled range
+  ~775-855 over 3,000 seeds), so the threshold could fail on roughly 0.13% of
+  runs unrelated to any branch change (issue #600, first seen in PR #598 CI).
+- The pointer-interaction test now overrides `crypto.getRandomValues` through
+  `page.addInitScript` to pin the seed (delegating every other call shape) and
+  asserts the exact dataset: seed 424242 yields 813 links. Seed-source
+  behavior moved to its own spec that still exercises the real RNG across
+  reloads. No production code changed; visuals untouched.
+- Validation: 20 consecutive spec runs green (6 passed each); lint, rls:check,
+  unit suite (2,004 passed / 2 skipped), coverage (93.9% statements / 85.04%
+  branches / 95.42% functions / 94.19% lines), production build, and the full
+  Playwright suite (111 passed / 2 skipped) against an isolated server
+  (port 3463, database `nexusdash_nd573`).
 
 # 2026-10-13 - ND-565: Address relation revision review
 

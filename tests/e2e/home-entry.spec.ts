@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
 
+// The node field seeds itself from crypto.getRandomValues on every load, so the
+// spec pins the seed for deterministic dataset assertions: seed 424242 builds
+// 813 links. Seed-source randomization is covered by a separate spec below.
+const NODE_FIELD_SEED = 424242;
+const NODE_FIELD_LINK_COUNT = 813;
+
 test.describe("unauthenticated home entry", () => {
   test("keeps sign-in immediate and communicates product outcomes", async ({
     page,
@@ -99,16 +105,49 @@ test.describe("unauthenticated home entry", () => {
     ).toBeVisible();
   });
 
+  test("varies the node field seed between page loads", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/");
+
+    const nodeField = page.locator(".home-interactive-node-field");
+    await expect(nodeField).toHaveAttribute("data-constellation-seed", /\d+/);
+    const firstSeed = await nodeField.getAttribute(
+      "data-constellation-seed"
+    );
+
+    await page.reload();
+
+    await expect
+      .poll(() => nodeField.getAttribute("data-constellation-seed"))
+      .not.toBe(firstSeed);
+  });
+
   test("highlights and attracts the connected node field around a precise pointer", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.addInitScript((seed: number) => {
+      const original = window.crypto.getRandomValues.bind(window.crypto);
+      Object.defineProperty(window.crypto, "getRandomValues", {
+        configurable: true,
+        value: (array: ArrayBufferView) => {
+          if (array instanceof Uint32Array && array.length === 1) {
+            array[0] = seed;
+            return array;
+          }
+          return original(array);
+        },
+      });
+    }, NODE_FIELD_SEED);
     await page.goto("/");
 
     const nodeField = page.locator(".home-interactive-node-field");
     await expect(nodeField).toBeVisible();
     await expect(nodeField).toHaveAttribute("data-active", "false");
-    await expect(nodeField).toHaveAttribute("data-constellation-seed", /\d+/);
+    await expect(nodeField).toHaveAttribute(
+      "data-constellation-seed",
+      String(NODE_FIELD_SEED)
+    );
     await expect(nodeField).toHaveAttribute("data-node-count", "260");
     await expect(nodeField).toHaveAttribute("data-ambient-nodes", "148");
     await expect(nodeField).toHaveAttribute("data-viewport-tissue-nodes", "104");
@@ -120,8 +159,7 @@ test.describe("unauthenticated home entry", () => {
       "continuous"
     );
     const linkCount = Number(await nodeField.getAttribute("data-link-count"));
-    expect(linkCount).toBeGreaterThan(780);
-    const firstSeed = await nodeField.getAttribute("data-constellation-seed");
+    expect(linkCount).toBe(NODE_FIELD_LINK_COUNT);
     const strongLinkCount = Number(
       await nodeField.getAttribute("data-strong-links")
     );
@@ -130,11 +168,6 @@ test.describe("unauthenticated home entry", () => {
       await nodeField.getAttribute("data-offscreen-nodes")
     );
     expect(offscreenNodeCount).toBeGreaterThan(0);
-
-    await page.reload();
-    await expect
-      .poll(() => nodeField.getAttribute("data-constellation-seed"))
-      .not.toBe(firstSeed);
 
     await page.mouse.move(180, 180);
     await page.mouse.move(720, 500, { steps: 8 });
