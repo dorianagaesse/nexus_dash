@@ -502,7 +502,7 @@ test("viewers filter the board but get no create or drag affordances", async ({
   );
   await expect(firstCard).toBeVisible();
   await expect(firstCard).not.toHaveClass(/cursor-grab/);
-  await expect(firstCard.locator(".lucide-grip-vertical")).toHaveCount(0);
+  await expect(firstCard.locator(".task-card-grip")).toHaveCount(0);
 
   await openFilterPanel(page);
   await togglePanelOption(page, "Urgent");

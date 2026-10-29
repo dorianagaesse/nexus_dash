@@ -77,6 +77,15 @@
   .scrollbar-hidden::-webkit-scrollbar {
     display: none;
   }
+
+  /* Painted from CSS so each mounted Kanban card avoids an extra SVG node. */
+  .task-card-grip {
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M7 5a2 2 0 1 0 4 0a2 2 0 1 0-4 0M13 5a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 12a2 2 0 1 0 4 0a2 2 0 1 0-4 0M13 12a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 19a2 2 0 1 0 4 0a2 2 0 1 0-4 0M13 19a2 2 0 1 0 4 0a2 2 0 1 0-4 0'/%3E%3C/svg%3E")
+      center / 16px 16px no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M7 5a2 2 0 1 0 4 0a2 2 0 1 0-4 0M13 5a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 12a2 2 0 1 0 4 0a2 2 0 1 0-4 0M13 12a2 2 0 1 0 4 0a2 2 0 1 0-4 0M7 19a2 2 0 1 0 4 0a2 2 0 1 0-4 0M13 19a2 2 0 1 0 4 0a2 2 0 1 0-4 0'/%3E%3C/svg%3E")
+      center / 16px 16px no-repeat;
+    background-color: currentColor;
+  }
 }
 
 .form-focus-border-field {

@@ -37,6 +37,7 @@ const ownerSummary = {
 const baseTask: KanbanTask = {
   id: "task-1",
   reference: "ND-42",
+  contentRevision: 1,
   title: "Comment identity",
   description: null,
   deadlineDate: null,

@@ -94,6 +94,7 @@ export interface TaskAttachment {
 export interface KanbanTask {
   id: string;
   reference: string | null;
+  contentRevision: number;
   title: string;
   description: string | null;
   deadlineDate: string | null;
@@ -117,6 +118,8 @@ export interface TaskMutationResponseTask {
   id: string;
   // Persisted activity events created before TASK-351 do not include a reference.
   reference?: string;
+  // Older persisted activity events predate the ND-565 revision contract.
+  contentRevision?: number;
   title: string;
   label: string | null;
   labelsJson: string | null;

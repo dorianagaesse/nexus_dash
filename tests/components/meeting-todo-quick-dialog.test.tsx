@@ -67,6 +67,13 @@ const OPEN_NOTE: ProjectMeetingNotePanelNote = {
   updatedAt: "2026-07-11T10:00:00.000Z",
 };
 
+const PRIVATE_NOTE: ProjectMeetingNotePanelNote = {
+  ...OPEN_NOTE,
+  id: "meeting-private",
+  title: "Private meeting",
+  canOpenNote: false,
+};
+
 const MIXED_ASSIGNMENT_NOTE: ProjectMeetingNotePanelNote = {
   ...OPEN_NOTE,
   id: "meeting-2",
@@ -465,6 +472,16 @@ describe("meeting todo quick dialog", () => {
     expect(dialog?.textContent).not.toContain(
       "Someone else's finished follow-up"
     );
+  });
+
+  test("hides the source meeting for todos from private meetings", async () => {
+    renderPanel({ notes: [PRIVATE_NOTE] });
+    await openTodosDialog();
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    expect(dialog?.textContent).toContain("Choose the movable todo entry");
+    expect(dialog?.textContent).toContain("Review the original quick panel");
+    expect(dialog?.textContent).not.toContain("Private meeting");
   });
 
   test("renders no trigger or dialog when the current user has no assigned todos", () => {

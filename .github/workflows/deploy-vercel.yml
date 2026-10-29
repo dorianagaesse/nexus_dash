@@ -109,7 +109,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
+          check-latest: true
           cache: npm
 
       - name: Resolve app metadata
@@ -138,8 +139,11 @@ jobs:
       - name: Pull Vercel environment (production)
         run: npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=production --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
+      # Build-scoped pin: production builds default to Broadcast, which requires
+      # Supabase secrets CI cannot read. Deployment runtime keeps the default.
       - name: Build prebuilt artifact (production)
         run: |
+          REALTIME_TRANSPORT="polling" \
           APP_VERSION="$APP_VERSION" \
           APP_ENV="$APP_ENV" \
           COMMIT_SHA="$COMMIT_SHA" \
@@ -297,7 +301,8 @@ jobs:
         if: ${{ inputs.action == 'deploy-preview' || inputs.action == 'deploy-production-staged' || inputs.action == 'promote' }}
         uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
+          check-latest: true
           cache: npm
 
       - name: Resolve app metadata
@@ -374,6 +379,8 @@ jobs:
           MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
         run: DATABASE_URL="$MIGRATION_DATABASE_URL" node scripts/validate-prisma-runtime-schema.mjs
 
+      # Build-scoped pin: vercel build does not set VERCEL_ENV, so the build
+      # otherwise resolves Broadcast and needs secrets Preview env may omit.
       - name: Deploy preview
         if: inputs.action == 'deploy-preview'
         id: deploy_preview
@@ -386,6 +393,7 @@ jobs:
           if [ "$PREVIEW_REALTIME_TRANSPORT" = "broadcast" ]; then
             deployment_env+=(-e "SUPABASE_REALTIME_TOKEN_TTL_SECONDS=60")
           fi
+          REALTIME_TRANSPORT="polling" \
           APP_VERSION="$APP_VERSION" \
           APP_ENV="$APP_ENV" \
           COMMIT_SHA="$COMMIT_SHA" \
@@ -486,6 +494,10 @@ jobs:
           if (actualRevision !== expectedRevision) {
             throw new Error("Deployed application revision does not match the checked-out git ref.");
           }
+          const nodeMajor = Number(readiness.runtime?.node?.replace(/^v/, "").split(".")[0]);
+          if (nodeMajor !== 24) {
+            throw new Error(`Deployed runtime must be Node 24, received ${readiness.runtime?.node ?? "unknown"}.`);
+          }
 
           console.log(`Verified preview runtime ${actualRevision} and database readiness.`);
           NODE
@@ -575,11 +587,14 @@ jobs:
           MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
         run: node scripts/verify-preview-realtime.mjs
 
+      # Keep the build gate off Broadcast, matching CI quality gates; the
+      # deployment runtime still resolves to the Broadcast default.
       - name: Deploy production (staged)
         if: inputs.action == 'deploy-production-staged'
         id: deploy_prod_staged
         run: |
           npx vercel@${VERCEL_CLI_VERSION} pull --yes --environment=production --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+          REALTIME_TRANSPORT="polling" \
           APP_VERSION="$APP_VERSION" \
           APP_ENV="$APP_ENV" \
           COMMIT_SHA="$COMMIT_SHA" \
@@ -690,6 +705,28 @@ jobs:
             echo "::error::Set git_ref to the staged deployment revision."
             exit 1
           fi
+
+      - name: Smoke test promotion target runtime configuration
+        if: inputs.action == 'promote'
+        run: |
+          target_url=$(node -e 'const d=require("/tmp/vercel-deployment.json"); const raw=d.url ?? ""; process.stdout.write(raw ? (raw.startsWith("http") ? raw : `https://${raw}`) : "")')
+          if [ -z "$target_url" ]; then
+            echo "::error::Promotion target has no deployment URL for the runtime smoke."
+            exit 1
+          fi
+
+          # The root layout validates runtime-only configuration; health/ready is
+          # DB-only and cannot catch missing Broadcast variables.
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --max-time 30 \
+            --retry 3 \
+            --retry-delay 5 \
+            --output /tmp/promotion-smoke.html \
+            "${target_url%/}/"
+          echo "Promotion target served /; runtime configuration loads."
 
       # Promotion is the release boundary: update the schema only after the
       # target deployment is validated and immediately before switching aliases.

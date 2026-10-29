@@ -2,6 +2,7 @@ import type { ProjectMeetingParticipantIdentity } from "@/lib/meeting-participan
 import type { MeetingTodoActorSummary } from "@/lib/meeting-todo-actor";
 
 export type MeetingNoteStatus = "prepared" | "actions_in_progress" | "done";
+export type MeetingNoteVisibility = "private" | "team";
 
 export interface ProjectMeetingNotePanelAction {
   id: string;
@@ -17,12 +18,15 @@ export interface ProjectMeetingNotePanelAction {
 
 export interface ProjectMeetingNotePanelNote {
   id: string;
+  contentRevision: number;
   projectId: string;
   title: string;
   scheduledAt: string | null;
   participants: ProjectMeetingParticipantIdentity[];
   labels: string[];
   status: MeetingNoteStatus;
+  visibility?: MeetingNoteVisibility;
+  canOpenNote?: boolean;
   inputNotes: string;
   outputNotes: string;
   decisions?: string;

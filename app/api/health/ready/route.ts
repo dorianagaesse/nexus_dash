@@ -25,6 +25,9 @@ export async function GET(request: Request): Promise<Response> {
           environment: metadata.environment,
           revision: metadata.revision,
         },
+        runtime: {
+          node: process.version,
+        },
         requestId,
       },
       {

@@ -3,12 +3,14 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   useTransition,
 } from "react";
-import type { DropResult } from "@hello-pangea/dnd";
+import type { ReactNode } from "react";
+import type { DraggableLocation, DropResult } from "@hello-pangea/dnd";
 
 import type { RelatedTaskOption } from "@/components/kanban/related-task-field";
 import {
@@ -39,6 +41,18 @@ import {
 import { useKanbanTaskSearch } from "@/components/kanban/use-kanban-task-search";
 import { TaskDetailModal } from "@/components/kanban/task-detail-modal";
 import { recoveryDraftKey, useRecoveryDraft } from "@/lib/hooks/use-recovery-draft";
+import { useLiveSave } from "@/lib/hooks/use-live-save";
+import { createContentSaveAdapter } from "@/lib/live-save/content-adapter";
+import { isLiveSaveSurfaceEnabled } from "@/lib/live-save/rollout";
+import type {
+  LiveSaveAcceptedInfo,
+  LiveSaveAdapter,
+  LiveSaveFieldMetaMap,
+  LiveSaveOutcome,
+  LiveSaveValidation,
+} from "@/lib/live-save/types";
+import { ConflictReview } from "@/components/live-save/conflict-review";
+import { LiveSaveStatus } from "@/components/live-save/live-save-status";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -68,6 +82,10 @@ import {
   type ProjectActivityRemoteEventDetail,
 } from "@/lib/project-activity-client";
 import {
+  isProjectActivityVersionNewer,
+  readProjectActivityVersionHeader,
+} from "@/lib/project-activity-version";
+import {
   PROJECT_EPICS_RECONCILED_EVENT,
   reconcileProjectEpics,
   reconcileProjectEpicsAfterTaskMutation,
@@ -92,10 +110,13 @@ import { createRelatedTaskMap } from "@/lib/task-related";
 import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 import { MAX_TASK_TITLE_LENGTH } from "@/lib/task-title";
 import {
-  hasProjectActorChanged,
   type ProjectActorReference,
   type ProjectActorSummary,
 } from "@/lib/project-actor";
+import {
+  buildTaskCommandPayload,
+  remainingTaskCommands,
+} from "@/components/kanban-board-task-commands";
 
 export type { KanbanTask } from "@/components/kanban-board-types";
 
@@ -105,6 +126,7 @@ interface KanbanBoardProps {
   actorUserId: string;
   storageProvider: "local" | "r2";
   initialTasks: KanbanTask[];
+  initialActivityVersion?: string | null;
   archivedDoneTasks?: KanbanTask[];
   epics: ProjectEpicOption[];
   archivedEpics?: ProjectEpicOption[];
@@ -239,6 +261,8 @@ function mapTaskMutationResponseTask(task: TaskMutationResponseTask): KanbanTask
   return {
     id: task.id,
     reference: task.reference ?? null,
+    contentRevision:
+      typeof task.contentRevision === "number" ? task.contentRevision : 0,
     title: task.title,
     labels: getTaskLabelsFromStorage(task.labelsJson, task.label),
     description: task.description,
@@ -264,6 +288,121 @@ function mapTaskMutationResponseTask(task: TaskMutationResponseTask): KanbanTask
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+type TaskLiveSaveDocument = {
+  title: string;
+  description: string;
+  deadlineDate: string;
+  labels: string[];
+  epicId: string;
+  contentRevision: number;
+  task: KanbanTask | null;
+};
+
+const TASK_LIVE_SAVE_FIELDS = [
+  "title",
+  "description",
+  "deadlineDate",
+  "labels",
+  "epicId",
+] as const;
+
+const TASK_LIVE_SAVE_FIELD_META: LiveSaveFieldMetaMap<TaskLiveSaveDocument> = {
+  title: { label: "Title" },
+  description: { label: "Description", richText: true },
+  deadlineDate: { label: "Deadline" },
+  labels: { label: "Labels" },
+  epicId: { label: "Epic" },
+};
+
+const EMPTY_TASK_LIVE_DOCUMENT: TaskLiveSaveDocument = {
+  title: "",
+  description: "",
+  deadlineDate: "",
+  labels: [],
+  epicId: "",
+  contentRevision: 0,
+  task: null,
+};
+
+const EMPTY_TASK_LIVE_ADAPTER: LiveSaveAdapter<TaskLiveSaveDocument> = {
+  save: async () => ({ kind: "gone" }),
+};
+
+function toTaskLiveSaveDocument(task: KanbanTask): TaskLiveSaveDocument {
+  return {
+    title: task.title,
+    description: task.description ?? "",
+    deadlineDate: task.deadlineDate ?? "",
+    labels: task.labels,
+    epicId: task.epic?.id ?? "",
+    contentRevision: task.contentRevision,
+    task,
+  };
+}
+
+function readTaskLiveDocument(value: unknown): TaskLiveSaveDocument | null {
+  if (!isRecord(value)) return null;
+  const raw = value as Partial<TaskMutationResponseTask>;
+  if (
+    typeof raw.id !== "string" ||
+    typeof raw.status !== "string" ||
+    !isTaskStatus(raw.status) ||
+    typeof raw.contentRevision !== "number"
+  ) {
+    return null;
+  }
+  return toTaskLiveSaveDocument(mapTaskMutationResponseTask(raw as TaskMutationResponseTask));
+}
+
+function validateTaskLiveDocument(value: TaskLiveSaveDocument): LiveSaveValidation {
+  const title = value.title.trim();
+  if (title.length < 2) {
+    return { valid: false, message: "Task title must be at least 2 characters." };
+  }
+  if (title.length > MAX_TASK_TITLE_LENGTH) {
+    return {
+      valid: false,
+      message: `Task title must be ${MAX_TASK_TITLE_LENGTH} characters or fewer.`,
+    };
+  }
+  return { valid: true };
+}
+
+function taskLiveSaveErrorMessage(
+  outcome: LiveSaveOutcome<TaskLiveSaveDocument>
+): string | null {
+  switch (outcome.status) {
+    case "accepted":
+    case "adopted":
+    case "clean":
+      return null;
+    case "conflict":
+      return "Task changed elsewhere. Review the conflicting changes below.";
+    case "invalid":
+      return outcome.message;
+    case "unauthorized":
+      return "You no longer have permission to edit this task.";
+    case "gone":
+      return "This task is no longer available.";
+    case "offline":
+      return "You're offline. Your draft is safe locally; try again when the connection returns.";
+    case "failed":
+      return outcome.message;
+    case "busy":
+      return "A save is already in progress. Try again.";
+    case "disabled":
+      return "Live save is unavailable for this task.";
+  }
+}
+
+// Reads through a helper so the ref's `null` reset before a save does not
+// narrow the post-save read to `never`.
+function readTaskLiveFullySynced(ref: {
+  current: { fullySynced: boolean } | null;
+}): boolean {
+  return ref.current?.fullySynced ?? true;
 }
 
 function readRemoteTaskPayload(
@@ -367,12 +506,152 @@ function getAttachmentLinkName(url: string): string {
   }
 }
 
+interface DropApplication {
+  previousColumns: TaskColumns<KanbanTask>;
+  nextColumns: TaskColumns<KanbanTask>;
+  movedTask: KanbanTask;
+  sourceStatus: TaskStatus;
+  destinationStatus: TaskStatus;
+  previousTask: KanbanTask;
+  nextTask: KanbanTask;
+}
+
+interface KeyboardDropIntent {
+  source: DraggableLocation;
+  destination: DraggableLocation;
+  movedTaskId: string;
+  outcome: "pending" | "saved" | "failed";
+  // Project activity version reported by the early persist response; a remote
+  // full-order delivery with a newer version is authoritative over the intent.
+  writeVersion: string | null;
+  // Newest authoritative version already applied when the intent was submitted;
+  // used as the baseline until the write's own version is known.
+  intentStartVersion: string | null;
+  // Number of remote task representations applied when the intent was
+  // submitted; only later representations can carry newer lane authority.
+  intentStartTaskSeq: number;
+  // Lane membership and orders the write payload persists; restored around
+  // the settle so the board shows the stored layout without re-deriving the
+  // move by index.
+  committedOrders: Array<{ status: TaskStatus; taskIds: string[] }>;
+  settled: boolean;
+}
+
+interface RemoteTaskRepresentation {
+  version: string;
+  status: TaskStatus;
+  seq: number;
+}
+
+// Restores the committed payload's lane membership and lane order around a
+// keyboard settle. The payload captured every lane at write time, so tasks
+// that moved between lanes during the intent are placed in their committed
+// lane with the matching status; partial deltas that landed afterwards (task
+// creations) keep their current positions and deleted tasks are never
+// resurrected, mirroring how the server replays those events over the stored
+// order. A newer remote representation of a single task (task upserts carry
+// its current status) outranks the payload's captured membership for that
+// task, so its newer lane is kept even though the payload still lists it in
+// the lane it occupied at write time.
+function reconcileCommittedColumns(
+  previousColumns: TaskColumns<KanbanTask>,
+  orders: Array<{ status: TaskStatus; taskIds: string[] }>,
+  preservedStatusByTaskId: ReadonlyMap<string, TaskStatus>
+): TaskColumns<KanbanTask> {
+  const taskById = new Map<string, KanbanTask>();
+  const currentStatusByTaskId = new Map<string, TaskStatus>();
+  TASK_STATUSES.forEach((status) => {
+    previousColumns[status].forEach((task) => {
+      taskById.set(task.id, task);
+      currentStatusByTaskId.set(task.id, status);
+    });
+  });
+
+  const committedStatusByTaskId = new Map<string, TaskStatus>();
+  orders.forEach((order) => {
+    order.taskIds.forEach((taskId) => {
+      committedStatusByTaskId.set(taskId, order.status);
+    });
+  });
+
+  const targetStatusByTaskId = new Map<string, TaskStatus>();
+  taskById.forEach((_task, taskId) => {
+    targetStatusByTaskId.set(
+      taskId,
+      preservedStatusByTaskId.get(taskId) ??
+        committedStatusByTaskId.get(taskId) ??
+        (currentStatusByTaskId.get(taskId) as TaskStatus)
+    );
+  });
+
+  const preservedIdsByStatus = createEmptyColumns<string>();
+  preservedStatusByTaskId.forEach((status, taskId) => {
+    if (taskById.has(taskId)) {
+      preservedIdsByStatus[status].push(taskId);
+    }
+  });
+
+  const placedTaskIds = new Set<string>();
+  const nextColumns = createEmptyColumns<KanbanTask>();
+  let hasChanges = false;
+
+  TASK_STATUSES.forEach((status) => {
+    const committedIds =
+      orders.find((order) => order.status === status)?.taskIds ?? [];
+    const merged = committedIds.flatMap((taskId) => {
+      const task = taskById.get(taskId);
+      if (
+        !task ||
+        placedTaskIds.has(taskId) ||
+        targetStatusByTaskId.get(taskId) !== status
+      ) {
+        return [];
+      }
+      placedTaskIds.add(taskId);
+      return [task.status === status ? task : { ...task, status }];
+    });
+
+    preservedIdsByStatus[status].forEach((taskId) => {
+      if (placedTaskIds.has(taskId)) {
+        return;
+      }
+      placedTaskIds.add(taskId);
+      const task = taskById.get(taskId) as KanbanTask;
+      const stamped = task.status === status ? task : { ...task, status };
+      const currentIndex = previousColumns[status].findIndex(
+        (currentTask) => currentTask.id === taskId
+      );
+      if (currentIndex === -1) {
+        merged.push(stamped);
+      } else {
+        merged.splice(Math.min(currentIndex, merged.length), 0, stamped);
+      }
+    });
+
+    previousColumns[status].forEach((task, index) => {
+      if (committedStatusByTaskId.has(task.id) || placedTaskIds.has(task.id)) {
+        return;
+      }
+      merged.splice(Math.min(index, merged.length), 0, task);
+    });
+
+    const unchanged =
+      merged.length === previousColumns[status].length &&
+      merged.every((task, index) => task === previousColumns[status][index]);
+    nextColumns[status] = unchanged ? previousColumns[status] : merged;
+    hasChanges = hasChanges || !unchanged;
+  });
+
+  return hasChanges ? nextColumns : previousColumns;
+}
+
 export function KanbanBoard({
   canEdit,
   projectId,
   actorUserId,
   storageProvider,
   initialTasks,
+  initialActivityVersion,
   archivedDoneTasks: initialArchivedDoneTasks = [],
   epics,
   archivedEpics = [],
@@ -400,6 +679,60 @@ export function KanbanBoard({
   );
   const [isSaving, startTransition] = useTransition();
   const [persistError, setPersistError] = useState<string | null>(null);
+  const keyboardDropIntentRef = useRef<KeyboardDropIntent | null>(null);
+  const remoteColumnsVersionRef = useRef<string | null>(null);
+  const remoteColumnsApplyCountRef = useRef(0);
+  // Per-task authority from applied remote representations (task upserts and
+  // creations), keyed by task id. A representation says nothing about the
+  // whole-board order, but its status is authoritative for that one task, so
+  // a settle must not restore an older committed lane over it. The sequence
+  // marks arrival order; the version decides authority against the write.
+  const remoteTaskRepresentationsRef = useRef<
+    Map<string, RemoteTaskRepresentation>
+  >(new Map());
+  const remoteTaskRepresentationSeqRef = useRef(0);
+  // Every remote columns mutation is counted so writers avoid reverting over
+  // it. Only full-order deliveries - typed reorder events and fresh
+  // server-rendered props - also record the activity version; partial task
+  // deltas (upserts, deletions) say nothing about the whole-board order, so a
+  // newer version on one of them must not outrank an acknowledged write.
+  const markRemoteColumnsMutated = useCallback(() => {
+    remoteColumnsApplyCountRef.current += 1;
+  }, []);
+  const markRemoteColumnsApplied = useCallback(
+    (version: string | null | undefined) => {
+      remoteColumnsApplyCountRef.current += 1;
+      if (typeof version !== "string" || !version) {
+        return;
+      }
+      const currentVersion = remoteColumnsVersionRef.current;
+      if (
+        currentVersion === null ||
+        isProjectActivityVersionNewer(version, currentVersion)
+      ) {
+        remoteColumnsVersionRef.current = version;
+      }
+      remoteTaskRepresentationsRef.current.forEach((representation, taskId) => {
+        if (
+          !isProjectActivityVersionNewer(representation.version, version)
+        ) {
+          remoteTaskRepresentationsRef.current.delete(taskId);
+        }
+      });
+    },
+    []
+  );
+  const recordRemoteTaskRepresentation = useCallback(
+    (taskId: string, status: TaskStatus, version: string) => {
+      remoteTaskRepresentationSeqRef.current += 1;
+      remoteTaskRepresentationsRef.current.set(taskId, {
+        version,
+        status,
+        seq: remoteTaskRepresentationSeqRef.current,
+      });
+    },
+    []
+  );
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<KanbanTask | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
@@ -421,6 +754,7 @@ export function KanbanBoard({
   });
 
   const [isEditMode, setIsEditMode] = useState(false);
+  const [taskRecoveryBaseTask, setTaskRecoveryBaseTask] = useState<KanbanTask | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editLabels, setEditLabels] = useState<string[]>([]);
   const [editLabelInput, setEditLabelInput] = useState("");
@@ -435,6 +769,15 @@ export function KanbanBoard({
   const [taskModalError, setTaskModalError] = useState<string | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isSubmittingAttachment, setIsSubmittingAttachment] = useState(false);
+  const taskLiveSubmittedEntryRef = useRef<string | null>(null);
+  const taskLiveLastAcceptedRef = useRef<{ fullySynced: boolean } | null>(null);
+  const taskRecoveryBaseAckRef = useRef(false);
+  // Recorded by the explicit-save and conflict-resolution entry points so the
+  // follow-up input clears only after the server accepts that entry; retries
+  // and unrelated autosaves must not consume it.
+  const recordSubmittedFollowUpEntry = useCallback((entry: string | null) => {
+    taskLiveSubmittedEntryRef.current = entry;
+  }, []);
   const [pendingAttachmentUploads, setPendingAttachmentUploads] = useState<
     PendingAttachmentUpload[]
   >([]);
@@ -486,22 +829,28 @@ export function KanbanBoard({
     assignee: editAssignee,
     relatedTasks: editRelatedTasks,
   }), [editTitle, editLabels, editDescription, editDeadlineDate, editEpicId, editAssignee, editRelatedTasks]);
-  const taskEditRecoveryBase = selectedTask ? {
-    title: selectedTask.title,
-    labels: selectedTask.labels,
-    description: selectedTask.description ?? "",
-    deadlineDate: selectedTask.deadlineDate ?? "",
-    epicId: selectedTask.epic?.id ?? "",
-    assignee: selectedTask.assignee ? { kind: selectedTask.assignee.kind, id: selectedTask.assignee.id } : null,
-    relatedTasks: selectedTask.relatedTasks,
-  } : taskEditRecoveryValue;
+  // Only advance the recovery base once the acknowledged server representation
+  // matches the draft; otherwise every accepted autosave would re-flag this
+  // local draft as conflicting with its own write.
+  const taskRecoveryBase = taskRecoveryBaseTask ?? selectedTask;
+  const taskEditRecoveryBase = useMemo(() => taskRecoveryBase ? {
+    title: taskRecoveryBase.title,
+    labels: taskRecoveryBase.labels,
+    description: taskRecoveryBase.description ?? "",
+    deadlineDate: taskRecoveryBase.deadlineDate ?? "",
+    epicId: taskRecoveryBase.epic?.id ?? "",
+    assignee: taskRecoveryBase.assignee ? { kind: taskRecoveryBase.assignee.kind, id: taskRecoveryBase.assignee.id } : null,
+    relatedTasks: taskRecoveryBase.relatedTasks,
+  } : taskEditRecoveryValue, [taskRecoveryBase, taskEditRecoveryValue]);
   const taskEditRecovery = useRecoveryDraft({
     storageKey: canEdit && isEditMode && selectedTask
       ? recoveryDraftKey({ userId: actorUserId, projectId, surface: "task-detail", mode: "edit", entityId: selectedTask.id })
       : null,
     value: taskEditRecoveryValue,
     base: taskEditRecoveryBase,
-    baseRevision: selectedTask?.updatedAt ?? null,
+    baseRevision: taskRecoveryBase?.contentRevision !== undefined
+      ? String(taskRecoveryBase.contentRevision)
+      : null,
     restore: (draft) => {
       setEditTitle(draft.title);
       setEditLabels(draft.labels);
@@ -529,6 +878,7 @@ export function KanbanBoard({
 
   const resetTaskEditDraft = useCallback((task: KanbanTask) => {
     setTaskModalError(null);
+    setTaskRecoveryBaseTask(task);
     setEditTitle(task.title);
     setEditLabels(task.labels);
     setEditLabelInput("");
@@ -550,9 +900,34 @@ export function KanbanBoard({
     setPreviewAttachment(null);
   }, []);
 
+  // Remote task updates (and command responses) may advance the record while
+  // the form is still clean. Move the recovery base with it; a dirty draft
+  // keeps its older base so live-save rebase/conflict review owns the decision.
+  useEffect(() => {
+    if (!isEditMode || !selectedTask) return;
+    if (JSON.stringify(taskEditRecoveryValue) !== JSON.stringify(taskEditRecoveryBase)) return;
+    setTaskRecoveryBaseTask((current) =>
+      current?.id === selectedTask.id && current.contentRevision === selectedTask.contentRevision
+        ? current
+        : selectedTask
+    );
+  }, [isEditMode, selectedTask, taskEditRecoveryValue, taskEditRecoveryBase]);
+
+  // A live acknowledgement may advance the recovery base while explicit-only
+  // command edits are still pending. That server change is ours and already
+  // reflected in the draft, so do not show a recovery conflict for it.
+  useEffect(() => {
+    if (!taskRecoveryBaseAckRef.current) return;
+    taskRecoveryBaseAckRef.current = false;
+    taskEditRecovery.acceptConflict();
+  }, [taskEditRecoveryBase, taskEditRecovery]);
+
   useEffect(() => {
     setColumns(initialColumns);
-  }, [initialColumns]);
+    // A parent refetch renders the columns at a known activity version; record
+    // it so a keyboard settlement can tell fresh authority from staleness.
+    markRemoteColumnsApplied(initialActivityVersion);
+  }, [initialActivityVersion, initialColumns, markRemoteColumnsApplied]);
 
   useEffect(() => {
     setArchivedDoneTasks(initialArchivedDoneTasks);
@@ -1147,7 +1522,8 @@ export function KanbanBoard({
         previousTask: KanbanTask;
         nextTask: KanbanTask;
       }
-    ) => {
+    ): Promise<{ persisted: boolean; version: string | null }> => {
+      const remoteAppliesAtStart = remoteColumnsApplyCountRef.current;
       try {
         const response = await fetchProjectActivityMutation(
           projectId,
@@ -1163,50 +1539,47 @@ export function KanbanBoard({
 
         if (!response.ok) {
           throw new Error("Persist request failed");
-      }
+        }
 
-      setPersistError(null);
-      if (epicTaskMutation) {
-        void reconcileProjectEpicsAfterTaskMutation(
-          projectId,
-          epicTaskMutation.previousTask,
-          epicTaskMutation.nextTask
-        );
+        setPersistError(null);
+        if (epicTaskMutation) {
+          void reconcileProjectEpicsAfterTaskMutation(
+            projectId,
+            epicTaskMutation.previousTask,
+            epicTaskMutation.nextTask
+          );
+        }
+        return {
+          persisted: true,
+          version: readProjectActivityVersionHeader(response),
+        };
+      } catch (error) {
+        console.error("[KanbanBoard.persistColumns]", error);
+        if (remoteColumnsApplyCountRef.current === remoteAppliesAtStart) {
+          setColumns(previousColumns);
+          setPersistError("Could not save task movement. Board reverted.");
+        } else {
+          // A remote order landed after this write started, so the captured
+          // columns no longer match any stored order; keep the remote layout
+          // instead of reverting over it.
+          setPersistError("Could not save task movement.");
+        }
+        return { persisted: false, version: null };
       }
-    } catch (error) {
-      console.error("[KanbanBoard.persistColumns]", error);
-      setColumns(previousColumns);
-      setPersistError("Could not save task movement. Board reverted.");
-    }
-  },
+    },
     [projectId]
   );
 
-  const onDragEnd = useCallback(
-    (result: DropResult) => {
-      if (!canEdit) {
-        return;
-      }
-
-      const { source, destination } = result;
-
-      if (!destination) {
-        return;
-      }
-
-      if (
-        source.droppableId === destination.droppableId &&
-        source.index === destination.index
-      ) {
-        return;
-      }
-
+  const computeDropApplication = useCallback(
+    (
+      source: DraggableLocation,
+      destination: DraggableLocation
+    ): { application: DropApplication } | { error: string } | null => {
       const sourceStatus = source.droppableId;
       const destinationStatus = destination.droppableId;
 
       if (!isTaskStatus(sourceStatus) || !isTaskStatus(destinationStatus)) {
-        setPersistError("Invalid drag target. Please retry.");
-        return;
+        return { error: "Invalid drag target. Please retry." };
       }
 
       const previousColumns = cloneColumns(columns);
@@ -1232,7 +1605,7 @@ export function KanbanBoard({
       });
 
       if (!appliedDrop) {
-        return;
+        return null;
       }
 
       const { columns: nextColumns, movedTask } = appliedDrop;
@@ -1246,15 +1619,16 @@ export function KanbanBoard({
       const nextTask = nextColumns[destinationStatus][nextTaskIndex];
 
       if (!previousTask || !nextTask) {
-        setPersistError("Could not map task movement. Please retry.");
-        return;
+        return { error: "Could not map task movement. Please retry." };
       }
 
-      setColumns(nextColumns);
-      setPersistError(null);
-
-      startTransition(() => {
-        void persistColumns(nextColumns, previousColumns, {
+      return {
+        application: {
+          previousColumns,
+          nextColumns,
+          movedTask,
+          sourceStatus,
+          destinationStatus,
           previousTask: {
             ...previousTask,
             status: sourceStatus,
@@ -1265,20 +1639,253 @@ export function KanbanBoard({
             status: destinationStatus,
             position: nextTaskIndex,
           },
-        });
+        },
+      };
+    },
+    [columns, currentActorSummary, visibleColumns]
+  );
+
+  const applyCommittedOrders = useCallback(
+    (
+      orders: Array<{ status: TaskStatus; taskIds: string[] }>,
+      baselineVersion: string | null,
+      minTaskSeq: number
+    ) => {
+      const preservedStatusByTaskId = new Map<string, TaskStatus>();
+      remoteTaskRepresentationsRef.current.forEach((representation, taskId) => {
+        if (representation.seq <= minTaskSeq) {
+          return;
+        }
+        if (
+          baselineVersion !== null &&
+          !isProjectActivityVersionNewer(representation.version, baselineVersion)
+        ) {
+          return;
+        }
+        preservedStatusByTaskId.set(taskId, representation.status);
       });
-      if (relatedTaskGraph.get(movedTask.id)?.length) {
-        syncRelatedTaskSummary(movedTask.id, {
-          title: movedTask.title,
-          status: destinationStatus,
+      setColumns((previousColumns) =>
+        reconcileCommittedColumns(
+          previousColumns,
+          orders,
+          preservedStatusByTaskId
+        )
+      );
+    },
+    []
+  );
+
+  const handleKeyboardDropIntent = useCallback(
+    (source: DraggableLocation, destination: DraggableLocation) => {
+      if (!canEdit || keyboardDropIntentRef.current) {
+        return;
+      }
+
+      const computed = computeDropApplication(source, destination);
+      if (!computed || "error" in computed) {
+        return;
+      }
+
+      const record: KeyboardDropIntent = {
+        source,
+        destination,
+        movedTaskId: computed.application.movedTask.id,
+        outcome: "pending",
+        writeVersion: null,
+        intentStartVersion: remoteColumnsVersionRef.current,
+        intentStartTaskSeq: remoteTaskRepresentationSeqRef.current,
+        committedOrders: TASK_STATUSES.map((status) => ({
+          status,
+          taskIds: computed.application.nextColumns[status].map(
+            (task) => task.id
+          ),
+        })),
+        settled: false,
+      };
+      keyboardDropIntentRef.current = record;
+
+      // Space confirms a keyboard drop in the same keydown, so the persist
+      // request starts here instead of waiting for the drop transition to end
+      // and onDragEnd to fire.
+      void persistColumns(
+        computed.application.nextColumns,
+        computed.application.previousColumns,
+        {
+          previousTask: computed.application.previousTask,
+          nextTask: computed.application.nextTask,
+        }
+      ).then(({ persisted, version }) => {
+        record.outcome = persisted ? "saved" : "failed";
+        record.writeVersion = version;
+
+        if (keyboardDropIntentRef.current !== null || !record.settled) {
+          // An active intent (this one or a successor) settles the outcome; a
+          // replaced intent was never settled and must not reapply.
+          return;
+        }
+        if (!persisted) {
+          // The failure path already reverted or kept the remote layout.
+          return;
+        }
+        // The acknowledgement arrived after the drop settled: the write's
+        // committed order is the stored order unless a newer full-order
+        // delivery landed in the meantime.
+        const remoteVersion = remoteColumnsVersionRef.current;
+        if (
+          version === null ||
+          (remoteVersion !== null &&
+            !isProjectActivityVersionNewer(version, remoteVersion))
+        ) {
+          return;
+        }
+        applyCommittedOrders(
+          record.committedOrders,
+          version,
+          record.intentStartTaskSeq
+        );
+        setPersistError(null);
+      });
+    },
+    [applyCommittedOrders, canEdit, computeDropApplication, persistColumns]
+  );
+
+  const onDragEnd = useCallback(
+    (result: DropResult) => {
+      if (!canEdit) {
+        return;
+      }
+
+      const { source, destination, reason } = result;
+      const keyboardIntent = keyboardDropIntentRef.current;
+      keyboardDropIntentRef.current = null;
+
+      if (reason !== "DROP" || !destination) {
+        return;
+      }
+
+      if (
+        source.droppableId === destination.droppableId &&
+        source.index === destination.index
+      ) {
+        return;
+      }
+
+      const matchesKeyboardIntent =
+        keyboardIntent !== null &&
+        keyboardIntent.source.droppableId === source.droppableId &&
+        keyboardIntent.source.index === source.index &&
+        keyboardIntent.destination.droppableId === destination.droppableId &&
+        keyboardIntent.destination.index === destination.index;
+
+      if (matchesKeyboardIntent) {
+        keyboardIntent.settled = true;
+        if (keyboardIntent.outcome === "failed") {
+          // The early persist already reverted and surfaced the error; leave
+          // the board on the stored order instead of applying the drop locally.
+          return;
+        }
+
+        const findVisibleTaskLocation = (
+          taskId: string
+        ): { status: TaskStatus; index: number; task: KanbanTask } | null => {
+          for (const status of TASK_STATUSES) {
+            const index = visibleColumns[status].findIndex(
+              (task) => task.id === taskId
+            );
+            if (index !== -1) {
+              return { status, index, task: visibleColumns[status][index] };
+            }
+          }
+          return null;
+        };
+
+        const syncMovedTaskSummary = (task: KanbanTask) => {
+          if (relatedTaskGraph.get(task.id)?.length) {
+            syncRelatedTaskSummary(task.id, {
+              title: task.title,
+              status: task.status,
+              archivedAt: null,
+            });
+          }
+        };
+
+        const located = findVisibleTaskLocation(keyboardIntent.movedTaskId);
+
+        // A full-order remote delivery (typed reorder event or fresh
+        // server-rendered props) carrying a project version newer than the
+        // acknowledgement's write is authoritative: its order already includes
+        // the committed move plus whatever landed after it, so the intent must
+        // not be restored over it. While the write is still in flight its
+        // version is unknown, so the newest version already applied when the
+        // intent was submitted is the baseline instead.
+        const remoteVersion = remoteColumnsVersionRef.current;
+        const settleBaseline =
+          keyboardIntent.writeVersion ?? keyboardIntent.intentStartVersion;
+        const newerRemoteColumns =
+          remoteVersion !== null &&
+          (settleBaseline === null ||
+            isProjectActivityVersionNewer(remoteVersion, settleBaseline));
+
+        if (newerRemoteColumns) {
+          setPersistError(null);
+          if (located) {
+            syncMovedTaskSummary(located.task);
+          }
+          return;
+        }
+
+        // Otherwise the local layout predates (or only partially reflects)
+        // the write, so restore the committed payload orders: the stored
+        // order of every lane wins while partial deltas that landed around the
+        // acknowledgement keep their current positions. Re-deriving the move
+        // by index is never correct once other events may have shifted cards.
+        applyCommittedOrders(
+          keyboardIntent.committedOrders,
+          settleBaseline,
+          keyboardIntent.intentStartTaskSeq
+        );
+        setPersistError(null);
+        if (located) {
+          syncMovedTaskSummary(located.task);
+        }
+        return;
+      }
+
+      const computed = computeDropApplication(source, destination);
+      if (!computed) {
+        return;
+      }
+      if ("error" in computed) {
+        setPersistError(computed.error);
+        return;
+      }
+
+      const { application } = computed;
+
+      setColumns(application.nextColumns);
+      setPersistError(null);
+
+      void persistColumns(
+        application.nextColumns,
+        application.previousColumns,
+        {
+          previousTask: application.previousTask,
+          nextTask: application.nextTask,
+        }
+      );
+
+      if (relatedTaskGraph.get(application.movedTask.id)?.length) {
+        syncRelatedTaskSummary(application.movedTask.id, {
+          title: application.movedTask.title,
+          status: application.destinationStatus,
           archivedAt: null,
         });
       }
     },
     [
+      applyCommittedOrders,
       canEdit,
-      columns,
-      currentActorSummary,
+      computeDropApplication,
       persistColumns,
       relatedTaskGraph,
       syncRelatedTaskSummary,
@@ -1423,30 +2030,34 @@ export function KanbanBoard({
     [canEdit, resetTaskEditDraft, selectedTask]
   );
 
+  const applyTaskToBoard = useCallback((updatedTask: KanbanTask) => {
+    setColumns((previousColumns) => {
+      const nextColumns = cloneColumns(previousColumns);
+      TASK_STATUSES.forEach((status) => {
+        nextColumns[status] = nextColumns[status].map((task) =>
+          reconcileBilateralTaskRelations(task, updatedTask)
+        );
+      });
+
+      return nextColumns;
+    });
+
+    setArchivedDoneTasks((previousArchivedTasks) =>
+      previousArchivedTasks.map((task) =>
+        reconcileBilateralTaskRelations(task, updatedTask)
+      )
+    );
+
+    setSelectedTask((previousTask) => {
+      return previousTask
+        ? reconcileBilateralTaskRelations(previousTask, updatedTask)
+        : previousTask;
+    });
+  }, []);
+
   const applyUpdatedTask = useCallback(
     (updatedTask: KanbanTask) => {
-      setColumns((previousColumns) => {
-        const nextColumns = cloneColumns(previousColumns);
-        TASK_STATUSES.forEach((status) => {
-          nextColumns[status] = nextColumns[status].map((task) =>
-            reconcileBilateralTaskRelations(task, updatedTask)
-          );
-        });
-
-        return nextColumns;
-      });
-
-      setArchivedDoneTasks((previousArchivedTasks) =>
-        previousArchivedTasks.map((task) =>
-          reconcileBilateralTaskRelations(task, updatedTask)
-        )
-      );
-
-      setSelectedTask((previousTask) => {
-        return previousTask
-          ? reconcileBilateralTaskRelations(previousTask, updatedTask)
-          : previousTask;
-      });
+      applyTaskToBoard(updatedTask);
       setEditEpicId(updatedTask.epic?.id ?? "");
       setEditAssignee(
         updatedTask.assignee
@@ -1454,8 +2065,203 @@ export function KanbanBoard({
           : null
       );
     },
+    [applyTaskToBoard]
+  );
+
+  const taskLiveBase = useMemo<TaskLiveSaveDocument>(
+    () => (selectedTask ? toTaskLiveSaveDocument(selectedTask) : EMPTY_TASK_LIVE_DOCUMENT),
+    [selectedTask]
+  );
+  const taskLiveValue = useMemo<TaskLiveSaveDocument>(() => {
+    if (!selectedTask) return EMPTY_TASK_LIVE_DOCUMENT;
+    if (!isEditMode) return taskLiveBase;
+    return {
+      title: editTitle,
+      description: editDescription,
+      deadlineDate: editDeadlineDate,
+      labels: editLabels,
+      epicId: editEpicId,
+      contentRevision: selectedTask.contentRevision,
+      task: selectedTask,
+    };
+  }, [
+    editDeadlineDate,
+    editDescription,
+    editEpicId,
+    editLabels,
+    editTitle,
+    isEditMode,
+    selectedTask,
+    taskLiveBase,
+  ]);
+
+  const taskLiveAdapter = useMemo<LiveSaveAdapter<TaskLiveSaveDocument>>(() => {
+    const task = selectedTask;
+    if (!task) return EMPTY_TASK_LIVE_ADAPTER;
+    const taskId = task.id;
+    return createContentSaveAdapter<TaskLiveSaveDocument>({
+      projectId,
+      domain: "task",
+      entityId: taskId,
+      url: `/api/projects/${projectId}/tasks/${taskId}`,
+      buildPayload: (fields, intent) => {
+        const payload: Record<string, unknown> = {};
+        if (Object.prototype.hasOwnProperty.call(fields, "title")) {
+          payload.title = fields.title ?? "";
+        }
+        if (Object.prototype.hasOwnProperty.call(fields, "description")) {
+          payload.description = fields.description ?? "";
+        }
+        if (Object.prototype.hasOwnProperty.call(fields, "deadlineDate")) {
+          payload.deadlineDate = fields.deadlineDate || null;
+        }
+        if (Object.prototype.hasOwnProperty.call(fields, "labels")) {
+          payload.labels = fields.labels ?? [];
+        }
+        if (Object.prototype.hasOwnProperty.call(fields, "epicId")) {
+          payload.epicId = fields.epicId || null;
+        }
+        if (intent === "explicit") {
+          // Commands diff against the draft's starting base, not the board's
+          // latest copy: an untouched field must never be resent just because
+          // another actor changed it while this draft was open.
+          Object.assign(
+            payload,
+            buildTaskCommandPayload(
+              taskRecoveryBase ?? task,
+              editAssignee,
+              editRelatedTasks,
+              newBlockedFollowUpEntry
+            )
+          );
+        }
+        return payload;
+      },
+      mapAccepted: (body) => {
+        if (!isRecord(body)) return null;
+        const document = readTaskLiveDocument(body.task);
+        return document
+          ? { representation: document, revision: document.contentRevision }
+          : null;
+      },
+      mapConflict: (body) => {
+        if (!isRecord(body) || body.error !== "edit-conflict") return null;
+        const document = readTaskLiveDocument(body.current);
+        return document
+          ? { representation: document, revision: document.contentRevision }
+          : null;
+      },
+    });
+  }, [
+    editAssignee,
+    editRelatedTasks,
+    newBlockedFollowUpEntry,
+    projectId,
+    selectedTask,
+    taskRecoveryBase,
+  ]);
+
+  const applyTaskLiveRepresentation = useCallback(
+    (representation: TaskLiveSaveDocument, fields: string[]) => {
+      for (const field of fields) {
+        switch (field) {
+          case "title":
+            setEditTitle(representation.title);
+            break;
+          case "description":
+            setEditDescription(representation.description);
+            break;
+          case "deadlineDate":
+            setEditDeadlineDate(representation.deadlineDate);
+            break;
+          case "labels":
+            setEditLabels(representation.labels);
+            break;
+          case "epicId":
+            setEditEpicId(representation.epicId);
+            break;
+          default:
+            break;
+        }
+      }
+    },
     []
   );
+
+  const handleTaskLiveAccepted = useCallback(
+    (info: LiveSaveAcceptedInfo<TaskLiveSaveDocument>) => {
+      const submittedEntry = taskLiveSubmittedEntryRef.current;
+      if (submittedEntry !== null) {
+        taskLiveSubmittedEntryRef.current = null;
+        setNewBlockedFollowUpEntry((current) =>
+          current.trim() === submittedEntry ? "" : current
+        );
+      }
+
+      const acceptedTask = info.representation.task;
+      if (!acceptedTask) {
+        taskLiveLastAcceptedRef.current = { fullySynced: info.fullySynced };
+        return;
+      }
+      applyTaskToBoard(acceptedTask);
+      void reconcileProjectEpicsAfterTaskMutation(projectId, selectedTask, acceptedTask);
+
+      const pendingEntry = submittedEntry === null
+        ? newBlockedFollowUpEntry.trim()
+        : newBlockedFollowUpEntry.trim() === submittedEntry
+          ? ""
+          : newBlockedFollowUpEntry.trim();
+      const pendingCommands = remainingTaskCommands(
+        taskRecoveryBase,
+        acceptedTask,
+        editAssignee,
+        editRelatedTasks,
+        pendingEntry
+      );
+      // An accepted content write never counts as full success while an
+      // explicit-only command (assignee, relations, follow-up) is still
+      // awaiting the server's acknowledgement.
+      const fullySynced =
+        info.fullySynced && Object.keys(pendingCommands).length === 0;
+      taskLiveLastAcceptedRef.current = { fullySynced };
+      if (!info.fullySynced) return;
+      setTaskRecoveryBaseTask(acceptedTask);
+      taskRecoveryBaseAckRef.current = true;
+      if (fullySynced) {
+        taskEditRecovery.saved(taskEditRecoveryValue);
+      }
+    },
+    [
+      applyTaskToBoard,
+      editAssignee,
+      editRelatedTasks,
+      newBlockedFollowUpEntry,
+      projectId,
+      selectedTask,
+      taskEditRecovery,
+      taskEditRecoveryValue,
+      taskRecoveryBase,
+    ]
+  );
+
+  const taskLive = useLiveSave<TaskLiveSaveDocument>({
+    adapter: taskLiveAdapter,
+    value: taskLiveValue,
+    base: taskLiveBase,
+    baseRevision: taskLiveBase.contentRevision,
+    fields: TASK_LIVE_SAVE_FIELDS,
+    fieldMeta: TASK_LIVE_SAVE_FIELD_META,
+    enabled:
+      canEdit &&
+      isEditMode &&
+      Boolean(selectedTask) &&
+      !taskEditRecovery.conflict &&
+      isLiveSaveSurfaceEnabled("task-detail"),
+    entityKey: selectedTask?.id ?? null,
+    validate: validateTaskLiveDocument,
+    applyRepresentation: applyTaskLiveRepresentation,
+    onAccepted: handleTaskLiveAccepted,
+  });
 
   const insertCreatedTask = useCallback(
     (createdTask: KanbanTask) => {
@@ -1711,6 +2517,7 @@ export function KanbanBoard({
 
   const removeLocalTask = useCallback(
     (taskId: string) => {
+      remoteTaskRepresentationsRef.current.delete(taskId);
       setColumns((previousColumns) => {
         const nextColumns = createEmptyColumns<KanbanTask>();
         TASK_STATUSES.forEach((status) => {
@@ -1856,6 +2663,7 @@ export function KanbanBoard({
       insertCreatedTask({
         id: optimisticTaskId,
         reference: null,
+        contentRevision: 0,
         title: draft.title,
         labels: draft.labels,
         description: draft.description,
@@ -1978,18 +2786,11 @@ export function KanbanBoard({
 
   const persistTaskChanges = useCallback(
     async (options?: { exitEditMode?: boolean }) => {
-      if (!selectedTask) {
-        return false;
-      }
-
-      if (!canEdit) {
+      if (!selectedTask || !canEdit) {
         return false;
       }
 
       const normalizedTitle = editTitle.trim();
-      const normalizedBlockedEntry = newBlockedFollowUpEntry.trim();
-      const relatedTaskIds = editRelatedTasks.map((task) => task.id);
-
       if (normalizedTitle.length < 2) {
         setTaskModalError("Task title must be at least 2 characters.");
         return false;
@@ -2000,89 +2801,65 @@ export function KanbanBoard({
         );
         return false;
       }
+      if (taskEditRecovery.conflict || taskLive.snapshot.conflict) {
+        return false;
+      }
 
+      setTaskModalError(null);
       setIsUpdatingTask(true);
+      taskLiveLastAcceptedRef.current = null;
+      recordSubmittedFollowUpEntry(newBlockedFollowUpEntry.trim() || null);
 
       try {
-        // An inactive stored assignee cannot be re-submitted as-is, so only
-        // send the assignment when the draft's actor key actually changed.
-        const assigneeChanged = hasProjectActorChanged(
-          selectedTask.assignee,
-          editAssignee
+        // Explicit Save uses the same guarded revision path as live save.
+        // Commands (assignment, relations, follow-up entries) are only
+        // attached here or in the conflict resolution write, never by a timer.
+        const commands = buildTaskCommandPayload(
+          taskRecoveryBase ?? selectedTask,
+          editAssignee,
+          editRelatedTasks,
+          newBlockedFollowUpEntry
         );
-
-        const response = await fetchProjectActivityMutation(
-          projectId,
-          `/api/projects/${projectId}/tasks/${selectedTask.id}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              title: normalizedTitle,
-              labels: editLabels,
-              description: editDescription,
-              deadlineDate: editDeadlineDate || null,
-              epicId: editEpicId || null,
-              ...(assigneeChanged ? { assignee: editAssignee } : {}),
-              blockedFollowUpEntry: normalizedBlockedEntry,
-              relatedTaskIds,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          const payload = (await response.json().catch(() => null)) as {
-            error?: string;
-          } | null;
-          throw new Error(getTaskMutationErrorMessage(payload?.error));
+        const outcome = await taskLive.saveNow({
+          allowEmpty: Object.keys(commands).length > 0,
+        });
+        const message = taskLiveSaveErrorMessage(outcome);
+        if (message !== null) {
+          setTaskModalError(message);
+          return false;
         }
-
-        const payload = (await response.json()) as {
-          task: TaskMutationResponseTask;
-        };
-
-        if (!isTaskStatus(payload.task.status)) {
-          throw new Error("Invalid task status returned by server");
-        }
-
-        const updatedTask = mapTaskMutationResponseTask(payload.task);
-        applyUpdatedTask(updatedTask);
-        void reconcileProjectEpicsAfterTaskMutation(
-          projectId,
-          selectedTask,
-          updatedTask
-        );
-        setTaskModalError(null);
-        if (options?.exitEditMode !== false) {
+        const fullySynced =
+          outcome.status === "clean" ||
+          outcome.status === "adopted" ||
+          readTaskLiveFullySynced(taskLiveLastAcceptedRef);
+        if (options?.exitEditMode !== false && fullySynced) {
           setIsEditMode(false);
         }
-        setNewBlockedFollowUpEntry("");
-        return true;
+        // Commands that did not land stay pending; callers must not report a
+        // successful save or leave edit mode for partially rejected work.
+        return fullySynced;
       } catch (error) {
-        console.error("[KanbanBoard.handleTaskUpdate]", error);
+        console.error("[KanbanBoard.persistTaskChanges]", error);
         setTaskModalError(
           error instanceof Error ? error.message : "Could not save task changes."
         );
         return false;
       } finally {
+        recordSubmittedFollowUpEntry(null);
         setIsUpdatingTask(false);
       }
     },
     [
       canEdit,
       editAssignee,
-      editDeadlineDate,
-      editDescription,
-      editEpicId,
-      editLabels,
       editRelatedTasks,
       editTitle,
       newBlockedFollowUpEntry,
-      projectId,
+      recordSubmittedFollowUpEntry,
       selectedTask,
-      applyUpdatedTask,
+      taskEditRecovery.conflict,
+      taskLive,
+      taskRecoveryBase,
     ]
   );
 
@@ -2137,16 +2914,14 @@ export function KanbanBoard({
       setTaskModalError("Task title must be at least 2 characters.");
       return;
     }
-    if (taskEditRecovery.conflict) return;
-    const submittedDraft = taskEditRecoveryValue;
+    if (taskEditRecovery.conflict || taskLive.snapshot.conflict) {
+      return;
+    }
 
     setTaskModalError(null);
     taskEditRecovery.flush();
-    setIsEditMode(false);
-
-    const didSave = await persistTaskChanges({ exitEditMode: false });
+    const didSave = await persistTaskChanges();
     if (didSave) {
-      taskEditRecovery.saved(submittedDraft);
       pushToast({
         variant: "success",
         message: "Task saved.",
@@ -2158,8 +2933,71 @@ export function KanbanBoard({
       variant: "error",
       message: "Could not save task changes. Please retry.",
     });
-    setIsEditMode(true);
-  }, [editTitle, persistTaskChanges, pushToast, selectedTask, taskEditRecovery, taskEditRecoveryValue]);
+  }, [
+    editTitle,
+    persistTaskChanges,
+    pushToast,
+    selectedTask,
+    taskEditRecovery,
+    taskLive.snapshot.conflict,
+  ]);
+
+  const handleTaskLiveConflictResolve = useCallback(
+    async (choices: Record<string, "local" | "latest">) => {
+      if (!selectedTask || !canEdit) {
+        return;
+      }
+
+      setTaskModalError(null);
+      setIsUpdatingTask(true);
+      taskLiveLastAcceptedRef.current = null;
+      recordSubmittedFollowUpEntry(newBlockedFollowUpEntry.trim() || null);
+      try {
+        // Assignment, relations, and follow-up commands must survive conflict
+        // adoption, so an outstanding command still performs one guarded write
+        // even when the resolution itself writes no content.
+        const commands = buildTaskCommandPayload(
+          taskRecoveryBase ?? selectedTask,
+          editAssignee,
+          editRelatedTasks,
+          newBlockedFollowUpEntry
+        );
+        const outcome = await taskLive.resolveConflict(choices, {
+          allowEmpty: Object.keys(commands).length > 0,
+        });
+        const message = taskLiveSaveErrorMessage(outcome);
+        if (message !== null) {
+          setTaskModalError(message);
+          pushToast({ variant: "error", message });
+          return;
+        }
+        const fullySynced =
+          outcome.status === "clean" ||
+          outcome.status === "adopted" ||
+          readTaskLiveFullySynced(taskLiveLastAcceptedRef);
+        // Rejected or still-pending commands keep the editor open and never
+        // surface a success toast.
+        if (fullySynced) {
+          pushToast({ variant: "success", message: "Task saved." });
+          setIsEditMode(false);
+        }
+      } finally {
+        recordSubmittedFollowUpEntry(null);
+        setIsUpdatingTask(false);
+      }
+    },
+    [
+      canEdit,
+      editAssignee,
+      editRelatedTasks,
+      newBlockedFollowUpEntry,
+      pushToast,
+      recordSubmittedFollowUpEntry,
+      selectedTask,
+      taskLive,
+      taskRecoveryBase,
+    ]
+  );
 
   const handleMoveTaskToStatus = useCallback(
     (task: KanbanTask, nextStatus: TaskStatus) => {
@@ -2540,6 +3378,14 @@ export function KanbanBoard({
           const remoteTask = readRemoteTaskPayload(activity);
           if (remoteTask) {
             upsertRemoteTask(remoteTask);
+            // The representation's status is authoritative for this task even
+            // though it says nothing about the whole-board order.
+            recordRemoteTaskRepresentation(
+              remoteTask.id,
+              remoteTask.status,
+              activity.version
+            );
+            markRemoteColumnsMutated();
             void reconcileProjectEpics(projectId);
             detail.markHandled();
             return;
@@ -2560,6 +3406,7 @@ export function KanbanBoard({
               ...task,
               archivedAt,
             }));
+            markRemoteColumnsMutated();
             void reconcileProjectEpics(projectId);
             detail.markHandled();
             return;
@@ -2569,6 +3416,7 @@ export function KanbanBoard({
 
         if (activity.action === "deleted" && activity.entityId) {
           removeLocalTask(activity.entityId);
+          markRemoteColumnsMutated();
           void reconcileProjectEpics(projectId);
           detail.markHandled();
           return;
@@ -2581,6 +3429,7 @@ export function KanbanBoard({
           }
 
           applyRemoteReorder(reorderedColumns);
+          markRemoteColumnsApplied(activity.version);
           detail.markHandled();
         }
       }
@@ -2641,7 +3490,10 @@ export function KanbanBoard({
   }, [
     applyRemoteReorder,
     applyTaskMutation,
+    markRemoteColumnsApplied,
+    markRemoteColumnsMutated,
     projectId,
+    recordRemoteTaskRepresentation,
     removeLocalTask,
     selectedTask?.id,
     upsertRemoteTask,
@@ -3341,6 +4193,7 @@ export function KanbanBoard({
             mentionUsers={availableAssignees}
             relatedTaskGraph={relatedTaskGraph}
             onDragEnd={onDragEnd}
+            onKeyboardDropIntent={handleKeyboardDropIntent}
             onSelectTask={handleSelectTask}
             onEditTask={openTaskInEditMode}
           />
@@ -3371,6 +4224,22 @@ export function KanbanBoard({
           taskEditRecovery.discard(true);
           if (selectedTask) resetTaskEditDraft(selectedTask);
         }}
+        liveSaveStatus={
+          isEditMode ? <LiveSaveStatus snapshot={taskLive.snapshot} /> : null
+        }
+        liveSaveConflictReview={
+          taskLive.snapshot.conflict ? (
+            <ConflictReview
+              conflict={taskLive.snapshot.conflict}
+              fieldMeta={TASK_LIVE_SAVE_FIELD_META}
+              pending={isUpdatingTask}
+              onResolve={(choices) => {
+                void handleTaskLiveConflictResolve(choices);
+              }}
+            />
+          ) : null
+        }
+        isTaskLiveSaveConflicted={taskLive.snapshot.conflict !== null}
         attachmentError={attachmentError}
         isSubmittingAttachment={isSubmittingAttachment}
         isArchivingTask={isArchivingTask}

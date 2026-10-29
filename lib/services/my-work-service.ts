@@ -150,7 +150,9 @@ export async function listMyWork(input: {
           completedAt: null,
           assigneeKind: "human",
           assigneeUserId: actorUserId,
-          meetingNote: { project: principalWhere },
+          meetingNote: {
+            project: principalWhere,
+          },
         },
         orderBy: [{ updatedAt: "desc" }],
         take: fetchTake,
@@ -231,5 +233,5 @@ export async function listMyWork(input: {
       typeCounts,
       projects,
     };
-  });
+  }, { allowPrivateNoteTodoContext: true });
 }

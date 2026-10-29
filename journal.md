@@ -3,6 +3,224 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-29 - ND-573: Refresh PR #603 for merge
+
+- Merged current `origin/main`; resolved the journal-only conflict by retaining
+  both histories in date order. The deterministic home-entry test is unchanged.
+- Fresh quality, Playwright, RLS, and container CI must pass before merge.
+
+
+# 2026-10-27 - ND-433: Preserve explicit commands through retries and adoption
+
+- Review round on PR #627 (`feature/nd-433-live-save-surfaces`). Commands are
+  now diffed against the draft's starting base and a command is only cleared
+  once an accepted representation reflects it, so explicit status, visibility,
+  assignment, relation, and follow-up changes survive a disjoint 412 rebase,
+  a conflict adopted with "Use latest", or a save whose body is otherwise
+  empty (`allowEmpty`). Meeting todos compare by content when the local entry
+  has no id yet, so a server-assigned id is not read as unsynced work.
+- The editor closes, recovery clears, and success toasts fire only after the
+  write is fully synced; rejected work keeps the conflict review open. Timed
+  autosaves still never carry commands, and `LIVE_SAVE_ENABLED_SURFACES`
+  stays empty.
+- Same-value both-sides edits no longer surface as conflicts, and a remote
+  `setBase` resets the one-shot auto-rebase allowance.
+- Fixed both failing browser smoke flows: the task lifecycle/attachment flow
+  no longer trips a phantom Epic conflict, and the no-op meeting preparation
+  Save now asserts the dialog closes with zero PATCHes instead of a write.
+- Merge of main (8cbaaf6) kept remote task events without a `contentRevision`
+  instead of dropping them (main's keyboard-reconcile coverage).
+- Committed regression coverage: scheduler command lifecycle tests, task
+  command helpers, and `tests/components/meeting-command-review.test.tsx`
+  (archive after stale revision, adoption without discarding archive, todo
+  id adoption).
+- Validation: Prisma generate, db:migrate, release:check, rls:check, lint,
+  unit tests (2175 passed, 2 skipped), coverage 93.59/86.04/96.13/95.02,
+  build, RLS setup/stub/isolation matrix, full Chromium E2E (119 passed,
+  2 skipped, 5.0 min).
+
+# 2026-10-26 - ND-431: Per-card DOM reduction for remaining p95 targets
+
+- Focused follow-up on `nd431-p95-followup`, stacked on PR #598. CDP profiles
+  showed the remaining interaction costs scaled with mounted card count: the
+  grip rendered a lucide `GripVertical` SVG with six `<circle>` nodes per
+  editable card, and the card header nested two wrapper elements per card.
+- The grip is now one span painted from a CSS mask in `app/globals.css` with
+  the same six-dot shape and existing aria/title semantics; the header stacks
+  reference/title directly and positions the grip and Blocked badge
+  absolutely. Closed-archive fixture DOM fell 5,248 -> 3,128 (-40%); project
+  HTML fell 988,598 -> 858,116 bytes.
+- Four ND-430 runs (20 post-warm-up samples each) versus the a045626 run:
+  navigation p95 426.7 -> 285.9-393.4, modal 147.6 -> 121.1-167.6, lift 94.2
+  -> 61.5-85.0, release 233.6 -> 181.2-203.9, dispatch 140.3 -> 96.7-106.1,
+  HTTP 54.2 -> 47.8-69.7, remote 16.8 -> 15.5-18.6. Primary run (control nav
+  256.3): 305.6 / 121.1 / 73.2 / 187.6 / 96.7 / 62.5 / 18.6.
+- Dispatch p50 is now 75-84 ms, at the Playwright round-trip floor; remaining
+  lift/dispatch variance is the drag library's re-render wave across the 240
+  mounted draggables, owned by ND-543. ND-431 stays In Progress.
+- Validation: lint, rls:check, tests (2147 passed, 2 skipped), coverage
+  93.64/86.03/95.7/95.01, build, full Chromium E2E (119 passed, 2 skipped,
+  5.1 min), diff-check.
+
+# 2026-10-26 - ND-433: Live-save surfaces for task details and meetings
+
+- Integrated task detail edits plus meeting preparation and output with the
+  shared `useLiveSave` scheduler from ND-433. Timed autosaves stay off
+  (`LIVE_SAVE_ENABLED_SURFACES` is empty); the explicit Save button now runs
+  through the same guarded revision path, attaching explicit-only commands
+  (assignment, relations, follow-up entries, meeting visibility, status, and
+  action lists) only on that save or on an explicit conflict-resolution write.
+- Added a transport-only `createContentSaveAdapter` helper for ND-565
+  conditional PATCHes: strong ETag in `x-content-if-match`, mutation-intent
+  header, project-activity acknowledgement, and mapping for 412/401/403/404/
+  400/422/5xx/offline/abort. Comments remain an explicit POST-only surface.
+- Recovery baselines are decoupled from the live record: they advance only when
+  the draft is clean or an acknowledgement fully synced, and conflict review
+  disables Save until resolved. Command payloads are diffed against the draft's
+  starting base so untouched fields are never resent over concurrent changes.
+  Meeting action commands use a material JSON diff and preserve other actors'
+  todo completions in accepted representations.
+- Explicit save supports command-only writes through `saveNow({ allowEmpty })`;
+  retries continue to use the autosave intent so commands never ride a timer.
+- Validation: full lint, rls:check, `npm test` (2140 passed, 2 skipped),
+  coverage thresholds, production build with `REALTIME_TRANSPORT=polling`, and
+  `release:check` all green locally (CI will re-run on the PR).
+- Remaining gates are server-owned: service-validated autosave intent,
+  coalesced activity/invalidation, and agent v1/v2 migration. Live flags stay
+  empty and ND-433 stays In Progress until those contracts land.
+
+# 2026-10-24 - ND-618: Dependency Security fail-closed and alerting
+
+- All 14 scheduled runs from 2026-07-27 through 2026-10-19 failed on real
+  production findings, not scanner errors; the latest run (39265962690) reported
+  7 high/critical production vulnerabilities. ND-616 cleared the production tree.
+- Added `scripts/check-npm-audit.mjs`: missing, empty, malformed, or npm
+  error-payload JSON exits 2 with a distinct `Scanner error: ... Failing closed`
+  message; high/critical production findings exit 1; full-tree findings stay
+  informational.
+- The workflow opens or updates the `Dependency Security scan failing` issue with
+  the failure type and run link, and the next green run comments on and closes it.
+  Alert jobs use `issues: write`; audit JSON, status, and stderr diagnostics are
+  uploaded on every run.
+- Runbook documents the failure classes and alert lifecycle.
+- Validation: lint, rls:check, tests (2120 passed, 2 skipped), coverage, build,
+  and 8 new script tests green locally.
+
+# 2026-10-24 - ND-617: Clear dev-tooling audit findings (ND-613)
+
+- Current main after ND-616 reported 13 high and 3 moderate findings, all in dev
+  tooling: eslint -> minimatch/brace-expansion, eslintrc -> js-yaml,
+  jsdom -> undici, vitest -> vite/@vitest/mocker, and react-hooks -> zod.
+- Patched within existing ranges: brace-expansion 1.1.21/5.0.12, js-yaml 4.3.2,
+  undici 7.30.1, vite 8.3.5, and zod 4.6.7 overrides, plus vitest and
+  @vitest/coverage-v8 4.1.12.
+- `npm audit` and `npm audit --omit=dev` now report 0 vulnerabilities.
+- Major upgrades assessed but not needed for audit hygiene: eslint 10 is accepted
+  by the current eslint-config-next and typescript-eslint peer ranges but changes
+  config/plugin behavior; vitest 5 is a new major. Both are deferred to separate
+  work.
+- Validation: lint, rls:check, tests (2112 passed, 2 skipped), coverage, build.
+
+# 2026-10-22 - ND-431: Review round 5 - newer per-task lane authority
+
+- Round-5 P1: the round-4 complete-board restore stamped every payload task
+  into its captured committed lane, so a `task/updated` representation applied
+  at a version newer than the write (a collaborator moving B to Blocked) was
+  pulled back into its captured lane at settlement with no second mutation.
+  Applied representations now record status, version, and arrival sequence;
+  settle and late acknowledgement preserve the lane of representations applied
+  after the intent started whose version is newer than the layout being
+  restored, while the committed order still applies to every other task.
+  Older representations lose to the write even when they arrive later, and
+  full-order deliveries keep their existing authority and prune superseded
+  representations.
+- Coverage: the reviewer's `kanban-newer-status-review.test.tsx` repro passes
+  (fails on `577601d`); the reconcile suite grows to 17 cases with newer
+  status on another card, newer status on the locally moved card, a late-ack
+  variant, and an older-version event that must lose. The three newer-status
+  cases fail on `577601d`; the older-version case guards over-preservation.
+- Merged `origin/main` at `1968da5` (ND-581 shareable task URLs #613, ND-375
+  production staging pin #614) with no conflicts.
+- Validation: lint, rls:check, 2,131 unit passed / 2 skipped (248 files),
+  coverage 93.64/86.03/95.7/95.01, production build, full Chromium E2E 116
+  passed / 2 skipped with the two known flakes (calendar zoom geometry and
+  nd-433 dismissal) passing on isolated rerun, `git diff --check` clean.
+  The machine had no running Postgres; started the worktree compose service,
+  created `nexusdash_nd431_e2e`, and applied migrations.
+- Performance acceptance remains open: the ND-430 p95 targets still need the
+  quiet-environment rerun and structural follow-up tracked by ND-543; ND-431
+  stays In Progress and this PR merges as partial progress.
+
+# 2026-10-22 - ND-539: Private/team visibility toggle for meeting notes
+
+- Card `cmusy8e0n000w04l0pry2ao7r`: added creator-controlled meeting note
+  visibility (`private` by default for new notes, `team` for project-shared
+  notes) with SQL migration `20261022010000_nd539_meeting_note_visibility`
+  backfilling existing notes to `'team'`.
+- Enforced visibility in both service and PostgreSQL RLS layers:
+  - Added optional `actorKind?: "human" | "agent"` to `withActorRlsContext`
+    (`app.actor_kind` transaction-local config) and `app.is_human_actor()` in
+    SQL so owner-attributed agent bearer tokens cannot read or mutate private
+    notes owned by the project owner.
+  - Updated `ProjectMeetingNote`, `ProjectMeetingNoteParticipant`,
+    `ProjectMeetingNoteAction`, and `ProjectMeetingNoteActionAssigneeChange`
+    RLS policies plus the `meeting_note_visibility_guard` trigger and
+    `app.resolve_project_actor_responsibilities` offboarding function.
+  - Restricted private notes and their todos/outputs/history to the human
+    creator across `project-meeting-note-service`, `project-meeting-todo-service`,
+    `my-work-service`, `project-agent-attention-service`,
+    `project-notification-email-service`, `project-offboarding-service`, and
+    `project-service` summary counts. Suppressed `ProjectActivityEvent` and
+    `touchProjectActivity` on private-only note mutations while emitting when a
+    note is `'team'` or transitions between `'private'` and `'team'`.
+- Added the lock/unlocked visibility badge and toggle (`private` in grey,
+  `public` in blue) to meeting note cards, the Prepare meeting dialog, and the
+  Note detail dialog (interactive for the creator, read-only for other members).
+- Validated with `npm run lint`, `npm run rls:check`, `npm run test:rls`,
+  `npm test`, `npm run test:coverage`, `npm run build`, and Playwright E2E
+  (`tests/e2e/nd-539-meeting-note-visibility.spec.ts`).
+
+# 2026-10-23 - ND-615: Move runtime to patched Node 24 (ND-613)
+
+- Node 20 is end-of-life and misses the 21 Oct 2026 security release (Brotli decoder
+  RCE CVE-2026-111497, TLS/DNS fixes; patched 24.22.1). Production builds ran on
+  Node 20.20.2 in CI; the deployed Vercel runtime was not evidenced.
+- `.node-version` 24.22.1, Docker `node:24.22.1-bookworm`, `engines.node` 24.x, and
+  Node 24 in the quality-gates, deploy, and dependency-security workflows.
+- `/api/health/ready` now reports `runtime.node`; the preview deploy validation fails
+  unless the deployed runtime is Node 24.
+- Preview run 39868280206 on 86f7754 reported `runtime.node` v24.21.0 (Vercel-managed runtime) and
+  the runner resolved Node 24.21.0, both below the patched 24.22.1. Workflows now use
+  `check-latest: true`; the Vercel runtime patch level must be re-checked after promotion.
+- Production promotion must be verified against `runtime.node` on the live URL.
+# 2026-10-22 - ND-616: Patch production dependency advisories (ND-613)
+
+- Live production serves `fa46f3d` (2 Oct); `6ebda43` is staged, not promoted. Both lock
+  Next.js 16.2.7. `npm audit --omit=dev` on `main` reported 1 critical, 6 high,
+  1 moderate.
+- Upgraded `next`/`eslint-config-next` 16.4.2, `prisma`/`@prisma/client`/
+  `@prisma/adapter-pg` 7.10.1 (clears `@prisma/config` -> `deepmerge-ts` and `mysql2`),
+  `sanitize-html` 2.18.1, and the `next` -> `postcss` override to 8.5.31.
+  `npm audit --omit=dev`: 0 vulnerabilities.
+- Next 16.4 type-checks all tsconfig includes at build, which surfaced ~190 existing
+  test-file type errors. Added `tsconfig.build.json` (excludes tests) via
+  `typescript.tsconfigPath`; test typing is left as follow-up work.
+- Validation: lint, rls:check, tests (2112 passed), coverage, build, migrations, RLS matrix,
+  and Playwright e2e (118 passed, 2 skipped) all green locally.
+# 2026-10-20 - ND-375: Unblock production staging builds
+
+- Auto-staged and manual `deploy-production-staged` builds have failed since
+  ND-374 merged: the production build defaults to Broadcast and fails the
+  environment assertion without `SUPABASE_JWT_SECRET`, which Vercel hides from
+  `vercel pull` in CI. Pinned `REALTIME_TRANSPORT=polling` on the two
+  production `vercel build` commands only; the deployment runtime is unchanged
+  and Production keeps the Broadcast default. Updated the env-contract runbook
+  to state that the pin is build-scoped.
+- Review round: pinned the preview `vercel build` path as well and added a
+  pre-promote smoke of the staged root route (health/ready is DB-only and
+  cannot catch missing Broadcast config). The module-scope validation root
+  cause is tracked as issue #616 / ND-611.
+
 # 2026-10-20 - ND-573: Refresh main before merge
 
 - Merged `origin/main` at `1051415` (ND-581 shareable task URLs, ND-582 Kanban
@@ -31,6 +249,14 @@ Use it for important implementation milestones, blockers, validation runs, and r
   2 skipped; production build passed. The four affected Playwright recovery
   tests passed against a local production server built from the merged tree
   (one cold-start run hit the known nd-433 dismissal flake; clean on rerun).
+# 2026-10-20 - ND-431: Review round 4 - cross-lane committed settlement
+
+- Merged `origin/main` (`204bc7b`: ND-433 live-save scheduler, ND-538 meeting-todo completion, and dependency bumps including `@playwright/test` 1.64) into `fix/nd-431-kanban-p95-targets` (`4e79cc9`); the only conflict was `journal.md`, resolved keeping both entries newest-first. Ran `npm ci` against the merged lockfile and `npx playwright install chromium` for the new browser build.
+- Review fix (PR #598, P1): the round-3 committed-order reconcile ran per lane with only the tasks that lane currently held, so a keyboard move between lanes was undone - the source lane treated the moved task as an uncommitted extra and kept it while the destination lane could not find it (repro: confirm A from Backlog 0 to In Progress 0; the request persists Backlog B/C and In Progress A, but the acknowledgement and settle left Backlog A/B/C and an empty In Progress lane with one request). The reconcile now runs over the complete board with the complete payload: one task map across all lanes, every payload task placed in its committed lane with its status stamped, partial creations kept at their current index, deleted ids skipped so they are never resurrected, and already-placed ids never duplicated; unchanged lanes keep their array identity. The fix covers acknowledgements that resolve both before and after settlement.
+- Regression tests: `tests/components/kanban-board-keyboard-reconcile.test.tsx` extended to 13 cases (new parameterized cross-lane case run for acknowledgement before and after settlement; the eleven earlier cases unchanged). The reviewer's `kanban-lane-order-review.test.tsx` repro passes 2/2, and the earlier `kanban-pending-ack-review.test.tsx` (2/2), `kanban-newer-remote-review.test.tsx` (4/4) and `kanban-review-regressions.test.tsx` (1/1) still pass on this revision (copied in temporarily, removed after verification).
+- Validation on `64b0234`: `npm run lint`, `npm run rls:check`, `npm test` 2,114 passed / 2 skipped, `npm run test:coverage` 95.01% lines (93.64% statements / 86.03% branches / 95.7% functions), production build, `git diff --check` clean, and the full Chromium E2E suite 114 passed / 2 skipped (5.5 min). The first E2E attempt failed to launch the browser because the merged Playwright 1.64 bump expects a new Chromium build (`npx playwright install chromium`), and the shared 5432 container had switched to `nexus_dash-postgres-1` with the old `nexusdash_nd431_e2e` database gone - the database was recreated there and `prisma migrate deploy` applied before the clean run.
+- Second main refresh while the review was pending: `origin/main` advanced again (ND-577 routine local-draft messages, ND-582 task references in kanban lists) and was merged as `e30b4a6`. `components/kanban/kanban-columns-grid.tsx` conflicted where ND-582 added the card reference to the inline card body - resolved by folding `TaskCardReference` into the memoized card content (reference rendered above the title), and `journal.md` (both entries kept newest-first). Re-validated on the merged tree: `npm run lint`, `npm run rls:check`, `npm test` 2,120 passed / 2 skipped, coverage 95.01% lines, production build, and the full Chromium E2E suite 116 passed / 2 skipped (6.5 min, includes the new ND-582 task-reference spec).
+- Card stays In Progress (deferred p95 sign-off unchanged; ND-543 owns the structural remainder).
 
 # 2026-10-20 - ND-538: Refresh main (dependency bumps) before re-review
 
@@ -92,6 +318,12 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `live-save-status.tsx`'s header comment about the recovery notice showing
   local state while dirty will be stale after this change; its
   silent-while-dirty behavior remains correct.
+# 2026-10-16 - ND-431: Review round 3 - committed-order settlement
+
+- Merged `origin/main` (`d065fd3`, ND-565) into `fix/nd-431-kanban-p95-targets` (`7d72c80`); the only conflict was `journal.md`, resolved keeping both entries newest-first. The new `content_revisions` migration was deployed to the local E2E database and the Prisma client regenerated; the build now also needs `DIRECT_URL` and a `REALTIME_TRANSPORT=polling` pin (or Supabase realtime secrets) plus `OUTBOUND_EMAIL_DELIVERY_MODE=disabled` during page-data collection.
+- Review fix (PR #598, two P1s): (1) partial task events (created/updated/archived/deleted) were treated as full-order authority - they now only bump the failure-revert apply counter while typed reorder events and fresh server-rendered props record the activity version, so an accepted keyboard move survives a later rename or insertion in any lane; (2) an acknowledgement that resolved after the drop settled was discarded because `onDragEnd` cleared the intent - each intent now captures the payload's committed lane orders and is marked settled, and the late acknowledgement restores them unless a newer full-order delivery landed. The settle no longer re-derives the move by index: it restores the committed payload order per lane (the reorder route stores the request's lane task ids verbatim), keeping partial deltas where they currently sit.
+- Regression tests: `tests/components/kanban-board-keyboard-reconcile.test.tsx` extended to 11 cases (partial rename after acceptance preserves the move; held request acknowledged after settle converges to the committed order; the insertion test now asserts the committed order). Reviewer repros pass: `kanban-pending-ack-review.test.tsx` 2/2, `kanban-newer-remote-review.test.tsx` 4/4, `kanban-review-regressions.test.tsx` 1/1 (copied in temporarily, removed after verification).
+- Validation on `fdacaf4`: `npm run lint`, `npm run rls:check`, `npm test` 2,045 passed / 2 skipped, `npm run test:coverage` (93.71% statements / 84.98% branches / 95.42% functions / 94.11% lines), production build, the full Chromium E2E suite 112 passed / 2 skipped (5.5 min clean run; two earlier full runs each hit one unrelated one-off flake - the project-meeting-todos floating panel and the nd-408 pointer-drag geometry - both passing in isolation), and `git diff --check` clean. Card stays In Progress (partial p95 progress; ND-543 owns the structural remainder).
 
 # 2026-10-15 - ND-538: Reviewer follow-up - fix completion reconciliation races
 
@@ -126,6 +358,22 @@ Use it for important implementation milestones, blockers, validation runs, and r
     - Failure scenarios: after revision, all three entries flip optimistically in 5.7-7.8 ms, then revert and show the error within 64-360 ms (baseline never flipped before the failure response).
     - Cross-view: completion in the note appears in Todos with attribution, and reopen from Todos stays consistent back in the note, on both revisions.
   - Validation: `npm run lint` passed; related unit suites (86 tests) passed; new e2e specs passed locally plus the existing meeting-todos regression; production build exit 0 with CI-equivalent env; `tsc` error count unchanged from baseline (no new type errors).
+# 2026-10-14 - ND-431: Review round 2 - version-fenced keyboard-drop settlement
+
+- Merged `origin/main` (`75433a9`, ND-534) into `fix/nd-431-kanban-p95-targets` (`1607c5b`); the only conflict was `journal.md`, resolved keeping both entries newest-first.
+- Review fix (PR #598, P1): after the early keyboard persist was acknowledged, a newer authoritative reorder (typed event or parent refetch) was still re-derived over - the round-1 identity reconcile re-applied the intent's destination even though the newer layout already contained the committed move, silently displaying an order the database never had (reviewer repro: A/B/C -> early save commits B/A/C -> collaborator commits C/B/A -> settle displayed C/A/B). The settle is now version-fenced: the reorder response's project activity version is captured per intent (`writeVersion`, with `intentStartVersion` as the in-flight baseline); typed reshape events and fresh server-rendered props record the newest applied version via a shared `markRemoteColumnsApplied` (props carry a new `initialActivityVersion`, plumbed from `project.updatedAt` through the project page and board section); a layout newer than the baseline settles verbatim (acknowledged, no re-apply, no re-send) while older or equal layouts keep the identity reconcile; the late-failure revert is guarded by an apply counter so a failed write cannot clobber newer authoritative columns.
+- Corrected round-1 note: the board's prop-sync effect does reset mounted columns from fresh `initialTasks`, so parent refetches are a real second delivery path for authoritative columns.
+- Regression tests: `tests/components/kanban-board-keyboard-reconcile.test.tsx` extended to 9 cases (newer typed reorder kept verbatim, stale typed reorder settles by identity, remote insertion shifting the submitted index, newer prop refetch respected, stale prop refetch by identity, echoed acknowledgement not double-applied, early and late failure reverts, late failure after a newer remote keeps the authoritative order); the reviewer's `kanban-newer-remote-review.test.tsx` repro passes on this revision.
+- Validation on the merged head: `npm run lint` and `npm run rls:check` passed; `npm test` 2,015 passed / 2 skipped; `npm run test:coverage` 94.19% lines meeting thresholds; production build passed; full Chromium E2E suite 110 passed / 2 skipped (6.7 min, includes the ND-431 keyboard rollback spec and every kanban spec); `git diff --check` clean. Card stays In Progress (partial progress on the p95 targets; ND-543 owns the structural remainder).
+- Local E2E environment moved: the shared `nexus_dash_nd451-postgres-1` container (host of the `nexusdash_nd431_perf` database) was stopped by another session and `nexus_dash_task122-postgres-1` now owns port 5432, so the E2E runs used a fresh `nexusdash_nd431_e2e` database on the running server (migrated with `prisma migrate deploy`).
+
+# 2026-10-13 - ND-431: Review round - identity-based keyboard-drop reconciliation
+
+- Merged current `origin/main` into `fix/nd-431-kanban-p95-targets` twice this round (`8c5137f` at `ad22b89`, then again at `9d2b03b`: ND-452, ND-455, ND-450); both times the only conflict was `journal.md`, resolved by keeping both entries newest-first.
+- Review fix (PR #598, P1): `onDragEnd` could re-apply an acknowledged keyboard move when a typed reorder event or refetch reconciled the columns between the early Space-keypress persist and the drop settling - it recomputed the move from the original source/destination indices and moved whichever card then held the source index. The intent now records `movedTaskId` at submit time and `onDragEnd` reconciles by identity and idempotently: already at the destination slot -> acknowledge and stop (no re-apply, no re-send); otherwise locate the submitted task in the current columns and move it from where it actually sits, keeping every other card's remote position; the card at the original source index is never moved. Early persist failure keeps the stored order; a failure after the drop settled reverts the optimistic apply.
+- Regression tests: `tests/components/kanban-board-keyboard-reconcile.test.tsx` (typed-event race, shifted-identity reconcile, early failure, late failure); the two race tests fail on the pre-fix revision.
+- Performance framing is explicit partial progress: p95 targets are not fully met on this shared machine (clean-run p95 modal 148.2 vs 130, lift 99.0 vs 70, release 217.6 vs 200, dispatch 120.2 with p50 98.8 vs 100; reorder HTTP 93.7 and typed remote event 30.3 pass). The 12-task control board floors near the targets itself, so absolute sign-off is deferred to a quiet-environment harness rerun; ND-543 owns the structural remainder. Card stays In Progress.
+- Validation on the merged head: `npm run lint`, `npm run rls:check`, `npm test` (1,997 passed, 2 skipped), `npm run test:coverage` (94.19% lines), `npm run build`, the full Chromium E2E suite (109 passed, 2 skipped, 5.9 min, includes the ND-431 drag rollback spec), and `git diff --check` all passed. Local e2e environment notes: the shared 5432 Postgres container (`nexus_dash_nd451-postgres-1`) was stopped mid-round and restarted; a manually started production server needs `TRUSTED_ORIGINS=http://127.0.0.1:<port>` plus `OUTBOUND_EMAIL_DELIVERY_MODE=disabled` (setting `NEXTAUTH_URL` alone without `NEXTAUTH_SECRET` 500s every page).
 
 # 2026-10-14 - ND-565: Refresh main integration
 
@@ -259,6 +507,13 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Validation: `git diff --check` clean and the relative link/reference review
   re-run clean on the integrated tree.
 
+# 2026-10-11 - ND-431: Kanban keyboard-drop persist on Space and card render memoization
+
+- Picked up the remaining ND-431 work: new branch `fix/nd-431-kanban-p95-targets` in a sibling worktree from `origin/main` (`24d4496`); root checkout untouched.
+- Keyboard (SNAP) drops now start the reorder request inside the confirming Space keypress: the grid reports the drop intent from its keydown handler, the board persists immediately, and `onDragEnd` reconciles without re-sending (it also skips the local re-apply when an early persist already failed and rolled the board back). Pointer drags keep the existing `onDragEnd` path.
+- Card bodies are referentially memoized (`MemoizedTaskCardContent`) so the drag library's render-prop re-renders reuse card subtrees; grid drag responders use latest-ref indirection so grid re-renders cannot cascade into the mounted draggables.
+- ND-430 fixture measurements with 20 post-warm-up samples and a control board per run. The shared machine's load is the dominant variance (contended runs 101-118 s vs clean 38-54 s). Clean-run p95, baseline to after: navigation 544.3 to 475.9, modal 249.7 to 148.2, lift 131.3 to 99.0, drop-to-settled 253.0 to 217.6, drop to reorder request 147.8 to 120.2 (p50 98.8, inside the 100 ms target), reorder HTTP 100.3 to 93.7, typed remote event 21.1 to 30.3. Board-attributable (large minus control) p95 costs fell 65% for modal open, 53% for lift, and 58% for drop-to-settled. Details in `docs/audits/nd-431-kanban-responsiveness-follow-up.md`.
+- Validation: `npm run lint`, `npm run rls:check`, `npm test` (1,960 passed, 2 skipped), `npm run test:coverage` (94.07% lines), `npm run build`, the full Chromium E2E suite (108 passed, 2 skipped, 4.8 min), and `git diff --check` all passed.
 # 2026-10-11 - ND-455: RLS-safe actor-projection ADR
 
 - Read the ND-455 card, moved it to In Progress with a pickup comment, and
@@ -10330,3 +10585,16 @@ Low-value entries to avoid going forward:
   clicked the background task card after reload, although the task URL had
   already reopened the modal. Updated it to assert the reopened modal before
   continuing; retained the restored-draft, discard, and quota-error assertions.
+
+## 2026-10-24 ? ND-539 Codex takeover
+
+- Continued Gemini PR #617 and preserved its unfinished todo visibility work. Updated the board criteria to reflect the user correction: todos are project-visible while private meeting content remains creator-only.
+- Moved the visibility lock immediately left of the dialog close button, removed the extra field, and retained explicit save behavior.
+- Restored project todo discovery, My Work, assigned-agent feeds, reminders, completion/reassignment and offboarding across private meetings; redacted private note titles/content in shared responses. Added an additive RLS migration and coverage for shared todo writes without private content edits.
+- PostgreSQL isolation matrix passed against a fresh local database with the realtime stub installed before migrations. Coverage passed: 2,119 tests, 93.64% statements, 95.01% lines. Build and RLS inventory passed; final browser and unit checks continue below.
+
+### ND-539 final verification
+
+- Integrated current `origin/main` through merge commit `37a0c40` after the repository rejected history rewriting; preserved both execution logs. The initial preview failed its newly required Node 24 health contract on the older branch. Replacement workflow [40035776622](https://github.com/dorianagaesse/nexus_dash/actions/runs/40035776622) succeeded and its checkout log confirms `37a0c403a6afed8dbbf336e085bc1725d9445440`. Preview: https://nexus-dash-4dacgpkr4-dorian-agaesses-projects.vercel.app.
+- Local lint, RLS inventory, 2,119 unit/API/component tests, coverage (93.64% statements / 95.01% lines), build, and PostgreSQL matrix passed. The broad local browser run passed 119 checks (two intentional skips); final-implementation GitHub quality, E2E and RLS jobs passed in [40035762869](https://github.com/dorianagaesse/nexus_dash/actions/runs/40035762869). The two-account test covers private todo discovery, completion, redacted responses, and the desktop/mobile lock placement.
+- Inspected desktop/mobile captures and ran the Impeccable detector with no findings. The optional standalone `tsc --noEmit` includes legacy tests with route-param and read-only `NODE_ENV` typing errors; the configured production build type-check passes. Copilot review was requested, but no review response had returned at handoff preparation.

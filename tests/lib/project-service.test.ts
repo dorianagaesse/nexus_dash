@@ -210,6 +210,7 @@ describe("project-service", () => {
             { memberships: { some: { userId: actorUserId } } },
           ],
         },
+        OR: [{ visibility: "team" }, { createdByUserId: actorUserId }],
       },
     });
     expect(prismaMock.taskAttachment.count).toHaveBeenCalledWith({

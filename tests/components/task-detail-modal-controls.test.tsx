@@ -33,6 +33,7 @@ const ownerSummary = {
 const baseTask: KanbanTask = {
   id: "task-1",
   reference: "ND-42",
+  contentRevision: 1,
   title:
     "Move the task overflow and close controls into the top-right corner of the task detail surface",
   description: null,
