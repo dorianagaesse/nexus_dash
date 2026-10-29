@@ -8,7 +8,10 @@ import { uniqueProjectName } from "./helpers/project-helpers";
 test("context draft traffic stays idle until explicit multi-editor saves", async ({ page, browser }, testInfo) => {
   test.setTimeout(180_000);
   const ownerId = await signInAsVerifiedUser(page);
-  const otherContext = await browser.newContext();
+  const otherContext = await browser.newContext({
+    baseURL: testInfo.project.use.baseURL,
+    extraHTTPHeaders: testInfo.project.use.extraHTTPHeaders,
+  });
   const other = await otherContext.newPage();
   const editorId = await signInAsVerifiedUser(other);
   const project = await prisma.project.create({
@@ -31,7 +34,7 @@ test("context draft traffic stays idle until explicit multi-editor saves", async
   }
   async function openEditor(client: Page) {
     await client.goto(`/projects/${project.id}`);
-    const toggle = client.getByRole("button", { name: "Project context", exact: true });
+    const toggle = client.getByRole("button", { name: "Project context" });
     if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
     await client.locator("article").filter({ hasText: "Budget fixture" }).click();
     await client.getByRole("dialog").getByRole("button", { name: "Context card options" }).click();
