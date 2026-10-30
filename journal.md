@@ -3,6 +3,26 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-30 - ND-645: match task comment edit mode to comment composer without toolbar
+
+- Created ND-645 on the Nexus Dash board and moved it to In Progress after
+  observing that inline task comment editing rendered the full rich-text
+  formatting toolbar and default tall editor frame instead of matching the
+  comment creation composer.
+- Updated `TaskReadOnlyContent` in `components/kanban/task-detail-modal.tsx` so
+  the inline comment edit `RichTextEditor` passes `hideToolbar`,
+  `className="space-y-0"`, and
+  `editorClassName="min-h-11 border-0 focus-visible:border-transparent"`,
+  matching comment creation while retaining inline auto-bullet (`- ` and `* `)
+  conversion.
+- Added component regression coverage in
+  `tests/components/task-detail-modal-comments.test.tsx` verifying that
+  formatting toolbar buttons are hidden in edit mode and that typing `- `
+  converts the comment line into a `<ul><li>` bullet list before saving.
+- Validation passed: `npm run lint`, `npm run rls:check`, `npm test`,
+  `npm run test:coverage`, `npm run build`, and `npx playwright test` (124
+  passed, 2 skipped).
+
 # 2026-10-30 - ND-434: make autosave and recovery invisible
 
 - Product clarification supersedes earlier recovery-UI exceptions: no draft or

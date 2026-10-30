@@ -1026,5 +1026,86 @@ describe("TaskDetailModal comments", () => {
         root.unmount();
       });
     });
+
+    test("hides formatting toolbar buttons in edit mode and supports auto-bullet list conversion", async () => {
+      const { root } = createTestRenderer();
+      const onUpdateTaskComment = vi.fn().mockResolvedValue(undefined);
+      const comments = [user1Comment];
+
+      await renderWithRoot(root, comments, {
+        canEdit: true,
+        currentActorUserId: "user-1",
+        onUpdateTaskComment,
+      });
+
+      const editButton = document.querySelector(
+        "[data-testid='edit-comment-button-comment-1']"
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editButton.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      const editForm = document.querySelector(
+        "[data-testid='edit-comment-form-comment-1']"
+      );
+      const editInput = document.querySelector(
+        "#edit-comment-input-comment-1"
+      ) as HTMLDivElement | null;
+      expect(editForm).not.toBeNull();
+      expect(editInput).not.toBeNull();
+      expect(classNameTokens(editInput)).toContain("min-h-11");
+      expect(classNameTokens(editInput)).toContain("border-0");
+
+      for (const toolbarLabel of [
+        "Bold",
+        "Title 1",
+        "Title 2",
+        "Italic",
+        "Underline",
+        "Bullet list",
+        "Numbered list",
+        "Code",
+        "Token",
+      ]) {
+        expect(editForm?.textContent).not.toContain(toolbarLabel);
+      }
+
+      const paragraph = editInput!.querySelector("p")!;
+      paragraph.textContent = "-User 1 comment";
+      const textNode = paragraph.firstChild as Text;
+      selectEditorText(textNode, 1);
+
+      await act(async () => {
+        editInput!.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: " ",
+            code: "Space",
+            bubbles: true,
+            cancelable: true,
+          })
+        );
+      });
+
+      expect(editInput!.innerHTML).toBe("<ul><li>User 1 comment</li></ul>");
+
+      const saveButton = findButtonByText("Save") as HTMLButtonElement;
+      await act(async () => {
+        saveButton.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      expect(onUpdateTaskComment).toHaveBeenCalledWith(
+        "comment-1",
+        "<ul><li>User 1 comment</li></ul>",
+        []
+      );
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
   });
 });
