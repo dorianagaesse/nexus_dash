@@ -10684,3 +10684,10 @@ Low-value entries to avoid going forward:
 
 - Addressed both non-blocking nits from the LGTM review on PR #636: moved `agentCanMoveTasksToDone` below the other Project scalar fields and expanded the capability-administration test formatting.
 - Validation passed: lint, RLS inventory, all 2,202 unit/API tests (2 skipped), coverage, production build, and the PostgreSQL isolation matrix. Coverage remains 95.25% lines and 85.58% branches. Field ordering and test formatting do not change UI or auth flows; the implementation's full Playwright run remains green at `63e3d6f`.
+
+
+## 2026-10-30 - ND-611 build/runtime configuration split
+
+- Runtime configuration validation skips only Next.js production build phase; runtime module loading still validates and fails clearly. Added phase-transition regression coverage.
+- Removed obsolete polling pins from Quality Core, Docker, and all three Vercel build commands. Kept local/E2E polling for servers that run without Supabase Realtime credentials. Updated environment documentation.
+- Validation: lint, RLS inventory, 89 environment tests, and production build passed. Build used only a placeholder DATABASE_URL with DIRECT_URL, signing/email/Supabase secrets, and transport override absent. The built server returned HTTP 500 on first render and logged the missing DIRECT_URL error. Full tests and coverage pending.
