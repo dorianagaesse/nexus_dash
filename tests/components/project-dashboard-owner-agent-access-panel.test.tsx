@@ -14,6 +14,8 @@ describe("project-dashboard-owner-agent-access-panel", () => {
         accessSummary: null,
         isLoadingAccessSummary: true,
         accessError: null,
+        isSavingCapabilities: false,
+        onUpdateCapabilities: () => {},
         isCreatingCredential: false,
         mutatingCredentialId: null,
         latestIssuedSecret: null,
@@ -37,6 +39,7 @@ describe("project-dashboard-owner-agent-access-panel", () => {
         projectId: "project-1",
         accessSummary: {
           projectId: "project-1",
+          agentCanMoveTasksToDone: false,
           accessTokenTtlSeconds: 600,
           credentials: [
             {
@@ -71,6 +74,8 @@ describe("project-dashboard-owner-agent-access-panel", () => {
         },
         isLoadingAccessSummary: false,
         accessError: null,
+        isSavingCapabilities: false,
+        onUpdateCapabilities: () => {},
         isCreatingCredential: false,
         mutatingCredentialId: null,
         latestIssuedSecret: {
@@ -119,12 +124,15 @@ describe("project-dashboard-owner-agent-access-panel", () => {
         projectId: "project-1",
         accessSummary: {
           projectId: "project-1",
+          agentCanMoveTasksToDone: false,
           accessTokenTtlSeconds: 600,
           credentials: [],
           recentEvents: [],
         },
         isLoadingAccessSummary: false,
         accessError: null,
+        isSavingCapabilities: false,
+        onUpdateCapabilities: () => {},
         isCreatingCredential: false,
         mutatingCredentialId: null,
         latestIssuedSecret: null,

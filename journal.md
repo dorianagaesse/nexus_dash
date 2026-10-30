@@ -10666,3 +10666,11 @@ Low-value entries to avoid going forward:
 - Integrated current `origin/main` through merge commit `37a0c40` after the repository rejected history rewriting; preserved both execution logs. The initial preview failed its newly required Node 24 health contract on the older branch. Replacement workflow [40035776622](https://github.com/dorianagaesse/nexus_dash/actions/runs/40035776622) succeeded and its checkout log confirms `37a0c403a6afed8dbbf336e085bc1725d9445440`. Preview: https://nexus-dash-4dacgpkr4-dorian-agaesses-projects.vercel.app.
 - Local lint, RLS inventory, 2,119 unit/API/component tests, coverage (93.64% statements / 95.01% lines), build, and PostgreSQL matrix passed. The broad local browser run passed 119 checks (two intentional skips); final-implementation GitHub quality, E2E and RLS jobs passed in [40035762869](https://github.com/dorianagaesse/nexus_dash/actions/runs/40035762869). The two-account test covers private todo discovery, completion, redacted responses, and the desktop/mobile lock placement.
 - Inspected desktop/mobile captures and ran the Impeccable detector with no findings. The optional standalone `tsc --noEmit` includes legacy tests with route-param and read-only `NODE_ENV` typing errors; the configured production build type-check passes. Copilot review was requested, but no review response had returned at handoff preparation.
+
+
+## 2026-10-30 ? ND-449 project agent capabilities
+
+- Added a project-persisted, default-off Done-move capability in owner Agent access settings. The owner session API updates it; agent bearer access cannot administer it.
+- Enforced live policy before task writes in single status moves (including bulk operations) and board reorder, while preserving human moves and ordering within Done.
+- Worktree: `../nexus_dash_nd449`, branch `feature/nd-449-agent-capabilities`, based on `97b0a99`. Root checkout edits were left untouched.
+- Initial validation: lint, RLS inventory, production build, 2,197 unit/API tests, and the PostgreSQL isolation matrix passed. Full coverage and Playwright validation are in progress. The disposable RLS database uses the Realtime stub installed before migrations.

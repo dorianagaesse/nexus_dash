@@ -212,6 +212,7 @@ enum RoadmapMilestoneStatus {
 }
 
 model Project {
+  agentCanMoveTasksToDone Boolean @default(false)
   id          String   @id @default(cuid())
   ownerId     String
   name        String

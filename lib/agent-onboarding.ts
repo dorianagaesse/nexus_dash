@@ -398,7 +398,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     method: "POST",
     path: "/api/projects/{projectId}/tasks/reorder",
     title: "Reorder tasks",
-    description: "Persist task ordering across board columns and status lanes.",
+    description: "Persist task ordering across board columns and status lanes. Moving tasks into Done requires the owner to enable the project agent capability; otherwise the entire reorder returns 403 agent-done-move-disabled.",
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
     notes: [
@@ -411,7 +411,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     method: "POST",
     path: "/api/projects/{projectId}/tasks/{taskId}/status",
     title: "Transition task status",
-    description: "Move one task to another status column without rewriting the whole board.",
+    description: "Move one task to another status column without rewriting the whole board. Moving into Done is disabled for agents by default; the owner can enable it in Agent access settings. A denied move returns 403 agent-done-move-disabled without changing tasks.",
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
     notes: [

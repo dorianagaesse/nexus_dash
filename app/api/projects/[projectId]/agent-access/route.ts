@@ -9,6 +9,7 @@ import { logServerWarning } from "@/lib/observability/logger";
 import {
   createProjectAgentCredential,
   getProjectAgentAccessSummary,
+  updateProjectAgentCapabilities,
 } from "@/lib/services/project-agent-access-service";
 
 interface CreateAgentCredentialRequestBody {
@@ -88,4 +89,31 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
   }
 
   return NextResponse.json(result.data, { status: result.status });
+}
+
+export async function PATCH(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
+  const authenticatedUser = await requireAuthenticatedApiUser(request);
+  if (!authenticatedUser.ok) return authenticatedUser.response;
+  const params = await props.params;
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "invalid-json" }, { status: 400 });
+  }
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    !("agentCanMoveTasksToDone" in payload) ||
+    typeof payload.agentCanMoveTasksToDone !== "boolean"
+  ) {
+    return NextResponse.json({ error: "invalid-agent-capabilities" }, { status: 400 });
+  }
+  const result = await updateProjectAgentCapabilities({
+    actorUserId: authenticatedUser.userId,
+    projectId: params.projectId,
+    agentCanMoveTasksToDone: payload.agentCanMoveTasksToDone,
+  });
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+  return NextResponse.json(result.data);
 }

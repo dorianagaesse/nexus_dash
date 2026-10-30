@@ -13,6 +13,7 @@ describe("project-dashboard-owner-agent-access-panel quickstart", () => {
         projectId: "project-1",
         accessSummary: {
           projectId: "project-1",
+          agentCanMoveTasksToDone: false,
           accessTokenTtlSeconds: 600,
           credentials: [
             {
@@ -34,6 +35,8 @@ describe("project-dashboard-owner-agent-access-panel quickstart", () => {
         },
         isLoadingAccessSummary: false,
         accessError: null,
+        isSavingCapabilities: false,
+        onUpdateCapabilities: () => {},
         isCreatingCredential: false,
         mutatingCredentialId: null,
         latestIssuedSecret: {

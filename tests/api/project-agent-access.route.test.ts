@@ -7,6 +7,7 @@ const apiGuardMock = vi.hoisted(() => ({
 }));
 
 const projectAgentAccessServiceMock = vi.hoisted(() => ({
+  updateProjectAgentCapabilities: vi.fn(),
   createProjectAgentCredential: vi.fn(),
   getProjectAgentAccessSummary: vi.fn(),
   revokeProjectAgentCredential: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock("@/lib/auth/api-guard", () => ({
 }));
 
 vi.mock("@/lib/services/project-agent-access-service", () => ({
+  updateProjectAgentCapabilities: projectAgentAccessServiceMock.updateProjectAgentCapabilities,
   createProjectAgentCredential:
     projectAgentAccessServiceMock.createProjectAgentCredential,
   getProjectAgentAccessSummary:
@@ -33,6 +35,7 @@ vi.mock("@/lib/services/project-agent-access-service", () => ({
 import {
   GET,
   POST,
+  PATCH,
 } from "@/app/api/projects/[projectId]/agent-access/route";
 import { DELETE } from "@/app/api/projects/[projectId]/agent-access/[credentialId]/route";
 import { POST as rotateCredential } from "@/app/api/projects/[projectId]/agent-access/[credentialId]/rotate/route";
@@ -58,6 +61,7 @@ describe("project agent access routes", () => {
       status: 200,
       data: {
         projectId: "project-1",
+        agentCanMoveTasksToDone: false,
         accessTokenTtlSeconds: 600,
         credentials: [],
         recentEvents: [],
@@ -72,6 +76,7 @@ describe("project agent access routes", () => {
     expect(response.status).toBe(200);
     await expect(readJson(response)).resolves.toEqual({
       projectId: "project-1",
+      agentCanMoveTasksToDone: false,
       accessTokenTtlSeconds: 600,
       credentials: [],
       recentEvents: [],
@@ -330,5 +335,24 @@ describe("project agent access routes", () => {
       ipAddress: "198.51.100.42",
       userAgent: "Vitest",
     });
+  });
+});
+
+describe("PATCH agent capabilities", () => {
+  test.each([null, {}, { agentCanMoveTasksToDone: "true" }])("rejects invalid payload %j", async (data) => {
+    apiGuardMock.requireAuthenticatedApiUser.mockResolvedValue({ ok: true, userId: "owner-1" });
+    const response = await PATCH(new Request("http://localhost/api/projects/p/agent-access", {
+      method: "PATCH", body: JSON.stringify(data),
+    }) as never, { params: Promise.resolve({ projectId: "p" }) });
+    expect(response.status).toBe(400);
+  });
+  test("maps owner service denial", async () => {
+    apiGuardMock.requireAuthenticatedApiUser.mockResolvedValue({ ok: true, userId: "editor-1" });
+    projectAgentAccessServiceMock.updateProjectAgentCapabilities.mockResolvedValue({ ok: false, status: 403, error: "forbidden" });
+    const response = await PATCH(new Request("http://localhost/api/projects/p/agent-access", {
+      method: "PATCH", body: JSON.stringify({ agentCanMoveTasksToDone: true }),
+    }) as never, { params: Promise.resolve({ projectId: "p" }) });
+    expect(response.status).toBe(403);
+    expect(projectAgentAccessServiceMock.updateProjectAgentCapabilities).toHaveBeenCalledWith({ actorUserId: "editor-1", projectId: "p", agentCanMoveTasksToDone: true });
   });
 });

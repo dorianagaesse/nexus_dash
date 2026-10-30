@@ -93,6 +93,7 @@ export interface ProjectAgentAuditEventSummary {
 }
 
 export interface ProjectAgentAccessSummary {
+  agentCanMoveTasksToDone: boolean;
   projectId: string;
   accessTokenTtlSeconds: number;
   credentials: ProjectAgentCredentialSummary[];
@@ -653,7 +654,11 @@ export async function getProjectAgentAccessSummary(input: {
       return createError(access.status, access.error);
     }
 
-    const [credentials, recentEvents] = await Promise.all([
+    const [project, credentials, recentEvents] = await Promise.all([
+      db.project.findUniqueOrThrow({
+        where: { id: input.projectId },
+        select: { agentCanMoveTasksToDone: true },
+      }),
       db.apiCredential.findMany({
         where: {
           projectId: input.projectId,
@@ -704,6 +709,7 @@ export async function getProjectAgentAccessSummary(input: {
 
     return createSuccess(200, {
       projectId: input.projectId,
+      agentCanMoveTasksToDone: project.agentCanMoveTasksToDone,
       accessTokenTtlSeconds: getAgentAccessTokenTtlSeconds(),
       credentials: credentials.map((credential) => buildCredentialSummary(credential)),
       recentEvents: recentEvents.map((event) => buildAuditEventSummary(event)),
@@ -1288,4 +1294,31 @@ export async function recordAgentRequestUsage(input: {
   }
 
   return createSuccess(200, { ok: true as const });
+}
+
+export async function updateProjectAgentCapabilities(input: {
+  actorUserId: string;
+  projectId: string;
+  agentCanMoveTasksToDone: boolean;
+}): Promise<ServiceResult<{ agentCanMoveTasksToDone: boolean }>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) return createError(401, "unauthorized");
+  if (typeof input.agentCanMoveTasksToDone !== "boolean") {
+    return createError(400, "invalid-agent-capabilities");
+  }
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId,
+      projectId: input.projectId,
+      minimumRole: "owner",
+      db,
+    });
+    if (!access.ok) return createError(access.status, access.error);
+    const project = await db.project.update({
+      where: { id: input.projectId },
+      data: { agentCanMoveTasksToDone: input.agentCanMoveTasksToDone },
+      select: { agentCanMoveTasksToDone: true },
+    });
+    return createSuccess(200, project);
+  });
 }

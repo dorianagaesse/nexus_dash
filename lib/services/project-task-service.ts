@@ -1307,6 +1307,23 @@ export async function createTaskForProject(
   });
 }
 
+// Read live project policy for each transition; existing bearer tokens do not cache it.
+async function requireAgentDoneMoveCapability(
+  db: DbClient,
+  projectId: string,
+  agentAccess?: AgentProjectAccessContext
+): Promise<ServiceErrorResult | null> {
+  if (!agentAccess) return null;
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    select: { agentCanMoveTasksToDone: true },
+  });
+  if (!project?.agentCanMoveTasksToDone) {
+    return createError(403, "agent-done-move-disabled");
+  }
+  return null;
+}
+
 export async function reorderProjectTasks(
   projectId: string,
   payload: ReorderPayload,
@@ -1380,6 +1397,14 @@ export async function reorderProjectTasks(
       }
 
       const taskById = new Map(tasks.map((task) => [task.id, task]));
+
+      const movesToDone = normalizedColumns.some((column) =>
+        column.status === "Done" && column.taskIds.some((id) => taskById.get(id)?.status !== "Done")
+      );
+      if (movesToDone) {
+        const denied = await requireAgentDoneMoveCapability(db, projectId, agentAccess);
+        if (denied) return denied;
+      }
 
       const agentAttribution = await resolveTaskAgentAttribution({
         db,
@@ -1523,6 +1548,11 @@ export async function moveTaskStatusForProject(
 
       if (!existingTask || existingTask.projectId !== projectId) {
         return createError(404, "Task not found");
+      }
+
+      if (targetStatus === "Done" && existingTask.status !== "Done") {
+        const denied = await requireAgentDoneMoveCapability(db, projectId, agentAccess);
+        if (denied) return denied;
       }
 
       const sameColumn = existingTask.status === targetStatus;

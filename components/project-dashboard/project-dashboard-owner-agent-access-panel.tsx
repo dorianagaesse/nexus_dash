@@ -46,6 +46,8 @@ interface ProjectDashboardOwnerAgentAccessPanelProps {
   accessSummary: ProjectAgentAccessSummary | null;
   isLoadingAccessSummary: boolean;
   accessError: string | null;
+  isSavingCapabilities: boolean;
+  onUpdateCapabilities: (allowed: boolean) => void;
   isCreatingCredential: boolean;
   mutatingCredentialId: string | null;
   latestIssuedSecret: (ProjectAgentCredentialIssuedSecret & {
@@ -96,6 +98,8 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   accessSummary,
   isLoadingAccessSummary,
   accessError,
+  isSavingCapabilities,
+  onUpdateCapabilities,
   isCreatingCredential,
   mutatingCredentialId,
   latestIssuedSecret,
@@ -244,6 +248,28 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   return (
     <div className="grid min-w-0 max-w-full gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
       <div className="min-w-0 space-y-6">
+        <section className="space-y-3 rounded-2xl border border-border/60 bg-background/60 p-5">
+          <h3 className="text-base font-semibold">Agent capabilities</h3>
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              role="switch"
+              checked={accessSummary?.agentCanMoveTasksToDone ?? false}
+              disabled={!accessSummary || isLoadingAccessSummary || isSavingCapabilities}
+              onChange={(event) => onUpdateCapabilities(event.target.checked)}
+              aria-describedby="agent-done-move-description"
+              className="mt-1 h-4 w-4 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            />
+            <span className="space-y-1">
+              <span className="block text-sm font-medium">Allow agents to move tasks to Done</span>
+              <span id="agent-done-move-description" className="block text-sm text-muted-foreground">
+                Applies to every agent credential in this project. Off by default so a person reviews completed work. Human moves are unaffected.
+              </span>
+            </span>
+          </label>
+          {isSavingCapabilities ? <p role="status" className="text-sm text-muted-foreground">Saving capabilities...</p> : null}
+        </section>
+
         <section className="min-w-0 space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
