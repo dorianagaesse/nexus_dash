@@ -229,21 +229,13 @@ test(`calendar ${legacyDraft ? "legacy" : "current"} edit draft preconditions re
 
   try {
     const calendarToggle = page.getByRole("button", { name: "My calendar" });
-    // Pin the persisted expansion before reloading so the panel state is
-    // restored deterministically instead of racing hydration.
+    // Seed before hydration; clicking the server-rendered collapsed control
+    // can otherwise race the saved expanded preference and toggle it closed.
+    await page.addInitScript((projectId) => {
+      localStorage.setItem(`nexusdash:project:${projectId}:calendar-expanded`, "1");
+    }, project.id);
     const reloadWithCalendarExpanded = async () => {
-      await page.evaluate((projectId) => {
-        localStorage.setItem(
-          `nexusdash:project:${projectId}:calendar-expanded`,
-          "1"
-        );
-      }, project.id);
       await page.reload();
-      // A restored section preference may be reconciled during hydration.
-      // Open the panel through its ordinary control if it is still collapsed.
-      if (await calendarToggle.getAttribute("aria-expanded") === "false") {
-        await calendarToggle.click();
-      }
       await expect(calendarToggle).toHaveAttribute("aria-expanded", "true");
       await expect(page.getByText("Connected", { exact: true })).toBeVisible();
     };

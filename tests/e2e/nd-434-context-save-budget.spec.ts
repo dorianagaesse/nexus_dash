@@ -37,7 +37,7 @@ test("context draft traffic stays idle until explicit multi-editor saves", async
   async function openEditor(client: Page, title = "Budget fixture") {
     await client.goto(`/projects/${project.id}`);
     const toggle = client.getByRole("button", { name: "Project context" });
-    if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await client.locator("article").filter({ hasText: title }).click();
     await client.getByRole("dialog").getByRole("button", { name: "Context card options" }).click();
     await client.getByRole("button", { name: "Edit", exact: true }).click();
@@ -46,6 +46,11 @@ test("context draft traffic stays idle until explicit multi-editor saves", async
   const notificationCount = () => prisma.notification.count({ where: { recipientUserId: { in: [ownerId, editorId] } } });
   const emailCount = () => prisma.projectNotificationEmail.count({ where: { projectId: project.id } });
   try {
+    for (const client of [page, other]) {
+      await client.addInitScript((projectId) => {
+        localStorage.setItem(`nexusdash:project:${projectId}:context-expanded`, "1");
+      }, project.id);
+    }
     await Promise.all([openEditor(page), openEditor(other)]);
     const before = { notifications: await notificationCount(), emails: await emailCount() };
     // Exceed both the 2-second quiet period and 30-second maximum wait.
