@@ -10691,3 +10691,5 @@ Low-value entries to avoid going forward:
 - Isolated work in `../nexus_dash_nd610` on `fix/nd-610-live-task-attachments` from `b6351a2`; root roadmap edits remain untouched.
 - Task attachment create (link, form file, direct upload) and delete now emit typed task activity deltas. The board merges only attachments, preserving the open modal, pending content edits, and focus.
 - Added service event assertions, component reconciliation coverage (including duplicate delivery and project isolation), and a two-browser-context regression for links, text files, and images. Focused checks passed (14 tests); full baseline and preview validation follow below.
+
+- Initial baseline passed lint, RLS inventory, 2,206 tests, coverage (95.32% lines / 85.58% branches), and build. Preview workflow 41069206326 verified checkout 8968b527, but its browser check exposed that polling snapshots carry only a version. Added version-only snapshot notification and a cancellable attachment-only read for the open task; broad dashboard refresh remains deferred during editing. Added regression coverage for polling, duplicate versions, and modal-close cancellation.

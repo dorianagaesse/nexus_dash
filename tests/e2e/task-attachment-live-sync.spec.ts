@@ -31,6 +31,7 @@ test("another browser session adds and removes attachments while a task draft st
   try {
     await page.goto(`/projects/${projectId}?taskId=${task.id}`);
     await sessionB.goto(`/projects/${projectId}`);
+    await page.bringToFront();
     await expect(
       page.getByRole("button", { name: "Task options" })
     ).toBeVisible();
