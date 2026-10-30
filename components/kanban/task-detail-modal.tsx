@@ -1837,7 +1837,7 @@ function TaskReadOnlyContent({
                         >
                           <div
                             className={cn(
-                              "rounded-md border border-input bg-background focus-within:border-ring/60",
+                              "rounded-md border border-input bg-background transition-colors focus-within:border-ring/60",
                               isSavingCommentEdit && "pointer-events-none opacity-60"
                             )}
                             aria-disabled={isSavingCommentEdit}
@@ -1855,7 +1855,9 @@ function TaskReadOnlyContent({
                               mentionProjectId={projectId}
                               agentMentionsEnabled
                               onMentionSelect={handleEditCommentMentionSelect}
-                              className="border-0 bg-transparent px-3 py-2 text-sm shadow-none focus-visible:ring-0"
+                              className="space-y-0"
+                              editorClassName="min-h-11 border-0 focus-visible:border-transparent"
+                              hideToolbar
                             />
                           </div>
                           {editingCommentError ? (
