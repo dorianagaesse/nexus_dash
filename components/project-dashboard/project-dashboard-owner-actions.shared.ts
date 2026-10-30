@@ -104,6 +104,7 @@ export interface ProjectAgentAuditEventSummary {
 }
 
 export interface ProjectAgentAccessSummary {
+  agentCanMoveTasksToDone: boolean;
   projectId: string;
   accessTokenTtlSeconds: number;
   credentials: ProjectAgentCredentialSummary[];

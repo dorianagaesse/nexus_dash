@@ -108,6 +108,16 @@ Open `http://localhost:3000`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
+- Project owners can enable **Allow agents to move tasks to Done** in project
+  settings > Agent access. It defaults to off for new and existing projects and
+  applies to every credential in that project. Denied single-task and
+  board-reorder moves return `403` with `agent-done-move-disabled`; bulk status
+  operations report the same error per operation. Denied board reorders make
+  no task changes. Human moves and reordering tasks already in
+  Done are unaffected. Changes apply to existing bearer tokens immediately.
+- Owner sessions read the setting through `GET /api/projects/{projectId}/agent-access`
+  and update it with `PATCH` and `{ "agentCanMoveTasksToDone": true|false }`.
+  Agents cannot change this setting.
 
 Calendar creation and edits use explicit Save; recovery drafts never write to
 Google on a timer. Calendar edit PATCH requests require `expectedEtag` containing

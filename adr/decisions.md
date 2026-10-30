@@ -1179,3 +1179,11 @@ Keep UI-only or task-only notes in `journal.md`.
 - Decision: Meeting note privacy protects note content, while todos remain project work visible to members and assigned agents. Project editors may complete or reassign these todos without reading the private note.
 - Enforcement: Services use a transaction-local todo context for parent joins and status updates. RLS still requires project membership and editor rights for mutations; a trigger rejects private content or visibility edits by non-creators. Shared service responses redact note titles, text, participants, labels and stewardship.
 - Consequences: The project Todos route, floating panel, My Work, reminders, agent assignments and offboarding agree on todo visibility. Private notes stay absent from meeting lists and direct reads.
+
+
+## 2026-10-30 - ND-449: Project agent capability policy
+
+- Status: Accepted.
+- Decision: Store the default-off `agentCanMoveTasksToDone` capability on Project, separate from credential scopes. Only project owners using a human session may administer it.
+- Enforcement: Status-transition and board-reorder services read current project policy after authorization and before task writes. Bulk status operations reuse the same transition service. A credential still needs `task:write`; enabling the capability grants no additional scopes.
+- Consequences: Existing tokens observe policy changes without reissue. Human transitions and ordering tasks already in Done remain available. A denied reorder rejects all included changes. Repository workflow instructions may continue to require human review even when a project's capability is enabled.

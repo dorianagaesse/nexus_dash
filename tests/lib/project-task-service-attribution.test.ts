@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const prismaMock = vi.hoisted(() => ({
   $queryRaw: vi.fn(),
   project: {
+    findUnique: vi.fn(),
     findFirst: vi.fn(),
     update: vi.fn(),
   },
@@ -527,5 +528,33 @@ describe("task mutation attribution", () => {
     });
     expect(prismaMock.task.update).not.toHaveBeenCalled();
     expect(prismaMock.taskAssigneeChange.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("agent Done-move policy", () => {
+  const agentAccess = { credentialId: "cred-1", projectId: "project-1", scopes: ["task:write"] as const };
+  beforeEach(() => {
+    vi.resetAllMocks();
+    prismaMock.project.findFirst.mockResolvedValue({ ownerId: "owner-1", memberships: [] });
+    prismaMock.project.findUnique.mockResolvedValue({ agentCanMoveTasksToDone: false });
+  });
+  test("rejects a single Done move before changing tasks or project activity", async () => {
+    prismaMock.task.findUnique.mockResolvedValue({ id: "task-1", projectId: "project-1", status: "Backlog" });
+    const result = await moveTaskStatusForProject("project-1", "task-1", { status: "Done" }, "owner-1", { ...agentAccess, scopes: [...agentAccess.scopes] });
+    expect(result).toEqual({ ok: false, status: 403, error: "agent-done-move-disabled" });
+    expect(prismaMock.task.update).not.toHaveBeenCalled();
+    expect(prismaMock.task.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.project.update).not.toHaveBeenCalled();
+  });
+  test("rejects the entire bulk reorder when one task enters Done", async () => {
+    prismaMock.task.findMany.mockResolvedValue([
+      { id: "task-1", status: "Backlog" }, { id: "task-2", status: "Backlog" },
+    ]);
+    const result = await reorderProjectTasks("project-1", { columns: [
+      { status: "Done", taskIds: ["task-1"] }, { status: "In Progress", taskIds: ["task-2"] },
+    ] }, "owner-1", { ...agentAccess, scopes: [...agentAccess.scopes] });
+    expect(result).toEqual({ ok: false, status: 403, error: "agent-done-move-disabled" });
+    expect(prismaMock.task.update).not.toHaveBeenCalled();
+    expect(prismaMock.project.update).not.toHaveBeenCalled();
   });
 });

@@ -103,6 +103,7 @@ export function ProjectDashboardOwnerActions({
   const [sharingSummary, setSharingSummary] = useState<ProjectSharingSummary | null>(null);
   const [isLoadingSharing, setIsLoadingSharing] = useState(false);
   const [sharingError, setSharingError] = useState<string | null>(null);
+  const [isSavingAgentCapabilities, setIsSavingAgentCapabilities] = useState(false);
   const [agentAccessSummary, setAgentAccessSummary] =
     useState<ProjectAgentAccessSummary | null>(null);
   const [isLoadingAgentAccess, setIsLoadingAgentAccess] = useState(false);
@@ -796,6 +797,37 @@ export function ProjectDashboardOwnerActions({
     }
   };
 
+  const handleUpdateAgentCapabilities = async (allowed: boolean) => {
+    if (isSavingAgentCapabilities) return;
+    setIsSavingAgentCapabilities(true);
+    setAgentAccessError(null);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/agent-access`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentCanMoveTasksToDone: allowed }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        { agentCanMoveTasksToDone?: boolean; error?: string } | null;
+      if (!response.ok || typeof payload?.agentCanMoveTasksToDone !== "boolean") {
+        throw new Error("Could not save agent capabilities. Please retry.");
+      }
+      const agentCanMoveTasksToDone = payload.agentCanMoveTasksToDone;
+      setAgentAccessSummary((previous) =>
+        previous ? { ...previous, agentCanMoveTasksToDone } : previous
+      );
+      pushToast({ variant: "success", message: "Agent capabilities saved." });
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : "Could not save agent capabilities. Please retry.";
+      setAgentAccessError(message);
+      pushToast({ variant: "error", message });
+    } finally {
+      setIsSavingAgentCapabilities(false);
+    }
+  };
+
   const handleCreateAgentCredential = async (input: {
     label: string;
     scopes: AgentScope[];
@@ -1263,6 +1295,8 @@ export function ProjectDashboardOwnerActions({
                     <ProjectDashboardOwnerAgentAccessPanel
                       projectId={projectId}
                       accessSummary={agentAccessSummary}
+                      isSavingCapabilities={isSavingAgentCapabilities}
+                      onUpdateCapabilities={(allowed) => void handleUpdateAgentCapabilities(allowed)}
                       isLoadingAccessSummary={isLoadingAgentAccess}
                       accessError={agentAccessError}
                       isCreatingCredential={isCreatingAgentCredential}

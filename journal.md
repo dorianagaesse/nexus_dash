@@ -10666,3 +10666,21 @@ Low-value entries to avoid going forward:
 - Integrated current `origin/main` through merge commit `37a0c40` after the repository rejected history rewriting; preserved both execution logs. The initial preview failed its newly required Node 24 health contract on the older branch. Replacement workflow [40035776622](https://github.com/dorianagaesse/nexus_dash/actions/runs/40035776622) succeeded and its checkout log confirms `37a0c403a6afed8dbbf336e085bc1725d9445440`. Preview: https://nexus-dash-4dacgpkr4-dorian-agaesses-projects.vercel.app.
 - Local lint, RLS inventory, 2,119 unit/API/component tests, coverage (93.64% statements / 95.01% lines), build, and PostgreSQL matrix passed. The broad local browser run passed 119 checks (two intentional skips); final-implementation GitHub quality, E2E and RLS jobs passed in [40035762869](https://github.com/dorianagaesse/nexus_dash/actions/runs/40035762869). The two-account test covers private todo discovery, completion, redacted responses, and the desktop/mobile lock placement.
 - Inspected desktop/mobile captures and ran the Impeccable detector with no findings. The optional standalone `tsc --noEmit` includes legacy tests with route-param and read-only `NODE_ENV` typing errors; the configured production build type-check passes. Copilot review was requested, but no review response had returned at handoff preparation.
+
+
+## 2026-10-30 ? ND-449 project agent capabilities
+
+- Added a project-persisted, default-off Done-move capability in owner Agent access settings. The owner session API updates it; agent bearer access cannot administer it.
+- Enforced live policy before task writes in single status moves (including bulk operations) and board reorder, while preserving human moves and ordering within Done.
+- Worktree: `../nexus_dash_nd449`, branch `feature/nd-449-agent-capabilities`, based on `97b0a99`. Root checkout edits were left untouched.
+- Initial validation: lint, RLS inventory, production build, 2,197 unit/API tests, and the PostgreSQL isolation matrix passed. Full coverage and Playwright validation are in progress. The disposable RLS database uses the Realtime stub installed before migrations.
+
+- Final local validation: coverage passed with 2,202 tests (2 skipped), 95.25% lines and 85.58% branches. The full Playwright run passed 123 tests and skipped 2; its sole failure was ND-451's fixture assuming agent Done moves were always allowed. That fixture now opts in through the owner API, and both ND-449 and ND-451 pass together on rerun. Desktop and 390px screenshots were inspected with the one-time key hidden; the UI detector reported no findings.
+- Standalone `tsc --noEmit` also surfaced repository test-fixture typing errors (including non-Promise route params); the required production build's application typecheck passed.
+- Delivery: PR #636 (`https://github.com/dorianagaesse/nexus_dash/pull/636`). GitHub Quality Core and tenant isolation passed on the implementation commit. Copilot review was requested; no review outcome was returned at this point. The task remains In Progress for the reviewer/merger.
+
+
+## 2026-10-30 - ND-449 Gemini review follow-up
+
+- Addressed both non-blocking nits from the LGTM review on PR #636: moved `agentCanMoveTasksToDone` below the other Project scalar fields and expanded the capability-administration test formatting.
+- Validation passed: lint, RLS inventory, all 2,202 unit/API tests (2 skipped), coverage, production build, and the PostgreSQL isolation matrix. Coverage remains 95.25% lines and 85.58% branches. Field ordering and test formatting do not change UI or auth flows; the implementation's full Playwright run remains green at `63e3d6f`.
