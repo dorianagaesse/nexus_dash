@@ -33,8 +33,8 @@ Implemented today:
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
   - Calendar panel (Google Calendar list/create/update/delete)
   - Task attachment additions and deletions sync into open task modals across
-  sessions while preserving pending edits and focus
-- Task comments with agent-authored comment attribution through the project
+    sessions while preserving pending edits and focus
+  - Task comments with agent-authored comment attribution through the project
     credential label and a shared agent avatar
 - Per-user Google Calendar connection and calendar target setting (`/account/settings`)
 - Opening a task updates the browser URL; task modals offer **Copy link**.
@@ -478,7 +478,7 @@ Branch-name note:
 
 `package.json` is the canonical product-version source. Release-preparation
 PRs (`chore/release-vX.Y.Z`) update `package.json` and `package-lock.json`
-together; every other PR â€” including Dependabot maintenance â€” merges without
+together; every other PR — including Dependabot maintenance — merges without
 changing the product version.
 
 Product versions identify cohesive production releases, not commit counts or
