@@ -14,10 +14,13 @@ import { loadProjectActorRegistryForActor } from "@/lib/services/project-actor-s
 import { getProjectKanbanTaskById } from "@/lib/services/project-service";
 import {
   deleteTaskForProject,
-  type UpdateTaskPayload,
   updateTaskForProject,
 } from "@/lib/services/project-task-service";
 import { mapProjectKanbanTaskToTaskResponse } from "@/lib/services/project-task-response";
+import {
+  parseUpdateTaskJsonInput,
+  toUpdateTaskServiceInput,
+} from "@/lib/task-contracts";
 
 export async function GET(
   request: NextRequest,
@@ -81,12 +84,12 @@ export async function PATCH(
     return NextResponse.json({ error: "Missing route parameters" }, { status: 400 });
   }
 
-  let payload: UpdateTaskPayload;
+  let payload: unknown;
   const precondition = parseContentPrecondition(request.headers, "task", taskId);
   if (!precondition.ok) return NextResponse.json({ error: precondition.error }, { status: 400 });
 
   try {
-    payload = (await request.json()) as UpdateTaskPayload;
+    payload = await request.json();
   } catch (error) {
     logServerWarning(
       "PATCH /api/projects/:projectId/tasks/:taskId.invalidJson",
@@ -95,14 +98,27 @@ export async function PATCH(
     );
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return NextResponse.json({ error: "invalid-request-body" }, { status: 400 });
+
+  const parsedUpdate = parseUpdateTaskJsonInput(payload, { taskId });
+  if (!parsedUpdate.ok) {
+    return NextResponse.json(
+      {
+        error: parsedUpdate.error,
+        ...(parsedUpdate.invalidRelatedTask
+          ? { invalidRelatedTask: parsedUpdate.invalidRelatedTask }
+          : {}),
+      },
+      { status: 400, headers: timing.headers() }
+    );
   }
 
   const result = await updateTaskForProject(
     projectId,
     taskId,
-    payload,
+    toUpdateTaskServiceInput(
+      payload as Record<string, unknown>,
+      parsedUpdate.data
+    ),
     actorUserId,
     agentAccess,
     ...((precondition.expectedRevision === undefined ? [] : [precondition.expectedRevision]) as [] | [number])

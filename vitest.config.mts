@@ -44,6 +44,7 @@ export default defineConfig({
         "lib/live-save/scheduler.ts",
         "lib/rich-text.ts",
         "lib/task-attachment.ts",
+        "lib/task-contracts.ts",
         "lib/task-label.ts",
         "lib/task-status.ts",
         "lib/services/project-task-search-service.ts",
