@@ -3370,7 +3370,9 @@ export function KanbanBoard({
     let attachmentController: AbortController | null = null;
     let appliedAttachmentVersion: string | null = null;
     function reconcileOpenTaskAttachments(event: Event) {
-      const activity = (event as CustomEvent<ProjectActivityRemoteEventDetail>).detail?.activity;
+      const activity = (
+        event as CustomEvent<ProjectActivityRemoteEventDetail>
+      ).detail?.activity;
       if (!activity || activity.projectId !== projectId) return;
       if (!activity.eventId && selectedTaskId) {
         if (appliedAttachmentVersion === activity.version) return;
@@ -3402,12 +3404,17 @@ export function KanbanBoard({
         // Other dashboard fields still need the existing deferred refresh.
         return;
       }
-
     }
-    window.addEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, reconcileOpenTaskAttachments);
+    window.addEventListener(
+      PROJECT_ACTIVITY_REMOTE_EVENT,
+      reconcileOpenTaskAttachments
+    );
     return () => {
       attachmentController?.abort();
-      window.removeEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, reconcileOpenTaskAttachments);
+      window.removeEventListener(
+        PROJECT_ACTIVITY_REMOTE_EVENT,
+        reconcileOpenTaskAttachments
+      );
     };
   }, [applyTaskMutation, projectId, selectedTaskId]);
 
@@ -3419,7 +3426,6 @@ export function KanbanBoard({
       if (!activity || activity.projectId !== projectId) {
         return;
       }
-
 
       if (activity.domain === "task") {
         if (activity.action === "created" || activity.action === "updated") {

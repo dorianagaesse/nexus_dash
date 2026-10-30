@@ -205,38 +205,110 @@ test.each(["link", "file"])(
 
 test("version-only polling reconciles the complete attachment list and aborts reads on modal close", async () => {
   const task = makeTasks(["a"])[0];
-  const attachment = { id: "link", kind: "link", name: "Remote link", url: "https://example.com", commentId: null, mimeType: null, sizeBytes: null, downloadUrl: null };
+  const attachment = {
+    id: "link",
+    kind: "link",
+    name: "Remote link",
+    url: "https://example.com",
+    commentId: null,
+    mimeType: null,
+    sizeBytes: null,
+    downloadUrl: null,
+  };
   let attachments = [attachment];
-  const fetchMock = vi.fn<typeof fetch>(async () => new Response(JSON.stringify({ task: { ...task, attachments }, comments: [] }), { status: 200 }));
+  const fetchMock = vi.fn<typeof fetch>(
+    async () =>
+      new Response(
+        JSON.stringify({ task: { ...task, attachments }, comments: [] }),
+        { status: 200 }
+      )
+  );
   vi.stubGlobal("fetch", fetchMock);
-  const container = document.createElement("div"); document.body.append(container);
+  const container = document.createElement("div");
+  document.body.append(container);
   const root = createRoot(container);
-  const snapshot = (version: string) => dispatchProjectActivityRemoteEvent({ eventId: null, projectId: "project", version, serverTime: version, domain: null, action: null, actorUserId: null, entityId: null, payload: null });
+  const snapshot = (version: string) =>
+    dispatchProjectActivityRemoteEvent({
+      eventId: null,
+      projectId: "project",
+      version,
+      serverTime: version,
+      domain: null,
+      action: null,
+      actorUserId: null,
+      entityId: null,
+      payload: null,
+    });
   try {
-    await act(async () => { root.render(<KanbanBoard canEdit projectId="project" actorUserId="owner" storageProvider="local" initialTasks={[task]} initialTaskId="a" archivedDoneTasks={[]} archivedEpics={[]} epics={[]} collaborators={[person]} />); });
-    await act(async () => { capture.modal.onActivateEditMode(); });
-    await act(async () => { capture.modal.onEditTitleChange("Unfinished local title"); });
-    const input = container.querySelector("input")!; input.focus();
-    await act(async () => { expect(snapshot("2026-10-30T10:00:00Z")).toBe(false); });
+    await act(async () => {
+      root.render(
+        <KanbanBoard
+          canEdit
+          projectId="project"
+          actorUserId="owner"
+          storageProvider="local"
+          initialTasks={[task]}
+          initialTaskId="a"
+          archivedDoneTasks={[]}
+          archivedEpics={[]}
+          epics={[]}
+          collaborators={[person]}
+        />
+      );
+    });
+    await act(async () => {
+      capture.modal.onActivateEditMode();
+    });
+    await act(async () => {
+      capture.modal.onEditTitleChange("Unfinished local title");
+    });
+    const input = container.querySelector("input")!;
+    input.focus();
+    await act(async () => {
+      expect(snapshot("2026-10-30T10:00:00Z")).toBe(false);
+    });
     expect(capture.modal.selectedTask.attachments).toEqual([attachment]);
     expect(capture.modal.editTitle).toBe("Unfinished local title");
     expect(document.activeElement).toBe(input);
     const requestCount = fetchMock.mock.calls.length;
-    await act(async () => { snapshot("2026-10-30T10:00:00Z"); });
+    await act(async () => {
+      snapshot("2026-10-30T10:00:00Z");
+    });
     expect(fetchMock).toHaveBeenCalledTimes(requestCount);
     attachments = [];
-    await act(async () => { snapshot("2026-10-30T10:01:00Z"); });
+    await act(async () => {
+      snapshot("2026-10-30T10:01:00Z");
+    });
     expect(capture.modal.selectedTask.attachments).toEqual([]);
     expect(capture.modal.editTitle).toBe("Unfinished local title");
     expect(document.activeElement).toBe(input);
     let signal: AbortSignal | undefined;
     let resolveRead!: (response: Response) => void;
-    fetchMock.mockImplementationOnce((_url?: unknown, init?: RequestInit) => { signal = init?.signal ?? undefined; return new Promise<Response>((resolve) => { resolveRead = resolve; }); });
-    await act(async () => { snapshot("2026-10-30T10:02:00Z"); });
-    await act(async () => { capture.modal.onClose(); });
+    fetchMock.mockImplementationOnce((_url?: unknown, init?: RequestInit) => {
+      signal = init?.signal ?? undefined;
+      return new Promise<Response>((resolve) => {
+        resolveRead = resolve;
+      });
+    });
+    await act(async () => {
+      snapshot("2026-10-30T10:02:00Z");
+    });
+    await act(async () => {
+      capture.modal.onClose();
+    });
     expect(signal?.aborted).toBe(true);
-    await act(async () => { resolveRead(new Response(JSON.stringify({ task: { ...task, attachments: [attachment] } }))); });
+    await act(async () => {
+      resolveRead(
+        new Response(
+          JSON.stringify({ task: { ...task, attachments: [attachment] } })
+        )
+      );
+    });
     expect(capture.modal.selectedTask).toBeNull();
     expect(capture.grid.columns.Backlog[0].attachments).toEqual([]);
-  } finally { await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals(); }
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+  }
 });
