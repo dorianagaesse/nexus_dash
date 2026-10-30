@@ -327,6 +327,8 @@ describe("ProjectLiveRefresh", () => {
 
   test("defers refresh invisibly while local editing is active", async () => {
     const { container, root } = createTestRenderer();
+    const snapshotHandler = vi.fn();
+    window.addEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, snapshotHandler);
     const lock = document.createElement("div");
     lock.setAttribute("data-project-live-refresh-lock", "true");
     document.body.appendChild(lock);
@@ -345,6 +347,12 @@ describe("ProjectLiveRefresh", () => {
       await vi.advanceTimersByTimeAsync(50);
     });
 
+    expect(snapshotHandler).toHaveBeenCalledWith(expect.objectContaining({
+      detail: expect.objectContaining({ activity: expect.objectContaining({
+        projectId: "project-1", version: "2026-05-30T10:02:00.000Z",
+      }) }),
+    }));
+    window.removeEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, snapshotHandler);
     expect(routerRefreshMock).not.toHaveBeenCalled();
     expect(container.textContent).not.toContain("Project updates are ready.");
     expect(container.querySelector("button")).toBeNull();

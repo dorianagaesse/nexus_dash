@@ -184,7 +184,10 @@ export function ProjectLiveRefresh({
 
       markProjectActivityTiming("received");
 
-      if (payload.eventId && dispatchProjectActivityRemoteEvent(payload)) {
+      // Version-only polling snapshots also let open surfaces reconcile safe
+      // fields while a broad refresh is deferred by an editor or dialog.
+      const handled = dispatchProjectActivityRemoteEvent(payload);
+      if (payload.eventId && handled) {
         markProjectActivityTiming("patched");
         acknowledgeVersion(payload.version);
         return;

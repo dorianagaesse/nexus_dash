@@ -3366,6 +3366,59 @@ export function KanbanBoard({
   );
 
   useEffect(() => {
+    if (!selectedTaskId) return;
+    let attachmentController: AbortController | null = null;
+    let appliedAttachmentVersion: string | null = null;
+    function reconcileOpenTaskAttachments(event: Event) {
+      const activity = (
+        event as CustomEvent<ProjectActivityRemoteEventDetail>
+      ).detail?.activity;
+      if (!activity || activity.projectId !== projectId) return;
+      if (!activity.eventId && selectedTaskId) {
+        if (appliedAttachmentVersion === activity.version) return;
+        attachmentController?.abort();
+        const controller = new AbortController();
+        attachmentController = controller;
+        const taskId = selectedTaskId;
+        void (async () => {
+          try {
+            const response = await fetch(
+              `/api/projects/${projectId}/tasks/${taskId}`,
+              { cache: "no-store", signal: controller.signal }
+            );
+            if (!response.ok) return;
+            const remoteTask = readRemoteTaskPayload({
+              ...activity,
+              payload: await response.json(),
+            });
+            if (controller.signal.aborted || remoteTask?.id !== taskId) return;
+            applyTaskMutation(taskId, (task) => ({
+              ...task,
+              attachments: remoteTask.attachments,
+            }));
+            appliedAttachmentVersion = activity.version;
+          } catch {
+            // A later poll retries failures; modal changes abort stale reads.
+          }
+        })();
+        // Other dashboard fields still need the existing deferred refresh.
+        return;
+      }
+    }
+    window.addEventListener(
+      PROJECT_ACTIVITY_REMOTE_EVENT,
+      reconcileOpenTaskAttachments
+    );
+    return () => {
+      attachmentController?.abort();
+      window.removeEventListener(
+        PROJECT_ACTIVITY_REMOTE_EVENT,
+        reconcileOpenTaskAttachments
+      );
+    };
+  }, [applyTaskMutation, projectId, selectedTaskId]);
+
+  useEffect(() => {
     function handleRemoteProjectActivity(event: Event) {
       const detail = (event as CustomEvent<ProjectActivityRemoteEventDetail>)
         .detail;
@@ -3376,6 +3429,45 @@ export function KanbanBoard({
 
       if (activity.domain === "task") {
         if (activity.action === "created" || activity.action === "updated") {
+          // Attachment commands do not change the content revision. Merge only
+          // the attachment delta so an open modal keeps its draft and focus.
+          if (
+            isRecord(activity.payload) &&
+            activity.payload.taskId === activity.entityId &&
+            activity.entityId
+          ) {
+            const { attachment, deletedAttachmentId } = activity.payload;
+            if (
+              isRecord(attachment) &&
+              typeof attachment.id === "string" &&
+              (attachment.kind === ATTACHMENT_KIND_FILE ||
+                attachment.kind === ATTACHMENT_KIND_LINK) &&
+              typeof attachment.name === "string"
+            ) {
+              const remoteAttachment = attachment as unknown as TaskAttachment;
+              applyTaskMutation(activity.entityId, (task) => ({
+                ...task,
+                attachments: [
+                  ...task.attachments.filter(
+                    (entry) => entry.id !== remoteAttachment.id
+                  ),
+                  remoteAttachment,
+                ],
+              }));
+              detail.markHandled();
+              return;
+            }
+            if (typeof deletedAttachmentId === "string") {
+              applyTaskMutation(activity.entityId, (task) => ({
+                ...task,
+                attachments: task.attachments.filter(
+                  (entry) => entry.id !== deletedAttachmentId
+                ),
+              }));
+              detail.markHandled();
+              return;
+            }
+          }
           const remoteTask = readRemoteTaskPayload(activity);
           if (remoteTask) {
             upsertRemoteTask(remoteTask);
