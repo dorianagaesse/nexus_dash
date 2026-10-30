@@ -3,6 +3,45 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-30 - ND-541: define Tasks/Kanban domain boundary and migration seams
+
+- Authored `adr/nd-541-tasks-kanban-domain-boundary.md` and recorded the summary
+  decision in `adr/decisions.md` (with index updates in `adr/README.md` and
+  `project.md`) to establish the ownership map, public import seams, software
+  design patterns, behavior/security invariants, baseline test matrix, and
+  staged extraction plan for `ND-542` through `ND-547`.
+- Mapped every Tasks/Kanban module across delivery (`app/api/projects/[projectId]/tasks/**`,
+  `app/projects/[projectId]/kanban-board-section.tsx`), UI (`components/kanban-board.tsx`,
+  `components/kanban/**`), runtime contracts (`lib/task-contracts.ts` target),
+  pure domain policies (`lib/task-*.ts`), application services
+  (`lib/services/project-task-service.ts` facade over `lib/services/tasks/**`),
+  data-access/projections (`lib/services/tasks/task-data.ts` target +
+  `lib/services/project-task-response.ts`), and adjacent/shared boundaries
+  (Task Discussion `ND-187`, RLS-safe actor projections `ND-455`, attachments,
+  epics, and platform services).
+- Defined concrete, rollback-safe extraction targets for `ND-542` (Transport
+  Adapter + Command in `lib/task-contracts.ts`), `ND-543` (cohesive Kanban hook
+  controllers under `components/kanban/hooks/**`), `ND-544` (Task use-case split
+  behind the `project-task-service.ts` Facade), `ND-545` (shared `DbClient`
+  data-access/projection layer consolidating `projectKanbanTaskInclude` and
+  `loadTaskMutationPayload`, relocating Task queries from `project-service.ts`,
+  and establishing the persistence transform seam for encrypted text epic
+  `cmu389cd9000104jvk1bbipyf`), and `ND-546` (boundary lint enforcement gating
+  `ND-547`).
+- Addressed PR #639 review findings (`pullrequestreview-5718028049` and
+  `pullrequestreview-5718097984`): aligned optimistic-concurrency baseline with
+  `lib/content-revision.ts` and `lib/services/content-revision-service.ts`
+  (optional `X-Content-If-Match`, `"matched" | "conflict" | "missing"` result,
+  `412` `{ current }` payload, conditional `retryTransaction`, and DB triggers
+  advancing `contentRevision`), reconciled create/update/status and description
+  invariants (`Backlog`-only create, `sanitizeRichText` normalizing empty or
+  meaningless HTML to `null` and clearing `description` to `null` when provided
+  on `PATCH`, dedicated `/status` and `/reorder` transitions, update-only
+  `blockedFollowUpEntry` ignored when not `Blocked`), verified exact error
+  strings/codes across routes and services, and required an explicit
+  `db: DbClient` parameter on internal `task-data.ts` helpers so queries never
+  escape `withActorRlsContext`.
+
 # 2026-10-30 - ND-434: make autosave and recovery invisible
 
 - Product clarification supersedes earlier recovery-UI exceptions: no draft or

@@ -16,6 +16,43 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-10-30 - ND-541: Tasks/Kanban domain boundary and staged modular-monolith seams
+
+- Status: Accepted; defines the architecture contract for the Tasks pilot
+  (`ND-542`, `ND-543`, `ND-544`, `ND-545`, `ND-546`) and follow-on contract
+  work (`ND-547`).
+- Context: Task and Kanban responsibilities span a 4,352-line board controller
+  (`components/kanban-board.tsx`), a 2,397-line service
+  (`lib/services/project-task-service.ts`), duplicated JSON/multipart/bulk input
+  parsing, and misplaced Task read projections inside
+  `lib/services/project-service.ts`, while `@/lib/prisma` imports must remain
+  inside `lib/services/**` under forced PostgreSQL RLS.
+- Decision: Keep the existing top-level directory layout and `@/lib/prisma`
+  service boundary (no top-level `domains/` folder migration). Decompose the
+  Tasks domain behind four low-ceremony seams:
+  1. **Transport Adapter + Canonical Command (`lib/task-contracts.ts`, `ND-542`)**
+     for JSON, `multipart/form-data`, and bulk task create/update inputs plus
+     agent OpenAPI parity (`lib/agent-onboarding.ts`).
+  2. **Cohesive Custom-Hook Controller Composition (`components/kanban/hooks/**`,
+     `ND-543`)** grouped by stateful lifecycle (board lanes/reconciliation,
+     pointer/keyboard DnD with version-fenced settlement, task selection/URL
+     sync, edit draft/live-save/recovery, and modal discussion/attachments).
+  3. **Service Facade (`lib/services/project-task-service.ts`, `ND-544`)** over
+     cohesive use-case modules under `lib/services/tasks/**`.
+  4. **Focused Task Data-Access & Projection Seam (`lib/services/tasks/task-data.ts`,
+     `ND-545`)** requiring an explicit caller `db: DbClient` (no global `prisma`
+     default, preserving `withActorRlsContext` transaction-local RLS context),
+     consolidating `projectKanbanTaskInclude` and `loadTaskMutationPayload`,
+     relocating Task queries out of `lib/services/project-service.ts` behind
+     compatibility re-exports, and providing the single persistence transform
+     seam for encrypted database persistence (`cmu389cd9000104jvk1bbipyf`).
+- Consequences: `ND-542`, `ND-543`, and `ND-544` can proceed independently with
+  per-stage rollback seams and zero route/schema churn; `ND-545` sequences with
+  `ND-544`; `ND-546` codifies `no-restricted-imports` guardrails and gates
+  `ND-547`.
+- Links: [ND-541 Tasks/Kanban boundary ADR](nd-541-tasks-kanban-domain-boundary.md),
+  epic `cmuub2cab000k04l2uxmve21b`, board cards ND-541..ND-547.
+
 ## 2026-10-11 - ND-455: RLS-safe actor projections for non-owner project members
 
 - Status: Accepted; records the shipped ND-382 implementation
