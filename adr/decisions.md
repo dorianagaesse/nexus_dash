@@ -40,7 +40,8 @@ Keep UI-only or task-only notes in `journal.md`.
   3. **Service Facade (`lib/services/project-task-service.ts`, `ND-544`)** over
      cohesive use-case modules under `lib/services/tasks/**`.
   4. **Focused Task Data-Access & Projection Seam (`lib/services/tasks/task-data.ts`,
-     `ND-545`)** accepting caller `DbClient` (`withActorRlsContext`),
+     `ND-545`)** requiring an explicit caller `db: DbClient` (no global `prisma`
+     default, preserving `withActorRlsContext` transaction-local RLS context),
      consolidating `projectKanbanTaskInclude` and `loadTaskMutationPayload`,
      relocating Task queries out of `lib/services/project-service.ts` behind
      compatibility re-exports, and providing the single persistence transform

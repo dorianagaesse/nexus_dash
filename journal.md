@@ -28,6 +28,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
   and establishing the persistence transform seam for encrypted text epic
   `cmu389cd9000104jvk1bbipyf`), and `ND-546` (boundary lint enforcement gating
   `ND-547`).
+- Addressed PR #639 review findings (`pullrequestreview-5718028049`): aligned
+  optimistic-concurrency baseline with `lib/content-revision.ts` and
+  `lib/services/content-revision-service.ts` (optional `X-Content-If-Match`,
+  `"matched" | "conflict" | "missing"` result, `412` `{ current }` payload,
+  conditional `retryTransaction`, and DB triggers advancing `contentRevision`),
+  reconciled create/update/status invariants (`Backlog`-only create, dedicated
+  `/status` and `/reorder` transitions, update-only `blockedFollowUpEntry`
+  ignored when not `Blocked`), verified exact error strings/codes across routes
+  and services, and required an explicit `db: DbClient` parameter on internal
+  `task-data.ts` helpers so queries never escape `withActorRlsContext`.
 
 # 2026-10-30 - ND-434: make autosave and recovery invisible
 
