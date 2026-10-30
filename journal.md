@@ -3,6 +3,43 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-30 - ND-542: unify Task create and update API runtime contracts
+
+- Introduced `lib/task-contracts.ts` as the single pure runtime contract module
+  for Task create, partial update (`PATCH`), bulk operations, status transition,
+  and board reorder requests across JSON and multipart callers, with inferred
+  TypeScript input/output types (`TaskCreateContractInput`,
+  `TaskCreateContractOutput`, `TaskUpdateContractInput`,
+  `TaskUpdateContractOutput`, `CreateTaskCommand`, `UpdateTaskCommand`) and
+  zero Prisma or service imports.
+- Moved pure attachment link and file validation helpers into
+  `lib/task-attachment.ts` (re-exported from
+  `lib/services/attachment-input-service.ts`) and exported
+  `MIN_TASK_TITLE_LENGTH` from `lib/task-title.ts` and `PROJECT_ACTOR_KINDS`
+  from `lib/project-actor.ts` so field rules are defined once.
+- Updated `app/api/projects/[projectId]/tasks/route.ts`,
+  `app/api/projects/[projectId]/tasks/[taskId]/route.ts`,
+  `app/api/projects/[projectId]/tasks/bulk/route.ts`,
+  `app/api/projects/[projectId]/tasks/[taskId]/status/route.ts`,
+  `app/api/projects/[projectId]/tasks/reorder/route.ts`, and
+  `lib/services/project-task-service.ts` to validate and map inputs through the
+  shared contract commands while preserving all existing error codes, partial
+  PATCH semantics, relation diagnostics (`invalidRelatedTask`), and human/agent
+  behavior.
+- Derived the OpenAPI schemas (`ProjectActorReferenceInput`,
+  `TaskCreateRequest`, `TaskUpdateRequest`, `TaskReorderRequest`,
+  `TaskStatusTransitionRequest`, `TaskBulkRequest`, `TaskBulkCreateOperation`,
+  `TaskBulkUpdateOperation`, `TaskBulkStatusOperation`) in
+  `lib/agent-onboarding.ts` directly from `lib/task-contracts.ts`.
+- Added focused contract and OpenAPI parity coverage in
+  `tests/lib/task-contracts.test.ts` (and added `lib/task-contracts.ts` to
+  `vitest.config.mts` coverage gates).
+- Validation passed: `npm run rls:check`, `npm run lint`, `npm test` /
+  `npm run test:coverage` (252 passed test suites, 2,223 passed tests, 2
+  skipped; `lib/task-contracts.ts` at 93.97% statements / 94.18% branches /
+  93.87% functions / 93.95% lines), `npm run build`, and Playwright E2E task
+  create/edit, relation, assignment, and attachment upload specs (12/12 passed).
+
 # 2026-10-30 - ND-434: make autosave and recovery invisible
 
 - Product clarification supersedes earlier recovery-UI exceptions: no draft or
