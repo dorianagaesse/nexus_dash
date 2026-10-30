@@ -109,6 +109,19 @@ Open `http://localhost:3000`.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
 
+Calendar creation and edits use explicit Save; recovery drafts never write to
+Google on a timer. Calendar edit PATCH requests require `expectedEtag` containing
+one strong ETag from the event listing. Missing preconditions return 428
+`calendar-edit-precondition-required`, invalid values return 400
+`invalid-precondition`, and stale provider revisions return 412
+`calendar-edit-conflict` without changing the event. Recovery is invisible:
+closing a form accidentally and reopening it restores input without notices,
+status strips, or recovery-choice buttons. A stale or unknown Calendar revision
+fails through the ordinary Save error and keeps the input. Explicit Cancel
+abandons the edit; reopening then starts from the latest event. Outside click,
+Escape, and the close icon preserve recovery. Context cards follow the same
+invisible-recovery rule with atomic content revisions.
+
 ## Database and Migrations
 
 Scripts:

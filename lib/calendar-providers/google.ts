@@ -128,6 +128,7 @@ export const googleCalendarProvider: CalendarProviderAdapter = {
     return fetch(url, {
       method: input.method ?? "GET",
       headers: {
+        ...(input.headers ?? {}),
         Authorization: `Bearer ${input.accessToken}`,
         ...(input.body ? { "Content-Type": "application/json" } : {}),
       },

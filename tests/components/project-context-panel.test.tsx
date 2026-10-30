@@ -40,6 +40,7 @@ const collaborators: MentionDisplayUser[] = [
 function buildCard(overrides: Partial<ProjectContextCard>): ProjectContextCard {
   return {
     id: "card-1",
+    contentRevision: 1,
     title: "Launch context",
     content: "<p>Notes</p>",
     color: "#FDE2E4",
@@ -243,6 +244,7 @@ describe("project context panel mentions", () => {
             cardId: "card-new",
             card: {
               id: "card-new",
+              contentRevision: 1,
               title: "Rollout context",
               content: "<p>@ada#0001 please review.</p>",
               color: "#FDE2E4",
@@ -342,6 +344,190 @@ describe("project context panel mentions", () => {
     expect(editor?.textContent).toContain("Legacy line one.");
     expect(editor?.textContent).toContain("Legacy line two.");
     expect(editor?.querySelectorAll("p").length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("project context panel guarded edits", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    const renderer = createTestRenderer();
+    container = renderer.container;
+    root = renderer.root;
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  function setInputValue(input: HTMLInputElement, value: string) {
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value"
+    )?.set;
+    setter?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  async function openEdit(card: ProjectContextCard) {
+    await renderPanel(root, { cards: [card] });
+    await clickElement(findButton(container, "Project context"));
+    await clickElement(container.querySelector("article"));
+    const dialog = document.querySelector("[role='dialog']");
+    await clickElement(
+      dialog?.querySelector("button[aria-label='Context card options']") ?? null
+    );
+    await clickElement(findButton(dialog ?? document.body, "Edit"));
+    const titleInput = document.getElementById(
+      "context-edit-title"
+    ) as HTMLInputElement | null;
+    expect(titleInput).not.toBeNull();
+    return titleInput as HTMLInputElement;
+  }
+
+  test("explicit save sends one conditional PATCH against the card revision", async () => {
+    const requests: { url: string; init?: RequestInit }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        requests.push({
+          url: typeof input === "string" ? input : input.toString(),
+          init,
+        });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          json: vi.fn().mockResolvedValue({
+            card: buildCard({ contentRevision: 2, title: "Renamed card" }),
+          }),
+        });
+      })
+    );
+
+    const titleInput = await openEdit(buildCard({}));
+    await act(async () => {
+      setInputValue(titleInput, "Renamed card");
+    });
+    await clickElement(findButton(document.body, "Save card"));
+    await act(async () => {
+      await sleep(20);
+    });
+
+    const patch = requests.find(
+      (request) => request.init?.method === "PATCH"
+    );
+    expect(patch?.url).toContain("/api/projects/project-1/context-cards/card-1");
+    const headers = new Headers(patch?.init?.headers);
+    expect(headers.get("x-content-if-match")).toBe('"context-card:card-1:1"');
+    expect(headers.get("NexusDash-Mutation-Intent")).toBe("explicit");
+    expect(JSON.parse(String(patch?.init?.body))).toEqual({
+      title: "Renamed card",
+    });
+    expect(document.getElementById("context-edit-title")).toBeNull();
+    expect(document.body.textContent).toContain("Context card saved.");
+  });
+
+  test("a stale edit keeps the modal open and retries against the latest revision after review", async () => {
+    const requests: { url: string; init?: RequestInit }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        requests.push({ url, init });
+        if (init?.method !== "PATCH") {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers(),
+            json: vi.fn().mockResolvedValue({}),
+          });
+        }
+        const patchCount = requests.filter(
+          (request) => request.init?.method === "PATCH"
+        ).length;
+        if (patchCount === 1) {
+          return Promise.resolve({
+            ok: false,
+            status: 412,
+            headers: new Headers(),
+            json: vi.fn().mockResolvedValue({
+              error: "edit-conflict",
+              contentRevision: 2,
+              current: buildCard({
+                contentRevision: 2,
+                title: "Server rename",
+                content: "<p>Server notes</p>",
+              }),
+            }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          json: vi.fn().mockResolvedValue({
+            card: buildCard({
+              contentRevision: 3,
+              title: "My edit",
+              content: "<p>Server notes</p>",
+            }),
+          }),
+        });
+      })
+    );
+
+    const titleInput = await openEdit(buildCard({}));
+    await act(async () => {
+      setInputValue(titleInput, "My edit");
+    });
+    await clickElement(findButton(document.body, "Save card"));
+    await act(async () => {
+      await sleep(20);
+    });
+
+    expect(document.getElementById("context-edit-title")).not.toBeNull();
+    expect(document.body.textContent).toContain(
+      "This context card changed elsewhere. Please cancel and reopen it before trying again."
+    );
+    const review = document.querySelector("[data-conflict-review]");
+    expect(review).toBeNull();
+    expect(document.body.textContent).not.toContain("Keep my version");
+    expect(titleInput.value).toBe("My edit");
+
+    const firstPatch = requests.find(
+      (request) => request.init?.method === "PATCH"
+    );
+    expect(new Headers(firstPatch?.init?.headers).get("x-content-if-match")).toBe(
+      '"context-card:card-1:1"'
+    );
+
+    await clickElement(findButton(document.body, "Save card"));
+    expect(requests.filter(request => request.init?.method === "PATCH")).toHaveLength(1);
+    await clickElement(findButton(document.body, "Cancel"));
+    await clickElement(findButton(container, "Project context"));
+    const freshTitle = await openEdit(buildCard({contentRevision:2,title:"Server rename",content:"<p>Server notes</p>"}));
+    await act(async () => { setInputValue(freshTitle, "My edit"); });
+    await clickElement(findButton(document.body, "Save card"));
+    await act(async () => {
+      await sleep(20);
+    });
+
+    const patches = requests.filter(
+      (request) => request.init?.method === "PATCH"
+    );
+    expect(patches).toHaveLength(2);
+    expect(new Headers(patches[1].init?.headers).get("x-content-if-match")).toBe(
+      '"context-card:card-1:2"'
+    );
+    expect(JSON.parse(String(patches[1].init?.body))).toEqual({
+      title: "My edit",
+    });
+    expect(document.getElementById("context-edit-title")).toBeNull();
   });
 });
 

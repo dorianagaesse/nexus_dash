@@ -15,6 +15,8 @@ export const CALENDAR_TOTAL_GRID_HEIGHT_PX = TOTAL_GRID_HEIGHT_PX;
 
 export interface CalendarEventItem {
   id: string;
+  /** Provider revision used as the conditional-write precondition. */
+  etag?: string | null;
   summary: string;
   start: string;
   end: string | null;
@@ -497,6 +499,12 @@ export function mapEventMutationError(errorCode: string): string {
       return "End date/time must be after start date/time.";
     case "event-not-found":
       return "Event no longer exists in Google Calendar.";
+    case "calendar-edit-conflict":
+      return "Could not save this event because it changed in Google Calendar. Please cancel and reopen it before trying again.";
+    case "invalid-precondition":
+      return "Could not save this event. Please cancel and reopen it before trying again.";
+    case "calendar-edit-precondition-required":
+      return "Could not save this event. Please cancel and reopen it before trying again.";
     case "calendar-create-failed":
       return "Could not create event in Google Calendar.";
     case "calendar-update-failed":

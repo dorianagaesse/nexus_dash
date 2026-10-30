@@ -83,7 +83,7 @@ export function useRecoveryDraft<T>({
   storageKey: string | null;
   value: T;
   base: T;
-  restore: (value: T) => void;
+  restore: (value: T, origin?: { base: T; baseRevision: string | null }) => void;
   isEmpty?: (value: T) => boolean;
   baseRevision?: string | null;
 }): RecoveryDraftState {
@@ -197,7 +197,12 @@ export function useRecoveryDraft<T>({
     setConflict(Boolean(fork || (draft && draft.base !== JSON.stringify(latestRef.current.base))));
     // Parent dialogs initialize their fields in an effect when the entity opens.
     const timer = window.setTimeout(() => {
-      if (draft) restoreRef.current(draft.payload);
+      if (draft) {
+        let origin: { base: T; baseRevision: string | null } | undefined;
+        try { origin = { base: JSON.parse(draft.base) as T, baseRevision: draft.baseRevision ?? null }; }
+        catch { /* Unknown origin must not become permission to overwrite. */ }
+        restoreRef.current(draft.payload, origin);
+      }
       setReadyKey(storageKey);
     }, 0);
     return () => window.clearTimeout(timer);

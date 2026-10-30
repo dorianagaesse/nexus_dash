@@ -1,8 +1,6 @@
 import { CalendarDays, ExternalLink, Trash2, X } from "lucide-react";
 
 import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
-import { RecoveryDraftNotice } from "@/components/recovery-draft-notice";
-import type { RecoveryDraftState } from "@/lib/hooks/use-recovery-draft";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -33,10 +31,9 @@ interface CalendarEventModalProps {
   eventCalendarSourceId: string;
   selectedEvent: CalendarEventItem | null;
   eventFormError: string | null;
-  recovery: RecoveryDraftState;
-  onDiscardRecovery: () => void;
   connectUrl: string;
   onClose: () => void;
+  onCancel: () => void;
   onSubmit: () => void | Promise<void>;
   onDelete: () => void | Promise<void>;
   onEventSummaryChange: (value: string) => void;
@@ -69,10 +66,9 @@ export function CalendarEventModal({
   eventCalendarSourceId,
   selectedEvent,
   eventFormError,
-  recovery,
-  onDiscardRecovery,
   connectUrl,
   onClose,
+  onCancel,
   onSubmit,
   onDelete,
   onEventSummaryChange,
@@ -140,7 +136,6 @@ export function CalendarEventModal({
               void onSubmit();
             }}
           >
-            {!isReadOnly ? <RecoveryDraftNotice draft={recovery} onDiscard={onDiscardRecovery} /> : null}
             {eventModalMode === "create" ? (
               <div className="grid gap-2">
                 <label htmlFor="calendar-event-source" className="text-sm font-medium">
@@ -369,7 +364,7 @@ export function CalendarEventModal({
               <Button
                 type="button"
                 variant="ghost"
-                onClick={onClose}
+                onClick={onCancel}
                 disabled={isEventMutationPending}
                 className="w-full sm:w-auto"
               >

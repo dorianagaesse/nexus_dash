@@ -712,7 +712,7 @@ function meetingLiveSaveErrorMessage<F extends Record<string, unknown>>(
     case "clean":
       return null;
     case "conflict":
-      return "This note changed elsewhere. Review the conflicting changes below.";
+      return "This note changed elsewhere. Please cancel and reopen it before trying again.";
     case "invalid":
       return mapMeetingNoteError(outcome.message);
     case "unauthorized":
@@ -720,13 +720,13 @@ function meetingLiveSaveErrorMessage<F extends Record<string, unknown>>(
     case "gone":
       return "This meeting note is no longer available.";
     case "offline":
-      return "You're offline. Your draft is safe locally; try again when the connection returns.";
+      return "You're offline. Please try again when the connection returns.";
     case "failed":
       return mapMeetingNoteError(outcome.message);
     case "busy":
       return "A save is already in progress. Try again.";
     case "disabled":
-      return "Live save is unavailable for this note.";
+      return "Could not save this note. Please try again.";
   }
 }
 
@@ -2197,8 +2197,7 @@ export function ProjectMeetingNotesPanel({
     }
 
     if (prepareLive.snapshot.conflict) {
-      // The conflict review owns the next write; keep the local draft and let
-      // the user leave without forcing a stale save.
+      // Keep rejected input without forcing a stale save on dismissal.
       prepareRecovery.flush();
       setPrepareRecoveryBaseNote(null);
       setPrepareDialog(null);
@@ -2210,7 +2209,7 @@ export function ProjectMeetingNotesPanel({
       ? buildPrepareDraftFromNote(prepareRecoveryBase)
       : EMPTY_PREPARE_DRAFT;
     if (JSON.stringify(prepareDraft) !== JSON.stringify(base)) {
-      void savePrepareDialog();
+      void savePrepareDialog({ silent: true });
       return;
     }
     prepareRecovery.flush();
@@ -2523,17 +2522,17 @@ export function ProjectMeetingNotesPanel({
     setDraftError(null);
   };
 
-  const savePrepareDialog = async () => {
+  const savePrepareDialog = async (options: { silent?: boolean } = {}) => {
     if (!prepareDialog || isSaving) {
       return;
     }
     if (prepareRecovery.conflict) {
-      setDraftError("This preparation changed elsewhere. Review it before saving.");
+      setDraftError("This preparation changed elsewhere. Please cancel and reopen it before trying again.");
       return;
     }
     if (prepareLive.snapshot.conflict) {
       setDraftError(
-        "This preparation changed elsewhere. Review the conflicting changes below."
+        "This preparation changed elsewhere. Please cancel and reopen it before trying again."
       );
       return;
     }
@@ -2593,7 +2592,7 @@ export function ProjectMeetingNotesPanel({
         setPrepareDialog(null);
         resetPrepareDraft();
         setSelectedNoteId(null);
-        pushToast({
+        if (!options.silent) pushToast({
           variant: "success",
           message: "Meeting prepared.",
         });
@@ -2639,7 +2638,7 @@ export function ProjectMeetingNotesPanel({
       setPrepareDialog(null);
       resetPrepareDraft();
       setSelectedNoteId(null);
-      pushToast({
+      if (!options.silent) pushToast({
         variant: "success",
         message: "Meeting preparation saved.",
       });
@@ -2724,12 +2723,12 @@ export function ProjectMeetingNotesPanel({
       return;
     }
     if (notesRecovery.conflict) {
-      setDraftError("This note changed elsewhere. Review it before saving.");
+      setDraftError("This note changed elsewhere. Please cancel and reopen it before trying again.");
       return;
     }
     if (notesLive.snapshot.conflict) {
       setDraftError(
-        "This note changed elsewhere. Review the conflicting changes below."
+        "This note changed elsewhere. Please cancel and reopen it before trying again."
       );
       return;
     }
@@ -3306,7 +3305,12 @@ export function ProjectMeetingNotesPanel({
               <Button
                 type="button"
                 variant="ghost"
-                onClick={closePrepareDialog}
+                onClick={() => {
+                  const latest = prepareLive.snapshot.conflict?.latest.note;
+                  if (latest) applyAcceptedMeetingNote(latest);
+                  if (prepareRecovery.conflict || prepareLive.snapshot.conflict) prepareRecovery.discard();
+                  closePrepareDialog();
+                }}
                 disabled={isSaving}
               >
                 Cancel
@@ -3315,9 +3319,7 @@ export function ProjectMeetingNotesPanel({
                 type="button"
                 onClick={() => void savePrepareDialog()}
                 disabled={
-                  isSaving ||
-                  prepareRecovery.conflict ||
-                  prepareLive.snapshot.conflict !== null
+                  isSaving
                 }
               >
                 {isSaving ? "Saving..." : "Save preparation"}
@@ -3326,14 +3328,6 @@ export function ProjectMeetingNotesPanel({
           }
         >
           <div className="grid gap-4">
-            {prepareRecovery.conflict ? (
-              <div role="alert" className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">
-                This preparation changed elsewhere. Check the current note before saving.
-                <Button type="button" size="sm" variant="outline" className="ml-2" onClick={prepareRecovery.acceptConflict}>
-                  Use my changes
-                </Button>
-              </div>
-            ) : null}
             {prepareDialog.mode === "edit" ? (
               <LiveSaveStatus snapshot={prepareLive.snapshot} />
             ) : null}
@@ -3627,13 +3621,17 @@ export function ProjectMeetingNotesPanel({
                     Delete
                   </Button>
                 </div>
+                <Button type="button" variant="ghost" disabled={isSaving} onClick={() => {
+                  const latest = notesLive.snapshot.conflict?.latest.note;
+                  if (latest) applyAcceptedMeetingNote(latest);
+                  notesRecovery.discard();
+                  closeNoteDialog();
+                }}>Cancel</Button>
                 <Button
                   type="button"
                   onClick={() => void saveNotesDialog()}
                   disabled={
-                    isSaving ||
-                    notesRecovery.conflict ||
-                    notesLive.snapshot.conflict !== null
+                    isSaving
                   }
                 >
                   {isSaving ? "Saving..." : "Save notes"}
@@ -3643,14 +3641,6 @@ export function ProjectMeetingNotesPanel({
           }
         >
           <div className="space-y-4">
-            {notesRecovery.conflict ? (
-              <div role="alert" className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">
-                This note changed elsewhere. Check the current note before saving.
-                <Button type="button" size="sm" variant="outline" className="ml-2" onClick={notesRecovery.acceptConflict}>
-                  Use my changes
-                </Button>
-              </div>
-            ) : null}
             {canEdit ? <LiveSaveStatus snapshot={notesLive.snapshot} /> : null}
             {canEdit && notesLive.snapshot.conflict ? (
               <ConflictReview

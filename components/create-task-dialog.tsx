@@ -831,11 +831,11 @@ export function CreateTaskDialog({
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={taskRecovery.restored ? discardRestoredDraft : closeDialog}
+                          onClick={() => { discardRestoredDraft(); closeDialog(); }}
                           disabled={isSubmitting}
                           className="flex-1"
                         >
-                          {taskRecovery.restored ? "Discard" : "Cancel"}
+                          Cancel
                         </Button>
                       </div>
                     </div>

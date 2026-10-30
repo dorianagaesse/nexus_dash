@@ -3,6 +3,74 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-30 - ND-434: make autosave and recovery invisible
+
+- Product clarification supersedes earlier recovery-UI exceptions: no draft or
+  restored messages, autosave status strips, technical storage warnings,
+  recovery-specific Discard controls, or conflict-choice panels. Shared
+  recovery/status/review renderers are silent, including task and meeting
+  surfaces, and context/Calendar forms no longer expose those controls.
+- Outside click, Escape, close icon, and reload preserve input silently.
+  Ordinary Cancel abandons the current context/Calendar/task edit; failed
+  explicit saves retain input and use the normal form error. Calendar ETags
+  and original context-card revisions still reject stale/unknown revisions.
+- Updated the live autosave epic and ND-432/433/434/565/577/180 briefs, then
+  verified stored descriptions. The product rule lives in the autosave epic,
+  task briefs, and ND-432 ADR. Removed the initially added AGENTS.md section
+  after clarification that this is program-specific, not a repository-wide rule.
+- Refreshed from main; retained both sides of the journal-only merge conflict.
+  New regressions cover invisible restored/conflict/storage-error states,
+  normal cancellation, and preserved conditional-write safety.
+
+# 2026-10-29 - ND-434: close legacy Calendar draft precondition bypass
+
+- PR #630 review follow-up requires a strong provider ETag on every Calendar
+  edit. Missing preconditions return 428; wildcard, weak, multiple, malformed,
+  and oversized preconditions return 400 without a provider write.
+- Pre-ETag drafts remain recoverable. Calendar Save and programmatic submit
+  are blocked until recovery review; review adopts the current event ETag.
+  Missing provider revisions leave Save disabled and the draft intact.
+- Added API regression cases, current/legacy Calendar browser recovery cases,
+  and a reproducible real-database two-editor context-card traffic/latency
+  fixture. See `docs/reports/nd-434-review-validation.md` for methodology and
+  the Live release boundary.
+- Validation passed: lint, RLS inventory, 2,188 tests (2 skipped), coverage,
+  production build, and the PostgreSQL isolation matrix. Preview workflow
+  40960231850 succeeded; checkout logs verify
+  `1499f830a17f713721dd5b7c4424c0ead4aa96c3`. All five focused hosted browser
+  tests passed. Two-editor local/Preview probes observed zero idle/timed
+  writes and no notification/email increase; Preview explicit API p50/p95 was
+  268.1/477.8 ms. Raw metrics and immutable URL are in the report. Live stays
+  disabled pending its separate release gates.
+
+# 2026-10-27 - ND-434: Calendar provider preconditions and guarded context-card edits
+
+- Calendar event edits now send the provider ETag captured with the draft as
+  `expectedEtag`. The service forwards it as Google `If-Match`, and a provider
+  412 maps to `calendar-edit-conflict` instead of overwriting an event that
+  changed after the draft was restored. The modal keeps the local draft and
+  refreshes the week so closing and reopening shows the latest event.
+- Reopening a stale Calendar draft shows the recovery conflict notice. "I
+  reviewed; keep my changes" adopts the reviewed event's ETag before the
+  retry, so the save stays conditional on the latest provider revision.
+  Source/event identity remains in the recovery key and payload.
+- Context-card edits reuse the merged #627 guard: explicit Save sends one
+  conditional PATCH with `X-Content-If-Match`, a 412 opens the in-modal
+  conflict review, and the retry is written against the reviewed revision.
+  Conflict adoption applies the merged top-level document fields instead of
+  the nested server snapshot, so "Keep my version" no longer leaves the form
+  dirty and loops into a new conflict.
+- Creation, comments, roadmap, and Calendar stay explicit. Context cards are
+  registered as a Live-eligible surface while `LIVE_SAVE_ENABLED_SURFACES`
+  stays empty.
+- Committed regression coverage: Google provider conditional-header test,
+  Calendar PATCH precondition and 412 route tests, context-panel explicit
+  conflict-save tests, and the browser recovery spec including the stale
+  Calendar draft flow.
+- Validation: Prisma generate, db:migrate, release:check, rls:check, lint,
+  unit tests (2180 passed, 2 skipped), coverage 93.59/86.04/96.13/95.02,
+  build, RLS setup/stub/isolation matrix, full Chromium E2E (120 passed,
+  2 skipped, 6.6 min).
 # 2026-10-29 - ND-573: Refresh PR #603 for merge
 
 - Merged current `origin/main`; resolved the journal-only conflict by retaining

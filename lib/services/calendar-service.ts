@@ -4,6 +4,7 @@ import {
   hasCalendarWriteScope,
 } from "@/lib/google-calendar-access";
 import { getCalendarProvider } from "@/lib/calendar-providers/google";
+import { isCalendarEventEtag } from "@/lib/calendar-event-precondition";
 import { logServerError, logServerWarning } from "@/lib/observability/logger";
 import { requireProjectRole } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
@@ -29,6 +30,7 @@ type ServiceResult<T extends Record<string, unknown>> =
 
 interface GoogleCalendarApiEvent {
   id?: string;
+  etag?: string;
   status?: string;
   summary?: string;
   location?: string;
@@ -46,6 +48,8 @@ interface GoogleCalendarApiEvent {
 
 export interface CalendarEventResponseItem {
   id: string;
+  /** Google ETag; the conditional-write precondition for event edits. */
+  etag?: string;
   summary: string;
   start: string;
   end: string | null;
@@ -78,6 +82,8 @@ interface UpsertEventRequestPayload {
   location?: string;
   description?: string;
   calendarSourceId?: string;
+  /** Provider revision captured when the edit draft was started. */
+  expectedEtag?: string;
 }
 
 function createError(
@@ -163,6 +169,7 @@ function normalizeGoogleEvent(
 
   return {
     id: event.id,
+    ...(typeof event.etag === "string" && event.etag ? { etag: event.etag } : {}),
     summary: event.summary?.trim() || "(No title)",
     start,
     end,
@@ -269,6 +276,7 @@ function parseUpsertEventPayload(
     location?: unknown;
     description?: unknown;
     calendarSourceId?: unknown;
+    expectedEtag?: unknown;
   };
 
   const summary =
@@ -292,6 +300,12 @@ function parseUpsertEventPayload(
     typeof payload.calendarSourceId === "string"
       ? payload.calendarSourceId.trim()
       : "";
+  const expectedEtag =
+    typeof payload.expectedEtag === "string" ? payload.expectedEtag.trim() : "";
+  if (payload.expectedEtag !== undefined &&
+    (!expectedEtag || !isCalendarEventEtag(expectedEtag))) {
+    return { ok: false, error: "invalid-precondition" };
+  }
 
   if (isAllDay) {
     if (!isDateOnly(start) || !isDateOnly(end)) {
@@ -323,6 +337,7 @@ function parseUpsertEventPayload(
       location: location || undefined,
       description: description || undefined,
       calendarSourceId: calendarSourceId || undefined,
+      expectedEtag: expectedEtag || undefined,
     },
   };
 }
@@ -768,12 +783,17 @@ export async function updateCalendarEvent(
       return createError(400, { error: parsedPayload.error });
     }
 
+    if (!parsedPayload.payload.expectedEtag) {
+      return createError(428, { error: "calendar-edit-precondition-required" });
+    }
+
     const response = await getCalendarProvider("google").requestEvents({
       accessToken: auth.body.context.accessToken,
       calendarId: auth.body.context.calendarId,
       eventId,
       method: "PATCH",
       body: toGoogleEventRequest(parsedPayload.payload),
+      headers: { "If-Match": parsedPayload.payload.expectedEtag },
     });
 
     const responsePayload = (await response
@@ -788,6 +808,10 @@ export async function updateCalendarEvent(
 
       if (response.status === 401) {
         return createError(401, { error: "reauthorization-required" });
+      }
+
+      if (response.status === 412) {
+        return createError(412, { error: "calendar-edit-conflict" });
       }
 
       if (response.status === 404) {

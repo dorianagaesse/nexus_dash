@@ -379,7 +379,7 @@ function taskLiveSaveErrorMessage(
     case "clean":
       return null;
     case "conflict":
-      return "Task changed elsewhere. Review the conflicting changes below.";
+      return "Task changed elsewhere. Please cancel and reopen it before trying again.";
     case "invalid":
       return outcome.message;
     case "unauthorized":
@@ -387,13 +387,13 @@ function taskLiveSaveErrorMessage(
     case "gone":
       return "This task is no longer available.";
     case "offline":
-      return "You're offline. Your draft is safe locally; try again when the connection returns.";
+      return "You're offline. Please try again when the connection returns.";
     case "failed":
       return outcome.message;
     case "busy":
       return "A save is already in progress. Try again.";
     case "disabled":
-      return "Live save is unavailable for this task.";
+      return "Could not save this task. Please try again.";
   }
 }
 
@@ -2802,6 +2802,7 @@ export function KanbanBoard({
         return false;
       }
       if (taskEditRecovery.conflict || taskLive.snapshot.conflict) {
+        setTaskModalError("Could not save this task because it changed elsewhere. Please cancel and reopen it.");
         return false;
       }
 
@@ -4222,7 +4223,9 @@ export function KanbanBoard({
         taskEditRecovery={taskEditRecovery}
         onDiscardTaskEditRecovery={() => {
           taskEditRecovery.discard(true);
-          if (selectedTask) resetTaskEditDraft(selectedTask);
+          const latest = taskLive.snapshot.conflict?.latest.task;
+          if (latest) { applyTaskToBoard(latest); resetTaskEditDraft(latest); }
+          else if (selectedTask) resetTaskEditDraft(selectedTask);
         }}
         liveSaveStatus={
           isEditMode ? <LiveSaveStatus snapshot={taskLive.snapshot} /> : null

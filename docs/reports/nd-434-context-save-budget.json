@@ -1,0 +1,48 @@
+{
+  "local": {
+    "baseURL": "http://127.0.0.1:30434",
+    "clients": 2,
+    "idleSeconds": 31,
+    "idleWrites": 0,
+    "activeSeconds": 33.891,
+    "activeDraftChanges": 120,
+    "timedWrites": 0,
+    "multiEditorStatuses": [
+      200,
+      412,
+      200
+    ],
+    "multiEditorAcceptedWrites": 2,
+    "notificationDelta": 0,
+    "emailDelta": 0,
+    "samples": 20,
+    "warmups": 2,
+    "wallP50Ms": 52.28840000000491,
+    "wallP95Ms": 65.35979999999108,
+    "serverP50Ms": 45.4,
+    "serverP95Ms": 56.4
+  },
+  "preview": {
+    "baseURL": "https://nexus-dash-305adss3y-dorian-agaesses-projects.vercel.app",
+    "clients": 2,
+    "idleSeconds": 31,
+    "idleWrites": 0,
+    "activeSeconds": 35.369,
+    "activeDraftChanges": 120,
+    "timedWrites": 0,
+    "multiEditorStatuses": [
+      200,
+      412,
+      200
+    ],
+    "multiEditorAcceptedWrites": 2,
+    "notificationDelta": 0,
+    "emailDelta": 0,
+    "samples": 20,
+    "warmups": 2,
+    "wallP50Ms": 268.13750000001164,
+    "wallP95Ms": 477.84760000000824,
+    "serverP50Ms": 127.1,
+    "serverP95Ms": 347
+  }
+}

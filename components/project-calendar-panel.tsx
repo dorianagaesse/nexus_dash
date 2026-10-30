@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { CalendarEventModal } from "@/components/calendar-panel/calendar-event-modal";
+import { isCalendarEventEtag } from "@/lib/calendar-event-precondition";
 import { CalendarWeekGrid } from "@/components/calendar-panel/calendar-week-grid";
 import {
   PROJECT_SECTION_CARD_CLASS,
@@ -54,6 +55,8 @@ interface CalendarRecoveryValue {
   location: string;
   description: string;
   calendarSourceId: string;
+  /** Provider ETag captured when this draft started; the save precondition. */
+  etag: string;
 }
 
 export function ProjectCalendarPanel({
@@ -92,9 +95,10 @@ export function ProjectCalendarPanel({
   const [eventEndDateTime, setEventEndDateTime] = useState("");
   const [eventLocation, setEventLocation] = useState("");
   const [eventDescription, setEventDescription] = useState("");
+  const [eventEtag, setEventEtag] = useState("");
   const [recoveryBase, setRecoveryBase] = useState<CalendarRecoveryValue>({
     summary: "", allDay: false, startDate: "", endDate: "", startDateTime: "",
-    endDateTime: "", location: "", description: "", calendarSourceId: "",
+    endDateTime: "", location: "", description: "", calendarSourceId: "", etag: "",
   });
   const recoveryValue: CalendarRecoveryValue = useMemo(() => ({
     summary: eventSummary,
@@ -106,8 +110,9 @@ export function ProjectCalendarPanel({
     location: eventLocation,
     description: eventDescription,
     calendarSourceId: eventCalendarSourceId,
+    etag: eventEtag,
   }), [eventSummary, eventAllDay, eventStartDate, eventEndDate, eventStartDateTime,
-    eventEndDateTime, eventLocation, eventDescription, eventCalendarSourceId]);
+    eventEndDateTime, eventLocation, eventDescription, eventCalendarSourceId, eventEtag]);
   const applyRecoveryValue = (draft: CalendarRecoveryValue) => {
     setEventSummary(draft.summary);
     setEventAllDay(draft.allDay);
@@ -118,6 +123,8 @@ export function ProjectCalendarPanel({
     setEventLocation(draft.location);
     setEventDescription(draft.description);
     setEventCalendarSourceId(draft.calendarSourceId);
+    // Pre-ETag recovery drafts remain recoverable, but cannot save until reviewed.
+    setEventEtag(isCalendarEventEtag(draft.etag) ? draft.etag : "");
   };
   const eventRecovery = useRecoveryDraft({
     storageKey: actorUserId && isEventModalOpen && eventModalMode !== "view"
@@ -155,10 +162,12 @@ export function ProjectCalendarPanel({
     setEventLocation("");
     setEventDescription("");
     setEventCalendarSourceId(defaultCalendarSourceId);
+    setEventEtag("");
     setRecoveryBase({
       summary: "", allDay: false, startDate: today, endDate: today,
       startDateTime: defaults.start, endDateTime: defaults.end,
       location: "", description: "", calendarSourceId: defaultCalendarSourceId,
+      etag: "",
     });
     setEditingEventId(null);
     setSelectedEvent(null);
@@ -189,6 +198,7 @@ export function ProjectCalendarPanel({
     setEventLocation(parsed.location);
     setEventDescription(parsed.description);
     setEventCalendarSourceId(event.calendarSourceId);
+    setEventEtag(event.etag ?? "");
     setRecoveryBase({
       summary: parsed.summary,
       allDay: parsed.isAllDay,
@@ -199,6 +209,7 @@ export function ProjectCalendarPanel({
       location: parsed.location,
       description: parsed.description,
       calendarSourceId: event.calendarSourceId,
+      etag: event.etag ?? "",
     });
     setEventFormError(null);
     setIsEventModalOpen(true);
@@ -302,6 +313,10 @@ export function ProjectCalendarPanel({
     if (!isWritable || eventModalMode === "view") {
       return;
     }
+    if (eventModalMode === "edit" && !isCalendarEventEtag(eventEtag)) {
+      setEventFormError(mapEventMutationError("calendar-edit-precondition-required"));
+      return;
+    }
 
     const trimmedSummary = eventSummary.trim();
     if (!trimmedSummary) {
@@ -351,6 +366,9 @@ export function ProjectCalendarPanel({
           location: eventLocation.trim(),
           description: eventDescription.trim(),
           calendarSourceId: eventCalendarSourceId || undefined,
+          ...(eventModalMode === "edit"
+            ? { expectedEtag: eventEtag }
+            : {}),
         }),
       });
 
@@ -359,6 +377,10 @@ export function ProjectCalendarPanel({
         | null;
 
       if (!response.ok) {
+        if (payload?.error === "calendar-edit-conflict") {
+          // Refresh so closing and reopening the event shows the latest version.
+          await loadEvents();
+        }
         throw new Error(mapEventMutationError(payload?.error ?? "calendar-internal-error"));
       }
 
@@ -611,10 +633,12 @@ export function ProjectCalendarPanel({
         eventCalendarSourceId={eventCalendarSourceId}
         selectedEvent={selectedEvent}
         eventFormError={eventFormError}
-        recovery={eventRecovery}
-        onDiscardRecovery={() => { eventRecovery.discard(); applyRecoveryValue(recoveryBase); }}
         connectUrl={connectUrl}
         onClose={closeEventModal}
+        onCancel={() => {
+          eventRecovery.discard();
+          closeEventModal();
+        }}
         onSubmit={submitEventForm}
         onDelete={handleDeleteEvent}
         onEventSummaryChange={setEventSummary}

@@ -32,6 +32,7 @@ export interface ContextCardAttachmentProjection {
 
 export interface ContextCardCardRecord {
   id: string;
+  contentRevision: number;
   projectId: string;
   updatedAt: Date;
   createdByUserId: string | null;

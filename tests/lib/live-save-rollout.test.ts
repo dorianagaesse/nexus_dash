@@ -16,6 +16,7 @@ describe("live-save rollout gate", () => {
   test("covers the surfaces named in the autosave contract", () => {
     expect(LIVE_SAVE_SURFACES).toEqual([
       "task-detail",
+      "context-card",
       "meeting-preparation",
       "meeting-output",
     ]);

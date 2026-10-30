@@ -1,7 +1,17 @@
 # ND-432 Autosave Contract
 
 Date: 2026-09-17
-Status: Accepted
+Status: Accepted (UX amended 2026-10-30)
+
+## Product requirement: invisible recovery
+
+Autosave is an invisible safety feature. Preserve input after accidental outside
+clicks, Escape, navigation, and reload; restore the values silently. Never show
+draft/restored/saving/saved notices, badges, toasts, accessible announcements,
+Discard-draft controls, or conflict-choice panels. Ordinary explicit Save may
+show its normal progress and a concise error if it fails. Conditional writes
+and preservation of unsaved input remain mandatory; hiding UI never permits a
+stale overwrite. This requirement supersedes earlier recovery-UI exceptions.
 
 ## 1) Decision Summary
 
@@ -99,7 +109,7 @@ selection.
   - Create and publish semantics can stay explicit.
 - Cons:
   - Requires a shared draft library, per-aggregate revisions, partial patches,
-    conflict UI, and load measurement.
+    internal conflict handling, and load measurement.
   - Rich-text conflicts require user choice; they cannot be merged reliably in
     the general case.
 - Verdict: Accepted. Local recovery is universal within the selected scope;
@@ -115,7 +125,7 @@ authoritative even after autosave is introduced.
 
 | Surface                                                                                                              | Recovery scope                                                                           | Save semantic                                                                                                                 | Explicit action and reset rule                                                                                                                                            |
 | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Task comment composer                                                                                                | Text, human/agent mention selections, and already-uploaded screenshot attachment ids     | Draft only; never auto-post                                                                                                   | **Add comment** publishes. Clear only after a successful POST or explicit Discard.                                                                                        |
+| Task comment composer                                                                                                | Text, human/agent mention selections, and already-uploaded screenshot attachment ids     | Draft only; never auto-post                                                                                                   | **Add comment** publishes. Clear only after a successful POST or ordinary cancellation.                                                                                        |
 | Task creation                                                                                                        | Title, labels, description, deadline, epic, assignee, related task ids, and staged links | Draft only; never auto-create                                                                                                 | **Create task** creates exactly once. Clear after the server confirms creation. Local file selections are not restorable.                                                 |
 | Task detail edit                                                                                                     | Editable task fields and their base snapshot/revision                                    | Draft plus conditional Live after the latency gate                                                                            | **Save changes** flushes now. Clear when the acknowledged server representation matches the draft. New blocked follow-up entries and attachment commands remain explicit. |
 | Meeting preparation - create                                                                                         | Title, time, participants, labels, and input notes                                       | Local recovery; closing a changed valid form invokes the normal create action                                                   | **Save preparation** or dismissing a changed form creates the meeting note. Clear on confirmed creation.                                                                 |
@@ -165,23 +175,20 @@ Rules:
 - Save locally 300 ms after the last serializable change. Flush the local
   draft on modal close, component unmount, `visibilitychange` to hidden, and
   `pagehide`. None of those lifecycle events starts a network save.
-- Keep routine persistence silent. Storing, updating, or clearing a local
-  draft renders no banner, badge, toast, or live-region announcement. Only
-  actionable recovery states (restored draft, conflict, storage failure,
-  incompatible draft) may render a notice, and they must never leave empty
-  banner space when a state clears. Browser storage is an implementation
-  detail; a routine local-draft state is never announced as saved.
+- Persistence and recovery are always invisible, including restored, conflicted,
+  incompatible, offline, and storage-failure states. Render no recovery UI or
+  empty banner space, and make no autosave live-region announcements.
 - Do not write during IME composition. The completed composition schedules a
   normal draft write.
-- Restore only after client hydration and only for the same authenticated user,
-  project, surface, mode, and entity. Show a visible "Draft restored" state and
-  a Discard action; do not silently erase it on modal close or Cancel.
+- Restore silently after hydration and only for the same authenticated user,
+  project, surface, mode, and entity. Retain the original base snapshot/revision
+  internally so restoration cannot authorize overwriting a newer record.
 - Clear on confirmed create/post/save only when the server acknowledgement
   covers the draft revision that was submitted. If the user typed while a
   request was in flight, keep the newer draft.
-- Cancel closes the surface but preserves a dirty recovery draft. Discard is a
-  separate, confirmed action that removes it and resets from the current
-  server representation.
+- Outside click, Escape, close icon, navigation, and reload retain input. Keep
+  normal form actions and labels. Explicit Cancel may abandon the current edit
+  and close the form; never replace it with a recovery-specific Discard action.
 - Retain drafts for 30 days since last edit and opportunistically delete only
   expired entries. A draft for an inaccessible or deleted artifact remains
   read-only and copyable until it expires or the user explicitly discards it.
@@ -189,10 +196,9 @@ Rules:
 - Never store access tokens, raw agent keys, calendar credentials, password or
   account-security fields, file blobs, or object URLs. Already-uploaded
   attachment ids may be referenced if the caller is still authorized.
-- On quota or serialization failure, keep the in-memory draft, stop claiming
-  that it is safe, and show an actionable "Draft could not be stored locally"
-  state. Never evict the active draft silently; expired drafts are the first
-  cleanup candidates.
+- On quota or serialization failure, keep in-memory input and make no storage
+  or saved claims. Preserve incompatible stored content internally; do not add
+  a technical JSON/copy-out panel or a recovery warning to the form.
 - Listen for the browser `storage` event. A newer draft written by another tab
   is treated as a concurrent edit, not silently substituted into an active
   form.
@@ -216,11 +222,9 @@ For matrix rows marked Live:
   timer per entity. An explicit Save retries immediately.
 - An explicit Save cancels the timer, validates, and sends immediately through
   the same mutation and conflict path. It is not an unguarded overwrite path.
-- The UI has distinct network-save states: `Saving changes`, `Saved`,
-  `Offline - draft safe locally`, `Save failed - draft safe locally`, and
-  `Conflict - review changes`. A local draft must never be labelled simply
-  `Saved`, and routine local persistence never renders a status; restored
-  drafts show `Draft restored` with their Discard action.
+- Scheduler states remain internal. Timed saves and recovery render no status
+  strips, banners, toasts, or announcements. Explicit Save keeps its ordinary
+  progress and errors; never expose recovery choices.
 
 Live-save requests carry the documented
 `NexusDash-Mutation-Intent: autosave` header. The header does not weaken
@@ -323,33 +327,30 @@ last-write-wins exception.
 Google Calendar is not given a NexusDash `contentRevision`. Its API adapter
 must expose and use the provider ETag (or equivalent updated version) before an
 edit draft can be conditionally submitted. Until that exists, a restored draft
-requires review and an explicit save; it is never live-saved.
+cannot be submitted unconditionally; an ordinary explicit-save error keeps
+its input intact until a fresh edit is started. It is never live-saved.
 
 ### 4.5 Conflict and remote-update policy
 
-The client keeps the base snapshot used to start the draft and compares it
-with the latest authorized server representation:
+Keep the original draft base and revision internally. Save normally when the
+revision matches. Reconcile disjoint remote fields invisibly and retry once
+conditionally. Overlapping scalar, collection, or rich-text changes stop timed
+saves; never select a winner by arrival order or timestamps. Rich text remains
+an indivisible field.
 
-1. If the server revision still equals the base revision, save normally.
-2. If the server changed only fields untouched locally, rebase those fields,
-   update the base revision, and retry once.
-3. If both sides changed the same scalar, collection, or rich-text field, stop
-   live save and show a conflict review. Never use arrival order or timestamps
-   to choose a winner.
-4. Rich text is an indivisible field for this contract. No automatic HTML or
-   character merge is attempted.
-5. Conflict review preserves both values and offers per-field **Use latest**
-   and **Keep my version**. Keeping the local value is a new conditional write
-   against the displayed latest revision, not an unconditional force update.
-6. Deletion or lost access keeps the local recovery copy available for copy-out
-   but disables saving. It is removed only by the user, logout cleanup, or the
-   retention policy.
+Preserve both the local input and the authorized remote representation. If an
+explicit Save cannot complete safely, show the normal form error and retain
+input. Do not render comparisons, Keep my changes, Use latest, or Apply and save
+controls. Ordinary Cancel may abandon the edit so reopening starts from the
+latest record. Accidental dismissal continues to preserve the original input
+and precondition. Unknown legacy revisions fail safely instead of adopting a
+newer revision without proof that the original base is unchanged.
 
-Remote project activity follows the same rule. A clean form can accept the
-new representation immediately. A dirty form is never reset or page-reloaded;
-it rebases disjoint fields or enters conflict review. Multiple tabs are an
-additional remote writer and follow the same policy through `storage` events
-and the server revision check.
+Clean forms may accept remote updates immediately. Dirty forms are never reset
+or page-reloaded. Cross-tab storage events remain internal signals; they never
+add recovery controls or block safe append/create commands solely because a
+second local copy exists. Deletion or lost access stops writes and preserves
+the local input without adding a recovery panel.
 
 ### 4.6 Reset and lifecycle policy
 
@@ -357,7 +358,8 @@ and the server revision check.
   accepted; retain any newer local draft revision.
 - Successful edit save: advance the base snapshot/revision and clear only when
   no local changes remain.
-- Modal close, Cancel, navigation, reload, offline, 5xx, timeout: retain.
+- Outside click, Escape, close icon, navigation, reload, offline, 5xx, timeout: retain.
+- Explicit Cancel: use the ordinary form cancellation behavior; no recovery UI.
 - Validation error: retain and focus the invalid field.
 - Conflict: retain until resolved or explicitly discarded.
 - Entity delete/lost access: retain read-only for copy-out until discarded or
@@ -371,8 +373,7 @@ and the server revision check.
 
 ND-433 ships the shared client half of rollout step 3: a framework-free
 scheduler (`lib/live-save/scheduler.ts`), a React binding
-(`lib/hooks/use-live-save.ts`), the status strip and conflict review
-(`components/live-save/`), and a per-surface Live gate
+(`lib/hooks/use-live-save.ts`), internal state/reconciliation APIs and a per-surface Live gate
 (`lib/live-save/rollout.ts`, initially empty). The scheduler implements the
 timing, single-flight, pause/retry, rebase, and conflict rules of 4.3-4.5;
 surfaces keep owning their form state and inject the transport adapter, so no
@@ -391,7 +392,8 @@ surface adapter must:
   from the route it patches; standard `If-Match` must never be sent (Vercel
   evaluates it against the post-mutation response and the server rejects it
   with `400 edit-precondition-transport`), and a stale precondition is never
-  retried without user-visible reconciliation.
+  retried without safe internal reconciliation; overlapping edits fail through
+  the ordinary explicit-save error.
 - Translate the server response into `LiveSaveWriteResult`: `accepted` with
   the new revision and the current representation; `conflict` with the latest
   revision and representation (412 `edit-conflict`); `invalid` with a message
@@ -403,7 +405,7 @@ surface adapter must:
   aborted request never surfaces as a user error or an implicit retry.
 - Treat the returned representation as the merged, authorized current state:
   the scheduler rebases disjoint remote fields from it and keeps both sides
-  for review on overlap.
+  internally on overlap; report only an ordinary explicit-save failure.
 
 ## 5) Consequences
 
@@ -441,8 +443,8 @@ surface adapter must:
 - **Stale or private browser data:** drafts are user/project scoped, expire,
   clear on logout, and never contain credentials or file blobs.
 - **Draft schema drift:** every envelope is versioned; an incompatible version
-  remains copyable or is discarded with an explicit message rather than being
-  submitted blindly.
+  is retained internally rather than being submitted blindly or exposed in a
+  recovery panel.
 
 ## 6) Rollout / Migration Plan
 
@@ -457,11 +459,11 @@ surface adapter must:
    omit draft status and discard controls. Closing changed preparation invokes
    its normal save mutation; timed draft writes do not start network saves.
    The revision and load gates in steps 3-5 remain prerequisites for Live.
-3. Add content revisions, conditional partial PATCH contracts, conflict UI,
+3. Add content revisions, conditional partial PATCH contracts, internal conflict handling,
    autosave mutation intent, and the coalesced invalidation/activity producer
    for Task and ProjectMeetingNote.
-   ND-433 first lands the shared client scheduler, hook, status strip, conflict
-   review, and adapter contract (4.7). Surfaces adopt them against the server
+   ND-433 first lands the shared client scheduler, hook, internal reconciliation,
+   and adapter contract (4.7). Surfaces adopt them against the server
    revision and conditional PATCH contract only after the ND-428/ND-429 gate
    and the 4.4 v1 sunset; Live flags stay per surface and off until then.
 4. Publish the additive agent v1 revision fields and agent v2 precondition
@@ -481,9 +483,8 @@ surface adapter must:
    Context-card Live remains disabled until its content revision, conditional
    PATCH, and measured load gate are available; roadmap and Google Calendar
    remain Draft only as specified above.
-   For task creation and context-card create/edit, a restored draft changes
-   Cancel to Discard. Discard clears that draft and resets the open form;
-   Cancel returns afterward. Closing a fresh form keeps recovery available.
+   Recovery is invisible on every surface. Keep ordinary Cancel and Save labels;
+   do not render restored notices, storage errors, or conflict-choice controls.
 7. Add epic recovery in a separately scoped follow-up if product priority
    warrants it. Administrative/security surfaces remain excluded.
 8. Fallback: disable the affected Live flag. Local recovery and explicit Save
@@ -510,8 +511,8 @@ surface adapter must:
 - Multi-client tests for disjoint rebase, same-field conflict, rich-text
   conflict, remote delete/access loss, and a second browser tab.
 - Playwright coverage for reload/navigation recovery, successful clear,
-  conflict review, explicit Save availability, create/post non-publication,
-  and mobile status/error presentation.
+  invisible restoration, ordinary explicit-save errors and availability, create/post non-publication,
+  and mobile forms without recovery/status UI.
 - ND-428 fixture measurements before and after each Live flag is enabled,
   recording p50/p95, requests per active editing minute, idle writes (must be
   zero), database query time, conflict rate, and retry rate.

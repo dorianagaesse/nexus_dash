@@ -93,7 +93,11 @@ test("create forms recover after close and reload without creating records", asy
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await expect(page.locator("#context-edit-title")).toHaveValue("Recovered context edit");
     await expect(page.getByText("Draft restored.")).toHaveCount(0);
-    await page.getByRole("button", { name: "Discard", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Discard", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await contextCard.click();
+    await page.getByRole("button", { name: "Context card options" }).click();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
     await expect(page.locator("#context-edit-title")).toHaveValue("Recovered context card");
     await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -103,7 +107,8 @@ test("create forms recover after close and reload without creating records", asy
     await page.getByRole("button", { name: "Close New context card" }).click();
     await page.getByRole("button", { name: "Add card" }).click();
     await expect(page.getByText("Draft restored.")).toHaveCount(0);
-    await page.getByRole("button", { name: "Discard", exact: true }).click();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("button", { name: "Add card" }).click();
     await expect(page.locator("#context-create-title")).toHaveValue("");
     await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -116,7 +121,8 @@ test("create forms recover after close and reload without creating records", asy
     await page.getByRole("button", { name: "Close task creation" }).click();
     await page.getByRole("button", { name: "New task" }).click();
     await expect(page.getByText("Draft restored.")).toHaveCount(0);
-    await page.getByRole("button", { name: "Discard", exact: true }).click();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("button", { name: "New task" }).click();
     await expect(page.locator("#task-title")).toHaveValue("");
     await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -126,6 +132,182 @@ test("create forms recover after close and reload without creating records", asy
     await prisma.project.delete({ where: { id: project.id } });
   }
 });
+
+for (const legacyDraft of [false, true]) {
+test(`calendar ${legacyDraft ? "legacy" : "current"} edit draft preconditions refuse to overwrite a newer event`, async ({ page }, testInfo) => {
+  const userId = await signInAsVerifiedUser(page);
+  const project = await prisma.project.create({
+    data: {
+      name: uniqueProjectName("nd434-calendar-edit"),
+      ownerId: userId,
+      memberships: { create: { userId, role: "owner" } },
+    },
+    select: { id: true },
+  });
+
+  const start = new Date();
+  start.setHours(10, 0, 0, 0);
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  const weekStart = new Date(start);
+  weekStart.setHours(0, 0, 0, 0);
+
+  let eventVersion = 1;
+  let patchMode: "accept" | "conflict" = "accept";
+  let getCount = 0;
+  const patchBodies: Array<Record<string, unknown>> = [];
+
+  const buildEvent = () => ({
+    id: "evt-stale",
+    etag: `"etag-${eventVersion}"`,
+    summary: eventVersion === 1 ? "Planning v1" : "Planning v2",
+    start: start.toISOString(),
+    end: end.toISOString(),
+    isAllDay: false,
+    location: null,
+    description: null,
+    htmlLink: null,
+    status: "confirmed",
+    calendarSourceId: "source-1",
+    connectionId: "connection-1",
+    calendarName: "Personal",
+    calendarColor: null,
+    accountLabel: "Personal",
+    accountEmail: null,
+    writable: true,
+  });
+
+  await page.route("**/api/calendar/events?**", async (route) => {
+    getCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        connected: true,
+        writable: true,
+        range: "current-week",
+        timeMin: weekStart.toISOString(),
+        timeMax: new Date(weekStart.getTime() + 7 * 86_400_000).toISOString(),
+        events: [buildEvent()],
+        sources: [
+          {
+            id: "source-1",
+            connectionId: "connection-1",
+            name: "Personal",
+            color: null,
+            accountLabel: "Personal",
+            accountEmail: null,
+            writable: true,
+          },
+        ],
+        writeSourceId: "source-1",
+      }),
+    });
+  });
+  await page.route("**/api/calendar/events/evt-stale", async (route) => {
+    if (route.request().method() !== "PATCH") {
+      await route.continue();
+      return;
+    }
+    patchBodies.push(
+      JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>
+    );
+    if (patchMode === "conflict") {
+      await route.fulfill({
+        status: 412,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "calendar-edit-conflict" }),
+      });
+      return;
+    }
+    eventVersion = 3;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ event: buildEvent() }),
+    });
+  });
+
+  try {
+    const calendarToggle = page.getByRole("button", { name: "My calendar" });
+    // Seed before hydration; clicking the server-rendered collapsed control
+    // can otherwise race the saved expanded preference and toggle it closed.
+    await page.addInitScript((projectId) => {
+      localStorage.setItem(`nexusdash:project:${projectId}:calendar-expanded`, "1");
+    }, project.id);
+    const reloadWithCalendarExpanded = async () => {
+      await page.reload();
+      await expect(calendarToggle).toHaveAttribute("aria-expanded", "true");
+      await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+    };
+
+    await page.goto(`/projects/${project.id}`);
+    await reloadWithCalendarExpanded();
+
+    await page.locator("article").filter({ hasText: "Planning v1", visible: true }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByRole("heading", { name: "Edit calendar event" })
+    ).toBeVisible();
+    await page.locator("#calendar-event-summary").fill("My planning edit");
+    await dialog.getByRole("button", { name: "Close calendar event", exact: true }).click();
+
+    if (legacyDraft) {
+      // Seed the exact version-1 envelope shape written before ETags existed.
+      await page.evaluate(({ userId, projectId }) => {
+        const key = `nexusdash.draft.v1:${userId}:${projectId}:calendar-event:edit:source-1:evt-stale`;
+        const envelope = JSON.parse(localStorage.getItem(key)!);
+        delete envelope.payload.etag;
+        const base = JSON.parse(envelope.base);
+        delete base.etag;
+        envelope.base = JSON.stringify(base);
+        localStorage.setItem(key, JSON.stringify(envelope));
+      }, { userId, projectId: project.id });
+    }
+
+    // The event changes in Google after the draft was stored.
+    eventVersion = 2;
+    await reloadWithCalendarExpanded();
+    await page.locator("article").filter({ hasText: "Planning v2", visible: true }).click();
+
+    const reopened = page.getByRole("dialog");
+    await expect(page.locator("#calendar-event-summary")).toHaveValue("My planning edit");
+    await expect(reopened.getByText(/Draft restored|Another version of this draft|keep my changes|Discard draft/i)).toHaveCount(0);
+    await expect(reopened.getByRole("button", { name: "Save changes", exact: true })).toBeEnabled();
+    if (legacyDraft) {
+      await page.screenshot({ path: testInfo.outputPath("calendar-silent-recovery-desktop.png") });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.screenshot({ path: testInfo.outputPath("calendar-silent-recovery-mobile.png") });
+      await page.setViewportSize({ width: 1280, height: 720 });
+    }
+    // A stale or unknown revision fails as an ordinary save error, without choices.
+    patchMode = "conflict";
+    await reopened.getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(reopened.getByText(/Could not save this event/)).toBeVisible();
+    await expect(page.locator("#calendar-event-summary")).toHaveValue("My planning edit");
+    expect(patchBodies).toHaveLength(legacyDraft ? 0 : 1);
+    if (!legacyDraft) expect(patchBodies[0].expectedEtag).toBe('"etag-1"');
+    expect(eventVersion).toBe(2);
+    await reopened.getByRole("button", { name: "Close calendar event" }).click();
+    await reloadWithCalendarExpanded();
+    await page.locator("article").filter({ hasText: "Planning v2", visible: true }).click();
+    await expect(page.locator("#calendar-event-summary")).toHaveValue("My planning edit");
+    await expect(page.getByText(/Draft restored|keep my changes|Discard draft/i)).toHaveCount(0);
+
+    // Explicit Cancel abandons the edit through the ordinary form action.
+    await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.locator("article").filter({ hasText: "Planning v2", visible: true }).click();
+    await expect(page.locator("#calendar-event-summary")).toHaveValue("Planning v2");
+    await page.locator("#calendar-event-summary").fill("Fresh event edit");
+    patchMode = "accept";
+    await page.getByRole("dialog").getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(patchBodies.at(-1)).toMatchObject({ summary: "Fresh event edit", expectedEtag: '"etag-2"' });
+    expect(eventVersion).toBe(3);
+  } finally {
+    await prisma.project.delete({ where: { id: project.id } });
+  }
+});
+}
 
 test("calendar create draft recovers without a Google write", async ({ page }) => {
   const userId = await signInAsVerifiedUser(page);

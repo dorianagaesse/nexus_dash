@@ -246,7 +246,6 @@ export function TaskDetailModal({
   onDiscardTaskEditRecovery = () => undefined,
   liveSaveStatus = null,
   liveSaveConflictReview = null,
-  isTaskLiveSaveConflicted = false,
   attachmentError,
   isSubmittingAttachment,
   isArchivingTask,
@@ -635,9 +634,7 @@ export function TaskDetailModal({
                       type="button"
                       onClick={() => void onSaveTask()}
                       disabled={
-                        isUpdatingTask ||
-                        taskEditRecovery.conflict ||
-                        isTaskLiveSaveConflicted
+                        isUpdatingTask
                       }
                       aria-busy={isUpdatingTask ? "true" : undefined}
                       aria-label={isUpdatingTask ? "Saving changes..." : "Save changes"}
@@ -648,7 +645,7 @@ export function TaskDetailModal({
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={onClose}
+                      onClick={() => { onDiscardTaskEditRecovery(); onClose(); }}
                       disabled={isUpdatingTask}
                       className="flex-1"
                     >
@@ -2074,7 +2071,6 @@ function TaskReadOnlyContent({
                     }
                     disabled={
                       isSubmittingTaskComment ||
-                      commentRecovery.conflict ||
                       pendingCommentAttachmentUploads.length > 0 ||
                       (!commentDraftText && commentAttachments.length === 0) ||
                       commentDraftTooLong

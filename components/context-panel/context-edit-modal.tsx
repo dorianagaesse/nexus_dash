@@ -9,8 +9,6 @@ import type {
 } from "@/components/project-context-panel-types";
 import { resolveAttachmentHref } from "@/components/project-context-panel-utils";
 import { RichTextEditor } from "@/components/rich-text-editor";
-import { RecoveryDraftNotice } from "@/components/recovery-draft-notice";
-import type { RecoveryDraftState } from "@/lib/hooks/use-recovery-draft";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
 import { EmojiInputField } from "@/components/ui/emoji-field";
@@ -29,8 +27,7 @@ interface ContextEditModalProps {
   editingCard: ProjectContextCard | null;
   editingColor: string;
   editTitle: string;
-  recovery: RecoveryDraftState;
-  onDiscardRecovery: () => void;
+  onCancel: () => void;
   mentionProjectId: string;
   editContent: string;
   editingCardAttachments: ProjectContextAttachment[];
@@ -58,8 +55,7 @@ export function ContextEditModal({
   editingCard,
   editingColor,
   editTitle,
-  recovery,
-  onDiscardRecovery,
+  onCancel,
   mentionProjectId,
   editContent,
   editingCardAttachments,
@@ -93,9 +89,6 @@ export function ContextEditModal({
       dismissible={!isUpdatingCard && !isSubmittingAttachment}
     >
       <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
-        {recovery.conflict || recovery.error ? (
-          <RecoveryDraftNotice draft={recovery} onDiscard={onDiscardRecovery} />
-        ) : null}
         <input type="hidden" name="cardId" value={editingCard.id} />
         <div className="grid gap-2">
           <label htmlFor="context-edit-title" className="text-sm font-medium">
@@ -251,7 +244,9 @@ export function ContextEditModal({
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
           <Button
             type="submit"
-            disabled={isUpdatingCard || isSubmittingAttachment}
+            disabled={
+              isUpdatingCard || isSubmittingAttachment
+            }
             className="w-full sm:w-auto"
           >
             {isUpdatingCard ? "Saving..." : "Save card"}
@@ -259,11 +254,11 @@ export function ContextEditModal({
           <Button
             type="button"
             variant="ghost"
-            onClick={recovery.restored ? onDiscardRecovery : onClose}
+            onClick={onCancel}
             disabled={isUpdatingCard || isSubmittingAttachment}
             className="w-full sm:w-auto"
           >
-            {recovery.restored ? "Discard" : "Cancel"}
+            Cancel
           </Button>
         </div>
       </form>
