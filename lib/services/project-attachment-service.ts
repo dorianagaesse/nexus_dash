@@ -27,7 +27,10 @@ import {
   requireProjectRole,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
-import { touchProjectActivity } from "@/lib/services/project-activity-service";
+import {
+  recordProjectActivityEvent,
+  touchProjectActivity,
+} from "@/lib/services/project-activity-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 import type { DbClient } from "@/lib/services/rls-context";
 
@@ -487,7 +490,22 @@ export async function createTaskAttachmentFromForm(input: {
         });
 
         await touchTaskActivity(db, input.taskId, actorUserId);
-        await touchProjectActivity({ db, projectId: input.projectId });
+        await recordProjectActivityEvent({
+          db,
+          projectId: input.projectId,
+          actorUserId,
+          domain: "task",
+          action: "updated",
+          entityId: input.taskId,
+          payload: {
+            taskId: input.taskId,
+            attachment: mapTaskAttachmentResponse(
+              input.projectId,
+              input.taskId,
+              attachment
+            ),
+          },
+        });
 
         return {
           ok: true,
@@ -563,7 +581,22 @@ export async function createTaskAttachmentFromForm(input: {
       });
 
       await touchTaskActivity(db, input.taskId, actorUserId);
-      await touchProjectActivity({ db, projectId: input.projectId });
+      await recordProjectActivityEvent({
+        db,
+        projectId: input.projectId,
+        actorUserId,
+        domain: "task",
+        action: "updated",
+        entityId: input.taskId,
+        payload: {
+          taskId: input.taskId,
+          attachment: mapTaskAttachmentResponse(
+            input.projectId,
+            input.taskId,
+            attachment
+          ),
+        },
+      });
 
       return {
         ok: true,
@@ -972,7 +1005,22 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
       });
 
       await touchTaskActivity(db, input.taskId, actorUserId);
-      await touchProjectActivity({ db, projectId: input.projectId });
+      await recordProjectActivityEvent({
+        db,
+        projectId: input.projectId,
+        actorUserId,
+        domain: "task",
+        action: "updated",
+        entityId: input.taskId,
+        payload: {
+          taskId: input.taskId,
+          attachment: mapTaskAttachmentResponse(
+            input.projectId,
+            input.taskId,
+            attachment
+          ),
+        },
+      });
 
       return {
         ok: true,
@@ -1468,7 +1516,15 @@ export async function deleteTaskAttachmentForProject(input: {
       });
 
       await touchTaskActivity(db, input.taskId, actorUserId);
-      await touchProjectActivity({ db, projectId: input.projectId });
+      await recordProjectActivityEvent({
+        db,
+        projectId: input.projectId,
+        actorUserId,
+        domain: "task",
+        action: "updated",
+        entityId: input.taskId,
+        payload: { taskId: input.taskId, deletedAttachmentId: attachment.id },
+      });
 
       if (attachment.kind === ATTACHMENT_KIND_FILE && attachment.storageKey) {
         await deleteAttachmentFile(attachment.storageKey).catch((error) => {

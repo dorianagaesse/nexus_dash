@@ -5,6 +5,7 @@ import { AttachmentStorageUnavailableError } from "@/lib/storage/errors";
 
 const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
+  projectActivityEvent: { create: vi.fn() },
   project: {
     findFirst: vi.fn(),
     update: vi.fn(),
@@ -76,6 +77,9 @@ describe("project-attachment-service", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.projectActivityEvent.create.mockImplementation(async ({ data }) => ({
+      id: "event-1", createdAt: new Date(), ...data,
+    }));
     prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
     prismaMock.project.findFirst.mockResolvedValue({ ownerId: actorUserId, memberships: [] });
     prismaMock.user.findUnique.mockResolvedValue({
@@ -116,6 +120,16 @@ describe("project-attachment-service", () => {
     expect(prismaMock.taskAttachment.delete).toHaveBeenCalledWith({
       where: { id: "att-draft" },
     });
+    expect(prismaMock.projectActivityEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          domain: "task",
+          action: "updated",
+          entityId: "task-1",
+          payload: { taskId: "task-1", deletedAttachmentId: "att-draft" },
+        }),
+      })
+    );
   });
 
   test("prevents an editor from deleting another actor's task upload", async () => {
@@ -203,6 +217,59 @@ describe("project-attachment-service", () => {
     expect(prismaMock.resourceAttachment.create).not.toHaveBeenCalled();
     expect(attachmentStorageMock.deleteAttachmentFile).not.toHaveBeenCalled();
   });
+
+  test.each(["link", "file"])(
+    "emits a task attachment event for a %s upload",
+    async (kind) => {
+      prismaMock.task.findUnique.mockResolvedValueOnce({
+        id: "task-1",
+        projectId: "project-1",
+      });
+      const attachment = {
+        id: "att-1",
+        commentId: null,
+        kind,
+        name: "note",
+        url: kind === "link" ? "https://example.com/" : null,
+        mimeType: kind === "file" ? "text/plain" : null,
+        sizeBytes: kind === "file" ? 5 : null,
+      };
+      prismaMock.taskAttachment.create.mockResolvedValueOnce(attachment);
+      attachmentStorageMock.saveAttachmentFile.mockResolvedValueOnce({
+        storageKey: "key",
+        originalName: "note.txt",
+        mimeType: "text/plain",
+        sizeBytes: 5,
+      });
+      const formData = new FormData();
+      formData.set("kind", kind);
+      formData.set("url", "https://example.com/");
+      formData.set(
+        "file",
+        new File(["hello"], "note.txt", { type: "text/plain" })
+      );
+      const result = await createTaskAttachmentFromForm({
+        actorUserId,
+        projectId: "project-1",
+        taskId: "task-1",
+        formData,
+      });
+      expect(result.ok).toBe(true);
+      expect(prismaMock.projectActivityEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            domain: "task",
+            action: "updated",
+            entityId: "task-1",
+            payload: {
+              taskId: "task-1",
+              attachment: expect.objectContaining(attachment),
+            },
+          }),
+        })
+      );
+    }
+  );
 
   test("creates task direct-upload target when storage provider supports signed uploads", async () => {
     prismaMock.task.findUnique.mockResolvedValueOnce({
@@ -365,6 +432,22 @@ describe("project-attachment-service", () => {
       select: { id: true },
     });
     expect(attachmentStorageMock.deleteAttachmentFile).not.toHaveBeenCalled();
+    expect(prismaMock.projectActivityEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          domain: "task",
+          action: "updated",
+          entityId: "task-1",
+          payload: {
+            taskId: "task-1",
+            attachment: expect.objectContaining({
+              kind: "file",
+              mimeType: "application/pdf",
+            }),
+          },
+        }),
+      })
+    );
   });
 
   test("finalizes context direct upload by reading metadata and persisting attachment", async () => {

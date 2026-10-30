@@ -3376,6 +3376,45 @@ export function KanbanBoard({
 
       if (activity.domain === "task") {
         if (activity.action === "created" || activity.action === "updated") {
+          // Attachment commands do not change the content revision. Merge only
+          // the attachment delta so an open modal keeps its draft and focus.
+          if (
+            isRecord(activity.payload) &&
+            activity.payload.taskId === activity.entityId &&
+            activity.entityId
+          ) {
+            const { attachment, deletedAttachmentId } = activity.payload;
+            if (
+              isRecord(attachment) &&
+              typeof attachment.id === "string" &&
+              (attachment.kind === ATTACHMENT_KIND_FILE ||
+                attachment.kind === ATTACHMENT_KIND_LINK) &&
+              typeof attachment.name === "string"
+            ) {
+              const remoteAttachment = attachment as unknown as TaskAttachment;
+              applyTaskMutation(activity.entityId, (task) => ({
+                ...task,
+                attachments: [
+                  ...task.attachments.filter(
+                    (entry) => entry.id !== remoteAttachment.id
+                  ),
+                  remoteAttachment,
+                ],
+              }));
+              detail.markHandled();
+              return;
+            }
+            if (typeof deletedAttachmentId === "string") {
+              applyTaskMutation(activity.entityId, (task) => ({
+                ...task,
+                attachments: task.attachments.filter(
+                  (entry) => entry.id !== deletedAttachmentId
+                ),
+              }));
+              detail.markHandled();
+              return;
+            }
+          }
           const remoteTask = readRemoteTaskPayload(activity);
           if (remoteTask) {
             upsertRemoteTask(remoteTask);
