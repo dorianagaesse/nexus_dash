@@ -15,8 +15,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   explicit saves retain input and use the normal form error. Calendar ETags
   and original context-card revisions still reject stale/unknown revisions.
 - Updated the live autosave epic and ND-432/433/434/565/577/180 briefs, then
-  verified stored descriptions. Updated AGENTS.md and the ND-432 ADR so future
-  agents cannot reinstate the rejected UI based on older instructions.
+  verified stored descriptions. The product rule lives in the autosave epic,
+  task briefs, and ND-432 ADR. Removed the initially added AGENTS.md section
+  after clarification that this is program-specific, not a repository-wide rule.
 - Refreshed from main; retained both sides of the journal-only merge conflict.
   New regressions cover invisible restored/conflict/storage-error states,
   normal cancellation, and preserved conditional-write safety.

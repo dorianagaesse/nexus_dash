@@ -62,17 +62,6 @@ documentation when the task calls for it:
   Never print, commit, or put either token in task content. The setup and
   verification procedure is in `docs/runbooks/agent-workflow.md`.
 
-## Authoring behavior
-
-- Autosave and recovery are invisible safety features. Silently preserve and
-  restore input after accidental dismissal/navigation/reload. Never add draft,
-  restored, saving/saved status UI, recovery-specific Discard controls, or
-  Keep my changes/Use latest/conflict-review panels, including announcements.
-- Keep ordinary form actions. Failed explicit saves may show a concise normal
-  form error; preserve input and revision/precondition protection. Hidden
-  recovery must never authorize a stale overwrite. See the current product
-  requirement in `adr/task-432-autosave-contract.md`.
-
 ## Validation and documentation
 
 - For code changes, run `npm run lint`, `npm run rls:check`, `npm test`,

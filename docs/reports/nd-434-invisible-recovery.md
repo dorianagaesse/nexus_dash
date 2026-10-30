@@ -20,6 +20,6 @@ Save message and keep the input. There are no comparison or keep/use choices.
 
 The live epic and ND-432, ND-433, ND-434, ND-565, ND-577, and ND-180 task
 descriptions now contain the invisible-recovery requirement, including its
-supersession of earlier actionable-notice exceptions. The repository-wide rule
-is also recorded in [AGENTS.md](../../AGENTS.md) and the
-[ND-432 contract](../../adr/task-432-autosave-contract.md).
+supersession of earlier actionable-notice exceptions. The requirement is scoped to this autosave program and the
+[ND-432 contract](../../adr/task-432-autosave-contract.md); it is not a
+repository-wide instruction.
