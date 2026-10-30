@@ -5,8 +5,6 @@ import { ContextColorPicker } from "@/components/context-panel/context-color-pic
 import { ContextModalFrame } from "@/components/context-panel/context-modal-frame";
 import type { PendingAttachmentLink } from "@/components/project-context-panel-types";
 import { RichTextEditor } from "@/components/rich-text-editor";
-import { RecoveryDraftNotice } from "@/components/recovery-draft-notice";
-import type { RecoveryDraftState } from "@/lib/hooks/use-recovery-draft";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
 import { EmojiInputField } from "@/components/ui/emoji-field";
@@ -21,8 +19,7 @@ interface ContextCreateModalProps {
   mentionProjectId: string;
   createColor: string;
   createTitle: string;
-  recovery: RecoveryDraftState;
-  onDiscardRecovery: () => void;
+  onCancel: () => void;
   createContent: string;
   createLinkUrl: string;
   isCreateLinkComposerOpen: boolean;
@@ -49,8 +46,7 @@ export function ContextCreateModal({
   mentionProjectId,
   createColor,
   createTitle,
-  recovery,
-  onDiscardRecovery,
+  onCancel,
   createContent,
   createLinkUrl,
   isCreateLinkComposerOpen,
@@ -88,9 +84,6 @@ export function ContextCreateModal({
       dismissible={!isCreatingCard}
     >
       <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
-        {recovery.conflict || recovery.error ? (
-          <RecoveryDraftNotice draft={recovery} onDiscard={onDiscardRecovery} />
-        ) : null}
         <div className="grid gap-2">
           <label htmlFor="context-create-title" className="text-sm font-medium">
             Title
@@ -231,11 +224,11 @@ export function ContextCreateModal({
           <Button
             type="button"
             variant="ghost"
-            onClick={recovery.restored ? onDiscardRecovery : onClose}
+            onClick={onCancel}
             disabled={isCreatingCard}
             className="w-full sm:w-auto"
           >
-            {recovery.restored ? "Discard" : "Cancel"}
+            Cancel
           </Button>
         </div>
         {createError ? (

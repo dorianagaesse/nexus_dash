@@ -3,6 +3,24 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-10-30 - ND-434: make autosave and recovery invisible
+
+- Product clarification supersedes earlier recovery-UI exceptions: no draft or
+  restored messages, autosave status strips, technical storage warnings,
+  recovery-specific Discard controls, or conflict-choice panels. Shared
+  recovery/status/review renderers are silent, including task and meeting
+  surfaces, and context/Calendar forms no longer expose those controls.
+- Outside click, Escape, close icon, and reload preserve input silently.
+  Ordinary Cancel abandons the current context/Calendar/task edit; failed
+  explicit saves retain input and use the normal form error. Calendar ETags
+  and original context-card revisions still reject stale/unknown revisions.
+- Updated the live autosave epic and ND-432/433/434/565/577/180 briefs, then
+  verified stored descriptions. Updated AGENTS.md and the ND-432 ADR so future
+  agents cannot reinstate the rejected UI based on older instructions.
+- Refreshed from main; retained both sides of the journal-only merge conflict.
+  New regressions cover invisible restored/conflict/storage-error states,
+  normal cancellation, and preserved conditional-write safety.
+
 # 2026-10-29 - ND-434: close legacy Calendar draft precondition bypass
 
 - PR #630 review follow-up requires a strong provider ETag on every Calendar

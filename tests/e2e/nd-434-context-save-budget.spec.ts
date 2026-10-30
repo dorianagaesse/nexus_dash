@@ -26,17 +26,19 @@ test("context draft traffic stays idle until explicit multi-editor saves", async
   const endpoint = `/api/projects/${project.id}/context-cards/${card.id}`;
   const patches: number[] = [];
   for (const client of [page, other]) {
+    client.setDefaultTimeout(15_000);
+    client.setDefaultNavigationTimeout(30_000);
     client.on("response", (response) => {
       if (new URL(response.url()).pathname === endpoint && response.request().method() === "PATCH") {
         patches.push(response.status());
       }
     });
   }
-  async function openEditor(client: Page) {
+  async function openEditor(client: Page, title = "Budget fixture") {
     await client.goto(`/projects/${project.id}`);
     const toggle = client.getByRole("button", { name: "Project context" });
     if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
-    await client.locator("article").filter({ hasText: "Budget fixture" }).click();
+    await client.locator("article").filter({ hasText: title }).click();
     await client.getByRole("dialog").getByRole("button", { name: "Context card options" }).click();
     await client.getByRole("button", { name: "Edit", exact: true }).click();
     await expect(client.locator("#context-edit-title")).toBeVisible();
@@ -69,9 +71,19 @@ test("context draft traffic stays idle until explicit multi-editor saves", async
 
     await page.getByRole("button", { name: "Save card", exact: true }).click();
     await expect(page.locator("#context-edit-title")).toHaveCount(0);
+    // Restoration after a remote save must retain the original revision.
+    await other.getByRole("button", {name:"Close Edit context card",exact:true}).click();
+    await openEditor(other,"Owner draft 59");
+    await expect(other.locator("#context-edit-title")).toHaveValue("Editor draft 59");
+    await expect(other.getByText(/Draft restored|Keep my|Use latest/i)).toHaveCount(0);
     await other.getByRole("button", { name: "Save card", exact: true }).click();
-    await expect(other.locator("[data-conflict-review]")).toBeVisible();
-    await other.getByRole("button", { name: "Apply and save", exact: true }).click();
+    await expect(other.getByText("This context card changed elsewhere. Please cancel and reopen it before trying again.")).toBeVisible();
+    await expect(other.locator("[data-conflict-review]")).toHaveCount(0);
+    await expect(other.getByRole("button", {name:/keep my|use latest|apply and save/i})).toHaveCount(0);
+    await other.getByRole("button", {name:"Cancel",exact:true}).click();
+    await openEditor(other,"Owner draft 59");
+    await other.locator("#context-edit-title").fill("Editor draft 59");
+    await other.getByRole("button", {name:"Save card",exact:true}).click();
     await expect(other.locator("#context-edit-title")).toHaveCount(0);
     expect(patches).toEqual([200, 412, 200]);
     let current = await prisma.resource.findUniqueOrThrow({ where: { id: card.id } });

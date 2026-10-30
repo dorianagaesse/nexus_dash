@@ -211,7 +211,7 @@ describe("useLiveSave integrated with recovery drafts", () => {
     expect(server.calls[0].intent).toBe("autosave");
     expect(harness().live!.snapshot.phase).toBe("saved");
     expect(harness().live!.snapshot.dirtyFields).toEqual([]);
-    expect(liveSaveStatusText(harness().live!.snapshot)).toBe("Saved");
+    expect(liveSaveStatusText(harness().live!.snapshot)).toBeNull();
     expect(server.calls[0].signal.aborted).toBe(false);
     expect(localStorage.getItem(draftKey("task-1"))).toBeNull();
     expect(harness().recovery!.conflict).toBe(false);
@@ -318,7 +318,7 @@ describe("useLiveSave integrated with recovery drafts", () => {
     await act(async () => { vi.advanceTimersByTime(3000); });
     expect(server.calls).toHaveLength(0);
     expect(JSON.parse(localStorage.getItem(draftKey("task-1"))!).payload.title).toBe("Offline edit");
-    expect(liveSaveStatusText(harness().live!.snapshot)).toBe("Offline - draft safe locally");
+    expect(liveSaveStatusText(harness().live!.snapshot)).toBeNull();
 
     await act(async () => { window.dispatchEvent(new Event("online")); });
     await act(async () => { vi.advanceTimersByTime(1); });
@@ -344,7 +344,7 @@ describe("useLiveSave integrated with recovery drafts", () => {
     hiddenSpy.mockRestore();
   });
 
-  test("opens conflict review on a guarded rejection and resubmits the local choice against the latest revision", async () => {
+  test("keeps conflicts internal and preserves the guarded reconciliation API", async () => {
     server.state = { title: "Theirs", description: "Their description" };
     server.rev = 9;
     server.results.push({
@@ -358,16 +358,8 @@ describe("useLiveSave integrated with recovery drafts", () => {
 
     expect(harness().live!.snapshot.phase).toBe("conflict");
     expect(server.calls).toHaveLength(1);
-    const review = container.querySelector("[data-conflict-review]")!;
-    expect(review.textContent).toContain("Nothing was overwritten; both versions are kept below.");
-    expect(review.textContent).toContain("Mine");
-    expect(review.textContent).toContain("Theirs");
-
-    const apply = Array.from(review.querySelectorAll("button")).find(
-      (button) => button.textContent === "Apply and save"
-    ) as HTMLButtonElement;
-    await act(async () => { apply.click(); });
-    await act(async () => { await pendingResolve; });
+    expect(container.querySelector("[data-conflict-review]")).toBeNull();
+    await act(async () => { await harness().live!.resolveConflict({title:"local"}); });
 
     expect(server.calls).toHaveLength(2);
     expect(server.calls[1].intent).toBe("explicit");
@@ -392,12 +384,8 @@ describe("useLiveSave integrated with recovery drafts", () => {
     await act(async () => { vi.advanceTimersByTime(2000); });
     expect(harness().live!.snapshot.phase).toBe("conflict");
 
-    const review = container.querySelector("[data-conflict-review]")!;
-    const latestAll = Array.from(review.querySelectorAll("button")).find(
-      (button) => button.textContent === "Use latest for all conflicts"
-    ) as HTMLButtonElement;
-    await act(async () => { latestAll.click(); });
-    await act(async () => { await pendingResolve; });
+    expect(container.querySelector("[data-conflict-review]")).toBeNull();
+    await act(async () => { await harness().live!.resolveConflict({title:"latest"}); });
 
     expect(server.calls).toHaveLength(1);
     expect(container.querySelector("[data-testid=value]")!.textContent).toBe("Theirs|Their description");

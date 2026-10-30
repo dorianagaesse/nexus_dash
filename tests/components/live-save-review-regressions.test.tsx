@@ -234,7 +234,7 @@ test("a newer edit typed in flight survives acknowledgement adoption", async () 
   expect(save.mock.calls[1][0].fields).toEqual({ title: "Second draft" });
 });
 
-test("conflict review exposes the differences beyond the shared first 240 characters", async () => {
+test("conflict values remain internal without comparisons or recovery choices", async () => {
   const prefix = "a".repeat(300);
   const local = { title: `${prefix} local ending` };
   const latest = { title: `${prefix} remote ending` };
@@ -257,8 +257,9 @@ test("conflict review exposes the differences beyond the shared first 240 charac
         />
       );
     });
-    expect(container.textContent).toContain("local ending");
-    expect(container.textContent).toContain("remote ending");
+    expect(container.innerHTML).toBe("");
+    expect(local.title).toContain("local ending");
+    expect(latest.title).toContain("remote ending");
   } finally {
     await act(async () => {
       root.unmount();

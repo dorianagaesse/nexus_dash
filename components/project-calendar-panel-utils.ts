@@ -500,11 +500,11 @@ export function mapEventMutationError(errorCode: string): string {
     case "event-not-found":
       return "Event no longer exists in Google Calendar.";
     case "calendar-edit-conflict":
-      return "This event changed in Google Calendar after you opened it. Your changes were not saved and your draft is kept locally. Close and reopen the event to review the latest version, then try again.";
+      return "Could not save this event because it changed in Google Calendar. Please cancel and reopen it before trying again.";
     case "invalid-precondition":
-      return "The saved event revision is invalid. Close and reopen the event before saving.";
+      return "Could not save this event. Please cancel and reopen it before trying again.";
     case "calendar-edit-precondition-required":
-      return "The event revision is unavailable. Your draft is kept locally. Close and reopen the event before saving.";
+      return "Could not save this event. Please cancel and reopen it before trying again.";
     case "calendar-create-failed":
       return "Could not create event in Google Calendar.";
     case "calendar-update-failed":

@@ -93,7 +93,11 @@ test("create forms recover after close and reload without creating records", asy
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await expect(page.locator("#context-edit-title")).toHaveValue("Recovered context edit");
     await expect(page.getByText("Draft restored.")).toHaveCount(0);
-    await page.getByRole("button", { name: "Discard", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Discard", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await contextCard.click();
+    await page.getByRole("button", { name: "Context card options" }).click();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
     await expect(page.locator("#context-edit-title")).toHaveValue("Recovered context card");
     await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -103,7 +107,8 @@ test("create forms recover after close and reload without creating records", asy
     await page.getByRole("button", { name: "Close New context card" }).click();
     await page.getByRole("button", { name: "Add card" }).click();
     await expect(page.getByText("Draft restored.")).toHaveCount(0);
-    await page.getByRole("button", { name: "Discard", exact: true }).click();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("button", { name: "Add card" }).click();
     await expect(page.locator("#context-create-title")).toHaveValue("");
     await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -116,7 +121,8 @@ test("create forms recover after close and reload without creating records", asy
     await page.getByRole("button", { name: "Close task creation" }).click();
     await page.getByRole("button", { name: "New task" }).click();
     await expect(page.getByText("Draft restored.")).toHaveCount(0);
-    await page.getByRole("button", { name: "Discard", exact: true }).click();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("button", { name: "New task" }).click();
     await expect(page.locator("#task-title")).toHaveValue("");
     await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -233,6 +239,11 @@ test(`calendar ${legacyDraft ? "legacy" : "current"} edit draft preconditions re
         );
       }, project.id);
       await page.reload();
+      // A restored section preference may be reconciled during hydration.
+      // Open the panel through its ordinary control if it is still collapsed.
+      if (await calendarToggle.getAttribute("aria-expanded") === "false") {
+        await calendarToggle.click();
+      }
       await expect(calendarToggle).toHaveAttribute("aria-expanded", "true");
       await expect(page.getByText("Connected", { exact: true })).toBeVisible();
     };
@@ -246,7 +257,7 @@ test(`calendar ${legacyDraft ? "legacy" : "current"} edit draft preconditions re
       dialog.getByRole("heading", { name: "Edit calendar event" })
     ).toBeVisible();
     await page.locator("#calendar-event-summary").fill("My planning edit");
-    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await dialog.getByRole("button", { name: "Close calendar event", exact: true }).click();
 
     if (legacyDraft) {
       // Seed the exact version-1 envelope shape written before ETags existed.
@@ -267,61 +278,39 @@ test(`calendar ${legacyDraft ? "legacy" : "current"} edit draft preconditions re
     await page.locator("article").filter({ hasText: "Planning v2", visible: true }).click();
 
     const reopened = page.getByRole("dialog");
-    await expect(
-      reopened.getByText(
-        "Another version of this draft or saved record exists. Your changes are kept locally. Check the current record before saving."
-      )
-    ).toBeVisible();
-    await expect(page.locator("#calendar-event-summary")).toHaveValue(
-      "My planning edit"
-    );
-    await expect(reopened.getByRole("button", { name: "Save changes", exact: true })).toBeDisabled();
+    await expect(page.locator("#calendar-event-summary")).toHaveValue("My planning edit");
+    await expect(reopened.getByText(/Draft restored|Another version of this draft|keep my changes|Discard draft/i)).toHaveCount(0);
+    await expect(reopened.getByRole("button", { name: "Save changes", exact: true })).toBeEnabled();
     if (legacyDraft) {
-      await page.screenshot({ path: testInfo.outputPath("calendar-legacy-review-desktop.png") });
+      await page.screenshot({ path: testInfo.outputPath("calendar-silent-recovery-desktop.png") });
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.screenshot({ path: testInfo.outputPath("calendar-legacy-review-mobile.png") });
+      await page.screenshot({ path: testInfo.outputPath("calendar-silent-recovery-mobile.png") });
       await page.setViewportSize({ width: 1280, height: 720 });
     }
-    // Even a programmatic form submission cannot bypass review.
-    await reopened.locator("form").evaluate((form: HTMLFormElement) => form.requestSubmit());
-    expect(patchBodies).toHaveLength(0);
-    await reopened
-      .getByRole("button", { name: "I reviewed; keep my changes" })
-      .click();
-    await expect(reopened.getByRole("button", { name: "Save changes", exact: true })).toBeEnabled();
-    await reopened.getByRole("button", { name: "Save changes" }).click();
-
-    await expect.poll(() => patchBodies.length).toBe(1);
-    expect(patchBodies[0]).toMatchObject({
-      summary: "My planning edit",
-      expectedEtag: '"etag-2"',
-    });
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-
-    // A rejected precondition keeps the modal and the local draft.
+    // A stale or unknown revision fails as an ordinary save error, without choices.
     patchMode = "conflict";
-    await expect(page.locator("article").filter({ hasText: "Planning v2", visible: true })).toBeVisible();
-    await page.locator("article").filter({ hasText: "Planning v2", visible: true }).click();
-    const conflicting = page.getByRole("dialog");
-    await page.locator("#calendar-event-summary").fill("Another edit");
-    const getsBeforeConflict = getCount;
-    await conflicting.getByRole("button", { name: "Save changes" }).click();
-    await expect(
-      conflicting.getByText(
-        "This event changed in Google Calendar after you opened it. Your changes were not saved and your draft is kept locally. Close and reopen the event to review the latest version, then try again."
-      )
-    ).toBeVisible();
-    await expect(page.locator("#calendar-event-summary")).toHaveValue(
-      "Another edit"
-    );
-    await expect.poll(() => getCount).toBeGreaterThan(getsBeforeConflict);
-
-    await conflicting.getByRole("button", { name: "Cancel", exact: true }).click();
+    await reopened.getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(reopened.getByText(/Could not save this event/)).toBeVisible();
+    await expect(page.locator("#calendar-event-summary")).toHaveValue("My planning edit");
+    expect(patchBodies).toHaveLength(legacyDraft ? 0 : 1);
+    if (!legacyDraft) expect(patchBodies[0].expectedEtag).toBe('"etag-1"');
+    expect(eventVersion).toBe(2);
+    await reopened.getByRole("button", { name: "Close calendar event" }).click();
     await reloadWithCalendarExpanded();
     await page.locator("article").filter({ hasText: "Planning v2", visible: true }).click();
-    await expect(page.locator("#calendar-event-summary")).toHaveValue(
-      "Another edit"
-    );
+    await expect(page.locator("#calendar-event-summary")).toHaveValue("My planning edit");
+    await expect(page.getByText(/Draft restored|keep my changes|Discard draft/i)).toHaveCount(0);
+
+    // Explicit Cancel abandons the edit through the ordinary form action.
+    await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.locator("article").filter({ hasText: "Planning v2", visible: true }).click();
+    await expect(page.locator("#calendar-event-summary")).toHaveValue("Planning v2");
+    await page.locator("#calendar-event-summary").fill("Fresh event edit");
+    patchMode = "accept";
+    await page.getByRole("dialog").getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(patchBodies.at(-1)).toMatchObject({ summary: "Fresh event edit", expectedEtag: '"etag-2"' });
+    expect(eventVersion).toBe(3);
   } finally {
     await prisma.project.delete({ where: { id: project.id } });
   }

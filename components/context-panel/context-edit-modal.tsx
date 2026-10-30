@@ -2,25 +2,13 @@ import type { FormEvent } from "react";
 import { Link2, Trash2, Upload } from "lucide-react";
 
 import { ContextColorPicker } from "@/components/context-panel/context-color-picker";
-import {
-  CONTEXT_CARD_LIVE_FIELD_META,
-  type ContextCardLiveDocument,
-} from "@/components/context-panel/context-live-save";
 import { ContextModalFrame } from "@/components/context-panel/context-modal-frame";
-import { ConflictReview } from "@/components/live-save/conflict-review";
-import { LiveSaveStatus } from "@/components/live-save/live-save-status";
 import type {
   ProjectContextAttachment,
   ProjectContextCard,
 } from "@/components/project-context-panel-types";
 import { resolveAttachmentHref } from "@/components/project-context-panel-utils";
 import { RichTextEditor } from "@/components/rich-text-editor";
-import { RecoveryDraftNotice } from "@/components/recovery-draft-notice";
-import type { RecoveryDraftState } from "@/lib/hooks/use-recovery-draft";
-import type {
-  LiveSaveConflictChoice,
-  LiveSaveSnapshot,
-} from "@/lib/live-save/types";
 import { AttachmentLinkComposer } from "@/components/ui/attachment-link-composer";
 import { Button } from "@/components/ui/button";
 import { EmojiInputField } from "@/components/ui/emoji-field";
@@ -39,12 +27,10 @@ interface ContextEditModalProps {
   editingCard: ProjectContextCard | null;
   editingColor: string;
   editTitle: string;
-  recovery: RecoveryDraftState;
-  onDiscardRecovery: () => void;
+  onCancel: () => void;
   mentionProjectId: string;
   editContent: string;
   editingCardAttachments: ProjectContextAttachment[];
-  liveSaveSnapshot: LiveSaveSnapshot<ContextCardLiveDocument>;
   isUpdatingCard: boolean;
   isSubmittingAttachment: boolean;
   isEditLinkComposerOpen: boolean;
@@ -54,9 +40,6 @@ interface ContextEditModalProps {
   editError: string | null;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
-  onResolveLiveConflict: (
-    choices: Record<string, LiveSaveConflictChoice>
-  ) => void;
   onEditingColorChange: (color: string) => void;
   onEditTitleChange: (title: string) => void;
   onEditContentChange: (value: string) => void;
@@ -72,12 +55,10 @@ export function ContextEditModal({
   editingCard,
   editingColor,
   editTitle,
-  recovery,
-  onDiscardRecovery,
+  onCancel,
   mentionProjectId,
   editContent,
   editingCardAttachments,
-  liveSaveSnapshot,
   isUpdatingCard,
   isSubmittingAttachment,
   isEditLinkComposerOpen,
@@ -87,7 +68,6 @@ export function ContextEditModal({
   editError,
   onClose,
   onSubmit,
-  onResolveLiveConflict,
   onEditingColorChange,
   onEditTitleChange,
   onEditContentChange,
@@ -109,18 +89,6 @@ export function ContextEditModal({
       dismissible={!isUpdatingCard && !isSubmittingAttachment}
     >
       <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
-        {recovery.conflict || recovery.error ? (
-          <RecoveryDraftNotice draft={recovery} onDiscard={onDiscardRecovery} />
-        ) : null}
-        <LiveSaveStatus snapshot={liveSaveSnapshot} />
-        {liveSaveSnapshot.conflict ? (
-          <ConflictReview
-            conflict={liveSaveSnapshot.conflict}
-            fieldMeta={CONTEXT_CARD_LIVE_FIELD_META}
-            pending={isUpdatingCard}
-            onResolve={onResolveLiveConflict}
-          />
-        ) : null}
         <input type="hidden" name="cardId" value={editingCard.id} />
         <div className="grid gap-2">
           <label htmlFor="context-edit-title" className="text-sm font-medium">
@@ -277,10 +245,7 @@ export function ContextEditModal({
           <Button
             type="submit"
             disabled={
-              isUpdatingCard ||
-              isSubmittingAttachment ||
-              recovery.conflict ||
-              Boolean(liveSaveSnapshot.conflict)
+              isUpdatingCard || isSubmittingAttachment
             }
             className="w-full sm:w-auto"
           >
@@ -289,11 +254,11 @@ export function ContextEditModal({
           <Button
             type="button"
             variant="ghost"
-            onClick={recovery.restored ? onDiscardRecovery : onClose}
+            onClick={onCancel}
             disabled={isUpdatingCard || isSubmittingAttachment}
             className="w-full sm:w-auto"
           >
-            {recovery.restored ? "Discard" : "Cancel"}
+            Cancel
           </Button>
         </div>
       </form>

@@ -114,10 +114,13 @@ Google on a timer. Calendar edit PATCH requests require `expectedEtag` containin
 one strong ETag from the event listing. Missing preconditions return 428
 `calendar-edit-precondition-required`, invalid values return 400
 `invalid-precondition`, and stale provider revisions return 412
-`calendar-edit-conflict` without changing the event. Restored drafts from before
-ETags were recorded require review before adopting the current event revision.
-If the provider revision is unavailable, the draft remains recoverable and Save
-stays disabled until the event can be reopened with a valid revision.
+`calendar-edit-conflict` without changing the event. Recovery is invisible:
+closing a form accidentally and reopening it restores input without notices,
+status strips, or recovery-choice buttons. A stale or unknown Calendar revision
+fails through the ordinary Save error and keeps the input. Explicit Cancel
+abandons the edit; reopening then starts from the latest event. Outside click,
+Escape, and the close icon preserve recovery. Context cards follow the same
+invisible-recovery rule with atomic content revisions.
 
 ## Database and Migrations
 

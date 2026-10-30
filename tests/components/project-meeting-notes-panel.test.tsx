@@ -671,7 +671,7 @@ describe("project-meeting-notes-panel guarded explicit save", () => {
     );
   });
 
-  test("keeps the preparation dialog open with a conflict review on 412", async () => {
+  test("keeps rejected preparation input with an ordinary error and no recovery controls", async () => {
     const note = baseNote({ id: "note-conflict", title: "Planning" });
     await renderPanel(renderer.root, [note], true);
     await clickButtonLike(findButton(renderer.container, "Planning"));
@@ -697,20 +697,15 @@ describe("project-meeting-notes-panel guarded explicit save", () => {
 
     await clickButtonLike(findButton(document.body, "Save preparation"));
 
-    const conflictReview = document.querySelector("[data-conflict-review]");
-    expect(conflictReview).not.toBeNull();
-    expect(conflictReview?.textContent).toContain("Title");
-    expect(document.querySelector("#meeting-title")).not.toBeNull();
-    expect(findButton(document.body, "Save preparation")?.hasAttribute("disabled")).toBe(
-      true
-    );
-
-    await clickButtonLike(findButton(document.body, "Use latest for all conflicts"));
-
+    expect(document.querySelector("[data-conflict-review]")).toBeNull();
+    expect(titleInput?.value).toBe("Planning locally");
+    expect(findButton(document.body, "Save preparation")?.hasAttribute("disabled")).toBe(false);
+    expect(document.body.textContent).toContain("changed elsewhere");
+    expect(findButton(document.body, "Use latest for all conflicts")).toBeNull();
+    await clickButtonLike(findButton(document.body, "Cancel"));
     expect(document.querySelector("#meeting-title")).toBeNull();
-    expect(document.body.textContent).toContain(
-      "Meeting preparation saved."
-    );
+    expect(activityClientMock.fetchProjectActivityMutation).toHaveBeenCalledTimes(1);
+
   });
 
   test("archives through an explicit status command without duplicating content fields", async () => {

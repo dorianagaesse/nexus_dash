@@ -204,7 +204,7 @@ test("a todo created in the drawer is reflected once the server assigns its id",
   }
 });
 
-test("adopting latest output does not silently discard a pending explicit archive", async () => {
+test("an overlapping edit preserves the pending archive without recovery-choice UI", async () => {
   vi.clearAllMocks();
   activityClientMock.fetchProjectActivityMutation.mockReset();
   const renderer = createTestRenderer();
@@ -223,14 +223,12 @@ test("adopting latest output does not silently discard a pending explicit archiv
       .mockResolvedValueOnce({ok: false, status: 412, json: async () => ({error: "edit-conflict", current: {...note, contentRevision: 2, outputNotes: "<p>Remote</p>"}})})
       .mockResolvedValueOnce({ok: true, json: async () => ({note: {...note, contentRevision: 3, outputNotes: "<p>Remote</p>", status: "done"}})});
     await clickButtonLike(findButton(document.body, "Save notes"));
-    expect(document.querySelector("[data-conflict-review]")).not.toBeNull();
-    await clickButtonLike(findButton(document.body, "Use latest for all conflicts"));
-    // Adopting latest discards the local output text but must still flush the
-    // explicitly requested archive before the editor closes.
-    expect(activityClientMock.fetchProjectActivityMutation).toHaveBeenCalledTimes(2);
-    expect(JSON.parse(activityClientMock.fetchProjectActivityMutation.mock.calls[1][2].body).status).toBe("done");
-    expect(findButton(document.body, "Save notes")).toBeNull();
-    expect(document.body.textContent).toContain("Meeting note archived.");
+    expect(document.querySelector("[data-conflict-review]")).toBeNull();
+    expect(findButton(document.body, "Use latest for all conflicts")).toBeNull();
+    expect(activityClientMock.fetchProjectActivityMutation).toHaveBeenCalledTimes(1);
+    expect(findButton(document.body, "Save notes")).not.toBeNull();
+    expect(document.body.textContent).toContain("changed elsewhere");
+    expect(editor.value).toBe("<p>Local</p>");
   } finally {
     await act(async () => {renderer.root.unmount();});
     renderer.container.remove();

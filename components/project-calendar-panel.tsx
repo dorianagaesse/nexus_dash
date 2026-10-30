@@ -225,13 +225,6 @@ export function ProjectCalendarPanel({
     setEventFormError(null);
   };
 
-  // After reviewing a restored draft, the next save stays conditional on the
-  // event revision shown when the modal opened, not the draft's stale ETag.
-  const acceptRecoveryConflict = () => {
-    setEventEtag(recoveryBase.etag);
-    setEventFormError(null);
-  };
-
   const openEventDetails = (event: CalendarEventItem) => {
     openEditEventModal(event);
   };
@@ -318,10 +311,6 @@ export function ProjectCalendarPanel({
 
   const submitEventForm = async () => {
     if (!isWritable || eventModalMode === "view") {
-      return;
-    }
-    if (eventRecovery.conflict) {
-      setEventFormError("Review the recovered draft before saving your changes.");
       return;
     }
     if (eventModalMode === "edit" && !isCalendarEventEtag(eventEtag)) {
@@ -644,12 +633,12 @@ export function ProjectCalendarPanel({
         eventCalendarSourceId={eventCalendarSourceId}
         selectedEvent={selectedEvent}
         eventFormError={eventFormError}
-        editPreconditionAvailable={isCalendarEventEtag(eventEtag)}
-        recovery={eventRecovery}
-        onDiscardRecovery={() => { eventRecovery.discard(); applyRecoveryValue(recoveryBase); }}
-        onAcceptRecoveryConflict={acceptRecoveryConflict}
         connectUrl={connectUrl}
         onClose={closeEventModal}
+        onCancel={() => {
+          eventRecovery.discard();
+          closeEventModal();
+        }}
         onSubmit={submitEventForm}
         onDelete={handleDeleteEvent}
         onEventSummaryChange={setEventSummary}

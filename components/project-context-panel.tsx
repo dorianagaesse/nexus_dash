@@ -22,7 +22,6 @@ import { ContextCardsGrid } from "@/components/context-panel/context-cards-grid"
 import { ContextCreateModal } from "@/components/context-panel/context-create-modal";
 import { ContextEditModal } from "@/components/context-panel/context-edit-modal";
 import { ContextPreviewModal } from "@/components/context-panel/context-preview-modal";
-import { RecoveryDraftNotice } from "@/components/recovery-draft-notice";
 import { useToast } from "@/components/toast-provider";
 import type { MentionDisplayUser } from "@/components/ui/mention-hover-card";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
@@ -76,7 +75,6 @@ import { isLiveSaveSurfaceEnabled } from "@/lib/live-save/rollout";
 import type {
   LiveSaveAcceptedInfo,
   LiveSaveAdapter,
-  LiveSaveConflictChoice,
   LiveSaveOutcome,
 } from "@/lib/live-save/types";
 import { cn } from "@/lib/utils";
@@ -209,6 +207,8 @@ export function ProjectContextPanel({
   const [editError, setEditError] = useState<string | null>(null);
   const [isCreatingCard, setIsCreatingCard] = useState(false);
   const [isUpdatingCard, setIsUpdatingCard] = useState(false);
+  const [editOrigin, setEditOrigin] = useState<ContextCardLiveDocument | null>(null);
+  const [editOriginUnavailable, setEditOriginUnavailable] = useState(false);
   const [deletingCardId, setDeletingCardId] = useState<string | null>(null);
   const [isSubmittingAttachment, setIsSubmittingAttachment] = useState(false);
   const [isEditLinkComposerOpen, setIsEditLinkComposerOpen] = useState(false);
@@ -291,10 +291,21 @@ export function ProjectContextPanel({
     value: editRecoveryValue,
     base: editRecoveryBase,
     baseRevision: editingCard ? String(editingCard.contentRevision) : null,
-    restore: (draft) => {
+    restore: (draft, origin) => {
       setEditTitle(draft.title);
       setEditContent(draft.content);
       setEditingColor(draft.color);
+      const revision = origin?.baseRevision;
+      const knownRevision = revision !== null && revision !== undefined && /^\d+$/.test(revision);
+      const sameBase = origin && JSON.stringify(origin.base) === JSON.stringify(editRecoveryBase);
+      setEditOriginUnavailable(!knownRevision && !sameBase);
+      if (editingCard && origin && knownRevision) {
+        setEditOrigin({
+          ...toContextCardLiveDocument(editingCard),
+          ...origin.base,
+          contentRevision: Number(revision),
+        });
+      }
     },
   });
 
@@ -400,10 +411,10 @@ export function ProjectContextPanel({
 
   const editLiveBase = useMemo<ContextCardLiveDocument>(
     () =>
-      editingCard
+      editOrigin ?? (editingCard
         ? toContextCardLiveDocument(editingCard)
-        : EMPTY_CONTEXT_CARD_LIVE_DOCUMENT,
-    [editingCard]
+        : EMPTY_CONTEXT_CARD_LIVE_DOCUMENT),
+    [editingCard, editOrigin]
   );
   const editLiveValue = useMemo<ContextCardLiveDocument>(() => {
     if (!editingCard) {
@@ -445,6 +456,7 @@ export function ProjectContextPanel({
         if (!isRecord(body) || body.error !== "edit-conflict") return null;
         const card = readLiveContextCard(body.current);
         if (!card) return null;
+        setLocalCards((previous) => previous.map((entry) => entry.id === card.id ? card : entry));
         return {
           representation: toContextCardLiveDocument(card),
           revision: card.contentRevision,
@@ -512,7 +524,9 @@ export function ProjectContextPanel({
       editingCard !== null &&
       !editRecovery.conflict &&
       isLiveSaveSurfaceEnabled("context-card"),
-    entityKey: editingCard?.id ?? null,
+    // Restoring an older edit starts from that edit's original baseline. It
+    // must not be treated as a new remote update to the freshly opened form.
+    entityKey: editingCard ? `${editingCard.id}:${editLiveBase.contentRevision}` : null,
     validate: validateContextCardLiveDocument,
     applyRepresentation: applyEditLiveRepresentation,
     onAccepted: handleEditLiveAccepted,
@@ -675,6 +689,8 @@ export function ProjectContextPanel({
   const closeEditModal = () => {
     editRecovery.flush();
     setEditingCardId(null);
+    setEditOrigin(null);
+    setEditOriginUnavailable(false);
     setEditTitle("");
     setEditContent("");
     setEditError(null);
@@ -693,6 +709,8 @@ export function ProjectContextPanel({
     }
 
     setPreviewCardId(null);
+    setEditOrigin(toContextCardLiveDocument(cardToEdit));
+    setEditOriginUnavailable(false);
     setEditingColor(cardToEdit.color);
     setEditTitle(cardToEdit.title);
     setEditContent(normalizeContextCardContentHtml(cardToEdit.content));
@@ -1014,7 +1032,7 @@ export function ProjectContextPanel({
       case "clean":
         return null;
       case "conflict":
-        return "This context card changed elsewhere. Review the conflicting changes below.";
+        return "This context card changed elsewhere. Please cancel and reopen it before trying again.";
       case "invalid":
         return mapContextMutationError(
           outcome.message,
@@ -1025,7 +1043,7 @@ export function ProjectContextPanel({
       case "gone":
         return "This context card is no longer available.";
       case "offline":
-        return "You're offline. Your draft is safe locally; try again when the connection returns.";
+        return "You're offline. Please try again when the connection returns.";
       case "failed":
         return mapContextMutationError(
           outcome.message,
@@ -1034,7 +1052,7 @@ export function ProjectContextPanel({
       case "busy":
         return "A save is already in progress. Try again.";
       case "disabled":
-        return "Live save is unavailable for this card.";
+        return "Could not save this card. Please try again.";
     }
   };
 
@@ -1050,13 +1068,13 @@ export function ProjectContextPanel({
     if (!editingCard || isUpdatingCard) {
       return;
     }
-    if (editRecovery.conflict) {
-      setEditError("This context card changed elsewhere. Review it before saving.");
+    if (editOriginUnavailable) {
+      setEditError("Could not save this card because it changed elsewhere. Please cancel and reopen it.");
       return;
     }
     if (editLive.snapshot.conflict) {
       setEditError(
-        "This context card changed elsewhere. Review the conflicting changes below."
+        "This context card changed elsewhere. Please cancel and reopen it before trying again."
       );
       return;
     }
@@ -1087,42 +1105,6 @@ export function ProjectContextPanel({
       });
     } catch (error) {
       console.error("[ProjectContextPanel.handleUpdateCardSubmit]", error);
-      setEditError("Could not update context card. Please retry.");
-    } finally {
-      setIsUpdatingCard(false);
-    }
-  };
-
-  const handleEditLiveConflictResolve = async (
-    choices: Record<string, LiveSaveConflictChoice>
-  ) => {
-    if (!editingCard || isUpdatingCard) {
-      return;
-    }
-
-    setIsUpdatingCard(true);
-    setEditError(null);
-    editLiveLastAcceptedRef.current = null;
-
-    try {
-      const outcome = await editLive.resolveConflict(choices);
-      const message = mapContextLiveSaveOutcome(outcome);
-      if (message !== null) {
-        setEditError(message);
-        pushToast({ variant: "error", message });
-        return;
-      }
-      if (!isEditLiveFullySynced(outcome)) {
-        return;
-      }
-      editRecovery.flush();
-      closeEditModal();
-      pushToast({
-        variant: "success",
-        message: "Context card saved.",
-      });
-    } catch (error) {
-      console.error("[ProjectContextPanel.handleEditLiveConflictResolve]", error);
       setEditError("Could not update context card. Please retry.");
     } finally {
       setIsUpdatingCard(false);
@@ -1480,12 +1462,12 @@ export function ProjectContextPanel({
         mentionProjectId={projectId}
         createColor={createColor}
         createTitle={createTitle}
-        recovery={createRecovery}
-        onDiscardRecovery={() => {
+        onCancel={() => {
           createRecovery.discard();
           resetCreateAttachmentDraft();
           setCreateColor(CONTEXT_CARD_COLORS[0]);
           setCreateError(null);
+          closeCreateModal();
         }}
         createContent={createContent}
         createLinkUrl={createLinkUrl}
@@ -1516,18 +1498,17 @@ export function ProjectContextPanel({
         editingCard={editingCard}
         editingColor={editingColor}
         editTitle={editTitle}
-        recovery={editRecovery}
-        onDiscardRecovery={() => {
+        onCancel={() => {
           editRecovery.discard();
           setEditTitle(editingCard?.title ?? "");
           setEditContent(editingCard?.content ?? "");
           setEditingColor(editingCard?.color ?? CONTEXT_CARD_COLORS[0]);
           setEditError(null);
+          closeEditModal();
         }}
         mentionProjectId={projectId}
         editContent={editContent}
         editingCardAttachments={editingCardAttachments}
-        liveSaveSnapshot={editLive.snapshot}
         isUpdatingCard={isUpdatingCard}
         isSubmittingAttachment={isSubmittingAttachment}
         isEditLinkComposerOpen={isEditLinkComposerOpen}
@@ -1537,9 +1518,6 @@ export function ProjectContextPanel({
         editError={editError}
         onClose={closeEditModal}
         onSubmit={handleUpdateCardSubmit}
-        onResolveLiveConflict={(choices) =>
-          void handleEditLiveConflictResolve(choices)
-        }
         onEditingColorChange={setEditingColor}
         onEditTitleChange={setEditTitle}
         onEditContentChange={setEditContent}

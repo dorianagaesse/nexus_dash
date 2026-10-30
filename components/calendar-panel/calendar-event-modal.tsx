@@ -1,8 +1,6 @@
 import { CalendarDays, ExternalLink, Trash2, X } from "lucide-react";
 
 import { CalendarDateTimeField } from "@/components/calendar-date-time-field";
-import { RecoveryDraftNotice } from "@/components/recovery-draft-notice";
-import type { RecoveryDraftState } from "@/lib/hooks/use-recovery-draft";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -33,12 +31,9 @@ interface CalendarEventModalProps {
   eventCalendarSourceId: string;
   selectedEvent: CalendarEventItem | null;
   eventFormError: string | null;
-  editPreconditionAvailable: boolean;
-  recovery: RecoveryDraftState;
-  onDiscardRecovery: () => void;
-  onAcceptRecoveryConflict: () => void;
   connectUrl: string;
   onClose: () => void;
+  onCancel: () => void;
   onSubmit: () => void | Promise<void>;
   onDelete: () => void | Promise<void>;
   onEventSummaryChange: (value: string) => void;
@@ -71,12 +66,9 @@ export function CalendarEventModal({
   eventCalendarSourceId,
   selectedEvent,
   eventFormError,
-  editPreconditionAvailable,
-  recovery,
-  onDiscardRecovery,
-  onAcceptRecoveryConflict,
   connectUrl,
   onClose,
+  onCancel,
   onSubmit,
   onDelete,
   onEventSummaryChange,
@@ -144,13 +136,6 @@ export function CalendarEventModal({
               void onSubmit();
             }}
           >
-            {!isReadOnly ? (
-              <RecoveryDraftNotice
-                draft={recovery}
-                onDiscard={onDiscardRecovery}
-                onAcceptConflict={onAcceptRecoveryConflict}
-              />
-            ) : null}
             {eventModalMode === "create" ? (
               <div className="grid gap-2">
                 <label htmlFor="calendar-event-source" className="text-sm font-medium">
@@ -326,11 +311,6 @@ export function CalendarEventModal({
               />
             </div>
 
-            {eventModalMode === "edit" && !editPreconditionAvailable && !recovery.conflict ? (
-              <p role="alert" className="text-sm text-destructive">
-                The event revision is unavailable. Your draft is kept locally. Close and reopen the event before saving.
-              </p>
-            ) : null}
             {eventFormError ? (
               <div className="space-y-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive dark:text-red-200">
                 <p>{eventFormError}</p>
@@ -361,8 +341,7 @@ export function CalendarEventModal({
               {eventModalMode !== "view" ? (
                 <Button
                   type="submit"
-                  disabled={isEventMutationPending || recovery.conflict ||
-                    (eventModalMode === "edit" && !editPreconditionAvailable)}
+                  disabled={isEventMutationPending}
                   className="w-full sm:w-auto"
                 >
                   {isSavingEvent
@@ -385,7 +364,7 @@ export function CalendarEventModal({
               <Button
                 type="button"
                 variant="ghost"
-                onClick={onClose}
+                onClick={onCancel}
                 disabled={isEventMutationPending}
                 className="w-full sm:w-auto"
               >

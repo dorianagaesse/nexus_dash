@@ -492,10 +492,12 @@ describe("project context panel guarded edits", () => {
 
     expect(document.getElementById("context-edit-title")).not.toBeNull();
     expect(document.body.textContent).toContain(
-      "This context card changed elsewhere. Review the conflicting changes below."
+      "This context card changed elsewhere. Please cancel and reopen it before trying again."
     );
     const review = document.querySelector("[data-conflict-review]");
-    expect(review).not.toBeNull();
+    expect(review).toBeNull();
+    expect(document.body.textContent).not.toContain("Keep my version");
+    expect(titleInput.value).toBe("My edit");
 
     const firstPatch = requests.find(
       (request) => request.init?.method === "PATCH"
@@ -504,7 +506,13 @@ describe("project context panel guarded edits", () => {
       '"context-card:card-1:1"'
     );
 
-    await clickElement(findButton(review as Element, "Apply and save"));
+    await clickElement(findButton(document.body, "Save card"));
+    expect(requests.filter(request => request.init?.method === "PATCH")).toHaveLength(1);
+    await clickElement(findButton(document.body, "Cancel"));
+    await clickElement(findButton(container, "Project context"));
+    const freshTitle = await openEdit(buildCard({contentRevision:2,title:"Server rename",content:"<p>Server notes</p>"}));
+    await act(async () => { setInputValue(freshTitle, "My edit"); });
+    await clickElement(findButton(document.body, "Save card"));
     await act(async () => {
       await sleep(20);
     });

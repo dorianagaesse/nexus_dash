@@ -1,5 +1,10 @@
 # ND-434 review validation
 
+Historical evidence from 2026-10-29. The recovery notices and review controls
+described here were superseded by the 2026-10-30 invisible-recovery product
+requirement in `adr/task-432-autosave-contract.md`. They are not current UI
+requirements or release instructions.
+
 ## Safety boundary
 
 Calendar edit requests require one strong provider ETag in `expectedEtag`.
