@@ -10674,3 +10674,7 @@ Low-value entries to avoid going forward:
 - Enforced live policy before task writes in single status moves (including bulk operations) and board reorder, while preserving human moves and ordering within Done.
 - Worktree: `../nexus_dash_nd449`, branch `feature/nd-449-agent-capabilities`, based on `97b0a99`. Root checkout edits were left untouched.
 - Initial validation: lint, RLS inventory, production build, 2,197 unit/API tests, and the PostgreSQL isolation matrix passed. Full coverage and Playwright validation are in progress. The disposable RLS database uses the Realtime stub installed before migrations.
+
+- Final local validation: coverage passed with 2,202 tests (2 skipped), 95.25% lines and 85.58% branches. The full Playwright run passed 123 tests and skipped 2; its sole failure was ND-451's fixture assuming agent Done moves were always allowed. That fixture now opts in through the owner API, and both ND-449 and ND-451 pass together on rerun. Desktop and 390px screenshots were inspected with the one-time key hidden; the UI detector reported no findings.
+- Standalone `tsc --noEmit` also surfaced repository test-fixture typing errors (including non-Promise route params); the required production build's application typecheck passed.
+- Delivery: PR #636 (`https://github.com/dorianagaesse/nexus_dash/pull/636`). GitHub Quality Core and tenant isolation passed on the implementation commit. Copilot review was requested; no review outcome was returned at this point. The task remains In Progress for the reviewer/merger.

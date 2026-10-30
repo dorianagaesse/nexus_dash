@@ -46,9 +46,9 @@ test("owner controls agent Done moves per project without changing human moves",
   const otherProject = (await secondProject.json()).project;
   const otherSettings = await page.request.get(`/api/projects/${otherProject.id}/agent-access`);
   expect((await otherSettings.json()).agentCanMoveTasksToDone).toBe(false);
-  await page.screenshot({ path: "test-results/nd449-desktop.png", fullPage: true });
+  await page.screenshot({ path: ".tmp/nd449-desktop.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: "test-results/nd449-mobile.png", fullPage: true });
+  await page.screenshot({ path: ".tmp/nd449-mobile.png", fullPage: true });
   expect((await page.request.post(path, { headers, data: { status: "Done" } })).ok()).toBeTruthy();
   expect((await page.request.post(path, { data: { status: "Backlog" } })).ok()).toBeTruthy();
   expect((await page.request.post(bulkPath, { headers, data: { columns } })).ok()).toBeTruthy();
