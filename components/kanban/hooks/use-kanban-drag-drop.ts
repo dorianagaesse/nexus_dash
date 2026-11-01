@@ -18,6 +18,15 @@ import { reconcileProjectEpicsAfterTaskMutation } from "@/lib/project-epic-clien
 import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 import type { KanbanBoardState } from "./use-kanban-board-state";
 
+type DragBoardState = Pick<KanbanBoardState,
+  | "columns"
+  | "setColumns"
+  | "remoteColumnsVersionRef"
+  | "remoteColumnsApplyCountRef"
+  | "remoteTaskRepresentationsRef"
+  | "remoteTaskRepresentationSeqRef"
+>;
+
 interface DropApplication {
   previousColumns: TaskColumns<KanbanTask>;
   nextColumns: TaskColumns<KanbanTask>;
@@ -164,11 +173,14 @@ export function useKanbanDragDrop({
 }: {
   canEdit: boolean;
   projectId: string;
-  board: KanbanBoardState;
+  board: DragBoardState;
   visibleColumns: TaskColumns<KanbanTask>;
   currentActorSummary: TaskPersonSummary | null;
   relatedTaskGraph: ReadonlyMap<string, readonly string[]>;
-  syncRelatedTaskSummary: (taskId: string, summary: { title: string; status: TaskStatus; archivedAt: string | null }) => void;
+  syncRelatedTaskSummary: (
+    taskId: string,
+    summary: { title: string; status: TaskStatus; archivedAt: string | null }
+  ) => void;
   setPersistError: Dispatch<SetStateAction<string | null>>;
 }) {
   const {
