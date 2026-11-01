@@ -19,6 +19,45 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - The dedicated local RLS database needed the Realtime stub installed before
   migrations, matching CI; rebuilt only `nexusdash_nd190` in that order.
 
+# 2026-10-30 - ND-541: define Tasks/Kanban domain boundary and migration seams
+
+- Authored `adr/nd-541-tasks-kanban-domain-boundary.md` and recorded the summary
+  decision in `adr/decisions.md` (with index updates in `adr/README.md` and
+  `project.md`) to establish the ownership map, public import seams, software
+  design patterns, behavior/security invariants, baseline test matrix, and
+  staged extraction plan for `ND-542` through `ND-547`.
+- Mapped every Tasks/Kanban module across delivery (`app/api/projects/[projectId]/tasks/**`,
+  `app/projects/[projectId]/kanban-board-section.tsx`), UI (`components/kanban-board.tsx`,
+  `components/kanban/**`), runtime contracts (`lib/task-contracts.ts` target),
+  pure domain policies (`lib/task-*.ts`), application services
+  (`lib/services/project-task-service.ts` facade over `lib/services/tasks/**`),
+  data-access/projections (`lib/services/tasks/task-data.ts` target +
+  `lib/services/project-task-response.ts`), and adjacent/shared boundaries
+  (Task Discussion `ND-187`, RLS-safe actor projections `ND-455`, attachments,
+  epics, and platform services).
+- Defined concrete, rollback-safe extraction targets for `ND-542` (Transport
+  Adapter + Command in `lib/task-contracts.ts`), `ND-543` (cohesive Kanban hook
+  controllers under `components/kanban/hooks/**`), `ND-544` (Task use-case split
+  behind the `project-task-service.ts` Facade), `ND-545` (shared `DbClient`
+  data-access/projection layer consolidating `projectKanbanTaskInclude` and
+  `loadTaskMutationPayload`, relocating Task queries from `project-service.ts`,
+  and establishing the persistence transform seam for encrypted text epic
+  `cmu389cd9000104jvk1bbipyf`), and `ND-546` (boundary lint enforcement gating
+  `ND-547`).
+- Addressed PR #639 review findings (`pullrequestreview-5718028049` and
+  `pullrequestreview-5718097984`): aligned optimistic-concurrency baseline with
+  `lib/content-revision.ts` and `lib/services/content-revision-service.ts`
+  (optional `X-Content-If-Match`, `"matched" | "conflict" | "missing"` result,
+  `412` `{ current }` payload, conditional `retryTransaction`, and DB triggers
+  advancing `contentRevision`), reconciled create/update/status and description
+  invariants (`Backlog`-only create, `sanitizeRichText` normalizing empty or
+  meaningless HTML to `null` and clearing `description` to `null` when provided
+  on `PATCH`, dedicated `/status` and `/reorder` transitions, update-only
+  `blockedFollowUpEntry` ignored when not `Blocked`), verified exact error
+  strings/codes across routes and services, and required an explicit
+  `db: DbClient` parameter on internal `task-data.ts` helpers so queries never
+  escape `withActorRlsContext`.
+
 # 2026-10-30 - ND-645: match task comment edit mode to comment composer without toolbar
 
 - Created ND-645 on the Nexus Dash board and moved it to In Progress after
@@ -942,7 +981,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Fixes on this branch: `ProjectLiveRefresh` keeps deferral state when a
   refreshed render lands mid-mutation (component regression test added, fails
   before the fix), and the steward E2E waits for the live-refresh document
-  `load` instead of the first `framenavigated` event — same-document history
+  `load` instead of the first `framenavigated` event â€” same-document history
   updates from `router.refresh()` also emit `framenavigated` and resolved the
   wait before the reload ever happened. The Broadcast-to-SSE-to-polling
   demotion component test is committed alongside.
@@ -1076,7 +1115,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 - Merged `origin/main` (ND-396 #528, ND-465 #527) into
   `feature/nd-399-comment-file-attachments`; the only conflict was the ADR
-  log, where both sides had added a 2026-09-17 entry — resolved by keeping
+  log, where both sides had added a 2026-09-17 entry â€” resolved by keeping
   both, ND-399 above ND-396. Merge commit `0994ebe` pushed.
 - Re-validated the merged tree: lint, rls:check, release:check (0.73.0 = 0.73.0),
   209 test files / 1710 tests passed (2 skipped), coverage thresholds met
@@ -1085,7 +1124,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   0 failed on isolated port 3399, including the ND-465 cancel flows and the
   ND-399 attachment spec. All CI checks green; `mergeStateStatus` CLEAN.
 - Second merge-forward the same day: merged `origin/main` (ND-464 #524,
-  ND-432 #529). Conflicts were `adr/decisions.md` and `journal.md` — both
+  ND-432 #529). Conflicts were `adr/decisions.md` and `journal.md` â€” both
   kept-both resolutions, with ND-399 entries first. Merge commit `34fd6fc`.
 - Re-validated again on the combined tree: lint, rls:check, release:check
   (0.73.0 = 0.73.0), 209 test files / 1723 tests passed (2 skipped),
@@ -1098,7 +1137,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   ND-464's link work cannot reach it). ND-464's titled-link specs and the
   ND-399 attachment spec both pass locally.
 - Third merge-forward the same day: merged `origin/main` (ND-131 #531,
-  dependabot safe-production-utilities #536 — lucide-react 1.42.0 → 1.46.0,
+  dependabot safe-production-utilities #536 â€” lucide-react 1.42.0 â†’ 1.46.0,
   tailwind-merge). Conflict was `journal.md` only; merge commit `703acdd`.
 - CI on `703acdd` went red once: E2E Smoke failed on the long-documented
   nd-408 pointer-drag flake (`nd-408-kanban-search-filter.spec.ts:285`
@@ -1144,7 +1183,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `opacity` / `pointer-events` in both states, the 44x44 trigger box, and that
   a draft attachment keeps the trigger reachable while the input is blurred.
   It also proves the moved label still opens the picker (a `filechooser` event
-  — both specs otherwise drive the input directly and would miss a broken
+  â€” both specs otherwise drive the input directly and would miss a broken
   label/input pairing) and that the paperclip and the emoji button stay on one
   row with disjoint boxes; the overlap guard was mutation-checked by shifting
   the emoji button back to `right-0`, which fails it as intended.
@@ -1155,8 +1194,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Playwright suite 82 passed / 1 skipped / 0 failed on port 3100.
 - CI on `9d4e44f`: Quality Gates green on all four jobs (Quality Core, E2E
   Smoke, Tenant Isolation RLS, Container Image) via a dispatched run. The
-  `pull_request` run again did not queue promptly after the push — the same
-  delay seen on ND-466 — so a `workflow_dispatch` run provided the immediate
+  `pull_request` run again did not queue promptly after the push â€” the same
+  delay seen on ND-466 â€” so a `workflow_dispatch` run provided the immediate
   signal. The Copilot reviewer returned the quota-limit notice seen on PR
   #519 and #525 instead of a review, so a substitute pass was run over the
   new commit: no correctness, authorization, or accessibility findings.
@@ -1164,7 +1203,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `worktree:create`). Vitest fails 17 files at import time with "Missing
   required environment variable: DATABASE_URL" unless the CI job env is
   exported (`DATABASE_URL`, `DIRECT_URL`, `AGENT_TOKEN_SIGNING_SECRET`,
-  `RESEND_API_KEY`) — those failures are environmental, not regressions.
+  `RESEND_API_KEY`) â€” those failures are environmental, not regressions.
 - Known gap, deliberately not widened here: the file input is `display: none`,
   so the picker is pointer-only. That is unchanged from before this commit and
   is flagged as an optional follow-up.
@@ -1587,7 +1626,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `20260914120000_nd447_remove_context_card_stewardship`) and ND-457
   (release-boundary versioning) landed on `main` while this branch was in
   review; the branch was brought up to date with `main` (8fa91b4, via a
-  merge commit — the `non_fast_forward` ruleset blocks force-pushes) so it
+  merge commit â€” the `non_fast_forward` ruleset blocks force-pushes) so it
   carries the ND-447 migration and does not drift against a migrated
   database.
   The earlier per-PR version bump (0.73.1 + changelog section) predates
@@ -1603,7 +1642,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   the viewport edge margin. The panel's layout centering classes apply the
   CSS `translate` property (Tailwind v4) which stacks with the inline drag
   `transform`, leaving a constant offset between the stored position and
-  the measured rect — so clamp bounds are computed relative to the current
+  the measured rect â€” so clamp bounds are computed relative to the current
   position and rect, and stored positions live in that same variable space.
   A corner drag now parks the panel at viewport - 16px on both axes.
 - Persistence: the moved position is stored under
@@ -1677,7 +1716,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   safe project actor reads. The full Playwright suite passed (74 passed,
   1 environment-gated skip) against a local `next start` on port 30447,
   including the updated ND-179 offboarding flow. Version policy: no version
-  move — after merge-forwarding ND-457 (#518) the branch keeps 0.73.0 and
+  move â€” after merge-forwarding ND-457 (#518) the branch keeps 0.73.0 and
   carries no CHANGELOG section, per the release-boundary model; the temporary
   0.73.0 -> 0.74.0 bump and `v0.74.0` changelog entry from the first handoff
   were removed. The edited migration was also
@@ -1766,7 +1805,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Implemented in the dedicated `../nexus_dash_task386` worktree on
   `feature/nd-386-attention-api-contract` from `origin/main` at 63c49c4
   (v0.70.0). ND-385 deliberately deferred contract publication to this task;
-  this change touches no runtime route code — the published contract now
+  this change touches no runtime route code â€” the published contract now
   covers the already-merged attention endpoints.
 - OpenAPI (`lib/agent-onboarding.ts`): new `Attention` tag, two
   `AGENT_API_ENDPOINTS` entries (`attention:read` scope), two path items with
@@ -1781,11 +1820,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
   constants.
 - Hosted guide (`components/agent-onboarding/agent-onboarding-guide.tsx`):
   new full-width "Attention discovery" card backed by the new exported
-  `buildAgentAttentionExample()` — incremental polling (since + ascending
+  `buildAgentAttentionExample()` â€” incremental polling (since + ascending
   order + cursor replayed with the issuing order), dedup by stable item id,
   following `artifact.taskId`/comment/meeting-note references, re-checking
   `currentState` before acting, and revocation handling (401 retries the
-  exchange once; a failed exchange means revoked/expired/rotated — stop and
+  exchange once; a failed exchange means revoked/expired/rotated â€” stop and
   ask the owner).
 - Least privilege (`lib/agent-access.ts` + owner panel): new
   `attention-read` preset granting exactly `attention:read`, so a poll-only
@@ -1795,7 +1834,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Contract tests: new `tests/api/agent-attention-contract.route.test.ts`
   runs the real routes with the real service response mappers (only the two
   list functions are mocked) and validates responses with a hand-rolled
-  JSON-schema subset validator against the built document — runtime 200
+  JSON-schema subset validator against the built document â€” runtime 200
   envelopes (mentions, assignments incl. null `occurredAt`/null actor),
   documented 400/403 error bodies, both published examples against their
   schemas, and example hygiene (no `nda_` keys, emails, bearer tokens,
@@ -1816,7 +1855,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   examples, and `attention:read` in the token scope enum.
 - Playwright: full `npm run test:e2e` suite run locally against the
   production build (own verified server on an isolated port, `CI=1` plus
-  `PLAYWRIGHT_BASE_URL` so no foreign server can be reused) — 68 passed,
+  `PLAYWRIGHT_BASE_URL` so no foreign server can be reused) â€” 68 passed,
   1 skipped, including the nd-382/nd-384 specs that drive the agent-access
   panel. One env-only failure on the first pass (`password-recovery` finds
   no reset token without `OUTBOUND_EMAIL_DELIVERY_MODE=disabled` on a local
@@ -1836,7 +1875,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `release:check` passes (0.73.0 over 0.72.1).
 - Addressed the Codex finding that the attention docs advertised source
   lookups (task, task comments, meeting notes) that an `attention:read`-only
-  credential cannot perform — all three source routes require `task:read`,
+  credential cannot perform â€” all three source routes require `task:read`,
   so the advertised preset workflow answered 403 (c6d8bfa). The example
   step 5, the guide's Attention discovery item 3, and both attention
   endpoint note lists now state the `task:read` requirement explicitly
@@ -1848,8 +1887,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   lint, `rls:check`, Vitest 207 files / 1656 tests passed (2 skipped),
   coverage unchanged (93.77 / 84.71 / 95.39 / 94.07), production build
   (BUILD_ID written, Prisma client regenerated for the merged schema), and
-  the full Playwright suite — 74 passed, 1 skipped
-  (preview-auth-isolation skips locally) — against an owned verified server
+  the full Playwright suite â€” 74 passed, 1 skipped
+  (preview-auth-isolation skips locally) â€” against an owned verified server
   (port 3471, listener PID checked against this worktree, RLS-context and
   outbound-email flags set); the merged-in nd-156/nd-398/nd-458 specs all
   pass.
@@ -1880,7 +1919,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   rendering.
 - Validation: lint, `rls:check`, Vitest 199 files / 1496 tests (1494 passed, 2
   skipped), coverage (93.76 / 84.71 / 95.39 / 94.06), production build, and the
-  full Playwright suite against the build on port 3210 — 62 passed, 1 skipped,
+  full Playwright suite against the build on port 3210 â€” 62 passed, 1 skipped,
   2 environment-level failures investigated and cleared: `authenticated-app-shell.spec.ts:89`
   fails 3/3 on an unmodified main baseline worktree (a2e5e6c) as well, a
   pre-existing race where the `?taskId=` deep link opens the Radix task modal
@@ -1891,7 +1930,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   drag-geometry flake as previously journaled).
 - Local environment notes: plain `npm run build` fails locally during
   page-data collection because Next forces NODE_ENV=production and
-  `lib/env.server.ts` requires DATABASE_URL ≠ DIRECT_URL for remote hosts —
+  `lib/env.server.ts` requires DATABASE_URL â‰  DIRECT_URL for remote hosts â€”
   build with `NODE_ENV=test`; Vitest and Playwright runs need `NODE_ENV=test`
   plus a `node --env-file=.env` wrapper locally.
 - Copilot review round (six moderate findings). Applied inline: task search now
@@ -1906,7 +1945,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   3,800, submit disabled over the cap), the mention tooltip/active element now
   clears before the unresolved-mention early return, and the modal-prune
   finding's stated `richTextToPlainText` double-escape mechanism was verified
-  inaccurate — the shared coercion fix resolves the actual end-to-end failure
+  inaccurate â€” the shared coercion fix resolves the actual end-to-end failure
   (empirically traced, documented on the PR).
 - Review-round tests: entity round-trips in `tests/lib/rich-text.test.ts`,
   `R&D bot` POST route case in `tests/api/task-comments.route.test.ts`,
@@ -1916,10 +1955,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   tooltip-clear case in `tests/components/rich-text-content.test.ts`.
 - Review-round validation: lint, `rls:check`, Vitest 1507 passed / 2 skipped,
   coverage unchanged (93.76 / 84.71 / 95.39 / 94.06), `NODE_ENV=test` build;
-  e2e re-run of the nd-398/nd-383/nd-381/nd-397/smoke specs — 13 passed, 1
+  e2e re-run of the nd-398/nd-383/nd-381/nd-397/smoke specs â€” 13 passed, 1
   pre-existing roadmap drag-geometry flake (:596) passing on isolated retry.
 - CI round: PR #514's E2E Smoke job failed on b129833 with a Playwright
-  strict-mode violation — `#task-comment-body-<id>` resolved to 2 elements
+  strict-mode violation â€” `#task-comment-body-<id>` resolved to 2 elements
   (attempt 1 at `nd-398-rich-text-comments.spec.ts:53`, attempt 2 at `:142`).
   Root cause is a pre-existing optimistic-comment race (introduced with the
   optimistic flow in d0aebe2 / #314, surfaced by this PR's added submission
@@ -1928,7 +1967,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   racing refetch resolves after the server commit but before the POST response
   is applied, `mergeFetchedTaskComments` inserts the stored comment X while the
   placeholder is still present, and the old post-submit update
-  (`map`-replace of the optimistic id) then left `[X, X]` → two DOM nodes with
+  (`map`-replace of the optimistic id) then left `[X, X]` â†’ two DOM nodes with
   the same id. Diagnosed with a temporary instrumented probe (fetch wrapper +
   MutationObserver, since deleted) that reproduced the timeline locally in
   2/2 runs, then proved deterministically by a route-delay variant forcing the
@@ -1937,22 +1976,22 @@ Use it for important implementation milestones, blockers, validation runs, and r
   one).
 - Fix: new pure helper `mergeSubmittedTaskComment`
   (`components/kanban-board-comments.ts`) makes the post-submit state update
-  idempotent — it removes the optimistic placeholder and any already-merged
+  idempotent â€” it removes the optimistic placeholder and any already-merged
   copy of the submitted comment, then appends it once; wired into
   `handleSubmitTaskComment`. Unit regression tests
   (`tests/components/kanban-board-comments.test.ts`, 5 cases incl.
-  `[optimistic, X] → [X]`).
+  `[optimistic, X] â†’ [X]`).
 - CI-round validation: lint, `rls:check`, full Vitest 1512 passed / 2 skipped
   (coverage unchanged 93.76 / 84.71 / 95.39 / 94.06), `NODE_ENV=test` build;
-  e2e on the rebuilt server — nd-398 3/3, nd-383 1/1, 45 rapid-submission
+  e2e on the rebuilt server â€” nd-398 3/3, nd-383 1/1, 45 rapid-submission
   probe iterations with zero duplicate ids. The same CI runs also failed
   the smoke meeting-notes geometry assertion
-  (`smoke-project-task-calendar.spec.ts:448`, `inputZoomBottomInset` −8.4 px)
-  — reproduced locally 1/5 isolated repeats with the identical value; the
+  (`smoke-project-task-calendar.spec.ts:448`, `inputZoomBottomInset` âˆ’8.4 px)
+  â€” reproduced locally 1/5 isolated repeats with the identical value; the
   documented pre-existing layout-timing flake (same assertion/value flaked on
   ND-458 the same day), unrelated to this diff. Post-merge CI run 34751563495
   on 6244f2e is green across all gates (Quality Core, Tenant Isolation, E2E
-  Smoke — smoke passed this time —, Container Image); PR #514 is CLEAN.
+  Smoke â€” smoke passed this time â€”, Container Image); PR #514 is CLEAN.
 - Merge-forward of ND-380 (#513): ND-380 shipped v0.68.0 first (this branch
   had claimed the same next version), so the CHANGELOG/journal conflicts were
   resolved by keeping both entries and this branch re-bumped to v0.69.0 with
@@ -1961,7 +2000,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   workflow from running on the fix commit until the merge-forward was pushed.
 - Reviewer feedback round: the composer's `min-h-[96px]` read as taller than
   the previous one-line comment input, so it was reverted to `min-h-11`
-  (44 px, matching the retired `h-11` textarea) — the contenteditable still
+  (44 px, matching the retired `h-11` textarea) â€” the contenteditable still
   grows with content. Revalidated: lint, focused Vitest (11 passed),
   `NODE_ENV=test` build, and nd-398/nd-383 e2e 4/4 on a verified local server;
   a temporary geometry probe measured 44 px at rest growing to 98 px over four
@@ -2019,7 +2058,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   archived" toggle, an "Archived" badge, Archive/Restore icon buttons gated to
   editors, and a "No active epics." empty state; archived epics keep their
   details/edit/delete affordances. Linking a new open task to an archived epic
-  (or reopening a linked task) does not silently unarchive it — status and
+  (or reopening a linked task) does not silently unarchive it â€” status and
   progress stay correct because archived epics still derive from live tasks.
 - Agent OpenAPI parity: `includeArchived` query parameter on the epic list,
   Archive/Restore endpoints documented (`task:write`), and `archivedAt` on the
@@ -2034,12 +2073,12 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `version-policy` temp-repo tests flake at the 5s default timeout under
   parallel coverage load), real-PostgreSQL RLS matrix
   (`test:rls:setup` + `test:rls`), production build, and the full Playwright
-  suite: 62 passed, 1 skipped, 1 failed — the failure is
+  suite: 62 passed, 1 skipped, 1 failed â€” the failure is
   `smoke-project-task-calendar.spec.ts` "meeting notes preparation, output,
   and search flow", a local flake on code this branch does not touch (the
   meeting-note/zoom-overlay files are unchanged from origin/main, the fixture
   project has no epics, and repeated isolated runs flip between pass and fail
-  with sub-4px overshoots at different zoom-geometry assertions — measurement
+  with sub-4px overshoots at different zoom-geometry assertions â€” measurement
   nondeterminism, not an ND-458 regression; CI on main is green for the same
   spec). The ND-458 journey, TASK-335 compactness, ND-408 drag, and every
   smoke flow pass individually against the same build.
@@ -2050,25 +2089,25 @@ Use it for important implementation milestones, blockers, validation runs, and r
   sits after Edit so the details-Edit adjacency assertion still holds
   (cf779bd). The archive/restore route file had been left untracked since the
   service commit and is now committed (ccd193d).
-- Local e2e quirks: the first ND-458 spec run failed against stale code — an
+- Local e2e quirks: the first ND-458 spec run failed against stale code â€” an
   orphan `next start` process still held port 3000 and Playwright's
   `reuseExistingServer` reused it, serving the pre-change UI (no archive
   controls; the epic sweep absent while the pre-existing task sweep had run);
   check port 3000 is free before local e2e runs. A later full-suite run
   produced five unrelated-looking failures whose root cause was the manually
-  started server missing `NEXUSDASH_TEST_RLS_CONTEXT=enabled` — every
+  started server missing `NEXUSDASH_TEST_RLS_CONTEXT=enabled` â€” every
   project-activity write 500'd with Postgres 42501 (create epic, task reorder,
   roadmap/meeting/context-card creates). With the flag set (or the
   Playwright-managed server, which injects it), all specs pass.
 - Copilot review on PR #511 raised three findings in
   `lib/services/project-epic-service.ts`, addressed in 44d48ad:
-  (1) write-time revalidation — `updateMany` cannot filter on relations
+  (1) write-time revalidation â€” `updateMany` cannot filter on relations
   (Prisma rejects `tasks: { some: ... }` there), so after the
   timestamp-guarded conditional update the sweep now re-reads the epics it
   just archived and rolls back any whose linked tasks no longer resolve to a
   stale completion; the extra read only runs when rows were actually
   archived; (2) the request-time sweep is now explicitly gated on
-  `hasRequiredRole(role, "editor")` after the viewer-level list check — epic
+  `hasRequiredRole(role, "editor")` after the viewer-level list check â€” epic
   RLS only lets owners/editors write, so a viewer's sweep was a silent
   0-row no-op, and the access requirement now lives in code rather than
   depending on policy row filtering; (3) the duplicated-read finding was
@@ -2081,12 +2120,12 @@ Use it for important implementation milestones, blockers, validation runs, and r
   sweep); epic service suite 14/14.
 - Review-round validation (NODE_ENV=test, CI-parity env): lint clean,
   `rls:check`, Vitest 196 files / 1499 tests (2 skipped), coverage
-  93.47 / 84.36 / 95.3 / 93.77, production build — all green. E2E is
+  93.47 / 84.36 / 95.3 / 93.77, production build â€” all green. E2E is
   unaffected by this round (server service + unit tests only); CI re-runs
   the full suite on the pushed commit.
 - Copilot review round 2 on 5801f2c raised one visible and two suppressed
   findings. (1) Restoring a stale auto-archived epic was undone by the next
-  sweep — a real loop, because the restore only cleared `archivedAt` and the
+  sweep â€” a real loop, because the restore only cleared `archivedAt` and the
   completion moment was still older than the grace period. Fixed with a
   durable restore exemption: new nullable `Epic.autoArchiveExemptAt` column
   (migration `20260913140000_nd458_epic_auto_archive_exemption`); restore
@@ -2096,10 +2135,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   expires naturally when the epic completes again (a newer completion moment),
   survives restarts, and is honored by the round-1 rollback revalidation
   because both paths share the predicate. (2) The task detail epic picker
-  showed "No epic" for a task linked to an archived epic (display-only — the
+  showed "No epic" for a task linked to an archived epic (display-only â€” the
   save path already preserved the link). The board section now loads epics
   with `includeArchived` and splits them; the task modal merges the selected
-  task's linked archived epic into its picker options marked `Archived · ...`
+  task's linked archived epic into its picker options marked `Archived Â· ...`
   (EpicSelect + quick epic submenu), while the create dialog and kanban filter
   bar stay active-only. (3) The CHANGELOG bullet implied "Show archived"
   reveals archived epics everywhere; reworded to scope the toggle to the epic
@@ -2108,14 +2147,14 @@ Use it for important implementation milestones, blockers, validation runs, and r
   the completion is not newer than the exemption; restored epic swept once a
   newer completion passes it), section component test for the active/archived
   split, and the ND-458 e2e journey gained the archived-link assertion in the
-  quick epic picker plus a second test — restore an auto-archived epic,
+  quick epic picker plus a second test â€” restore an auto-archived epic,
   reload, and verify it stays active with `archivedAt: null` and a set
   exemption in the database.
 - Round-2 validation (NODE_ENV=test, CI-parity env): lint clean, `rls:check`,
   Vitest 196 files / 1502 tests (2 skipped), coverage 93.47 / 84.36 / 95.3 /
   93.77, production build, real-PostgreSQL RLS matrix (`test:rls:setup` +
-  `test:rls`) — all green. Full Playwright suite (port 3417, `CI=1`): 63
-  passed, 1 skipped (preview-auth-isolation, expected locally), 1 failed —
+  `test:rls`) â€” all green. Full Playwright suite (port 3417, `CI=1`): 63
+  passed, 1 skipped (preview-auth-isolation, expected locally), 1 failed â€”
   the known local flake in `smoke-project-task-calendar.spec.ts` "meeting
   notes preparation, output, and search" (a -8.4px input-zoom geometry
   overshoot at the same assertion family as round 1; passes isolated on the
@@ -2130,7 +2169,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   fails rather than reusing an unknown server.
 - Round 3 (user-directed UX uniformization): the epic panel's "Show
   archived (N)" / "Hide archived" toggle is replaced by the Meeting Notes
-  pattern — a search bar plus an `Active (N)` / `Archived (N)` view switch.
+  pattern â€” a search bar plus an `Active (N)` / `Archived (N)` view switch.
   The epic list filters client-side over name and description, empty states
   are per view ("No active epics yet." / "No archived epics." / "No matching
   epics."), the header pill reads "N active", and switching views dismisses
@@ -2141,7 +2180,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   (`ListSearchInput`) and `components/ui/segmented-control.tsx`
   (`SegmentedControl<T>`: `role="group"` + `aria-pressed` toggle buttons,
   one grid column per option), and the meeting-notes panel now consumes
-  both with equivalent DOM semantics — its existing e2e label queries
+  both with equivalent DOM semantics â€” its existing e2e label queries
   ("Search meeting notes", "Clear meeting notes search", tab labels) pass
   unchanged. Six new unit tests cover the primitives (typing, clear
   visibility, accessible names, selection state).
@@ -2171,7 +2210,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   tree (port 3423): lint, `rls:check`, Vitest 199 files / 1515 tests
   (2 skipped), coverage unchanged at 93.47 / 84.36 / 95.3 / 93.77,
   production build, the real-Postgres RLS matrix, and the full Playwright
-  suite 66 passed / 1 skipped on the first run — both ND-458 and both ND-380
+  suite 66 passed / 1 skipped on the first run â€” both ND-458 and both ND-380
   journeys included.
 - Second release reconciliation: `origin/main` then shipped ND-459 (v0.69.0)
   and ND-385 (v0.70.0) before this branch merged, so the next merge forward
@@ -2197,7 +2236,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   mention events (ND-383 rows) and current assignments (ND-384 columns)
   across tasks and meeting todos.
 - New least-privilege scope `attention:read` (DB enum value
-  `attention_read`; migration 20260913120000 adds the enum value only — no
+  `attention_read`; migration 20260913120000 adds the enum value only â€” no
   new tables or RLS surface). The credential identity comes from the bearer
   token alone: the endpoints accept no credential parameter and always filter
   by the authenticated credential, and per-request credential re-validation
@@ -2213,7 +2252,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `orderBy` clauses pinning null placement (first in asc, last in desc).
   Pre-provenance rows report null `occurredAt` and sort as oldest.
 - Mentions cursor stores the raw row id for the SQL tie-break while items
-  expose the prefixed key — kept deliberately separate so same-timestamp
+  expose the prefixed key â€” kept deliberately separate so same-timestamp
   paging stays correct.
 - Tests: `tests/lib/agent-attention.test.ts` (codec, filter parsing, sort and
   cursor predicates), `tests/lib/project-agent-attention-service.test.ts`
@@ -2242,7 +2281,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   mentions keep a `historical-agent-*` actor instead of collapsing into the
   owner; (3) assignment paging now prunes each source in SQL with keyset
   predicates (raw-id tie-break, nulls pinned) plus `take: limit + 1`, and
-  the in-memory pass only merges/slices — no unbounded per-credential
+  the in-memory pass only merges/slices â€” no unbounded per-credential
   materialization. Also rejects mention cursors carrying a null timestamp
   as invalid (that endpoint never mints one; ignoring it silently re-served
   page 1). New tests cover the deleted-credential actor, the asc
@@ -2251,7 +2290,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Re-validation after the review fixes: lint, `rls:check`, full vitest
   (1559 passed; one Windows-load flake in `tests/scripts/version-policy.test.ts`
   that passes in isolation), coverage 93.47/84.36/95.3/93.77, build,
-  `release:check`, `git diff --check` — all green. RLS DB matrix not re-run:
+  `release:check`, `git diff --check` â€” all green. RLS DB matrix not re-run:
   no schema, migration, or tenant-ownership change. The new Prisma
   `orderBy` nulls policy and per-source cursor predicates were additionally
   executed against the real local PostgreSQL through a throwaway probe
@@ -2264,7 +2303,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   regenerated from main's (only the version fields differ), CHANGELOG section
   re-headered v0.70.0 and ordered above v0.69.0.
 - Post-merge re-validation with the quality-gates env block inline (local
-  Postgres URLs + placeholder secrets — worktrees carry no `.env`, and a bare
+  Postgres URLs + placeholder secrets â€” worktrees carry no `.env`, and a bare
   `npm test` fails 16 Prisma-importing suites at collection on a missing
   `DATABASE_URL`): `git diff --check` clean; lint; `rls:check`;
   `release:check` 0.69.0 -> 0.70.0; Vitest 201 files passed / 2 skipped
@@ -2281,7 +2320,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   beside the title and status, and each chip is a `next/link` to the canonical
   task deep link (`/projects/{projectId}/tasks/{taskId}`), which the project
   route redirects into `?taskId=` so the board opens the task detail exactly
-  like its own deep links — archived tasks included via the board's
+  like its own deep links â€” archived tasks included via the board's
   fetch-by-id fallback. Chips stay keyboard reachable with the shared
   focus-ring treatment and keep the two-line clamp / compact mobile layout.
 - The epic linked-task projection (`epicTaskSelect`, `mapEpicTaskSummary`,
@@ -2294,7 +2333,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   coverage 93.47 / 84.36 / 95.3 / 93.77; production build; and the full
   Playwright suite against the production build on a verified
   task459-owned server (`PLAYWRIGHT_BASE_URL`, port 3214): 66 passed,
-  1 skipped, 0 failed — including the four new
+  1 skipped, 0 failed â€” including the four new
   `nd-459-epic-linked-task-deep-link.spec.ts` journeys (reference + click
   deep link, archived task, keyboard Enter, 375px mobile) plus the
   meeting-notes and roadmap smoke flows.
@@ -2303,7 +2342,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `reuseExistingServer` silently latched onto a sibling worktree's
   `next start` (a task398 ND-398 rich-text build listening on 3210 from
   02:48), so this task's post-merge Playwright runs "failed" against the
-  wrong app — epic chips rendered from the sibling's stale markup and the
+  wrong app â€” epic chips rendered from the sibling's stale markup and the
   comment box was ND-398's rich-text editor. Re-running against a locally
   verified server via `PLAYWRIGHT_BASE_URL` was fully green. Earlier intermittent
   single-test failures today (meeting-notes zoom geometry,
@@ -2354,7 +2393,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   93.47 / 84.36 / 95.3 / 93.77; production build; `release:check`
   0.68.0 -> 0.69.0; full Playwright suite against the freshly built app on a
   verified task459-owned server (`PLAYWRIGHT_BASE_URL`, port 3219, landing
-  page asserted to serve v0.69.0): 68 passed, 1 skipped, 0 failed — including
+  page asserted to serve v0.69.0): 68 passed, 1 skipped, 0 failed â€” including
   the four ND-459 journeys and ND-380's two merged in from #513.
 
 # 2026-09-13 - ND-380: Rich text and mentions in context card descriptions
@@ -2374,26 +2413,26 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Investigation note: the apparent e2e "mention option" flake was
   Playwright `reuseExistingServer` silently reusing other worktrees'
   `next start` servers on shared ports (stale v0.67.0 builds without card
-  mentions). The app code was healthy — exploratory probes and a candidate
+  mentions). The app code was healthy â€” exploratory probes and a candidate
   layout-effect change in `rich-text-editor.tsx` / `mention-autocomplete.tsx`
   were reverted; the diff is props wiring + tests only. A permanent guard
   now starts the ND-380 spec by asserting the served landing page shows
   this worktree's `package.json` version (skipped for `PLAYWRIGHT_BASE_URL`).
 - Validation: lint, `rls:check`, Vitest 197 files / 1483 tests (2 skipped),
   coverage (93.47 / 84.36 / 95.3 / 93.77), production build, ND-380 spec
-  20/20 (2 tests × 10 repeats on a verified-free port), full Playwright suite
+  20/20 (2 tests Ã— 10 repeats on a verified-free port), full Playwright suite
   64 passed / 1 skipped, `release:check` (0.68.0 over 0.67.0),
   `git diff --check` clean.
 - Copilot review: one finding (redundant collaborator query added by the
-  context section) — fixed by threading the page-level list into
+  context section) â€” fixed by threading the page-level list into
   `ProjectContextPanelSection`; the meeting-notes section's own
   pre-existing query is untouched. Re-validated after the fix.
 
 # 2026-09-12 - Agent workflow rules: In Progress on pickup, reviewer-owned Done, concise cards and comments
 
-- User-directed workflow change, documented in `agent.md` (full rules) and `CLAUDE.md` (summary): agents move a card to In Progress when they start its task and never move cards to Done — Done is set by the reviewer/PR merger. Completion comments are optional and only for relevant handoff information (decisions, validation evidence, blockers): plain English, short, one topic. Task descriptions must stay concise — plain English covering the intent plus testable acceptance criteria, with no restated context, exhaustive scope inventories, or file-by-file walkthroughs.
+- User-directed workflow change, documented in `agent.md` (full rules) and `CLAUDE.md` (summary): agents move a card to In Progress when they start its task and never move cards to Done â€” Done is set by the reviewer/PR merger. Completion comments are optional and only for relevant handoff information (decisions, validation evidence, blockers): plain English, short, one topic. Task descriptions must stay concise â€” plain English covering the intent plus testable acceptance criteria, with no restated context, exhaustive scope inventories, or file-by-file walkthroughs.
 - Trigger: user feedback that agent-authored cards are unreadable and that Done-lane ownership at handoff was ambiguous. Board follow-up the same day: ND-446..ND-448 rewritten to the short form; ND-449 created for per-project agent capability settings (first capability: a Done-move toggle, UI + backend).
-- `tasks/current.md` retired (user-directed): the active card is the single source of truth for the task brief. The file had grown into a ~1,600-line append-only brief archive that drifted from current rules — this PR's Copilot review flagged its stale "In Progress and then Done on delivery" line. Live references updated in `agent.md`, `CLAUDE.md`, `project.md`, and `README.md`; historical references in journal entries, ADRs, and archived briefs left as records.
+- `tasks/current.md` retired (user-directed): the active card is the single source of truth for the task brief. The file had grown into a ~1,600-line append-only brief archive that drifted from current rules â€” this PR's Copilot review flagged its stale "In Progress and then Done on delivery" line. Live references updated in `agent.md`, `CLAUDE.md`, `project.md`, and `README.md`; historical references in journal entries, ADRs, and archived briefs left as records.
 
 # 2026-09-12 - ND-384: Persist agent assignment as actor identity with audit history
 
@@ -2439,7 +2478,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   agent status, the kanban save path omits the assignee field when the draft
   actor key is unchanged so a revoked assignee is never re-submitted, the
   agent OpenAPI `assignedBy` copy documents unassignment, and the offboarding
-  snapshot queries now hold `FOR UPDATE` row locks. Declined: read→write
+  snapshot queries now hold `FOR UPDATE` row locks. Declined: readâ†’write
   concurrency on interactive saves (write + history are atomic in the
   enclosing RLS transaction and last-write-wins matches every existing editor
   flow), and `Cascade` FKs on the history child tables (a hard parent delete
@@ -2506,8 +2545,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Acceptance feedback (user review of PR #504): agent mentions in comments
   must read like human mentions, not a bespoke `@{Label}` treatment. The
   mention hover-card component now exposes one shared `MentionText` chip and
-  tooltip for both kinds — humans resolve a display user, agents build an
-  identity with the agent avatar and an `Agent` subtitle — and agent tokens
+  tooltip for both kinds â€” humans resolve a display user, agents build an
+  identity with the agent avatar and an `Agent` subtitle â€” and agent tokens
   render brace-free (`@Release bot`) with the same highlight classes, hover
   tooltip, and keyboard focus as humans. The composer mirror keeps the braced
   token's text metrics via invisible brace spans so the caret stays aligned
@@ -2619,8 +2658,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - User feedback on PR #499's implementation: the zoom pills rendered outside
   the text areas for the preparation-dialog Inputs (above the editor toolbar
   box) and for the note-dialog Outputs (above the editor and above the
-  read-only box for viewers), while the note-dialog Inputs pill — inside the
-  bordered section header — was well positioned. Expected: buttons top right
+  read-only box for viewers), while the note-dialog Inputs pill â€” inside the
+  bordered section header â€” was well positioned. Expected: buttons top right
   inside the text areas.
 - Fixed in bc0236d: the prepare-dialog Inputs editor and the note-dialog
   Outputs editor/read body moved into the same bordered `SectionBlock`
@@ -2642,7 +2681,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   1,389 tests passed (2 skipped); coverage above thresholds (93.45%
   statements / 84% branches / 95.3% functions / 93.75% lines); production
   build green; focused smoke + ND-381 meeting-note e2e 9/9 green; full
-  Playwright suite green (58 passed / 1 skipped — the single nd-408 drag
+  Playwright suite green (58 passed / 1 skipped â€” the single nd-408 drag
   failure under parallel load passed 6/6 on re-run).
 - Branch pushed at bc0236d and reported on PR #499.
 
@@ -2657,10 +2696,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `MeetingNoteZoomControl` (75-200% in 25% steps, section-specific
   accessible group names, live percentage, boundary-disabled actions,
   44px touch targets), `MEETING_NOTE_ZOOM_*` constants, clamp, and
-  `getMeetingNoteZoomTextStyle` (14px base × zoom, line-height 1.7).
+  `getMeetingNoteZoomTextStyle` (14px base Ã— zoom, line-height 1.7).
 - Wired independent `inputNotesZoom`/`outputNotesZoom` presentation state
   into the prepare-dialog Inputs editor and the note-dialog Inputs read
-  view + Outputs editor/read view, applying the zoom text style only —
+  view + Outputs editor/read view, applying the zoom text style only â€”
   content and payloads are untouched (presentation-only per the card).
 - Component tests `tests/components/meeting-note-zoom-control.test.tsx`
   (labels, boundaries, independent scaling, clamped style contract) plus
@@ -2673,20 +2712,20 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 # 2026-09-12 - ND-382 retest follow-up: freshly created agents stayed out of task pickers until a reload
 
-- The retest ("mention autocomplete shows the agent, but the task assignee list has no agents") surfaced an interactive gap, not a data defect. Task pickers render from the route's server-rendered actor list (`listAssignableProjectActors` → `projectActors` on the board), while the mention autocomplete fetches `/actors/search` per keystroke. Creating a credential from the project's "Agent access" panel refreshed only the panel's client-fetched list; the server payload (and so the assignee pickers) kept the pre-creation list until a manual reload. The agent's credential never having completed a token exchange is irrelevant to both pickers.
+- The retest ("mention autocomplete shows the agent, but the task assignee list has no agents") surfaced an interactive gap, not a data defect. Task pickers render from the route's server-rendered actor list (`listAssignableProjectActors` â†’ `projectActors` on the board), while the mention autocomplete fetches `/actors/search` per keystroke. Creating a credential from the project's "Agent access" panel refreshed only the panel's client-fetched list; the server payload (and so the assignee pickers) kept the pre-creation list until a manual reload. The agent's credential never having completed a token exchange is irrelevant to both pickers.
 - Live-preview evidence: probing the real preview database directly (project `cmtxj06lf000004kzk8mhqq0s` "test", owner `dorianagaesse`; active credential `test`, `nda_17lZJtcUYXe56U0c`, no expiry) showed the credential present with `app.list_project_actors` installed under `prosecdef`, confirming the deployed search path had the data while the loaded page did not. By-design gates confirmed in code: mention rows stay `aria-disabled` ("mention support coming soon", ND-383) and task-assignee agent rows stay disabled ("Agent task assignment is not available yet", ND-384); revoked/expired credentials stay hidden.
 - Fix: `handleCreateAgentCredential` and `handleRevokeAgentCredential` in `components/project-dashboard/project-dashboard-owner-actions.tsx` now call `router.refresh()` after success so the route re-renders its server components (actor list included) without a manual reload. Rotate intentionally skipped (an active credential stays assignable).
-- Coverage: `tests/e2e/nd-382-active-agent-pickers.spec.ts` gained the regression flow — create a credential through the Agent access UI, then open the create-task assignee picker with no reload and assert the new agent row renders disabled.
+- Coverage: `tests/e2e/nd-382-active-agent-pickers.spec.ts` gained the regression flow â€” create a credential through the Agent access UI, then open the create-task assignee picker with no reload and assert the new agent row renders disabled.
 - Copilot review on PR #497: the three initial threads (two about owner-only `ApiCredential` reads under RLS, one about `Cache-Control: no-store` on error responses) had all been addressed by 8e339cd; each thread now has a reply with the fix reference and the conversation is resolved.
-- Validation on the fix commit `eb7edb0` (CI-equivalent env on the local Postgres): lint, `rls:check`, full Vitest 189 files / 1,394 tests passed (2 skipped), coverage above thresholds (statements 93.45%, branches 84%, functions 95.3%, lines 93.75%), production build, focused Playwright `nd-382-active-agent-pickers.spec.ts` (1/1, including the new create-credential → assignee-picker regression flow), and `git diff --check` clean.
+- Validation on the fix commit `eb7edb0` (CI-equivalent env on the local Postgres): lint, `rls:check`, full Vitest 189 files / 1,394 tests passed (2 skipped), coverage above thresholds (statements 93.45%, branches 84%, functions 95.3%, lines 93.75%), production build, focused Playwright `nd-382-active-agent-pickers.spec.ts` (1/1, including the new create-credential â†’ assignee-picker regression flow), and `git diff --check` clean.
 - Preview alias note: during this retest window the shared alias had again drifted to other branches (`f93d36a`, `feature/nd-426-zoomable-meeting-notes`, then `7cf168e`). Re-ran the ND-382 preview deploy after the fix commit (`gh workflow run deploy-vercel.yml -f action=deploy-preview -f git_ref=feature/nd-382-active-project-agent-pickers`, run 34655417001, green including the stable-alias step); `GET /api/health/ready` on the alias now reports revision `eb7edb0`, and a live agent-token exchange plus `GET /api/projects/cmtxj06lf000004kzk8mhqq0s/actors/search` on the alias returned the active agent (`test`, kind `agent`, `isAssignable: true`) beside the owner.
 
 # 2026-09-11 - ND-382 preview retest: the shared preview auth alias had moved to another branch's build
 
-- The follow-up retest ("couldn't mention an agent or assign a task to one") was not a branch defect: the stable preview auth alias `nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app` — the base URL in the gitignored `.tmp/.nd-preview.env` bundle — had been re-pointed after this branch's 2026-09-10 21:53Z `deploy-preview` run by the next `deploy-preview` run for another branch (`feature/nd-426-zoomable-meeting-notes`, run 34541826713, 23:22Z). Live probes at retest time: `/api/health/ready` on the alias reported revision `33c8f95` (that branch's head), and the alias returned the HTML 404 page for `GET /api/projects/{projectId}/actors/search`, because that build predates ND-382 entirely. Every `deploy-preview` run reassigns the single shared alias, so the most recent preview deploy wins.
+- The follow-up retest ("couldn't mention an agent or assign a task to one") was not a branch defect: the stable preview auth alias `nexus-dash-dorianagaesse-3732-dorian-agaesses-projects.vercel.app` â€” the base URL in the gitignored `.tmp/.nd-preview.env` bundle â€” had been re-pointed after this branch's 2026-09-10 21:53Z `deploy-preview` run by the next `deploy-preview` run for another branch (`feature/nd-426-zoomable-meeting-notes`, run 34541826713, 23:22Z). Live probes at retest time: `/api/health/ready` on the alias reported revision `33c8f95` (that branch's head), and the alias returned the HTML 404 page for `GET /api/projects/{projectId}/actors/search`, because that build predates ND-382 entirely. Every `deploy-preview` run reassigns the single shared alias, so the most recent preview deploy wins.
 - Re-ran the ND-382 preview deploy (`gh workflow run deploy-vercel.yml -f action=deploy-preview -f git_ref=feature/nd-382-active-project-agent-pickers`, run 34586620037, green incl. migrations, readiness, and alias steps) to re-point the alias. Live verification on the alias: readiness revision `8e339cd`, agent token exchange 200 for the bundle credential, and `GET /api/projects/{projectId}/actors/search?query=` returning the active agent credential (kind `agent`, label `test`, `isAssignable: true`, no secret material) alongside the owner and editor humans. The same payloads came from the immutable ND-382 deployment `nexus-dash-p6t2sbdyh-...` before the alias flip, so the RLS-safe read holds in the real preview database.
 - Expected retest surfaces on the fixed build: mention autocomplete shows the agent row `aria-disabled` with "mention support coming soon" (ND-383 owns persistence), task assignee pickers show it disabled ("Agent task assignment is not available yet", ND-384 owns persistence), and meeting-todo assignee chips keep the agent selectable (existing behavior preserved per AC2 / Out Of Scope).
-- Merged `origin/main` forward (now d64dbb3: epic-docs `Recommended order:` convention plus two dependency bumps) — only `journal.md` conflicted (concurrent top-of-file entries; kept both); branch head `42d3d90`, then this docs commit.
+- Merged `origin/main` forward (now d64dbb3: epic-docs `Recommended order:` convention plus two dependency bumps) â€” only `journal.md` conflicted (concurrent top-of-file entries; kept both); branch head `42d3d90`, then this docs commit.
 
 # 2026-09-10 - ND-382 preview gap: agents absent from mention and assignee pickers
 
@@ -2731,7 +2770,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   the original rationale paragraph. Pre-rewrite descriptions are backed up in
   `tmp/nd-epic-order-backup.json` (gitignored) and every update was
   readback-verified through `GET /epics`.
-- Convention: `agent.md` gains a "Creating and refining epics" subsection —
+- Convention: `agent.md` gains a "Creating and refining epics" subsection â€”
   dependency and membership information lives in the epic's linked tasks and
   their Related Tasks relationships, never as description prose; the
   description opens with the `Recommended order:` path plus a short rationale.
@@ -2836,21 +2875,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
   focused Playwright spec run are pending before PR.
 
 - Full validation completed on the merged tree (2026-09-08): the earlier
-  pending items all passed — coverage above thresholds (statements 93.33%,
+  pending items all passed â€” coverage above thresholds (statements 93.33%,
   branches 83.82%, functions 94.63%, lines 93.63%), production build green,
   `rls:check` and `git diff --check` clean. The focused ND-438 Playwright
   spec initially failed 2/3 on a false positive: the request tracker matched
   every GET under `/api/projects/{id}/tasks/`, which also captured the
   comment fetches (`/tasks/{id}/comments`) fired after the detail dialog
   opens. Narrowed the tracker to paths whose final segment is a bare task id
-  (`/\/tasks\/[^/?#]+$/`) — spec 3/3 green, then the full e2e suite passed
+  (`/\/tasks\/[^/?#]+$/`) â€” spec 3/3 green, then the full e2e suite passed
   58/58 with 1 skipped.
 - PR #496 (https://github.com/dorianagaesse/nexus_dash/pull/496) opened
   ready-for-review from `feature/nd-438-task-by-id-fetch-deep-link` against
   `origin/main` at c676716, referencing ND-438. Copilot review round 1
   flagged one issue: the remote-fetch deep-link path did not clear
   `shouldOpenTaskInEditModeRef` before opening the fetched task, while the
-  already-loaded path does — a stale edit-mode request from a prior
+  already-loaded path does â€” a stale edit-mode request from a prior
   same-task interaction could open the deep-linked task in edit mode.
   Fixed (a8070f5) by clearing the ref before upsert and selection, mirroring
   the already-loaded path; a dedicated regression test was not added because
@@ -2861,16 +2900,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
   thread. PR #496 was blocked by the repository rulesets because the
   review thread stayed open (`required_review_thread_resolution` on the
   Main protection ruleset); resolving the thread cleared the block and the
-  PR merge state is clean on head a8070f5 with all CI checks green — the
+  PR merge state is clean on head a8070f5 with all CI checks green â€” the
   `copilot_code_review` rule is satisfied by round 1 on the reviewed head,
   so no further review round is required.
 
 - Mainline merge (2026-09-08): while ND-438 was in review, ND-424 landed on
-  `origin/main` as 37f5cd9 via PR #492 (v0.61.0 — the version ND-438 had
+  `origin/main` as 37f5cd9 via PR #492 (v0.61.0 â€” the version ND-438 had
   claimed), making PR #496 CONFLICTING. Merged `origin/main` into the branch
   (no history rewrite): product code auto-merged (`lib/agent-onboarding.ts`
   catalog regions, `lib/services/project-task-service.ts`, agent tests),
-  and the overlapping release/doc files were reconciled by hand —
+  and the overlapping release/doc files were reconciled by hand â€”
   `tasks/current.md` composed as the ND-438 delivered brief on top of
   origin/main's ND-424 brief and snapshot chain, CHANGELOG renumbered
   ND-438's entry from v0.61.0 to v0.62.0 above ND-424's v0.61.0 entry, and
@@ -2887,7 +2926,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Merged `origin/main` at c676716 after ND-427 landed through PR #494
   (v0.60.0). Conflicts were confined to the top-of-file docs and release
   collisions: CHANGELOG, journal, package.json / package-lock.json, and
-  `tasks/current.md`. Product code merged cleanly — ND-424's task-update
+  `tasks/current.md`. Product code merged cleanly â€” ND-424's task-update
   `attachmentLinks` append is independent of the ND-178 / ND-376 / ND-381 /
   ND-407 / ND-427 mainline changes.
 - `tasks/current.md` keeps the ND-424 brief active, with main's ND-427 brief
@@ -2901,16 +2940,16 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Preview acceptance ran against the PR #492 head deployed to
   nexus-dash-5aifahhbx-dorian-agaesses-projects.vercel.app
   (`deploy-vercel.yml` `deploy-preview` run 34234352574,
-  `git_ref=feature/nd-424-agent-link-attachments`): 14/14 checks passed —
+  `git_ref=feature/nd-424-agent-link-attachments`): 14/14 checks passed â€”
   token exchange, health, OpenAPI documenting
   `TaskUpdateRequest.attachmentLinks`, PATCH append with read-back in the
   same response, persistence in the task list, append-only preservation of
   existing attachments, hostname-derived default names, 400
   `attachment-link-invalid` with nothing written, and creation-time
-  `attachmentLinks` unchanged — plus a status-transition spot check via POST
+  `attachmentLinks` unchanged â€” plus a status-transition spot check via POST
   (the status route is POST-only; unchanged from main).
 - Local validation on the reconciled tree (dockerized PostgreSQL on 5432
-  with the runbook env): lint, `rls:check`, `release:check` (v0.60.0 →
+  with the runbook env): lint, `rls:check`, `release:check` (v0.60.0 â†’
   v0.61.0), and `git diff --check` clean; 1,374 Vitest tests passed (2
   skipped) across 184 files; coverage 93.33% statements / 83.76% branches /
   95.27% functions / 93.64% lines; production build green. The ND-424
@@ -2956,7 +2995,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - No schema/RLS/UI/auth/upload changes, so the real-PostgreSQL RLS matrix
   and Playwright were not required by the runbook criteria.
 - PR #492 opened with "closes #486". Copilot review round: one thread on
-  agent.md flagged the guidance calling attachment removal kanban-UI-only —
+  agent.md flagged the guidance calling attachment removal kanban-UI-only â€”
   stale, since the dedicated attachment DELETE route already serves agents.
   The text now points agents at the DELETE route and scopes the UI-only
   claim to in-place link editing (ND-425); fixed in 2464a84 with a reply on
@@ -2999,7 +3038,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   after each transition. Updated the shell contract, component coverage, and
   authenticated-shell/bounded-lane browser specs.
 - Validation passed against the Dockerized PostgreSQL database on port 5432:
-  lint; RLS inventory; version policy (v0.58.0 → v0.59.0); `git diff --check`;
+  lint; RLS inventory; version policy (v0.58.0 â†’ v0.59.0); `git diff --check`;
   1,360 Vitest tests with 2 skipped; coverage at 93.21% statements, 83.58%
   branches, 94.59% functions, and 93.52% lines; production build; and all 9
   focused Chromium tests. The first browser attempt reached an unrelated Open
@@ -3014,7 +3053,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 - Started on `feature/nd-407-task-title-cap-and-ellipsis` from `origin/main`
   at 446637f (ND-381 merged / v0.58.0). The Nexus Dash board card ND-407
-  (feature label, related to ND-387 — the task-authoring quality contract
+  (feature label, related to ND-387 â€” the task-authoring quality contract
   doc) is the source of truth; flipped to In Progress via the agent API
   (status transition endpoint). Board credentials live in
   `.config/.nd-access.env` (NEXUSDASH_* contract, same keys as the committed
@@ -3046,7 +3085,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Playwright `next start`, so the server ran on port 3100 with
   `PLAYWRIGHT_BASE_URL` pointed there (the auth helper keys cookie origin
   off that variable); and `next start` needs `NODE_ENV=test` plus only the
-  runbook vars — adding dummy Google OAuth vars trips the production
+  runbook vars â€” adding dummy Google OAuth vars trips the production
   `GOOGLE_TOKEN_ENCRYPTION_KEY` runtime guard and 500s every page. The
   ND-407 spec also fixed one strict-mode locator: the dialog carries the
   full legacy title twice (sr-only accessible `h2` + visible `h3`), so the
@@ -3060,7 +3099,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Version advanced to v0.59.0 (2026-09-08 CHANGELOG entry) over origin/main
   v0.58.0; branch pushed as PR #495 (ready for review); Nexus Dash board
   card ND-407 flipped to Done with the PR link in its description.
-- Copilot review round handled (PR #495): one finding — the create dialog's
+- Copilot review round handled (PR #495): one finding â€” the create dialog's
   too-short/too-long client guards returned after `setIsSubmitting(true)`,
   so a trimmed-invalid title (e.g. "a " passes native `minLength` but trims
   to one character) left the dialog stuck disabled on "Creating...". Fixed
@@ -3085,9 +3124,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   fixed with regression coverage:
   - Browsers keep text typed before the first Enter as a bare root text
     node, so a stored section could open with unwrapped text
-    (`Scope risks:<ul>…`). `coerceRichTextHtml` now wraps root-level bare
+    (`Scope risks:<ul>â€¦`). `coerceRichTextHtml` now wraps root-level bare
     text runs in paragraphs via a DOM container (a `div` rather than a
-    `<template>` fragment — jsdom does not implement `innerHTML` on
+    `<template>` fragment â€” jsdom does not implement `innerHTML` on
     `DocumentFragment`, which initially returned `undefined` and blanked
     read-only sections in the jsdom component suite). The meeting-panel save
     payloads coerce editor HTML client-side so canonicality holds on write
@@ -3095,8 +3134,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   - The mention e2e initially targeted the signed-in actor, who is excluded
     from mention suggestions by design; the spec now seeds a second project
     member and mentions them (membership role `editor`).
-  - The preview helper joined sections with ` • ` while list segments carry
-    their own leading bullet, doubling to `par. • • item`; the join now
+  - The preview helper joined sections with ` â€¢ ` while list segments carry
+    their own leading bullet, doubling to `par. â€¢ â€¢ item`; the join now
     drops the separator before bullet-led segments, with regression unit
     coverage for single and multi-item lists.
 - Full validation passed (2026-09-07): lint, `rls:check`, `release:check`,
@@ -3115,7 +3154,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - `origin/main` advanced past the fork with ND-379 (PR #491, merged 00:32
   +0200), which took the v0.55.0 minor. Merged `origin/main` into the branch:
   conflicts were confined to the top-of-file docs
-  collisions — `journal.md` keeps the ND-376 dated entries above the ND-379
+  collisions â€” `journal.md` keeps the ND-376 dated entries above the ND-379
   entry; `tasks/current.md` keeps the ND-376 brief active with the ND-379
   brief preserved verbatim as the previous snapshot (itself preserving the
   ND-421 brief); the CHANGELOG's per-side v0.55.0 sections were deduplicated
@@ -3132,7 +3171,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 - User review of the PR #490 picker asked for three changes: one uniform
   option list with no distinction between project members, agents, and
-  external participants (no subtitles — the avatar already distinguishes
+  external participants (no subtitles â€” the avatar already distinguishes
   kinds); the popover list did not actually scroll; and its scrollbar did
   not match the app-wide slim styling. Reworked
   `components/meeting-todos/meeting-todo-assignee-chip.tsx`: the three
@@ -3148,7 +3187,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   option per actor plus Unassigned, absence of every former header/subtitle
   string, and that the listbox element is the scroll container with the
   slim scrollbar tokens; existing popover tests now assert the uniform list.
-  The e2e spec's option locators were rewritten for the flat list — the
+  The e2e spec's option locators were rewritten for the flat list â€” the
   external participant option is matched by its own name (`/^Dorian$/`) and
   the fixture member by its username tag (`/#\d+/` filter), because
   `mapTaskPersonSummary` prefers `username` over `name` as displayName, so
@@ -3156,7 +3195,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Branch was reconciled with `origin/main` first (merge 380ee21 pulling in
   ND-421 #487 / v0.54.1); conflicts were confined to release metadata
   (kept v0.55.0), `journal.md`, and the `tasks/current.md` brief chain
-  (rebuilt ND-376 → ND-421 → ND-408 → TASK-342). CHANGELOG v0.55.0 and the
+  (rebuilt ND-376 â†’ ND-421 â†’ ND-408 â†’ TASK-342). CHANGELOG v0.55.0 and the
   task brief's Product Decisions/Scope/AC/DoD wording now describe the
   uniform list and scrolling behavior.
 
@@ -3174,7 +3213,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   participants (`userId: null`) of the *same* meeting note at write time;
   `assigneeDisplayNameSnapshot` preserves the canonical spelling after later
   renames/removal. Notes rewrite participants wholesale on save
-  (`deleteMany` + `create`), so no FK is possible — the snapshot pattern is
+  (`deleteMany` + `create`), so no FK is possible â€” the snapshot pattern is
   reused. Once the name leaves the note the assignee renders inactive with
   the needs-reassignment affordance (member-left semantics).
 - Service surface: `buildExternalParticipantMeetingTodoActor` +
@@ -3185,7 +3224,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   panel through the assignee chip (new "Meeting participants" group with
   muted `external` hint mirroring agents; identity rows suffix " (external)").
   Members/agents stay canonical options even when a member attends the
-  meeting; the `participant` kind is assignee-only — creators, completers,
+  meeting; the `participant` kind is assignee-only â€” creators, completers,
   stewards remain human/agent.
 - Coverage: lib suites (actor domain, actor-service mapping/resolution,
   note-service assignment + create/update draft validation, todo-service
@@ -3198,7 +3237,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   section (2026-09-06) describing the feature.
 - Validation (2026-09-06): full local baseline green against the dockerized
   PostgreSQL (host port 55432) with app env merged from the main checkout's
-  `.env` and local DB/placeholder overrides — lint, rls:check, release:check,
+  `.env` and local DB/placeholder overrides â€” lint, rls:check, release:check,
   `git diff --check` clean; Vitest 178 files / 1304 tests passed; coverage
   statements 92.93%; production build green; full Playwright suite 47 passed /
   1 skipped, including the new external-assignee spec. Unit tests need the
@@ -3256,12 +3295,12 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - PR #485 merged into main on 2026-09-05 (CLAUDE.md/agent.md Nexus Dash
   task-management guidance). Merged `origin/main` into
   `fix/nd-421-kanban-lane-scrollbar-styling` (0b992fb): the only conflict was
-  `journal.md`, where both sides had added top-of-file dated entries — kept
+  `journal.md`, where both sides had added top-of-file dated entries â€” kept
   #485's 2026-09-05 entries above the ND-421 2026-09-04 entry. CLAUDE.md and
   agent.md auto-merged; no product-code conflict.
 - The Quality Gates run for the pre-reconciliation docs commit cbf7f03 failed
-  exactly one E2E Smoke assertion — home-entry `data-link-count > 780` on the
-  animated node field — which the docs-only delta cannot have caused; Quality
+  exactly one E2E Smoke assertion â€” home-entry `data-link-count > 780` on the
+  animated node field â€” which the docs-only delta cannot have caused; Quality
   Core and Tenant Isolation were green on that same head. The fresh Quality
   Gates run on the reconciled head passed in full (Quality Core, E2E Smoke,
   Tenant Isolation, Container Image, check-name), confirming the failure as a
@@ -3271,7 +3310,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `origin/main` into the branch again; conflicts were confined to release
   metadata and the task brief:
   - Version retarget: main now carries v0.53.0, so the fix release was
-    retargeted from v0.52.1 to v0.53.1 — took main's package.json/
+    retargeted from v0.52.1 to v0.53.1 â€” took main's package.json/
     package-lock.json (0.53.0) and re-ran `npm run release:version -- fix`
     (0.53.0 -> 0.53.1); the CHANGELOG bullet moved from the obsolete
     `v0.52.1 - 2026-09-04` section into a dated `v0.53.1 - 2026-09-06`
@@ -3281,10 +3320,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
     main's ND-397 brief (including its own TASK-381 snapshot) preserved
     verbatim under Previous Task Snapshot. `journal.md` and `CHANGELOG.md`
     auto-merged; no product-code conflict.
-  - All product code merged cleanly — the Kanban scrollbar styling and the
+  - All product code merged cleanly â€” the Kanban scrollbar styling and the
     ND-397 comment overflow work touch disjoint surfaces.
 - PR #483 (ND-408 unified Kanban search/filters) merged into main on
-  2026-09-06 as v0.54.0. Merged `origin/main` a third time — from a separate
+  2026-09-06 as v0.54.0. Merged `origin/main` a third time â€” from a separate
   worktree (`../nexus_dash_nd421_wt`) because the root checkout was already
   holding another session's in-flight ND-178 work, which was left untouched.
   Conflicts again confined to release metadata and docs: version retargeted
@@ -3330,11 +3369,11 @@ Use it for important implementation milestones, blockers, validation runs, and r
 # 2026-09-05 - ND-408: mobile review iteration (popover alignment + Done button)
 
 - Second review round on the united filter bar (mobile): (1) the popover was
-  not aligned with the Filter trigger at narrow widths — empirically the
+  not aligned with the Filter trigger at narrow widths â€” empirically the
   button is centered beneath the search row and is narrower than it
   (x45/w285 vs bar x32/w311 at 375px), so a full-width panel could never line
   up; (2) unclear that selecting options was complete without clicking the
-  trigger again — user asked for an ok/close button beside the clear action.
+  trigger again â€” user asked for an ok/close button beside the clear action.
 - `kanban-filter-bar.tsx`: on viewports < 640px the popover now sizes to the
   trigger's own rect (no 360px desktop minimum), keeping it pixel-aligned
   under the button; the panel footer is now always rendered with an explicit
@@ -3346,14 +3385,14 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Validation: lint clean, targeted component suites 27/27, ND-408 Playwright
   spec 6/6 green against the dockerized PostgreSQL (port 55432). One
   pointer-drag run failed mid-suite (persisted-order poll timeout) but passed
-  in isolation and again in the full rerun — flake, not regression; the drag
+  in isolation and again in the full rerun â€” flake, not regression; the drag
   code path is untouched by this round.
 - Committed 49a9227 and pushed; PR #483 remains open.
 
 # 2026-09-05 - ND-408: popover review iteration + card brief made precise
 
 - Review feedback on the united filter bar: (1) with several labels/epics the
-  popover opened "way above" the Filter trigger — the old flip rule estimated
+  popover opened "way above" the Filter trigger â€” the old flip rule estimated
   up to 480px of content and switched to above whenever that did not fit
   below, stretching the panel to the top of the viewport; (2) a single-column
   row list would not scale to tens of labels/epics. User direction: anchor
@@ -3377,7 +3416,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Nexus Dash card ND-408 was title-only; rewritten per the task-authoring
   contract in `agent.md` with an HTML rich-text description (Rationale, Scope
   incl. this review iteration, 7 numbered Acceptance Criteria, Definition of
-  Done) plus the `feature` label. Note: card descriptions are rich text —
+  Done) plus the `feature` label. Note: card descriptions are rich text â€”
   plain-text angle brackets are parsed as tags and stripped/escaped.
 
 
@@ -3388,7 +3427,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   surface: agents can attach links only at task creation through
   `attachmentLinks`; PATCH `/tasks/{id}` has no `attachmentLinks`, and the
   kanban Add-link route (`POST /tasks/{id}/attachments`) requires a user
-  session and rejects agent bearer credentials — so the link had to be added
+  session and rejects agent bearer credentials â€” so the link had to be added
   manually in the UI by the user.
 - Filed GitHub issue #486 with Nexus Dash ND-424 (feature), "Allow agents to
   attach link attachments to existing tasks," created with the issue attached
@@ -3403,7 +3442,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
 
 - Per user request (direct, no board card), applied a docs PR to CLAUDE.md.
   Motivation: CLAUDE.md is autoloaded by Claude Code while agent.md is not,
-  yet both must stay current because Codex reads agent.md and not CLAUDE.md —
+  yet both must stay current because Codex reads agent.md and not CLAUDE.md â€”
   so the Nexus Dash task-management guidance now lives in both files as
   compressed stable facts rather than a single volatile copy.
 - Added a "Task Management (Nexus Dash)" section (source-of-truth kanban,
@@ -3413,7 +3452,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `rls:check`, docs-only exemption, e2e flows, RLS matrix runbook pointer, and
   `git diff --check` clean.
 - Removed the stale project.md pointer "(TASK-124/126/127/131)" from the
-  context file map — those priorities now live in the Nexus Dash kanban.
+  context file map â€” those priorities now live in the Nexus Dash kanban.
 - Prettier-formatted the file map table; validation limited to `prettier
   --check` and `git diff --check` (docs-only change).
 
@@ -3498,7 +3537,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   and Tenant Isolation checks passed on the final head (cbf7f03); the E2E
   Smoke run for that head failed a single count-based home-entry assertion
   (`data-link-count > 780` on the animated node field) that this docs-only
-  delta cannot have caused — re-run on the reconciled head, outcome recorded
+  delta cannot have caused â€” re-run on the reconciled head, outcome recorded
   below.
 
 
@@ -3632,7 +3671,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   DATABASE_URL/DIRECT_URL parity and a GOOGLE_TOKEN_ENCRYPTION_KEY placeholder
   when Google OAuth env vars are present.
 - Branch pushed; PR #459 re-checked for mergeability. Copilot review remains
-  unavailable (credits exhausted) — the user will run the replacement DeepSeek
+  unavailable (credits exhausted) â€” the user will run the replacement DeepSeek
   review after delivery.
 
 # 2026-09-02 - TASK-342 PR #451: provenance chip restyle, main merge, review closeout
@@ -3675,7 +3714,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   text on dark chips.
 - Confirmed agent attribution already works end-to-end: the projection carries
   `kind: "agent"` with the credential label, and the chip renders the agent
-  avatar for agent-authored cards — no new actor-identity task needed.
+  avatar for agent-authored cards â€” no new actor-identity task needed.
 - Deleted `context-card-review-badge.tsx`, `context-card-steward-picker.tsx`,
   and the steward controls test; added `context-card-provenance.test.tsx`
   covering agent/human attribution, timestamps, fallbacks, and the modal/grid
@@ -3688,8 +3727,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   key, a pre-existing script gap (the check only fires when `GOOGLE_CLIENT_ID`
   is set, so CI is unaffected).
 - CI Quality Gates initially caught a locale-dependent assertion in the new
-  provenance test (`/·\s*\d/` matched day-first locales like "1 août" but not
-  en-US "Aug 1"); fixed to `/·\s*\S/` and re-verified green.
+  provenance test (`/Â·\s*\d/` matched day-first locales like "1 aoÃ»t" but not
+  en-US "Aug 1"); fixed to `/Â·\s*\S/` and re-verified green.
 - Worktree gotcha resolved: a CRLF-checked-out `scripts/validate-supabase-project-ref.mjs`
   broke vitest's transform (`SyntaxError: Invalid or unexpected token`);
   normalizing that file to LF fixed it without content change.
@@ -3783,7 +3822,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   delete; update/status are idempotent while create is not.
 - Decision: the shared `MAX_BULK_TASK_OPERATIONS` constant lives in
   `lib/task-bulk.ts` (re-exported by `project-task-service`) because
-  `agent-onboarding.ts` is imported by client components — importing the
+  `agent-onboarding.ts` is imported by client components â€” importing the
   service pulled prisma/pg into the client bundle and broke the Turbopack
   build with unresolvable `fs`/`dns` builtins. This client/server boundary
   is noted for future contract constants.
@@ -3906,7 +3945,7 @@ Use it for important implementation milestones, blockers, validation runs, and r
   labels, epic membership, descriptions, attachment links, and the full
   relation closure.
 - Follow-up refinement: every task now carries a work-type label
-  (`feature`, `fix`, `docs`, `refactor`, `chore`) — delivered tasks use the
+  (`feature`, `fix`, `docs`, `refactor`, `chore`) â€” delivered tasks use the
   prefix of their merged PR branch, the rest were classified by content
   (TASK-372 stays untyped pending clarification). Task descriptions dropped
   the `Dependencies:` (relations carry it) and `Section:` (the kanban lane
@@ -4160,8 +4199,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   workflow runs for `main`, TASK-342, and TASK-356 emitted different immutable
   URLs whose Vercel target is `preview` and whose logs show the requested refs
   were checked out.
-- Vercel Preview and Production use distinct Supabase refs (`dikde…` and
-  `ixhy…` respectively), but Preview still had `NEXTAUTH_URL` pinned to the
+- Vercel Preview and Production use distinct Supabase refs (`dikdeâ€¦` and
+  `ixhyâ€¦` respectively), but Preview still had `NEXTAUTH_URL` pinned to the
   stale alias. TASK-370 removes that static preview-origin dependency, adds an
   expected-project-ref deployment pin, and makes preview artifact publication
   contingent on target/revision/environment/database-readiness validation.
@@ -4306,8 +4345,8 @@ calendar` case; `tests/api/calendar-event-id.route.test.ts` has parallel
   `/projects/[id]` render with Next.js error digest `1277004625` (and
   `2548249264` after redeploy). Vercel function logs were the only signal:
   responses returned 200 while the body carried `PrismaClientKnownRequestError`
-  `P2021` — `The table public.GoogleCalendarCredential does not exist in the
-current database` — from `prisma.googleCalendarCredential.findUnique()` in
+  `P2021` â€” `The table public.GoogleCalendarCredential does not exist in the
+current database` â€” from `prisma.googleCalendarCredential.findUnique()` in
   `getProjectSummaryById`.
 - Root cause is missing schema in the staging database that backs the preview
   runtime. `MIGRATION_DATABASE_URL` and `DATABASE_URL` are deliberately
@@ -4493,7 +4532,7 @@ rls:check` passed; documentation diff checks passed.
   and the unit/service/notification-dispatcher tests.
 - Copilot review (commit `debdfc4`) flagged a real semantic drift: the
   dispatcher candidate query used calendar-date midnight boundaries
-  while the UI uses precise `now - scheduledAt ≥ 24h` math. With a
+  while the UI uses precise `now - scheduledAt â‰¥ 24h` math. With a
   seven-day grace the drift was at most seven hours; with a one-day
   grace it could be nearly a full day, meaning a meeting scheduled
   yesterday evening could be picked up by the dispatcher before the UI
@@ -5158,7 +5197,7 @@ rls:check` passed; documentation diff checks passed.
   or query state.
 - Finding: The account menu, awareness banner, notification center, Account,
   and Settings use hard-coded parent destinations. Native browser Back correctly
-  restores the source project, proving that the visible in-product “Back” links
+  restores the source project, proving that the visible in-product â€œBackâ€ links
   provide weaker context preservation than browser history and are labeled like
   history while acting as hierarchy jumps.
 - Adjacent risk: Opening a notification target correctly deep-links to a project
@@ -8422,7 +8461,7 @@ Low-value entries to avoid going forward:
   `fix/task-341-related-task-scroll`. GitHub auto-closed PR #412 when the
   branch was deleted and the API refuses to reopen it ("state cannot be
   changed. The branch was force-pushed or recreated"), which is a known
-  GitHub limitation — the equivalent UI action would be a single "Reopen
+  GitHub limitation â€” the equivalent UI action would be a single "Reopen
   pull request" click.
 - Per the user's decision, opened the rebased commits on a fresh
   `fix/task-341-related-task-scroll-r2` branch as PR
@@ -8522,7 +8561,7 @@ Low-value entries to avoid going forward:
   the Acceptance Criteria/Definition of Done in `tasks/current.md`; bumped the
   backlog entry to Now 1.
 - Added the `ContextCardActorKind` enum and 13 stewardship/provenance columns
-  on `Resource` (creator/lastEditor/steward × user/credential/kind/snapshot,
+  on `Resource` (creator/lastEditor/steward Ã— user/credential/kind/snapshot,
   plus `updatedAt`). Added `uploadedByKind` and
   `uploadedByDisplayNameSnapshot` to `ResourceAttachment` with a CHECK
   constraint enforcing human-only uploads. Migration
@@ -8546,7 +8585,7 @@ Low-value entries to avoid going forward:
 - UI: new `ContextCardActorChip`, `ContextCardReviewBadge`, and searchable
   `ContextCardStewardPicker` (combobox). Wired into the preview header and
   edit modal. Cards now show a review/steward chip strip on the grid surface.
-- Validation: `npm run lint`, `npm test` (969 passing — 27 new), `npm run
+- Validation: `npm run lint`, `npm test` (969 passing â€” 27 new), `npm run
   rls:check`, and `npm run build` all clean in the worktree.
 - PR #428 CI repair: Quality Core stopped at `release:check` because
   `package.json` had advanced to `0.38.0` while the lockfile remained at
@@ -8646,12 +8685,12 @@ Low-value entries to avoid going forward:
     `meeting-note-action-assignee-invalid` code into a steward-specific
     `meeting-note-steward-invalid` error so client-side error handling
     doesn't have to special-case the meeting-todo vocabulary.
-  - The PATCH route now requires an explicit `steward` field — missing
+  - The PATCH route now requires an explicit `steward` field â€” missing
     returns `400 meeting-note-steward-required` instead of silently
     clearing the steward.
   - Added a new route test for the missing-field case, updated the
     existing service test to expect the steward-specific error code, and
-    fixed the `unstewearded` → `unstewarded` test name typo.
+    fixed the `unstewearded` â†’ `unstewarded` test name typo.
   - `mapMeetingNoteError` now covers
     `meeting-note-steward-required` / `-invalid` /
     `meeting-note-steward-update-failed` (and continues to map the shared
@@ -8731,7 +8770,7 @@ Low-value entries to avoid going forward:
   production build.
 - Ran the focused ND-365 Playwright spec (multi-source provenance, read-only
   modal, 375 px mobile, desktop light/dark) plus calendar regression specs
-  (smoke calendar flow, TASK-327 multi-account, accessible overlays) — all
+  (smoke calendar flow, TASK-327 multi-account, accessible overlays) â€” all
   passed. The spec targets visible event cards explicitly because mobile day
   cards and desktop all-day chips coexist in the DOM with CSS breakpoint
   visibility.
@@ -8871,7 +8910,7 @@ Low-value entries to avoid going forward:
   `resolveProjectMutationActor`), then re-based the meeting-todo and
   context-card actor modules onto it as delegating shims preserving export
   surface, per-domain registry loaders (Prisma read vs
-  `app.list_project_context_card_actors`), and error codes — consumer files
+  `app.list_project_context_card_actors`), and error codes â€” consumer files
   stayed zero-diff and all 29 prior actor tests passed unchanged.
 - Schema + migration `20260906100000_task337_project_actor_identity`: nullable
   `createdBy/updatedByCredentialId` + `Label` (VarChar 80) on Task with
@@ -9147,8 +9186,8 @@ Low-value entries to avoid going forward:
   "XXX <link> YYY" rendered with paragraph breaks before and after the link.
 - Root cause: `wrapRootLevelTextNodes` in `lib/rich-text.ts` flushed bare
   root-level text before any root-level tag, so editor output that keeps text
-  and the anchor as bare root nodes (`XXX <a>…</a> YYY`) was rewritten to
-  `<p>XXX</p><a>…</a><p>YYY</p>`, manufacturing the breaks.
+  and the anchor as bare root nodes (`XXX <a>â€¦</a> YYY`) was rewritten to
+  `<p>XXX</p><a>â€¦</a><p>YYY</p>`, manufacturing the breaks.
 - The wrapper now tracks block depth and accumulates root-level inline runs
   (text plus inline elements and their nested markup) so surrounding text and
   the link share a single `<p>`; block elements and whitespace-only root nodes
@@ -9158,7 +9197,7 @@ Low-value entries to avoid going forward:
   a new component test in `tests/components/rich-text-content.test.ts`, the
   server-runtime test that had codified the split output now asserts the
   single-paragraph shape, the meeting-note budget test expects the canonical
-  `<p><strong>…</strong></p>` on write, and a new e2e case types
+  `<p><strong>â€¦</strong></p>` on write, and a new e2e case types
   "XXX https://mail.google.com YYY" through the kanban comment composer and
   asserts one rendered paragraph plus canonical stored HTML.
 - Decision: previously stored split output is not repaired because the split
@@ -9266,7 +9305,7 @@ Low-value entries to avoid going forward:
   navigation label: `AuthenticatedAppShell` passes the app metadata summary
   (`versionLabel`, `environment`, `diagnosticLabel`) to the client shell,
   which renders the clean product version in mono type plus a capitalized
-  environment qualifier outside production (`v0.73.0 · Preview`); the full
+  environment qualifier outside production (`v0.73.0 Â· Preview`); the full
   "version | environment | build sha" diagnostic label is the hover title.
   The brand row, alpha badge, and the single remaining "Workspace" section
   label are unchanged. No schema, service, or RLS change.

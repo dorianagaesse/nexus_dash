@@ -23,6 +23,43 @@ Keep UI-only or task-only notes in `journal.md`.
 - Consequences: Each use case retains its authorization and transaction scope; shared invitation queries use the caller's client and email delivery remains after commit.
 - Links: [Collaboration service ownership](./nd-190-collaboration-service-boundaries.md).
 
+## 2026-10-30 - ND-541: Tasks/Kanban domain boundary and staged modular-monolith seams
+
+- Status: Accepted; defines the architecture contract for the Tasks pilot
+  (`ND-542`, `ND-543`, `ND-544`, `ND-545`, `ND-546`) and follow-on contract
+  work (`ND-547`).
+- Context: Task and Kanban responsibilities span a 4,352-line board controller
+  (`components/kanban-board.tsx`), a 2,397-line service
+  (`lib/services/project-task-service.ts`), duplicated JSON/multipart/bulk input
+  parsing, and misplaced Task read projections inside
+  `lib/services/project-service.ts`, while `@/lib/prisma` imports must remain
+  inside `lib/services/**` under forced PostgreSQL RLS.
+- Decision: Keep the existing top-level directory layout and `@/lib/prisma`
+  service boundary (no top-level `domains/` folder migration). Decompose the
+  Tasks domain behind four low-ceremony seams:
+  1. **Transport Adapter + Canonical Command (`lib/task-contracts.ts`, `ND-542`)**
+     for JSON, `multipart/form-data`, and bulk task create/update inputs plus
+     agent OpenAPI parity (`lib/agent-onboarding.ts`).
+  2. **Cohesive Custom-Hook Controller Composition (`components/kanban/hooks/**`,
+     `ND-543`)** grouped by stateful lifecycle (board lanes/reconciliation,
+     pointer/keyboard DnD with version-fenced settlement, task selection/URL
+     sync, edit draft/live-save/recovery, and modal discussion/attachments).
+  3. **Service Facade (`lib/services/project-task-service.ts`, `ND-544`)** over
+     cohesive use-case modules under `lib/services/tasks/**`.
+  4. **Focused Task Data-Access & Projection Seam (`lib/services/tasks/task-data.ts`,
+     `ND-545`)** requiring an explicit caller `db: DbClient` (no global `prisma`
+     default, preserving `withActorRlsContext` transaction-local RLS context),
+     consolidating `projectKanbanTaskInclude` and `loadTaskMutationPayload`,
+     relocating Task queries out of `lib/services/project-service.ts` behind
+     compatibility re-exports, and providing the single persistence transform
+     seam for encrypted database persistence (`cmu389cd9000104jvk1bbipyf`).
+- Consequences: `ND-542`, `ND-543`, and `ND-544` can proceed independently with
+  per-stage rollback seams and zero route/schema churn; `ND-545` sequences with
+  `ND-544`; `ND-546` codifies `no-restricted-imports` guardrails and gates
+  `ND-547`.
+- Links: [ND-541 Tasks/Kanban boundary ADR](nd-541-tasks-kanban-domain-boundary.md),
+  epic `cmuub2cab000k04l2uxmve21b`, board cards ND-541..ND-547.
+
 ## 2026-10-11 - ND-455: RLS-safe actor projections for non-owner project members
 
 - Status: Accepted; records the shipped ND-382 implementation
@@ -251,7 +288,7 @@ Keep UI-only or task-only notes in `journal.md`.
   current state, pagination, dedup).
 - Decision: Add a dedicated `attention:read` scope and two read endpoints
   (`agent-attention/mentions`, `agent-attention/assignments`) that are
-  implicitly scoped to the authenticated credential — no credential id is
+  implicitly scoped to the authenticated credential â€” no credential id is
   accepted as input, and the credential identity comes from the bearer token
   only, re-validated per request. Items expose a stable per-artifact dedup
   key (`mention:<id>`, `assignment:task:<id>`,
@@ -271,8 +308,8 @@ Keep UI-only or task-only notes in `journal.md`.
 - Consequences: Credential revocation or expiry immediately blocks reads
   while historical mention and assignment rows stay intact for project
   governance views; agents get attention reads with no board or write
-  capability. Cursors are opaque by design — clients dedup by item id, never
-  by cursor — so cursor encoding can evolve behind the versioned payload.
+  capability. Cursors are opaque by design â€” clients dedup by item id, never
+  by cursor â€” so cursor encoding can evolve behind the versioned payload.
 - Links: board card ND-385, epic "Agent mentions, assignment, and attention
   API"; predecessor decisions ND-383 and ND-384.
 
@@ -284,7 +321,7 @@ Keep UI-only or task-only notes in `journal.md`.
   provenance. Assigning work to an agent had to record the credential identity
   (never its human owner) and survive credential rename or revocation without
   rewriting history.
-- Decision: Model task assignment on the meeting-todo actor CHECK pattern —
+- Decision: Model task assignment on the meeting-todo actor CHECK pattern â€”
   mutually exclusive `assigneeUserId` vs. `assigneeCredentialId` columns plus
   `assigneeKind` and a durable `assigneeDisplayNameSnapshot`, with parallel
   `assignedBy*`/`assignedAt` provenance on both `Task` and
@@ -341,7 +378,7 @@ Keep UI-only or task-only notes in `journal.md`.
   whole submission (`task-comment-agent-mention-invalid`). Persistence is a
   new `TaskCommentAgentMention` table storing the mention, the target
   credential, and durable label/actor snapshots with `ON DELETE SET NULL`
-  credential FKs. Idempotency is a documented invariant — at most one event
+  credential FKs. Idempotency is a documented invariant â€” at most one event
   per (comment, credential) enforced by `@@unique([commentId,
   agentCredentialId])` plus `createMany({ skipDuplicates: true })`; the
   replace-style sync removes only live rows outside the desired set and never
@@ -393,9 +430,9 @@ Keep UI-only or task-only notes in `journal.md`.
   modules, and agent-executed task mutations persisted only the credential
   owner's user id on the task row, losing the acting agent from provenance.
 - Decision: Introduced one project-scoped actor contract
-  (`lib/project-actor.ts` + `lib/services/project-actor-service.ts`) —
+  (`lib/project-actor.ts` + `lib/services/project-actor-service.ts`) â€”
   shared kind/status/reference vocabulary, registry building, resolution, and
-  a mutation-actor resolver — and re-based the meeting-todo and context-card
+  a mutation-actor resolver â€” and re-based the meeting-todo and context-card
   actor modules onto it as delegating shims that keep their export surface,
   domain-specific registry loaders (Prisma read vs. the
   `list_project_context_card_actors` SQL projection), and error codes
@@ -529,7 +566,7 @@ Keep UI-only or task-only notes in `journal.md`.
   state as "My calendar" so users understand it is a personal overlay. The
   mutation routes (`POST` / `PATCH` / `DELETE`) drop the `minimumRole:
   "editor"` requirement down to `viewer` so the user's own Google write
-  scope — not the project editor role — is the only authorization to
+  scope â€” not the project editor role â€” is the only authorization to
   mutate their private calendar. Project access is retained only so the
   dashboard can scope the request to a project the caller can see. Tests
   add a viewer success path and an explicit `insufficient-scope` row. The
@@ -1107,8 +1144,8 @@ Keep UI-only or task-only notes in `journal.md`.
 - Context: ND-373 delivered private Supabase Realtime Broadcast behind
   `REALTIME_TRANSPORT`, keeping the legacy SSE routes as an intermediate
   fallback tier. The SSE path is the previous architecture's dominant Fluid
-  compute cost driver — one server function per open tab polling PostgreSQL
-  every second — and its migration window closes with ND-374.
+  compute cost driver â€” one server function per open tab polling PostgreSQL
+  every second â€” and its migration window closes with ND-374.
 
 - Decision: Deleted both SSE route handlers
   (`/api/projects/[projectId]/activity/stream`,
