@@ -63,7 +63,11 @@ import {
   readApiError,
   type TaskColumns,
 } from "@/components/kanban-board-utils";
-import { mergeSubmittedTaskComment } from "@/components/kanban-board-comments";
+import {
+  isOptimisticTaskCommentRepresented,
+  mergeFetchedTaskComments,
+  mergeSubmittedTaskComment,
+} from "@/components/kanban-board-comments";
 import { reconcileBilateralTaskRelations } from "@/components/kanban-board-related";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
@@ -474,28 +478,6 @@ function readRemoteReorderPayload(
   }
 
   return nextColumns;
-}
-
-function mergeFetchedTaskComments(
-  fetchedComments: TaskComment[],
-  currentComments: TaskComment[]
-): TaskComment[] {
-  const commentsById = new Map<string, TaskComment>();
-
-  fetchedComments.forEach((comment) => {
-    commentsById.set(comment.id, comment);
-  });
-
-  currentComments.forEach((comment) => {
-    if (!commentsById.has(comment.id)) {
-      commentsById.set(comment.id, comment);
-    }
-  });
-
-  return Array.from(commentsById.values()).sort(
-    (left, right) =>
-      new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
-  );
 }
 
 function getAttachmentLinkName(url: string): string {
@@ -3447,11 +3429,17 @@ export function KanbanBoard({
         }));
 
         if (selectedTask?.id === commentPayload.taskId && commentPayload.comment) {
-          setTaskComments((previousComments) =>
-            previousComments.some((comment) => comment.id === commentPayload.comment?.id)
-              ? previousComments
-              : [...previousComments, commentPayload.comment as TaskComment]
-          );
+          const incomingComment = commentPayload.comment;
+          setTaskComments((previousComments) => {
+            if (previousComments.some((comment) => comment.id === incomingComment.id)) {
+              return previousComments;
+            }
+            const withoutRepresentedOptimistic = previousComments.filter(
+              (comment) =>
+                !isOptimisticTaskCommentRepresented(comment, [incomingComment])
+            );
+            return [...withoutRepresentedOptimistic, incomingComment];
+          });
         }
 
         detail.markHandled();
