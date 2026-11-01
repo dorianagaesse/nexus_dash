@@ -14,8 +14,9 @@ Use it for important implementation milestones, blockers, validation runs, and r
   responsibility-aware offboarding, and email delivery after commit.
 - Reorganized the existing collaboration regressions by use case, added member
   authorization and same-client offboarding-order checks, and added a browser
-  invitation-to-membership lifecycle. Focused tests pass (21 tests); the full
-  validation baseline is in progress.
+  invitation-to-membership lifecycle. Focused tests pass (21 tests), along with
+  lint, RLS inventory, and the real PostgreSQL isolation matrix. Full delivery
+  evidence is tracked in [PR #643](https://github.com/dorianagaesse/nexus_dash/pull/643).
 - The dedicated local RLS database needed the Realtime stub installed before
   migrations, matching CI; rebuilt only `nexusdash_nd190` in that order.
 
