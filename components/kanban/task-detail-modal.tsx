@@ -1618,9 +1618,15 @@ function TaskReadOnlyContent({
     ]
   );
 
-  const commentDraftAttachmentIds = new Set(
-    commentAttachments.map((attachment) => attachment.id)
+  const renderedCommentAttachmentIds = new Set(
+    taskComments.flatMap((comment) =>
+      (comment.attachments ?? []).map((attachment) => attachment.id)
+    )
   );
+  const commentDraftAttachmentIds = new Set([
+    ...commentAttachments.map((attachment) => attachment.id),
+    ...renderedCommentAttachmentIds,
+  ]);
   const taskAttachments = selectedTask.attachments.filter(
     (attachment) =>
       !attachment.commentId && !commentDraftAttachmentIds.has(attachment.id)
@@ -1631,10 +1637,13 @@ function TaskReadOnlyContent({
   const supplementaryAttachments = taskAttachments.filter(
     (attachment) => !isImageAttachment(attachment.kind, attachment.mimeType)
   );
-  const commentImages = commentAttachments.filter((attachment) =>
+  const visibleCommentDraftAttachments = commentAttachments.filter(
+    (attachment) => !renderedCommentAttachmentIds.has(attachment.id)
+  );
+  const commentImages = visibleCommentDraftAttachments.filter((attachment) =>
     isImageAttachment(attachment.kind, attachment.mimeType)
   );
-  const commentFiles = commentAttachments.filter(
+  const commentFiles = visibleCommentDraftAttachments.filter(
     (attachment) => !isImageAttachment(attachment.kind, attachment.mimeType)
   );
   const pendingCommentImages = pendingCommentAttachmentUploads.filter((upload) =>
@@ -1646,7 +1655,8 @@ function TaskReadOnlyContent({
   const hasAttachments = supplementaryAttachments.length > 0;
   const hasRelatedTasks = selectedTask.relatedTasks.length > 0;
   const hasCommentDraftAttachments =
-    commentAttachments.length > 0 || pendingCommentAttachmentUploads.length > 0;
+    visibleCommentDraftAttachments.length > 0 ||
+    pendingCommentAttachmentUploads.length > 0;
   const commentDraftText = richTextToPlainText(newTaskComment);
   const commentDraftTooLong =
     commentDraftText.length > MAX_TASK_COMMENT_LENGTH;
@@ -1765,7 +1775,7 @@ function TaskReadOnlyContent({
             </span>
           </div>
 
-          {isLoadingTaskComments ? (
+          {isLoadingTaskComments && taskComments.length === 0 ? (
             <p className="text-xs text-muted-foreground">Loading comments...</p>
           ) : taskComments.length > 0 ? (
             <div className="space-y-2.5">

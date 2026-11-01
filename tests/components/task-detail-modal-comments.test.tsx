@@ -1107,5 +1107,50 @@ describe("TaskDetailModal comments", () => {
         root.unmount();
       });
     });
+
+    test("does not duplicate a draft attachment in the composer while an optimistic comment already renders it", async () => {
+      const { root } = createTestRenderer();
+      const pastedImage = {
+        id: "attachment-paste-1",
+        kind: "file" as const,
+        name: "comment-paste.png",
+        url: null,
+        mimeType: "image/png",
+        sizeBytes: 128,
+        downloadUrl: "/api/projects/project-1/tasks/task-1/attachments/attachment-paste-1",
+      };
+      const optimisticComment: TaskComment = {
+        id: "optimistic-comment-1",
+        content: "",
+        createdAt: "2026-05-31T10:05:00.000Z",
+        author: {
+          ...ownerSummary,
+          kind: "user",
+        },
+        reactions: [],
+        attachments: [pastedImage],
+      };
+
+      taskForRender = {
+        ...baseTask,
+        attachments: [pastedImage],
+      };
+
+      await renderWithRoot(root, [optimisticComment], {
+        canEdit: true,
+        currentActorUserId: "owner-1",
+        commentAttachments: [pastedImage],
+        isLoadingTaskComments: true,
+      });
+
+      const previewButtons = document.querySelectorAll(
+        "button[aria-label='Preview image comment-paste.png']"
+      );
+      expect(previewButtons).toHaveLength(1);
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
   });
 });
