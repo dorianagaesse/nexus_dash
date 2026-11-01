@@ -42,6 +42,38 @@ Use it for important implementation milestones, blockers, validation runs, and r
   `db: DbClient` parameter on internal `task-data.ts` helpers so queries never
   escape `withActorRlsContext`.
 
+# 2026-10-30 - ND-645: match task comment edit mode to comment composer without toolbar
+
+- Created ND-645 on the Nexus Dash board and moved it to In Progress after
+  observing that inline task comment editing rendered the full rich-text
+  formatting toolbar and default tall editor frame instead of matching the
+  comment creation composer.
+- Updated `TaskReadOnlyContent` in `components/kanban/task-detail-modal.tsx` so
+  the inline comment edit `RichTextEditor` passes `hideToolbar`,
+  `className="space-y-0"`, and
+  `editorClassName="min-h-11 border-0 focus-visible:border-transparent"`,
+  matching comment creation while retaining inline auto-bullet (`- ` and `* `)
+  conversion.
+- Added component regression coverage in
+  `tests/components/task-detail-modal-comments.test.tsx` verifying that
+  formatting toolbar buttons are hidden in edit mode and that typing `- `
+  converts the comment line into a `<ul><li>` bullet list before saving.
+- Fixed an E2E CI failure on PR #640 in
+  `tests/e2e/nd-144-screenshot-attachments.spec.ts` where optimistic comment
+  submission briefly rendered duplicate `Preview image comment-paste.png`
+  buttons across the composer draft preview, the optimistic comment, and a
+  concurrent `GET /comments` refresh:
+  - Filtered already-rendered comment attachment IDs out of the composer draft
+    preview and task attachment lists in `TaskReadOnlyContent`
+    (`components/kanban/task-detail-modal.tsx`) and kept loaded comments visible
+    during background comment refreshes.
+  - Updated `mergeFetchedTaskComments` (`components/kanban-board-comments.ts`)
+    and the remote comment activity handler (`components/kanban-board.tsx`) to
+    drop optimistic comment placeholders once a fetched or streamed server
+    comment already represents the same attachment or author/content.
+- Validation passed: `npm run lint`, `npm run rls:check`, `npm test`,
+  `npm run test:coverage`, `npm run build`, and `npx playwright test`.
+
 # 2026-10-30 - ND-434: make autosave and recovery invisible
 
 - Product clarification supersedes earlier recovery-UI exceptions: no draft or
@@ -10723,3 +10755,10 @@ Low-value entries to avoid going forward:
 
 - Addressed both non-blocking nits from the LGTM review on PR #636: moved `agentCanMoveTasksToDone` below the other Project scalar fields and expanded the capability-administration test formatting.
 - Validation passed: lint, RLS inventory, all 2,202 unit/API tests (2 skipped), coverage, production build, and the PostgreSQL isolation matrix. Coverage remains 95.25% lines and 85.58% branches. Field ordering and test formatting do not change UI or auth flows; the implementation's full Playwright run remains green at `63e3d6f`.
+
+
+## 2026-10-30 - ND-611 build/runtime configuration split
+
+- Runtime configuration validation skips only Next.js production build phase; runtime module loading still validates and fails clearly. Added phase-transition regression coverage.
+- Removed obsolete polling pins from Quality Core, Docker, and all three Vercel build commands. Kept local/E2E polling for servers that run without Supabase Realtime credentials. Updated environment documentation.
+- Validation: lint, RLS inventory, 89 environment tests, and production build passed. Build used only a placeholder DATABASE_URL with DIRECT_URL, signing/email/Supabase secrets, and transport override absent. The built server returned HTTP 500 on first render and logged the missing DIRECT_URL error. Full unit/API suite passed (2,203 tests; two skipped), and coverage passed all thresholds (95.25% lines, 85.58% branches). CI tenant isolation passed.

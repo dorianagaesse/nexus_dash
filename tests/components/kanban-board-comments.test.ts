@@ -1,9 +1,28 @@
 import { describe, expect, test } from "vitest";
 
-import { mergeSubmittedTaskComment } from "@/components/kanban-board-comments";
-import type { TaskComment } from "@/components/kanban-board-types";
+import {
+  isOptimisticTaskCommentRepresented,
+  mergeFetchedTaskComments,
+  mergeSubmittedTaskComment,
+} from "@/components/kanban-board-comments";
+import type { TaskAttachment, TaskComment } from "@/components/kanban-board-types";
 
-function createComment(id: string): TaskComment {
+function createAttachment(id: string): TaskAttachment {
+  return {
+    id,
+    kind: "file",
+    name: `${id}.png`,
+    url: null,
+    mimeType: "image/png",
+    sizeBytes: 120,
+    downloadUrl: `/api/attachments/${id}`,
+  };
+}
+
+function createComment(
+  id: string,
+  overrides: Partial<TaskComment> = {}
+): TaskComment {
   return {
     id,
     content: `<p>${id}</p>`,
@@ -15,10 +34,64 @@ function createComment(id: string): TaskComment {
       avatarSeed: "user-1",
     },
     reactions: [],
+    ...overrides,
   };
 }
 
 const optimisticId = "optimistic-comment-1";
+
+describe("mergeFetchedTaskComments", () => {
+  test("drops an optimistic comment when a fetched server comment carries the same attachment", () => {
+    const sharedAttachment = createAttachment("att-1");
+    const optimistic = createComment(optimisticId, {
+      content: "",
+      attachments: [sharedAttachment],
+    });
+    const persisted = createComment("comment-server-1", {
+      content: "",
+      attachments: [{ ...sharedAttachment, commentId: "comment-server-1" }],
+    });
+
+    const next = mergeFetchedTaskComments([persisted], [optimistic]);
+
+    expect(next.map((comment) => comment.id)).toEqual(["comment-server-1"]);
+  });
+
+  test("drops an optimistic comment when a fetched server comment matches author and content", () => {
+    const optimistic = createComment(optimisticId, {
+      content: "<p>Same body</p>",
+    });
+    const persisted = createComment("comment-server-1", {
+      content: "<p>Same body</p>",
+    });
+
+    expect(isOptimisticTaskCommentRepresented(optimistic, [persisted])).toBe(
+      true
+    );
+    expect(
+      mergeFetchedTaskComments([persisted], [optimistic]).map(
+        (comment) => comment.id
+      )
+    ).toEqual(["comment-server-1"]);
+  });
+
+  test("retains an unpersisted optimistic comment when fetched comments predate it", () => {
+    const existing = createComment("comment-a", {
+      createdAt: "2026-09-13T08:00:00.000Z",
+    });
+    const optimistic = createComment(optimisticId, {
+      content: "<p>Pending comment</p>",
+      createdAt: "2026-09-13T08:01:00.000Z",
+    });
+
+    const next = mergeFetchedTaskComments([existing], [existing, optimistic]);
+
+    expect(next.map((comment) => comment.id)).toEqual([
+      "comment-a",
+      optimisticId,
+    ]);
+  });
+});
 
 describe("mergeSubmittedTaskComment", () => {
   test("replaces the optimistic placeholder with the submitted comment", () => {

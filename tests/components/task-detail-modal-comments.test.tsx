@@ -1026,5 +1026,131 @@ describe("TaskDetailModal comments", () => {
         root.unmount();
       });
     });
+
+    test("hides formatting toolbar buttons in edit mode and supports auto-bullet list conversion", async () => {
+      const { root } = createTestRenderer();
+      const onUpdateTaskComment = vi.fn().mockResolvedValue(undefined);
+      const comments = [user1Comment];
+
+      await renderWithRoot(root, comments, {
+        canEdit: true,
+        currentActorUserId: "user-1",
+        onUpdateTaskComment,
+      });
+
+      const editButton = document.querySelector(
+        "[data-testid='edit-comment-button-comment-1']"
+      ) as HTMLButtonElement;
+      await act(async () => {
+        editButton.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      const editForm = document.querySelector(
+        "[data-testid='edit-comment-form-comment-1']"
+      );
+      const editInput = document.querySelector(
+        "#edit-comment-input-comment-1"
+      ) as HTMLDivElement | null;
+      expect(editForm).not.toBeNull();
+      expect(editInput).not.toBeNull();
+      expect(classNameTokens(editInput)).toContain("min-h-11");
+      expect(classNameTokens(editInput)).toContain("border-0");
+
+      for (const toolbarLabel of [
+        "Bold",
+        "Title 1",
+        "Title 2",
+        "Italic",
+        "Underline",
+        "Bullet list",
+        "Numbered list",
+        "Code",
+        "Token",
+      ]) {
+        expect(editForm?.textContent).not.toContain(toolbarLabel);
+      }
+
+      const paragraph = editInput!.querySelector("p")!;
+      paragraph.textContent = "-User 1 comment";
+      const textNode = paragraph.firstChild as Text;
+      selectEditorText(textNode, 1);
+
+      await act(async () => {
+        editInput!.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: " ",
+            code: "Space",
+            bubbles: true,
+            cancelable: true,
+          })
+        );
+      });
+
+      expect(editInput!.innerHTML).toBe("<ul><li>User 1 comment</li></ul>");
+
+      const saveButton = findButtonByText("Save") as HTMLButtonElement;
+      await act(async () => {
+        saveButton.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true })
+        );
+      });
+
+      expect(onUpdateTaskComment).toHaveBeenCalledWith(
+        "comment-1",
+        "<ul><li>User 1 comment</li></ul>",
+        []
+      );
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
+
+    test("does not duplicate a draft attachment in the composer while an optimistic comment already renders it", async () => {
+      const { root } = createTestRenderer();
+      const pastedImage = {
+        id: "attachment-paste-1",
+        kind: "file" as const,
+        name: "comment-paste.png",
+        url: null,
+        mimeType: "image/png",
+        sizeBytes: 128,
+        downloadUrl: "/api/projects/project-1/tasks/task-1/attachments/attachment-paste-1",
+      };
+      const optimisticComment: TaskComment = {
+        id: "optimistic-comment-1",
+        content: "",
+        createdAt: "2026-05-31T10:05:00.000Z",
+        author: {
+          ...ownerSummary,
+          kind: "user",
+        },
+        reactions: [],
+        attachments: [pastedImage],
+      };
+
+      taskForRender = {
+        ...baseTask,
+        attachments: [pastedImage],
+      };
+
+      await renderWithRoot(root, [optimisticComment], {
+        canEdit: true,
+        currentActorUserId: "owner-1",
+        commentAttachments: [pastedImage],
+        isLoadingTaskComments: true,
+      });
+
+      const previewButtons = document.querySelectorAll(
+        "button[aria-label='Preview image comment-paste.png']"
+      );
+      expect(previewButtons).toHaveLength(1);
+
+      await act(async () => {
+        root.unmount();
+      });
+    });
   });
 });

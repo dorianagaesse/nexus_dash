@@ -1,3 +1,5 @@
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
+
 export type RuntimeEnvironment = "development" | "test" | "production";
 export type VercelEnvironment = "development" | "preview" | "production";
 
@@ -732,6 +734,12 @@ export interface ServerRuntimeValidationOptions {
 export function validateServerRuntimeConfig(
   options: ServerRuntimeValidationOptions = {}
 ): void {
+  // Next sets this phase while collecting and prerendering the build. Read it
+  // at call time so a later runtime invocation always validates its own config.
+  if (getOptionalServerEnv("NEXT_PHASE") === PHASE_PRODUCTION_BUILD) {
+    return;
+  }
+
   const runtimeEnvironment =
     options.runtimeEnvironment ?? getRuntimeEnvironment();
   const database = getDatabaseRuntimeConfig({ runtimeEnvironment });

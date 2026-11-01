@@ -187,7 +187,7 @@ For Supabase production/preview:
 
 ## Environment Contract (Server)
 
-Environment access/validation is centralized in `lib/env.server.ts` and executed at startup (`app/layout.tsx`).
+Environment access/validation is centralized in `lib/env.server.ts` and executed when the server loads `app/layout.tsx`. Validation skips Next.js's production build phase so build artifacts do not require runtime-only secrets. Runtime module loading validates the deployed configuration and fails with a clear error when it is missing or invalid. Do not set `NEXT_PHASE` in deployment runtime configuration.
 
 ### Required
 
