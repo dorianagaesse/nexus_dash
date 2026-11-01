@@ -43,6 +43,7 @@ vi.mock("@/lib/services/project-task-service", async (importOriginal) => {
 
 import { POST } from "@/app/api/projects/[projectId]/tasks/bulk/route";
 import { MAX_BULK_TASK_OPERATIONS } from "@/lib/services/project-task-service";
+import { parseUpdateTaskJsonInput } from "@/lib/task-contracts";
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
@@ -467,6 +468,7 @@ describe("POST /api/projects/:projectId/tasks/bulk", () => {
             type: "update",
             taskId: "task-a",
             changes: {
+              description: "<p>Safe<script>alert(1)</script></p>",
               __parsedUpdateCommand: {
                 __contract: "UpdateTaskCommand",
                 relatedTasks: { mode: "patch" },
@@ -524,5 +526,10 @@ describe("POST /api/projects/:projectId/tasks/bulk", () => {
       },
     ]);
     expect(projectTaskServiceMock.updateTaskForProject).toHaveBeenCalledTimes(1);
+    const command = parseUpdateTaskJsonInput(
+      projectTaskServiceMock.updateTaskForProject.mock.calls[0][2],
+      { taskId: "task-a" }
+    );
+    expect(command.ok && command.data.description).toBe("<p>Safe</p>");
   });
 });

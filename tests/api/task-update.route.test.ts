@@ -1882,6 +1882,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          description: "<p>Safe<script>alert(1)</script></p>",
           __parsedUpdateCommand: {
             __contract: "UpdateTaskCommand",
             relatedTasks: { mode: "patch" },
@@ -1898,7 +1899,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
     );
     expect(wrapperResponse.status).toBe(200);
     const updateCall = prismaMock.task.update.mock.calls[0]?.[0];
-    expect(updateCall?.data?.description).toBeUndefined();
+    expect(updateCall?.data?.description).toBe("<p>Safe</p>");
     expect(prismaMock.taskAttachment.createMany).not.toHaveBeenCalled();
   });
 });
