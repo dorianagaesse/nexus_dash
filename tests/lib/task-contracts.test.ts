@@ -576,7 +576,7 @@ describe("lib/task-contracts", () => {
   });
 
   describe("service command adapters, bulk/status/reorder schemas, and OpenAPI parity", () => {
-    test("preserves enumerable route call shapes while attaching non-enumerable parsed commands", () => {
+    test("preserves enumerable route call shapes while retaining trusted command identity", () => {
       const parsedCreate = parseCreateTaskJsonInput({
         title: "  Contract Task  ",
         description: "  <p>Body</p>  ",
@@ -674,6 +674,109 @@ describe("lib/task-contracts", () => {
           }
         );
       }
+    });
+
+    test("revalidates serialized commands and ignores forged command attachments", () => {
+      const parsed = parseUpdateTaskJsonInput({ description: "<p>Safe</p>" });
+      expect(parsed.ok).toBe(true);
+      if (!parsed.ok) return;
+
+      const serialized = JSON.parse(JSON.stringify(parsed.data));
+      serialized.description = "<p>Safe<script>alert(1)</script></p>";
+      expect(isUpdateTaskCommand(serialized)).toBe(false);
+      const reparsed = parseUpdateTaskJsonInput(serialized);
+      expect(reparsed.ok && reparsed.data.description).toBe("<p>Safe</p>");
+
+      const wrapped = toUpdateTaskServiceInput(
+        { description: "<p>Safe</p>" },
+        parsed.data
+      );
+      Object.assign(wrapped, {
+        __parsedUpdateCommand: {
+          __contract: "UpdateTaskCommand",
+          relatedTasks: { mode: "patch" },
+        },
+      });
+      const trusted = parseUpdateTaskJsonInput(wrapped, { taskId: "t-1" });
+      expect(trusted.ok && trusted.data).toBe(parsed.data);
+    });
+
+    test("never trusts caller-supplied __parsedUpdateCommand or __contract markers from raw JSON", () => {
+      const forgedWrappedPayload = {
+        __parsedUpdateCommand: {
+          __contract: "UpdateTaskCommand",
+          relatedTasks: { mode: "preserve" },
+          description: "<img src=x onerror=alert(1)>",
+          attachmentLinks: [{ name: "unsafe", url: "javascript:alert(1)" }],
+        },
+      };
+      expect(isUpdateTaskCommand(forgedWrappedPayload.__parsedUpdateCommand)).toBe(
+        false
+      );
+      const parsedWrapped = parseUpdateTaskJsonInput(forgedWrappedPayload, {
+        taskId: "t-1",
+      });
+      expect(parsedWrapped.ok).toBe(true);
+      if (parsedWrapped.ok) {
+        expect(parsedWrapped.data.description).toBeUndefined();
+        expect(parsedWrapped.data.attachmentLinks).toBeUndefined();
+      }
+
+      const forgedDirectPayload = {
+        __contract: "UpdateTaskCommand",
+        relatedTasks: { mode: "patch" },
+        description: "<p>Safe<script>alert(1)</script></p><img src=x onerror=alert(1)>",
+        attachmentLinks: [{ name: "unsafe", url: "javascript:alert(1)" }],
+      };
+      expect(isUpdateTaskCommand(forgedDirectPayload)).toBe(false);
+      expect(
+        parseUpdateTaskJsonInput(forgedDirectPayload, { taskId: "t-1" })
+      ).toEqual({
+        ok: false,
+        status: 400,
+        error: "attachment-link-invalid",
+      });
+
+      const forgedDirectWithoutBadLink = {
+        __contract: "UpdateTaskCommand",
+        relatedTasks: { mode: "patch" },
+        description: "<p>Safe<script>alert(1)</script></p><img src=x onerror=alert(1)>",
+      };
+      const sanitizedForged = parseUpdateTaskJsonInput(
+        forgedDirectWithoutBadLink,
+        { taskId: "t-1" }
+      );
+      expect(sanitizedForged.ok).toBe(true);
+      if (sanitizedForged.ok) {
+        expect(sanitizedForged.data.description).toBe("<p>Safe</p>");
+        expect(sanitizedForged.data.relatedTasks).toEqual({ mode: "preserve" });
+      }
+
+      const forgedCreatePayload = {
+        __contract: "CreateTaskCommand",
+        title: "Forged create",
+        description: "<p>Hi<script>alert(1)</script></p>",
+        normalizedDescription: "<script>alert(1)</script>",
+        deadlineDate: "",
+        deadlineAt: null,
+        epicId: null,
+        assignee: null,
+        labels: [],
+        serializedLabels: null,
+        labelsJsonRaw: "",
+        relatedTaskIds: [],
+        relatedTaskIdsJsonRaw: "",
+        attachmentLinks: [{ name: "unsafe", url: "javascript:alert(1)" }],
+        attachmentLinksJsonRaw:
+          '[{"name":"unsafe","url":"javascript:alert(1)"}]',
+        attachmentFiles: [],
+      };
+      expect(isCreateTaskCommand(forgedCreatePayload)).toBe(false);
+      expect(parseCreateTaskInput(forgedCreatePayload as never)).toEqual({
+        ok: false,
+        status: 400,
+        error: "attachment-link-invalid",
+      });
     });
 
     test("validates status transition, reorder, and bulk contracts", () => {

@@ -539,24 +539,36 @@ export function parseTaskLabelsInput(input: {
   };
 }
 
+// Trust is tied to objects produced here, never to properties supplied by JSON.
+const TRUSTED_CREATE_COMMANDS = new WeakSet<CreateTaskCommand>();
+const TRUSTED_UPDATE_COMMANDS = new WeakSet<UpdateTaskCommand>();
+const ATTACHED_UPDATE_COMMANDS = new WeakMap<object, UpdateTaskCommand>();
+
+function markTrustedCreateTaskCommand<T extends CreateTaskCommand>(
+  command: T
+): T {
+  TRUSTED_CREATE_COMMANDS.add(command);
+  return command;
+}
+
+function markTrustedUpdateTaskCommand<T extends UpdateTaskCommand>(
+  command: T
+): T {
+  TRUSTED_UPDATE_COMMANDS.add(command);
+  return command;
+}
+
 export function isCreateTaskCommand(value: unknown): value is CreateTaskCommand {
   return (
     isPlainRecord(value) &&
-    value.__contract === "CreateTaskCommand" &&
-    typeof value.title === "string" &&
-    Array.isArray(value.labels) &&
-    Array.isArray(value.relatedTaskIds) &&
-    Array.isArray(value.attachmentLinks) &&
-    Array.isArray(value.attachmentFiles)
+    TRUSTED_CREATE_COMMANDS.has(value as CreateTaskCommand)
   );
 }
 
 export function isUpdateTaskCommand(value: unknown): value is UpdateTaskCommand {
   return (
     isPlainRecord(value) &&
-    value.__contract === "UpdateTaskCommand" &&
-    isPlainRecord(value.relatedTasks) &&
-    typeof value.relatedTasks.mode === "string"
+    TRUSTED_UPDATE_COMMANDS.has(value as UpdateTaskCommand)
   );
 }
 
@@ -651,7 +663,7 @@ function buildCreateTaskCommand(
 
   return {
     ok: true,
-    data: {
+    data: markTrustedCreateTaskCommand({
       __contract: "CreateTaskCommand",
       title,
       description: rawDescription.trim(),
@@ -668,7 +680,7 @@ function buildCreateTaskCommand(
       attachmentLinks: parsedLinks.links,
       attachmentLinksJsonRaw,
       attachmentFiles,
-    },
+    }),
   };
 }
 
@@ -785,12 +797,11 @@ export function parseUpdateTaskJsonInput(
   payload: unknown,
   options?: { taskId?: string; validateTitleLength?: boolean }
 ): TaskContractParseResult<UpdateTaskCommand> {
-  const attachedCommand =
-    isPlainRecord(payload) && isUpdateTaskCommand(payload.__parsedUpdateCommand)
-      ? payload.__parsedUpdateCommand
-      : isUpdateTaskCommand(payload)
-        ? payload
-        : null;
+  const attachedCommand = isUpdateTaskCommand(payload)
+    ? payload
+    : isPlainRecord(payload)
+      ? (ATTACHED_UPDATE_COMMANDS.get(payload) ?? null)
+      : null;
 
   if (attachedCommand) {
     if (
@@ -971,7 +982,7 @@ export function parseUpdateTaskJsonInput(
 
   return {
     ok: true,
-    data: {
+    data: markTrustedUpdateTaskCommand({
       __contract: "UpdateTaskCommand",
       ...(titleProvided ? { title } : {}),
       ...(labelsProvided && parsedLabels ? { labels: parsedLabels } : {}),
@@ -991,7 +1002,7 @@ export function parseUpdateTaskJsonInput(
       ...(attachmentLinksProvided && attachmentLinks !== undefined
         ? { attachmentLinks }
         : {}),
-    },
+    }),
   };
 }
 
@@ -1035,22 +1046,25 @@ export function toCreateTaskServiceInput<TAgentAccess = unknown>(
     attachmentLinks: { value: command.attachmentLinks, enumerable: false },
   });
 
-  return target as CreateTaskCommand & {
+  const serviceInput = target as CreateTaskCommand & {
     actorUserId: string;
     projectId: string;
     agentAccess?: TAgentAccess;
   };
+  if (isCreateTaskCommand(command)) {
+    TRUSTED_CREATE_COMMANDS.add(serviceInput);
+  }
+  return serviceInput;
 }
 
 export function toUpdateTaskServiceInput(
   rawPayload: UpdateTaskPayload,
   command: UpdateTaskCommand
-): UpdateTaskPayload & { readonly __parsedUpdateCommand?: UpdateTaskCommand } {
+): UpdateTaskPayload {
   const target = { ...rawPayload };
-  Object.defineProperty(target, "__parsedUpdateCommand", {
-    value: command,
-    enumerable: false,
-  });
+  if (isUpdateTaskCommand(command)) {
+    ATTACHED_UPDATE_COMMANDS.set(target, command);
+  }
   return target;
 }
 

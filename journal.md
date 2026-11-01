@@ -10728,3 +10728,13 @@ Low-value entries to avoid going forward:
 - Runtime configuration validation skips only Next.js production build phase; runtime module loading still validates and fails clearly. Added phase-transition regression coverage.
 - Removed obsolete polling pins from Quality Core, Docker, and all three Vercel build commands. Kept local/E2E polling for servers that run without Supabase Realtime credentials. Updated environment documentation.
 - Validation: lint, RLS inventory, 89 environment tests, and production build passed. Build used only a placeholder DATABASE_URL with DIRECT_URL, signing/email/Supabase secrets, and transport override absent. The built server returned HTTP 500 on first render and logged the missing DIRECT_URL error. Full unit/API suite passed (2,203 tests; two skipped), and coverage passed all thresholds (95.25% lines, 85.58% branches). CI tenant isolation passed.
+
+## 2026-11-02 - ND-542 Codex review fix takeover
+
+- Continued Gemini's uncommitted fix for the P1 review on PR #641. Trusted
+  create/update commands now use module-private WeakSet identity; update
+  adapters retain commands in a WeakMap instead of a JSON-spoofable property.
+  Raw request markers have no authority and pass through normal validation.
+- Added contract, PATCH persistence, and bulk-operation regressions for forged
+  markers, malformed internal relation shapes, unsafe links/descriptions, and
+  serialized commands. Validation results will be recorded after execution.
