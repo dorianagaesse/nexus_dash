@@ -540,8 +540,8 @@ export function parseTaskLabelsInput(input: {
 }
 
 // Trust is tied to objects produced here, never to properties supplied by JSON.
-const TRUSTED_CREATE_COMMANDS = new WeakSet<CreateTaskCommand>();
-const TRUSTED_UPDATE_COMMANDS = new WeakSet<UpdateTaskCommand>();
+const TRUSTED_CREATE_COMMANDS = new WeakSet<object>();
+const TRUSTED_UPDATE_COMMANDS = new WeakSet<object>();
 const ATTACHED_UPDATE_COMMANDS = new WeakMap<object, UpdateTaskCommand>();
 
 function markTrustedCreateTaskCommand<T extends CreateTaskCommand>(
@@ -561,14 +561,14 @@ function markTrustedUpdateTaskCommand<T extends UpdateTaskCommand>(
 export function isCreateTaskCommand(value: unknown): value is CreateTaskCommand {
   return (
     isPlainRecord(value) &&
-    TRUSTED_CREATE_COMMANDS.has(value as CreateTaskCommand)
+    TRUSTED_CREATE_COMMANDS.has(value)
   );
 }
 
 export function isUpdateTaskCommand(value: unknown): value is UpdateTaskCommand {
   return (
     isPlainRecord(value) &&
-    TRUSTED_UPDATE_COMMANDS.has(value as UpdateTaskCommand)
+    TRUSTED_UPDATE_COMMANDS.has(value)
   );
 }
 
