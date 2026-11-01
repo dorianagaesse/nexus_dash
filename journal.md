@@ -3,6 +3,16 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-02 - ND-544: Task application-service modules
+
+- Kept the public Task service facade stable while extracting create/update,
+  lifecycle, policy, assignment, input, result, type, and persistence modules.
+- Preserved all 54 original declaration bodies, actor-scoped transaction
+  clients, mutation ordering, revision retry boundaries, and caller imports.
+- Documented the ownership map and ND-545 projection/relation helper seam in
+  docs/architecture/task-services.md.
+- Validation is recorded with the delivered PR.
+
 # 2026-10-30 - ND-645: match task comment edit mode to comment composer without toolbar
 
 - Created ND-645 on the Nexus Dash board and moved it to In Progress after
