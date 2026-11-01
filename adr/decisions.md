@@ -288,7 +288,7 @@ Keep UI-only or task-only notes in `journal.md`.
   current state, pagination, dedup).
 - Decision: Add a dedicated `attention:read` scope and two read endpoints
   (`agent-attention/mentions`, `agent-attention/assignments`) that are
-  implicitly scoped to the authenticated credential â€” no credential id is
+  implicitly scoped to the authenticated credential — no credential id is
   accepted as input, and the credential identity comes from the bearer token
   only, re-validated per request. Items expose a stable per-artifact dedup
   key (`mention:<id>`, `assignment:task:<id>`,
@@ -308,8 +308,8 @@ Keep UI-only or task-only notes in `journal.md`.
 - Consequences: Credential revocation or expiry immediately blocks reads
   while historical mention and assignment rows stay intact for project
   governance views; agents get attention reads with no board or write
-  capability. Cursors are opaque by design â€” clients dedup by item id, never
-  by cursor â€” so cursor encoding can evolve behind the versioned payload.
+  capability. Cursors are opaque by design — clients dedup by item id, never
+  by cursor — so cursor encoding can evolve behind the versioned payload.
 - Links: board card ND-385, epic "Agent mentions, assignment, and attention
   API"; predecessor decisions ND-383 and ND-384.
 
@@ -321,7 +321,7 @@ Keep UI-only or task-only notes in `journal.md`.
   provenance. Assigning work to an agent had to record the credential identity
   (never its human owner) and survive credential rename or revocation without
   rewriting history.
-- Decision: Model task assignment on the meeting-todo actor CHECK pattern â€”
+- Decision: Model task assignment on the meeting-todo actor CHECK pattern —
   mutually exclusive `assigneeUserId` vs. `assigneeCredentialId` columns plus
   `assigneeKind` and a durable `assigneeDisplayNameSnapshot`, with parallel
   `assignedBy*`/`assignedAt` provenance on both `Task` and
@@ -378,7 +378,7 @@ Keep UI-only or task-only notes in `journal.md`.
   whole submission (`task-comment-agent-mention-invalid`). Persistence is a
   new `TaskCommentAgentMention` table storing the mention, the target
   credential, and durable label/actor snapshots with `ON DELETE SET NULL`
-  credential FKs. Idempotency is a documented invariant â€” at most one event
+  credential FKs. Idempotency is a documented invariant — at most one event
   per (comment, credential) enforced by `@@unique([commentId,
   agentCredentialId])` plus `createMany({ skipDuplicates: true })`; the
   replace-style sync removes only live rows outside the desired set and never
@@ -430,9 +430,9 @@ Keep UI-only or task-only notes in `journal.md`.
   modules, and agent-executed task mutations persisted only the credential
   owner's user id on the task row, losing the acting agent from provenance.
 - Decision: Introduced one project-scoped actor contract
-  (`lib/project-actor.ts` + `lib/services/project-actor-service.ts`) â€”
+  (`lib/project-actor.ts` + `lib/services/project-actor-service.ts`) —
   shared kind/status/reference vocabulary, registry building, resolution, and
-  a mutation-actor resolver â€” and re-based the meeting-todo and context-card
+  a mutation-actor resolver — and re-based the meeting-todo and context-card
   actor modules onto it as delegating shims that keep their export surface,
   domain-specific registry loaders (Prisma read vs. the
   `list_project_context_card_actors` SQL projection), and error codes
@@ -566,7 +566,7 @@ Keep UI-only or task-only notes in `journal.md`.
   state as "My calendar" so users understand it is a personal overlay. The
   mutation routes (`POST` / `PATCH` / `DELETE`) drop the `minimumRole:
   "editor"` requirement down to `viewer` so the user's own Google write
-  scope â€” not the project editor role â€” is the only authorization to
+  scope — not the project editor role — is the only authorization to
   mutate their private calendar. Project access is retained only so the
   dashboard can scope the request to a project the caller can see. Tests
   add a viewer success path and an explicit `insufficient-scope` row. The
@@ -1144,8 +1144,8 @@ Keep UI-only or task-only notes in `journal.md`.
 - Context: ND-373 delivered private Supabase Realtime Broadcast behind
   `REALTIME_TRANSPORT`, keeping the legacy SSE routes as an intermediate
   fallback tier. The SSE path is the previous architecture's dominant Fluid
-  compute cost driver â€” one server function per open tab polling PostgreSQL
-  every second â€” and its migration window closes with ND-374.
+  compute cost driver — one server function per open tab polling PostgreSQL
+  every second — and its migration window closes with ND-374.
 
 - Decision: Deleted both SSE route handlers
   (`/api/projects/[projectId]/activity/stream`,
