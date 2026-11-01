@@ -8,7 +8,7 @@ This folder contains architecture decision records.
   - Short operational log of architecture-impacting decisions.
   - Use for concise entries and links.
 
-- `adr/task-*.md`
+- `adr/task-*.md` and `adr/nd-*.md`
   - Detailed ADR documents for decisions that need deeper analysis, options, and implementation contract.
 
 - `adr/TEMPLATE.md`
@@ -27,6 +27,9 @@ This folder contains architecture decision records.
 - `adr/task-348-shared-schedule-contract.md`
 - `adr/task-372-supabase-realtime-authorization.md`
 - `adr/task-432-autosave-contract.md`
+- `adr/nd-187-shared-discussion.md`
+- `adr/nd-455-rls-safe-actor-projections.md`
+- `adr/nd-541-tasks-kanban-domain-boundary.md`
 
 ## Usage Rule
 
