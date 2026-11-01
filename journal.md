@@ -3,6 +3,22 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-02 - ND-190: collaboration service use-case ownership
+
+- Kept `project-collaboration-service.ts` as the public facade and moved owner
+  invitation management, membership operations, and recipient responses into
+  focused modules under `lib/services/collaboration/`. Shared policy, projection,
+  and email delivery modules keep transaction ownership explicit.
+- Preserved all 60 original declarations without behavioral edits, including
+  verified-email binding, invitation acceptance races, activity repair,
+  responsibility-aware offboarding, and email delivery after commit.
+- Reorganized the existing collaboration regressions by use case, added member
+  authorization and same-client offboarding-order checks, and added a browser
+  invitation-to-membership lifecycle. Focused tests pass (21 tests); the full
+  validation baseline is in progress.
+- The dedicated local RLS database needed the Realtime stub installed before
+  migrations, matching CI; rebuilt only `nexusdash_nd190` in that order.
+
 # 2026-10-30 - ND-645: match task comment edit mode to comment composer without toolbar
 
 - Created ND-645 on the Nexus Dash board and moved it to In Progress after
