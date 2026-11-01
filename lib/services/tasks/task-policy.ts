@@ -1,0 +1,134 @@
+import { normalizeRelatedTaskIds } from "@/lib/task-related";
+import type { AgentProjectAccessContext } from "@/lib/services/project-access-service";
+import type { DbClient } from "@/lib/services/rls-context";
+import type { ServiceErrorResult, ServiceResult } from "./task-types";
+import { createError } from "./task-result";
+import { normalizeText } from "./task-input";
+
+export async function validateRelatedTaskIds(input: {
+  db: DbClient;
+  projectId: string;
+  taskId?: string;
+  relatedTaskIds: string[];
+  allowArchivedTaskIds?: string[];
+  agentAccess?: AgentProjectAccessContext;
+}): Promise<ServiceResult<{ relatedTaskIds: string[] }>> {
+  const filteredRelatedTaskIds = normalizeRelatedTaskIds(input.relatedTaskIds);
+  const allowedArchivedTaskIds = new Set(
+    normalizeRelatedTaskIds(input.allowArchivedTaskIds ?? [])
+  );
+
+  if (input.taskId && filteredRelatedTaskIds.includes(input.taskId)) {
+    return createError(400, "related-tasks-invalid", {
+      id: input.taskId,
+      reason: "self",
+    });
+  }
+
+  if (filteredRelatedTaskIds.length === 0) {
+    return {
+      ok: true,
+      data: {
+        relatedTaskIds: [],
+      },
+    };
+  }
+
+  const relatedTasks = await input.db.task.findMany({
+    where: {
+      id: { in: filteredRelatedTaskIds },
+      projectId: input.projectId,
+      OR: [{ archivedAt: null }, { id: { in: Array.from(allowedArchivedTaskIds) } }],
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (relatedTasks.length !== filteredRelatedTaskIds.length) {
+    const foundIds = new Set(relatedTasks.map((task) => task.id));
+    const failingId = filteredRelatedTaskIds.find((id) => !foundIds.has(id));
+    if (!failingId) {
+      return createError(400, "related-tasks-invalid");
+    }
+    // A project-bound agent must not learn whether an id exists elsewhere,
+    // even when its human owner can see that other project through RLS.
+    const candidates = await input.db.task.findMany({
+      where: {
+        id: failingId,
+        ...(input.agentAccess ? { projectId: input.projectId } : {}),
+      },
+      select: { id: true, projectId: true, archivedAt: true },
+    });
+    const candidate = candidates[0];
+    const reason = !candidate
+      ? "missing"
+      : candidate.projectId !== input.projectId
+        ? "cross-project"
+        : candidate.archivedAt
+          ? "archived"
+          : "missing";
+    return createError(400, "related-tasks-invalid", { id: failingId, reason });
+  }
+
+  return {
+    ok: true,
+    data: {
+      relatedTaskIds: filteredRelatedTaskIds,
+    },
+  };
+}
+
+export async function validateEpicId(input: {
+  db: DbClient;
+  projectId: string;
+  epicId: string | null;
+}): Promise<ServiceResult<{ epicId: string | null }>> {
+  const epicId = normalizeText(input.epicId);
+  if (!epicId) {
+    return {
+      ok: true,
+      data: {
+        epicId: null,
+      },
+    };
+  }
+
+  const epic = await input.db.epic.findFirst({
+    where: {
+      id: epicId,
+      projectId: input.projectId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!epic) {
+    return createError(400, "epic-invalid");
+  }
+
+  return {
+    ok: true,
+    data: {
+      epicId,
+    },
+  };
+}
+
+// Read live project policy for each transition; existing bearer tokens do not cache it.
+export async function requireAgentDoneMoveCapability(
+  db: DbClient,
+  projectId: string,
+  agentAccess?: AgentProjectAccessContext
+): Promise<ServiceErrorResult | null> {
+  if (!agentAccess) return null;
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    select: { agentCanMoveTasksToDone: true },
+  });
+  if (!project?.agentCanMoveTasksToDone) {
+    return createError(403, "agent-done-move-disabled");
+  }
+  return null;
+}
