@@ -10,7 +10,6 @@ import {
   useTransition,
 } from "react";
 import type { ReactNode } from "react";
-import type { DraggableLocation, DropResult } from "@hello-pangea/dnd";
 
 import type { RelatedTaskOption } from "@/components/kanban/related-task-field";
 import {
@@ -31,14 +30,10 @@ import { CreateTaskDialog } from "@/components/create-task-dialog";
 import { KanbanBoardHeader } from "@/components/kanban/kanban-board-header";
 import { KanbanColumnsGrid } from "@/components/kanban/kanban-columns-grid";
 import { KanbanFilterBar } from "@/components/kanban/kanban-filter-bar";
-import {
-  NO_EPIC_FILTER_VALUE,
-  applyFilteredTaskDrop,
-  buildKanbanSearchRevision,
-  filterKanbanColumns,
-  taskMatchesKanbanFilters,
-} from "@/components/kanban/kanban-filter-utils";
-import { useKanbanTaskSearch } from "@/components/kanban/use-kanban-task-search";
+import { useKanbanBoardState } from "@/components/kanban/hooks/use-kanban-board-state";
+import { useKanbanDragDrop } from "@/components/kanban/hooks/use-kanban-drag-drop";
+import { useKanbanTaskNavigation } from "@/components/kanban/hooks/use-kanban-task-navigation";
+import { useKanbanFilters } from "@/components/kanban/hooks/use-kanban-filters";
 import { TaskDetailModal } from "@/components/kanban/task-detail-modal";
 import { recoveryDraftKey, useRecoveryDraft } from "@/lib/hooks/use-recovery-draft";
 import { useLiveSave } from "@/lib/hooks/use-live-save";
@@ -56,14 +51,16 @@ import { LiveSaveStatus } from "@/components/live-save/live-save-status";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
-  buildPersistPayload,
-  cloneColumns,
   createEmptyColumns,
-  mapTasksToColumns,
+  cloneColumns,
   readApiError,
-  type TaskColumns,
+  stampTaskActivity,
 } from "@/components/kanban-board-utils";
-import { mergeSubmittedTaskComment } from "@/components/kanban-board-comments";
+import {
+  isOptimisticTaskCommentRepresented,
+  mergeFetchedTaskComments,
+  mergeSubmittedTaskComment,
+} from "@/components/kanban-board-comments";
 import { reconcileBilateralTaskRelations } from "@/components/kanban-board-related";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
@@ -82,14 +79,8 @@ import {
   type ProjectActivityRemoteEventDetail,
 } from "@/lib/project-activity-client";
 import {
-  isProjectActivityVersionNewer,
-  readProjectActivityVersionHeader,
-} from "@/lib/project-activity-version";
-import {
-  PROJECT_EPICS_RECONCILED_EVENT,
   reconcileProjectEpics,
   reconcileProjectEpicsAfterTaskMutation,
-  type ProjectEpicsReconciledDetail,
 } from "@/lib/project-epic-client";
 import type { ProjectActivityEventPayload } from "@/lib/project-activity-event-types";
 import { MAX_TASK_COMMENT_ATTACHMENTS } from "@/lib/task-comment";
@@ -102,9 +93,7 @@ import {
   normalizeTaskLabel,
 } from "@/lib/task-label";
 import {
-  TASK_OPEN_REQUEST_EVENT,
   synchronizeTaskUrl,
-  type TaskOpenRequestDetail,
 } from "@/lib/task-open-client";
 import { createRelatedTaskMap } from "@/lib/task-related";
 import { isTaskStatus, TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
@@ -222,21 +211,6 @@ function resolveOptimisticAssigneeSummary({
     avatarSeed: collaborator.avatarSeed,
     status: "active",
     isAssignable: true,
-  };
-}
-
-function stampTaskActivity(
-  task: KanbanTask,
-  actor: TaskPersonSummary | null
-): KanbanTask {
-  if (!actor) {
-    return task;
-  }
-
-  return {
-    ...task,
-    updatedBy: actor,
-    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -476,173 +450,12 @@ function readRemoteReorderPayload(
   return nextColumns;
 }
 
-function mergeFetchedTaskComments(
-  fetchedComments: TaskComment[],
-  currentComments: TaskComment[]
-): TaskComment[] {
-  const commentsById = new Map<string, TaskComment>();
-
-  fetchedComments.forEach((comment) => {
-    commentsById.set(comment.id, comment);
-  });
-
-  currentComments.forEach((comment) => {
-    if (!commentsById.has(comment.id)) {
-      commentsById.set(comment.id, comment);
-    }
-  });
-
-  return Array.from(commentsById.values()).sort(
-    (left, right) =>
-      new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
-  );
-}
-
 function getAttachmentLinkName(url: string): string {
   try {
     return new URL(url).hostname || url;
   } catch {
     return url;
   }
-}
-
-interface DropApplication {
-  previousColumns: TaskColumns<KanbanTask>;
-  nextColumns: TaskColumns<KanbanTask>;
-  movedTask: KanbanTask;
-  sourceStatus: TaskStatus;
-  destinationStatus: TaskStatus;
-  previousTask: KanbanTask;
-  nextTask: KanbanTask;
-}
-
-interface KeyboardDropIntent {
-  source: DraggableLocation;
-  destination: DraggableLocation;
-  movedTaskId: string;
-  outcome: "pending" | "saved" | "failed";
-  // Project activity version reported by the early persist response; a remote
-  // full-order delivery with a newer version is authoritative over the intent.
-  writeVersion: string | null;
-  // Newest authoritative version already applied when the intent was submitted;
-  // used as the baseline until the write's own version is known.
-  intentStartVersion: string | null;
-  // Number of remote task representations applied when the intent was
-  // submitted; only later representations can carry newer lane authority.
-  intentStartTaskSeq: number;
-  // Lane membership and orders the write payload persists; restored around
-  // the settle so the board shows the stored layout without re-deriving the
-  // move by index.
-  committedOrders: Array<{ status: TaskStatus; taskIds: string[] }>;
-  settled: boolean;
-}
-
-interface RemoteTaskRepresentation {
-  version: string;
-  status: TaskStatus;
-  seq: number;
-}
-
-// Restores the committed payload's lane membership and lane order around a
-// keyboard settle. The payload captured every lane at write time, so tasks
-// that moved between lanes during the intent are placed in their committed
-// lane with the matching status; partial deltas that landed afterwards (task
-// creations) keep their current positions and deleted tasks are never
-// resurrected, mirroring how the server replays those events over the stored
-// order. A newer remote representation of a single task (task upserts carry
-// its current status) outranks the payload's captured membership for that
-// task, so its newer lane is kept even though the payload still lists it in
-// the lane it occupied at write time.
-function reconcileCommittedColumns(
-  previousColumns: TaskColumns<KanbanTask>,
-  orders: Array<{ status: TaskStatus; taskIds: string[] }>,
-  preservedStatusByTaskId: ReadonlyMap<string, TaskStatus>
-): TaskColumns<KanbanTask> {
-  const taskById = new Map<string, KanbanTask>();
-  const currentStatusByTaskId = new Map<string, TaskStatus>();
-  TASK_STATUSES.forEach((status) => {
-    previousColumns[status].forEach((task) => {
-      taskById.set(task.id, task);
-      currentStatusByTaskId.set(task.id, status);
-    });
-  });
-
-  const committedStatusByTaskId = new Map<string, TaskStatus>();
-  orders.forEach((order) => {
-    order.taskIds.forEach((taskId) => {
-      committedStatusByTaskId.set(taskId, order.status);
-    });
-  });
-
-  const targetStatusByTaskId = new Map<string, TaskStatus>();
-  taskById.forEach((_task, taskId) => {
-    targetStatusByTaskId.set(
-      taskId,
-      preservedStatusByTaskId.get(taskId) ??
-        committedStatusByTaskId.get(taskId) ??
-        (currentStatusByTaskId.get(taskId) as TaskStatus)
-    );
-  });
-
-  const preservedIdsByStatus = createEmptyColumns<string>();
-  preservedStatusByTaskId.forEach((status, taskId) => {
-    if (taskById.has(taskId)) {
-      preservedIdsByStatus[status].push(taskId);
-    }
-  });
-
-  const placedTaskIds = new Set<string>();
-  const nextColumns = createEmptyColumns<KanbanTask>();
-  let hasChanges = false;
-
-  TASK_STATUSES.forEach((status) => {
-    const committedIds =
-      orders.find((order) => order.status === status)?.taskIds ?? [];
-    const merged = committedIds.flatMap((taskId) => {
-      const task = taskById.get(taskId);
-      if (
-        !task ||
-        placedTaskIds.has(taskId) ||
-        targetStatusByTaskId.get(taskId) !== status
-      ) {
-        return [];
-      }
-      placedTaskIds.add(taskId);
-      return [task.status === status ? task : { ...task, status }];
-    });
-
-    preservedIdsByStatus[status].forEach((taskId) => {
-      if (placedTaskIds.has(taskId)) {
-        return;
-      }
-      placedTaskIds.add(taskId);
-      const task = taskById.get(taskId) as KanbanTask;
-      const stamped = task.status === status ? task : { ...task, status };
-      const currentIndex = previousColumns[status].findIndex(
-        (currentTask) => currentTask.id === taskId
-      );
-      if (currentIndex === -1) {
-        merged.push(stamped);
-      } else {
-        merged.splice(Math.min(currentIndex, merged.length), 0, stamped);
-      }
-    });
-
-    previousColumns[status].forEach((task, index) => {
-      if (committedStatusByTaskId.has(task.id) || placedTaskIds.has(task.id)) {
-        return;
-      }
-      merged.splice(Math.min(index, merged.length), 0, task);
-    });
-
-    const unchanged =
-      merged.length === previousColumns[status].length &&
-      merged.every((task, index) => task === previousColumns[status][index]);
-    nextColumns[status] = unchanged ? previousColumns[status] : merged;
-    hasChanges = hasChanges || !unchanged;
-  });
-
-  return hasChanges ? nextColumns : previousColumns;
 }
 
 export function KanbanBoard({
@@ -659,80 +472,20 @@ export function KanbanBoard({
   projectActors = [],
   initialTaskId,
 }: KanbanBoardProps) {
-  const initialColumns = useMemo(
-    () => mapTasksToColumns(initialTasks),
-    [initialTasks]
-  );
-  const [columns, setColumns] =
-    useState<TaskColumns<KanbanTask>>(initialColumns);
-  const [archivedDoneTasks, setArchivedDoneTasks] = useState<KanbanTask[]>(
-    initialArchivedDoneTasks
-  );
-  const [localEpicOptions, setLocalEpicOptions] =
-    useState<ProjectEpicOption[]>(epics);
-  const [taskSearchQuery, setTaskSearchQuery] = useState("");
-  const [selectedLabels, setSelectedLabels] = useState<Set<string>>(
-    () => new Set()
-  );
-  const [selectedEpicFilters, setSelectedEpicFilters] = useState<Set<string>>(
-    () => new Set()
-  );
+  const board = useKanbanBoardState({
+    projectId,
+    initialTasks,
+    initialActivityVersion,
+    initialArchivedDoneTasks,
+    epics,
+  });
+  const {
+    columns, setColumns, archivedDoneTasks, setArchivedDoneTasks, localEpicOptions,
+    remoteTaskRepresentationsRef, markRemoteColumnsApplied,
+    markRemoteColumnsMutated, recordRemoteTaskRepresentation,
+  } = board;
   const [isSaving, startTransition] = useTransition();
   const [persistError, setPersistError] = useState<string | null>(null);
-  const keyboardDropIntentRef = useRef<KeyboardDropIntent | null>(null);
-  const remoteColumnsVersionRef = useRef<string | null>(null);
-  const remoteColumnsApplyCountRef = useRef(0);
-  // Per-task authority from applied remote representations (task upserts and
-  // creations), keyed by task id. A representation says nothing about the
-  // whole-board order, but its status is authoritative for that one task, so
-  // a settle must not restore an older committed lane over it. The sequence
-  // marks arrival order; the version decides authority against the write.
-  const remoteTaskRepresentationsRef = useRef<
-    Map<string, RemoteTaskRepresentation>
-  >(new Map());
-  const remoteTaskRepresentationSeqRef = useRef(0);
-  // Every remote columns mutation is counted so writers avoid reverting over
-  // it. Only full-order deliveries - typed reorder events and fresh
-  // server-rendered props - also record the activity version; partial task
-  // deltas (upserts, deletions) say nothing about the whole-board order, so a
-  // newer version on one of them must not outrank an acknowledged write.
-  const markRemoteColumnsMutated = useCallback(() => {
-    remoteColumnsApplyCountRef.current += 1;
-  }, []);
-  const markRemoteColumnsApplied = useCallback(
-    (version: string | null | undefined) => {
-      remoteColumnsApplyCountRef.current += 1;
-      if (typeof version !== "string" || !version) {
-        return;
-      }
-      const currentVersion = remoteColumnsVersionRef.current;
-      if (
-        currentVersion === null ||
-        isProjectActivityVersionNewer(version, currentVersion)
-      ) {
-        remoteColumnsVersionRef.current = version;
-      }
-      remoteTaskRepresentationsRef.current.forEach((representation, taskId) => {
-        if (
-          !isProjectActivityVersionNewer(representation.version, version)
-        ) {
-          remoteTaskRepresentationsRef.current.delete(taskId);
-        }
-      });
-    },
-    []
-  );
-  const recordRemoteTaskRepresentation = useCallback(
-    (taskId: string, status: TaskStatus, version: string) => {
-      remoteTaskRepresentationSeqRef.current += 1;
-      remoteTaskRepresentationsRef.current.set(taskId, {
-        version,
-        status,
-        seq: remoteTaskRepresentationSeqRef.current,
-      });
-    },
-    []
-  );
   const [selectedTask, setSelectedTask] = useState<KanbanTask | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<KanbanTask | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
@@ -740,7 +493,6 @@ export function KanbanBoard({
   const shouldOpenTaskInEditModeRef = useRef(false);
   const previousSelectedTaskIdRef = useRef<string | null>(null);
   const commentDraftTaskIdRef = useRef<string | null>(null);
-  const openedInitialTaskIdRef = useRef<string | null>(null);
   const taskOpenRequestRef = useRef(0);
   const attachmentReconciliationRef = useRef<{
     taskId: string;
@@ -927,17 +679,6 @@ export function KanbanBoard({
   }, [taskEditRecoveryBase, taskEditRecovery]);
 
   useEffect(() => {
-    setColumns(initialColumns);
-    // A parent refetch renders the columns at a known activity version; record
-    // it so a keyboard settlement can tell fresh authority from staleness.
-    markRemoteColumnsApplied(initialActivityVersion);
-  }, [initialActivityVersion, initialColumns, markRemoteColumnsApplied]);
-
-  useEffect(() => {
-    setArchivedDoneTasks(initialArchivedDoneTasks);
-  }, [initialArchivedDoneTasks]);
-
-  useEffect(() => {
     if (!selectedTask) {
       return;
     }
@@ -1001,43 +742,6 @@ export function KanbanBoard({
   useEffect(() => {
     setIsClient(true);
   }, []);
-
-  useEffect(() => {
-    setLocalEpicOptions(epics);
-  }, [epics]);
-
-  useEffect(() => {
-    function handleProjectEpicsReconciled(event: Event) {
-      const detail = (event as CustomEvent<ProjectEpicsReconciledDetail>).detail;
-      if (detail?.projectId !== projectId) {
-        return;
-      }
-
-      setLocalEpicOptions(
-        detail.epics
-          .filter((epic) => epic.archivedAt == null)
-          .map((epic) => ({
-            id: epic.id,
-            name: epic.name,
-            status: epic.status,
-            progressPercent: epic.progressPercent,
-            taskCount: epic.taskCount,
-          }))
-      );
-    }
-
-    window.addEventListener(
-      PROJECT_EPICS_RECONCILED_EVENT,
-      handleProjectEpicsReconciled
-    );
-
-    return () => {
-      window.removeEventListener(
-        PROJECT_EPICS_RECONCILED_EVENT,
-        handleProjectEpicsReconciled
-      );
-    };
-  }, [projectId]);
 
   const selectedTaskId = selectedTask?.id ?? null;
   const selectedTaskCommentCount = selectedTask?.commentCount ?? 0;
@@ -1119,30 +823,12 @@ export function KanbanBoard({
     selectedTaskUpdatedAt,
   ]);
 
-  const allKnownLabels = useMemo(() => {
-    const labels = new Map<string, string>();
-
-    const collectLabel = (label: string) => {
-      const key = label.toLocaleLowerCase();
-      if (!labels.has(key)) {
-        labels.set(key, label);
-      }
-    };
-
-    TASK_STATUSES.forEach((status) => {
-      columns[status].forEach((task) => {
-        task.labels.forEach(collectLabel);
-      });
-    });
-
-    archivedDoneTasks.forEach((task) => {
-      task.labels.forEach(collectLabel);
-    });
-
-    return Array.from(labels.values()).sort((left, right) =>
-      left.localeCompare(right)
-    );
-  }, [archivedDoneTasks, columns]);
+  const {
+    allTasks, allKnownLabels, taskSearchQuery, setTaskSearchQuery,
+    selectedLabels, selectedEpicFilters, visibleColumns, visibleArchivedDoneTasks,
+    hasActiveFilters, isTaskSearchLoading, taskSearchError, retryTaskSearch,
+    toggleLabelFilter, toggleEpicFilter, clearKanbanFilters,
+  } = useKanbanFilters({ projectId, columns, archivedDoneTasks, localEpicOptions });
 
   const editLabelSuggestions = useMemo(() => {
     const query = editLabelInput.trim().toLowerCase();
@@ -1164,88 +850,6 @@ export function KanbanBoard({
 
     return archivedDoneTasks.some((task) => task.id === selectedTask.id);
   }, [archivedDoneTasks, selectedTask]);
-
-  const allTasks = useMemo(
-    () => [...TASK_STATUSES.flatMap((status) => columns[status]), ...archivedDoneTasks],
-    [archivedDoneTasks, columns]
-  );
-
-  const searchableTaskRevision = useMemo(
-    () => buildKanbanSearchRevision(allTasks),
-    [allTasks]
-  );
-  const {
-    normalizedQuery: normalizedTaskSearchQuery,
-    searchTaskIds: effectiveSearchTaskIds,
-    isLoading: isTaskSearchLoading,
-    error: taskSearchError,
-    retry: retryTaskSearch,
-  } = useKanbanTaskSearch({
-    projectId,
-    query: taskSearchQuery,
-    searchableTaskRevision,
-  });
-  const visibleColumns = useMemo(
-    () =>
-      filterKanbanColumns(
-        columns,
-        effectiveSearchTaskIds,
-        selectedLabels,
-        selectedEpicFilters
-      ),
-    [columns, effectiveSearchTaskIds, selectedEpicFilters, selectedLabels]
-  );
-  const visibleArchivedDoneTasks = useMemo(
-    () =>
-      archivedDoneTasks.filter((task) =>
-        taskMatchesKanbanFilters(
-          task,
-          effectiveSearchTaskIds,
-          selectedLabels,
-          selectedEpicFilters
-        )
-      ),
-    [
-      archivedDoneTasks,
-      effectiveSearchTaskIds,
-      selectedEpicFilters,
-      selectedLabels,
-    ]
-  );
-  const hasActiveFilters =
-    normalizedTaskSearchQuery.length > 0 ||
-    selectedLabels.size > 0 ||
-    selectedEpicFilters.size > 0;
-
-  const toggleLabelFilter = useCallback((label: string) => {
-    setSelectedLabels((previousLabels) => {
-      const nextLabels = new Set(previousLabels);
-      if (nextLabels.has(label)) {
-        nextLabels.delete(label);
-      } else {
-        nextLabels.add(label);
-      }
-      return nextLabels;
-    });
-  }, []);
-
-  const toggleEpicFilter = useCallback((value: string) => {
-    setSelectedEpicFilters((currentFilters) => {
-      const nextFilters = new Set(currentFilters);
-      if (nextFilters.has(value)) {
-        nextFilters.delete(value);
-      } else {
-        nextFilters.add(value);
-      }
-      return nextFilters;
-    });
-  }, []);
-
-  const clearKanbanFilters = useCallback(() => {
-    setTaskSearchQuery("");
-    setSelectedLabels(new Set());
-    setSelectedEpicFilters(new Set());
-  }, []);
 
   const taskById = useMemo(
     () => new Map(allTasks.map((task) => [task.id, task])),
@@ -1311,27 +915,6 @@ export function KanbanBoard({
       left.name.localeCompare(right.name)
     );
   }, [archivedEpics, availableEpicOptions, selectedTask]);
-
-  useEffect(() => {
-    const availableEpicIds = new Set(localEpicOptions.map((epic) => epic.id));
-    setSelectedEpicFilters((currentFilters) => {
-      const nextFilters = new Set(
-        Array.from(currentFilters).filter(
-          (value) =>
-            value === NO_EPIC_FILTER_VALUE || availableEpicIds.has(value)
-        )
-      );
-
-      if (
-        nextFilters.size === currentFilters.size &&
-        Array.from(nextFilters).every((value) => currentFilters.has(value))
-      ) {
-        return currentFilters;
-      }
-
-      return nextFilters;
-    });
-  }, [localEpicOptions]);
 
   const availableAssignees = useMemo<ProjectTaskCollaborator[]>(
     () =>
@@ -1472,7 +1055,7 @@ export function KanbanBoard({
         return hasChanges ? nextTasks : previousTasks;
       });
     },
-    []
+    [setArchivedDoneTasks, setColumns]
   );
 
   const removeRelatedTaskReferences = useCallback((taskId: string) => {
@@ -1516,386 +1099,12 @@ export function KanbanBoard({
 
       return hasChanges ? nextTasks : previousTasks;
     });
-  }, []);
+  }, [setArchivedDoneTasks, setColumns]);
 
-  const persistColumns = useCallback(
-    async (
-      nextColumns: TaskColumns<KanbanTask>,
-      previousColumns: TaskColumns<KanbanTask>,
-      epicTaskMutation?: {
-        previousTask: KanbanTask;
-        nextTask: KanbanTask;
-      }
-    ): Promise<{ persisted: boolean; version: string | null }> => {
-      const remoteAppliesAtStart = remoteColumnsApplyCountRef.current;
-      try {
-        const response = await fetchProjectActivityMutation(
-          projectId,
-          `/api/projects/${projectId}/tasks/reorder`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(buildPersistPayload(nextColumns)),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Persist request failed");
-        }
-
-        setPersistError(null);
-        if (epicTaskMutation) {
-          void reconcileProjectEpicsAfterTaskMutation(
-            projectId,
-            epicTaskMutation.previousTask,
-            epicTaskMutation.nextTask
-          );
-        }
-        return {
-          persisted: true,
-          version: readProjectActivityVersionHeader(response),
-        };
-      } catch (error) {
-        console.error("[KanbanBoard.persistColumns]", error);
-        if (remoteColumnsApplyCountRef.current === remoteAppliesAtStart) {
-          setColumns(previousColumns);
-          setPersistError("Could not save task movement. Board reverted.");
-        } else {
-          // A remote order landed after this write started, so the captured
-          // columns no longer match any stored order; keep the remote layout
-          // instead of reverting over it.
-          setPersistError("Could not save task movement.");
-        }
-        return { persisted: false, version: null };
-      }
-    },
-    [projectId]
-  );
-
-  const computeDropApplication = useCallback(
-    (
-      source: DraggableLocation,
-      destination: DraggableLocation
-    ): { application: DropApplication } | { error: string } | null => {
-      const sourceStatus = source.droppableId;
-      const destinationStatus = destination.droppableId;
-
-      if (!isTaskStatus(sourceStatus) || !isTaskStatus(destinationStatus)) {
-        return { error: "Invalid drag target. Please retry." };
-      }
-
-      const previousColumns = cloneColumns(columns);
-      const appliedDrop = applyFilteredTaskDrop({
-        columns,
-        visibleColumns,
-        source: {
-          status: sourceStatus,
-          index: source.index,
-        },
-        destination: {
-          status: destinationStatus,
-          index: destination.index,
-        },
-        mapMovedTask: (task, nextStatus) =>
-          stampTaskActivity(
-            {
-              ...task,
-              status: nextStatus,
-            },
-            currentActorSummary
-          ),
-      });
-
-      if (!appliedDrop) {
-        return null;
-      }
-
-      const { columns: nextColumns, movedTask } = appliedDrop;
-      const previousTaskIndex = previousColumns[sourceStatus].findIndex(
-        (task) => task.id === movedTask.id
-      );
-      const nextTaskIndex = nextColumns[destinationStatus].findIndex(
-        (task) => task.id === movedTask.id
-      );
-      const previousTask = previousColumns[sourceStatus][previousTaskIndex];
-      const nextTask = nextColumns[destinationStatus][nextTaskIndex];
-
-      if (!previousTask || !nextTask) {
-        return { error: "Could not map task movement. Please retry." };
-      }
-
-      return {
-        application: {
-          previousColumns,
-          nextColumns,
-          movedTask,
-          sourceStatus,
-          destinationStatus,
-          previousTask: {
-            ...previousTask,
-            status: sourceStatus,
-            position: previousTaskIndex,
-          },
-          nextTask: {
-            ...nextTask,
-            status: destinationStatus,
-            position: nextTaskIndex,
-          },
-        },
-      };
-    },
-    [columns, currentActorSummary, visibleColumns]
-  );
-
-  const applyCommittedOrders = useCallback(
-    (
-      orders: Array<{ status: TaskStatus; taskIds: string[] }>,
-      baselineVersion: string | null,
-      minTaskSeq: number
-    ) => {
-      const preservedStatusByTaskId = new Map<string, TaskStatus>();
-      remoteTaskRepresentationsRef.current.forEach((representation, taskId) => {
-        if (representation.seq <= minTaskSeq) {
-          return;
-        }
-        if (
-          baselineVersion !== null &&
-          !isProjectActivityVersionNewer(representation.version, baselineVersion)
-        ) {
-          return;
-        }
-        preservedStatusByTaskId.set(taskId, representation.status);
-      });
-      setColumns((previousColumns) =>
-        reconcileCommittedColumns(
-          previousColumns,
-          orders,
-          preservedStatusByTaskId
-        )
-      );
-    },
-    []
-  );
-
-  const handleKeyboardDropIntent = useCallback(
-    (source: DraggableLocation, destination: DraggableLocation) => {
-      if (!canEdit || keyboardDropIntentRef.current) {
-        return;
-      }
-
-      const computed = computeDropApplication(source, destination);
-      if (!computed || "error" in computed) {
-        return;
-      }
-
-      const record: KeyboardDropIntent = {
-        source,
-        destination,
-        movedTaskId: computed.application.movedTask.id,
-        outcome: "pending",
-        writeVersion: null,
-        intentStartVersion: remoteColumnsVersionRef.current,
-        intentStartTaskSeq: remoteTaskRepresentationSeqRef.current,
-        committedOrders: TASK_STATUSES.map((status) => ({
-          status,
-          taskIds: computed.application.nextColumns[status].map(
-            (task) => task.id
-          ),
-        })),
-        settled: false,
-      };
-      keyboardDropIntentRef.current = record;
-
-      // Space confirms a keyboard drop in the same keydown, so the persist
-      // request starts here instead of waiting for the drop transition to end
-      // and onDragEnd to fire.
-      void persistColumns(
-        computed.application.nextColumns,
-        computed.application.previousColumns,
-        {
-          previousTask: computed.application.previousTask,
-          nextTask: computed.application.nextTask,
-        }
-      ).then(({ persisted, version }) => {
-        record.outcome = persisted ? "saved" : "failed";
-        record.writeVersion = version;
-
-        if (keyboardDropIntentRef.current !== null || !record.settled) {
-          // An active intent (this one or a successor) settles the outcome; a
-          // replaced intent was never settled and must not reapply.
-          return;
-        }
-        if (!persisted) {
-          // The failure path already reverted or kept the remote layout.
-          return;
-        }
-        // The acknowledgement arrived after the drop settled: the write's
-        // committed order is the stored order unless a newer full-order
-        // delivery landed in the meantime.
-        const remoteVersion = remoteColumnsVersionRef.current;
-        if (
-          version === null ||
-          (remoteVersion !== null &&
-            !isProjectActivityVersionNewer(version, remoteVersion))
-        ) {
-          return;
-        }
-        applyCommittedOrders(
-          record.committedOrders,
-          version,
-          record.intentStartTaskSeq
-        );
-        setPersistError(null);
-      });
-    },
-    [applyCommittedOrders, canEdit, computeDropApplication, persistColumns]
-  );
-
-  const onDragEnd = useCallback(
-    (result: DropResult) => {
-      if (!canEdit) {
-        return;
-      }
-
-      const { source, destination, reason } = result;
-      const keyboardIntent = keyboardDropIntentRef.current;
-      keyboardDropIntentRef.current = null;
-
-      if (reason !== "DROP" || !destination) {
-        return;
-      }
-
-      if (
-        source.droppableId === destination.droppableId &&
-        source.index === destination.index
-      ) {
-        return;
-      }
-
-      const matchesKeyboardIntent =
-        keyboardIntent !== null &&
-        keyboardIntent.source.droppableId === source.droppableId &&
-        keyboardIntent.source.index === source.index &&
-        keyboardIntent.destination.droppableId === destination.droppableId &&
-        keyboardIntent.destination.index === destination.index;
-
-      if (matchesKeyboardIntent) {
-        keyboardIntent.settled = true;
-        if (keyboardIntent.outcome === "failed") {
-          // The early persist already reverted and surfaced the error; leave
-          // the board on the stored order instead of applying the drop locally.
-          return;
-        }
-
-        const findVisibleTaskLocation = (
-          taskId: string
-        ): { status: TaskStatus; index: number; task: KanbanTask } | null => {
-          for (const status of TASK_STATUSES) {
-            const index = visibleColumns[status].findIndex(
-              (task) => task.id === taskId
-            );
-            if (index !== -1) {
-              return { status, index, task: visibleColumns[status][index] };
-            }
-          }
-          return null;
-        };
-
-        const syncMovedTaskSummary = (task: KanbanTask) => {
-          if (relatedTaskGraph.get(task.id)?.length) {
-            syncRelatedTaskSummary(task.id, {
-              title: task.title,
-              status: task.status,
-              archivedAt: null,
-            });
-          }
-        };
-
-        const located = findVisibleTaskLocation(keyboardIntent.movedTaskId);
-
-        // A full-order remote delivery (typed reorder event or fresh
-        // server-rendered props) carrying a project version newer than the
-        // acknowledgement's write is authoritative: its order already includes
-        // the committed move plus whatever landed after it, so the intent must
-        // not be restored over it. While the write is still in flight its
-        // version is unknown, so the newest version already applied when the
-        // intent was submitted is the baseline instead.
-        const remoteVersion = remoteColumnsVersionRef.current;
-        const settleBaseline =
-          keyboardIntent.writeVersion ?? keyboardIntent.intentStartVersion;
-        const newerRemoteColumns =
-          remoteVersion !== null &&
-          (settleBaseline === null ||
-            isProjectActivityVersionNewer(remoteVersion, settleBaseline));
-
-        if (newerRemoteColumns) {
-          setPersistError(null);
-          if (located) {
-            syncMovedTaskSummary(located.task);
-          }
-          return;
-        }
-
-        // Otherwise the local layout predates (or only partially reflects)
-        // the write, so restore the committed payload orders: the stored
-        // order of every lane wins while partial deltas that landed around the
-        // acknowledgement keep their current positions. Re-deriving the move
-        // by index is never correct once other events may have shifted cards.
-        applyCommittedOrders(
-          keyboardIntent.committedOrders,
-          settleBaseline,
-          keyboardIntent.intentStartTaskSeq
-        );
-        setPersistError(null);
-        if (located) {
-          syncMovedTaskSummary(located.task);
-        }
-        return;
-      }
-
-      const computed = computeDropApplication(source, destination);
-      if (!computed) {
-        return;
-      }
-      if ("error" in computed) {
-        setPersistError(computed.error);
-        return;
-      }
-
-      const { application } = computed;
-
-      setColumns(application.nextColumns);
-      setPersistError(null);
-
-      void persistColumns(
-        application.nextColumns,
-        application.previousColumns,
-        {
-          previousTask: application.previousTask,
-          nextTask: application.nextTask,
-        }
-      );
-
-      if (relatedTaskGraph.get(application.movedTask.id)?.length) {
-        syncRelatedTaskSummary(application.movedTask.id, {
-          title: application.movedTask.title,
-          status: application.destinationStatus,
-          archivedAt: null,
-        });
-      }
-    },
-    [
-      applyCommittedOrders,
-      canEdit,
-      computeDropApplication,
-      persistColumns,
-      relatedTaskGraph,
-      syncRelatedTaskSummary,
-      visibleColumns,
-    ]
-  );
+  const { onDragEnd, handleKeyboardDropIntent, persistColumns } = useKanbanDragDrop({
+    canEdit, projectId, board, visibleColumns, currentActorSummary,
+    relatedTaskGraph, syncRelatedTaskSummary, setPersistError,
+  });
 
   const restoreTaskCardFocus = useCallback((card: HTMLElement | null) => {
     if (!card) {
@@ -2057,7 +1266,7 @@ export function KanbanBoard({
         ? reconcileBilateralTaskRelations(previousTask, updatedTask)
         : previousTask;
     });
-  }, []);
+  }, [setArchivedDoneTasks, setColumns]);
 
   const applyUpdatedTask = useCallback(
     (updatedTask: KanbanTask) => {
@@ -2326,7 +1535,7 @@ export function KanbanBoard({
       setIsExpanded(true);
       setPersistError(null);
     },
-    [setIsExpanded]
+    [setColumns, setIsExpanded]
   );
 
   const upsertRemoteTask = useCallback(
@@ -2378,102 +1587,14 @@ export function KanbanBoard({
       setIsExpanded(true);
       setPersistError(null);
     },
-    [setIsExpanded]
+    [setArchivedDoneTasks, setColumns, setIsExpanded]
   );
 
-  const openTaskById = useCallback(
-    (rawTaskId: string) => {
-      const requestId = ++taskOpenRequestRef.current;
-      const taskId = rawTaskId.trim();
-      if (!taskId) {
-        return;
-      }
-
-      const task = taskById.get(taskId);
-      if (task) {
-        handleSelectTask(task);
-        setIsExpanded(true);
-        return;
-      }
-
-      // The task is absent from the loaded board; fetch it by id so the
-      // detail modal can still open. Failures keep the board unchanged.
-      void (async () => {
-        try {
-          const response = await fetch(
-            `/api/projects/${projectId}/tasks/${encodeURIComponent(taskId)}`
-          );
-          if (!response.ok) {
-            return;
-          }
-          const payload = (await response.json()) as {
-            task?: TaskMutationResponseTask;
-          };
-          const remoteTask = payload.task;
-          if (
-            requestId !== taskOpenRequestRef.current ||
-            !remoteTask ||
-            !isTaskStatus(remoteTask.status)
-          ) {
-            return;
-          }
-          const mappedTask = mapTaskMutationResponseTask(remoteTask);
-          upsertRemoteTask(mappedTask);
-          handleSelectTask(mappedTask);
-          setIsExpanded(true);
-        } catch (error) {
-          console.error("[KanbanBoard.openTaskById]", error);
-        }
-      })();
-    },
-    [handleSelectTask, projectId, setIsExpanded, taskById, upsertRemoteTask]
-  );
-
-  const normalizedInitialTaskId =
-    typeof initialTaskId === "string" ? initialTaskId.trim() : "";
-
-  useEffect(() => {
-    if (
-      !normalizedInitialTaskId ||
-      openedInitialTaskIdRef.current === normalizedInitialTaskId
-    ) {
-      return;
-    }
-
-    openedInitialTaskIdRef.current = normalizedInitialTaskId;
-    openTaskById(normalizedInitialTaskId);
-  }, [normalizedInitialTaskId, openTaskById]);
-
-  useEffect(() => {
-    const followHistory = () => {
-      const taskId = new URL(window.location.href).searchParams.get("taskId");
-      if (taskId) {
-        openTaskById(taskId);
-      } else {
-        closeTaskModal();
-      }
-    };
-    window.addEventListener("popstate", followHistory);
-    return () => window.removeEventListener("popstate", followHistory);
-  }, [closeTaskModal, openTaskById]);
-
-  useEffect(() => {
-    const handleTaskOpenRequest = (event: Event) => {
-      const detail = (event as CustomEvent<TaskOpenRequestDetail>).detail;
-      if (!detail?.taskId) {
-        return;
-      }
-
-      detail.markHandled();
-      openTaskById(detail.taskId);
-    };
-
-    window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleTaskOpenRequest);
-
-    return () => {
-      window.removeEventListener(TASK_OPEN_REQUEST_EVENT, handleTaskOpenRequest);
-    };
-  }, [openTaskById]);
+  useKanbanTaskNavigation({
+    projectId, initialTaskId, taskById, taskOpenRequestRef,
+    handleSelectTask, closeTaskModal, upsertRemoteTask, setIsExpanded,
+    mapTaskMutationResponseTask,
+  });
 
   const applyRemoteReorder = useCallback(
     (reorderedColumns: Array<{ status: TaskStatus; taskIds: string[] }>) => {
@@ -2518,7 +1639,7 @@ export function KanbanBoard({
 
       setPersistError(null);
     },
-    []
+    [setColumns]
   );
 
   const removeLocalTask = useCallback(
@@ -2544,7 +1665,7 @@ export function KanbanBoard({
       });
       removeRelatedTaskReferences(taskId);
     },
-    [removeRelatedTaskReferences]
+    [remoteTaskRepresentationsRef, removeRelatedTaskReferences, setArchivedDoneTasks, setColumns]
   );
 
   const replaceOptimisticTaskWithCreatedTask = useCallback(
@@ -2629,7 +1750,7 @@ export function KanbanBoard({
       setIsExpanded(true);
       setPersistError(null);
     },
-    [setIsExpanded]
+    [setArchivedDoneTasks, setColumns, setIsExpanded]
   );
 
   const insertOptimisticTask = useCallback(
@@ -3078,14 +2199,7 @@ export function KanbanBoard({
         message: `Task moved to ${nextStatus}.`,
       });
     },
-    [
-      canEdit,
-      columns,
-      currentActorSummary,
-      persistColumns,
-      pushToast,
-      syncRelatedTaskSummary,
-    ]
+    [canEdit, columns, currentActorSummary, persistColumns, pushToast, setColumns, syncRelatedTaskSummary]
   );
 
   const confirmDeleteTask = useCallback(async () => {
@@ -3151,7 +2265,7 @@ export function KanbanBoard({
       setPendingDeleteTask(null);
       setIsDeletingTask(false);
     }
-  }, [canEdit, isDeletingTask, pendingDeleteTask, projectId, pushToast, removeRelatedTaskReferences]);
+  }, [canEdit, isDeletingTask, pendingDeleteTask, projectId, pushToast, removeRelatedTaskReferences, setArchivedDoneTasks, setColumns]);
 
   const handleArchiveTask = useCallback(async () => {
     if (!canEdit) {
@@ -3225,16 +2339,7 @@ export function KanbanBoard({
     } finally {
       setIsArchivingTask(false);
     }
-  }, [
-    canEdit,
-    closeTaskModal,
-    currentActorSummary,
-    isArchivingTask,
-    projectId,
-    pushToast,
-    selectedTask,
-    syncRelatedTaskSummary,
-  ]);
+  }, [canEdit, closeTaskModal, currentActorSummary, isArchivingTask, projectId, pushToast, selectedTask, setArchivedDoneTasks, setColumns, syncRelatedTaskSummary]);
 
   const handleUnarchiveTask = useCallback(async () => {
     if (!canEdit) {
@@ -3305,16 +2410,7 @@ export function KanbanBoard({
     } finally {
       setIsArchivingTask(false);
     }
-  }, [
-    canEdit,
-    currentActorSummary,
-    isArchivingTask,
-    isSelectedTaskArchived,
-    projectId,
-    pushToast,
-    selectedTask,
-    syncRelatedTaskSummary,
-  ]);
+  }, [canEdit, currentActorSummary, isArchivingTask, isSelectedTaskArchived, projectId, pushToast, selectedTask, setArchivedDoneTasks, setColumns, syncRelatedTaskSummary]);
 
   const handleAddBlockedFollowUpEntry = useCallback(async () => {
     if (!canEdit) {
@@ -3371,7 +2467,7 @@ export function KanbanBoard({
         return mutateTask(previousTask);
       });
     },
-    []
+    [setArchivedDoneTasks, setColumns]
   );
 
   useEffect(() => {
@@ -3561,11 +2657,17 @@ export function KanbanBoard({
         }));
 
         if (selectedTask?.id === commentPayload.taskId && commentPayload.comment) {
-          setTaskComments((previousComments) =>
-            previousComments.some((comment) => comment.id === commentPayload.comment?.id)
-              ? previousComments
-              : [...previousComments, commentPayload.comment as TaskComment]
-          );
+          const incomingComment = commentPayload.comment;
+          setTaskComments((previousComments) => {
+            if (previousComments.some((comment) => comment.id === incomingComment.id)) {
+              return previousComments;
+            }
+            const withoutRepresentedOptimistic = previousComments.filter(
+              (comment) =>
+                !isOptimisticTaskCommentRepresented(comment, [incomingComment])
+            );
+            return [...withoutRepresentedOptimistic, incomingComment];
+          });
         }
 
         detail.markHandled();

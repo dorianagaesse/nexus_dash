@@ -21,6 +21,7 @@ import {
 } from "@/lib/env.server";
 
 const ENV_KEYS_TO_RESET = [
+  "NEXT_PHASE",
   "NODE_ENV",
   "VERCEL_ENV",
   "VERCEL_URL",
@@ -60,6 +61,17 @@ const ENV_KEYS_TO_RESET = [
 ];
 
 describe("env.server", () => {
+  test("skips runtime secrets only during the production build phase", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PHASE", "phase-production-build");
+    expect(() => validateServerRuntimeConfig()).not.toThrow();
+
+    for (const phase of ["", "phase-production-server", "phase-development-server", "unknown"]) {
+      vi.stubEnv("NEXT_PHASE", phase);
+      expect(() => validateServerRuntimeConfig()).toThrow("DATABASE_URL");
+    }
+  });
+
   beforeEach(() => {
     for (const key of ENV_KEYS_TO_RESET) {
       vi.stubEnv(key, "");

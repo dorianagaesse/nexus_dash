@@ -7,10 +7,8 @@ import {
 import { logServerWarning } from "@/lib/observability/logger";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
-import {
-  isValidReorderPayload,
-  reorderProjectTasks,
-} from "@/lib/services/project-task-service";
+import { reorderProjectTasks } from "@/lib/services/project-task-service";
+import { taskReorderContract } from "@/lib/task-contracts";
 import { startServerTiming } from "@/lib/observability/server-timing";
 
 export async function POST(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
@@ -41,13 +39,14 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
-  if (!isValidReorderPayload(body)) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  const parsedBody = taskReorderContract.parse(body);
+  if (!parsedBody.ok) {
+    return NextResponse.json({ error: parsedBody.error }, { status: 400 });
   }
 
   const result = await reorderProjectTasks(
     projectId,
-    body,
+    parsedBody.data,
     actorUserId,
     agentAccess
   );

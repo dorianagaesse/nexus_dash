@@ -26,9 +26,6 @@ jobs:
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash?schema=public
       AGENT_TOKEN_SIGNING_SECRET: ci-placeholder-agent-token-signing-secret-0123456789
       RESEND_API_KEY: ci-placeholder-resend-key
-      # Production-like builds default to Broadcast, which requires Supabase
-      # Realtime configuration CI does not provision; pin bounded polling.
-      REALTIME_TRANSPORT: polling
 
     steps:
       - name: Checkout

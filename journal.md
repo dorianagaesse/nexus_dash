@@ -3,6 +3,176 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+## 2026-11-02 - ND-547 Meeting Notes request contracts
+
+- Started production migration after the ND-546 approval of source `cdcba0d6` / tree `cc84df15`, validated in [workflow run 41367681234](https://github.com/dorianagaesse/nexus_dash/actions/runs/41367681234).
+- Moved duplicated create/PATCH field coercion into a pure Meeting Notes parser module with typed parsed commands. Kept service normalization, authorization, revision preconditions, and response serialization at their existing seams.
+- Preserved intentional create defaults, PATCH field presence and explicit clears, visibility omission/aliases, and nested assignee semantics. Malformed non-object JSON now returns the existing `invalid-request-body` 400 shape instead of the accidental create-side null failure.
+- Added route-level characterization and malformed-input/identity-boundary regressions; guidance is in [Meeting Notes request contracts](docs/architecture/meeting-note-contracts.md).
+
+# 2026-11-02 - ND-546: validate Task pilot ownership and import seams
+
+- Reviewed the combined contract, Kanban, service, and data pilot at `8e701a6d`;
+  recorded the exact source/tree, findings, behavior/security invariants,
+  measured query/latency evidence, limitations, and bounded Meeting Notes gate
+  in `docs/architecture/task-pilot-review.md`.
+- Removed the Task person helper's service/Node-crypto dependency by using the
+  existing pure discriminator validator. Added targeted lint rules while
+  preserving legitimate server component and unrelated DTO imports.
+- Verified positive/negative import probes and the owned Task runtime graph;
+  retained ND-542's existing contract/OpenAPI parity coverage. Final validation
+  and approval evidence belongs in the delivery PR and board completion comment.
+- Fixed the reviewed schema predicate mismatch: legacy/coerced raw acceptance
+  returns boolean and typed commands come from parsing. A compiler regression
+  runs in the normal Vitest suite to verify raw values remain unknown and
+  declared input/output inference is preserved.
+
+## 2026-11-02 - ND-545 Task data-access pilot
+
+- Extracted actor-scoped Task read/filter/archive queries and shared exact board/mutation projections. Existing project and Task service facades stay compatible.
+- Added explicit-client lane persistence helpers, preserving statement order, revision boundaries, authorization, and relation behavior.
+- Focused regressions: 37 passed; production TypeScript passed. Real PostgreSQL measurements retain 16/20/31 driver calls for board/update/reorder; latency comparison and full gates are recorded with the PR.
+# 2026-11-02 - ND-544: Task application-service modules
+
+- Kept the public Task service facade stable while extracting create/update,
+  lifecycle, policy, assignment, normalization, result, type, and persistence
+  modules from the canonical ND-542 service implementation.
+- Preserved all 40 service declaration bodies, actor-scoped transaction
+  clients, mutation ordering, revision retry boundaries, and caller imports.
+- Re-exported runtime validators and command types from `lib/task-contracts.ts`
+  so the extraction retains one canonical request contract.
+- Documented ownership and the ND-545 projection/relation seam in
+  `docs/architecture/task-services.md`; validation evidence is in PR #642.
+
+# 2026-11-02 - ND-190: collaboration service use-case ownership
+
+- Kept `project-collaboration-service.ts` as the public facade and moved owner
+  invitation management, membership operations, and recipient responses into
+  focused modules under `lib/services/collaboration/`. Shared policy, projection,
+  and email delivery modules keep transaction ownership explicit.
+- Preserved all 60 original declarations without behavioral edits, including
+  verified-email binding, invitation acceptance races, activity repair,
+  responsibility-aware offboarding, and email delivery after commit.
+- Reorganized the existing collaboration regressions by use case, added member
+  authorization and same-client offboarding-order checks, and added a browser
+  invitation-to-membership lifecycle. Focused tests pass (21 tests), along with
+  lint, RLS inventory, and the real PostgreSQL isolation matrix. Full delivery
+  evidence is tracked in [PR #643](https://github.com/dorianagaesse/nexus_dash/pull/643).
+- The dedicated local RLS database needed the Realtime stub installed before
+  migrations, matching CI; rebuilt only `nexusdash_nd190` in that order.
+## 2026-11-02 - ND-543 Kanban controller responsibilities
+
+- Extracted board state and remote authority, drag persistence and keyboard settlement, combined filters/search, and task deep-link/history navigation into focused Kanban hooks, preserving public props and rendered components.
+- Added a board-level regression for filtered keyboard movement, hidden-card persistence, and clearing filters; documented the ownership and authority seams in [Kanban controller responsibilities](docs/kanban-controller-boundaries.md).
+
+# 2026-10-30 - ND-542: unify Task create and update API runtime contracts
+
+- Introduced `lib/task-contracts.ts` as the single pure runtime contract module
+  for Task create, partial update (`PATCH`), bulk operations, status transition,
+  and board reorder requests across JSON and multipart callers, with inferred
+  TypeScript input/output types (`TaskCreateContractInput`,
+  `TaskCreateContractOutput`, `TaskUpdateContractInput`,
+  `TaskUpdateContractOutput`, `CreateTaskCommand`, `UpdateTaskCommand`) and
+  zero Prisma or service imports.
+- Moved pure attachment link and file validation helpers into
+  `lib/task-attachment.ts` (re-exported from
+  `lib/services/attachment-input-service.ts`) and exported
+  `MIN_TASK_TITLE_LENGTH` from `lib/task-title.ts` and `PROJECT_ACTOR_KINDS`
+  from `lib/project-actor.ts` so field rules are defined once.
+- Updated `app/api/projects/[projectId]/tasks/route.ts`,
+  `app/api/projects/[projectId]/tasks/[taskId]/route.ts`,
+  `app/api/projects/[projectId]/tasks/bulk/route.ts`,
+  `app/api/projects/[projectId]/tasks/[taskId]/status/route.ts`,
+  `app/api/projects/[projectId]/tasks/reorder/route.ts`, and
+  `lib/services/project-task-service.ts` to validate and map inputs through the
+  shared contract commands while preserving all existing error codes, partial
+  PATCH semantics, relation diagnostics (`invalidRelatedTask`), and human/agent
+  behavior.
+- Derived the OpenAPI schemas (`ProjectActorReferenceInput`,
+  `TaskCreateRequest`, `TaskUpdateRequest`, `TaskReorderRequest`,
+  `TaskStatusTransitionRequest`, `TaskBulkRequest`, `TaskBulkCreateOperation`,
+  `TaskBulkUpdateOperation`, `TaskBulkStatusOperation`) in
+  `lib/agent-onboarding.ts` directly from `lib/task-contracts.ts`.
+- Added focused contract and OpenAPI parity coverage in
+  `tests/lib/task-contracts.test.ts` (and added `lib/task-contracts.ts` to
+  `vitest.config.mts` coverage gates).
+- Validation passed: `npm run rls:check`, `npm run lint`, `npm test` /
+  `npm run test:coverage` (252 passed test suites, 2,223 passed tests, 2
+  skipped; `lib/task-contracts.ts` at 93.97% statements / 94.18% branches /
+  93.87% functions / 93.95% lines), `npm run build`, and Playwright E2E task
+  create/edit, relation, assignment, and attachment upload specs (12/12 passed).
+
+# 2026-10-30 - ND-541: define Tasks/Kanban domain boundary and migration seams
+
+- Authored `adr/nd-541-tasks-kanban-domain-boundary.md` and recorded the summary
+  decision in `adr/decisions.md` (with index updates in `adr/README.md` and
+  `project.md`) to establish the ownership map, public import seams, software
+  design patterns, behavior/security invariants, baseline test matrix, and
+  staged extraction plan for `ND-542` through `ND-547`.
+- Mapped every Tasks/Kanban module across delivery (`app/api/projects/[projectId]/tasks/**`,
+  `app/projects/[projectId]/kanban-board-section.tsx`), UI (`components/kanban-board.tsx`,
+  `components/kanban/**`), runtime contracts (`lib/task-contracts.ts` target),
+  pure domain policies (`lib/task-*.ts`), application services
+  (`lib/services/project-task-service.ts` facade over `lib/services/tasks/**`),
+  data-access/projections (`lib/services/tasks/task-data.ts` target +
+  `lib/services/project-task-response.ts`), and adjacent/shared boundaries
+  (Task Discussion `ND-187`, RLS-safe actor projections `ND-455`, attachments,
+  epics, and platform services).
+- Defined concrete, rollback-safe extraction targets for `ND-542` (Transport
+  Adapter + Command in `lib/task-contracts.ts`), `ND-543` (cohesive Kanban hook
+  controllers under `components/kanban/hooks/**`), `ND-544` (Task use-case split
+  behind the `project-task-service.ts` Facade), `ND-545` (shared `DbClient`
+  data-access/projection layer consolidating `projectKanbanTaskInclude` and
+  `loadTaskMutationPayload`, relocating Task queries from `project-service.ts`,
+  and establishing the persistence transform seam for encrypted text epic
+  `cmu389cd9000104jvk1bbipyf`), and `ND-546` (boundary lint enforcement gating
+  `ND-547`).
+- Addressed PR #639 review findings (`pullrequestreview-5718028049` and
+  `pullrequestreview-5718097984`): aligned optimistic-concurrency baseline with
+  `lib/content-revision.ts` and `lib/services/content-revision-service.ts`
+  (optional `X-Content-If-Match`, `"matched" | "conflict" | "missing"` result,
+  `412` `{ current }` payload, conditional `retryTransaction`, and DB triggers
+  advancing `contentRevision`), reconciled create/update/status and description
+  invariants (`Backlog`-only create, `sanitizeRichText` normalizing empty or
+  meaningless HTML to `null` and clearing `description` to `null` when provided
+  on `PATCH`, dedicated `/status` and `/reorder` transitions, update-only
+  `blockedFollowUpEntry` ignored when not `Blocked`), verified exact error
+  strings/codes across routes and services, and required an explicit
+  `db: DbClient` parameter on internal `task-data.ts` helpers so queries never
+  escape `withActorRlsContext`.
+
+# 2026-10-30 - ND-645: match task comment edit mode to comment composer without toolbar
+
+- Created ND-645 on the Nexus Dash board and moved it to In Progress after
+  observing that inline task comment editing rendered the full rich-text
+  formatting toolbar and default tall editor frame instead of matching the
+  comment creation composer.
+- Updated `TaskReadOnlyContent` in `components/kanban/task-detail-modal.tsx` so
+  the inline comment edit `RichTextEditor` passes `hideToolbar`,
+  `className="space-y-0"`, and
+  `editorClassName="min-h-11 border-0 focus-visible:border-transparent"`,
+  matching comment creation while retaining inline auto-bullet (`- ` and `* `)
+  conversion.
+- Added component regression coverage in
+  `tests/components/task-detail-modal-comments.test.tsx` verifying that
+  formatting toolbar buttons are hidden in edit mode and that typing `- `
+  converts the comment line into a `<ul><li>` bullet list before saving.
+- Fixed an E2E CI failure on PR #640 in
+  `tests/e2e/nd-144-screenshot-attachments.spec.ts` where optimistic comment
+  submission briefly rendered duplicate `Preview image comment-paste.png`
+  buttons across the composer draft preview, the optimistic comment, and a
+  concurrent `GET /comments` refresh:
+  - Filtered already-rendered comment attachment IDs out of the composer draft
+    preview and task attachment lists in `TaskReadOnlyContent`
+    (`components/kanban/task-detail-modal.tsx`) and kept loaded comments visible
+    during background comment refreshes.
+  - Updated `mergeFetchedTaskComments` (`components/kanban-board-comments.ts`)
+    and the remote comment activity handler (`components/kanban-board.tsx`) to
+    drop optimistic comment placeholders once a fetched or streamed server
+    comment already represents the same attachment or author/content.
+- Validation passed: `npm run lint`, `npm run rls:check`, `npm test`,
+  `npm run test:coverage`, `npm run build`, and `npx playwright test`.
+
 # 2026-10-30 - ND-434: make autosave and recovery invisible
 
 - Product clarification supersedes earlier recovery-UI exceptions: no draft or
@@ -10684,6 +10854,38 @@ Low-value entries to avoid going forward:
 
 - Addressed both non-blocking nits from the LGTM review on PR #636: moved `agentCanMoveTasksToDone` below the other Project scalar fields and expanded the capability-administration test formatting.
 - Validation passed: lint, RLS inventory, all 2,202 unit/API tests (2 skipped), coverage, production build, and the PostgreSQL isolation matrix. Coverage remains 95.25% lines and 85.58% branches. Field ordering and test formatting do not change UI or auth flows; the implementation's full Playwright run remains green at `63e3d6f`.
+
+
+## 2026-10-30 - ND-611 build/runtime configuration split
+
+- Runtime configuration validation skips only Next.js production build phase; runtime module loading still validates and fails clearly. Added phase-transition regression coverage.
+- Removed obsolete polling pins from Quality Core, Docker, and all three Vercel build commands. Kept local/E2E polling for servers that run without Supabase Realtime credentials. Updated environment documentation.
+- Validation: lint, RLS inventory, 89 environment tests, and production build passed. Build used only a placeholder DATABASE_URL with DIRECT_URL, signing/email/Supabase secrets, and transport override absent. The built server returned HTTP 500 on first render and logged the missing DIRECT_URL error. Full unit/API suite passed (2,203 tests; two skipped), and coverage passed all thresholds (95.25% lines, 85.58% branches). CI tenant isolation passed.
+
+## 2026-11-02 - ND-542 Codex review fix takeover
+
+- Continued Gemini's uncommitted fix for the P1 review on PR #641. Trusted
+  create/update commands now use module-private WeakSet identity; update
+  adapters retain commands in a WeakMap instead of a JSON-spoofable property.
+  Raw request markers have no authority and pass through normal validation.
+- Added contract, PATCH persistence, and bulk-operation regressions for forged
+  markers, malformed internal relation shapes, unsafe links/descriptions, and
+  serialized commands.
+- Integrated current main, retaining the ND-542, ND-645, and ND-541 journal
+  entries when concurrent documentation additions conflicted. Documented the
+  server-only trust invariant in the ND-541 ADR. Fixed TypeScript identity
+  lookups to accept objects without casting unvalidated input to commands.
+- Local validation passed on Node 24.22.1: lint, RLS inventory, all 2,232 tests
+  (two expected skips), coverage (95.14% lines, 88.11% branches), production
+  build, and all 12 targeted Playwright checks across task lifecycle, relations,
+  agent assignment, titled links, and screenshot uploads. Browser checks used
+  a separate local database. Initial unit attempts used browser-only environment
+  overrides; corrected those before the successful full run. One local coverage
+  attempt hit the existing panel-position test flake (436px versus 420px);
+  the full retry with two workers passed without changing that test.
+- GitHub Quality Core and PostgreSQL isolation passed on `957356fc` in run
+  [41364774754](https://github.com/dorianagaesse/nexus_dash/actions/runs/41364774754).
+  Copilot review was requested; no review response had arrived at this point.
 
 
 ## 2026-10-30 - ND-610 live task attachments
