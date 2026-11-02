@@ -13,57 +13,17 @@ import {
   listProjectKanbanTasks,
   type TaskListAssigneeFilter,
 } from "@/lib/services/project-service";
-import {
-  createTaskForProject,
-  parseTaskAssigneeInput,
-  validateTaskCreateFieldTypes,
-} from "@/lib/services/project-task-service";
+import { createTaskForProject } from "@/lib/services/project-task-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
 import { mapProjectKanbanTaskToTaskResponse } from "@/lib/services/project-task-response";
-import type { ProjectActorReference } from "@/lib/project-actor";
-
-const ATTACHMENT_FILES_FIELD = "attachmentFiles";
-
-interface TaskCreateJsonRequestBody {
-  title?: unknown;
-  description?: unknown;
-  deadlineDate?: unknown;
-  epicId?: unknown;
-  assigneeUserId?: unknown;
-  assignee?: unknown;
-  labels?: unknown;
-  relatedTaskIds?: unknown;
-  attachmentLinks?: unknown;
-}
-
-function readText(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  if (typeof value !== "string") {
-    return "";
-  }
-  return value.trim();
-}
-
-function readAttachmentFiles(formData: FormData): File[] {
-  return formData
-    .getAll(ATTACHMENT_FILES_FIELD)
-    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
-}
+import {
+  parseCreateTaskJsonInput,
+  parseCreateTaskMultipartInput,
+  toCreateTaskServiceInput,
+} from "@/lib/task-contracts";
 
 function isJsonRequest(request: NextRequest): boolean {
   return request.headers.get("content-type")?.includes("application/json") ?? false;
-}
-
-function serializeJsonField(value: unknown): string {
-  if (value == null) {
-    return "";
-  }
-
-  if (typeof value === "string") {
-    return value.trim();
-  }
-
-  return JSON.stringify(value);
 }
 
 export async function GET(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
@@ -173,20 +133,12 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     return NextResponse.json({ error: "Missing project id" }, { status: 400 });
   }
 
-  let title = "";
-  let description = "";
-  let deadlineDate = "";
-  let epicId: string | null = null;
-  let assignee: ProjectActorReference | null = null;
-  let labelsJsonRaw = "";
-  let relatedTaskIdsJsonRaw = "";
-  let attachmentLinksJsonRaw = "";
-  let attachmentFiles: File[] = [];
+  let parsedCreate: ReturnType<typeof parseCreateTaskJsonInput>;
 
   if (isJsonRequest(request)) {
-    let payload: TaskCreateJsonRequestBody;
+    let payload: unknown;
     try {
-      payload = (await request.json()) as TaskCreateJsonRequestBody;
+      payload = await request.json();
     } catch (error) {
       logServerWarning(
         "POST /api/projects/:projectId/tasks.invalidJson",
@@ -196,20 +148,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
       return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
     }
 
-    title = typeof payload.title === "string" ? payload.title.trim() : "";
-    description =
-      typeof payload.description === "string" ? payload.description.trim() : "";
-    const fieldTypeError = validateTaskCreateFieldTypes(payload);
-    if (fieldTypeError) {
-      return NextResponse.json({ error: fieldTypeError }, { status: 400 });
-    }
-    deadlineDate =
-      typeof payload.deadlineDate === "string" ? payload.deadlineDate.trim() : "";
-    epicId = typeof payload.epicId === "string" ? payload.epicId.trim() || null : null;
-    assignee = parseTaskAssigneeInput(payload);
-    labelsJsonRaw = serializeJsonField(payload.labels);
-    relatedTaskIdsJsonRaw = serializeJsonField(payload.relatedTaskIds);
-    attachmentLinksJsonRaw = serializeJsonField(payload.attachmentLinks);
+    parsedCreate = parseCreateTaskJsonInput(payload);
   } else {
     let formData: FormData;
     try {
@@ -223,52 +162,25 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
       return NextResponse.json({ error: "Invalid form payload" }, { status: 400 });
     }
 
-    title = readText(formData, "title");
-    description = readText(formData, "description");
-    deadlineDate = readText(formData, "deadlineDate");
-    epicId = readText(formData, "epicId") || null;
-    const assigneeKindField = readText(formData, "assigneeKind");
-    const assigneeIdField = readText(formData, "assigneeId");
-    assignee = parseTaskAssigneeInput({
-      assignee:
-        assigneeKindField || assigneeIdField
-          ? {
-              kind: assigneeKindField,
-              id: assigneeIdField,
-            }
-          : undefined,
-      assigneeUserId: readText(formData, "assigneeUserId"),
+    parsedCreate = parseCreateTaskMultipartInput(formData, {
+      isAgentRequest: principalResult.principal.kind === "agent",
     });
-    if ((assigneeKindField || assigneeIdField) && !assignee) {
-      return NextResponse.json({ error: "assignee-invalid" }, { status: 400 });
-    }
-    labelsJsonRaw = readText(formData, "labels");
-    relatedTaskIdsJsonRaw = readText(formData, "relatedTaskIds");
-    attachmentLinksJsonRaw = readText(formData, "attachmentLinks");
-    attachmentFiles = readAttachmentFiles(formData);
-
-    if (principalResult.principal.kind === "agent" && attachmentFiles.length > 0) {
-      return NextResponse.json(
-        { error: "agent-file-attachments-not-supported" },
-        { status: 400 }
-      );
-    }
   }
 
-  const result = await createTaskForProject({
-    actorUserId,
-    projectId,
-    title,
-    description,
-    deadlineDate,
-    epicId,
-    assignee,
-    labelsJsonRaw,
-    relatedTaskIdsJsonRaw,
-    attachmentLinksJsonRaw,
-    attachmentFiles,
-    agentAccess,
-  });
+  if (!parsedCreate.ok) {
+    return NextResponse.json(
+      { error: parsedCreate.error },
+      { status: 400, headers: timing.headers() }
+    );
+  }
+
+  const result = await createTaskForProject(
+    toCreateTaskServiceInput(parsedCreate.data, {
+      actorUserId,
+      projectId,
+      agentAccess,
+    })
+  );
 
   if (!result.ok) {
     return NextResponse.json(

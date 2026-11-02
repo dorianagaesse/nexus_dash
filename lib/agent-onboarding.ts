@@ -10,6 +10,14 @@ import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
 import { EPIC_STATUSES } from "@/lib/epic";
 import { ROADMAP_STATUSES } from "@/lib/roadmap-milestone";
 import { MAX_BULK_TASK_OPERATIONS } from "@/lib/task-bulk";
+import {
+  buildProjectActorReferenceInputOpenApiSchema,
+  buildTaskBulkOpenApiSchemas,
+  buildTaskCreateRequestOpenApiSchema,
+  buildTaskReorderRequestOpenApiSchema,
+  buildTaskStatusTransitionRequestOpenApiSchema,
+  buildTaskUpdateRequestOpenApiSchema,
+} from "@/lib/task-contracts";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 
 export const AGENT_API_VERSION = "v1";
@@ -1737,15 +1745,8 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
-        ProjectActorReferenceInput: {
-          type: "object",
-          required: ["kind", "id"],
-          additionalProperties: false,
-          properties: {
-            kind: { type: "string", enum: ["human", "agent"] },
-            id: { type: "string" },
-          },
-        },
+        ProjectActorReferenceInput:
+          buildProjectActorReferenceInputOpenApiSchema(),
         ProjectActorSummary: {
           type: "object",
           required: [
@@ -1970,48 +1971,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
-        TaskCreateRequest: {
-          type: "object",
-          required: ["title"],
-          properties: {
-            title: { type: "string" },
-            description: { type: "string" },
-            deadlineDate: { type: "string", format: "date" },
-            epicId: { type: ["string", "null"] },
-            assignee: {
-              anyOf: [
-                { $ref: "#/components/schemas/ProjectActorReferenceInput" },
-                { type: "null" },
-              ],
-              description:
-                "Assign a project member (kind human) or an active agent credential (kind agent). Revoked, expired, or non-member actors are rejected with assignee-invalid.",
-            },
-            assigneeUserId: {
-              type: ["string", "null"],
-              deprecated: true,
-              description:
-                "Legacy human-only assignee shorthand. Prefer assignee; when both are present, assignee wins.",
-            },
-            labels: {
-              type: "array",
-              items: {
-                type: "string",
-              },
-            },
-            relatedTaskIds: {
-              type: "array",
-              items: {
-                type: "string",
-              },
-            },
-            attachmentLinks: {
-              type: "array",
-              items: {
-                $ref: "#/components/schemas/AttachmentLinkInput",
-              },
-            },
-          },
-        },
+        TaskCreateRequest: buildTaskCreateRequestOpenApiSchema(),
         TaskCreateResponse: {
           type: "object",
           required: ["taskId", "task"],
@@ -2024,91 +1984,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
-        TaskUpdateRequest: {
-          type: "object",
-          description:
-            "True partial update: every field is optional and only the fields present in the request body change. Omitted fields are preserved.",
-          allOf: [
-            { not: { required: ["relatedTaskIds", "addRelatedTaskIds"] } },
-            { not: { required: ["relatedTaskIds", "removeRelatedTaskIds"] } },
-          ],
-          properties: {
-            title: {
-              type: "string",
-              description:
-                "Replace the title. When provided it must be at least 2 characters.",
-            },
-            label: {
-              type: "string",
-              deprecated: true,
-              description:
-                "Legacy singular label input. Prefer labels; when provided it replaces the full label set.",
-            },
-            labels: {
-              type: "array",
-              items: { type: "string" },
-              description:
-                "Replace the full label set with this array. An empty array clears all labels.",
-            },
-            description: {
-              type: "string",
-              description: "Replace the rich-text description.",
-            },
-            deadlineDate: {
-              type: ["string", "null"],
-              format: "date",
-              description:
-                "Replace the deadline using YYYY-MM-DD. Omit to preserve; null clears the deadline.",
-            },
-            epicId: {
-              type: ["string", "null"],
-              description: "Replace the epic link. Omit to preserve; null clears it.",
-            },
-            assignee: {
-              anyOf: [
-                { $ref: "#/components/schemas/ProjectActorReferenceInput" },
-                { type: "null" },
-              ],
-              description:
-                "Replace the assignee with a project member or active agent credential. Omit to preserve; null clears the assignment. Reassignments and unassignments append to the task assignment history.",
-            },
-            assigneeUserId: {
-              type: ["string", "null"],
-              deprecated: true,
-              description:
-                "Legacy human-only assignee shorthand. Prefer assignee; when both are present, assignee wins. Omit to preserve; null clears the assignment.",
-            },
-            blockedFollowUpEntry: {
-              type: "string",
-              description:
-                "Append an entry to the blocked follow-up timeline when the task is Blocked.",
-            },
-            relatedTaskIds: {
-              type: "array",
-              items: { type: "string" },
-              description:
-                "Replace the related-task set. Omit to preserve; an empty array removes all relations. Cannot be combined with addRelatedTaskIds or removeRelatedTaskIds.",
-            },
-            addRelatedTaskIds: {
-              type: "array",
-              items: { type: "string", minLength: 1 },
-              description:
-                "Add only these undirected relation pairs, preserving all other relations. IDs must identify active tasks in this project, or already-linked archived tasks. Existing pairs are retained without duplication. Cannot be combined with relatedTaskIds or overlap removeRelatedTaskIds. Blank IDs and self-relations are invalid.",
-            },
-            removeRelatedTaskIds: {
-              type: "array",
-              items: { type: "string", minLength: 1 },
-              description:
-                "Remove only these undirected relation pairs, preserving all other relations. Absent pairs are a no-op; archived, missing, or inaccessible target IDs need no lookup. Cannot be combined with relatedTaskIds or overlap addRelatedTaskIds. Blank IDs and self-relations are invalid.",
-            },
-            attachmentLinks: {
-              type: "array",
-              items: { $ref: "#/components/schemas/AttachmentLinkInput" },
-              description:
-                "Append link attachments to the task. Each entry creates a new link attachment and existing attachments are preserved; an empty array appends nothing. Remove attachments with DELETE /api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}.",
-            },
-          },
-        },
+        TaskUpdateRequest: buildTaskUpdateRequestOpenApiSchema(),
         TaskUpdateResponse: {
           type: "object",
           required: ["task"],
@@ -2266,47 +2142,9 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
-        TaskReorderRequest: {
-          type: "object",
-          required: ["columns"],
-          properties: {
-            columns: {
-              type: "array",
-              items: {
-                type: "object",
-                required: ["status", "taskIds"],
-                properties: {
-                  status: {
-                    type: "string",
-                    enum: TASK_STATUSES,
-                  },
-                  taskIds: {
-                    type: "array",
-                    items: {
-                      type: "string",
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        TaskStatusTransitionRequest: {
-          type: "object",
-          required: ["status"],
-          properties: {
-            status: {
-              type: "string",
-              enum: TASK_STATUSES,
-            },
-            position: {
-              type: "integer",
-              minimum: 0,
-              description:
-                "0-based index inside the destination column. Omit to append at the end of the destination column; when the task stays in its current column, omit to keep its current position.",
-            },
-          },
-        },
+        TaskReorderRequest: buildTaskReorderRequestOpenApiSchema(),
+        TaskStatusTransitionRequest:
+          buildTaskStatusTransitionRequestOpenApiSchema(),
         TaskStatusTransitionResponse: {
           type: "object",
           required: ["task"],
@@ -2316,105 +2154,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
-        TaskBulkRequest: {
-          type: "object",
-          required: ["operations"],
-          properties: {
-            operations: {
-              type: "array",
-              minItems: 1,
-              maxItems: MAX_BULK_TASK_OPERATIONS,
-              items: {
-                oneOf: [
-                  { $ref: "#/components/schemas/TaskBulkCreateOperation" },
-                  { $ref: "#/components/schemas/TaskBulkUpdateOperation" },
-                  { $ref: "#/components/schemas/TaskBulkStatusOperation" },
-                ],
-              },
-            },
-          },
-        },
-        TaskBulkCreateOperation: {
-          type: "object",
-          required: ["type", "task"],
-          properties: {
-            type: {
-              type: "string",
-              enum: ["create"],
-            },
-            task: {
-              type: "object",
-              required: ["title"],
-              properties: {
-                title: { type: "string" },
-                description: { type: "string" },
-                deadlineDate: { type: "string", format: "date" },
-                epicId: { type: ["string", "null"] },
-                assignee: {
-                  anyOf: [
-                    { $ref: "#/components/schemas/ProjectActorReferenceInput" },
-                    { type: "null" },
-                  ],
-                },
-                assigneeUserId: {
-                  type: ["string", "null"],
-                  deprecated: true,
-                  description:
-                    "Legacy human-only assignee shorthand. Prefer assignee; when both are present, assignee wins.",
-                },
-                labels: {
-                  type: "array",
-                  items: { type: "string" },
-                },
-                relatedTaskIds: {
-                  type: "array",
-                  items: { type: "string" },
-                },
-                attachmentLinks: {
-                  type: "array",
-                  items: {
-                    $ref: "#/components/schemas/AttachmentLinkInput",
-                  },
-                },
-              },
-            },
-          },
-        },
-        TaskBulkUpdateOperation: {
-          type: "object",
-          required: ["type", "taskId", "changes"],
-          properties: {
-            type: {
-              type: "string",
-              enum: ["update"],
-            },
-            taskId: { type: "string" },
-            changes: {
-              $ref: "#/components/schemas/TaskUpdateRequest",
-            },
-          },
-        },
-        TaskBulkStatusOperation: {
-          type: "object",
-          required: ["type", "taskId", "status"],
-          properties: {
-            type: {
-              type: "string",
-              enum: ["status"],
-            },
-            taskId: { type: "string" },
-            status: {
-              type: "string",
-              enum: TASK_STATUSES,
-            },
-            position: {
-              type: "integer",
-              minimum: 0,
-              description:
-                "0-based index inside the destination column. Omit to append at the end.",
-            },
-          },
-        },
+        ...buildTaskBulkOpenApiSchemas(),
         TaskBulkResult: {
           type: "object",
           required: ["index", "ok", "status"],

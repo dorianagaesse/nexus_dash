@@ -1,6 +1,8 @@
+import { archiveStaleDoneTasks } from "@/lib/services/tasks/task-data";
+export { projectKanbanTaskInclude, type ProjectKanbanTaskRecord } from "@/lib/services/tasks/task-data";
+export { listProjectKanbanTasks, getProjectKanbanTaskById, type TaskListAssigneeFilter, type TaskListFilters } from "@/lib/services/tasks/task-read-use-cases";
 import { Prisma, ProjectMembershipRole } from "@prisma/client";
 
-import { ARCHIVE_AFTER_MS } from "@/lib/archive-policy";
 import { prisma } from "@/lib/prisma";
 import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 import {
@@ -15,94 +17,6 @@ import {
   mapTaskPersonSummary,
   type TaskPersonSummary,
 } from "@/lib/task-person";
-
-export const projectKanbanTaskInclude = {
-  _count: {
-    select: {
-      comments: true,
-    },
-  },
-  attachments: {
-    orderBy: [{ createdAt: "desc" }],
-  },
-  blockedFollowUps: {
-    orderBy: [{ createdAt: "desc" }],
-  },
-  outgoingRelations: {
-    select: {
-      rightTask: {
-        select: {
-          id: true,
-          title: true,
-          status: true,
-          archivedAt: true,
-        },
-      },
-    },
-  },
-  incomingRelations: {
-    select: {
-      leftTask: {
-        select: {
-          id: true,
-          title: true,
-          status: true,
-          archivedAt: true,
-        },
-      },
-    },
-  },
-  createdByUser: {
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      username: true,
-      usernameDiscriminator: true,
-      avatarSeed: true,
-    },
-  },
-  updatedByUser: {
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      username: true,
-      usernameDiscriminator: true,
-      avatarSeed: true,
-    },
-  },
-  assigneeUser: {
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      username: true,
-      usernameDiscriminator: true,
-      avatarSeed: true,
-    },
-  },
-  assigneeAssignedByUser: {
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      username: true,
-      usernameDiscriminator: true,
-      avatarSeed: true,
-    },
-  },
-  epic: {
-    select: {
-      id: true,
-      name: true,
-    },
-  },
-} satisfies Prisma.TaskInclude;
-
-export type ProjectKanbanTaskRecord = Prisma.TaskGetPayload<{
-  include: typeof projectKanbanTaskInclude;
-}>;
 
 interface ServiceErrorResult {
   ok: false;
@@ -452,43 +366,6 @@ export async function deleteProject(input: {
   });
 }
 
-function buildStaleDoneTaskFilter(projectId: string, actorUserId: string) {
-  const archiveThreshold = new Date(Date.now() - ARCHIVE_AFTER_MS);
-
-  return {
-    projectId,
-    project: buildProjectPrincipalWhere(actorUserId),
-    status: "Done" as const,
-    archivedAt: null,
-    OR: [
-      { completedAt: { lte: archiveThreshold } },
-      { completedAt: null, updatedAt: { lte: archiveThreshold } },
-    ],
-  };
-}
-
-async function archiveStaleDoneTasks(
-  projectId: string,
-  actorUserId: string,
-  db: DbClient
-) {
-  const staleDoneTaskFilter = buildStaleDoneTaskFilter(projectId, actorUserId);
-
-  const staleDoneTask = await db.task.findFirst({
-    where: staleDoneTaskFilter,
-    select: { id: true },
-  });
-
-  if (staleDoneTask) {
-    await db.task.updateMany({
-      where: staleDoneTaskFilter,
-      data: {
-        archivedAt: new Date(),
-      },
-    });
-  }
-}
-
 export async function getProjectSummaryById(
   projectId: string,
   actorUserId: string,
@@ -646,135 +523,6 @@ async function safeFindCalendarConnection(
     }
     throw error;
   }
-}
-
-export type TaskListAssigneeFilter =
-  | "unassigned"
-  | { kind: "human" | "agent"; id: string };
-
-export interface TaskListFilters {
-  epicId?: string;
-  label?: string;
-  assignee?: TaskListAssigneeFilter;
-  sort?: "recent";
-  limit?: number;
-}
-
-export async function listProjectKanbanTasks(
-  projectId: string,
-  actorUserId: string,
-  agentAccess?: AgentProjectAccessContext,
-  filters?: TaskListFilters
-): Promise<ProjectKanbanTaskRecord[]> {
-  const normalizedActorUserId = normalizeActorUserId(actorUserId);
-  if (!normalizedActorUserId) {
-    return [];
-  }
-
-  const agentScopeAccess = requireAgentProjectScopes({
-    agentAccess,
-    projectId,
-    requiredScopes: ["task:read"],
-  });
-  if (!agentScopeAccess.ok) {
-    return [];
-  }
-
-  const normalizedEpicId = filters?.epicId?.trim() || undefined;
-  const normalizedLabel = filters?.label?.trim() || undefined;
-  const normalizedAssignee = filters?.assignee;
-  const normalizedSort = filters?.sort === "recent" ? "recent" : undefined;
-  const normalizedLimit =
-    typeof filters?.limit === "number" && Number.isFinite(filters.limit)
-      ? Math.min(Math.max(Math.trunc(filters.limit), 1), 200)
-      : undefined;
-  const normalizedTake =
-    normalizedLimit ?? (normalizedSort === "recent" ? 50 : undefined);
-
-  const assigneeWhere =
-    normalizedAssignee === "unassigned"
-      ? { assigneeUserId: null, assigneeCredentialId: null }
-      : normalizedAssignee
-        ? normalizedAssignee.kind === "agent"
-          ? { assigneeKind: "agent" as const, assigneeCredentialId: normalizedAssignee.id }
-          : { assigneeKind: "human" as const, assigneeUserId: normalizedAssignee.id }
-        : undefined;
-
-  return withActorRlsContext(normalizedActorUserId, async (db) => {
-    await archiveStaleDoneTasks(projectId, normalizedActorUserId, db);
-
-    return db.task.findMany({
-      where: {
-        projectId,
-        ...(normalizedEpicId ? { epicId: { equals: normalizedEpicId } } : {}),
-        ...(normalizedLabel
-          ? {
-              OR: [
-                {
-                  label: { equals: normalizedLabel, mode: "insensitive" },
-                },
-                {
-                  // Quoted-JSON containment can false-positive when a stored
-                  // label itself contains an escaped quote (e.g. `My "Docs"`
-                  // matches a `label=Docs` filter); revisit with the TASK-331
-                  // vocabulary work.
-                  labelsJson: {
-                    contains: JSON.stringify(normalizedLabel),
-                    mode: "insensitive",
-                  },
-                },
-              ],
-            }
-          : {}),
-        ...(assigneeWhere ?? {}),
-        project: buildProjectPrincipalWhere(normalizedActorUserId),
-      },
-      orderBy:
-        normalizedSort === "recent"
-          ? [{ updatedAt: "desc" }]
-          : [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
-      ...(normalizedTake ? { take: normalizedTake } : {}),
-      include: projectKanbanTaskInclude,
-    });
-  });
-}
-
-export async function getProjectKanbanTaskById(
-  projectId: string,
-  taskId: string,
-  actorUserId: string,
-  agentAccess?: AgentProjectAccessContext
-): Promise<ServiceResult<{ task: ProjectKanbanTaskRecord }>> {
-  const normalizedActorUserId = normalizeActorUserId(actorUserId);
-  if (!normalizedActorUserId) {
-    return createError(401, "unauthorized");
-  }
-
-  const agentScopeAccess = requireAgentProjectScopes({
-    agentAccess,
-    projectId,
-    requiredScopes: ["task:read"],
-  });
-  if (!agentScopeAccess.ok) {
-    return createError(agentScopeAccess.status, agentScopeAccess.error);
-  }
-
-  return withActorRlsContext(normalizedActorUserId, async (db) => {
-    const task = await db.task.findFirst({
-      where: {
-        id: taskId,
-        projectId,
-        project: buildProjectPrincipalWhere(normalizedActorUserId),
-      },
-      include: projectKanbanTaskInclude,
-    });
-
-    if (!task) {
-      return createError(404, "Task not found");
-    }
-
-    return { ok: true, data: { task } };
-  });
 }
 
 export async function listProjectCollaborators(
