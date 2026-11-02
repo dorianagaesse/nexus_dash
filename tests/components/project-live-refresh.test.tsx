@@ -879,6 +879,7 @@ describe("ProjectLiveRefresh", () => {
 
 test.each([
   ["typed", false], ["typed", true], ["snapshot", false], ["snapshot", true],
+  ["typed", "before"], ["snapshot", "before"],
 ] as const)("reconciles deferred %s activity after overlapping local saves (acknowledged=%s)", async (kind, acknowledged) => {
   vi.useFakeTimers();
   vi.stubGlobal("fetch", fetchMock);
@@ -896,6 +897,9 @@ test.each([
     await renderWithRoot(root, <ProjectLiveRefresh projectId="project-1" initialVersion="2026-05-30T10:00:00Z" pollIntervalMs={50} />);
     const finishA = beginProjectActivityMutation("project-1");
     const finishB = beginProjectActivityMutation("project-1");
+    if (acknowledged === "before") {
+      await act(async () => { acknowledgeProjectActivity("project-1", "2026-05-30T10:03:00Z"); });
+    }
     for (const minute of [1, 2]) {
       const activity = {
         eventId: kind === "typed" ? `event-${minute}` : null,
@@ -908,7 +912,7 @@ test.each([
     }
     expect(handler).not.toHaveBeenCalled();
     await act(async () => {
-      if (acknowledged) acknowledgeProjectActivity("project-1", "2026-05-30T10:03:00Z");
+      if (acknowledged && acknowledged !== "before") acknowledgeProjectActivity("project-1", "2026-05-30T10:03:00Z");
       finishA();
     });
     expect(handler).not.toHaveBeenCalled();

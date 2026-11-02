@@ -141,15 +141,15 @@ export function ProjectLiveRefresh({
         return;
       }
 
-      if (!isNewerVersion(payload.version, knownVersionRef.current)) {
-        return;
-      }
-
       if (localMutationCountRef.current > 0) {
         locallyDeferredActivitiesRef.current.set(
           payload.eventId ?? `snapshot:${payload.version}`,
           payload
         );
+        return;
+      }
+
+      if (!isNewerVersion(payload.version, knownVersionRef.current)) {
         return;
       }
 
