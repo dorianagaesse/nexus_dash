@@ -209,6 +209,7 @@ async function loadTaskMutationPayload(
       createdAt: true,
       updatedAt: true,
       attachments: {
+        where: { isCommentDraft: false },
         orderBy: [{ createdAt: "desc" }],
         select: {
           id: true,

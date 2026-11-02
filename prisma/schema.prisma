@@ -770,6 +770,7 @@ model TaskAttachment {
   id               String       @id @default(cuid())
   taskId           String
   commentId        String?
+  isCommentDraft   Boolean      @default(false)
   uploadedByUserId String
   task             Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
   comment          TaskComment? @relation(fields: [commentId], references: [id], onDelete: SetNull)

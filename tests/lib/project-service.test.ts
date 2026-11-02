@@ -335,6 +335,7 @@ describe("project-service", () => {
           },
         },
         attachments: {
+          where: { isCommentDraft: false },
           orderBy: [{ createdAt: "desc" }],
         },
         blockedFollowUps: {
@@ -918,6 +919,7 @@ describe("project-service", () => {
             },
           },
           attachments: {
+            where: { isCommentDraft: false },
             orderBy: [{ createdAt: "desc" }],
           },
           blockedFollowUps: {
