@@ -849,6 +849,28 @@ describe("project meeting notes routes", () => {
       expect(meetingNoteServiceMock.updateProjectMeetingNote).not.toHaveBeenCalled();
     });
 
+    test.each(["private", "team"] as const)("PATCH forwards explicit %s visibility to service policy", async (visibility) => {
+      meetingNoteServiceMock.updateProjectMeetingNote.mockResolvedValueOnce({
+        ok: true, data: { note: sampleNote(), activityVersion: null },
+      });
+      const response = await updateMeetingNote(mutationRequest("PATCH", { visibility }), noteParams("project-1", "note-1"));
+      expect(response.status).toBe(200);
+      expect(meetingNoteServiceMock.updateProjectMeetingNote.mock.calls[0][0]).toStrictEqual({
+        actorUserId: "user-1", projectId: "project-1", noteId: "note-1", visibility,
+      });
+    });
+
+    test.each(["POST", "PATCH"] as const)("%s preserves the visibility error for a nonstring value", async (method) => {
+      const request = mutationRequest(method, { visibility: false });
+      const response = method === "POST"
+        ? await createMeetingNote(request, projectParams("project-1"))
+        : await updateMeetingNote(request, noteParams("project-1", "note-1"));
+      expect(response.status).toBe(400);
+      expect(await readJson(response)).toEqual({ error: "meeting-note-visibility-invalid" });
+      expect(meetingNoteServiceMock.createProjectMeetingNote).not.toHaveBeenCalled();
+      expect(meetingNoteServiceMock.updateProjectMeetingNote).not.toHaveBeenCalled();
+    });
+
     test.each([null, [], true, 7, "invalid"].map((payload) => ({ payload })))(
       "POST returns the standard malformed-body error for non-object JSON: %j",
       async ({ payload }) => {

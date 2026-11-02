@@ -39,6 +39,7 @@ export default defineConfig({
         "components/live-save/live-save-status.tsx",
         "lib/context-card-colors.ts",
         "lib/google-calendar.ts",
+        "lib/meeting-note-contracts.ts",
         "lib/hooks/use-live-save.ts",
         "lib/live-save/rollout.ts",
         "lib/live-save/scheduler.ts",
