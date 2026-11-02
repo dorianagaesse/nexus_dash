@@ -16,8 +16,6 @@ This folder contains architecture decision records.
 
 ## Current Detailed ADRs
 
-- [ND-190: Collaboration service ownership](./nd-190-collaboration-service-boundaries.md)
-
 - `adr/task-020-modern-auth-authorization-adr.md`
 - `adr/task-050-security-remediation-adr.md`
 - `adr/task-056-data-platform-adr.md`

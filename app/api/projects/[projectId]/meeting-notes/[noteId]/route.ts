@@ -6,13 +6,117 @@ import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { contentErrorBody, parseContentPrecondition, withContentEtag } from "@/lib/content-revision";
-import { parseUpdateMeetingNoteInput } from "@/lib/meeting-note-contracts";
+import type { ProjectMeetingParticipantInput } from "@/lib/meeting-participant";
+import { isMeetingTodoActorReference } from "@/lib/meeting-todo-actor";
 import {
   deleteProjectMeetingNote,
   getProjectMeetingNote,
   updateProjectMeetingNote,
+  type MeetingNoteActionInput,
   type ProjectMeetingNoteSummary,
 } from "@/lib/services/project-meeting-note-service";
+
+interface MeetingNoteRequestBody {
+  title?: unknown;
+  scheduledAt?: unknown;
+  participants?: unknown;
+  labels?: unknown;
+  status?: unknown;
+  visibility?: unknown;
+  inputNotes?: unknown;
+  outputNotes?: unknown;
+  decisions?: unknown;
+  actions?: unknown;
+}
+
+function readString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function readOptionalString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function readOptionalVisibility(
+  value: unknown
+): { ok: true; value: "private" | "team" | undefined } | { ok: false } {
+  if (value === undefined || value === null) {
+    return { ok: true, value: undefined };
+  }
+  if (typeof value !== "string") {
+    return { ok: false };
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "") {
+    return { ok: true, value: undefined };
+  }
+  if (normalized === "private") {
+    return { ok: true, value: "private" };
+  }
+  if (normalized === "team" || normalized === "public") {
+    return { ok: true, value: "team" };
+  }
+  return { ok: false };
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry): entry is string => typeof entry === "string");
+}
+
+function readParticipants(value: unknown): ProjectMeetingParticipantInput[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((entry) => {
+    if (typeof entry === "string") {
+      return [{ userId: null, displayName: entry }];
+    }
+    if (!entry || typeof entry !== "object") {
+      return [];
+    }
+
+    const record = entry as Record<string, unknown>;
+    return [
+      {
+        userId:
+          typeof record.userId === "string" ? record.userId : null,
+        displayName: readString(record.displayName),
+      },
+    ];
+  });
+}
+
+function readActions(value: unknown): MeetingNoteActionInput[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return [];
+    }
+
+    const record = entry as Record<string, unknown>;
+    return [
+      {
+        id: readOptionalString(record.id),
+        content: readString(record.content),
+        completedAt: readOptionalString(record.completedAt),
+        assignee:
+          record.assignee === null
+            ? null
+            : isMeetingTodoActorReference(record.assignee)
+              ? { kind: record.assignee.kind, id: record.assignee.id.trim() }
+              : undefined,
+      },
+    ];
+  });
+}
 
 function serializeMeetingNote(note: ProjectMeetingNoteSummary) {
   return {
@@ -31,9 +135,9 @@ function serializeMeetingNote(note: ProjectMeetingNoteSummary) {
 async function readJsonPayload(
   request: NextRequest,
   routeLabel: string
-): Promise<unknown> {
+): Promise<MeetingNoteRequestBody | NextResponse> {
   try {
-    return await request.json();
+    return (await request.json()) as MeetingNoteRequestBody;
   } catch (error) {
     logServerWarning(routeLabel, "Invalid JSON payload", { error });
     return NextResponse.json({ error: "invalid-json" }, { status: 400 });
@@ -69,16 +173,34 @@ export async function PATCH(
   if (payload instanceof NextResponse) {
     return payload;
   }
-  const parsed = parseUpdateMeetingNoteInput(payload);
-  if (!parsed.ok) {
-    return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+  if (!payload || typeof payload !== "object" || Array.isArray(payload) ||
+    [payload.participants, payload.labels, payload.actions].some((value) => value !== undefined && !Array.isArray(value)) ||
+    [payload.title, payload.inputNotes, payload.outputNotes, payload.decisions].some((value) => value !== undefined && typeof value !== "string")) {
+    return NextResponse.json({ error: "invalid-request-body" }, { status: 400 });
+  }
+
+  const visibility = readOptionalVisibility(payload.visibility);
+  if (!visibility.ok) {
+    return NextResponse.json(
+      { error: "meeting-note-visibility-invalid" },
+      { status: 400 }
+    );
   }
 
   const result = await updateProjectMeetingNote({
     actorUserId: authenticatedUser.userId,
     projectId: params.projectId,
     noteId: params.noteId,
-    ...parsed.data,
+    ...(payload.title === undefined ? {} : { title: readString(payload.title) }),
+    ...(payload.scheduledAt === undefined ? {} : { scheduledAt: readOptionalString(payload.scheduledAt) }),
+    ...(payload.participants === undefined ? {} : { participants: readParticipants(payload.participants) }),
+    ...(payload.labels === undefined ? {} : { labels: readStringArray(payload.labels) }),
+    ...(payload.status === undefined ? {} : { status: readOptionalString(payload.status) }),
+    ...(visibility.value === undefined ? {} : { visibility: visibility.value }),
+    ...(payload.inputNotes === undefined ? {} : { inputNotes: readString(payload.inputNotes) }),
+    ...(payload.outputNotes === undefined ? {} : { outputNotes: readString(payload.outputNotes) }),
+    ...(payload.decisions === undefined ? {} : { decisions: readString(payload.decisions) }),
+    ...(payload.actions === undefined ? {} : { actions: readActions(payload.actions) }),
     ...(precondition.expectedRevision === undefined ? {} : { expectedRevision: precondition.expectedRevision }),
   });
 

@@ -9,8 +9,10 @@ import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
-import { moveTaskStatusForProject } from "@/lib/services/project-task-service";
-import { taskStatusTransitionContract } from "@/lib/task-contracts";
+import {
+  isTaskStatusTransitionPayload,
+  moveTaskStatusForProject,
+} from "@/lib/services/project-task-service";
 
 export async function POST(
   request: NextRequest,
@@ -43,15 +45,14 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
-  const parsedBody = taskStatusTransitionContract.parse(body);
-  if (!parsedBody.ok) {
-    return NextResponse.json({ error: parsedBody.error }, { status: 400 });
+  if (!isTaskStatusTransitionPayload(body)) {
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
   const result = await moveTaskStatusForProject(
     projectId,
     taskId,
-    parsedBody.data,
+    body,
     actorUserId,
     agentAccess
   );

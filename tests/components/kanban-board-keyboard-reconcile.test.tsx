@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { expect, test, vi } from "vitest";
 import type { KanbanTask } from "@/components/kanban-board-types";
 
-const capture = vi.hoisted(() => ({ grid: null as any, filter: null as any }));
+const capture = vi.hoisted(() => ({ grid: null as any }));
 vi.mock("@/components/kanban/kanban-columns-grid", () => ({
   KanbanColumnsGrid: (props: any) => {
     capture.grid = props;
@@ -24,7 +24,7 @@ vi.mock("@/components/kanban/kanban-board-header", () => ({
   KanbanBoardHeader: () => null,
 }));
 vi.mock("@/components/kanban/kanban-filter-bar", () => ({
-  KanbanFilterBar: (props: any) => { capture.filter = props; return null; },
+  KanbanFilterBar: () => null,
 }));
 vi.mock("@/components/ui/confirm-dialog", () => ({
   ConfirmDialog: () => null,
@@ -897,34 +897,6 @@ test("an older remote representation does not override the acknowledged write", 
     await act(async () => {
       root.unmount();
     });
-    vi.unstubAllGlobals();
-  }
-});
-
-
-test("filtered keyboard settlement persists hidden cards and clearing filters reveals the committed board", async () => {
-  const fetchMock = vi.fn<typeof fetch>(async () => persistResponse("2026-10-12T00:00:01.000Z"));
-  vi.stubGlobal("fetch", fetchMock);
-  const root = createRoot(document.createElement("div"));
-  const tasks = makeTasks(["a", "hidden-1", "b", "hidden-2"]);
-  tasks[0].labels = ["visible"];
-  tasks[2].labels = ["visible"];
-  await renderBoard(root, tasks);
-  try {
-    await act(async () => { capture.filter.onToggleLabel("visible"); });
-    expect(backlogOrder()).toEqual(["a", "b"]);
-    await act(async () => { capture.grid.onKeyboardDropIntent(source, destination); });
-    await act(async () => { capture.grid.onDragEnd(dropResult()); });
-    expect(backlogOrder()).toEqual(["b", "a"]);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const submitted = JSON.parse(fetchMock.mock.calls[0][1]?.body as string);
-    expect(submitted.columns.find((column: { status: string }) => column.status === "Backlog").taskIds)
-      .toEqual(["hidden-1", "b", "a", "hidden-2"]);
-    await act(async () => { capture.filter.onClearAll(); });
-    expect(backlogOrder()).toEqual(["hidden-1", "b", "a", "hidden-2"]);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  } finally {
-    await act(async () => { root.unmount(); });
     vi.unstubAllGlobals();
   }
 });

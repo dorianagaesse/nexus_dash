@@ -1,4 +1,3 @@
-import type { KanbanTask, TaskPersonSummary } from "@/components/kanban-board-types";
 import type { DraggableProvidedDraggableProps } from "@hello-pangea/dnd";
 
 import { richTextToPreviewText } from "@/lib/rich-text";
@@ -128,20 +127,5 @@ export function buildPersistPayload<T extends { id: string }>(columns: TaskColum
       status,
       taskIds: columns[status].map((task) => task.id),
     })),
-  };
-}
-
-export function stampTaskActivity(
-  task: KanbanTask,
-  actor: TaskPersonSummary | null
-): KanbanTask {
-  if (!actor) {
-    return task;
-  }
-
-  return {
-    ...task,
-    updatedBy: actor,
-    updatedAt: new Date().toISOString(),
   };
 }
