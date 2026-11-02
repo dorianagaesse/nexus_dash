@@ -10787,3 +10787,9 @@ Low-value entries to avoid going forward:
 - Restored the implementation from original PR #642, commit `44cac6c4743d314884509a2cbbdc6ef07b3a269d`, as its own replacement PR after the review-process rollback.
 - Separate Task application services by use case. Historical implementation/check evidence remains on #642; fresh checks belong to this replacement head.
 - External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
+
+## 2026-11-02 - ND-545 restored for external review
+
+- Restored the implementation from original PR #645, commit `c4b58eb88b4372251db975da30cd6cfb284ae776`, as its own replacement PR after the review-process rollback.
+- Extract scoped Task data-access and persistence seams. Historical implementation/check evidence remains on #645; fresh checks belong to this replacement head.
+- External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
