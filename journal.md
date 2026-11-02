@@ -3,6 +3,23 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-02 - ND-190: collaboration service use-case ownership
+
+- Kept `project-collaboration-service.ts` as the public facade and moved owner
+  invitation management, membership operations, and recipient responses into
+  focused modules under `lib/services/collaboration/`. Shared policy, projection,
+  and email delivery modules keep transaction ownership explicit.
+- Preserved all 60 original declarations without behavioral edits, including
+  verified-email binding, invitation acceptance races, activity repair,
+  responsibility-aware offboarding, and email delivery after commit.
+- Reorganized the existing collaboration regressions by use case, added member
+  authorization and same-client offboarding-order checks, and added a browser
+  invitation-to-membership lifecycle. Focused tests pass (21 tests), along with
+  lint, RLS inventory, and the real PostgreSQL isolation matrix. Full delivery
+  evidence is tracked in [PR #643](https://github.com/dorianagaesse/nexus_dash/pull/643).
+- The dedicated local RLS database needed the Realtime stub installed before
+  migrations, matching CI; rebuilt only `nexusdash_nd190` in that order.
+
 ## 2026-11-02 - ND-543 Kanban controller responsibilities
 
 - Extracted board state and remote authority, drag persistence and keyboard settlement, combined filters/search, and task deep-link/history navigation into focused Kanban hooks, preserving public props and rendered components.
