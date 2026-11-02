@@ -86,7 +86,7 @@ export function ProjectLiveRefresh({
   const [isRefreshing, startRefreshTransition] = useTransition();
   const knownVersionRef = useRef(initialVersion);
   const pendingVersionRef = useRef<string | null>(null);
-  const locallyDeferredVersionRef = useRef<string | null>(null);
+  const locallyDeferredActivitiesRef = useRef(new Map<string, ProjectActivityResponse>());
   const localMutationCountRef = useRef(0);
   const isRefreshingRef = useRef(false);
 
@@ -101,7 +101,7 @@ export function ProjectLiveRefresh({
     }
 
     pendingVersionRef.current = null;
-    locallyDeferredVersionRef.current = null;
+    locallyDeferredActivitiesRef.current.clear();
     setPendingVersion(null);
   }, [initialVersion]);
 
@@ -133,33 +133,7 @@ export function ProjectLiveRefresh({
       pendingVersionRef.current = null;
       setPendingVersion(null);
     }
-
-    const locallyDeferred = locallyDeferredVersionRef.current;
-    if (
-      locallyDeferred &&
-      parseVersion(locallyDeferred) <= parseVersion(nextVersion)
-    ) {
-      locallyDeferredVersionRef.current = null;
-    }
   }, []);
-
-  const applyLocallyDeferredVersion = useCallback(() => {
-    const deferred = locallyDeferredVersionRef.current;
-    if (!deferred || !isNewerVersion(deferred, knownVersionRef.current)) {
-      locallyDeferredVersionRef.current = null;
-      return;
-    }
-
-    locallyDeferredVersionRef.current = null;
-
-    if (hasRefreshLock() || isRefreshingRef.current || document.hidden) {
-      pendingVersionRef.current = deferred;
-      setPendingVersion(deferred);
-      return;
-    }
-
-    refreshDashboard(deferred);
-  }, [refreshDashboard]);
 
   const handleActivitySnapshot = useCallback(
     (payload: ProjectActivityResponse) => {
@@ -172,13 +146,10 @@ export function ProjectLiveRefresh({
       }
 
       if (localMutationCountRef.current > 0) {
-        const locallyDeferredVersion = locallyDeferredVersionRef.current;
-        if (
-          !locallyDeferredVersion ||
-          isNewerVersion(payload.version, locallyDeferredVersion)
-        ) {
-          locallyDeferredVersionRef.current = payload.version;
-        }
+        locallyDeferredActivitiesRef.current.set(
+          payload.eventId ?? `snapshot:${payload.version}`,
+          payload
+        );
         return;
       }
 
@@ -204,6 +175,33 @@ export function ProjectLiveRefresh({
     },
     [acknowledgeVersion, projectId, refreshDashboard]
   );
+
+  const applyLocallyDeferredActivities = useCallback(() => {
+    const activities = [...locallyDeferredActivitiesRef.current.values()].sort(
+      (left, right) => parseVersion(left.version) - parseVersion(right.version)
+    );
+    locallyDeferredActivitiesRef.current.clear();
+    let reconcileAcknowledgedActivity = false;
+    for (const activity of activities) {
+      if (isNewerVersion(activity.version, knownVersionRef.current)) {
+        handleActivitySnapshot(activity);
+      } else {
+        // A local response can acknowledge a project version that also covers
+        // a concurrent remote change. Suppress typed echoes, but reconcile safe
+        // fields rather than losing that remote change behind the dialog lock.
+        reconcileAcknowledgedActivity = true;
+      }
+    }
+    if (reconcileAcknowledgedActivity) {
+      dispatchProjectActivityRemoteEvent({
+        projectId,
+        version: knownVersionRef.current,
+        serverTime: new Date().toISOString(),
+        eventId: null, actorUserId: null, domain: null, action: null,
+        entityId: null, payload: null,
+      });
+    }
+  }, [handleActivitySnapshot, projectId]);
 
   useEffect(() => {
     function handleProjectActivityAcknowledgement(event: Event) {
@@ -250,7 +248,7 @@ export function ProjectLiveRefresh({
       );
 
       if (localMutationCountRef.current === 0) {
-        applyLocallyDeferredVersion();
+        applyLocallyDeferredActivities();
       }
     }
 
@@ -265,7 +263,7 @@ export function ProjectLiveRefresh({
         handleProjectActivityMutation
       );
     };
-  }, [applyLocallyDeferredVersion, projectId]);
+  }, [applyLocallyDeferredActivities, projectId]);
 
   useEffect(() => {
     setIsPollingFallbackActive(!broadcastEnabled || broadcastFailed);

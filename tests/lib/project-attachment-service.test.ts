@@ -68,6 +68,7 @@ import {
   createTaskAttachmentUploadTarget,
   createTaskAttachmentFromForm,
   deleteTaskAttachmentForProject,
+  getTaskAttachmentDownload,
   finalizeContextAttachmentDirectUpload,
   finalizeTaskAttachmentDirectUpload,
 } from "@/lib/services/project-attachment-service";
@@ -519,4 +520,50 @@ describe("project-attachment-service", () => {
     });
     expect(prismaMock.resourceAttachment.create).not.toHaveBeenCalled();
   });
+  test.each(["form", "direct"])("keeps a %s comment upload out of project activity until binding", async (mode) => {
+    prismaMock.task.findUnique.mockResolvedValue({ id: "task-1", projectId: "project-1" });
+    const stored = { storageKey: "v1/user-1/project-1/task/task-1/draft.txt", originalName: "draft.txt", mimeType: "text/plain", sizeBytes: 5 };
+    attachmentStorageMock.saveAttachmentFile.mockResolvedValue(stored);
+    attachmentStorageMock.readAttachmentStoredFileMetadata.mockResolvedValue(stored);
+    prismaMock.taskAttachment.create.mockResolvedValue({ id: "draft", commentId: null, kind: "file", name: "draft.txt", mimeType: "text/plain", sizeBytes: 5 });
+    const formData = new FormData();
+    formData.set("kind", "file"); formData.set("isCommentDraft", "true");
+    formData.set("file", new File(["draft"], "draft.txt", { type: "text/plain" }));
+    const input = { actorUserId, projectId: "project-1", taskId: "task-1" };
+    const result = mode === "form"
+      ? await createTaskAttachmentFromForm({ ...input, formData })
+      : await finalizeTaskAttachmentDirectUpload({ ...input, ...stored, name: "draft.txt", isCommentDraft: true });
+    expect(result.ok).toBe(true);
+    expect(prismaMock.taskAttachment.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ isCommentDraft: true }) }));
+    expect(prismaMock.projectActivityEvent.create).not.toHaveBeenCalled();
+    expect(prismaMock.project.update).not.toHaveBeenCalled();
+    expect(prismaMock.task.update).not.toHaveBeenCalled();
+  });
+
+  test("deleting an abandoned comment upload does not emit a task attachment event", async () => {
+    prismaMock.taskAttachment.findUnique.mockResolvedValue({ id: "draft", kind: "file", storageKey: null, isCommentDraft: true, commentId: null, uploadedByUserId: actorUserId, task: { id: "task-1", projectId: "project-1" } });
+    const result = await deleteTaskAttachmentForProject({ actorUserId, projectId: "project-1", taskId: "task-1", attachmentId: "draft" });
+    expect(result.ok).toBe(true);
+    expect(prismaMock.taskAttachment.delete).toHaveBeenCalled();
+    expect(prismaMock.projectActivityEvent.create).not.toHaveBeenCalled();
+    expect(prismaMock.project.update).not.toHaveBeenCalled();
+  });
+
+  test.each([actorUserId, "other-uploader"])("authorizes draft downloads only for their uploader (%s)", async (uploader) => {
+    prismaMock.taskAttachment.findUnique.mockResolvedValue({ kind: "file", name: "draft.txt", mimeType: "text/plain", storageKey: `v1/${uploader}/project-1/task/task-1/draft.txt`, uploadedByUserId: uploader, isCommentDraft: true, task: { id: "task-1", projectId: "project-1" } });
+    attachmentStorageMock.getAttachmentDownloadUrl.mockResolvedValue("https://storage.example/draft");
+    const result = await getTaskAttachmentDownload({ actorUserId, projectId: "project-1", taskId: "task-1", attachmentId: "draft", disposition: "inline" });
+    expect(result.ok).toBe(uploader === actorUserId);
+    if (uploader !== actorUserId) {
+      expect(result).toMatchObject({ status: 404 });
+      expect(attachmentStorageMock.getAttachmentDownloadUrl).not.toHaveBeenCalled();
+    }
+  });
+
+  test("rejects non-boolean direct-upload draft flags", async () => {
+    const result = await finalizeTaskAttachmentDirectUpload({ actorUserId, projectId: "project-1", taskId: "task-1", storageKey: "key", name: "draft.txt", mimeType: "text/plain", sizeBytes: 5, isCommentDraft: "true" });
+    expect(result).toMatchObject({ ok: false, status: 400 });
+    expect(prismaMock.taskAttachment.create).not.toHaveBeenCalled();
+  });
+
 });

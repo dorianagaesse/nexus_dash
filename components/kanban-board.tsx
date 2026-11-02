@@ -154,12 +154,14 @@ async function uploadTaskFileAttachment({
   taskId,
   file,
   useDirectUpload,
+  isCommentDraft = false,
   fallbackErrorMessage,
 }: {
   projectId: string;
   taskId: string;
   file: File;
   useDirectUpload: boolean;
+  isCommentDraft?: boolean;
   fallbackErrorMessage: string;
 }): Promise<TaskAttachment> {
   const uploadThroughApp = async () => {
@@ -167,6 +169,7 @@ async function uploadTaskFileAttachment({
     formData.append("kind", ATTACHMENT_KIND_FILE);
     formData.append("name", "");
     formData.append("file", file);
+    formData.append("isCommentDraft", String(isCommentDraft));
 
     const response = await fetchProjectActivityMutation(
       projectId,
@@ -191,6 +194,7 @@ async function uploadTaskFileAttachment({
     finalizeUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct`,
     cleanupUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct/cleanup`,
     fallbackErrorMessage,
+    finalizeMetadata: { isCommentDraft },
     fallbackUpload:
       file.size <= MAX_ATTACHMENT_FILE_SIZE_BYTES ? uploadThroughApp : undefined,
   });
@@ -2017,6 +2021,8 @@ export function KanbanBoard({
   );
 
   const applyTaskToBoard = useCallback((updatedTask: KanbanTask) => {
+    const reconciliation = attachmentReconciliationRef.current;
+    if (reconciliation?.taskId === updatedTask.id) reconciliation.revision += 1;
     setColumns((previousColumns) => {
       const nextColumns = cloneColumns(previousColumns);
       TASK_STATUSES.forEach((status) => {
@@ -4058,6 +4064,7 @@ export function KanbanBoard({
               taskId,
               file,
               useDirectUpload: storageProvider === "r2",
+              isCommentDraft: true,
               fallbackErrorMessage: "Could not upload attachment.",
             });
 

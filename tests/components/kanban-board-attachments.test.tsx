@@ -4,7 +4,14 @@ import { createRoot } from "react-dom/client";
 import { expect, test, vi } from "vitest";
 import type { KanbanTask } from "@/components/kanban-board-types";
 
-const capture = vi.hoisted(() => ({ grid: null as any, modal: null as any }));
+const capture = vi.hoisted(() => ({ grid: null as any, modal: null as any, live: null as any }));
+vi.mock("@/lib/hooks/use-live-save", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/hooks/use-live-save")>();
+  return { ...actual, useLiveSave: (options: any) => {
+    capture.live = options;
+    return actual.useLiveSave(options);
+  } };
+});
 vi.mock("@/components/kanban/kanban-columns-grid", () => ({
   KanbanColumnsGrid: (props: any) => {
     capture.grid = props;
@@ -321,6 +328,10 @@ test.each([
   ["local", "delete"],
   ["representation", "add"],
   ["representation", "delete"],
+  ["patch", "add"],
+  ["patch", "delete"],
+  ["live-save", "add"],
+  ["live-save", "delete"],
 ] as const)(
   "%s %s during reconciliation survives an older response and triggers a fresh read",
   async (source, operation) => {
@@ -347,7 +358,7 @@ test.each([
       if (url === taskUrl && !init?.method) {
         return new Promise<Response>((resolve) => reads.push(resolve));
       }
-      return new Response(JSON.stringify({ attachment, comments: [] }), { status: 200 });
+      return new Response(JSON.stringify({ attachment, comments: [], task: { ...task, attachments: changedAttachments } }), { status: 200 });
     }));
     const container = document.createElement("div");
     document.body.append(container);
@@ -384,7 +395,14 @@ test.each([
       });
       expect(reads).toHaveLength(1);
       await act(async () => {
-        if (source === "local") {
+        if (source === "patch") {
+          await capture.modal.onQuickEpicChange("");
+        } else if (source === "live-save") {
+          capture.live.onAccepted({
+            representation: { task: { ...task, attachments: changedAttachments } },
+            fullySynced: false,
+          });
+        } else if (source === "local") {
           if (operation === "add") {
             await capture.modal.onAddLinkAttachment(attachment.url);
           } else {
@@ -426,3 +444,25 @@ test.each([
     }
   }
 );
+
+
+test.each(["local", "r2"] as const)("marks comment uploads as drafts with %s storage", async (storageProvider) => {
+  const attachment = { id: "draft-file", kind: "file", name: "draft.txt", mimeType: "text/plain", commentId: null, sizeBytes: 5, downloadUrl: null, url: null };
+  let draftIntent: unknown;
+  vi.stubGlobal("fetch", vi.fn<typeof fetch>(async (url, init) => {
+    if (String(url).endsWith("/upload-url")) return new Response(JSON.stringify({ upload: { storageKey: "key", uploadUrl: "https://storage.example/upload", method: "PUT", headers: {} } }));
+    if (String(url).endsWith("/direct")) draftIntent = JSON.parse(String(init?.body)).isCommentDraft;
+    if (init?.body instanceof FormData) draftIntent = init.body.get("isCommentDraft");
+    return new Response(JSON.stringify({ attachment, comments: [] }));
+  }));
+  const container = document.createElement("div"); document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(<KanbanBoard canEdit projectId="project" actorUserId="owner" storageProvider={storageProvider} initialTasks={makeTasks(["a"])} initialTaskId="a" archivedDoneTasks={[]} archivedEpics={[]} epics={[]} collaborators={[person]} />));
+    await act(async () => capture.modal.onAddCommentAttachments([new File(["draft"], "draft.txt", { type: "text/plain" })]));
+    expect(draftIntent).toBe(storageProvider === "local" ? "true" : true);
+    expect(capture.modal.commentAttachments).toEqual([attachment]);
+  } finally {
+    await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals();
+  }
+});

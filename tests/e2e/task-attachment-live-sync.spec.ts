@@ -50,6 +50,16 @@ test("another browser session adds and removes attachments while a task draft st
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZ1sAAAAASUVORK5CYII=",
       "base64"
     );
+    const draftUpload = await sessionB.request.post(attachmentsUrl, {
+      multipart: {
+        kind: "file", isCommentDraft: "true", name: "Unpublished comment file",
+        file: { name: "comment-draft.txt", mimeType: "text/plain", buffer: Buffer.from("comment draft") },
+      },
+    });
+    expect(draftUpload.ok()).toBeTruthy();
+    const { attachment: commentDraft } = await draftUpload.json();
+    const readTask = async () => (await (await page.request.get(`/api/projects/${projectId}/tasks/${task.id}`)).json()).task;
+    expect((await readTask()).attachments).not.toContainEqual(expect.objectContaining({ id: commentDraft.id }));
     for (const kind of ["link", "file", "image"] as const) {
       const name = `Remote ${kind}`;
       const response = await sessionB.request.post(attachmentsUrl, {
@@ -73,6 +83,9 @@ test("another browser session adds and removes attachments while a task draft st
           ? page.getByRole("button", { name: `Preview image ${name}` })
           : page.getByRole("link", { name, exact: true });
       await expect(rendered).toBeVisible({ timeout: 30_000 });
+      // The unrelated change triggers polling reconciliation too: an unposted
+      // comment upload must stay absent from the task-level attachment panel.
+      await expect(page.getByText("Unpublished comment file", { exact: true })).toHaveCount(0);
       await expect(title).toHaveValue("Unfinished local title");
       await expect(draft).toHaveValue("https://unfinished.example/draft");
       await expect(draft).toBeFocused();
@@ -85,6 +98,14 @@ test("another browser session adds and removes attachments while a task draft st
       await expect(draft).toHaveValue("https://unfinished.example/draft");
       await expect(draft).toBeFocused();
     }
+    const published = await sessionB.request.post(`/api/projects/${projectId}/tasks/${task.id}/comments`, {
+      data: { content: "Published comment with a file", attachmentIds: [commentDraft.id] },
+    });
+    expect(published.ok()).toBeTruthy();
+    const { comment } = await published.json();
+    expect(comment.attachments).toContainEqual(expect.objectContaining({ id: commentDraft.id, commentId: comment.id }));
+    expect((await readTask()).attachments).toContainEqual(expect.objectContaining({ id: commentDraft.id, commentId: comment.id }));
+    await expect(page.getByText("Unpublished comment file", { exact: true })).toHaveCount(0);
   } finally {
     await remote.close();
     await page.request.delete(`/api/projects/${projectId}`);

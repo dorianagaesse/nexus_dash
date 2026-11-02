@@ -498,7 +498,9 @@ describe("ProjectLiveRefresh", () => {
       await vi.advanceTimersByTimeAsync(500);
     });
 
-    expect(remoteActivityHandler).not.toHaveBeenCalled();
+    expect(remoteActivityHandler).toHaveBeenCalledWith(expect.objectContaining({
+      detail: expect.objectContaining({ activity: expect.objectContaining({ eventId: null }) }),
+    }));
     expect(routerRefreshMock).not.toHaveBeenCalled();
 
     window.removeEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, remoteActivityHandler);
@@ -872,4 +874,58 @@ describe("ProjectLiveRefresh", () => {
       root.unmount();
     });
   });
+});
+
+
+test.each([
+  ["typed", false], ["typed", true], ["snapshot", false], ["snapshot", true],
+] as const)("reconciles deferred %s activity after overlapping local saves (acknowledged=%s)", async (kind, acknowledged) => {
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", fetchMock);
+  vi.stubGlobal("BroadcastChannel", undefined);
+  const { root } = createTestRenderer();
+  const lock = document.createElement("div");
+  lock.setAttribute("data-project-live-refresh-lock", "true");
+  document.body.append(lock);
+  const handler = vi.fn((event: Event) => {
+    const detail = (event as CustomEvent).detail;
+    if (detail.activity.eventId) detail.markHandled();
+  });
+  window.addEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, handler);
+  try {
+    await renderWithRoot(root, <ProjectLiveRefresh projectId="project-1" initialVersion="2026-05-30T10:00:00Z" pollIntervalMs={50} />);
+    const finishA = beginProjectActivityMutation("project-1");
+    const finishB = beginProjectActivityMutation("project-1");
+    for (const minute of [1, 2]) {
+      const activity = {
+        eventId: kind === "typed" ? `event-${minute}` : null,
+        projectId: "project-1", version: `2026-05-30T10:0${minute}:00Z`, serverTime: "2026-05-30T10:02:00Z",
+        actorUserId: "other", domain: "task", action: "updated", entityId: "task-1",
+        payload: { taskId: "task-1", deletedAttachmentId: `attachment-${minute}` },
+      };
+      fetchMock.mockResolvedValue({ ok: true, json: async () => activity });
+      await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+    }
+    expect(handler).not.toHaveBeenCalled();
+    await act(async () => {
+      if (acknowledged) acknowledgeProjectActivity("project-1", "2026-05-30T10:03:00Z");
+      finishA();
+    });
+    expect(handler).not.toHaveBeenCalled();
+    await act(async () => finishB());
+    if (acknowledged) {
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler.mock.calls[0][0]).toMatchObject({ detail: { activity: { eventId: null, version: "2026-05-30T10:03:00Z" } } });
+    } else {
+      expect(handler).toHaveBeenCalledTimes(2);
+      expect(handler.mock.calls.map(([event]) => (event as CustomEvent).detail.activity.eventId)).toEqual(kind === "typed" ? ["event-1", "event-2"] : [null, null]);
+    }
+    expect(routerRefreshMock).not.toHaveBeenCalled();
+  } finally {
+    window.removeEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, handler);
+    await act(async () => root.unmount());
+    vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  }
 });

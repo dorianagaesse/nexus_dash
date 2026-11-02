@@ -454,7 +454,15 @@ export async function createTaskAttachmentFromForm(input: {
       return createError(404, "Task not found");
     }
 
+    const rawCommentDraft = readText(input.formData, "isCommentDraft");
+    if (rawCommentDraft && rawCommentDraft !== "true" && rawCommentDraft !== "false") {
+      return createError(400, "Invalid comment draft flag");
+    }
+    const isCommentDraft = rawCommentDraft === "true";
     const kind = readText(input.formData, "kind");
+    if (isCommentDraft && kind !== ATTACHMENT_KIND_FILE) {
+      return createError(400, "Comment drafts require a file attachment");
+    }
 
     if (!isAttachmentKind(kind)) {
       return createError(400, "Invalid attachment kind");
@@ -562,6 +570,7 @@ export async function createTaskAttachmentFromForm(input: {
       const attachment = await db.taskAttachment.create({
         data: {
           taskId: input.taskId,
+          isCommentDraft,
           uploadedByUserId: actorUserId,
           kind: ATTACHMENT_KIND_FILE,
           name: providedName || storedFile.originalName,
@@ -580,23 +589,25 @@ export async function createTaskAttachmentFromForm(input: {
         },
       });
 
-      await touchTaskActivity(db, input.taskId, actorUserId);
-      await recordProjectActivityEvent({
-        db,
-        projectId: input.projectId,
-        actorUserId,
-        domain: "task",
-        action: "updated",
-        entityId: input.taskId,
-        payload: {
-          taskId: input.taskId,
-          attachment: mapTaskAttachmentResponse(
-            input.projectId,
-            input.taskId,
-            attachment
-          ),
-        },
-      });
+      if (!isCommentDraft) {
+        await touchTaskActivity(db, input.taskId, actorUserId);
+        await recordProjectActivityEvent({
+          db,
+          projectId: input.projectId,
+          actorUserId,
+          domain: "task",
+          action: "updated",
+          entityId: input.taskId,
+          payload: {
+            taskId: input.taskId,
+            attachment: mapTaskAttachmentResponse(
+              input.projectId,
+              input.taskId,
+              attachment
+            ),
+          },
+        });
+      }
 
       return {
         ok: true,
@@ -882,12 +893,17 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
   actorUserId: string;
   projectId: string;
   taskId: string;
+  isCommentDraft?: unknown;
   storageKey: string;
   name: string;
   mimeType: string;
   sizeBytes: number;
   agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<AttachmentResponsePayload>> {
+  if (input.isCommentDraft !== undefined && typeof input.isCommentDraft !== "boolean") {
+    return createError(400, "Invalid comment draft flag");
+  }
+  const isCommentDraft = input.isCommentDraft === true;
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -986,6 +1002,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
       const attachment = await db.taskAttachment.create({
         data: {
           taskId: input.taskId,
+          isCommentDraft,
           uploadedByUserId: actorUserId,
           kind: ATTACHMENT_KIND_FILE,
           name: normalizedUpload.data.name,
@@ -1004,23 +1021,25 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
         },
       });
 
-      await touchTaskActivity(db, input.taskId, actorUserId);
-      await recordProjectActivityEvent({
-        db,
-        projectId: input.projectId,
-        actorUserId,
-        domain: "task",
-        action: "updated",
-        entityId: input.taskId,
-        payload: {
-          taskId: input.taskId,
-          attachment: mapTaskAttachmentResponse(
-            input.projectId,
-            input.taskId,
-            attachment
-          ),
-        },
-      });
+      if (!isCommentDraft) {
+        await touchTaskActivity(db, input.taskId, actorUserId);
+        await recordProjectActivityEvent({
+          db,
+          projectId: input.projectId,
+          actorUserId,
+          domain: "task",
+          action: "updated",
+          entityId: input.taskId,
+          payload: {
+            taskId: input.taskId,
+            attachment: mapTaskAttachmentResponse(
+              input.projectId,
+              input.taskId,
+              attachment
+            ),
+          },
+        });
+      }
 
       return {
         ok: true,
@@ -1473,6 +1492,7 @@ export async function deleteTaskAttachmentForProject(input: {
           storageKey: true,
           uploadedByUserId: true,
           commentId: true,
+          isCommentDraft: true,
           task: {
             select: {
               id: true,
@@ -1515,16 +1535,18 @@ export async function deleteTaskAttachmentForProject(input: {
         where: { id: attachment.id },
       });
 
-      await touchTaskActivity(db, input.taskId, actorUserId);
-      await recordProjectActivityEvent({
-        db,
-        projectId: input.projectId,
-        actorUserId,
-        domain: "task",
-        action: "updated",
-        entityId: input.taskId,
-        payload: { taskId: input.taskId, deletedAttachmentId: attachment.id },
-      });
+      if (!attachment.isCommentDraft) {
+        await touchTaskActivity(db, input.taskId, actorUserId);
+        await recordProjectActivityEvent({
+          db,
+          projectId: input.projectId,
+          actorUserId,
+          domain: "task",
+          action: "updated",
+          entityId: input.taskId,
+          payload: { taskId: input.taskId, deletedAttachmentId: attachment.id },
+        });
+      }
 
       if (attachment.kind === ATTACHMENT_KIND_FILE && attachment.storageKey) {
         await deleteAttachmentFile(attachment.storageKey).catch((error) => {
@@ -1676,6 +1698,7 @@ export async function getTaskAttachmentDownload(input: {
       const attachment = await db.taskAttachment.findUnique({
         where: { id: input.attachmentId },
         select: {
+          isCommentDraft: true,
           kind: true,
           name: true,
           mimeType: true,
@@ -1694,6 +1717,7 @@ export async function getTaskAttachmentDownload(input: {
         !attachment ||
         attachment.task.id !== input.taskId ||
         attachment.task.projectId !== input.projectId ||
+        (attachment.isCommentDraft && attachment.uploadedByUserId !== actorUserId) ||
         attachment.kind !== ATTACHMENT_KIND_FILE ||
         !attachment.storageKey ||
         !hasExpectedStoragePrefix(

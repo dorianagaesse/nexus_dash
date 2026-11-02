@@ -10815,3 +10815,22 @@ Low-value entries to avoid going forward:
 - Integrated current main in `27dcbb18`; only the journal conflicted, and both histories were retained. The PR is mergeable. Local lint, RLS inventory, all 2,283 unit/API/component tests (3 skipped), coverage (95.47% lines / 88.64% branches), and production build passed on the combined branch. GitHub Quality Core and PostgreSQL isolation also passed.
 - Preview workflow [41470710497](https://github.com/dorianagaesse/nexus_dash/actions/runs/41470710497) succeeded; its checkout log confirms `27dcbb182e0208d80b4c6d3dab44a8a7be48a921`. The two-session Playwright attachment check passed against https://nexus-dash-gpgnjefq2-dorian-agaesses-projects.vercel.app, preserving the title draft and focused link input through link/file/image additions and deletions. An initial abbreviated-ref dispatch failed at checkout; the full-SHA dispatch succeeded.
 - Replied to and resolved the review thread with the fix and regression evidence. Full local Playwright passed: 126 checks, 2 intentional skips. [Quality Gates 41470565758](https://github.com/dorianagaesse/nexus_dash/actions/runs/41470565758) passed Quality Core, PostgreSQL isolation, E2E, and container image validation on `27dcbb18`. The UI detector returned no findings. The task remains In Progress for review/merge.
+
+
+## 2026-11-02 - ND-610 Copilot review follow-up
+
+- Addressed all three Copilot findings on PR #638: invalidate attachment reads in
+  the shared full-task apply path; replay activity received during local saves,
+  with safe snapshot reconciliation for versions already acknowledged by a local
+  response; persist comment upload draft intent so polling cannot publish it as
+  a loose task attachment. Both form and direct uploads support the draft flag.
+- Added local PATCH/live-save race cases, overlapping-save/deferred activity
+  cases, draft upload/download/binding checks, and cross-session draft isolation.
+  The additive migration defaults legacy files to ordinary task attachments.
+- Integrated `198e7d62` from main before implementation, retaining both journal
+  histories. Main restored the modular monolith work for sequential human review;
+  the fixes follow those current repository boundaries.
+- Focused regressions pass. The real PostgreSQL isolation matrix passed on a
+  fresh `nd610_copilot_rls` database with the Realtime stub installed before
+  migrations. The initial run against the older local database failed its
+  existing Realtime join assertion because that fixture lacked its policies.
