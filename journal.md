@@ -10838,3 +10838,18 @@ Low-value entries to avoid going forward:
   recovery records retain display metadata locally, and restoration rebuilds
   the authorized download path instead of trusting a stored URL. Added a reload
   regression for an unpublished comment file and legacy-record compatibility.
+- Final local validation on `2d57b24b` passed lint, RLS inventory, 2,241
+  unit/API/component tests (2 intentional skips), coverage (95.32% lines /
+  85.58% branches), production build, and 11 affected Playwright flows covering
+  uploads, comments, recovery, task lifecycle, and cross-session synchronization.
+- Preview workflow [41480460304](https://github.com/dorianagaesse/nexus_dash/actions/runs/41480460304)
+  succeeded with Broadcast explicitly enabled; checkout's `git log -1` confirms
+  `2d57b24bda99431e505fabefcdb6a3ec65a678b4`. All three deployed Playwright cases
+  passed against https://nexus-dash-adnxcpaif-dorian-agaesses-projects.vercel.app,
+  including unpublished-file isolation/binding and mobile comment-file recovery.
+  An earlier preview hit Supabase's transient `MissingPartition` join error;
+  both subsequent private Broadcast verification runs passed.
+- All three Copilot threads were replied to and resolved. GitHub Quality Core
+  and PostgreSQL isolation passed in [41480466042](https://github.com/dorianagaesse/nexus_dash/actions/runs/41480466042);
+  the broader CI browser run was still in progress when recording these notes.
+  The task remains In Progress for review/merge.
