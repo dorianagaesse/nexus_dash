@@ -61,6 +61,10 @@ facade re-exports its compatibility validators and command types; use cases
 consume its canonical parsed commands. `task-input.ts` contains only existing
 service-side text normalization and does not define another request contract.
 
+Schema `.is()` reports boolean acceptance, including legacy values that parsing
+normalizes. Use the successful `.parse()` result for typed command data; an
+acceptance check does not narrow the raw request to the declared input type.
+
 ESLint keeps routes/components on the public Task facades and prevents Task
 internals from importing global Prisma. Pure Task helpers and Kanban UI have
 their own scoped import restrictions; server components and other domains'

@@ -5,7 +5,8 @@ Reviewed source: `8e701a6d46c48f9b7e583c76c5d966a8c11d33d4`, tree
 This source combines the runtime contracts, Kanban hooks, application-service
 extraction, and scoped data-access changes. This review also replaces the
 Task person helper's service import with its existing pure discriminator
-validator and adds the import checks below.
+validator, makes schema acceptance a boolean check, and adds the import checks
+below. Typed normalized input comes from a successful `parse()` result.
 
 The source review found no blocking ownership, transaction, or behavior issue.
 Before Meeting Notes migration starts, required checks must pass on this
@@ -25,6 +26,7 @@ validated commit and workflow evidence.
 | Import graph | The reviewed Task modules and public service seams have no runtime cycles; type-only projection references do not create runtime facade dependencies. |
 | Reviewability | Public callers and their behavioral tests remain stable. New lane tests cover sequential same-lane writes and project-scoped destination shifts. |
 | Observed drift | `task-person.ts` reached `node:crypto` through a service validator. It now calls the same underlying pure discriminator validator directly. |
+| Schema typing | Legacy/coerced raw values can be accepted without satisfying the declared input shape. Schema `.is()` now returns boolean; parsed commands provide typed normalized data. A compiler fixture runs inside the ordinary test suite to prevent unsound narrowing and preserve input/output inference. |
 
 Review preserved task CRUD/status/reorder behavior, agent relation redaction,
 conflict/retry boundaries, attachment response shapes and cleanup, durable

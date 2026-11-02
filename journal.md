@@ -15,6 +15,10 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Verified positive/negative import probes and the owned Task runtime graph;
   retained ND-542's existing contract/OpenAPI parity coverage. Final validation
   and approval evidence belongs in the delivery PR and board completion comment.
+- Fixed the reviewed schema predicate mismatch: legacy/coerced raw acceptance
+  returns boolean and typed commands come from parsing. A compiler regression
+  runs in the normal Vitest suite to verify raw values remain unknown and
+  declared input/output inference is preserved.
 
 ## 2026-11-02 - ND-545 Task data-access pilot
 
