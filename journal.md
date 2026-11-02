@@ -10808,4 +10808,19 @@ Low-value entries to avoid going forward:
   Raw request markers have no authority and pass through normal validation.
 - Added contract, PATCH persistence, and bulk-operation regressions for forged
   markers, malformed internal relation shapes, unsafe links/descriptions, and
-  serialized commands. Validation results will be recorded after execution.
+  serialized commands.
+- Integrated current main, retaining the ND-542, ND-645, and ND-541 journal
+  entries when concurrent documentation additions conflicted. Documented the
+  server-only trust invariant in the ND-541 ADR. Fixed TypeScript identity
+  lookups to accept objects without casting unvalidated input to commands.
+- Local validation passed on Node 24.22.1: lint, RLS inventory, all 2,232 tests
+  (two expected skips), coverage (95.14% lines, 88.11% branches), production
+  build, and all 12 targeted Playwright checks across task lifecycle, relations,
+  agent assignment, titled links, and screenshot uploads. Browser checks used
+  a separate local database. Initial unit attempts used browser-only environment
+  overrides; corrected those before the successful full run. One local coverage
+  attempt hit the existing panel-position test flake (436px versus 420px);
+  the full retry with two workers passed without changing that test.
+- GitHub Quality Core and PostgreSQL isolation passed on `957356fc` in run
+  [41364774754](https://github.com/dorianagaesse/nexus_dash/actions/runs/41364774754).
+  Copilot review was requested; no review response had arrived at this point.
