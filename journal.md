@@ -3,6 +3,7 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+<<<<<<< HEAD
 # 2026-11-02 - ND-190: collaboration service use-case ownership
 
 - Kept `project-collaboration-service.ts` as the public facade and moved owner
@@ -19,6 +20,12 @@ Use it for important implementation milestones, blockers, validation runs, and r
   evidence is tracked in [PR #643](https://github.com/dorianagaesse/nexus_dash/pull/643).
 - The dedicated local RLS database needed the Realtime stub installed before
   migrations, matching CI; rebuilt only `nexusdash_nd190` in that order.
+=======
+## 2026-11-02 - ND-543 Kanban controller responsibilities
+
+- Extracted board state and remote authority, drag persistence and keyboard settlement, combined filters/search, and task deep-link/history navigation into focused Kanban hooks, preserving public props and rendered components.
+- Added a board-level regression for filtered keyboard movement, hidden-card persistence, and clearing filters; documented the ownership and authority seams in [Kanban controller responsibilities](docs/kanban-controller-boundaries.md).
+>>>>>>> origin/main
 
 # 2026-10-30 - ND-541: define Tasks/Kanban domain boundary and migration seams
 
