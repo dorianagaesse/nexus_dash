@@ -8,116 +8,12 @@ import {
 import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
-import type { ProjectMeetingParticipantInput } from "@/lib/meeting-participant";
-import { isMeetingTodoActorReference } from "@/lib/meeting-todo-actor";
+import { parseCreateMeetingNoteInput } from "@/lib/meeting-note-contracts";
 import {
   createProjectMeetingNote,
   listProjectMeetingNotes,
-  type MeetingNoteActionInput,
   type ProjectMeetingNoteSummary,
 } from "@/lib/services/project-meeting-note-service";
-
-interface MeetingNoteRequestBody {
-  title?: unknown;
-  scheduledAt?: unknown;
-  participants?: unknown;
-  labels?: unknown;
-  status?: unknown;
-  visibility?: unknown;
-  inputNotes?: unknown;
-  outputNotes?: unknown;
-  decisions?: unknown;
-  actions?: unknown;
-}
-
-function readString(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-function readOptionalString(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
-}
-
-function readOptionalVisibility(
-  value: unknown
-): { ok: true; value: "private" | "team" | undefined } | { ok: false } {
-  if (value === undefined || value === null) {
-    return { ok: true, value: undefined };
-  }
-  if (typeof value !== "string") {
-    return { ok: false };
-  }
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "") {
-    return { ok: true, value: undefined };
-  }
-  if (normalized === "private") {
-    return { ok: true, value: "private" };
-  }
-  if (normalized === "team" || normalized === "public") {
-    return { ok: true, value: "team" };
-  }
-  return { ok: false };
-}
-
-function readStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.filter((entry): entry is string => typeof entry === "string");
-}
-
-function readParticipants(value: unknown): ProjectMeetingParticipantInput[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.flatMap((entry) => {
-    if (typeof entry === "string") {
-      return [{ userId: null, displayName: entry }];
-    }
-    if (!entry || typeof entry !== "object") {
-      return [];
-    }
-
-    const record = entry as Record<string, unknown>;
-    return [
-      {
-        userId:
-          typeof record.userId === "string" ? record.userId : null,
-        displayName: readString(record.displayName),
-      },
-    ];
-  });
-}
-
-function readActions(value: unknown): MeetingNoteActionInput[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.flatMap((entry) => {
-    if (!entry || typeof entry !== "object") {
-      return [];
-    }
-
-    const record = entry as Record<string, unknown>;
-    return [
-      {
-        id: readOptionalString(record.id),
-        content: readString(record.content),
-        completedAt: readOptionalString(record.completedAt),
-        assignee:
-          record.assignee === null
-            ? null
-            : isMeetingTodoActorReference(record.assignee)
-              ? { kind: record.assignee.kind, id: record.assignee.id.trim() }
-              : undefined,
-      },
-    ];
-  });
-}
 
 function serializeMeetingNote(note: ProjectMeetingNoteSummary) {
   return {
@@ -136,9 +32,9 @@ function serializeMeetingNote(note: ProjectMeetingNoteSummary) {
 async function readJsonPayload(
   request: NextRequest,
   routeLabel: string
-): Promise<MeetingNoteRequestBody | NextResponse> {
+): Promise<unknown> {
   try {
-    return (await request.json()) as MeetingNoteRequestBody;
+    return await request.json();
   } catch (error) {
     logServerWarning(routeLabel, "Invalid JSON payload", { error });
     return NextResponse.json({ error: "invalid-json" }, { status: 400 });
@@ -201,29 +97,15 @@ export async function POST(
     return payload;
   }
 
-  const visibility = readOptionalVisibility(payload.visibility);
-  if (!visibility.ok) {
-    return NextResponse.json(
-      { error: "meeting-note-visibility-invalid" },
-      { status: 400 }
-    );
+  const parsed = parseCreateMeetingNoteInput(payload);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   }
 
   const result = await createProjectMeetingNote({
     actorUserId: authenticatedUser.userId,
     projectId: params.projectId,
-    title: readString(payload.title),
-    scheduledAt: readOptionalString(payload.scheduledAt),
-    participants: readParticipants(payload.participants),
-    labels: readStringArray(payload.labels),
-    status: readOptionalString(payload.status),
-    ...(visibility.value === undefined
-      ? {}
-      : { visibility: visibility.value }),
-    inputNotes: readString(payload.inputNotes),
-    outputNotes: readString(payload.outputNotes),
-    decisions: readString(payload.decisions),
-    actions: readActions(payload.actions),
+    ...parsed.data,
   });
 
   if (!result.ok) {

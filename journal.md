@@ -3,6 +3,13 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+## 2026-11-02 - ND-547 Meeting Notes request contracts
+
+- Started production migration after the ND-546 approval of source `cdcba0d6` / tree `cc84df15`, validated in [workflow run 41367681234](https://github.com/dorianagaesse/nexus_dash/actions/runs/41367681234).
+- Moved duplicated create/PATCH field coercion into a pure Meeting Notes parser module with typed parsed commands. Kept service normalization, authorization, revision preconditions, and response serialization at their existing seams.
+- Preserved intentional create defaults, PATCH field presence and explicit clears, visibility omission/aliases, and nested assignee semantics. Malformed non-object JSON now returns the existing `invalid-request-body` 400 shape instead of the accidental create-side null failure.
+- Added route-level characterization and malformed-input/identity-boundary regressions; guidance is in [Meeting Notes request contracts](docs/architecture/meeting-note-contracts.md).
+
 # 2026-11-02 - ND-546: validate Task pilot ownership and import seams
 
 - Reviewed the combined contract, Kanban, service, and data pilot at `8e701a6d`;
