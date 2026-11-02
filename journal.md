@@ -3,6 +3,18 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-02 - ND-544: Task application-service modules
+
+- Kept the public Task service facade stable while extracting create/update,
+  lifecycle, policy, assignment, normalization, result, type, and persistence
+  modules from the canonical ND-542 service implementation.
+- Preserved all 40 service declaration bodies, actor-scoped transaction
+  clients, mutation ordering, revision retry boundaries, and caller imports.
+- Re-exported runtime validators and command types from `lib/task-contracts.ts`
+  so the extraction retains one canonical request contract.
+- Documented ownership and the ND-545 projection/relation seam in
+  `docs/architecture/task-services.md`; validation evidence is in PR #642.
+
 # 2026-11-02 - ND-190: collaboration service use-case ownership
 
 - Kept `project-collaboration-service.ts` as the public facade and moved owner
