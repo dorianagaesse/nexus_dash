@@ -67,6 +67,7 @@ import {
   isOptimisticTaskCommentRepresented,
   mergeFetchedTaskComments,
   mergeSubmittedTaskComment,
+  restoreCommentDraftAttachments,
 } from "@/components/kanban-board-comments";
 import { reconcileBilateralTaskRelations } from "@/components/kanban-board-related";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
@@ -154,12 +155,14 @@ async function uploadTaskFileAttachment({
   taskId,
   file,
   useDirectUpload,
+  isCommentDraft = false,
   fallbackErrorMessage,
 }: {
   projectId: string;
   taskId: string;
   file: File;
   useDirectUpload: boolean;
+  isCommentDraft?: boolean;
   fallbackErrorMessage: string;
 }): Promise<TaskAttachment> {
   const uploadThroughApp = async () => {
@@ -167,6 +170,7 @@ async function uploadTaskFileAttachment({
     formData.append("kind", ATTACHMENT_KIND_FILE);
     formData.append("name", "");
     formData.append("file", file);
+    formData.append("isCommentDraft", String(isCommentDraft));
 
     const response = await fetchProjectActivityMutation(
       projectId,
@@ -191,6 +195,7 @@ async function uploadTaskFileAttachment({
     finalizeUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct`,
     cleanupUrl: `/api/projects/${projectId}/tasks/${taskId}/attachments/direct/cleanup`,
     fallbackErrorMessage,
+    finalizeMetadata: { isCommentDraft },
     fallbackUpload:
       file.size <= MAX_ATTACHMENT_FILE_SIZE_BYTES ? uploadThroughApp : undefined,
   });
@@ -724,6 +729,10 @@ export function KanbanBoard({
   const commentDraftTaskIdRef = useRef<string | null>(null);
   const openedInitialTaskIdRef = useRef<string | null>(null);
   const taskOpenRequestRef = useRef(0);
+  const attachmentReconciliationRef = useRef<{
+    taskId: string;
+    revision: number;
+  } | null>(null);
   // Anchored to the card element rather than its task id: an optimistic card
   // swaps to the persisted task id while it stays mounted.
   const taskCardReturnFocusRef = useRef<HTMLElement | null>(null);
@@ -785,6 +794,7 @@ export function KanbanBoard({
   const commentRecoveryValue = useMemo(() => ({
     content: newTaskComment,
     attachmentIds: commentAttachments.map((attachment) => attachment.id),
+    attachmentSnapshots: commentAttachments.length ? commentAttachments : undefined,
     mentionSelections: commentMentionSelections,
     agentMentionSelections: commentAgentMentionSelections,
   }), [newTaskComment, commentAttachments, commentMentionSelections, commentAgentMentionSelections]);
@@ -793,10 +803,15 @@ export function KanbanBoard({
       ? recoveryDraftKey({ userId: actorUserId, projectId, surface: "task-comment", mode: "create", entityId: selectedTask.id })
       : null,
     value: commentRecoveryValue,
-    base: { content: "", attachmentIds: [], mentionSelections: [], agentMentionSelections: [] },
+    base: { content: "", attachmentIds: [], attachmentSnapshots: undefined, mentionSelections: [], agentMentionSelections: [] },
     restore: (draft) => {
       setNewTaskComment(draft.content);
-      setCommentAttachments(selectedTask?.attachments.filter((attachment) => draft.attachmentIds.includes(attachment.id)) ?? []);
+      setCommentAttachments(selectedTask ? restoreCommentDraftAttachments({
+        attachmentIds: draft.attachmentIds,
+        snapshots: draft.attachmentSnapshots,
+        taskAttachments: selectedTask.attachments,
+        projectId, taskId: selectedTask.id,
+      }) : []);
       setCommentMentionSelections(draft.mentionSelections);
       setCommentAgentMentionSelections(draft.agentMentionSelections);
     },
@@ -2013,6 +2028,8 @@ export function KanbanBoard({
   );
 
   const applyTaskToBoard = useCallback((updatedTask: KanbanTask) => {
+    const reconciliation = attachmentReconciliationRef.current;
+    if (reconciliation?.taskId === updatedTask.id) reconciliation.revision += 1;
     setColumns((previousColumns) => {
       const nextColumns = cloneColumns(previousColumns);
       TASK_STATUSES.forEach((status) => {
@@ -2309,6 +2326,8 @@ export function KanbanBoard({
 
   const upsertRemoteTask = useCallback(
     (remoteTask: KanbanTask) => {
+      const reconciliation = attachmentReconciliationRef.current;
+      if (reconciliation?.taskId === remoteTask.id) reconciliation.revision += 1;
       setColumns((previousColumns) => {
         const nextColumns = createEmptyColumns<KanbanTask>();
         TASK_STATUSES.forEach((status) => {
@@ -3305,6 +3324,9 @@ export function KanbanBoard({
 
   const applyTaskMutation = useCallback(
     (taskId: string, mutateTask: (task: KanbanTask) => KanbanTask) => {
+      // Mark reads stale synchronously, before React queues the local/remote patch.
+      const reconciliation = attachmentReconciliationRef.current;
+      if (reconciliation?.taskId === taskId) reconciliation.revision += 1;
       setColumns((previousColumns) => {
         let hasChanges = false;
         const nextColumns = createEmptyColumns<KanbanTask>();
@@ -3348,6 +3370,72 @@ export function KanbanBoard({
   );
 
   useEffect(() => {
+    if (!selectedTaskId) return;
+    const reconciliation = { taskId: selectedTaskId, revision: 0 };
+    attachmentReconciliationRef.current = reconciliation;
+    let attachmentController: AbortController | null = null;
+    let appliedAttachmentVersion: string | null = null;
+    function reconcileOpenTaskAttachments(event: Event) {
+      const activity = (
+        event as CustomEvent<ProjectActivityRemoteEventDetail>
+      ).detail?.activity;
+      if (!activity || activity.projectId !== projectId) return;
+      if (!activity.eventId && selectedTaskId) {
+        if (appliedAttachmentVersion === activity.version) return;
+        attachmentController?.abort();
+        const controller = new AbortController();
+        attachmentController = controller;
+        const taskId = selectedTaskId;
+        void (async () => {
+          try {
+            while (!controller.signal.aborted) {
+              const revision = reconciliation.revision;
+              const response = await fetch(
+                `/api/projects/${projectId}/tasks/${taskId}`,
+                { cache: "no-store", signal: controller.signal }
+              );
+              if (!response.ok) return;
+              const remoteTask = readRemoteTaskPayload({
+                ...activity,
+                payload: await response.json(),
+              });
+              if (controller.signal.aborted || remoteTask?.id !== taskId) return;
+              // A local mutation or remote representation may have arrived
+              // after this read started. Re-read instead of replacing that
+              // newer state; its version may already have been acknowledged.
+              if (revision !== reconciliation.revision) continue;
+              applyTaskMutation(taskId, (task) => ({
+                ...task,
+                attachments: remoteTask.attachments,
+              }));
+              appliedAttachmentVersion = activity.version;
+              return;
+            }
+          } catch {
+            // A later poll retries failures; modal changes abort stale reads.
+          }
+        })();
+        // Other dashboard fields still need the existing deferred refresh.
+        return;
+      }
+    }
+    window.addEventListener(
+      PROJECT_ACTIVITY_REMOTE_EVENT,
+      reconcileOpenTaskAttachments
+    );
+    return () => {
+      attachmentController?.abort();
+      if (attachmentReconciliationRef.current === reconciliation) {
+        attachmentReconciliationRef.current = null;
+      }
+      window.removeEventListener(
+        PROJECT_ACTIVITY_REMOTE_EVENT,
+        reconcileOpenTaskAttachments
+      );
+    };
+  }, [applyTaskMutation, projectId, selectedTaskId]);
+
+  useEffect(() => {
     function handleRemoteProjectActivity(event: Event) {
       const detail = (event as CustomEvent<ProjectActivityRemoteEventDetail>)
         .detail;
@@ -3358,6 +3446,45 @@ export function KanbanBoard({
 
       if (activity.domain === "task") {
         if (activity.action === "created" || activity.action === "updated") {
+          // Attachment commands do not change the content revision. Merge only
+          // the attachment delta so an open modal keeps its draft and focus.
+          if (
+            isRecord(activity.payload) &&
+            activity.payload.taskId === activity.entityId &&
+            activity.entityId
+          ) {
+            const { attachment, deletedAttachmentId } = activity.payload;
+            if (
+              isRecord(attachment) &&
+              typeof attachment.id === "string" &&
+              (attachment.kind === ATTACHMENT_KIND_FILE ||
+                attachment.kind === ATTACHMENT_KIND_LINK) &&
+              typeof attachment.name === "string"
+            ) {
+              const remoteAttachment = attachment as unknown as TaskAttachment;
+              applyTaskMutation(activity.entityId, (task) => ({
+                ...task,
+                attachments: [
+                  ...task.attachments.filter(
+                    (entry) => entry.id !== remoteAttachment.id
+                  ),
+                  remoteAttachment,
+                ],
+              }));
+              detail.markHandled();
+              return;
+            }
+            if (typeof deletedAttachmentId === "string") {
+              applyTaskMutation(activity.entityId, (task) => ({
+                ...task,
+                attachments: task.attachments.filter(
+                  (entry) => entry.id !== deletedAttachmentId
+                ),
+              }));
+              detail.markHandled();
+              return;
+            }
+          }
           const remoteTask = readRemoteTaskPayload(activity);
           if (remoteTask) {
             upsertRemoteTask(remoteTask);
@@ -3944,6 +4071,7 @@ export function KanbanBoard({
               taskId,
               file,
               useDirectUpload: storageProvider === "r2",
+              isCommentDraft: true,
               fallbackErrorMessage: "Could not upload attachment.",
             });
 

@@ -147,8 +147,12 @@ export type TaskContractParseResult<T> =
 export interface TaskRuntimeSchema<TInput, TOutput = TInput> {
   readonly name: string;
   readonly fields: readonly string[];
+  // Type-only input marker preserves inference without asserting that accepted
+  // legacy/coerced raw values already have this shape.
+  readonly _input?: TInput;
   parse(input: unknown): TaskContractParseResult<TOutput>;
-  is(input: unknown): input is TInput;
+  // Acceptance is boolean; use parse().data for typed, normalized commands.
+  is(input: unknown): boolean;
 }
 
 export type InferTaskContractInput<
@@ -1153,7 +1157,7 @@ export const taskBulkRequestContract: TaskRuntimeSchema<
     }
     return { ok: true, data: { operations } };
   },
-  is(input: unknown): input is TaskBulkRequestPayload {
+  is(input: unknown): boolean {
     return parseBulkTaskOperations(input) !== null;
   },
 };
@@ -1229,7 +1233,7 @@ export const taskCreateContract: TaskRuntimeSchema<
   name: "TaskCreateRequest",
   fields: TASK_CREATE_FIELD_NAMES,
   parse: (input: unknown) => parseCreateTaskJsonInput(input),
-  is: (input: unknown): input is TaskCreateInputShape =>
+  is: (input: unknown): boolean =>
     parseCreateTaskJsonInput(input).ok,
 };
 
@@ -1240,7 +1244,7 @@ export const taskUpdateContract: TaskRuntimeSchema<
   name: "TaskUpdateRequest",
   fields: TASK_UPDATE_FIELD_NAMES,
   parse: (input: unknown) => parseUpdateTaskJsonInput(input),
-  is: (input: unknown): input is UpdateTaskPayload =>
+  is: (input: unknown): boolean =>
     parseUpdateTaskJsonInput(input).ok,
 };
 
