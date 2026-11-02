@@ -3,7 +3,8 @@
 // context-card modules re-export these names so consumers keep their own
 // vocabulary while behavior stays implemented once.
 
-export type ProjectActorKind = "human" | "agent";
+export const PROJECT_ACTOR_KINDS = ["human", "agent"] as const;
+export type ProjectActorKind = (typeof PROJECT_ACTOR_KINDS)[number];
 export type ProjectActorStatus = "active" | "inactive" | "revoked" | "expired";
 
 export interface ProjectActorReference {

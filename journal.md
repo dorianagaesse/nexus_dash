@@ -10769,3 +10769,9 @@ Low-value entries to avoid going forward:
 - Restore each task in a separate replacement PR, in the epic's recommended order: ND-542, ND-543, ND-544, ND-545, ND-546, ND-547, ND-190. Merged GitHub PRs cannot be reopened; retain their history and link the replacements.
 - The user arranges external review, we address that review on the active PR, and the user merges. Leave this recovery PR and every replacement unmerged; keep later replacements as drafts until their turn. Earlier agent review and CI results are historical evidence, not user approval.
 - Reopen the seven board cards and verify the epic is no longer Completed. Revalidate the replacement heads and record their actual checks in the PRs.
+
+## 2026-11-02 - ND-542 restored for external review
+
+- Restored the implementation from original PR #641, commit `355592620cb4c95ac4662405511055923726f4ec`, as its own replacement PR after the review-process rollback.
+- Unify Task create and update API runtime contracts. Historical implementation/check evidence remains on #641; fresh checks belong to this replacement head.
+- External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
