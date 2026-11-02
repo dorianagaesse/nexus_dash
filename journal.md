@@ -10775,3 +10775,9 @@ Low-value entries to avoid going forward:
 - Restored the implementation from original PR #641, commit `355592620cb4c95ac4662405511055923726f4ec`, as its own replacement PR after the review-process rollback.
 - Unify Task create and update API runtime contracts. Historical implementation/check evidence remains on #641; fresh checks belong to this replacement head.
 - External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
+
+## 2026-11-02 - ND-543 restored for external review
+
+- Restored the implementation from original PR #644, commit `1e2e2c8e24e1d10664b08788499e808901e63511`, as its own replacement PR after the review-process rollback.
+- Separate Kanban board state, drag, filters and navigation. Historical implementation/check evidence remains on #644; fresh checks belong to this replacement head.
+- External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
