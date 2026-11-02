@@ -716,4 +716,148 @@ describe("project meeting notes routes", () => {
       activityEventResponseMock.recordProjectActivityEventVersion
     ).not.toHaveBeenCalled();
   });
+
+  describe("ND-547 request contract characterization", () => {
+    function mutationRequest(method: "POST" | "PATCH", payload: unknown, headers = {}) {
+      return new NextRequest(
+        `http://localhost/api/projects/project-1/meeting-notes${method === "PATCH" ? "/note-1" : ""}`,
+        {
+          method,
+          headers: { "content-type": "application/json", ...headers },
+          body: JSON.stringify(payload),
+        }
+      );
+    }
+
+    test.each(["POST", "PATCH"] as const)(
+      "%s shares nested participant/action coercion and leaves content normalization to services",
+      async (method) => {
+        const service = method === "POST"
+          ? meetingNoteServiceMock.createProjectMeetingNote
+          : meetingNoteServiceMock.updateProjectMeetingNote;
+        service.mockResolvedValueOnce({
+          ok: true,
+          data: { note: sampleNote(), activityVersion: null },
+        });
+        const payload = {
+          title: " Weekly review ",
+          scheduledAt: "2026-06-08T14:00:00.000Z",
+          participants: [" Guest ", null, 7, { userId: "user-2", displayName: " Alice " }, { userId: 4, displayName: false }],
+          labels: [" planning ", 7, null, "review"],
+          status: "prepared",
+          visibility: " PuBliC ",
+          inputNotes: '<p><strong>Prepare</strong> &amp; discuss</p>',
+          outputNotes: "<p>Outcome</p>",
+          decisions: " Keep spacing ",
+          actions: [
+            null, 7,
+            { id: 7, content: false, completedAt: 7, assignee: { kind: "unknown", id: "x" } },
+            { content: "Send recap", assignee: { kind: "participant", id: " Guest " } },
+            { content: "Clear assignment", assignee: null },
+            { content: "Agent follow-up", assignee: { kind: "agent", id: " credential-1 " } },
+            { content: "Human follow-up", assignee: { kind: "human", id: " user-2 " } },
+          ],
+        };
+        const request = mutationRequest(method, payload);
+        const response = method === "POST"
+          ? await createMeetingNote(request, projectParams("project-1"))
+          : await updateMeetingNote(request, noteParams("project-1", "note-1"));
+        expect(response.status).toBe(method === "POST" ? 201 : 200);
+        expect(service).toHaveBeenCalledWith({
+          actorUserId: "user-1",
+          projectId: "project-1",
+          ...(method === "PATCH" ? { noteId: "note-1" } : {}),
+          title: payload.title,
+          scheduledAt: payload.scheduledAt,
+          participants: [
+            { userId: null, displayName: " Guest " },
+            { userId: "user-2", displayName: " Alice " },
+            { userId: null, displayName: "" },
+          ],
+          labels: [" planning ", "review"],
+          status: "prepared",
+          visibility: "team",
+          inputNotes: payload.inputNotes,
+          outputNotes: payload.outputNotes,
+          decisions: payload.decisions,
+          actions: [
+            { id: null, content: "", completedAt: null, assignee: undefined },
+            { id: null, content: "Send recap", completedAt: null, assignee: { kind: "participant", id: "Guest" } },
+            { id: null, content: "Clear assignment", completedAt: null, assignee: null },
+            { id: null, content: "Agent follow-up", completedAt: null, assignee: { kind: "agent", id: "credential-1" } },
+            { id: null, content: "Human follow-up", completedAt: null, assignee: { kind: "human", id: "user-2" } },
+          ],
+        });
+      }
+    );
+
+    test("POST keeps its legacy defaults for missing or malformed field types", async () => {
+      meetingNoteServiceMock.createProjectMeetingNote.mockResolvedValueOnce({
+        ok: false, status: 400, error: "meeting-note-title-too-short",
+      });
+      const response = await createMeetingNote(mutationRequest("POST", {
+        title: 7, scheduledAt: 7, participants: false, labels: "planning", status: true,
+        inputNotes: {}, outputNotes: null, decisions: 7, actions: "invalid", visibility: null,
+      }), projectParams("project-1"));
+      expect(response.status).toBe(400);
+      expect(await readJson(response)).toEqual({ error: "meeting-note-title-too-short" });
+      expect(meetingNoteServiceMock.createProjectMeetingNote).toHaveBeenCalledWith({
+        actorUserId: "user-1", projectId: "project-1", title: "", scheduledAt: null,
+        participants: [], labels: [], status: null, inputNotes: "", outputNotes: "", decisions: "", actions: [],
+      });
+    });
+
+    test("PATCH omits untouched fields and preserves revision and response validators", async () => {
+      meetingNoteServiceMock.updateProjectMeetingNote.mockResolvedValueOnce({
+        ok: true,
+        data: { note: { ...sampleNote(), contentRevision: 8 }, activityVersion: new Date("2026-06-08T15:00:00.000Z") },
+      });
+      const response = await updateMeetingNote(mutationRequest("PATCH", {
+        inputNotes: "<p>Changed input only</p>", visibility: "  ",
+      }, { "x-content-if-match": '"meeting-note:note-1:7"' }), noteParams("project-1", "note-1"));
+      expect(meetingNoteServiceMock.updateProjectMeetingNote.mock.calls[0][0]).toStrictEqual({
+        actorUserId: "user-1", projectId: "project-1", noteId: "note-1",
+        inputNotes: "<p>Changed input only</p>", expectedRevision: 7,
+      });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("etag")).toBe('"meeting-note:note-1:8"');
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      expect(response.headers.get("x-nexusdash-project-version")).toBe("2026-06-08T15:00:00.000Z");
+    });
+
+    test("PATCH keeps nonstring date and status clearing semantics", async () => {
+      meetingNoteServiceMock.updateProjectMeetingNote.mockResolvedValueOnce({
+        ok: true, data: { note: sampleNote(), activityVersion: null },
+      });
+      const response = await updateMeetingNote(mutationRequest("PATCH", {
+        scheduledAt: 17, status: false,
+      }), noteParams("project-1", "note-1"));
+      expect(response.status).toBe(200);
+      expect(meetingNoteServiceMock.updateProjectMeetingNote.mock.calls[0][0]).toStrictEqual({
+        actorUserId: "user-1", projectId: "project-1", noteId: "note-1", scheduledAt: null, status: null,
+      });
+    });
+
+    test.each([
+      null, [], 7, "invalid", { participants: null }, { labels: "planning" }, { actions: {} },
+      { title: null }, { inputNotes: 7 }, { outputNotes: [] }, { decisions: false },
+    ].map((payload) => ({ payload })))("PATCH rejects malformed body/content shapes before calling services: %j", async ({ payload }) => {
+      const response = await updateMeetingNote(mutationRequest("PATCH", payload), noteParams("project-1", "note-1"));
+      expect(response.status).toBe(400);
+      expect(await readJson(response)).toEqual({ error: "invalid-request-body" });
+      expect(meetingNoteServiceMock.updateProjectMeetingNote).not.toHaveBeenCalled();
+    });
+
+    test("PATCH rejects an invalid revision before parsing malformed JSON", async () => {
+      const response = await updateMeetingNote(new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes/note-1", {
+          method: "PATCH", headers: { "x-content-if-match": "invalid" }, body: "{",
+        }
+      ), noteParams("project-1", "note-1"));
+      expect(response.status).toBe(400);
+      expect(await readJson(response)).toEqual({ error: "edit-precondition-invalid" });
+      expect(meetingNoteServiceMock.updateProjectMeetingNote).not.toHaveBeenCalled();
+    });
+  });
+
 });
