@@ -16,6 +16,13 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-11-02 - ND-546: Enforce the reviewed Task import seams
+
+- Status: Accepted
+- Decision: Keep Task delivery on public service facades, require caller-scoped data clients, and enforce pure Task helper and Kanban client import boundaries with narrowly scoped lint rules.
+- Consequences: Server components and unrelated DTO imports remain allowed. Meeting Notes contract migration requires validated review of the integrated pilot source; later Task source changes require re-review.
+- Links: [Tasks pilot review](../docs/architecture/task-pilot-review.md).
+
 ## 2026-11-02 - ND-190: Collaboration use-case ownership
 
 - Status: Accepted
