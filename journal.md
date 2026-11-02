@@ -10805,3 +10805,9 @@ Low-value entries to avoid going forward:
 - Restored the implementation from original PR #647, commit `bd30c48395528fd74b814ba83ed89f8c869365b9`, as its own replacement PR after the review-process rollback.
 - Unify Meeting Notes create and update request contracts. Historical implementation/check evidence remains on #647; fresh checks belong to this replacement head.
 - External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
+
+## 2026-11-02 - ND-190 restored for external review
+
+- Restored the implementation from original PR #643, commit `1a120957fd86a4b46060372f31989cb47db0ff6a`, as its own replacement PR after the review-process rollback.
+- Separate collaboration invitation and membership services. Historical implementation/check evidence remains on #643; fresh checks belong to this replacement head.
+- External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
