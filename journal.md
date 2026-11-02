@@ -3,6 +3,11 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+## 2026-11-02 - ND-543 Kanban controller responsibilities
+
+- Extracted board state and remote authority, drag persistence and keyboard settlement, combined filters/search, and task deep-link/history navigation into focused Kanban hooks, preserving public props and rendered components.
+- Added a board-level regression for filtered keyboard movement, hidden-card persistence, and clearing filters; documented the ownership and authority seams in [Kanban controller responsibilities](docs/kanban-controller-boundaries.md).
+
 # 2026-10-30 - ND-541: define Tasks/Kanban domain boundary and migration seams
 
 - Authored `adr/nd-541-tasks-kanban-domain-boundary.md` and recorded the summary
