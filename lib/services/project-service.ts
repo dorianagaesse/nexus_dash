@@ -23,6 +23,7 @@ export const projectKanbanTaskInclude = {
     },
   },
   attachments: {
+    where: { isCommentDraft: false },
     orderBy: [{ createdAt: "desc" }],
   },
   blockedFollowUps: {
@@ -956,6 +957,7 @@ export async function getProjectDashboardById(projectId: string, actorUserId: st
           orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
           include: {
             attachments: {
+              where: { isCommentDraft: false },
               orderBy: [{ createdAt: "desc" }],
             },
             blockedFollowUps: {

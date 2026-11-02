@@ -4,6 +4,7 @@ import {
   isOptimisticTaskCommentRepresented,
   mergeFetchedTaskComments,
   mergeSubmittedTaskComment,
+  restoreCommentDraftAttachments,
 } from "@/components/kanban-board-comments";
 import type { TaskAttachment, TaskComment } from "@/components/kanban-board-types";
 
@@ -167,4 +168,14 @@ describe("mergeSubmittedTaskComment", () => {
 
     expect(next.map((comment) => comment.id)).toEqual(["comment-x"]);
   });
+});
+
+
+test("recovers unpublished comment files without shared task metadata or stored URLs", () => {
+  const attachment = { ...createAttachment("draft"), downloadUrl: "javascript:bad", url: "https://other.example", sizeBytes: -1 };
+  expect(restoreCommentDraftAttachments({ attachmentIds: ["draft"], snapshots: [attachment, attachment, { ...attachment, id: "unselected" }, null], taskAttachments: [], projectId: "project", taskId: "task" })).toEqual([{ ...attachment, commentId: null, url: null, sizeBytes: null, downloadUrl: "/api/projects/project/tasks/task/attachments/draft/download" }]);
+});
+
+test("legacy comment drafts recover from the task list without a new base fingerprint", () => {
+  expect(restoreCommentDraftAttachments({ attachmentIds: ["legacy"], taskAttachments: [createAttachment("legacy")], projectId: "project", taskId: "task" })).toMatchObject([{ id: "legacy", kind: "file" }]);
 });

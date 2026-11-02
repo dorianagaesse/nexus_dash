@@ -138,7 +138,7 @@ export async function searchProjectTaskIds(input: {
             },
           },
           blockedFollowUps: { select: { content: true } },
-          attachments: { select: { name: true } },
+          attachments: { where: { isCommentDraft: false }, select: { name: true } },
           outgoingRelations: {
             select: { rightTask: { select: { title: true } } },
           },

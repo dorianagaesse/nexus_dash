@@ -8,6 +8,7 @@ import { logServerWarning } from "@/lib/observability/logger";
 import { finalizeTaskAttachmentDirectUpload } from "@/lib/services/project-attachment-service";
 
 interface FinalizeDirectUploadRequestBody {
+  isCommentDraft?: unknown;
   storageKey?: unknown;
   name?: unknown;
   mimeType?: unknown;
@@ -52,6 +53,7 @@ export async function POST(
     mimeType: typeof payload.mimeType === "string" ? payload.mimeType : "",
     sizeBytes:
       typeof payload.sizeBytes === "number" ? payload.sizeBytes : Number.NaN,
+    isCommentDraft: payload.isCommentDraft,
     agentAccess,
   });
 

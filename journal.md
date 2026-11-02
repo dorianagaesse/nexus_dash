@@ -10769,3 +10769,87 @@ Low-value entries to avoid going forward:
 - Restore each task in a separate replacement PR, in the epic's recommended order: ND-542, ND-543, ND-544, ND-545, ND-546, ND-547, ND-190. Merged GitHub PRs cannot be reopened; retain their history and link the replacements.
 - The user arranges external review, we address that review on the active PR, and the user merges. Leave this recovery PR and every replacement unmerged; keep later replacements as drafts until their turn. Earlier agent review and CI results are historical evidence, not user approval.
 - Reopen the seven board cards and verify the epic is no longer Completed. Revalidate the replacement heads and record their actual checks in the PRs.
+
+
+- Continued Gemini's uncommitted fix for the P1 review on PR #641. Trusted
+  create/update commands now use module-private WeakSet identity; update
+  adapters retain commands in a WeakMap instead of a JSON-spoofable property.
+  Raw request markers have no authority and pass through normal validation.
+- Added contract, PATCH persistence, and bulk-operation regressions for forged
+  markers, malformed internal relation shapes, unsafe links/descriptions, and
+  serialized commands.
+- Integrated current main, retaining the ND-542, ND-645, and ND-541 journal
+  entries when concurrent documentation additions conflicted. Documented the
+  server-only trust invariant in the ND-541 ADR. Fixed TypeScript identity
+  lookups to accept objects without casting unvalidated input to commands.
+- Local validation passed on Node 24.22.1: lint, RLS inventory, all 2,232 tests
+  (two expected skips), coverage (95.14% lines, 88.11% branches), production
+  build, and all 12 targeted Playwright checks across task lifecycle, relations,
+  agent assignment, titled links, and screenshot uploads. Browser checks used
+  a separate local database. Initial unit attempts used browser-only environment
+  overrides; corrected those before the successful full run. One local coverage
+  attempt hit the existing panel-position test flake (436px versus 420px);
+  the full retry with two workers passed without changing that test.
+- GitHub Quality Core and PostgreSQL isolation passed on `957356fc` in run
+  [41364774754](https://github.com/dorianagaesse/nexus_dash/actions/runs/41364774754).
+  Copilot review was requested; no review response had arrived at this point.
+
+
+## 2026-10-30 - ND-610 live task attachments
+
+- Isolated work in `../nexus_dash_nd610` on `fix/nd-610-live-task-attachments` from `b6351a2`; root roadmap edits remain untouched.
+- Task attachment create (link, form file, direct upload) and delete now emit typed task activity deltas. The board merges only attachments, preserving the open modal, pending content edits, and focus.
+- Added service event assertions, component reconciliation coverage (including duplicate delivery and project isolation), and a two-browser-context regression for links, text files, and images. Focused checks passed (14 tests); full baseline and preview validation follow below.
+
+- Initial baseline passed lint, RLS inventory, 2,206 tests, coverage (95.32% lines / 85.58% branches), and build. Preview workflow 41069206326 verified checkout 8968b527, but its browser check exposed that polling snapshots carry only a version. Added version-only snapshot notification and a cancellable attachment-only read for the open task; broad dashboard refresh remains deferred during editing. Added regression coverage for polling, duplicate versions, and modal-close cancellation.
+
+- Final validation passed: lint, RLS inventory, 2,207 unit/API/component tests (2 skipped), coverage (95.32% lines / 85.58% branches), production build, and 125 Playwright checks (2 intentional skips). GitHub Quality Core, E2E, and tenant-isolation jobs also passed on implementation commit `fb3e3c9883bd5d883072e340186e08d06b793132`.
+- Preview workflow [41070693099](https://github.com/dorianagaesse/nexus_dash/actions/runs/41070693099) succeeded and its checkout log confirms `fb3e3c9883bd5d883072e340186e08d06b793132`. Two-browser-context Playwright verification passed against https://nexus-dash-naesrtmet-dorian-agaesses-projects.vercel.app: link, text-file, and image additions/deletions preserve both an unsaved title and the focused link draft. Final cleanup only formats the added code/tests and records this evidence.
+- Delivery: [PR #638](https://github.com/dorianagaesse/nexus_dash/pull/638). Copilot review was requested but no review outcome returned during validation. The task remains In Progress for review/merge; root roadmap edits remain untouched.
+
+
+## 2026-11-02 - ND-610 review reconciliation race
+
+- Addressed PR #638's P2 review: in-flight attachment reads now detect intervening local task mutations, remote deltas, and full task representations. Stale responses trigger a fresh read rather than overwriting newer attachments, even if the newer activity version is already acknowledged.
+- Added six deferred-response regressions for local, remote-delta, and full-representation additions/deletions. All six fail against the prior implementation and pass with the fix; drafts, focus, and attachments missed by the first snapshot are preserved. Modal-close cancellation remains covered.
+- Integrated current main in `27dcbb18`; only the journal conflicted, and both histories were retained. The PR is mergeable. Local lint, RLS inventory, all 2,283 unit/API/component tests (3 skipped), coverage (95.47% lines / 88.64% branches), and production build passed on the combined branch. GitHub Quality Core and PostgreSQL isolation also passed.
+- Preview workflow [41470710497](https://github.com/dorianagaesse/nexus_dash/actions/runs/41470710497) succeeded; its checkout log confirms `27dcbb182e0208d80b4c6d3dab44a8a7be48a921`. The two-session Playwright attachment check passed against https://nexus-dash-gpgnjefq2-dorian-agaesses-projects.vercel.app, preserving the title draft and focused link input through link/file/image additions and deletions. An initial abbreviated-ref dispatch failed at checkout; the full-SHA dispatch succeeded.
+- Replied to and resolved the review thread with the fix and regression evidence. Full local Playwright passed: 126 checks, 2 intentional skips. [Quality Gates 41470565758](https://github.com/dorianagaesse/nexus_dash/actions/runs/41470565758) passed Quality Core, PostgreSQL isolation, E2E, and container image validation on `27dcbb18`. The UI detector returned no findings. The task remains In Progress for review/merge.
+
+
+## 2026-11-02 - ND-610 Copilot review follow-up
+
+- Addressed all three Copilot findings on PR #638: invalidate attachment reads in
+  the shared full-task apply path; replay activity received during local saves,
+  with safe snapshot reconciliation for versions already acknowledged by a local
+  response; persist comment upload draft intent so polling cannot publish it as
+  a loose task attachment. Both form and direct uploads support the draft flag.
+- Added local PATCH/live-save race cases, overlapping-save/deferred activity
+  cases, draft upload/download/binding checks, and cross-session draft isolation.
+  The additive migration defaults legacy files to ordinary task attachments.
+- Integrated `198e7d62` from main before implementation, retaining both journal
+  histories. Main restored the modular monolith work for sequential human review;
+  the fixes follow those current repository boundaries.
+- Focused regressions pass. The real PostgreSQL isolation matrix passed on a
+  fresh `nd610_copilot_rls` database with the Realtime stub installed before
+  migrations. The initial run against the older local database failed its
+  existing Realtime join assertion because that fixture lacked its policies.
+- Preserved comment-file recovery after excluding drafts from shared reads:
+  recovery records retain display metadata locally, and restoration rebuilds
+  the authorized download path instead of trusting a stored URL. Added a reload
+  regression for an unpublished comment file and legacy-record compatibility.
+- Final local validation on `2d57b24b` passed lint, RLS inventory, 2,241
+  unit/API/component tests (2 intentional skips), coverage (95.32% lines /
+  85.58% branches), production build, and 11 affected Playwright flows covering
+  uploads, comments, recovery, task lifecycle, and cross-session synchronization.
+- Preview workflow [41480460304](https://github.com/dorianagaesse/nexus_dash/actions/runs/41480460304)
+  succeeded with Broadcast explicitly enabled; checkout's `git log -1` confirms
+  `2d57b24bda99431e505fabefcdb6a3ec65a678b4`. All three deployed Playwright cases
+  passed against https://nexus-dash-adnxcpaif-dorian-agaesses-projects.vercel.app,
+  including unpublished-file isolation/binding and mobile comment-file recovery.
+  An earlier preview hit Supabase's transient `MissingPartition` join error;
+  both subsequent private Broadcast verification runs passed.
+- All three Copilot threads were replied to and resolved. GitHub Quality Core
+  and PostgreSQL isolation passed in [41480466042](https://github.com/dorianagaesse/nexus_dash/actions/runs/41480466042);
+  the broader CI browser run was still in progress when recording these notes.
+  The task remains In Progress for review/merge.
