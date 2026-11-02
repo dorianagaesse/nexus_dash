@@ -10793,3 +10793,9 @@ Low-value entries to avoid going forward:
 - Restored the implementation from original PR #645, commit `c4b58eb88b4372251db975da30cd6cfb284ae776`, as its own replacement PR after the review-process rollback.
 - Extract scoped Task data-access and persistence seams. Historical implementation/check evidence remains on #645; fresh checks belong to this replacement head.
 - External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
+
+## 2026-11-02 - ND-546 restored for external review
+
+- Restored the implementation from original PR #646, commit `988700b7bc9b4ff115c0c0099f06e566fef50c47`, as its own replacement PR after the review-process rollback.
+- Review the Task pilot and enforce public import seams. Historical implementation/check evidence remains on #646; fresh checks belong to this replacement head.
+- External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
