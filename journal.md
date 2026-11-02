@@ -1,5 +1,12 @@
 # Development Journal
 
+## 2026-11-02 - ND-545 Task data-access pilot
+
+- Extracted actor-scoped Task read/filter/archive queries and shared exact board/mutation projections. Existing project and Task service facades stay compatible.
+- Added explicit-client lane persistence helpers, preserving statement order, revision boundaries, authorization, and relation behavior.
+- Focused regressions: 37 passed; production TypeScript passed. Real PostgreSQL measurements retain 16/20/31 driver calls for board/update/reorder; latency comparison and full gates are recorded with the PR.
+
+
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
