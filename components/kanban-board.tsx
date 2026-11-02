@@ -67,6 +67,7 @@ import {
   isOptimisticTaskCommentRepresented,
   mergeFetchedTaskComments,
   mergeSubmittedTaskComment,
+  restoreCommentDraftAttachments,
 } from "@/components/kanban-board-comments";
 import { reconcileBilateralTaskRelations } from "@/components/kanban-board-related";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
@@ -793,6 +794,7 @@ export function KanbanBoard({
   const commentRecoveryValue = useMemo(() => ({
     content: newTaskComment,
     attachmentIds: commentAttachments.map((attachment) => attachment.id),
+    attachmentSnapshots: commentAttachments.length ? commentAttachments : undefined,
     mentionSelections: commentMentionSelections,
     agentMentionSelections: commentAgentMentionSelections,
   }), [newTaskComment, commentAttachments, commentMentionSelections, commentAgentMentionSelections]);
@@ -801,10 +803,15 @@ export function KanbanBoard({
       ? recoveryDraftKey({ userId: actorUserId, projectId, surface: "task-comment", mode: "create", entityId: selectedTask.id })
       : null,
     value: commentRecoveryValue,
-    base: { content: "", attachmentIds: [], mentionSelections: [], agentMentionSelections: [] },
+    base: { content: "", attachmentIds: [], attachmentSnapshots: undefined, mentionSelections: [], agentMentionSelections: [] },
     restore: (draft) => {
       setNewTaskComment(draft.content);
-      setCommentAttachments(selectedTask?.attachments.filter((attachment) => draft.attachmentIds.includes(attachment.id)) ?? []);
+      setCommentAttachments(selectedTask ? restoreCommentDraftAttachments({
+        attachmentIds: draft.attachmentIds,
+        snapshots: draft.attachmentSnapshots,
+        taskAttachments: selectedTask.attachments,
+        projectId, taskId: selectedTask.id,
+      }) : []);
       setCommentMentionSelections(draft.mentionSelections);
       setCommentAgentMentionSelections(draft.agentMentionSelections);
     },

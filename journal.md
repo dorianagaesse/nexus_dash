@@ -10834,3 +10834,7 @@ Low-value entries to avoid going forward:
   fresh `nd610_copilot_rls` database with the Realtime stub installed before
   migrations. The initial run against the older local database failed its
   existing Realtime join assertion because that fixture lacked its policies.
+- Preserved comment-file recovery after excluding drafts from shared reads:
+  recovery records retain display metadata locally, and restoration rebuilds
+  the authorized download path instead of trusting a stored URL. Added a reload
+  regression for an unpublished comment file and legacy-record compatibility.

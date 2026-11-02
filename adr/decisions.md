@@ -1237,5 +1237,7 @@ Keep UI-only or task-only notes in `journal.md`.
   unchanged. Unclassified legacy uploads remain task files rather than guessing
   their original intent.
 - Consequences: A migration is required before the updated application runs.
+  Comment recovery stores file display metadata locally and rebuilds authorized
+  download routes; it does not put unpublished files back into shared task reads.
   Abandoned comment uploads remain unpublished, including across polling and
   page reloads. Existing draft removal and task deletion still clean up files.
