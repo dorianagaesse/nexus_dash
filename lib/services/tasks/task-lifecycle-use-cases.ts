@@ -15,7 +15,7 @@ import { createError, isPrismaNotFoundError } from "./task-result";
 import { normalizeText } from "./task-input";
 import { requireAgentDoneMoveCapability } from "./task-policy";
 import { resolveTaskAgentAttribution, taskAgentAuthorWriteData } from "./task-assignment";
-import { loadTaskMutationPayload } from "./task-persistence";
+import { loadTaskMutationPayload, shiftTaskLanePositions, compactTaskSourceLane } from "./task-persistence";
 
 export async function reorderProjectTasks(
   projectId: string,
@@ -269,40 +269,14 @@ export async function moveTaskStatusForProject(
         return { ok: true, data: { task } };
       }
 
-      if (sameColumn) {
-        const shiftDown = finalPosition > existingTask.position;
-        const shiftedTasks = destinationTasks
-          .filter((task) =>
-            shiftDown
-              ? task.position > existingTask.position &&
-                task.position <= finalPosition
-              : task.position >= finalPosition &&
-                task.position < existingTask.position
-          )
-          .sort((left, right) =>
-            shiftDown
-              ? right.position - left.position
-              : left.position - right.position
-          );
-
-        for (const task of shiftedTasks) {
-          await db.task.update({
-            where: { id: task.id },
-            data: { position: shiftDown ? task.position - 1 : task.position + 1 },
-          });
-        }
-      } else if (
-        destinationTasks.some((task) => task.position >= finalPosition)
-      ) {
-        await db.task.updateMany({
-          where: {
-            projectId,
-            status: targetStatus,
-            position: { gte: finalPosition },
-          },
-          data: { position: { increment: 1 } },
-        });
-      }
+      await shiftTaskLanePositions(db, {
+        projectId,
+        sourceStatus: existingTask.status,
+        sourcePosition: existingTask.position,
+        targetStatus,
+        targetPosition: finalPosition,
+        destinationTasks,
+      });
 
       const agentAttribution = await resolveTaskAgentAttribution({
         db,
@@ -322,17 +296,7 @@ export async function moveTaskStatusForProject(
       });
 
       if (!sameColumn) {
-        // Compact the source lane so lanes stay dense: a later append uses the
-        // lane count as its position and would collide with any hole left by
-        // this move.
-        await db.task.updateMany({
-          where: {
-            projectId,
-            status: existingTask.status,
-            position: { gt: existingTask.position },
-          },
-          data: { position: { decrement: 1 } },
-        });
+        await compactTaskSourceLane(db, projectId, existingTask.status, existingTask.position);
       }
 
       await touchProjectActivity({ db, projectId });
