@@ -24,6 +24,14 @@ Keep UI-only or task-only notes in `journal.md`.
 - Links: [Tasks pilot review](../docs/architecture/task-pilot-review.md).
 
 
+## 2026-11-02 - ND-190: Collaboration use-case ownership
+
+- Status: Accepted
+- Decision: Preserve the public collaboration service facade and separate owner invitation management, membership operations, and recipient invitation responses under `lib/services/collaboration/`.
+- Consequences: Each use case retains its authorization and transaction scope; shared invitation queries use the caller's client and email delivery remains after commit.
+- Links: [Collaboration service ownership](./nd-190-collaboration-service-boundaries.md).
+
+
 ## 2026-10-30 - ND-541: Tasks/Kanban domain boundary and staged modular-monolith seams
 
 - Status: Accepted; defines the architecture contract for the Tasks pilot
