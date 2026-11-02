@@ -841,10 +841,70 @@ describe("project meeting notes routes", () => {
     test.each([
       null, [], 7, "invalid", { participants: null }, { labels: "planning" }, { actions: {} },
       { title: null }, { inputNotes: 7 }, { outputNotes: [] }, { decisions: false },
+      { participants: null, visibility: "secret" },
     ].map((payload) => ({ payload })))("PATCH rejects malformed body/content shapes before calling services: %j", async ({ payload }) => {
       const response = await updateMeetingNote(mutationRequest("PATCH", payload), noteParams("project-1", "note-1"));
       expect(response.status).toBe(400);
       expect(await readJson(response)).toEqual({ error: "invalid-request-body" });
+      expect(meetingNoteServiceMock.updateProjectMeetingNote).not.toHaveBeenCalled();
+    });
+
+    test.each([null, [], true, 7, "invalid"].map((payload) => ({ payload })))(
+      "POST returns the standard malformed-body error for non-object JSON: %j",
+      async ({ payload }) => {
+        const response = await createMeetingNote(mutationRequest("POST", payload), projectParams("project-1"));
+        expect(response.status).toBe(400);
+        expect(await readJson(response)).toEqual({ error: "invalid-request-body" });
+        expect(meetingNoteServiceMock.createProjectMeetingNote).not.toHaveBeenCalled();
+      }
+    );
+
+    test("PATCH keeps explicit empty writes while ignoring body identities and null visibility", async () => {
+      meetingNoteServiceMock.updateProjectMeetingNote.mockResolvedValueOnce({
+        ok: true, data: { note: sampleNote(), activityVersion: null },
+      });
+      const emptyFields = {
+        inputNotes: "", outputNotes: "", decisions: "", scheduledAt: null, status: null,
+        participants: [], labels: [], actions: [],
+      };
+      const response = await updateMeetingNote(mutationRequest("PATCH", {
+        ...emptyFields, visibility: null,
+        actorUserId: "attacker", projectId: "other-project", noteId: "other-note", expectedRevision: 999,
+      }), noteParams("project-1", "note-1"));
+      expect(response.status).toBe(200);
+      expect(meetingNoteServiceMock.updateProjectMeetingNote.mock.calls[0][0]).toStrictEqual({
+        actorUserId: "user-1", projectId: "project-1", noteId: "note-1", ...emptyFields,
+      });
+    });
+
+    test.each(["POST", "PATCH"] as const)("%s checks authentication before malformed JSON", async (method) => {
+      apiGuardMock.requireAuthenticatedApiUser.mockResolvedValueOnce({
+        ok: false,
+        response: new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401, headers: { "content-type": "application/json" },
+        }),
+      });
+      const request = new NextRequest(
+        `http://localhost/api/projects/project-1/meeting-notes${method === "PATCH" ? "/note-1" : ""}`,
+        { method, headers: { "content-type": "application/json" }, body: "{" }
+      );
+      const response = method === "POST"
+        ? await createMeetingNote(request, projectParams("project-1"))
+        : await updateMeetingNote(request, noteParams("project-1", "note-1"));
+      expect(response.status).toBe(401);
+      expect(await readJson(response)).toEqual({ error: "unauthorized" });
+      expect(meetingNoteServiceMock.createProjectMeetingNote).not.toHaveBeenCalled();
+      expect(meetingNoteServiceMock.updateProjectMeetingNote).not.toHaveBeenCalled();
+    });
+
+    test("PATCH returns invalid-json after a valid content precondition", async () => {
+      const response = await updateMeetingNote(new NextRequest(
+        "http://localhost/api/projects/project-1/meeting-notes/note-1", {
+          method: "PATCH", headers: { "x-content-if-match": '"meeting-note:note-1:7"' }, body: "{",
+        }
+      ), noteParams("project-1", "note-1"));
+      expect(response.status).toBe(400);
+      expect(await readJson(response)).toEqual({ error: "invalid-json" });
       expect(meetingNoteServiceMock.updateProjectMeetingNote).not.toHaveBeenCalled();
     });
 
