@@ -312,3 +312,117 @@ test("version-only polling reconciles the complete attachment list and aborts re
     vi.unstubAllGlobals();
   }
 });
+
+
+test.each([
+  ["remote", "add"],
+  ["remote", "delete"],
+  ["local", "add"],
+  ["local", "delete"],
+  ["representation", "add"],
+  ["representation", "delete"],
+] as const)(
+  "%s %s during reconciliation survives an older response and triggers a fresh read",
+  async (source, operation) => {
+    const attachment = {
+      id: "changed-link",
+      kind: "link",
+      name: "Changed link",
+      url: "https://example.com/changed",
+      commentId: null,
+      mimeType: null,
+      sizeBytes: null,
+      downloadUrl: null,
+    };
+    const missedAttachment = { ...attachment, id: "missed-link", name: "Missed link" };
+    const task = {
+      ...makeTasks(["a"])[0],
+      attachments: operation === "delete" ? [attachment] : [],
+    } as KanbanTask;
+    const changedAttachments = operation === "add" ? [attachment] : [];
+    const freshAttachments = [missedAttachment, ...changedAttachments];
+    const reads: Array<(response: Response) => void> = [];
+    const taskUrl = "/api/projects/project/tasks/a";
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async (url, init) => {
+      if (url === taskUrl && !init?.method) {
+        return new Promise<Response>((resolve) => reads.push(resolve));
+      }
+      return new Response(JSON.stringify({ attachment, comments: [] }), { status: 200 });
+    }));
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    try {
+      await act(async () => {
+        root.render(
+          <KanbanBoard
+            canEdit
+            projectId="project"
+            actorUserId="owner"
+            storageProvider="local"
+            initialTasks={[task]}
+            initialTaskId="a"
+            archivedDoneTasks={[]}
+            archivedEpics={[]}
+            epics={[]}
+            collaborators={[person]}
+          />
+        );
+      });
+      await act(async () => capture.modal.onActivateEditMode());
+      await act(async () => capture.modal.onEditTitleChange("Unfinished local title"));
+      const input = container.querySelector("input")!;
+      input.focus();
+      await act(async () => {
+        dispatchProjectActivityRemoteEvent({
+          eventId: null,
+          projectId: "project",
+          version: "2026-10-30T10:00:00Z",
+          serverTime: "2026-10-30T10:00:00Z",
+          domain: null, action: null, actorUserId: null, entityId: null, payload: null,
+        });
+      });
+      expect(reads).toHaveLength(1);
+      await act(async () => {
+        if (source === "local") {
+          if (operation === "add") {
+            await capture.modal.onAddLinkAttachment(attachment.url);
+          } else {
+            capture.modal.onDeleteAttachment(attachment.id);
+          }
+        } else {
+          dispatchProjectActivityRemoteEvent({
+            eventId: "newer-event",
+            projectId: "project",
+            version: "2026-10-30T10:01:00Z",
+            serverTime: "2026-10-30T10:01:00Z",
+            domain: "task", action: "updated", actorUserId: "other", entityId: "a",
+            payload: source === "representation"
+              ? { task: { ...task, attachments: changedAttachments } }
+              : { taskId: "a", ...(operation === "add" ? { attachment } : { deletedAttachmentId: attachment.id }) },
+          });
+        }
+      });
+      expect(capture.modal.selectedTask.attachments).toEqual(changedAttachments);
+      await act(async () => {
+        reads[0](new Response(JSON.stringify({ task })));
+      });
+      // The stale list must never replace the newer mutation, even while the
+      // retry is still waiting. No further activity notification is required.
+      expect(capture.modal.selectedTask.attachments).toEqual(changedAttachments);
+      expect(capture.grid.columns.Backlog[0].attachments).toEqual(changedAttachments);
+      expect(reads).toHaveLength(2);
+      await act(async () => {
+        reads[1](new Response(JSON.stringify({ task: { ...task, attachments: freshAttachments } })));
+      });
+      expect(capture.modal.selectedTask.attachments).toEqual(freshAttachments);
+      expect(capture.grid.columns.Backlog[0].attachments).toEqual(freshAttachments);
+      expect(capture.modal.editTitle).toBe("Unfinished local title");
+      expect(document.activeElement).toBe(input);
+    } finally {
+      await act(async () => root.unmount());
+      container.remove();
+      vi.unstubAllGlobals();
+    }
+  }
+);

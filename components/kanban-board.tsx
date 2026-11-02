@@ -742,6 +742,10 @@ export function KanbanBoard({
   const commentDraftTaskIdRef = useRef<string | null>(null);
   const openedInitialTaskIdRef = useRef<string | null>(null);
   const taskOpenRequestRef = useRef(0);
+  const attachmentReconciliationRef = useRef<{
+    taskId: string;
+    revision: number;
+  } | null>(null);
   // Anchored to the card element rather than its task id: an optimistic card
   // swaps to the persisted task id while it stays mounted.
   const taskCardReturnFocusRef = useRef<HTMLElement | null>(null);
@@ -2327,6 +2331,8 @@ export function KanbanBoard({
 
   const upsertRemoteTask = useCallback(
     (remoteTask: KanbanTask) => {
+      const reconciliation = attachmentReconciliationRef.current;
+      if (reconciliation?.taskId === remoteTask.id) reconciliation.revision += 1;
       setColumns((previousColumns) => {
         const nextColumns = createEmptyColumns<KanbanTask>();
         TASK_STATUSES.forEach((status) => {
@@ -3323,6 +3329,9 @@ export function KanbanBoard({
 
   const applyTaskMutation = useCallback(
     (taskId: string, mutateTask: (task: KanbanTask) => KanbanTask) => {
+      // Mark reads stale synchronously, before React queues the local/remote patch.
+      const reconciliation = attachmentReconciliationRef.current;
+      if (reconciliation?.taskId === taskId) reconciliation.revision += 1;
       setColumns((previousColumns) => {
         let hasChanges = false;
         const nextColumns = createEmptyColumns<KanbanTask>();
@@ -3367,6 +3376,8 @@ export function KanbanBoard({
 
   useEffect(() => {
     if (!selectedTaskId) return;
+    const reconciliation = { taskId: selectedTaskId, revision: 0 };
+    attachmentReconciliationRef.current = reconciliation;
     let attachmentController: AbortController | null = null;
     let appliedAttachmentVersion: string | null = null;
     function reconcileOpenTaskAttachments(event: Event) {
@@ -3382,21 +3393,29 @@ export function KanbanBoard({
         const taskId = selectedTaskId;
         void (async () => {
           try {
-            const response = await fetch(
-              `/api/projects/${projectId}/tasks/${taskId}`,
-              { cache: "no-store", signal: controller.signal }
-            );
-            if (!response.ok) return;
-            const remoteTask = readRemoteTaskPayload({
-              ...activity,
-              payload: await response.json(),
-            });
-            if (controller.signal.aborted || remoteTask?.id !== taskId) return;
-            applyTaskMutation(taskId, (task) => ({
-              ...task,
-              attachments: remoteTask.attachments,
-            }));
-            appliedAttachmentVersion = activity.version;
+            while (!controller.signal.aborted) {
+              const revision = reconciliation.revision;
+              const response = await fetch(
+                `/api/projects/${projectId}/tasks/${taskId}`,
+                { cache: "no-store", signal: controller.signal }
+              );
+              if (!response.ok) return;
+              const remoteTask = readRemoteTaskPayload({
+                ...activity,
+                payload: await response.json(),
+              });
+              if (controller.signal.aborted || remoteTask?.id !== taskId) return;
+              // A local mutation or remote representation may have arrived
+              // after this read started. Re-read instead of replacing that
+              // newer state; its version may already have been acknowledged.
+              if (revision !== reconciliation.revision) continue;
+              applyTaskMutation(taskId, (task) => ({
+                ...task,
+                attachments: remoteTask.attachments,
+              }));
+              appliedAttachmentVersion = activity.version;
+              return;
+            }
           } catch {
             // A later poll retries failures; modal changes abort stale reads.
           }
@@ -3411,6 +3430,9 @@ export function KanbanBoard({
     );
     return () => {
       attachmentController?.abort();
+      if (attachmentReconciliationRef.current === reconciliation) {
+        attachmentReconciliationRef.current = null;
+      }
       window.removeEventListener(
         PROJECT_ACTIVITY_REMOTE_EVENT,
         reconcileOpenTaskAttachments

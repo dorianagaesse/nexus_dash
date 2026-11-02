@@ -10697,3 +10697,9 @@ Low-value entries to avoid going forward:
 - Final validation passed: lint, RLS inventory, 2,207 unit/API/component tests (2 skipped), coverage (95.32% lines / 85.58% branches), production build, and 125 Playwright checks (2 intentional skips). GitHub Quality Core, E2E, and tenant-isolation jobs also passed on implementation commit `fb3e3c9883bd5d883072e340186e08d06b793132`.
 - Preview workflow [41070693099](https://github.com/dorianagaesse/nexus_dash/actions/runs/41070693099) succeeded and its checkout log confirms `fb3e3c9883bd5d883072e340186e08d06b793132`. Two-browser-context Playwright verification passed against https://nexus-dash-naesrtmet-dorian-agaesses-projects.vercel.app: link, text-file, and image additions/deletions preserve both an unsaved title and the focused link draft. Final cleanup only formats the added code/tests and records this evidence.
 - Delivery: [PR #638](https://github.com/dorianagaesse/nexus_dash/pull/638). Copilot review was requested but no review outcome returned during validation. The task remains In Progress for review/merge; root roadmap edits remain untouched.
+
+
+## 2026-11-02 - ND-610 review reconciliation race
+
+- Addressed PR #638's P2 review: in-flight attachment reads now detect intervening local task mutations, remote deltas, and full task representations. Stale responses trigger a fresh read rather than overwriting newer attachments, even if the newer activity version is already acknowledged.
+- Added six deferred-response regressions for local, remote-delta, and full-representation additions/deletions. All six fail against the prior implementation and pass with the fix; drafts, focus, and attachments missed by the first snapshot are preserved. Modal-close cancellation remains covered.

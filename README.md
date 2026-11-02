@@ -33,7 +33,8 @@ Implemented today:
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
   - Calendar panel (Google Calendar list/create/update/delete)
   - Task attachment additions and deletions sync into open task modals across
-    sessions while preserving pending edits and focus
+    sessions while preserving pending edits and focus; reconciliation re-reads
+    attachments if a local or remote task change overtakes an in-flight read
   - Task comments with agent-authored comment attribution through the project
     credential label and a shared agent avatar
 - Per-user Google Calendar connection and calendar target setting (`/account/settings`)
