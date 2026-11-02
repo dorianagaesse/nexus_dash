@@ -10,7 +10,7 @@ functions and types. Task internals live under `lib/services/tasks/`:
 | `task-lifecycle-use-cases.ts` | Status transitions, reorder, archive/restore, and deletion with attachment cleanup |
 | `task-policy.ts` | Project-scoped relation/epic validation and live agent Done-move policy |
 | `task-assignment.ts` | Actor resolution, durable agent attribution, assignment provenance/history, and assignment notifications |
-| `task-input.ts` | Existing service-side value normalization and compatibility validators |
+| `task-input.ts` | Service-side text normalization; transport validators stay in `lib/task-contracts.ts` |
 | `task-read-use-cases.ts` | Actor context, agent read scope, and list/detail entry points |
 | `task-data.ts` | Board query composition, list filters, scoped detail reads, and lazy Done archiving |
 | `task-projections.ts` | Shared person/relation projections and exact board/mutation record shapes |
@@ -56,9 +56,10 @@ routes. Search and the documented remaining direct writes must be included in
 that later migration. This pilot adds no identity-transform scaffolding, keys,
 ciphertext, dual reads, or encryption behavior.
 
-The runtime request contract remains owned by `lib/task-contracts.ts` once that
-migration lands. `task-input.ts` preserves the current service behavior during
-that separate migration; it does not introduce another transport contract.
+The runtime request contract is owned by `lib/task-contracts.ts`. The public
+facade re-exports its compatibility validators and command types; use cases
+consume its canonical parsed commands. `task-input.ts` contains only existing
+service-side text normalization and does not define another request contract.
 
 Validate changes with the repository baseline in
 [the local validation runbook](../runbooks/local-validation.md). Existing service

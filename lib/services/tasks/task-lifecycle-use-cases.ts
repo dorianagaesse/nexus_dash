@@ -9,12 +9,8 @@ import {
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
-import type {
-  ServiceResult,
-  ReorderPayload,
-  UpdatedTaskPayload,
-  TaskStatusTransitionPayload,
-} from "./task-types";
+import type { ReorderPayload, TaskStatusTransitionPayload } from "@/lib/task-contracts";
+import type { ServiceResult, UpdatedTaskPayload } from "./task-types";
 import { createError, isPrismaNotFoundError } from "./task-result";
 import { normalizeText } from "./task-input";
 import { requireAgentDoneMoveCapability } from "./task-policy";

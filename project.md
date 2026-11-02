@@ -141,3 +141,5 @@ Source of truth: [`prisma/schema.prisma`](./prisma/schema.prisma)
 - Migration record: `tasks/backlog.md`
 - Execution log: `journal.md`
 - Architecture decisions: `adr/decisions.md` + task-specific ADRs in `adr/`
+  (including `adr/nd-541-tasks-kanban-domain-boundary.md` for modular-monolith
+  domain boundaries and service/persistence seams)

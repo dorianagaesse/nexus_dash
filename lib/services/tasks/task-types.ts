@@ -1,20 +1,15 @@
 import type { RelatedTaskSummary } from "@/lib/task-related";
 import type { TaskEpicSummary } from "@/lib/epic";
-import type { TaskStatus } from "@/lib/task-status";
 import type { AgentProjectAccessContext } from "@/lib/services/project-access-service";
 import type { TaskAssignmentNotificationInput } from "@/lib/services/notification-service";
 import type { TaskAuthorSummary } from "@/lib/task-author";
-import type {
-  ProjectActorKind,
-  ProjectActorReference,
-  ProjectActorSummary,
-} from "@/lib/project-actor";
+import type { ProjectActorKind, ProjectActorSummary } from "@/lib/project-actor";
 import type { VersionedContent } from "@/lib/content-revision";
-
-export interface InvalidRelatedTaskDiagnostic {
-  id: string;
-  reason: "archived" | "missing" | "cross-project" | "self";
-}
+import type {
+  CreateTaskCommand,
+  CreateTaskLegacyFields,
+  InvalidRelatedTaskDiagnostic,
+} from "@/lib/task-contracts";
 
 export interface ServiceErrorResult {
   ok: false;
@@ -31,45 +26,14 @@ export interface ServiceSuccessResult<T> {
 
 export type ServiceResult<T> = ServiceSuccessResult<T> | ServiceErrorResult;
 
-export interface ReorderColumnPayload {
-  status: string;
-  taskIds: string[];
-}
-
-export interface ReorderPayload {
-  columns: ReorderColumnPayload[];
-}
-
-export interface UpdateTaskPayload {
-  title?: string;
-  label?: string;
-  labels?: string[];
-  description?: string;
-  deadlineDate?: string | null;
-  blockedFollowUpEntry?: string;
-  relatedTaskIds?: string[];
-  addRelatedTaskIds?: string[];
-  removeRelatedTaskIds?: string[];
-  epicId?: string | null;
-  assignee?: ProjectActorReference | null;
-  assigneeUserId?: string | null;
-  attachmentLinks?: unknown;
-}
-
-export interface CreateTaskForProjectInput {
+export type CreateTaskForProjectInput = (
+  | CreateTaskLegacyFields
+  | CreateTaskCommand
+) & {
   actorUserId: string;
   projectId: string;
-  title: string;
-  description: string;
-  deadlineDate: string;
-  epicId: string | null;
-  assignee: ProjectActorReference | null;
-  labelsJsonRaw: string;
-  relatedTaskIdsJsonRaw: string;
-  attachmentLinksJsonRaw: string;
-  attachmentFiles: File[];
   agentAccess?: AgentProjectAccessContext;
-}
+};
 
 export interface UpdatedTaskPayload {
   id: string;
@@ -135,9 +99,4 @@ export interface TaskAssignmentProvenance {
 export interface TaskAgentAttribution {
   credentialId: string | null;
   credentialLabel: string | null;
-}
-
-export interface TaskStatusTransitionPayload {
-  status: TaskStatus;
-  position?: number;
 }

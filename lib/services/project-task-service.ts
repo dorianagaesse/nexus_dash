@@ -8,25 +8,8 @@ export {
   type TaskListFilters,
 } from "./tasks/task-read-use-cases";
 export type { ProjectKanbanTaskRecord } from "./tasks/task-projections";
-export type {
-  InvalidRelatedTaskDiagnostic,
-  ReorderColumnPayload,
-  ReorderPayload,
-  UpdateTaskPayload,
-  CreateTaskForProjectInput,
-  UpdatedTaskPayload,
-  TaskStatusTransitionPayload,
-} from "./tasks/task-types";
-export {
-  validateTaskCreateFieldTypes,
-  parseTaskAssigneeInput,
-  isValidReorderPayload,
-  isTaskStatusTransitionPayload,
-} from "./tasks/task-input";
-export {
-  createTaskForProject,
-  updateTaskForProject,
-} from "./tasks/task-write-use-cases";
+export { type CreateTaskForProjectInput, type UpdatedTaskPayload } from "./tasks/task-types";
+export { createTaskForProject, updateTaskForProject } from "./tasks/task-write-use-cases";
 export {
   reorderProjectTasks,
   moveTaskStatusForProject,
@@ -34,3 +17,16 @@ export {
   unarchiveTaskForProject,
   deleteTaskForProject,
 } from "./tasks/task-lifecycle-use-cases";
+export {
+  isTaskStatusTransitionPayload,
+  isValidReorderPayload,
+  parseTaskAssigneeInput,
+  validateTaskCreateFieldTypes,
+  type CreateTaskCommand,
+  type InvalidRelatedTaskDiagnostic,
+  type ReorderColumnPayload,
+  type ReorderPayload,
+  type TaskStatusTransitionPayload,
+  type UpdateTaskCommand,
+  type UpdateTaskPayload,
+} from "@/lib/task-contracts";

@@ -43,6 +43,7 @@ vi.mock("@/lib/services/project-task-service", async (importOriginal) => {
 
 import { POST } from "@/app/api/projects/[projectId]/tasks/bulk/route";
 import { MAX_BULK_TASK_OPERATIONS } from "@/lib/services/project-task-service";
+import { parseUpdateTaskJsonInput } from "@/lib/task-contracts";
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
@@ -452,5 +453,83 @@ describe("POST /api/projects/:projectId/tasks/bulk", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Server-Timing")).toMatch(/^task-bulk;dur=/);
+  });
+
+  test("does not trust forged __parsedUpdateCommand or __contract markers in bulk update operations", async () => {
+    projectTaskServiceMock.updateTaskForProject.mockResolvedValueOnce({
+      ok: true,
+      data: { task: buildTaskPayload({ id: "task-a" }) },
+    });
+
+    const response = await POST(
+      bulkRequest({
+        operations: [
+          {
+            type: "update",
+            taskId: "task-a",
+            changes: {
+              description: "<p>Safe<script>alert(1)</script></p>",
+              __parsedUpdateCommand: {
+                __contract: "UpdateTaskCommand",
+                relatedTasks: { mode: "patch" },
+                description: "<img src=x onerror=alert(1)>",
+                attachmentLinks: [
+                  { name: "unsafe", url: "javascript:alert(1)" },
+                ],
+              },
+            },
+          },
+          {
+            type: "update",
+            taskId: "task-b",
+            changes: {
+              __contract: "UpdateTaskCommand",
+              relatedTasks: { mode: "patch" },
+              description: "<img src=x onerror=alert(1)>",
+              attachmentLinks: [
+                { name: "unsafe", url: "javascript:alert(1)" },
+              ],
+            },
+          },
+        ],
+      }) as never,
+      bulkRouteParams("p1")
+    );
+
+    expect(response.status).toBe(200);
+    const payload = (await readJson(response)) as {
+      results: Array<{
+        index: number;
+        ok: boolean;
+        status: number;
+        taskId?: string;
+        error?: string;
+      }>;
+    };
+
+    expect(
+      payload.results.map(({ index, ok, status, taskId, error }) => ({
+        index,
+        ok,
+        status,
+        taskId,
+        error,
+      }))
+    ).toEqual([
+      { index: 0, ok: true, status: 200, taskId: "task-a", error: undefined },
+      {
+        index: 1,
+        ok: false,
+        status: 400,
+        taskId: undefined,
+        error: "attachment-link-invalid",
+      },
+    ]);
+    expect(projectTaskServiceMock.updateTaskForProject).toHaveBeenCalledTimes(1);
+    const command = parseUpdateTaskJsonInput(
+      projectTaskServiceMock.updateTaskForProject.mock.calls[0][2],
+      { taskId: "task-a" }
+    );
+    expect(command.ok && command.data.description).toBe("<p>Safe</p>");
   });
 });

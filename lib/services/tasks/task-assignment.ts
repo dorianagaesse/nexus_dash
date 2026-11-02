@@ -12,6 +12,7 @@ import {
   resolveProjectMutationActor,
   type ResolvedProjectActorPersistence,
 } from "@/lib/services/project-actor-service";
+import { TASK_ASSIGNEE_INVALID_ERROR } from "@/lib/task-contracts";
 import type {
   ServiceResult,
   PendingTaskAssignmentNotification,
@@ -19,7 +20,7 @@ import type {
   TaskAssignmentProvenance,
   TaskAgentAttribution,
 } from "./task-types";
-import { TASK_ASSIGNEE_INVALID, normalizeText } from "./task-input";
+import { normalizeText } from "./task-input";
 
 // Assignment resolves against the project actor registry, so active agent
 // credentials become assignable while revoked/expired ones are rejected with
@@ -36,7 +37,7 @@ export async function resolveTaskAssigneeAssignment(input: {
   const resolution = resolveAssignableProjectActorFromRegistry({
     registry,
     reference: input.reference,
-    assigneeInvalidError: TASK_ASSIGNEE_INVALID,
+    assigneeInvalidError: TASK_ASSIGNEE_INVALID_ERROR,
   });
   if (!resolution.ok) {
     return resolution;

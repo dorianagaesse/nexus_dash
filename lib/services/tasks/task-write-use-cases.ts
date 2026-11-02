@@ -1,11 +1,4 @@
-import { sanitizeRichText } from "@/lib/rich-text";
-import { normalizeRelatedTaskIds } from "@/lib/task-related";
-import { normalizeTaskLabels, parseTaskLabelsJson, serializeTaskLabels } from "@/lib/task-label";
 import { TASK_STATUSES } from "@/lib/task-status";
-import {
-  parseAttachmentLinksJson,
-  validateAttachmentFiles,
-} from "@/lib/services/attachment-input-service";
 import { logServerError } from "@/lib/observability/logger";
 import { recordProjectActivityEvent } from "@/lib/services/project-activity-service";
 import {
@@ -19,27 +12,23 @@ import {
 } from "@/lib/services/project-access-service";
 import { resolveTaskAssignmentNotifications } from "@/lib/services/notification-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
-import { MAX_TASK_TITLE_LENGTH } from "@/lib/task-title";
-import { isProjectActorReference, type ProjectActorReference } from "@/lib/project-actor";
 import type { ResolvedProjectActorPersistence } from "@/lib/services/project-actor-service";
 import { editConflict, lockContentRevision } from "@/lib/services/content-revision-service";
 import { isRetryableTransactionError, retryTransaction } from "@/lib/services/transaction-retry";
+import {
+  parseCreateTaskInput,
+  parseUpdateTaskJsonInput,
+  type UpdateTaskCommand,
+  type UpdateTaskPayload,
+} from "@/lib/task-contracts";
 import type {
   ServiceResult,
-  UpdateTaskPayload,
   CreateTaskForProjectInput,
   UpdatedTaskPayload,
   TaskAssignmentProvenance,
 } from "./task-types";
 import { createError } from "./task-result";
-import {
-  MIN_TITLE_LENGTH,
-  TASK_ASSIGNEE_INVALID,
-  normalizeText,
-  serializeJsonFieldValue,
-  parseDeadlineInput,
-  parseRelatedTaskIdsJson,
-} from "./task-input";
+import { normalizeText } from "./task-input";
 import { validateRelatedTaskIds, validateEpicId } from "./task-policy";
 import {
   resolveTaskAssigneeAssignment,
@@ -69,36 +58,15 @@ export async function createTaskForProject(
     return createError(401, "unauthorized");
   }
 
-  const title = normalizeText(input.title);
-  if (title.length < MIN_TITLE_LENGTH) {
-    return createError(400, "title-too-short");
+  const parsedCreate = parseCreateTaskInput(input);
+  if (!parsedCreate.ok) {
+    return createError(
+      parsedCreate.status,
+      parsedCreate.error,
+      parsedCreate.invalidRelatedTask
+    );
   }
-  if (title.length > MAX_TASK_TITLE_LENGTH) {
-    return createError(400, "title-too-long");
-  }
-
-  const parsedLinks = parseAttachmentLinksJson(input.attachmentLinksJsonRaw);
-  if (parsedLinks.error) {
-    return createError(400, parsedLinks.error);
-  }
-
-  const parsedRelatedTaskIds = parseRelatedTaskIdsJson(input.relatedTaskIdsJsonRaw);
-  if (parsedRelatedTaskIds === null) {
-    return createError(400, "related-tasks-invalid");
-  }
-
-  const attachmentFileError = validateAttachmentFiles(input.attachmentFiles);
-  if (attachmentFileError) {
-    return createError(400, attachmentFileError);
-  }
-
-  const labels = parseTaskLabelsJson(input.labelsJsonRaw);
-  const serializedLabels = serializeTaskLabels(labels);
-  const description = sanitizeRichText(normalizeText(input.description));
-  const deadlineInput = parseDeadlineInput(input.deadlineDate);
-  if (!deadlineInput.ok) {
-    return deadlineInput;
-  }
+  const command = parsedCreate.data;
   const status = TASK_STATUSES[0];
   const agentScopeAccess = requireAgentProjectScopes({
     agentAccess: input.agentAccess,
@@ -126,7 +94,7 @@ export async function createTaskForProject(
       const relatedTaskValidation = await validateRelatedTaskIds({
         db,
         projectId: input.projectId,
-        relatedTaskIds: parsedRelatedTaskIds,
+        relatedTaskIds: command.relatedTaskIds,
         agentAccess: input.agentAccess,
       });
       if (!relatedTaskValidation.ok) {
@@ -136,11 +104,11 @@ export async function createTaskForProject(
       let resolvedAssignee: ResolvedProjectActorPersistence | null = null;
       let assignmentActor: ResolvedProjectActorPersistence | null = null;
       let assignmentProvenance: TaskAssignmentProvenance | null = null;
-      if (input.assignee) {
+      if (command.assignee) {
         const assigneeResolution = await resolveTaskAssigneeAssignment({
           db,
           projectId: input.projectId,
-          reference: input.assignee,
+          reference: command.assignee,
         });
         if (!assigneeResolution.ok) {
           return assigneeResolution;
@@ -169,7 +137,7 @@ export async function createTaskForProject(
       const epicValidation = await validateEpicId({
         db,
         projectId: input.projectId,
-        epicId: input.epicId,
+        epicId: command.epicId,
       });
       if (!epicValidation.ok) {
         return epicValidation;
@@ -199,12 +167,12 @@ export async function createTaskForProject(
       const createdTask = await db.task.create({
         data: {
           projectId: input.projectId,
-          title,
-          description,
-          deadlineAt: deadlineInput.data.deadlineAt,
+          title: command.title,
+          description: command.normalizedDescription,
+          deadlineAt: command.deadlineAt,
           epicId: epicValidation.data.epicId,
-          label: labels[0] ?? null,
-          labelsJson: serializedLabels,
+          label: command.labels[0] ?? null,
+          labelsJson: command.serializedLabels,
           status,
           position: nextPosition,
           createdByUserId: actorUserId,
@@ -248,8 +216,8 @@ export async function createTaskForProject(
         actorUserId,
         projectId: input.projectId,
         taskId: createdTask.id,
-        links: parsedLinks.links,
-        files: input.attachmentFiles,
+        links: command.attachmentLinks,
+        files: command.attachmentFiles,
         db,
       });
 
@@ -334,7 +302,7 @@ export async function createTaskForProject(
 export async function updateTaskForProject(
   projectId: string,
   taskId: string,
-  payload: UpdateTaskPayload,
+  payload: UpdateTaskPayload | UpdateTaskCommand,
   actorUserId: string,
   agentAccess?: AgentProjectAccessContext,
   expectedRevision?: number
@@ -346,93 +314,18 @@ export async function updateTaskForProject(
     return createError(401, "unauthorized");
   }
 
-  const titleProvided = Object.prototype.hasOwnProperty.call(payload, "title");
-  const title = normalizeText(payload.title);
-  const labelsProvided =
-    Object.prototype.hasOwnProperty.call(payload, "labels") ||
-    Object.prototype.hasOwnProperty.call(payload, "label");
-  const rawLabels =
-    Array.isArray(payload.labels) && payload.labels.length > 0
-      ? payload.labels
-      : [normalizeText(payload.label)];
-  const labels = rawLabels.map((entry) => normalizeText(entry)).filter(Boolean);
-  const normalizedLabels = normalizeTaskLabels(labels);
-  const serializedLabels = serializeTaskLabels(normalizedLabels);
-  const descriptionProvided = Object.prototype.hasOwnProperty.call(payload, "description");
-  const description = sanitizeRichText(normalizeText(payload.description));
-  const deadlineInput = parseDeadlineInput(payload.deadlineDate, {
-    preserveWhenMissing: true,
+  const parsedBeforeAuth = parseUpdateTaskJsonInput(payload, {
+    taskId,
+    validateTitleLength: false,
   });
-  if (!deadlineInput.ok) {
-    return deadlineInput;
+  if (!parsedBeforeAuth.ok) {
+    return createError(
+      parsedBeforeAuth.status,
+      parsedBeforeAuth.error,
+      parsedBeforeAuth.invalidRelatedTask
+    );
   }
-  const blockedFollowUpEntry = normalizeText(payload.blockedFollowUpEntry);
-  const relatedTaskIdsProvided = Object.prototype.hasOwnProperty.call(payload, "relatedTaskIds");
-  const relatedTaskIds = relatedTaskIdsProvided
-    ? normalizeRelatedTaskIds(payload.relatedTaskIds ?? [])
-    : [];
-  const additiveRelationsProvided =
-    Object.prototype.hasOwnProperty.call(payload, "addRelatedTaskIds") ||
-    Object.prototype.hasOwnProperty.call(payload, "removeRelatedTaskIds");
-  if (relatedTaskIdsProvided && additiveRelationsProvided) {
-    return createError(400, "related-tasks-mode-conflict");
-  }
-  for (const field of ["addRelatedTaskIds", "removeRelatedTaskIds"] as const) {
-    if (
-      Object.prototype.hasOwnProperty.call(payload, field) &&
-      (!Array.isArray(payload[field]) ||
-        payload[field].some((id) => typeof id !== "string" || !id.trim()))
-    ) {
-      return createError(400, "related-tasks-invalid");
-    }
-  }
-  const addRelatedTaskIds = normalizeRelatedTaskIds(payload.addRelatedTaskIds ?? []);
-  const removeRelatedTaskIds = normalizeRelatedTaskIds(payload.removeRelatedTaskIds ?? []);
-  if (addRelatedTaskIds.some((id) => removeRelatedTaskIds.includes(id))) {
-    return createError(400, "related-tasks-operation-conflict");
-  }
-  if (removeRelatedTaskIds.includes(taskId)) {
-    return createError(400, "related-tasks-invalid", { id: taskId, reason: "self" });
-  }
-  const loadExistingRelations = relatedTaskIdsProvided || addRelatedTaskIds.length > 0;
-  const epicProvided = Object.prototype.hasOwnProperty.call(payload, "epicId");
-  const epicId = epicProvided ? normalizeText(payload.epicId) : null;
-  // Transport precedence: the structured `assignee` reference wins over the
-  // legacy human-only `assigneeUserId` shorthand when both are present.
-  const assigneeReferenceProvided =
-    Object.prototype.hasOwnProperty.call(payload, "assignee") &&
-    payload.assignee !== undefined;
-  let assigneeReference: ProjectActorReference | null = null;
-  if (assigneeReferenceProvided) {
-    if (payload.assignee === null) {
-      assigneeReference = null;
-    } else if (isProjectActorReference(payload.assignee)) {
-      assigneeReference = {
-        kind: payload.assignee.kind,
-        id: payload.assignee.id.trim(),
-      };
-    } else {
-      return createError(400, TASK_ASSIGNEE_INVALID);
-    }
-  } else if (Object.prototype.hasOwnProperty.call(payload, "assigneeUserId")) {
-    const legacyAssigneeUserId = normalizeText(payload.assigneeUserId);
-    assigneeReference = legacyAssigneeUserId
-      ? { kind: "human", id: legacyAssigneeUserId }
-      : null;
-  }
-  const assigneeProvided =
-    assigneeReferenceProvided ||
-    Object.prototype.hasOwnProperty.call(payload, "assigneeUserId");
-  const attachmentLinksProvided = Object.prototype.hasOwnProperty.call(
-    payload,
-    "attachmentLinks"
-  );
-  const parsedAttachmentLinks = attachmentLinksProvided
-    ? parseAttachmentLinksJson(serializeJsonFieldValue(payload.attachmentLinks))
-    : null;
-  if (parsedAttachmentLinks?.error) {
-    return createError(400, parsedAttachmentLinks.error);
-  }
+
   const agentScopeAccess = requireAgentProjectScopes({
     agentAccess,
     projectId,
@@ -442,12 +335,50 @@ export async function updateTaskForProject(
     return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
-  if (titleProvided && title.length < MIN_TITLE_LENGTH) {
-    return createError(400, "Task title must be at least 2 characters");
+  const parsedUpdate = parseUpdateTaskJsonInput(parsedBeforeAuth.data, {
+    taskId,
+    validateTitleLength: true,
+  });
+  if (!parsedUpdate.ok) {
+    return createError(
+      parsedUpdate.status,
+      parsedUpdate.error,
+      parsedUpdate.invalidRelatedTask
+    );
   }
-  if (titleProvided && title.length > MAX_TASK_TITLE_LENGTH) {
-    return createError(400, "title-too-long");
-  }
+
+  const command = parsedUpdate.data;
+  const titleProvided = command.title !== undefined;
+  const title = command.title ?? "";
+  const labelsProvided = command.labels !== undefined;
+  const normalizedLabels = command.labels?.labels ?? [];
+  const serializedLabels = command.labels?.serializedLabels ?? null;
+  const descriptionProvided = command.description !== undefined;
+  const description = command.description ?? null;
+  const deadlineProvided = command.deadline !== undefined;
+  const deadlineAt = command.deadline?.deadlineAt ?? null;
+  const blockedFollowUpEntry = command.blockedFollowUpEntry ?? "";
+  const relatedTaskIdsProvided = command.relatedTasks.mode === "replace";
+  const relatedTaskIds =
+    command.relatedTasks.mode === "replace"
+      ? command.relatedTasks.relatedTaskIds
+      : [];
+  const additiveRelationsProvided = command.relatedTasks.mode === "patch";
+  const addRelatedTaskIds =
+    command.relatedTasks.mode === "patch"
+      ? command.relatedTasks.addRelatedTaskIds
+      : [];
+  const removeRelatedTaskIds =
+    command.relatedTasks.mode === "patch"
+      ? command.relatedTasks.removeRelatedTaskIds
+      : [];
+  const loadExistingRelations =
+    relatedTaskIdsProvided || addRelatedTaskIds.length > 0;
+  const epicProvided = command.epicId !== undefined;
+  const epicId = command.epicId ?? null;
+  const assigneeProvided = command.assignee !== undefined;
+  const assigneeReference = command.assignee ?? null;
+  const parsedAttachmentLinks = command.attachmentLinks;
 
   const update = () => withActorRlsContext<
     ServiceResult<{ task: UpdatedTaskPayload; activityVersion: Date }>
@@ -618,18 +549,18 @@ export async function updateTaskForProject(
                 }
               : {}),
             ...(descriptionProvided ? { description } : {}),
-            ...(deadlineInput.data.provided
-              ? { deadlineAt: deadlineInput.data.deadlineAt }
+            ...(deadlineProvided
+              ? { deadlineAt }
               : {}),
           },
         });
 
-        if (parsedAttachmentLinks && parsedAttachmentLinks.links.length > 0) {
+        if (parsedAttachmentLinks && parsedAttachmentLinks.length > 0) {
           await createTaskAttachmentsFromDraft({
             actorUserId: normalizedActorUserId,
             projectId,
             taskId,
-            links: parsedAttachmentLinks.links,
+            links: parsedAttachmentLinks,
             files: [],
             db: tx,
           });
