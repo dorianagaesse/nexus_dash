@@ -10853,3 +10853,9 @@ Low-value entries to avoid going forward:
   and PostgreSQL isolation passed in [41480466042](https://github.com/dorianagaesse/nexus_dash/actions/runs/41480466042);
   the broader CI browser run was still in progress when recording these notes.
   The task remains In Progress for review/merge.
+
+## 2026-11-02 - ND-542 external-review follow-up
+
+- Reconciled the restored Task contract implementation with the cleanup merge and current main, preserving ND-610 remote-attachment changes. The merged source is independently constructed from current main plus the isolated ND-542 patch.
+- Addressed Copilot findings for schema acceptance typing, pure Task-person imports, and malformed Meeting Notes create JSON. Restored and extended the compiler regression for create/update/bulk inference and raw non-narrowing; five malformed JSON root cases prove rejection before service calls. The regressions failed on the old implementation. No reliance on a later task for these fixes.
+- Validation and review evidence belong to PR #649. Leave the PR unmerged for external review and the user to merge; later epic PRs remain draft.

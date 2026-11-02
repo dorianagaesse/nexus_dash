@@ -145,6 +145,17 @@ Following `/design-patterns` guidance, every boundary seam in this pilot uses th
 
 ### 4.2 Pattern 2: Transport Adapter + Canonical Command (`ND-542`)
 
+Commands may skip repeated normalization only when the contracts module recognizes
+their server-created object identity. ND-542 uses private WeakSets for commands
+and a WeakMap for update adapters. JSON properties such as `__contract` or
+`__parsedUpdateCommand` never establish trust; serialized commands are parsed
+again as transport inputs. Authorization remains in the application services.
+
+Schema `.is()` reports acceptance as a boolean because legacy/coerced inputs
+are not normalized in place. Read typed commands from a successful `.parse()`
+result; the type-only input marker preserves schema input inference. A compiler
+regression checks create, update, and bulk acceptance in the ordinary test suite.
+
 - **Code Evidence:**
   - `POST /api/projects/[projectId]/tasks` (`app/api/projects/[projectId]/tasks/route.ts`) branches on `content-type`: `multipart/form-data` extracts fields via `formData.get(...)` / `formData.getAll(...)`, while `application/json` reads raw properties and passes them to `validateTaskCreateFieldTypes` in `lib/services/project-task-service.ts`.
   - `PATCH /api/projects/[projectId]/tasks/[taskId]` (`app/api/projects/[projectId]/tasks/[taskId]/route.ts`) parses JSON and checks `parseContentPrecondition`, then relies on `updateTaskForProject` to validate 12+ optional fields and tri-state semantics (`undefined` = omit, `null`/`""` = clear, value = set).

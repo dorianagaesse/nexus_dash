@@ -1,5 +1,5 @@
 import { resolveAvatarSeed } from "@/lib/avatar";
-import { validateUsernameDiscriminator } from "@/lib/services/account-security-policy";
+import { isUsernameDiscriminator } from "@/lib/username-discriminator";
 
 export interface TaskPersonSummary {
   id: string;
@@ -33,7 +33,7 @@ function buildUsernameTag(
   if (
     !username ||
     !usernameDiscriminator ||
-    !validateUsernameDiscriminator(usernameDiscriminator)
+    !isUsernameDiscriminator(usernameDiscriminator)
   ) {
     return null;
   }

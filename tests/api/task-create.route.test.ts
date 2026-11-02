@@ -776,13 +776,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
     expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
   });
 
-  test("returns mapped error from service", async () => {
-    projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
-      ok: false,
-      status: 400,
-      error: "title-too-short",
-    });
-
+  test("returns 400 when title is too short", async () => {
     const formData = new FormData();
     formData.set("title", "a");
 
@@ -797,6 +791,32 @@ describe("POST /api/projects/:projectId/tasks", () => {
     await expect(readJson(response)).resolves.toEqual({
       error: "title-too-short",
     });
+    expect(projectTaskServiceMock.createTaskForProject).not.toHaveBeenCalled();
+  });
+
+  test("returns mapped error from service", async () => {
+    projectTaskServiceMock.createTaskForProject.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      error: "epic-invalid",
+    });
+
+    const formData = new FormData();
+    formData.set("title", "Valid task title");
+    formData.set("epicId", "missing-epic");
+
+    const request = new Request("http://localhost/api/projects/p1/tasks", {
+      method: "POST",
+      body: formData,
+    });
+
+    const response = await POST(request as never, taskRouteParams("p1"));
+
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toEqual({
+      error: "epic-invalid",
+    });
+    expect(projectTaskServiceMock.createTaskForProject).toHaveBeenCalledTimes(1);
   });
 
   test("rejects file attachments for agent callers", async () => {
