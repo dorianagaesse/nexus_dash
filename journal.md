@@ -3,6 +3,19 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-02 - ND-546: validate Task pilot ownership and import seams
+
+- Reviewed the combined contract, Kanban, service, and data pilot at `8e701a6d`;
+  recorded the exact source/tree, findings, behavior/security invariants,
+  measured query/latency evidence, limitations, and bounded Meeting Notes gate
+  in `docs/architecture/task-pilot-review.md`.
+- Removed the Task person helper's service/Node-crypto dependency by using the
+  existing pure discriminator validator. Added targeted lint rules while
+  preserving legitimate server component and unrelated DTO imports.
+- Verified positive/negative import probes and the owned Task runtime graph;
+  retained ND-542's existing contract/OpenAPI parity coverage. Final validation
+  and approval evidence belongs in the delivery PR and board completion comment.
+
 ## 2026-11-02 - ND-545 Task data-access pilot
 
 - Extracted actor-scoped Task read/filter/archive queries and shared exact board/mutation projections. Existing project and Task service facades stay compatible.

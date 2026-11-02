@@ -61,6 +61,12 @@ facade re-exports its compatibility validators and command types; use cases
 consume its canonical parsed commands. `task-input.ts` contains only existing
 service-side text normalization and does not define another request contract.
 
+ESLint keeps routes/components on the public Task facades and prevents Task
+internals from importing global Prisma. Pure Task helpers and Kanban UI have
+their own scoped import restrictions; server components and other domains'
+DTO imports remain valid. The [pilot review](./task-pilot-review.md) records the
+reviewed integration source, performance evidence, exceptions, and reuse gate.
+
 Validate changes with the repository baseline in
 [the local validation runbook](../runbooks/local-validation.md). Existing service
 and route tests continue through the public facade, so they exercise delegation
