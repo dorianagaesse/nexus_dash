@@ -25,6 +25,43 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Extracted board state and remote authority, drag persistence and keyboard settlement, combined filters/search, and task deep-link/history navigation into focused Kanban hooks, preserving public props and rendered components.
 - Added a board-level regression for filtered keyboard movement, hidden-card persistence, and clearing filters; documented the ownership and authority seams in [Kanban controller responsibilities](docs/kanban-controller-boundaries.md).
 
+# 2026-10-30 - ND-542: unify Task create and update API runtime contracts
+
+- Introduced `lib/task-contracts.ts` as the single pure runtime contract module
+  for Task create, partial update (`PATCH`), bulk operations, status transition,
+  and board reorder requests across JSON and multipart callers, with inferred
+  TypeScript input/output types (`TaskCreateContractInput`,
+  `TaskCreateContractOutput`, `TaskUpdateContractInput`,
+  `TaskUpdateContractOutput`, `CreateTaskCommand`, `UpdateTaskCommand`) and
+  zero Prisma or service imports.
+- Moved pure attachment link and file validation helpers into
+  `lib/task-attachment.ts` (re-exported from
+  `lib/services/attachment-input-service.ts`) and exported
+  `MIN_TASK_TITLE_LENGTH` from `lib/task-title.ts` and `PROJECT_ACTOR_KINDS`
+  from `lib/project-actor.ts` so field rules are defined once.
+- Updated `app/api/projects/[projectId]/tasks/route.ts`,
+  `app/api/projects/[projectId]/tasks/[taskId]/route.ts`,
+  `app/api/projects/[projectId]/tasks/bulk/route.ts`,
+  `app/api/projects/[projectId]/tasks/[taskId]/status/route.ts`,
+  `app/api/projects/[projectId]/tasks/reorder/route.ts`, and
+  `lib/services/project-task-service.ts` to validate and map inputs through the
+  shared contract commands while preserving all existing error codes, partial
+  PATCH semantics, relation diagnostics (`invalidRelatedTask`), and human/agent
+  behavior.
+- Derived the OpenAPI schemas (`ProjectActorReferenceInput`,
+  `TaskCreateRequest`, `TaskUpdateRequest`, `TaskReorderRequest`,
+  `TaskStatusTransitionRequest`, `TaskBulkRequest`, `TaskBulkCreateOperation`,
+  `TaskBulkUpdateOperation`, `TaskBulkStatusOperation`) in
+  `lib/agent-onboarding.ts` directly from `lib/task-contracts.ts`.
+- Added focused contract and OpenAPI parity coverage in
+  `tests/lib/task-contracts.test.ts` (and added `lib/task-contracts.ts` to
+  `vitest.config.mts` coverage gates).
+- Validation passed: `npm run rls:check`, `npm run lint`, `npm test` /
+  `npm run test:coverage` (252 passed test suites, 2,223 passed tests, 2
+  skipped; `lib/task-contracts.ts` at 93.97% statements / 94.18% branches /
+  93.87% functions / 93.95% lines), `npm run build`, and Playwright E2E task
+  create/edit, relation, assignment, and attachment upload specs (12/12 passed).
+
 # 2026-10-30 - ND-541: define Tasks/Kanban domain boundary and migration seams
 
 - Authored `adr/nd-541-tasks-kanban-domain-boundary.md` and recorded the summary
@@ -10784,3 +10821,28 @@ Low-value entries to avoid going forward:
 - Runtime configuration validation skips only Next.js production build phase; runtime module loading still validates and fails clearly. Added phase-transition regression coverage.
 - Removed obsolete polling pins from Quality Core, Docker, and all three Vercel build commands. Kept local/E2E polling for servers that run without Supabase Realtime credentials. Updated environment documentation.
 - Validation: lint, RLS inventory, 89 environment tests, and production build passed. Build used only a placeholder DATABASE_URL with DIRECT_URL, signing/email/Supabase secrets, and transport override absent. The built server returned HTTP 500 on first render and logged the missing DIRECT_URL error. Full unit/API suite passed (2,203 tests; two skipped), and coverage passed all thresholds (95.25% lines, 85.58% branches). CI tenant isolation passed.
+
+## 2026-11-02 - ND-542 Codex review fix takeover
+
+- Continued Gemini's uncommitted fix for the P1 review on PR #641. Trusted
+  create/update commands now use module-private WeakSet identity; update
+  adapters retain commands in a WeakMap instead of a JSON-spoofable property.
+  Raw request markers have no authority and pass through normal validation.
+- Added contract, PATCH persistence, and bulk-operation regressions for forged
+  markers, malformed internal relation shapes, unsafe links/descriptions, and
+  serialized commands.
+- Integrated current main, retaining the ND-542, ND-645, and ND-541 journal
+  entries when concurrent documentation additions conflicted. Documented the
+  server-only trust invariant in the ND-541 ADR. Fixed TypeScript identity
+  lookups to accept objects without casting unvalidated input to commands.
+- Local validation passed on Node 24.22.1: lint, RLS inventory, all 2,232 tests
+  (two expected skips), coverage (95.14% lines, 88.11% branches), production
+  build, and all 12 targeted Playwright checks across task lifecycle, relations,
+  agent assignment, titled links, and screenshot uploads. Browser checks used
+  a separate local database. Initial unit attempts used browser-only environment
+  overrides; corrected those before the successful full run. One local coverage
+  attempt hit the existing panel-position test flake (436px versus 420px);
+  the full retry with two workers passed without changing that test.
+- GitHub Quality Core and PostgreSQL isolation passed on `957356fc` in run
+  [41364774754](https://github.com/dorianagaesse/nexus_dash/actions/runs/41364774754).
+  Copilot review was requested; no review response had arrived at this point.

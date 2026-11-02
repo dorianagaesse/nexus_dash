@@ -194,3 +194,97 @@ export function buildAttachmentInlineUrl(downloadUrl: string | null): string | n
   const separator = downloadUrl.includes("?") ? "&" : "?";
   return `${downloadUrl}${separator}disposition=inline`;
 }
+
+export interface ParsedAttachmentLink {
+  name: string;
+  url: string;
+}
+
+export type AttachmentInputErrorCode =
+  | "attachment-link-invalid"
+  | "attachment-file-too-large"
+  | "attachment-file-type-invalid";
+
+export function parseAttachmentLinksArray(payload: unknown): {
+  links: ParsedAttachmentLink[];
+  error: AttachmentInputErrorCode | null;
+} {
+  if (!Array.isArray(payload)) {
+    return { links: [], error: "attachment-link-invalid" };
+  }
+
+  const links: ParsedAttachmentLink[] = [];
+
+  for (const item of payload) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return { links: [], error: "attachment-link-invalid" };
+    }
+
+    const linkInput = item as { name?: unknown; url?: unknown };
+    const rawUrl = typeof linkInput.url === "string" ? linkInput.url.trim() : "";
+    const normalizedUrl = normalizeAttachmentUrl(rawUrl);
+
+    if (!normalizedUrl) {
+      return { links: [], error: "attachment-link-invalid" };
+    }
+
+    const rawName = typeof linkInput.name === "string" ? linkInput.name.trim() : "";
+    links.push({
+      name: rawName || new URL(normalizedUrl).hostname,
+      url: normalizedUrl,
+    });
+  }
+
+  return { links, error: null };
+}
+
+export function parseAttachmentLinksJson(rawValue: string): {
+  links: ParsedAttachmentLink[];
+  error: AttachmentInputErrorCode | null;
+} {
+  const trimmed = rawValue.trim();
+  if (!trimmed) {
+    return { links: [], error: null };
+  }
+
+  let payload: unknown;
+
+  try {
+    payload = JSON.parse(trimmed);
+  } catch {
+    return { links: [], error: "attachment-link-invalid" };
+  }
+
+  return parseAttachmentLinksArray(payload);
+}
+
+export function parseAttachmentLinksInput(value: unknown): {
+  links: ParsedAttachmentLink[];
+  error: AttachmentInputErrorCode | null;
+} {
+  if (value === undefined || value === null) {
+    return { links: [], error: null };
+  }
+
+  if (typeof value === "string") {
+    return parseAttachmentLinksJson(value);
+  }
+
+  return parseAttachmentLinksArray(value);
+}
+
+export function validateAttachmentFiles(
+  files: File[]
+): AttachmentInputErrorCode | null {
+  for (const file of files) {
+    if (file.size > MAX_ATTACHMENT_FILE_SIZE_BYTES) {
+      return "attachment-file-too-large";
+    }
+
+    if (!resolveAttachmentMimeType(file.type, file.name)) {
+      return "attachment-file-type-invalid";
+    }
+  }
+
+  return null;
+}
