@@ -10,21 +10,50 @@ import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { mapTaskAttachmentResponse } from "@/lib/services/project-attachment-service";
 import {
+  MAX_BULK_TASK_OPERATIONS,
   createTaskForProject,
+  isTaskStatusTransitionPayload,
   moveTaskStatusForProject,
+  parseTaskAssigneeInput,
   updateTaskForProject,
-  type InvalidRelatedTaskDiagnostic,
+  validateTaskCreateFieldTypes,
+  type CreateTaskForProjectInput,
   type TaskStatusTransitionPayload,
+  type UpdateTaskPayload,
   type UpdatedTaskPayload,
+  type InvalidRelatedTaskDiagnostic,
 } from "@/lib/services/project-task-service";
 import { requireAgentProjectScopes } from "@/lib/services/project-access-service";
-import {
-  parseBulkTaskOperations,
-  parseCreateTaskJsonInput,
-  parseUpdateTaskJsonInput,
-  toCreateTaskServiceInput,
-  toUpdateTaskServiceInput,
-} from "@/lib/task-contracts";
+
+interface BulkCreateOperation {
+  type: "create";
+  task: {
+    title?: unknown;
+    description?: unknown;
+    deadlineDate?: unknown;
+    epicId?: unknown;
+    assignee?: unknown;
+    assigneeUserId?: unknown;
+    labels?: unknown;
+    relatedTaskIds?: unknown;
+    attachmentLinks?: unknown;
+  };
+}
+
+interface BulkUpdateOperation {
+  type: "update";
+  taskId: string;
+  changes: UpdateTaskPayload;
+}
+
+interface BulkStatusOperation {
+  type: "status";
+  taskId: string;
+  status: TaskStatusTransitionPayload["status"];
+  position?: number;
+}
+
+type BulkOperation = BulkCreateOperation | BulkUpdateOperation | BulkStatusOperation;
 
 interface BulkResult {
   index: number;
@@ -34,6 +63,104 @@ interface BulkResult {
   task?: UpdatedTaskPayload;
   error?: string;
   invalidRelatedTask?: InvalidRelatedTaskDiagnostic;
+}
+
+function serializeJsonField(value: unknown): string {
+  if (value == null) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value.trim();
+  }
+  return JSON.stringify(value);
+}
+
+function isBulkCreateOperation(operation: BulkOperation): operation is BulkCreateOperation {
+  return (
+    operation.type === "create" &&
+    !!operation.task &&
+    typeof operation.task === "object" &&
+    typeof operation.task.title === "string" &&
+    operation.task.title.trim().length > 0
+  );
+}
+
+function isBulkUpdateOperation(operation: BulkOperation): operation is BulkUpdateOperation {
+  return (
+    operation.type === "update" &&
+    typeof operation.taskId === "string" &&
+    operation.taskId.trim().length > 0 &&
+    !!operation.changes &&
+    typeof operation.changes === "object" &&
+    !Array.isArray(operation.changes)
+  );
+}
+
+function isBulkStatusOperation(operation: BulkOperation): operation is BulkStatusOperation {
+  return (
+    operation.type === "status" &&
+    typeof operation.taskId === "string" &&
+    operation.taskId.trim().length > 0 &&
+    isTaskStatusTransitionPayload({
+      status: operation.status,
+      position: operation.position,
+    })
+  );
+}
+
+function isValidBulkOperation(operation: unknown): operation is BulkOperation {
+  if (!operation || typeof operation !== "object") {
+    return false;
+  }
+
+  const candidate = operation as BulkOperation;
+  return (
+    isBulkCreateOperation(candidate) ||
+    isBulkUpdateOperation(candidate) ||
+    isBulkStatusOperation(candidate)
+  );
+}
+
+function parseBulkOperations(body: unknown): BulkOperation[] | null {
+  if (!body || typeof body !== "object") {
+    return null;
+  }
+
+  const maybeOperations = (body as { operations?: unknown }).operations;
+  if (!Array.isArray(maybeOperations) || maybeOperations.length === 0) {
+    return null;
+  }
+
+  if (maybeOperations.length > MAX_BULK_TASK_OPERATIONS) {
+    return null;
+  }
+
+  return maybeOperations.every(isValidBulkOperation)
+    ? (maybeOperations as BulkOperation[])
+    : null;
+}
+
+function buildCreateInput(
+  operation: BulkCreateOperation,
+  actorUserId: string,
+  projectId: string,
+  agentAccess: ReturnType<typeof getAgentProjectAccessContext>
+): CreateTaskForProjectInput {
+  const task = operation.task;
+  return {
+    actorUserId,
+    projectId,
+    title: typeof task.title === "string" ? task.title.trim() : "",
+    description: typeof task.description === "string" ? task.description.trim() : "",
+    deadlineDate: typeof task.deadlineDate === "string" ? task.deadlineDate.trim() : "",
+    epicId: typeof task.epicId === "string" ? task.epicId.trim() || null : null,
+    assignee: parseTaskAssigneeInput(task),
+    labelsJsonRaw: serializeJsonField(task.labels),
+    relatedTaskIdsJsonRaw: serializeJsonField(task.relatedTaskIds),
+    attachmentLinksJsonRaw: serializeJsonField(task.attachmentLinks),
+    attachmentFiles: [],
+    agentAccess,
+  };
 }
 
 function serializeTask(
@@ -91,7 +218,7 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
-  const operations = parseBulkTaskOperations(body);
+  const operations = parseBulkOperations(body);
   if (!operations) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
@@ -100,18 +227,14 @@ export async function POST(
 
   for (const [index, operation] of operations.entries()) {
     if (operation.type === "create") {
-      const parsedCreate = parseCreateTaskJsonInput(operation.task);
-      if (!parsedCreate.ok) {
-        results.push({ index, ok: false, status: 400, error: parsedCreate.error });
+      const fieldTypeError = validateTaskCreateFieldTypes(operation.task);
+      if (fieldTypeError) {
+        results.push({ index, ok: false, status: 400, error: fieldTypeError });
         continue;
       }
 
       const result = await createTaskForProject(
-        toCreateTaskServiceInput(parsedCreate.data, {
-          actorUserId,
-          projectId,
-          agentAccess,
-        })
+        buildCreateInput(operation, actorUserId, projectId, agentAccess)
       );
       if (!result.ok) {
         results.push({
@@ -134,27 +257,10 @@ export async function POST(
     }
 
     if (operation.type === "update") {
-      const parsedUpdate = parseUpdateTaskJsonInput(operation.changes, {
-        taskId: operation.taskId,
-        validateTitleLength: false,
-      });
-      if (!parsedUpdate.ok) {
-        results.push({
-          index,
-          ok: false,
-          status: 400,
-          error: parsedUpdate.error,
-          ...(parsedUpdate.invalidRelatedTask
-            ? { invalidRelatedTask: parsedUpdate.invalidRelatedTask }
-            : {}),
-        });
-        continue;
-      }
-
       const result = await updateTaskForProject(
         projectId,
         operation.taskId,
-        toUpdateTaskServiceInput(operation.changes, parsedUpdate.data),
+        operation.changes,
         actorUserId,
         agentAccess
       );
