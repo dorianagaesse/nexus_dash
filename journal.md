@@ -10859,3 +10859,9 @@ Low-value entries to avoid going forward:
 - Reconciled the restored Task contract implementation with the cleanup merge and current main, preserving ND-610 remote-attachment changes. The merged source is independently constructed from current main plus the isolated ND-542 patch.
 - Addressed Copilot findings for schema acceptance typing, pure Task-person imports, and malformed Meeting Notes create JSON. Restored and extended the compiler regression for create/update/bulk inference and raw non-narrowing; five malformed JSON root cases prove rejection before service calls. The regressions failed on the old implementation. No reliance on a later task for these fixes.
 - Validation and review evidence belong to PR #649. Leave the PR unmerged for external review and the user to merge; later epic PRs remain draft.
+
+## 2026-11-02 - ND-543 review and current-main reconciliation
+
+- Reconciled PR #651 with current main after ND-542's user merge. Reapplied only the isolated Kanban extraction to main, removing unrelated reversals from the review diff and retaining the merged schema typing/compiler tests, pure Task-person import, and Meeting Notes JSON guard.
+- Preserved ND-610 attachment synchronization. Source checks prove identical public component parameters, rendered JSX, and attachment reconciliation; 77 focused component checks pass, covering keyboard settlement, filtered hidden-card persistence, attachment draft/focus handling, comments, task search, board rendering, and live refresh.
+- The PR now contains ND-543 only against main. Full validation and review replies are recorded on #651; leave it unmerged for external review and the user to merge. Later epic PRs remain parked.
