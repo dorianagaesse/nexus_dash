@@ -84,6 +84,7 @@ export interface ContextCardAttachmentRecord {
   mimeType: string | null;
   sizeBytes: number | null;
   uploadedByUserId: string;
+  uploadedByCredentialId?: string | null;
   uploadedByKind: "human" | "agent";
   uploadedByDisplayNameSnapshot: string;
   createdAt: Date;
@@ -117,9 +118,11 @@ function mapAttachmentProjection(
               registry?.activeHumanIds.has(attachment.uploadedByUserId)
           ),
         })
-      : mapStoredContextCardActor({
+      : (attachment.uploadedByCredentialId
+          ? registry?.credentialById.get(attachment.uploadedByCredentialId)
+          : null) ?? mapStoredContextCardActor({
           kind: "agent",
-          id: attachment.uploadedByUserId,
+          id: attachment.uploadedByCredentialId ?? null,
           displayNameSnapshot: attachment.uploadedByDisplayNameSnapshot,
         });
   return {
@@ -208,6 +211,7 @@ export const contextCardAttachmentSelect = {
   mimeType: true,
   sizeBytes: true,
   uploadedByUserId: true,
+  uploadedByCredentialId: true,
   uploadedByKind: true,
   uploadedByDisplayNameSnapshot: true,
   createdAt: true,

@@ -32,6 +32,11 @@ Implemented today:
   - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
   - Calendar panel (Google Calendar list/create/update/delete)
+  - Task attachment additions and deletions sync into open task modals across
+    sessions while preserving pending edits and focus; reconciliation re-reads
+    attachments if a local or remote task change overtakes an in-flight read.
+    Activity received during local saves reconciles afterward; comment uploads
+    stay unpublished until their comment is posted
   - Task comments with agent-authored comment attribution through the project
     credential label and a shared agent avatar
 - Per-user Google Calendar connection and calendar target setting (`/account/settings`)
@@ -624,3 +629,13 @@ Only the creator can change visibility. Team notes are shared with project membe
 and agents. Todos remain project-visible even when their meeting is private;
 project editors can complete and reassign them. Private note text, participants,
 labels and titles are not revealed through shared todo views or mutation responses.
+
+### Agent context-card attachments
+
+Agents with `context:write` can create context cards with `attachmentLinks` and
+upload files using the context-card `attachments/upload-url`, signed `PUT`, then
+`attachments/direct` flow documented at `/docs/agent/v1`. Signed uploads require
+R2; local storage supports form uploads for signed-in users. Agent attachments
+store their credential ID and display-name snapshot separately from the user
+who owns the storage object. Revoked or deleted credentials retain historical
+agent attribution. Existing file limits, project access, and scope checks apply.

@@ -31,6 +31,9 @@ transaction client and ordering. Deletion keeps its existing storage cleanup and
 error handling. Human and agent responses, relation diagnostics, and stable
 public imports remain compatible.
 
+Board and mutation projections exclude unpublished comment attachment drafts
+(`isCommentDraft: false`), preserving the ND-610 publication boundary.
+
 Task data helpers require an explicit `DbClient`: no global client default,
 transaction, authorization grant, retry loop, or post-commit publication lives
 there. Public read wrappers establish actor context; mutation use cases pass

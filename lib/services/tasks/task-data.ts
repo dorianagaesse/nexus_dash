@@ -32,9 +32,9 @@ function buildStaleDoneTaskFilter(projectId: string, actorUserId: string) {
 }
 
 export async function archiveStaleDoneTasks(
+  db: DbClient,
   projectId: string,
-  actorUserId: string,
-  db: DbClient
+  actorUserId: string
 ) {
   const staleDoneTaskFilter = buildStaleDoneTaskFilter(projectId, actorUserId);
 
@@ -55,7 +55,10 @@ export async function archiveStaleDoneTasks(
 
 // Every helper receives the caller's actor-scoped transaction client.
 export async function listProjectKanbanTaskRecords(
-  db: DbClient, projectId: string, actorUserId: string, filters?: TaskListFilters
+  db: DbClient,
+  projectId: string,
+  actorUserId: string,
+  filters?: TaskListFilters
 ): Promise<ProjectKanbanTaskRecord[]> {
   const normalizedEpicId = filters?.epicId?.trim() || undefined;
   const normalizedLabel = filters?.label?.trim() || undefined;
@@ -77,50 +80,53 @@ export async function listProjectKanbanTaskRecords(
           : { assigneeKind: "human" as const, assigneeUserId: normalizedAssignee.id }
         : undefined;
 
-    return db.task.findMany({
-      where: {
-        projectId,
-        ...(normalizedEpicId ? { epicId: { equals: normalizedEpicId } } : {}),
-        ...(normalizedLabel
-          ? {
-              OR: [
-                {
-                  label: { equals: normalizedLabel, mode: "insensitive" },
+  return db.task.findMany({
+    where: {
+      projectId,
+      ...(normalizedEpicId ? { epicId: { equals: normalizedEpicId } } : {}),
+      ...(normalizedLabel
+        ? {
+            OR: [
+              {
+                label: { equals: normalizedLabel, mode: "insensitive" },
+              },
+              {
+                // Quoted-JSON containment can false-positive when a stored
+                // label itself contains an escaped quote (e.g. `My "Docs"`
+                // matches a `label=Docs` filter); revisit with the TASK-331
+                // vocabulary work.
+                labelsJson: {
+                  contains: JSON.stringify(normalizedLabel),
+                  mode: "insensitive",
                 },
-                {
-                  // Quoted-JSON containment can false-positive when a stored
-                  // label itself contains an escaped quote (e.g. `My "Docs"`
-                  // matches a `label=Docs` filter); revisit with the TASK-331
-                  // vocabulary work.
-                  labelsJson: {
-                    contains: JSON.stringify(normalizedLabel),
-                    mode: "insensitive",
-                  },
-                },
-              ],
-            }
-          : {}),
-        ...(assigneeWhere ?? {}),
-        project: buildProjectPrincipalWhere(actorUserId),
-      },
-      orderBy:
-        normalizedSort === "recent"
-          ? [{ updatedAt: "desc" }]
-          : [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
-      ...(normalizedTake ? { take: normalizedTake } : {}),
-      include: projectKanbanTaskInclude,
-    });
+              },
+            ],
+          }
+        : {}),
+      ...(assigneeWhere ?? {}),
+      project: buildProjectPrincipalWhere(actorUserId),
+    },
+    orderBy:
+      normalizedSort === "recent"
+        ? [{ updatedAt: "desc" }]
+        : [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
+    ...(normalizedTake ? { take: normalizedTake } : {}),
+    include: projectKanbanTaskInclude,
+  });
 }
 
 export async function getProjectKanbanTaskRecord(
-  db: DbClient, projectId: string, taskId: string, actorUserId: string
+  db: DbClient,
+  projectId: string,
+  taskId: string,
+  actorUserId: string
 ): Promise<ProjectKanbanTaskRecord | null> {
-    return db.task.findFirst({
-      where: {
-        id: taskId,
-        projectId,
-        project: buildProjectPrincipalWhere(actorUserId),
-      },
-      include: projectKanbanTaskInclude,
-    });
+  return db.task.findFirst({
+    where: {
+      id: taskId,
+      projectId,
+      project: buildProjectPrincipalWhere(actorUserId),
+    },
+    include: projectKanbanTaskInclude,
+  });
 }

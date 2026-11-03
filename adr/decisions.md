@@ -1224,3 +1224,35 @@ Keep UI-only or task-only notes in `journal.md`.
 - Decision: Store the default-off `agentCanMoveTasksToDone` capability on Project, separate from credential scopes. Only project owners using a human session may administer it.
 - Enforcement: Status-transition and board-reorder services read current project policy after authorization and before task writes. Bulk status operations reuse the same transition service. A credential still needs `task:write`; enabling the capability grants no additional scopes.
 - Consequences: Existing tokens observe policy changes without reissue. Human transitions and ordering tasks already in Done remain available. A denied reorder rejects all included changes. Repository workflow instructions may continue to require human review even when a project's capability is enabled.
+
+
+## 2026-11-02 - ND-610: Distinguish unpublished comment uploads
+
+- Status: Accepted; extends the ND-399 attachment lifecycle.
+- Decision: `TaskAttachment.isCommentDraft` defaults to false for existing and
+  ordinary task files. Comment uploads set it through multipart upload or direct
+  finalization, and comment creation clears it atomically with `commentId` binding.
+  Drafts do not emit task activity or appear in task reads/search; downloads are
+  service-authorized for the uploader until binding. Existing project RLS stays
+  unchanged. Unclassified legacy uploads remain task files rather than guessing
+  their original intent.
+- Consequences: A migration is required before the updated application runs.
+  Comment recovery stores file display metadata locally and rebuilds authorized
+  download routes; it does not put unpublished files back into shared task reads.
+  Abandoned comment uploads remain unpublished, including across polling and
+  page reloads. Existing draft removal and task deletion still clean up files.
+
+## 2026-11-03 - ND-649: Restore agent context attachments with credential provenance
+
+- Status: Accepted; replaces TASK-342's temporary agent attachment restriction.
+- Context: Context uploads were disabled for all agents because attachment rows
+  could only identify the owning human. The documented agent upload API therefore
+  rejected valid `context:write` credentials.
+- Decision: Add nullable `ResourceAttachment.uploadedByCredentialId` with
+  `ON DELETE SET NULL`, and retain `uploadedByKind` plus the display snapshot.
+  Keep `uploadedByUserId` for storage ownership and existing RLS boundaries.
+  Resolve active credentials through the shared actor service when accepting
+  uploads and through the project actor registry when projecting provenance.
+- Consequences: Authorized agents can attach context files and create cards with
+  links. Revocation/deletion preserves agent history without human misattribution;
+  existing human rows and attachment authorization policies remain compatible.

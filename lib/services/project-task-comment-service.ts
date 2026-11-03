@@ -888,7 +888,7 @@ export async function createTaskCommentForProject(input: {
               uploadedByUserId: actorUserId,
               commentId: null,
             },
-            data: { commentId: comment.id },
+            data: { commentId: comment.id, isCommentDraft: false },
           });
           if (attached.count !== attachmentIds.length) {
             throw new Error("Comment attachment binding changed during creation");

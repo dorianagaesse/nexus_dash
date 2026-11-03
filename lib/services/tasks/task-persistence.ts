@@ -1,3 +1,4 @@
+import type { TaskStatus } from "@prisma/client";
 import { taskMutationSelect } from "./task-projections";
 import { buildCanonicalTaskRelation, mergeRelatedTaskSummaries } from "@/lib/task-related";
 import { mapTaskEpicSummary } from "@/lib/epic";
@@ -128,9 +129,9 @@ export async function editTaskRelationPairs(input: {
 
 export interface TaskLaneMove {
   projectId: string;
-  sourceStatus: string;
+  sourceStatus: TaskStatus;
   sourcePosition: number;
-  targetStatus: string;
+  targetStatus: TaskStatus;
   targetPosition: number;
   destinationTasks: Array<{ id: string; position: number }>;
 }
@@ -170,11 +171,10 @@ export async function shiftTaskLanePositions(db: DbClient, input: TaskLaneMove):
       data: { position: { increment: 1 } },
     });
   }
-
 }
 
 export async function compactTaskSourceLane(
-  db: DbClient, projectId: string, sourceStatus: string, sourcePosition: number
+  db: DbClient, projectId: string, sourceStatus: TaskStatus, sourcePosition: number
 ): Promise<void> {
   await db.task.updateMany({
     where: { projectId, status: sourceStatus, position: { gt: sourcePosition } },

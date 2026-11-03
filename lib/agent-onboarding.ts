@@ -499,6 +499,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/tasks/{taskId}/attachments/direct",
     title: "Finalize task attachment upload",
     description: "Attach a previously uploaded file to the task.",
+    notes: ["Set isCommentDraft=true for an unposted comment file. Drafts stay out of task reads, search, and activity until comment creation binds them; only the uploader can download them before posting."],
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
   },
@@ -590,6 +591,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requiredScopes: ["context:write"],
     requestContentType: "application/json",
     notes: [
+      "Requires signed direct uploads. Uploaders are attributed to their agent credential, not its human owner.",
       `Binary uploads are limited to ${AGENT_ATTACHMENT_MAX_FILE_SIZE_LABEL} per file.`,
       "After uploading bytes to storage, finalize the upload on the direct route.",
     ],
@@ -3919,7 +3921,10 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             content: {
               "application/json": {
                 schema: {
-                  $ref: "#/components/schemas/AttachmentDirectFinalizeRequest",
+                  allOf: [
+                    { $ref: "#/components/schemas/AttachmentDirectFinalizeRequest" },
+                    { type: "object", properties: { isCommentDraft: { type: "boolean", default: false, description: "Keep the upload unpublished until comment binding." } } },
+                  ],
                 },
               },
             },

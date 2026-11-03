@@ -46,5 +46,9 @@ The existing filter/search and task-detail component suites cover the other
 public interactions. Browser coverage includes the Kanban search/filter,
 drag rollback, task cancellation, shareable URLs, references, and smoke flows.
 
+Remote attachment synchronization remains in the board's selected-task lifecycle.
+`tests/components/kanban-board-attachments.test.tsx` covers preserving attachment
+drafts and focus while remote updates pass through the extracted state owner.
+
 Each owner can be moved back into the board without changing public props,
 API requests, database behavior, or task component contracts.

@@ -524,4 +524,11 @@ describe("task attachment routes", () => {
       },
     });
   });
+  test("POST forwards comment draft intent to direct finalization", async () => {
+    attachmentServiceMock.finalizeTaskAttachmentDirectUpload.mockResolvedValue({ ok: true, data: { id: "draft" } });
+    const response = await postAttachmentDirectFinalize(new Request("http://localhost/api/projects/p1/tasks/t1/attachments/direct", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ storageKey: "key", name: "draft.txt", mimeType: "text/plain", sizeBytes: 5, isCommentDraft: true }) }) as never, { params: Promise.resolve({ projectId: "p1", taskId: "t1" }) });
+    expect(response.status).toBe(200);
+    expect(attachmentServiceMock.finalizeTaskAttachmentDirectUpload).toHaveBeenCalledWith(expect.objectContaining({ isCommentDraft: true }));
+  });
+
 });
