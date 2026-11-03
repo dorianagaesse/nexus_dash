@@ -473,6 +473,45 @@ try {
 
   await seed();
 
+  // Context attachment provenance keeps the actual agent independent of the
+  // owning user, without changing the parent-resource tenant boundary.
+  const attachmentId = `rls_agent_attachment_${suffix}`;
+  const uploadCredentialId = `rls_upload_credential_${suffix}`;
+  {
+    await admin.query(`INSERT INTO "ApiCredential"
+      (id, "projectId", "createdByUserId", label, "publicId", "secretHash", "updatedAt")
+      VALUES ($1, $2, $3, 'Upload agent', $4, 'test-hash', NOW())`,
+      [uploadCredentialId, ids.projectB, ids.ownerB, uploadCredentialId]);
+    await admin.query(`INSERT INTO "ResourceAttachment"
+      (id, "resourceId", "uploadedByUserId", "uploadedByCredentialId", "uploadedByKind",
+       "uploadedByDisplayNameSnapshot", kind, name, url)
+      VALUES ($1, $2, $3, $4, 'agent', 'Upload agent', 'link', 'Spec', 'https://example.com')`,
+      [attachmentId, ids.resourceB, ids.ownerB, uploadCredentialId]);
+  }
+  const editorUpload = await runtimeTransaction(ids.editorB, () => runtime.query(
+    `INSERT INTO "ResourceAttachment" (id, "resourceId", "uploadedByUserId", "uploadedByCredentialId", "uploadedByKind", kind, name)
+     VALUES ($1, $2, $3, $4, 'agent', 'file', 'Editor upload') RETURNING id`,
+    [`${attachmentId}_editor`, ids.resourceB, ids.ownerB, uploadCredentialId]));
+  assert.equal(editorUpload.rowCount, 1);
+  for (const actor of [ids.editorB, ids.viewerB, ids.ownerA, ids.outsider]) {
+    const read = await runtimeTransaction(actor, () => runtime.query(
+      `SELECT "uploadedByCredentialId", "uploadedByKind" FROM "ResourceAttachment" WHERE id = $1`, [attachmentId]));
+    assert.equal(read.rowCount, [ids.editorB, ids.viewerB].includes(actor) ? 1 : 0, `attachment read for ${actor}`);
+    if (read.rowCount) assert.equal(read.rows[0].uploadedByCredentialId, uploadCredentialId);
+  }
+  await expectRlsViolation(() => runtimeTransaction(ids.viewerB, () => runtime.query(
+    `INSERT INTO "ResourceAttachment" (id, "resourceId", "uploadedByUserId", "uploadedByCredentialId", "uploadedByKind", kind, name)
+     VALUES ($1, $2, $3, $4, 'agent', 'file', 'Forbidden')`,
+    [`${attachmentId}_denied`, ids.resourceB, ids.viewerB, uploadCredentialId])), "viewer agent attachment insert");
+  const crossAttachmentUpdate = await runtimeTransaction(ids.ownerA, () => runtime.query(
+    `UPDATE "ResourceAttachment" SET name = 'Cross tenant' WHERE id = $1`, [attachmentId]));
+  assert.equal(crossAttachmentUpdate.rowCount, 0);
+  await admin.query(`DELETE FROM "ApiCredential" WHERE id = $1`, [uploadCredentialId]);
+  const historicalAttachment = await runtimeTransaction(ids.viewerB, () => runtime.query(
+    `SELECT "uploadedByCredentialId", "uploadedByKind", "uploadedByDisplayNameSnapshot" FROM "ResourceAttachment" WHERE id = $1`, [attachmentId]));
+  assert.deepEqual(historicalAttachment.rows, [{ uploadedByCredentialId: null, uploadedByKind: "agent", uploadedByDisplayNameSnapshot: "Upload agent" }]);
+
+
   const hasRealtimeStub = await admin.query(
     "SELECT to_regclass('realtime.messages') IS NOT NULL AS available"
   );

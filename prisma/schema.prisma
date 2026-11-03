@@ -792,10 +792,12 @@ model ResourceAttachment {
   id                            String               @id @default(cuid())
   resourceId                    String
   uploadedByUserId              String
+  uploadedByCredentialId        String?
   uploadedByKind                ContextCardActorKind @default(human)
   uploadedByDisplayNameSnapshot String               @default("Unknown uploader") @db.VarChar(80)
   resource                      Resource             @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   uploadedBy                    User                 @relation("ResourceAttachmentUploader", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  uploadedByCredential          ApiCredential?       @relation("ResourceAttachmentUploaderCredential", fields: [uploadedByCredentialId], references: [id], onDelete: SetNull)
   kind                          String
   name                          String
   url                           String?
@@ -806,6 +808,7 @@ model ResourceAttachment {
 
   @@index([resourceId])
   @@index([uploadedByUserId])
+  @@index([uploadedByCredentialId])
 }
 
 model TaskBlockedFollowUp {
@@ -978,6 +981,7 @@ model ApiCredential {
   meetingTodoActionsCreated           ProjectMeetingNoteAction[]               @relation("MeetingTodoCreatedByCredential")
   meetingTodoActionsAssigned          ProjectMeetingNoteAction[]               @relation("MeetingTodoAssignedToCredential")
   meetingTodoActionsCompleted         ProjectMeetingNoteAction[]               @relation("MeetingTodoCompletedByCredential")
+  contextAttachmentsUploaded          ResourceAttachment[]                     @relation("ResourceAttachmentUploaderCredential")
   contextCardsCreated                 Resource[]                               @relation("ContextCardCreatedByCredential")
   contextCardsLastEdited              Resource[]                               @relation("ContextCardLastEditedByCredential")
   meetingNotesStewarded               ProjectMeetingNote[]                     @relation("MeetingNoteStewardCredential")

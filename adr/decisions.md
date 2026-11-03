@@ -1241,3 +1241,18 @@ Keep UI-only or task-only notes in `journal.md`.
   download routes; it does not put unpublished files back into shared task reads.
   Abandoned comment uploads remain unpublished, including across polling and
   page reloads. Existing draft removal and task deletion still clean up files.
+
+## 2026-11-03 - ND-649: Restore agent context attachments with credential provenance
+
+- Status: Accepted; replaces TASK-342's temporary agent attachment restriction.
+- Context: Context uploads were disabled for all agents because attachment rows
+  could only identify the owning human. The documented agent upload API therefore
+  rejected valid `context:write` credentials.
+- Decision: Add nullable `ResourceAttachment.uploadedByCredentialId` with
+  `ON DELETE SET NULL`, and retain `uploadedByKind` plus the display snapshot.
+  Keep `uploadedByUserId` for storage ownership and existing RLS boundaries.
+  Resolve active credentials through the shared actor service when accepting
+  uploads and through the project actor registry when projecting provenance.
+- Consequences: Authorized agents can attach context files and create cards with
+  links. Revocation/deletion preserves agent history without human misattribution;
+  existing human rows and attachment authorization policies remain compatible.

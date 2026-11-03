@@ -75,6 +75,18 @@ describe("context-card projection", () => {
     ],
   };
 
+
+  test.each(["active", "revoked", "deleted"] as const)("preserves %s agent attachment attribution", (status) => {
+    const summary = { kind: "agent" as const, id: "credential-1", displayName: "TellmetrY agent", status: status === "active" ? "active" as const : "revoked" as const, isAssignable: status === "active", usernameTag: null, avatarSeed: null };
+    const projection = projectContextCard({
+      card: { ...baseCard, attachments: [{ ...baseCard.attachments![0], uploadedByKind: "agent", uploadedByCredentialId: status === "deleted" ? null : "credential-1", uploadedByDisplayNameSnapshot: "TellmetrY agent" }] },
+      registry: { activeHumanIds: new Set(["user-1"]), humanById: new Map(), credentialById: new Map(status === "deleted" ? [] : [["credential-1", summary]]), assignable: [] },
+    });
+    expect(projection.attachments[0].uploadedBy).toMatchObject({ kind: "agent", displayName: "TellmetrY agent", status: status === "active" ? "active" : "revoked" });
+    expect(projection.attachments[0].uploadedBy?.id).not.toBe("user-1");
+    if (status !== "deleted") expect(projection.attachments[0].uploadedBy?.id).toBe("credential-1");
+  });
+
   test("captures creator, last editor, and attachment uploader", () => {
     const projection = projectContextCard({ card: baseCard });
 

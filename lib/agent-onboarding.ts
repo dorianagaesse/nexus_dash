@@ -591,6 +591,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requiredScopes: ["context:write"],
     requestContentType: "application/json",
     notes: [
+      "Requires signed direct uploads. Uploaders are attributed to their agent credential, not its human owner.",
       `Binary uploads are limited to ${AGENT_ATTACHMENT_MAX_FILE_SIZE_LABEL} per file.`,
       "After uploading bytes to storage, finalize the upload on the direct route.",
     ],
