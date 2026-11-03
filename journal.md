@@ -10886,3 +10886,15 @@ Low-value entries to avoid going forward:
 - Preview workflow 41657525171 deploys explicit branch
   fix/nd-649-agent-context-uploads; deployment verification and automated PR
   review are pending before handoff.
+
+- Preview workflow 41657525171 succeeded. Checkout logs show branch
+  fix/nd-649-agent-context-uploads at 42323813cfe55531127a80e95396f692a9034e73
+  (the implementation commit; later changes are documentation/test cleanup).
+  Immutable preview: https://nexus-dash-qit8stkjk-dorian-agaesses-projects.vercel.app.
+- Playwright passed the real R2 signed PUT, finalization, byte-for-byte download,
+  and active/revoked/deleted attribution flow on that preview. The direct DB
+  hostname was unreachable locally; validation used the documented admin session
+  pooler fallback. The test now cleans up storage via the deployed cleanup API
+  and removes its temporary user/project, and passed again locally and remotely.
+- Opened PR #657. CI Quality Core and tenant isolation passed; broader E2E and
+  the requested Copilot review were still pending when evidence was recorded.

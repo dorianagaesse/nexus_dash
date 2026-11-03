@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { prisma } from "../../lib/prisma";
-import { saveAttachmentFile, deleteAttachmentFile } from "../../lib/attachment-storage";
+import { saveAttachmentFile } from "../../lib/attachment-storage";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
 
@@ -12,6 +12,7 @@ test("agent context attachments retain credential identity through revocation an
   } });
   const prefix = `/api/projects/${project.id}`;
   let storageKey: string | undefined;
+  let cleanupUrl: string | undefined;
   try {
     const credentialResponse = await page.request.post(`${prefix}/agent-access`, { data: {
       label: "TellmetrY upload agent", scopes: ["context:read", "context:write"],
@@ -31,6 +32,7 @@ test("agent context attachments retain credential identity through revocation an
     const body = await created.json();
     const cardId = body.card?.id ?? body.id;
     const attachmentsUrl = `${prefix}/context-cards/${cardId}/attachments`;
+    cleanupUrl = `${attachmentsUrl}/direct/cleanup`;
     const bytes = Buffer.from("Agent context file\n");
     const metadata = { name: "agent-context.txt", mimeType: "text/plain", sizeBytes: bytes.length };
     const target = await page.request.post(`${attachmentsUrl}/upload-url`, { headers, data: metadata });
@@ -58,7 +60,9 @@ test("agent context attachments retain credential identity through revocation an
       expect(read.ok()).toBeTruthy();
       return (await read.json()).card.projection.attachments;
     };
-    for (const item of await readAttachments()) {
+    const uploaded = await readAttachments();
+    expect(uploaded).toHaveLength(2);
+    for (const item of uploaded) {
       expect(item.uploadedBy).toMatchObject({ kind: "agent", id: credential.credential.id, displayName: "TellmetrY upload agent", status: "active" });
     }
     await prisma.apiCredential.update({ where: { id: credential.credential.id }, data: { revokedAt: new Date() } });
@@ -69,7 +73,14 @@ test("agent context attachments retain credential identity through revocation an
       expect(item.uploadedBy.id).not.toBe(userId);
     }
   } finally {
-    if (storageKey && !process.env.PLAYWRIGHT_BASE_URL) await deleteAttachmentFile(storageKey);
-    await prisma.project.delete({ where: { id: project.id } });
+    try {
+      if (storageKey && cleanupUrl) {
+        const cleanup = await page.request.post(cleanupUrl, { data: { storageKey } });
+        expect(cleanup.ok()).toBeTruthy();
+      }
+    } finally {
+      await prisma.project.delete({ where: { id: project.id } });
+      await prisma.user.delete({ where: { id: userId } });
+    }
   }
 });
