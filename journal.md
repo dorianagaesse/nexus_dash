@@ -10898,3 +10898,12 @@ Low-value entries to avoid going forward:
   and removes its temporary user/project, and passed again locally and remotely.
 - Opened PR #657. CI Quality Core and tenant isolation passed; broader E2E and
   the requested Copilot review were still pending when evidence was recorded.
+
+
+## 2026-11-03 - ND-545 DeepSeek review and current-main reconciliation
+
+- Reconciled #653 with main at 7f49c65d using an ordinary merge commit and the isolated ND-545 patch. Preserved ND-542 contracts/compiler checks, ND-543 Kanban hooks, ND-544 use cases, ND-610 attachment publication rules, and ND-649 context uploads; the review diff contains only Task data-access work.
+- Restored `isCommentDraft: false` in both shared projections. A source-level comparison confirms the board and both conditional mutation projections exactly match main. The real PostgreSQL harness checks published-versus-draft attachment visibility through board reads and mutation responses before measuring performance.
+- Addressed the remaining review notes: consistent database-client-first archive helper, shared TaskStatus target input (stored source statuses remain strings, matching Prisma and preserving existing behavior), query indentation, and upward-move/source-compaction regression coverage. Lint, RLS inventory, 38 focused tests, and the least-privilege PostgreSQL matrix passed.
+- Compared main and the reconciled tree sequentially on the same local database with 24 tasks, three warmups and ten samples. SQL calls remained board/update/reorder = 16/20/31. Median milliseconds before -> after: 21.0 -> 21.9, 29.3 -> 30.0, 59.8 -> 58.1; p95: 41.6 -> 52.9, 70.2 -> 54.9, 108.4 -> 109.3. Earlier samples varied with concurrent local load; identical projections/query counts and unchanged lane statement order show no added database work. These small shared-host samples are diagnostic evidence, not a production latency guarantee.
+- Full validation and review replies are recorded on #653. Leave it unmerged for the user's review and merge; later epic tasks remain parked.

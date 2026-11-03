@@ -1,21 +1,15 @@
+import type { TaskStatus } from "@/lib/task-status";
+import { taskMutationSelect } from "./task-projections";
 import { buildCanonicalTaskRelation, mergeRelatedTaskSummaries } from "@/lib/task-related";
 import { mapTaskEpicSummary } from "@/lib/epic";
 import { getTaskLabelsFromStorage } from "@/lib/task-label";
 import { formatTaskDeadlineDate } from "@/lib/task-deadline";
 import { formatTaskReference } from "@/lib/task-reference";
-import { taskPersonSummarySelect } from "@/lib/task-person";
 import { mapTaskAuthorRecord } from "@/lib/task-author";
 import type { DbClient } from "@/lib/services/rls-context";
 import { loadProjectActorRegistry } from "@/lib/services/project-actor-service";
 import { mapTaskStoredActor } from "@/lib/services/project-task-response";
 import type { UpdatedTaskPayload } from "./task-types";
-
-export const relatedTaskSummarySelect = {
-  id: true,
-  title: true,
-  status: true,
-  archivedAt: true,
-} as const;
 
 export async function loadTaskMutationPayload(
   db: DbClient,
@@ -25,89 +19,7 @@ export async function loadTaskMutationPayload(
 ): Promise<UpdatedTaskPayload | null> {
   const task = await db.task.findUnique({
     where: { id: taskId },
-    select: {
-      id: true,
-      contentRevision: true,
-      referenceNumber: true,
-      title: true,
-      label: true,
-      labelsJson: true,
-      description: true,
-      deadlineAt: true,
-      _count: {
-        select: {
-          comments: true,
-        },
-      },
-      blockedNote: true,
-      status: true,
-      position: true,
-      completedAt: true,
-      archivedAt: true,
-      createdAt: true,
-      updatedAt: true,
-      attachments: {
-        where: { isCommentDraft: false },
-        orderBy: [{ createdAt: "desc" }],
-        select: {
-          id: true,
-          commentId: true,
-          kind: true,
-          name: true,
-          url: true,
-          mimeType: true,
-          sizeBytes: true,
-        },
-      },
-      epic: hasEpic ? { select: { id: true, name: true } } : false,
-      createdByCredentialId: true,
-      createdByCredentialLabel: true,
-      updatedByCredentialId: true,
-      updatedByCredentialLabel: true,
-      createdByUser: {
-        select: taskPersonSummarySelect,
-      },
-      updatedByUser: {
-        select: taskPersonSummarySelect,
-      },
-      assigneeKind: true,
-      assigneeUserId: true,
-      assigneeCredentialId: true,
-      assigneeDisplayNameSnapshot: true,
-      assigneeAssignedByKind: true,
-      assigneeAssignedByUserId: true,
-      assigneeAssignedByCredentialId: true,
-      assigneeAssignedByDisplayNameSnapshot: true,
-      assigneeAssignedAt: true,
-      assigneeUser: {
-        select: taskPersonSummarySelect,
-      },
-      assigneeAssignedByUser: {
-        select: taskPersonSummarySelect,
-      },
-      outgoingRelations: {
-        select: {
-          rightTask: {
-            select: relatedTaskSummarySelect,
-          },
-        },
-      },
-      incomingRelations: {
-        select: {
-          leftTask: {
-            select: relatedTaskSummarySelect,
-          },
-        },
-      },
-      blockedFollowUps: {
-        orderBy: [{ createdAt: "desc" }],
-        select: {
-          id: true,
-          content: true,
-          createdAt: true,
-        },
-      },
-    },
+    select: taskMutationSelect(hasEpic),
   });
 
   if (!task) {
@@ -213,4 +125,60 @@ export async function editTaskRelationPairs(input: {
       skipDuplicates: true,
     });
   }
+}
+
+export interface TaskLaneMove {
+  projectId: string;
+  // Prisma stores status as a string; retain support for existing stored values.
+  sourceStatus: string;
+  sourcePosition: number;
+  targetStatus: TaskStatus;
+  targetPosition: number;
+  destinationTasks: Array<{ id: string; position: number }>;
+}
+
+export async function shiftTaskLanePositions(db: DbClient, input: TaskLaneMove): Promise<void> {
+  if (input.sourceStatus === input.targetStatus) {
+    const shiftDown = input.targetPosition > input.sourcePosition;
+    const shiftedTasks = input.destinationTasks
+      .filter((task) =>
+        shiftDown
+          ? task.position > input.sourcePosition &&
+            task.position <= input.targetPosition
+          : task.position >= input.targetPosition &&
+            task.position < input.sourcePosition
+      )
+      .sort((left, right) =>
+        shiftDown
+          ? right.position - left.position
+          : left.position - right.position
+      );
+
+    for (const task of shiftedTasks) {
+      await db.task.update({
+        where: { id: task.id },
+        data: { position: shiftDown ? task.position - 1 : task.position + 1 },
+      });
+    }
+  } else if (
+    input.destinationTasks.some((task) => task.position >= input.targetPosition)
+  ) {
+    await db.task.updateMany({
+      where: {
+        projectId: input.projectId,
+        status: input.targetStatus,
+        position: { gte: input.targetPosition },
+      },
+      data: { position: { increment: 1 } },
+    });
+  }
+}
+
+export async function compactTaskSourceLane(
+  db: DbClient, projectId: string, sourceStatus: string, sourcePosition: number
+): Promise<void> {
+  await db.task.updateMany({
+    where: { projectId, status: sourceStatus, position: { gt: sourcePosition } },
+    data: { position: { decrement: 1 } },
+  });
 }
