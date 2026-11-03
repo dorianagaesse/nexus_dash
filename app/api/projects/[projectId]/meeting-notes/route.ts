@@ -138,7 +138,11 @@ async function readJsonPayload(
   routeLabel: string
 ): Promise<MeetingNoteRequestBody | NextResponse> {
   try {
-    return (await request.json()) as MeetingNoteRequestBody;
+    const payload: unknown = await request.json();
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return NextResponse.json({ error: "invalid-request-body" }, { status: 400 });
+    }
+    return payload as MeetingNoteRequestBody;
   } catch (error) {
     logServerWarning(routeLabel, "Invalid JSON payload", { error });
     return NextResponse.json({ error: "invalid-json" }, { status: 400 });

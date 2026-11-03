@@ -28,6 +28,10 @@ transaction client and ordering. Deletion keeps its existing storage cleanup and
 error handling. Human and agent responses, relation diagnostics, and stable
 public imports remain compatible.
 
+Mutation projections retain the existing exclusion of unpublished comment
+attachment drafts (`isCommentDraft: false`). Extracting the projection must not
+make those drafts visible in Task mutation responses.
+
 `task-persistence.ts` is the handoff seam for the focused data-access work.
 `loadTaskMutationPayload(db, ...)`, `replaceTaskRelations({ db, ... })`, and
 `editTaskRelationPairs({ db, ... })` retain their existing projections, queries,

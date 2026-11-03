@@ -139,6 +139,12 @@ test("comment recovery stays invisible on mobile including storage failures", as
     await page.locator(`[data-kanban-task-card="${taskId}"]`).click();
     const composer = page.locator('[data-testid="task-comment-composer"] [contenteditable="true"]');
     await composer.fill("Mobile comment before navigation");
+    await page.locator("#task-comment-attachment-file").setInputFiles({ name: "recovered-comment.txt", mimeType: "text/plain", buffer: Buffer.from("recover this comment file") });
+    await expect(page.getByRole("link", { name: "recovered-comment.txt", exact: true })).toBeVisible();
+    await expect.poll(async () => JSON.stringify(await page.evaluate(() => Object.values(localStorage)))).toContain("recovered-comment.txt");
+    const taskRead = await page.request.get(`/api/projects/${project.id}/tasks/${taskId}`);
+    expect((await taskRead.json()).task.attachments).toEqual([]);
+
     await expect
       .poll(() =>
         page.evaluate(() =>
@@ -154,6 +160,7 @@ test("comment recovery stays invisible on mobile including storage failures", as
     await expect(page.getByText("Draft restored.")).toHaveCount(0);
     await expect(page.getByRole("button", {name:/Discard draft|keep my changes/i})).toHaveCount(0);
     await expect(composer).toContainText("Mobile comment before navigation");
+    await expect(page.getByRole("link", { name: "recovered-comment.txt", exact: true })).toBeVisible();
     await composer.fill("");
 
     await page.addInitScript(() => {
