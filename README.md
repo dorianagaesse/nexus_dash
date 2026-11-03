@@ -633,7 +633,7 @@ labels and titles are not revealed through shared todo views or mutation respons
 ### Agent context-card attachments
 
 Agents with `context:write` can create context cards with `attachmentLinks` and
-upload files using the context-card `attachments/upload-url` ? signed `PUT` ?
+upload files using the context-card `attachments/upload-url`, signed `PUT`, then
 `attachments/direct` flow documented at `/docs/agent/v1`. Signed uploads require
 R2; local storage supports form uploads for signed-in users. Agent attachments
 store their credential ID and display-name snapshot separately from the user
