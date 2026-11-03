@@ -10871,3 +10871,30 @@ Low-value entries to avoid going forward:
 - Reconciled #652 against current main after ND-543's user merge. Reapplied only the Task application-service extraction, retaining the merged schema typing/compiler tests, pure Task-person validator, Meeting Notes JSON guard, and Kanban hooks.
 - Kept ND-610's unpublished comment-attachment exclusion in the extracted mutation projection. Compared all 40 canonical declarations with current main: no missing or changed declarations. Public facade exports remain identical; authorization, actor-scoped clients, revision locks, retries, mutation/notification/history ordering, and responses stay in their existing use cases.
 - Passed 177 focused contract/service/API/attachment checks. Full validation and review evidence are recorded on #652. Leave the PR unmerged for external review and the user to merge; later epic PRs remain parked.
+
+# 2026-11-03 - ND-649 agent context-card uploads
+
+- Created ND-649 and GitHub issue #656 after tracing the unconditional upload
+  rejection to TASK-342's temporary attribution workaround.
+- Added credential provenance and snapshot fallback; replaced the human-only
+  uploader constraint and restored agent direct uploads and card-creation links.
+  Storage ownership, project authorization, scopes and file checks are retained.
+- Validation passed: lint, RLS inventory, 254 unit/API/component files (2,285
+  tests; two skipped), coverage thresholds (94.16% statements, 88.11% branches),
+  production build, PostgreSQL isolation matrix, and all seven targeted e2es
+  (new agent upload lifecycle plus the critical UI smoke flows).
+- Preview workflow 41657525171 deploys explicit branch
+  fix/nd-649-agent-context-uploads; deployment verification and automated PR
+  review are pending before handoff.
+
+- Preview workflow 41657525171 succeeded. Checkout logs show branch
+  fix/nd-649-agent-context-uploads at 42323813cfe55531127a80e95396f692a9034e73
+  (the implementation commit; later changes are documentation/test cleanup).
+  Immutable preview: https://nexus-dash-qit8stkjk-dorian-agaesses-projects.vercel.app.
+- Playwright passed the real R2 signed PUT, finalization, byte-for-byte download,
+  and active/revoked/deleted attribution flow on that preview. The direct DB
+  hostname was unreachable locally; validation used the documented admin session
+  pooler fallback. The test now cleans up storage via the deployed cleanup API
+  and removes its temporary user/project, and passed again locally and remotely.
+- Opened PR #657. CI Quality Core and tenant isolation passed; broader E2E and
+  the requested Copilot review were still pending when evidence was recorded.

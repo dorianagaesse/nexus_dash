@@ -629,3 +629,13 @@ Only the creator can change visibility. Team notes are shared with project membe
 and agents. Todos remain project-visible even when their meeting is private;
 project editors can complete and reassign them. Private note text, participants,
 labels and titles are not revealed through shared todo views or mutation responses.
+
+### Agent context-card attachments
+
+Agents with `context:write` can create context cards with `attachmentLinks` and
+upload files using the context-card `attachments/upload-url`, signed `PUT`, then
+`attachments/direct` flow documented at `/docs/agent/v1`. Signed uploads require
+R2; local storage supports form uploads for signed-in users. Agent attachments
+store their credential ID and display-name snapshot separately from the user
+who owns the storage object. Revoked or deleted credentials retain historical
+agent attribution. Existing file limits, project access, and scope checks apply.

@@ -22,7 +22,9 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
     delete: vi.fn(),
   },
+  apiCredential: { findFirst: vi.fn() },
   resourceAttachment: {
+    createMany: vi.fn(),
     create: vi.fn(),
   },
   user: {
@@ -64,6 +66,7 @@ vi.mock("@/lib/observability/logger", () => ({
 
 import {
   createContextAttachmentUploadTarget,
+  createContextAttachmentsFromDraft,
   createContextAttachmentFromForm,
   createTaskAttachmentUploadTarget,
   createTaskAttachmentFromForm,
@@ -78,6 +81,10 @@ describe("project-attachment-service", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.apiCredential.findFirst.mockResolvedValue({
+      id: "credential-1", projectId: "project-1", label: "TellmetrY agent",
+      revokedAt: null, expiresAt: null,
+    });
     prismaMock.projectActivityEvent.create.mockImplementation(async ({ data }) => ({
       id: "event-1", createdAt: new Date(), ...data,
     }));
@@ -341,7 +348,7 @@ describe("project-attachment-service", () => {
     );
   });
 
-  test("creates context direct-upload target when storage provider supports signed uploads", async () => {
+  test.each([false, true])("creates context direct-upload target (agent=%s)", async (isAgent) => {
     prismaMock.resource.findUnique.mockResolvedValueOnce({
       id: "card-1",
       projectId: "project-1",
@@ -357,6 +364,7 @@ describe("project-attachment-service", () => {
 
     const result = await createContextAttachmentUploadTarget({
       actorUserId,
+      agentAccess: isAgent ? { credentialId: "credential-1", projectId: "project-1", scopes: ["context:write"] } : undefined,
       projectId: "project-1",
       cardId: "card-1",
       name: "spec.pdf",
@@ -451,7 +459,7 @@ describe("project-attachment-service", () => {
     );
   });
 
-  test("finalizes context direct upload by reading metadata and persisting attachment", async () => {
+  test.each([false, true])("finalizes context direct upload with uploader identity (agent=%s)", async (isAgent) => {
     prismaMock.resource.findUnique.mockResolvedValueOnce({
       id: "card-1",
       projectId: "project-1",
@@ -472,6 +480,7 @@ describe("project-attachment-service", () => {
 
     const result = await finalizeContextAttachmentDirectUpload({
       actorUserId,
+      agentAccess: isAgent ? { credentialId: "credential-1", projectId: "project-1", scopes: ["context:write"] } : undefined,
       projectId: "project-1",
       cardId: "card-1",
       storageKey: "v1/user-1/project-1/context-card/card-1/key-spec.pdf",
@@ -493,32 +502,41 @@ describe("project-attachment-service", () => {
           "/api/projects/project-1/context-cards/card-1/attachments/att-ctx-1/download",
       },
     });
-    expect(prismaMock.resourceAttachment.create).toHaveBeenCalledTimes(1);
+    expect(prismaMock.resourceAttachment.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        uploadedByUserId: actorUserId,
+        uploadedByCredentialId: isAgent ? "credential-1" : null,
+        uploadedByKind: isAgent ? "agent" : "human",
+        uploadedByDisplayNameSnapshot: isAgent ? "TellmetrY agent" : "ada",
+      }),
+    }));
     expect(attachmentStorageMock.deleteAttachmentFile).not.toHaveBeenCalled();
   });
 
-  test("rejects agent context uploads instead of misattributing them to a human", async () => {
+  test.each(["scope", "project", "viewer", "card", "key", "revoked", "missing credential"])("rejects unauthorized context upload: %s", async (reason) => {
+    prismaMock.resource.findUnique.mockResolvedValue({ id: "card-1", projectId: reason === "card" ? "other-project" : "project-1", type: RESOURCE_TYPE_CONTEXT_CARD });
+    if (reason === "viewer") prismaMock.project.findFirst.mockResolvedValueOnce({ ownerId: "someone-else", memberships: [{ role: "viewer" }] });
+    if (reason === "revoked") prismaMock.apiCredential.findFirst.mockResolvedValueOnce({ id: "credential-1", projectId: "project-1", label: "Agent", revokedAt: new Date(), expiresAt: null });
+    if (reason === "missing credential") prismaMock.apiCredential.findFirst.mockResolvedValueOnce(null);
     const result = await finalizeContextAttachmentDirectUpload({
-      actorUserId,
-      projectId: "project-1",
-      cardId: "card-1",
-      storageKey: "v1/user-1/project-1/context-card/card-1/key-spec.pdf",
-      name: "spec.pdf",
-      mimeType: "application/pdf",
-      sizeBytes: 2048,
-      agentAccess: {
-        credentialId: "credential-1",
-        projectId: "project-1",
-        scopes: ["context:write"],
-      },
+      actorUserId, projectId: "project-1", cardId: "card-1",
+      storageKey: reason === "key" ? "v1/other-user/project-1/context-card/card-1/spec.pdf" : "v1/user-1/project-1/context-card/card-1/spec.pdf",
+      name: "spec.pdf", mimeType: "application/pdf", sizeBytes: 2048,
+      agentAccess: { credentialId: "credential-1", projectId: reason === "project" ? "other-project" : "project-1", scopes: reason === "scope" ? ["context:read"] : ["context:write"] },
     });
-
-    expect(result).toEqual({
-      ok: false,
-      status: 403,
-      error: "agent-context-attachments-unsupported",
-    });
+    expect(result).toMatchObject({ ok: false, status: ["card", "project"].includes(reason) ? 404 : reason === "key" ? 400 : 403 });
     expect(prismaMock.resourceAttachment.create).not.toHaveBeenCalled();
+    expect(attachmentStorageMock.readAttachmentStoredFileMetadata).not.toHaveBeenCalled();
+  });
+
+  test("attributes draft context links and files to the agent credential", async () => {
+    attachmentStorageMock.saveAttachmentFile.mockResolvedValueOnce({ storageKey: "stored", originalName: "notes.txt", mimeType: "text/plain", sizeBytes: 5 });
+    await createContextAttachmentsFromDraft({ actorUserId, projectId: "project-1", cardId: "card-1", db: prismaMock as never,
+      links: [{ name: "Spec", url: "https://example.com" }], files: [new File(["notes"], "notes.txt", { type: "text/plain" })],
+      uploaderCredentialId: "credential-1", uploaderDisplayNameSnapshot: "TellmetrY agent" });
+    const identity = { uploadedByUserId: actorUserId, uploadedByCredentialId: "credential-1", uploadedByKind: "agent", uploadedByDisplayNameSnapshot: "TellmetrY agent" };
+    expect(prismaMock.resourceAttachment.createMany).toHaveBeenCalledWith({ data: [expect.objectContaining(identity)] });
+    expect(prismaMock.resourceAttachment.create).toHaveBeenCalledWith({ data: expect.objectContaining(identity) });
   });
   test.each(["form", "direct"])("keeps a %s comment upload out of project activity until binding", async (mode) => {
     prismaMock.task.findUnique.mockResolvedValue({ id: "task-1", projectId: "project-1" });

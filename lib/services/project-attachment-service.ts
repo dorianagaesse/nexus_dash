@@ -34,6 +34,8 @@ import {
 import { withActorRlsContext } from "@/lib/services/rls-context";
 import type { DbClient } from "@/lib/services/rls-context";
 
+import { resolveContextCardMutationActor } from "@/lib/services/context-card-actor-service";
+
 import type { ParsedAttachmentLink } from "@/lib/services/attachment-input-service";
 
 interface ServiceErrorResult {
@@ -358,6 +360,7 @@ export async function createContextAttachmentsFromDraft(input: {
   files: File[];
   db?: DbClient;
   uploaderDisplayNameSnapshot?: string;
+  uploaderCredentialId?: string | null;
 }): Promise<void> {
   const db = input.db ?? prisma;
   const savedStorageKeys: string[] = [];
@@ -371,7 +374,8 @@ export async function createContextAttachmentsFromDraft(input: {
         data: input.links.map((link) => ({
           resourceId: input.cardId,
           uploadedByUserId: input.actorUserId,
-          uploadedByKind: "human" as const,
+          uploadedByKind: input.uploaderCredentialId ? "agent" as const : "human" as const,
+          uploadedByCredentialId: input.uploaderCredentialId ?? null,
           uploadedByDisplayNameSnapshot: uploaderDisplayNameSnapshot,
           kind: ATTACHMENT_KIND_LINK,
           name: link.name,
@@ -398,7 +402,8 @@ export async function createContextAttachmentsFromDraft(input: {
         data: {
           resourceId: input.cardId,
           uploadedByUserId: input.actorUserId,
-          uploadedByKind: "human",
+          uploadedByKind: input.uploaderCredentialId ? "agent" : "human",
+          uploadedByCredentialId: input.uploaderCredentialId ?? null,
           uploadedByDisplayNameSnapshot: uploaderDisplayNameSnapshot,
           kind: ATTACHMENT_KIND_FILE,
           name: storedFile.originalName,
@@ -1078,10 +1083,6 @@ export async function createContextAttachmentUploadTarget(input: {
     return agentScopeError;
   }
 
-  if (input.agentAccess) {
-    return createError(403, "agent-context-attachments-unsupported");
-  }
-
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
@@ -1104,6 +1105,13 @@ export async function createContextAttachmentUploadTarget(input: {
       card.type !== RESOURCE_TYPE_CONTEXT_CARD
     ) {
       return createError(404, "Context card not found");
+    }
+
+    if (input.agentAccess) {
+      const uploader = await resolveContextCardMutationActor({
+        db, actorUserId, projectId: input.projectId, agentAccess: input.agentAccess,
+      });
+      if (!uploader.ok) return createError(uploader.status, uploader.error);
     }
 
     const normalizedUpload = normalizeDirectUploadInput({
@@ -1175,10 +1183,6 @@ export async function finalizeContextAttachmentDirectUpload(input: {
     return agentScopeError;
   }
 
-  if (input.agentAccess) {
-    return createError(403, "agent-context-attachments-unsupported");
-  }
-
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
@@ -1226,10 +1230,17 @@ export async function finalizeContextAttachmentDirectUpload(input: {
       return normalizedUpload;
     }
 
-    const uploaderDisplayNameSnapshot = await resolveUploaderDisplaySnapshot({
-      db,
-      actorUserId,
-    });
+    const agentUploader = input.agentAccess
+      ? await resolveContextCardMutationActor({
+          db, actorUserId, projectId: input.projectId, agentAccess: input.agentAccess,
+        })
+      : null;
+    if (agentUploader && !agentUploader.ok) {
+      return createError(agentUploader.status, agentUploader.error);
+    }
+    const uploaderDisplayNameSnapshot = agentUploader?.ok
+      ? agentUploader.actor.displayNameSnapshot
+      : await resolveUploaderDisplaySnapshot({ db, actorUserId });
 
     try {
       const metadata = await readAttachmentStoredFileMetadata(normalizedStorageKey);
@@ -1273,7 +1284,8 @@ export async function finalizeContextAttachmentDirectUpload(input: {
         data: {
           resourceId: input.cardId,
           uploadedByUserId: actorUserId,
-          uploadedByKind: "human",
+          uploadedByKind: agentUploader?.ok ? "agent" : "human",
+          uploadedByCredentialId: agentUploader?.ok ? agentUploader.actor.credentialId : null,
           uploadedByDisplayNameSnapshot: uploaderDisplayNameSnapshot,
           kind: ATTACHMENT_KIND_FILE,
           name: normalizedUpload.data.name,
