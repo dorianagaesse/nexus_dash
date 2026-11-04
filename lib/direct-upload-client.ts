@@ -16,6 +16,7 @@ interface UploadFileDirectInput<TAttachment> {
   cleanupUrl?: string;
   fallbackErrorMessage: string;
   fallbackUpload?: () => Promise<TAttachment>;
+  finalizeMetadata?: Record<string, unknown>;
 }
 
 export class DirectUploadStorageRequestError extends Error {
@@ -79,6 +80,7 @@ export async function uploadFileAttachmentDirect<TAttachment>({
   cleanupUrl,
   fallbackErrorMessage,
   fallbackUpload,
+  finalizeMetadata,
 }: UploadFileDirectInput<TAttachment>): Promise<TAttachment> {
   let uploadedStorageKey: string | null = null;
   let finalized = false;
@@ -156,6 +158,7 @@ export async function uploadFileAttachmentDirect<TAttachment>({
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        ...finalizeMetadata,
         storageKey: uploadTargetPayload.upload.storageKey,
         name: file.name,
         mimeType: file.type,

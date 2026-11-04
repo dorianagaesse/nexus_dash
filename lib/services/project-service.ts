@@ -692,7 +692,7 @@ export async function getProjectDashboardById(projectId: string, actorUserId: st
   }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
-    await archiveStaleDoneTasks(projectId, normalizedActorUserId, db);
+    await archiveStaleDoneTasks(db, projectId, normalizedActorUserId);
 
     return db.project.findFirst({
       where: {
@@ -704,6 +704,7 @@ export async function getProjectDashboardById(projectId: string, actorUserId: st
           orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
           include: {
             attachments: {
+              where: { isCommentDraft: false },
               orderBy: [{ createdAt: "desc" }],
             },
             blockedFollowUps: {

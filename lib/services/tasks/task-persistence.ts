@@ -1,3 +1,4 @@
+import type { TaskStatus } from "@/lib/task-status";
 import { taskMutationSelect } from "./task-projections";
 import { buildCanonicalTaskRelation, mergeRelatedTaskSummaries } from "@/lib/task-related";
 import { mapTaskEpicSummary } from "@/lib/epic";
@@ -128,9 +129,10 @@ export async function editTaskRelationPairs(input: {
 
 export interface TaskLaneMove {
   projectId: string;
+  // Prisma stores status as a string; retain support for existing stored values.
   sourceStatus: string;
   sourcePosition: number;
-  targetStatus: string;
+  targetStatus: TaskStatus;
   targetPosition: number;
   destinationTasks: Array<{ id: string; position: number }>;
 }
@@ -170,7 +172,6 @@ export async function shiftTaskLanePositions(db: DbClient, input: TaskLaneMove):
       data: { position: { increment: 1 } },
     });
   }
-
 }
 
 export async function compactTaskSourceLane(
