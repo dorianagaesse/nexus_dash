@@ -48,16 +48,12 @@ documentation when the task calls for it:
 
 ## Nexus Dash agent identity
 
-- Use the credential file for the coding client running this session:
-  - Codex: `.config/.nd-codex.env`
-  - Claude Code running DeepSeek: `.config/.nd-deepseek.env`
-  - Gemini CLI: `.config/.nd-gemini.env`
-- This project's Claude Code setup runs DeepSeek, so use the DeepSeek file
-  for that client. If Claude Code is later used with a different model or
-  provider, configure a separate identity before accessing Nexus Dash.
-- If the client is unclear, its file is missing or empty, or its key is not
-  configured, stop Nexus Dash API work and report the setup needed. Never
-  fall back to `.config/.nd-nexus-dash.env` or another client's credential.
+- Before accessing the Nexus Dash API, explicitly ask the user which
+  credential to use. Use only the credential they identify; do not infer it
+  from the coding client, model, provider, or a local filename.
+- If the user has not identified a credential, or the selected credential is
+  missing, empty, or not configured, stop Nexus Dash API work and ask the user
+  for the credential or setup needed. Never fall back to another credential.
 - Exchange the selected API key for a short-lived bearer token at runtime.
   Never print, commit, or put either token in task content. The setup and
   verification procedure is in `docs/runbooks/agent-workflow.md`.

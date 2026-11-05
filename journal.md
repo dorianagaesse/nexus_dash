@@ -10962,3 +10962,21 @@ Low-value entries to avoid going forward:
   Lint, RLS inventory, PostgreSQL setup/isolation matrix, 2,315 unit/API tests
   (3 skipped), coverage thresholds (95.33% lines / 88.11% branches), and build
   passed. Normalized the affected Prisma model's formatting.
+
+## 2026-11-05 - User-selected agent credentials
+
+- Updated AGENTS.md and the agent workflow runbook to require explicitly asking
+  the user which credential to use before Nexus Dash API access, removing client
+  mappings and fixed credential filenames. Missing credentials stop API work;
+  runtime token exchange and secret-handling rules remain in place.
+- Documentation validation: `git diff --check` and link/reference review passed.
+
+### 2026-11-05 - ND-654: reconcile PR #658 with main
+
+- Merged `origin/main` at `852480e` into the task branch. Resolved the appended
+  journal entries by retaining both ND-654 execution history and the user-selected
+  credential documentation entry. Retained main's AGENTS.md and workflow updates.
+- This merge changes documentation only relative to the previously validated task
+  commit `4617dce`; application code and migrations are unchanged. Validation:
+  `git diff --check`, reference review, and release version policy passed. The prior
+  Quality Gates run `42047520646` passed all jobs on `4617dce`.
