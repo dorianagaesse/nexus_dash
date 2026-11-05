@@ -10915,3 +10915,12 @@ Low-value entries to avoid going forward:
 - Fixed nested Node imports with `node:**` and included exact bare Node built-ins so alternate import spellings cannot bypass the intended pure-helper boundary. Added real-ESLint regression checks for forbidden imports and allowed facades, server components, DTO types, pure helpers, and caller-scoped clients.
 - Rechecked the static runtime import graph from Task/project facades, Task contracts, and Kanban: 132 local modules, no cycles involving the reviewed Task seams. Pilot guidance records current ND-545 measurement evidence and the existing unpublished-attachment exclusion. Meeting Notes contract work remains the bounded next application after user review and merge.
 - Required validation and the detailed review response are recorded on #654. Leave the PR unmerged for the user; later tasks remain parked. Retarget/reconcile #655 when ND-546 is user-merged; #650 remains parked until its turn.
+
+
+## 2026-11-05 - User-selected agent credentials
+
+- Updated AGENTS.md and the agent workflow runbook to require explicitly asking
+  the user which credential to use before Nexus Dash API access, removing client
+  mappings and fixed credential filenames. Missing credentials stop API work;
+  runtime token exchange and secret-handling rules remain in place.
+- Documentation validation: `git diff --check` and link/reference review passed.
