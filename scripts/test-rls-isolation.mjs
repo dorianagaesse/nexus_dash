@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import { readFileSync } from "node:fs";
 import process from "node:process";
 
 import pg from "pg";
@@ -470,6 +471,33 @@ try {
   assert.equal(role.rowCount, 1);
   assert.equal(role.rows[0].rolsuper, false);
   assert.equal(role.rows[0].rolbypassrls, false);
+
+  // Exercise the actual ND-654 migration against temporary tables that shadow
+  // the production names. Both old project-policy values must become deny-by-default.
+  await admin.query("BEGIN");
+  try {
+    await admin.query(`SET LOCAL search_path = pg_temp;
+      CREATE TEMP TABLE "Project" (id text, "agentCanMoveTasksToDone" boolean);
+      CREATE TEMP TABLE "ApiCredential" (id text, "projectId" text);
+      INSERT INTO "Project" VALUES ('enabled', true), ('disabled', false);
+      INSERT INTO "ApiCredential" VALUES ('trusted', 'enabled'), ('other', 'enabled'), ('denied', 'disabled');`);
+    await admin.query(readFileSync(new URL(
+      "../prisma/migrations/20261105140000_nd654_credential_done_permission/migration.sql", import.meta.url
+    ), "utf8"));
+    const migrated = await admin.query(`SELECT "canMoveTasksToDone" FROM "ApiCredential"`);
+    assert.deepEqual(migrated.rows.map((row) => row.canMoveTasksToDone), [false, false, false]);
+    await admin.query(`INSERT INTO "ApiCredential" (id, "projectId") VALUES ('new', 'enabled');
+      UPDATE "ApiCredential" SET "canMoveTasksToDone" = true WHERE id = 'trusted';`);
+    const permissions = await admin.query(`SELECT id, "canMoveTasksToDone" FROM "ApiCredential" ORDER BY id`);
+    assert.deepEqual(permissions.rows, [
+      { id: "denied", canMoveTasksToDone: false },
+      { id: "new", canMoveTasksToDone: false },
+      { id: "other", canMoveTasksToDone: false },
+      { id: "trusted", canMoveTasksToDone: true },
+    ]);
+  } finally {
+    await admin.query("ROLLBACK");
+  }
 
   await seed();
 

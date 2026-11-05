@@ -76,6 +76,7 @@ export type ResponsibilityResolution =
   | { mode: "unassign" };
 
 export interface ProjectAgentCredentialSummary {
+  canMoveTasksToDone: boolean;
   id: string;
   label: string;
   publicId: string;
@@ -104,7 +105,6 @@ export interface ProjectAgentAuditEventSummary {
 }
 
 export interface ProjectAgentAccessSummary {
-  agentCanMoveTasksToDone: boolean;
   projectId: string;
   accessTokenTtlSeconds: number;
   credentials: ProjectAgentCredentialSummary[];

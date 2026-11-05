@@ -10915,3 +10915,31 @@ Low-value entries to avoid going forward:
 - Fixed nested Node imports with `node:**` and included exact bare Node built-ins so alternate import spellings cannot bypass the intended pure-helper boundary. Added real-ESLint regression checks for forbidden imports and allowed facades, server components, DTO types, pure helpers, and caller-scoped clients.
 - Rechecked the static runtime import graph from Task/project facades, Task contracts, and Kanban: 132 local modules, no cycles involving the reviewed Task seams. Pilot guidance records current ND-545 measurement evidence and the existing unpublished-attachment exclusion. Meeting Notes contract work remains the bounded next application after user review and merge.
 - Required validation and the detailed review response are recorded on #654. Leave the PR unmerged for the user; later tasks remain parked. Retarget/reconcile #655 when ND-546 is user-merged; #650 remains parked until its turn.
+
+## 2026-11-05 - ND-654: Per-credential Done-move permission
+
+- Replaced the project-wide Done-move toggle with the independently persisted
+  `ApiCredential.canMoveTasksToDone` flag and an owner-session-only PATCH on each
+  credential. Sharing > Agent access exposes the permission on each credential;
+  changes affect existing bearer tokens immediately.
+- Single-task, bulk-status, and board-reorder transitions use the calling
+  credential's live permission while retaining task-write, project access,
+  expiry, and revocation checks. Denied transitions retain
+  `agent-done-move-disabled` and make no task changes.
+- Migration removes the old Project column and defaults all existing and new
+  credentials to false, including projects with the old toggle enabled. Owners
+  must explicitly re-enable selected credentials. Documented this policy in
+  README, hosted agent guidance, and the architecture decision log.
+- Validation on Node 24.22.1 with local PostgreSQL 16: lint, RLS inventory,
+  PostgreSQL role setup/isolation matrix (including actual migration/default
+  regression), unit/API tests (2,315 passed, 3 skipped), coverage thresholds
+  (95.33% lines, 88.11% branches), production build, version policy, and diff
+  checks passed. Focused browser tests passed (2/2).
+- Full `npm run test:e2e`: 125 passed, 2 skipped, 1 failed. The unrelated
+  ND-433 recovery test expects `Meeting title is required.` after outside-click
+  dismissal (`tests/e2e/nd-433-long-form-recovery.spec.ts:75`). Reproduced the
+  same assertion failure on untouched `origin/main` at
+  `697eab2613d2885c03d5efd85e0bbf5c2340cba2` in a separate worktree, database,
+  and server with `CI=true NODE_ENV=test npx playwright test
+  tests/e2e/nd-433-long-form-recovery.spec.ts --grep 'task drafts recover'`.
+  ND-654 and critical smoke tests passed in the full run.

@@ -103,7 +103,6 @@ export function ProjectDashboardOwnerActions({
   const [sharingSummary, setSharingSummary] = useState<ProjectSharingSummary | null>(null);
   const [isLoadingSharing, setIsLoadingSharing] = useState(false);
   const [sharingError, setSharingError] = useState<string | null>(null);
-  const [isSavingAgentCapabilities, setIsSavingAgentCapabilities] = useState(false);
   const [agentAccessSummary, setAgentAccessSummary] =
     useState<ProjectAgentAccessSummary | null>(null);
   const [isLoadingAgentAccess, setIsLoadingAgentAccess] = useState(false);
@@ -797,24 +796,26 @@ export function ProjectDashboardOwnerActions({
     }
   };
 
-  const handleUpdateAgentCapabilities = async (allowed: boolean) => {
-    if (isSavingAgentCapabilities) return;
-    setIsSavingAgentCapabilities(true);
+  const handleUpdateAgentCapabilities = async (credential: ProjectAgentCredentialSummary, allowed: boolean) => {
+    if (mutatingAgentCredentialId) return;
+    setMutatingAgentCredentialId(credential.id);
     setAgentAccessError(null);
     try {
-      const response = await fetch(`/api/projects/${projectId}/agent-access`, {
+      const response = await fetch(`/api/projects/${projectId}/agent-access/${credential.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentCanMoveTasksToDone: allowed }),
+        body: JSON.stringify({ canMoveTasksToDone: allowed }),
       });
       const payload = (await response.json().catch(() => null)) as
-        { agentCanMoveTasksToDone?: boolean; error?: string } | null;
-      if (!response.ok || typeof payload?.agentCanMoveTasksToDone !== "boolean") {
+        { canMoveTasksToDone?: boolean; error?: string } | null;
+      if (!response.ok || typeof payload?.canMoveTasksToDone !== "boolean") {
         throw new Error("Could not save agent capabilities. Please retry.");
       }
-      const agentCanMoveTasksToDone = payload.agentCanMoveTasksToDone;
+      const canMoveTasksToDone = payload.canMoveTasksToDone;
       setAgentAccessSummary((previous) =>
-        previous ? { ...previous, agentCanMoveTasksToDone } : previous
+        previous ? { ...previous, credentials: previous.credentials.map((entry) =>
+          entry.id === credential.id ? { ...entry, canMoveTasksToDone } : entry
+        ) } : previous
       );
       pushToast({ variant: "success", message: "Agent capabilities saved." });
     } catch (error) {
@@ -824,7 +825,7 @@ export function ProjectDashboardOwnerActions({
       setAgentAccessError(message);
       pushToast({ variant: "error", message });
     } finally {
-      setIsSavingAgentCapabilities(false);
+      setMutatingAgentCredentialId(null);
     }
   };
 
@@ -1295,8 +1296,7 @@ export function ProjectDashboardOwnerActions({
                     <ProjectDashboardOwnerAgentAccessPanel
                       projectId={projectId}
                       accessSummary={agentAccessSummary}
-                      isSavingCapabilities={isSavingAgentCapabilities}
-                      onUpdateCapabilities={(allowed) => void handleUpdateAgentCapabilities(allowed)}
+                      onUpdateCapabilities={(credential, allowed) => void handleUpdateAgentCapabilities(credential, allowed)}
                       isLoadingAccessSummary={isLoadingAgentAccess}
                       accessError={agentAccessError}
                       isCreatingCredential={isCreatingAgentCredential}

@@ -65,6 +65,7 @@ interface ServiceSuccess<T> {
 type ServiceResult<T> = ServiceSuccess<T> | ServiceError;
 
 export interface ProjectAgentCredentialSummary {
+  canMoveTasksToDone: boolean;
   id: string;
   label: string;
   publicId: string;
@@ -93,7 +94,6 @@ export interface ProjectAgentAuditEventSummary {
 }
 
 export interface ProjectAgentAccessSummary {
-  agentCanMoveTasksToDone: boolean;
   projectId: string;
   accessTokenTtlSeconds: number;
   credentials: ProjectAgentCredentialSummary[];
@@ -313,6 +313,7 @@ function readJsonMetadataString(
 }
 
 function buildCredentialSummary(record: {
+  canMoveTasksToDone: boolean;
   id: string;
   label: string;
   publicId: string;
@@ -331,6 +332,7 @@ function buildCredentialSummary(record: {
     id: record.id,
     label: record.label,
     publicId: record.publicId,
+    canMoveTasksToDone: record.canMoveTasksToDone,
     scopes: record.scopeGrants.map((grant) => mapDbScopeToAgentScope(grant.scope)),
     status: resolveAgentCredentialStatus({
       revokedAt: record.revokedAt,
@@ -552,6 +554,7 @@ async function createCredentialRecordWithUniquePublicId(
           id: true,
           label: true,
           publicId: true,
+          canMoveTasksToDone: true,
           expiresAt: true,
           lastUsedAt: true,
           lastExchangedAt: true,
@@ -607,6 +610,7 @@ async function rotateCredentialSecretWithUniquePublicId(
           id: true,
           label: true,
           publicId: true,
+          canMoveTasksToDone: true,
           expiresAt: true,
           lastUsedAt: true,
           lastExchangedAt: true,
@@ -654,11 +658,7 @@ export async function getProjectAgentAccessSummary(input: {
       return createError(access.status, access.error);
     }
 
-    const [project, credentials, recentEvents] = await Promise.all([
-      db.project.findUniqueOrThrow({
-        where: { id: input.projectId },
-        select: { agentCanMoveTasksToDone: true },
-      }),
+    const [credentials, recentEvents] = await Promise.all([
       db.apiCredential.findMany({
         where: {
           projectId: input.projectId,
@@ -668,6 +668,7 @@ export async function getProjectAgentAccessSummary(input: {
           id: true,
           label: true,
           publicId: true,
+          canMoveTasksToDone: true,
           expiresAt: true,
           lastUsedAt: true,
           lastExchangedAt: true,
@@ -709,7 +710,6 @@ export async function getProjectAgentAccessSummary(input: {
 
     return createSuccess(200, {
       projectId: input.projectId,
-      agentCanMoveTasksToDone: project.agentCanMoveTasksToDone,
       accessTokenTtlSeconds: getAgentAccessTokenTtlSeconds(),
       credentials: credentials.map((credential) => buildCredentialSummary(credential)),
       recentEvents: recentEvents.map((event) => buildAuditEventSummary(event)),
@@ -950,6 +950,7 @@ export async function revokeProjectAgentCredential(input: {
         id: true,
         label: true,
         publicId: true,
+        canMoveTasksToDone: true,
         expiresAt: true,
         lastUsedAt: true,
         lastExchangedAt: true,
@@ -997,6 +998,7 @@ export async function revokeProjectAgentCredential(input: {
         id: true,
         label: true,
         publicId: true,
+        canMoveTasksToDone: true,
         expiresAt: true,
         lastUsedAt: true,
         lastExchangedAt: true,
@@ -1296,14 +1298,15 @@ export async function recordAgentRequestUsage(input: {
   return createSuccess(200, { ok: true as const });
 }
 
-export async function updateProjectAgentCapabilities(input: {
+export async function updateProjectAgentCredentialCapabilities(input: {
   actorUserId: string;
   projectId: string;
-  agentCanMoveTasksToDone: boolean;
-}): Promise<ServiceResult<{ agentCanMoveTasksToDone: boolean }>> {
+  credentialId: string;
+  canMoveTasksToDone: boolean;
+}): Promise<ServiceResult<{ canMoveTasksToDone: boolean }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) return createError(401, "unauthorized");
-  if (typeof input.agentCanMoveTasksToDone !== "boolean") {
+  if (typeof input.canMoveTasksToDone !== "boolean") {
     return createError(400, "invalid-agent-capabilities");
   }
   return withActorRlsContext(actorUserId, async (db) => {
@@ -1314,11 +1317,11 @@ export async function updateProjectAgentCapabilities(input: {
       db,
     });
     if (!access.ok) return createError(access.status, access.error);
-    const project = await db.project.update({
-      where: { id: input.projectId },
-      data: { agentCanMoveTasksToDone: input.agentCanMoveTasksToDone },
-      select: { agentCanMoveTasksToDone: true },
+    const result = await db.apiCredential.updateMany({
+      where: { id: input.credentialId, projectId: input.projectId },
+      data: { canMoveTasksToDone: input.canMoveTasksToDone },
     });
-    return createSuccess(200, project);
+    if (result.count !== 1) return createError(404, "credential-not-found");
+    return createSuccess(200, { canMoveTasksToDone: input.canMoveTasksToDone });
   });
 }

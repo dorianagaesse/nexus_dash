@@ -5,7 +5,7 @@ import {
   requireAuthenticatedApiUser,
   resolveRequestId,
 } from "@/lib/auth/api-guard";
-import { revokeProjectAgentCredential } from "@/lib/services/project-agent-access-service";
+import { revokeProjectAgentCredential, updateProjectAgentCredentialCapabilities } from "@/lib/services/project-agent-access-service";
 import { parseResponsibilityResolution } from "@/lib/services/project-offboarding-service";
 
 export async function DELETE(
@@ -41,5 +41,36 @@ export async function DELETE(
     );
   }
 
+  return NextResponse.json(result.data);
+}
+
+export async function PATCH(
+  request: NextRequest,
+  props: { params: Promise<{ projectId: string; credentialId: string }> }
+) {
+  const authenticatedUser = await requireAuthenticatedApiUser(request);
+  if (!authenticatedUser.ok) return authenticatedUser.response;
+  const params = await props.params;
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json({ error: "invalid-json" }, { status: 400 });
+  }
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    !("canMoveTasksToDone" in payload) ||
+    typeof payload.canMoveTasksToDone !== "boolean"
+  ) {
+    return NextResponse.json({ error: "invalid-agent-capabilities" }, { status: 400 });
+  }
+  const result = await updateProjectAgentCredentialCapabilities({
+    actorUserId: authenticatedUser.userId,
+    projectId: params.projectId,
+    credentialId: params.credentialId,
+    canMoveTasksToDone: payload.canMoveTasksToDone,
+  });
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json(result.data);
 }

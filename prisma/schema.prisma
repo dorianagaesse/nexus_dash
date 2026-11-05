@@ -218,7 +218,6 @@ model Project {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  agentCanMoveTasksToDone Boolean @default(false)
 
   owner              User                       @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   tasks              Task[]
@@ -953,6 +952,7 @@ enum AuthRateLimitScope {
 }
 
 model ApiCredential {
+  canMoveTasksToDone Boolean @default(false)
   id              String    @id @default(cuid())
   projectId       String
   createdByUserId String
