@@ -384,7 +384,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     notes: [
       "Task comments preserve line breaks and can subsequently be edited via PATCH.",
       "A comment may include up to 10 previously uploaded file attachment ids (images, PDF, text, Markdown, CSV, or JSON); content may be empty when at least one file is attached.",
-      "Agent-authored comments are attributed to the credential label with an (agent) suffix.",
+      "Agent-authored comments snapshot the credential name (with an (agent) suffix in author.displayName) and descriptive labels in author.agentCredentialDescriptiveLabels when posted. Later credential changes and comment edits preserve both snapshots.",
       "Tag project agents by inserting the exact `@{Credential Label}` token in content and listing the credentialId in agentMentionSelections; mismatched, revoked, expired, or out-of-project selections fail the whole request with task-comment-agent-mention-invalid.",
     ],
   },

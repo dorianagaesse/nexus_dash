@@ -26,6 +26,7 @@ import {
   type CollaboratorIdentitySummary,
   type ProjectInvitationEmailDeliverySummary,
   type ProjectAgentAccessSummary,
+  type ProjectAgentAccessActionError,
   type ProjectAgentCredentialIssuedSecret,
   type ProjectAgentCredentialSummary,
   type ProjectCollaboratorRole,
@@ -107,7 +108,9 @@ export function ProjectDashboardOwnerActions({
   const [agentAccessSummary, setAgentAccessSummary] =
     useState<ProjectAgentAccessSummary | null>(null);
   const [isLoadingAgentAccess, setIsLoadingAgentAccess] = useState(false);
-  const [agentAccessError, setAgentAccessError] = useState<string | null>(null);
+  const [agentAccessLoadError, setAgentAccessLoadError] = useState<string | null>(null);
+  const [agentAccessActionError, setAgentAccessActionError] =
+    useState<ProjectAgentAccessActionError | null>(null);
   const [isCreatingAgentCredential, setIsCreatingAgentCredential] = useState(false);
   const [mutatingAgentCredentialId, setMutatingAgentCredentialId] =
     useState<string | null>(null);
@@ -222,7 +225,8 @@ export function ProjectDashboardOwnerActions({
   const openModal = (nextTab: ProjectDashboardSettingsTab) => {
     setProjectError(null);
     setSharingError(null);
-    setAgentAccessError(null);
+    setAgentAccessLoadError(null);
+    setAgentAccessActionError(null);
     setSearchMessage(null);
     setActiveTab(nextTab);
     setIsOpen(true);
@@ -258,7 +262,7 @@ export function ProjectDashboardOwnerActions({
 
   const loadAgentAccessSummary = useCallback(async () => {
     setIsLoadingAgentAccess(true);
-    setAgentAccessError(null);
+    setAgentAccessLoadError(null);
 
     try {
       const response = await fetch(`/api/projects/${projectId}/agent-access`, {
@@ -274,7 +278,7 @@ export function ProjectDashboardOwnerActions({
 
       setAgentAccessSummary(payload);
     } catch (error) {
-      setAgentAccessError(
+      setAgentAccessLoadError(
         error instanceof Error
           ? error.message
           : "Could not load agent access. Please retry."
@@ -299,7 +303,7 @@ export function ProjectDashboardOwnerActions({
     if (
       !isOpen ||
       agentAccessSummary ||
-      agentAccessError ||
+      agentAccessLoadError ||
       isLoadingAgentAccess
     ) {
       return;
@@ -307,7 +311,7 @@ export function ProjectDashboardOwnerActions({
 
     void loadAgentAccessSummary();
   }, [
-    agentAccessError,
+    agentAccessLoadError,
     agentAccessSummary,
     isLoadingAgentAccess,
     isOpen,
@@ -800,7 +804,7 @@ export function ProjectDashboardOwnerActions({
   const handleUpdateAgentCapabilities = async (allowed: boolean) => {
     if (isSavingAgentCapabilities) return;
     setIsSavingAgentCapabilities(true);
-    setAgentAccessError(null);
+    setAgentAccessActionError(null);
     try {
       const response = await fetch(`/api/projects/${projectId}/agent-access`, {
         method: "PATCH",
@@ -821,7 +825,7 @@ export function ProjectDashboardOwnerActions({
       const message = error instanceof Error
         ? error.message
         : "Could not save agent capabilities. Please retry.";
-      setAgentAccessError(message);
+      setAgentAccessActionError({ action: "capabilities", message });
       pushToast({ variant: "error", message });
     } finally {
       setIsSavingAgentCapabilities(false);
@@ -839,7 +843,7 @@ export function ProjectDashboardOwnerActions({
     }
 
     setIsCreatingAgentCredential(true);
-    setAgentAccessError(null);
+    setAgentAccessActionError(null);
 
     try {
       const response = await fetch(`/api/projects/${projectId}/agent-access`, {
@@ -873,7 +877,7 @@ export function ProjectDashboardOwnerActions({
         error instanceof Error
           ? error.message
           : "Could not create the credential. Please retry.";
-      setAgentAccessError(message);
+      setAgentAccessActionError({ action: "create", message });
       pushToast({
         variant: "error",
         message,
@@ -888,25 +892,31 @@ export function ProjectDashboardOwnerActions({
     descriptiveLabels: string[]
   ): Promise<boolean> => {
     if (mutatingAgentCredentialId) return false;
-    setAgentAccessError(null);
+    setAgentAccessActionError(null);
     try {
       const response = await fetch(`/api/projects/${projectId}/agent-access/${credential.id}/labels`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ descriptiveLabels }),
       });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(mapAgentAccessError(payload.error));
+      const payload = (await response.json().catch(() => null)) as {
+        credential?: { descriptiveLabels: string[] };
+        error?: string;
+      } | null;
+      if (!response.ok || !payload?.credential) {
+        throw new Error(mapAgentAccessError(payload?.error ?? "credential-labels-update-failed"));
+      }
+      const savedLabels = payload.credential.descriptiveLabels;
       setAgentAccessSummary((previous) => previous ? {
         ...previous,
         credentials: previous.credentials.map((entry) => entry.id === credential.id
-          ? { ...entry, descriptiveLabels: payload.credential.descriptiveLabels } : entry),
+          ? { ...entry, descriptiveLabels: savedLabels } : entry),
       } : previous);
       pushToast({ variant: "success", message: "Descriptive labels saved." });
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not save descriptive labels.";
-      setAgentAccessError(message);
+      setAgentAccessActionError({ action: "labels", message });
       pushToast({ variant: "error", message });
       return false;
     }
@@ -928,7 +938,7 @@ export function ProjectDashboardOwnerActions({
     }
 
     setMutatingAgentCredentialId(credential.id);
-    setAgentAccessError(null);
+    setAgentAccessActionError(null);
 
     try {
       const response = await fetch(
@@ -959,7 +969,7 @@ export function ProjectDashboardOwnerActions({
         error instanceof Error
           ? error.message
           : "Could not rotate the credential. Please retry.";
-      setAgentAccessError(message);
+      setAgentAccessActionError({ action: "rotate", message });
       pushToast({
         variant: "error",
         message,
@@ -1328,7 +1338,8 @@ export function ProjectDashboardOwnerActions({
                       isSavingCapabilities={isSavingAgentCapabilities}
                       onUpdateCapabilities={(allowed) => void handleUpdateAgentCapabilities(allowed)}
                       isLoadingAccessSummary={isLoadingAgentAccess}
-                      accessError={agentAccessError}
+                      accessLoadError={agentAccessLoadError}
+                      actionError={agentAccessActionError}
                       onRefreshAccess={() => void loadAgentAccessSummary()}
                       isCreatingCredential={isCreatingAgentCredential}
                       mutatingCredentialId={mutatingAgentCredentialId}

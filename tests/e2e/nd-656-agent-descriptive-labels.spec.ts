@@ -27,8 +27,15 @@ test("owners manage credential labels and comments preserve attribution across t
     expect(credential.descriptiveLabels).toEqual(["GPT-6", "Codex"]);
     expect(JSON.stringify(summary)).not.toContain("secretHash");
     expect(JSON.stringify(summary)).not.toContain(apiKey);
-    await expect(page.getByLabel("Descriptive labels", { exact: true })).toContainText("GPT-6");
-    await expect(page.getByLabel("Descriptive labels", { exact: true })).toContainText("Codex");
+    await expect(page.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("GPT-6");
+    await expect(page.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("Codex");
+
+    await page.getByLabel("Search credentials", { exact: true }).fill(" codex ");
+    await expect(page.getByRole("listitem", { name, exact: true })).toBeVisible();
+    await page.getByLabel("Status", { exact: true }).selectOption("revoked");
+    await expect(page.getByRole("listitem", { name, exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Clear filters", exact: true }).click();
+    await expect(page.getByRole("listitem", { name, exact: true })).toBeVisible();
 
     const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
     agent = await playwright.request.newContext({ baseURL: new URL(page.url()).origin,
@@ -54,13 +61,23 @@ test("owners manage credential labels and comments preserve attribution across t
     await page.getByRole("button", { name: "Save labels", exact: true }).click();
     await expect(page.getByRole("alert").filter({ hasText: "40 characters" })).toBeVisible();
     await editField.fill("GPT-6.1, Research");
+    const labelsRoute = `**${prefix}/agent-access/${credential.id}/labels`;
+    await page.route(labelsRoute, (route) => route.fulfill({
+      status: 503, json: { error: "credential-labels-update-failed" },
+    }));
     await page.getByRole("button", { name: "Save labels", exact: true }).click();
+    await expect(page.getByRole("alert", { name: "Credential labels error" })).toContainText("Could not save descriptive labels");
+    await expect(page.getByRole("button", { name: "Retry loading credentials" })).toHaveCount(0);
+    await expect(editField).toHaveValue("GPT-6.1, Research");
+    await page.unroute(labelsRoute);
+    await page.getByRole("button", { name: "Save labels", exact: true }).click();
+    await expect(page.getByRole("alert", { name: "Credential labels error" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: `Edit descriptive labels for ${name}`, exact: true })).toBeVisible();
     await page.reload();
     await page.getByRole("button", { name: "Share project" }).click();
     await page.getByRole("button", { name: "Agent access", exact: true }).click();
-    await expect(page.getByLabel("Descriptive labels", { exact: true })).toContainText("GPT-6.1");
-    await expect(page.getByLabel("Descriptive labels", { exact: true })).toContainText("Research");
+    await expect(page.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("GPT-6.1");
+    await expect(page.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("Research");
     const edited = await agent.patch(`${commentsUrl}/${comment.id}`, { headers, data: { content: "Original model attribution, edited" } });
     expect(edited.status()).toBe(200);
     expect((await edited.json()).comment.author.agentCredentialDescriptiveLabels).toEqual(["GPT-6", "Codex"]);
@@ -74,7 +91,7 @@ test("owners manage credential labels and comments preserve attribution across t
     );
     await page.getByRole("button", { name: "Save labels", exact: true }).click();
     await expect(page.getByRole("button", { name: `Edit descriptive labels for ${name}`, exact: true })).toBeVisible();
-    const bounds = await page.getByLabel("Descriptive labels", { exact: true }).boundingBox();
+    const bounds = await page.getByRole("group", { name: "Descriptive labels", exact: true }).boundingBox();
     expect(bounds).toBeTruthy();
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(375);
     await page.getByRole("button", { name: `Edit descriptive labels for ${name}`, exact: true }).click();
@@ -101,11 +118,11 @@ test("owners manage credential labels and comments preserve attribution across t
     await assertHistory();
     await page.goto(`/projects/${project.id}?taskId=${taskId}`);
     const original = page.locator("article").filter({ hasText: "Original model attribution, edited" });
-    await expect(original.getByLabel("Descriptive labels", { exact: true })).toContainText("GPT-6");
-    await expect(original.getByLabel("Descriptive labels", { exact: true })).toContainText("Codex");
+    await expect(original.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("GPT-6");
+    await expect(original.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("Codex");
     await expect(original).toContainText(`${name} (agent)`);
     await page.reload();
-    await expect(original.getByLabel("Descriptive labels", { exact: true })).toContainText("Codex");
+    await expect(original.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("Codex");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   } finally {
     await agent?.dispose();
@@ -134,11 +151,15 @@ test("metadata writes enforce owner sessions, project boundaries and validation"
     const credential = (await created.json()).credential;
     expect(credential.descriptiveLabels).toEqual([]);
     const url = `${prefix}/${credential.id}/labels`;
-    for (const descriptiveLabels of [null, [""], ["x".repeat(41)], Array(6).fill("label")]) {
+    for (const descriptiveLabels of [null, [""], ["x".repeat(41)], Array.from({ length: 6 }, (_, index) => `label-${index}`)]) {
       const invalid = await owner.patch(url, { data: { descriptiveLabels } });
       expect(invalid.status()).toBe(400);
       expect((await invalid.json()).error).toBe("invalid-descriptive-labels");
     }
+    const deduplicated = await owner.patch(url, { data: { descriptiveLabels: ["GPT-6", "gpt-6", "A", "B", "C", "D"] } });
+    expect(deduplicated.status()).toBe(200);
+    expect((await deduplicated.json()).credential.descriptiveLabels).toEqual(["GPT-6", "A", "B", "C", "D"]);
+    expect((await owner.patch(url, { data: { descriptiveLabels: [] } })).status()).toBe(200);
     const foreign = await owner.patch(`/api/projects/${other.id}/agent-access/${credential.id}/labels`, { data: { descriptiveLabels: ["Foreign"] } });
     expect(foreign.status()).toBe(404);
     editorId = await signInAsVerifiedUser(page);

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { RefreshCw, ShieldX } from "lucide-react";
 
-import { AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
+import { AGENT_SCOPE_DEFINITIONS, type AgentCredentialStatus, type AgentScope } from "@/lib/agent-access";
 import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
 import { AgentCredentialLabelEditor } from "./agent-credential-label-editor";
 import { Badge } from "@/components/ui/badge";
@@ -39,37 +39,49 @@ export function ProjectAgentCredentialList({
   onRevokeCredential,
 }: ProjectAgentCredentialListProps) {
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState<AgentCredentialStatus | "all">("all");
   const [capability, setCapability] = useState<AgentScope | "all">("all");
+  const filterId = useId();
+  const resultCountId = `${filterId}-count`;
+  const [resultAnnouncement, setResultAnnouncement] = useState("");
   const normalizedQuery = query.trim().toLocaleLowerCase();
-  const hasFilters = query.length > 0 || status !== "all" || capability !== "all";
+  const hasFilters = normalizedQuery.length > 0 || status !== "all" || capability !== "all";
   const matches = credentials.filter((credential) =>
-    credential.label.toLocaleLowerCase().includes(normalizedQuery) &&
+    (credential.label.toLocaleLowerCase().includes(normalizedQuery) ||
+      credential.descriptiveLabels?.some((label) => label.toLocaleLowerCase().includes(normalizedQuery))) &&
     (status === "all" || credential.status === status) &&
     (capability === "all" || credential.scopes.includes(capability))
   );
+  const resultCount = `Showing ${matches.length} of ${credentials.length} credential${credentials.length === 1 ? "" : "s"}`;
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setResultAnnouncement(resultCount), 400);
+    return () => window.clearTimeout(timeout);
+  }, [query, status, capability, resultCount]);
 
   return (
     <div className="min-w-0 space-y-4">
       <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_180px_minmax(0,240px)]">
         <div className="grid min-w-0 gap-1.5 text-sm font-medium">
-          <label htmlFor="agent-credential-search">Search credentials</label>
+          <label htmlFor={`${filterId}-search`}>Search credentials</label>
           <input
-            id="agent-credential-search"
+            id={`${filterId}-search`}
+            aria-describedby={resultCountId}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by name"
-            className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring"
+            placeholder="Search by name or label"
+            className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
         <div className="grid min-w-0 gap-1.5 text-sm font-medium">
-          <label htmlFor="agent-credential-status">Status</label>
+          <label htmlFor={`${filterId}-status`}>Status</label>
           <select
-            id="agent-credential-status"
+            id={`${filterId}-status`}
+            aria-describedby={resultCountId}
             value={status}
-            onChange={(event) => setStatus(event.target.value)}
-            className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm"
+            onChange={(event) => setStatus(event.target.value as AgentCredentialStatus | "all")}
+            className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="all">All statuses</option>
             <option value="active">Active</option>
@@ -78,12 +90,13 @@ export function ProjectAgentCredentialList({
           </select>
         </div>
         <div className="grid min-w-0 gap-1.5 text-sm font-medium">
-          <label htmlFor="agent-credential-capability">Capability</label>
+          <label htmlFor={`${filterId}-capability`}>Capability</label>
           <select
-            id="agent-credential-capability"
+            id={`${filterId}-capability`}
+            aria-describedby={resultCountId}
             value={capability}
             onChange={(event) => setCapability(event.target.value as AgentScope | "all")}
-            className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm"
+            className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="all">All capabilities</option>
             {AGENT_SCOPE_DEFINITIONS.map(({ scope, label }) => (
@@ -93,9 +106,8 @@ export function ProjectAgentCredentialList({
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p role="status" className="text-sm text-muted-foreground">
-          Showing {matches.length} of {credentials.length} credential{credentials.length === 1 ? "" : "s"}
-        </p>
+        <p id={resultCountId} className="text-sm text-muted-foreground">{resultCount}</p>
+        <p role="status" aria-atomic="true" className="sr-only">{resultAnnouncement}</p>
         {hasFilters ? (
           <Button type="button" variant="ghost" size="sm" onClick={() => {
             setQuery("");
@@ -108,7 +120,7 @@ export function ProjectAgentCredentialList({
       </div>
       {matches.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-          No credentials match your search and filters. Try another name or clear the filters.
+          No credentials match your search and filters. Try another search or clear the filters.
         </div>
       ) : (
         <ul aria-label="Agent credentials" className="min-w-0 divide-y divide-border/60 rounded-xl border border-border/60 bg-card">
@@ -174,7 +186,7 @@ export function ProjectAgentCredentialList({
               </div>
               {mutatingCredentialId === credential.id ? <p role="status" className="text-sm text-muted-foreground">Updating credential...</p> : null}
               <details className="min-w-0 text-xs text-muted-foreground">
-                <summary className="w-fit cursor-pointer rounded-sm text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+                <summary className="w-fit cursor-pointer rounded-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   Credential details
                 </summary>
                 <dl className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">

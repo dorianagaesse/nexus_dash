@@ -35,6 +35,27 @@ Use it for important implementation milestones, blockers, validation runs, and r
   ND-657, linked to ND-655. The browser check re-exchanges across that boundary;
   this UI change does not alter token invalidation.
 
+- Review follow-up: separated credential loading failures from create, rotate,
+  and capability-save errors. Loading owns the list retry; action errors appear
+  next to their controls and retain the existing toast feedback. Browser
+  regressions now cover each failure and retry path.
+- Result counts update immediately and announce after a 400 ms pause, with a
+  timer-cancellation regression test. Added per-instance filter IDs, normalized
+  active-filter detection, typed status state, ref-based creation focus, a named
+  creation section, and consistent focus rings.
+- Review validation on `f261a295ce22ed7c28bcfb399fa4da1554387009`: lint,
+  RLS inventory, 2,312 unit/API tests (3 skipped), coverage gates (95.33% lines),
+  and production build passed. The full browser suite again finished with
+  127 passed, 2 skipped, and the same baseline ND-433 failure at line 75.
+- Refreshed [Preview run 42043068568](https://github.com/dorianagaesse/nexus_dash/actions/runs/42043068568)
+  passed. Logs verify the branch checkout at `f261a29`, and readiness reports
+  that revision and environment `preview`. Both ND-655 browser flows passed
+  on the [review deployment](https://nexus-dash-qtylcvqun-dorian-agaesses-projects.vercel.app)
+  (17.2 s), including creation, rotation, and capability failure/retry checks.
+  CI core checks and tenant isolation passed on the same code commit.
+- Replied to and resolved all seven review threads on PR #660. The final
+  follow-up commit records evidence in this journal only.
+
 # 2026-10-30 - ND-541: define Tasks/Kanban domain boundary and migration seams
 
 - Authored `adr/nd-541-tasks-kanban-domain-boundary.md` and recorded the summary
@@ -10986,3 +11007,17 @@ Low-value entries to avoid going forward:
   ND-655's branch for the user's agent review. The final follow-up changes only
   test protection-header forwarding and this evidence; deployed runtime code
   is unchanged. The task remains In Progress for the reviewer or merger.
+
+- Review follow-up: merged ND-655 through `800c835` (including its `f261a29`
+  credential-management changes), resolved the list imports, and integrated
+  label failures into the separate action-error model. Failed label saves keep
+  the draft and no longer offer a credential-loading retry.
+- Added named badge groups for assistive technology, name-or-label search with
+  the existing combined filters, and a limit of five distinct labels after
+  case-insensitive de-duplication. Aligned the comment POST documentation and
+  documented the intentional authentication-audit boundary in the ADR.
+- Revalidation passed: production type-check/build, lint, RLS inventory,
+  2,341 unit/API/component tests (three skipped), coverage gates (94.16%
+  statements, 88.11% branches), PostgreSQL tenant-isolation matrix, and all five
+  targeted local Chromium checks. Regressions include label-save failure and
+  recovery, accessible badge groups, model-label search and duplicate limits.

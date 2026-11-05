@@ -61,6 +61,9 @@ test("ND-655: search and filters combine across credential statuses and capabili
   const search = panel.getByRole("searchbox", { name: "Search credentials" });
   const status = panel.getByLabel("Status", { exact: true });
   const capability = panel.getByLabel("Capability", { exact: true });
+  await search.fill("   ");
+  await expect(panel.getByRole("button", { name: "Clear filters" })).toHaveCount(0);
+  await expect(list.getByRole("listitem")).toHaveCount(3);
   await search.fill("  WORKER  ");
   await expect(list.getByRole("listitem")).toHaveCount(2);
   await status.selectOption("expired");
@@ -169,7 +172,7 @@ test("ND-655: loading, failed reads, empty lists and failed creation have usable
   const panel = await openAgentAccess(page);
   await expect(panel.getByText("Loading credentials...", { exact: true })).toBeVisible();
   releaseRead();
-  await expect(page.getByRole("alert")).toContainText("Could not load");
+  await expect(page.getByRole("alert", { name: "Credential loading error" })).toContainText("Could not load");
   await expect(page.getByRole("button", { name: "Create credential", exact: true })).toBeDisabled();
   await page.unroute(`**${path}`);
   await page.getByRole("button", { name: "Retry loading credentials", exact: true }).click();
@@ -183,11 +186,45 @@ test("ND-655: loading, failed reads, empty lists and failed creation have usable
     await route.fulfill({ status: 503, json: { error: "credential-create-failed" } });
   });
   await page.getByRole("button", { name: "Create credential", exact: true }).click();
-  await expect(page.getByRole("alert").first()).toContainText("Could not create");
+  await expect(page.getByRole("alert", { name: "Credential creation error" })).toContainText("Could not create");
+  await expect(page.getByRole("button", { name: "Retry loading credentials" })).toHaveCount(0);
   await expect(page.getByLabel("Credential label", { exact: true })).toHaveValue("Retry worker");
   await page.unroute(`**${path}`);
   await page.getByRole("button", { name: "Create credential", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "API key for Retry worker", exact: true })).toBeVisible();
   await expect(panel.getByRole("listitem", { name: "Retry worker", exact: true })).toBeVisible();
+  await expect(page.getByRole("alert", { name: "Credential creation error" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Hide key", exact: true }).click();
+
+  const capabilitiesError = page.getByRole("alert", { name: "Agent capabilities error" });
+  const doneSwitch = page.getByRole("switch", { name: "Allow agents to move tasks to Done" });
+  await page.route(`**${path}`, async (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    await route.fulfill({ status: 503, json: { error: "capability-save-failed" } });
+  });
+  await doneSwitch.click();
+  await expect(capabilitiesError).toContainText("Could not save agent capabilities");
+  await expect(doneSwitch).not.toBeChecked();
+  await expect(page.getByRole("button", { name: "Retry loading credentials" })).toHaveCount(0);
+  await page.unroute(`**${path}`);
+  await doneSwitch.click();
+  await expect(doneSwitch).toBeChecked();
+  await expect(capabilitiesError).toHaveCount(0);
+
+  const rotationError = page.getByRole("alert", { name: "Credential rotation error" });
+  const rotationRoute = `**${path}/*/rotate`;
+  await page.route(rotationRoute, (route) => route.fulfill({
+    status: 503, json: { error: "credential-rotate-failed" },
+  }));
+  page.once("dialog", (dialog) => dialog.accept());
+  await panel.getByRole("button", { name: "Rotate key for Retry worker", exact: true }).click();
+  await expect(rotationError).toContainText("Could not rotate the API key");
+  await expect(page.getByRole("button", { name: "Retry loading credentials" })).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "API key for Retry worker", exact: true })).toHaveCount(0);
+  await page.unroute(rotationRoute);
+  page.once("dialog", (dialog) => dialog.accept());
+  await panel.getByRole("button", { name: "Rotate key for Retry worker", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "API key for Retry worker", exact: true })).toBeVisible();
+  await expect(rotationError).toHaveCount(0);
   await page.getByRole("button", { name: "Hide key", exact: true }).click();
 });

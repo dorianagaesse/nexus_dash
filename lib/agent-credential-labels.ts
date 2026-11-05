@@ -1,11 +1,11 @@
 export const MAX_AGENT_DESCRIPTIVE_LABELS = 5;
 export const MAX_AGENT_DESCRIPTIVE_LABEL_LENGTH = 40;
 export const AGENT_DESCRIPTIVE_LABELS_HINT =
-  "Separate labels with commas. Up to 5 labels, 40 characters each.";
+  "Separate labels with commas. Up to 5 distinct labels, 40 characters each.";
 
 /** Credential descriptions only; never used for authorization or task labels. */
 export function parseAgentCredentialDescriptiveLabels(value: unknown): string[] | null {
-  if (!Array.isArray(value) || value.length > MAX_AGENT_DESCRIPTIVE_LABELS) {
+  if (!Array.isArray(value)) {
     return null;
   }
 
@@ -24,6 +24,7 @@ export function parseAgentCredentialDescriptiveLabels(value: unknown): string[] 
     if (!seen.has(key)) {
       seen.add(key);
       labels.push(label);
+      if (labels.length > MAX_AGENT_DESCRIPTIVE_LABELS) return null;
     }
   }
   return labels;

@@ -1278,3 +1278,10 @@ Keep UI-only or task-only notes in `journal.md`.
   empty label array rather than inheriting metadata added after posting. The
   additive migration must precede the application deploy; token exchange and
   authorization contracts remain unchanged.
+
+- Audit boundary: descriptive label edits remain display-metadata changes and
+  do not add an `AuthAuditEvent` action. The existing authentication audit covers
+  credential issuance, rotation, revocation, token exchange and request use.
+  Label edits change neither authority nor historical attribution; posting-time
+  comment snapshots remain the record of the labels used for each comment.
+  A general metadata-change audit can be added separately if required.

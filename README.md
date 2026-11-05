@@ -112,7 +112,7 @@ Open `http://localhost:3000`.
 - Logout endpoint: `POST /api/auth/logout`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
 - In **Share project > Agent access**, credentials appear first with their name,
-  status, capabilities, last use, and expiry. Search by name (ignoring case and
+  status, capabilities, last use, and expiry. Search by name or descriptive label (ignoring case and
   surrounding spaces), then combine **Status** and **Capability** filters to
   narrow the list. **Clear filters** restores the full list. A capability filter
   matches credentials granted that scope, including expired or revoked entries
@@ -123,6 +123,9 @@ Open `http://localhost:3000`.
   confirmation; **Revoke** opens the existing responsibility review before
   access is removed. Copy newly issued keys immediately; they are shown once.
   Project-wide capability changes save immediately and apply to every credential.
+  Loading failures offer **Retry loading credentials**. If creation, rotation,
+  or a capability change fails, its message appears beside that action; retry
+  the same action after checking the message. Failed creation preserves input.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
 - Project owners can enable **Allow agents to move tasks to Done** in project
@@ -154,7 +157,7 @@ invisible-recovery rule with atomic content revisions.
 Project owners can add optional descriptive labels (for example, `GPT-6` and
 `Codex`) when creating a credential in **Sharing → Agent access**, or use
 **Edit labels** on an existing credential. Enter comma-separated text: at most
-five labels, each 1–40 characters after trimming, with no commas or control
+five distinct labels, each 1–40 characters after trimming, with no commas or control
 characters inside a label. Duplicate labels are combined case-insensitively;
 leave the field empty to remove all labels. Names, task labels and permissions
 are separate.

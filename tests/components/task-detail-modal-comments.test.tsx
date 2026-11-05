@@ -439,8 +439,8 @@ describe("TaskDetailModal comments", () => {
     ]);
 
     expect(document.body.textContent).toContain("Build bot (agent)");
-    expect(document.body.querySelector('[aria-label="Descriptive labels"]')?.textContent).toContain("GPT-6");
-    expect(document.body.querySelector('[aria-label="Descriptive labels"]')?.textContent).toContain("Codex");
+    expect(document.body.querySelector('[role="group"][aria-label="Descriptive labels"]')?.textContent).toContain("GPT-6");
+    expect(document.body.querySelector('[role="group"][aria-label="Descriptive labels"]')?.textContent).toContain("Codex");
     expect(document.body.textContent).toContain("via owner#0001");
     expect(
       document.body.querySelector("[aria-label='Task reference ND-42']")
