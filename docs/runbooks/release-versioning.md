@@ -122,7 +122,8 @@ It is not allowed on other releases. See the readiness checklist below.
    The helper updates `package.json` and `package-lock.json` together and
    refuses to run if they disagree. For fix-only releases, use
    `npm run release:version -- patch`; do not default to minor. Explicit
-   versions must still satisfy the exact step enforced by CI.
+   versions must satisfy the exact step enforced by CI; the helper rejects
+   skipped steps before modifying either package file, including in dry runs.
 
 3. Compose the release entry in `CHANGELOG.md`: a `## v0.74.0 - <date>`
    section with at least one bullet describing what the release contains,

@@ -144,12 +144,15 @@ function assertReleaseDecision(sectionBody, baseVersion, version) {
     const matches = sectionBody.filter((line) => line.startsWith(prefix));
     if (matches.length === 0 && !required) return null;
     if (matches.length !== 1 || !matches[0].slice(prefix.length).trim()) {
-      fail(`Release section must include exactly one nonempty "${prefix}" line. See docs/runbooks/release-versioning.md.`);
+      fail(`Release section must include exactly one nonempty, unindented, case-sensitive "${prefix}" line. Use "${prefix} <value>" with the exact spelling shown. See docs/runbooks/release-versioning.md.`);
     }
     return matches[0].slice(prefix.length).trim();
   }
 
   const impact = field("Release impact");
+  if (!["patch", "minor", "major"].includes(impact)) {
+    fail(`Invalid release impact "${impact}" in CHANGELOG.md section ## v${formatVersion(version)}. Use "Release impact: patch", "Release impact: minor", or "Release impact: major". See docs/runbooks/release-versioning.md.`);
+  }
   field("Release rationale");
   const expected = bumpVersion(baseVersion, impact);
   if (compareVersions(expected, version) !== 0) {

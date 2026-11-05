@@ -23,6 +23,15 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - No UI, auth, or database behavior changed, so E2E and the PostgreSQL matrix
   were not required. Copilot review monitoring is omitted per user instruction.
 
+- Follow-up review: checked Zoukou's PR notes against ND-659 and addressed
+  all three. The release helper now rejects skipped explicit versions before
+  mutation or decision output; CI field errors explain the unindented,
+  case-sensitive format; invalid impacts name the version section and runbook.
+- Follow-up validation on Node 24.22.1 passed: 52 targeted tests, all 2,344
+  unit/API tests (3 skipped), lint, RLS inventory, coverage, production build,
+  release-policy validation, and `git diff --check`. No additional blocking
+  issues found against the task's acceptance criteria.
+
 # 2026-10-30 - ND-541: define Tasks/Kanban domain boundary and migration seams
 
 - Authored `adr/nd-541-tasks-kanban-domain-boundary.md` and recorded the summary

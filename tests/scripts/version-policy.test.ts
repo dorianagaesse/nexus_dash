@@ -177,6 +177,31 @@ ${metadata}
     expect(result.stderr).toContain(message);
   });
 
+  test.each([
+    ["  Release impact: patch", "Release impact:", "unindented, case-sensitive"],
+    ["Release Impact: patch", "Release impact:", "unindented, case-sensitive"],
+    ["Release impact: banana", "## v0.73.1", "Invalid release impact"],
+  ])("explains invalid field format: %s", (impactLine, field, message) => {
+    const cwd = createRepo();
+    repos.push(cwd);
+    const branch = "chore/release-v0.73.1";
+    git(cwd, ["checkout", "-b", branch]);
+    writePackageFiles(cwd, "0.73.1");
+    writeText(cwd, "CHANGELOG.md", `## v0.73.1
+
+${impactLine}
+Release rationale: Fix a regression.
+
+- Fixed a regression.
+`);
+    commitAll(cwd, "invalid decision format");
+    const result = runPolicy(cwd, branch);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(field);
+    expect(result.stderr).toContain(message);
+    expect(result.stderr).toContain("See docs/runbooks/release-versioning.md");
+  });
+
   test("rejects duplicate matching release sections", () => {
     const cwd = createRepo();
     repos.push(cwd);

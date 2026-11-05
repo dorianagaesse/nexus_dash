@@ -100,6 +100,17 @@ try {
       `Target version ${formatVersion(target)} must be greater than current version ${formatVersion(current)}.`
     );
   }
+  const impact = [...BUMP_TYPES].find(
+    (candidate) => compareVersions(bumpVersion(current, candidate), target) === 0
+  );
+  if (!impact) {
+    const choices = [...BUMP_TYPES].map(
+      (candidate) => `${candidate}: ${formatVersion(bumpVersion(current, candidate))}`
+    );
+    throw new Error(
+      `Target version ${formatVersion(target)} must be an exact next release step (${choices.join(", ")}). See docs/runbooks/release-versioning.md.`
+    );
+  }
 
   const targetVersion = formatVersion(target);
   const releaseBranch = `chore/release-v${targetVersion}`;
@@ -108,8 +119,6 @@ try {
   console.log(`[release-version] Release-preparation branch: ${releaseBranch}`);
   console.log(`[release-version] Tag to create after merge: v${targetVersion}`);
   console.log("[release-version] In the matching CHANGELOG.md section, record:");
-  const impact = target.major !== current.major ? "major"
-    : target.minor !== current.minor ? "minor" : "patch";
   console.log(`Release impact: ${impact}`);
   console.log("Release rationale: <explain the release contents and chosen impact>");
   if (current.major === 0 && impact === "major") {
