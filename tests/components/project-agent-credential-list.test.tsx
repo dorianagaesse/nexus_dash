@@ -59,3 +59,37 @@ test("announces only the settled result count while updating visible matches imm
     await act(async () => root.unmount());
   }
 });
+
+
+test("model labels are searchable and still combine with status and capability filters", async () => {
+  const container = document.createElement("div"); document.body.appendChild(container);
+  const root = createRoot(container);
+  const credentials: ProjectAgentCredentialSummary[] = [
+    { id: "c1", label: "Release agent", descriptiveLabels: ["GPT-6", "Codex"], scopes: ["task:read"], status: "active" },
+    { id: "c2", label: "Observer", descriptiveLabels: ["Claude"], scopes: ["task:write"], status: "revoked" },
+  ].map((entry) => ({ ...entry, publicId: `nda_${entry.id}`, expiresAt: null, lastUsedAt: null,
+    lastExchangedAt: null, lastRotatedAt: null, revokedAt: null,
+    createdAt: "2026-11-05T09:00:00.000Z", updatedAt: "2026-11-05T09:00:00.000Z",
+  })) as ProjectAgentCredentialSummary[];
+  const change = async (element: Element, value: string) => {
+    await act(async () => {
+      const prototype = element.tagName === "INPUT" ? HTMLInputElement.prototype : HTMLSelectElement.prototype;
+      Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(element, value);
+      element.dispatchEvent(new Event(element.tagName === "INPUT" ? "input" : "change", { bubbles: true }));
+    });
+  };
+  try {
+    await act(async () => root.render(<ProjectAgentCredentialList credentials={credentials} mutatingCredentialId={null} onRotateCredential={() => {}} onRevokeCredential={() => {}} />));
+    const search = container.querySelector('input[type="search"]')!;
+    await change(search, " cOdEx ");
+    expect([...container.querySelectorAll("li")].map(li => li.getAttribute("aria-label"))).toEqual(["Release agent"]);
+    expect(container.querySelector('[role="group"][aria-label="Descriptive labels"]')?.textContent).toContain("Codex");
+    const [status, capability] = container.querySelectorAll("select");
+    await change(status, "revoked"); expect(container.querySelectorAll("li")).toHaveLength(0);
+    await change(status, "active"); await change(capability, "task:write");
+    expect(container.querySelectorAll("li")).toHaveLength(0);
+    await change(capability, "task:read"); expect(container.querySelectorAll("li")).toHaveLength(1);
+    await act(async () => [...container.querySelectorAll("button")].find(b => b.textContent === "Clear filters")!.click());
+    expect(container.querySelectorAll("li")).toHaveLength(2);
+  } finally { await act(async () => root.unmount()); }
+});

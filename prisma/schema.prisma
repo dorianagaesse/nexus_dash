@@ -657,17 +657,18 @@ model Task {
 }
 
 model TaskComment {
-  id                         String         @id @default(cuid())
-  taskId                     String
-  authorUserId               String
-  authorAgentCredentialId    String?
-  authorAgentCredentialLabel String?        @db.VarChar(80)
-  task                       Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  author                     User           @relation("TaskCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
-  authorAgentCredential      ApiCredential? @relation("TaskCommentAgentAuthorCredential", fields: [authorAgentCredentialId], references: [id], onDelete: SetNull)
-  content                    String
-  createdAt                  DateTime       @default(now())
-  updatedAt                  DateTime?      @updatedAt
+  id                                     String         @id @default(cuid())
+  taskId                                 String
+  authorUserId                           String
+  authorAgentCredentialId                String?
+  authorAgentCredentialLabel             String?        @db.VarChar(80)
+  authorAgentCredentialDescriptiveLabels String[]       @default([]) @db.VarChar(40)
+  task                                   Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author                                 User           @relation("TaskCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  authorAgentCredential                  ApiCredential? @relation("TaskCommentAgentAuthorCredential", fields: [authorAgentCredentialId], references: [id], onDelete: SetNull)
+  content                                String
+  createdAt                              DateTime       @default(now())
+  updatedAt                              DateTime?      @updatedAt
 
   reactions     TaskCommentReaction[]
   agentMentions TaskCommentAgentMention[]
@@ -953,20 +954,21 @@ enum AuthRateLimitScope {
 }
 
 model ApiCredential {
-  id              String    @id @default(cuid())
-  projectId       String
-  createdByUserId String
-  revokedByUserId String?
-  label           String    @db.VarChar(80)
-  publicId        String    @unique @db.VarChar(64)
-  secretHash      String
-  expiresAt       DateTime?
-  lastUsedAt      DateTime?
-  lastExchangedAt DateTime?
-  lastRotatedAt   DateTime?
-  revokedAt       DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  projectId         String
+  createdByUserId   String
+  revokedByUserId   String?
+  label             String    @db.VarChar(80)
+  descriptiveLabels String[]  @default([]) @db.VarChar(40)
+  publicId          String    @unique @db.VarChar(64)
+  secretHash        String
+  expiresAt         DateTime?
+  lastUsedAt        DateTime?
+  lastExchangedAt   DateTime?
+  lastRotatedAt     DateTime?
+  revokedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   project                             Project                                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdByUser                       User                                     @relation("ApiCredentialCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)

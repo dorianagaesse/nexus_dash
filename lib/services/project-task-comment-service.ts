@@ -65,6 +65,7 @@ export interface TaskCommentAuthorSummary extends TaskPersonSummary {
   kind: TaskCommentAuthorKind;
   agentCredentialId: string | null;
   agentCredentialLabel: string | null;
+  agentCredentialDescriptiveLabels: string[];
   owner: TaskPersonSummary | null;
 }
 
@@ -127,10 +128,10 @@ function buildAgentDisplayName(label: string | null | undefined): string {
   return normalizedLabel ? `${normalizedLabel} (agent)` : "Agent";
 }
 
-async function resolveAgentCredentialLabel(input: {
+async function resolveAgentCredentialAttribution(input: {
   db: DbClient;
   agentAccess: AgentProjectAccessContext;
-}): Promise<string | null> {
+}): Promise<{ label: string | null; descriptiveLabels: string[] }> {
   const credential = await input.db.apiCredential.findFirst({
     where: {
       id: input.agentAccess.credentialId,
@@ -138,10 +139,14 @@ async function resolveAgentCredentialLabel(input: {
     },
     select: {
       label: true,
+      descriptiveLabels: true,
     },
   });
 
-  return normalizeText(credential?.label) || null;
+  return {
+    label: normalizeText(credential?.label) || null,
+    descriptiveLabels: credential?.descriptiveLabels ?? [],
+  };
 }
 
 function mapTaskComment(input: {
@@ -151,6 +156,7 @@ function mapTaskComment(input: {
   updatedAt?: Date | null;
   authorAgentCredentialId: string | null;
   authorAgentCredentialLabel: string | null;
+  authorAgentCredentialDescriptiveLabels?: string[];
   author: {
     id: string;
     name: string | null;
@@ -204,6 +210,7 @@ function mapTaskComment(input: {
           avatarSeed: AGENT_COMMENT_AVATAR_SEED,
           agentCredentialId: input.authorAgentCredentialId,
           agentCredentialLabel: agentCredentialLabel || null,
+          agentCredentialDescriptiveLabels: input.authorAgentCredentialDescriptiveLabels ?? [],
           owner,
         }
       : {
@@ -211,6 +218,7 @@ function mapTaskComment(input: {
           kind: "user",
           agentCredentialId: null,
           agentCredentialLabel: null,
+          agentCredentialDescriptiveLabels: [],
           owner: null,
         },
   };
@@ -663,6 +671,7 @@ export async function listTaskCommentsForProject(input: {
           updatedAt: true,
           authorAgentCredentialId: true,
           authorAgentCredentialLabel: true,
+          authorAgentCredentialDescriptiveLabels: true,
           author: {
             select: {
               id: true,
@@ -829,14 +838,17 @@ export async function createTaskCommentForProject(input: {
         let actorKind: NotificationActorKind = "user";
         let actorCredentialId: string | null = null;
         let actorCredentialLabel: string | null = null;
+        let actorCredentialDescriptiveLabels: string[] = [];
 
         if (input.agentAccess) {
           actorKind = "agent";
           actorCredentialId = input.agentAccess.credentialId;
-          actorCredentialLabel = await resolveAgentCredentialLabel({
+          const attribution = await resolveAgentCredentialAttribution({
             db,
             agentAccess: input.agentAccess,
           });
+          actorCredentialLabel = attribution.label;
+          actorCredentialDescriptiveLabels = attribution.descriptiveLabels;
         }
 
         const comment = await db.taskComment.create({
@@ -845,6 +857,7 @@ export async function createTaskCommentForProject(input: {
             authorUserId: actorUserId,
             authorAgentCredentialId: actorCredentialId,
             authorAgentCredentialLabel: actorCredentialLabel,
+            authorAgentCredentialDescriptiveLabels: actorCredentialDescriptiveLabels,
             content,
             updatedAt: null,
           },
@@ -855,6 +868,7 @@ export async function createTaskCommentForProject(input: {
             updatedAt: true,
             authorAgentCredentialId: true,
             authorAgentCredentialLabel: true,
+            authorAgentCredentialDescriptiveLabels: true,
             author: {
               select: {
                 id: true,
@@ -1106,10 +1120,10 @@ export async function updateTaskCommentForProject(
 
       if (input.agentAccess) {
         actorCredentialId = input.agentAccess.credentialId;
-        actorCredentialLabel = await resolveAgentCredentialLabel({
+        actorCredentialLabel = (await resolveAgentCredentialAttribution({
           db,
           agentAccess: input.agentAccess,
-        });
+        })).label;
       }
 
       const comment = await db.taskComment.update({
@@ -1124,6 +1138,7 @@ export async function updateTaskCommentForProject(
           updatedAt: true,
           authorAgentCredentialId: true,
           authorAgentCredentialLabel: true,
+          authorAgentCredentialDescriptiveLabels: true,
           author: {
             select: {
               id: true,

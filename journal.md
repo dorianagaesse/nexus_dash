@@ -10968,3 +10968,63 @@ Low-value entries to avoid going forward:
 - Fixed nested Node imports with `node:**` and included exact bare Node built-ins so alternate import spellings cannot bypass the intended pure-helper boundary. Added real-ESLint regression checks for forbidden imports and allowed facades, server components, DTO types, pure helpers, and caller-scoped clients.
 - Rechecked the static runtime import graph from Task/project facades, Task contracts, and Kanban: 132 local modules, no cycles involving the reviewed Task seams. Pilot guidance records current ND-545 measurement evidence and the existing unpublished-attachment exclusion. Meeting Notes contract work remains the bounded next application after user review and merge.
 - Required validation and the detailed review response are recorded on #654. Leave the PR unmerged for the user; later tasks remain parked. Retarget/reconcile #655 when ND-546 is user-merged; #650 remains parked until its turn.
+
+
+# 2026-11-05 - ND-656: descriptive agent credential labels
+
+- Added owner-managed descriptive metadata with shared validation (five labels,
+  40 characters each), creation/edit/removal controls, credential-list badges
+  and task-comment badges. A dedicated metadata endpoint leaves credential
+  names, keys and scope grants independent.
+- Added an additive migration for credential metadata and comment snapshots.
+  Comment reads and edits retain posting-time attribution after credential
+  rename, relabel, revocation or deletion; older comments keep empty arrays.
+  Documented this behavior in README, the agent contract and ADR decisions.
+- Initial validation on Node 24.22.1: lint, RLS inventory, 2,338 unit/API/component
+  tests (three skipped), coverage thresholds (94.16% statements, 88.11% branches),
+  production build and the PostgreSQL tenant-isolation matrix passed. Local
+  PostgreSQL 16 validation used its own database on port 5656, with the Realtime
+  stub installed before migrations and the database timezone set to UTC.
+- Rebased onto ND-655 branch `0fc376a` and placed the label badges and editor
+  in its extracted credential list. The PR is stacked on that branch while
+  ND-655 is under review.
+- Integrated validation passed: lint, RLS inventory, 2,338 unit/API/component
+  tests (three skipped), unchanged coverage thresholds, production build and
+  the PostgreSQL tenant-isolation matrix. Five local Chromium checks passed
+  across ND-655, ND-656 and active-agent pickers, including creation/edit/removal,
+  375px geometry with maximum-length labels, historical comment reloads, real
+  owner/editor sessions, bearer-only denial and cross-project rejection.
+- Preview [run 42039347200](https://github.com/dorianagaesse/nexus_dash/actions/runs/42039347200)
+  passed and applied the additive migration. Checkout logs verify
+  `feature/nd-656-agent-descriptive-labels` at
+  `dc706aa87a4838cffaa3e708260a00658c57367e`; readiness confirms Preview,
+  revision `dc706aa`, and database health on the
+  [immutable deployment](https://nexus-dash-56bpp4yy9-dorian-agaesses-projects.vercel.app).
+  All four ND-655/ND-656 Chromium checks passed against that deployment.
+  Preview fixtures used the matching project's admin session pooler, following
+  the existing TLS compatibility contract, and cleaned up their own records.
+- [PR #661](https://github.com/dorianagaesse/nexus_dash/pull/661) is open against
+  ND-655's branch for the user's agent review. The final follow-up changes only
+  test protection-header forwarding and this evidence; deployed runtime code
+  is unchanged. The task remains In Progress for the reviewer or merger.
+
+- Review follow-up: merged ND-655 through `800c835` (including its `f261a29`
+  credential-management changes), resolved the list imports, and integrated
+  label failures into the separate action-error model. Failed label saves keep
+  the draft and no longer offer a credential-loading retry.
+- Added named badge groups for assistive technology, name-or-label search with
+  the existing combined filters, and a limit of five distinct labels after
+  case-insensitive de-duplication. Aligned the comment POST documentation and
+  documented the intentional authentication-audit boundary in the ADR.
+- Revalidation passed: production type-check/build, lint, RLS inventory,
+  2,341 unit/API/component tests (three skipped), coverage gates (94.16%
+  statements, 88.11% branches), PostgreSQL tenant-isolation matrix, and all five
+  targeted local Chromium checks. Regressions include label-save failure and
+  recovery, accessible badge groups, model-label search and duplicate limits.
+- Refreshed preview [run 42046467857](https://github.com/dorianagaesse/nexus_dash/actions/runs/42046467857)
+  passed. Logs verify checkout of the task branch at
+  `8b5c2a404375bce9a26c1b8d6339ff8df3bd2d65`; immutable readiness confirms
+  Preview, that revision, and database health on the
+  [review-fix deployment](https://nexus-dash-dm7hrf2r4-dorian-agaesses-projects.vercel.app).
+  All four ND-655/ND-656 Chromium checks passed there, including the updated
+  error recovery, label search, accessibility and distinct-label validation.

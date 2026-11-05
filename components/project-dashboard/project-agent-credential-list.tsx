@@ -4,6 +4,8 @@ import { useEffect, useId, useState } from "react";
 import { RefreshCw, ShieldX } from "lucide-react";
 
 import { AGENT_SCOPE_DEFINITIONS, type AgentCredentialStatus, type AgentScope } from "@/lib/agent-access";
+import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
+import { AgentCredentialLabelEditor } from "./agent-credential-label-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +16,7 @@ import {
 interface ProjectAgentCredentialListProps {
   credentials: ProjectAgentCredentialSummary[];
   mutatingCredentialId: string | null;
+  onUpdateCredentialLabels?: (credential: ProjectAgentCredentialSummary, labels: string[]) => Promise<boolean>;
   onRotateCredential: (credential: ProjectAgentCredentialSummary) => void;
   onRevokeCredential: (credential: ProjectAgentCredentialSummary) => void;
 }
@@ -31,6 +34,7 @@ function formatTimestamp(value: string | null): string {
 export function ProjectAgentCredentialList({
   credentials,
   mutatingCredentialId,
+  onUpdateCredentialLabels,
   onRotateCredential,
   onRevokeCredential,
 }: ProjectAgentCredentialListProps) {
@@ -43,7 +47,8 @@ export function ProjectAgentCredentialList({
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const hasFilters = normalizedQuery.length > 0 || status !== "all" || capability !== "all";
   const matches = credentials.filter((credential) =>
-    credential.label.toLocaleLowerCase().includes(normalizedQuery) &&
+    (credential.label.toLocaleLowerCase().includes(normalizedQuery) ||
+      credential.descriptiveLabels?.some((label) => label.toLocaleLowerCase().includes(normalizedQuery))) &&
     (status === "all" || credential.status === status) &&
     (capability === "all" || credential.scopes.includes(capability))
   );
@@ -65,7 +70,7 @@ export function ProjectAgentCredentialList({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by name"
+            placeholder="Search by name or label"
             className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
@@ -115,7 +120,7 @@ export function ProjectAgentCredentialList({
       </div>
       {matches.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-          No credentials match your search and filters. Try another name or clear the filters.
+          No credentials match your search and filters. Try another search or clear the filters.
         </div>
       ) : (
         <ul aria-label="Agent credentials" className="min-w-0 divide-y divide-border/60 rounded-xl border border-border/60 bg-card">
@@ -125,6 +130,7 @@ export function ProjectAgentCredentialList({
                 <div className="min-w-0 w-full flex-1 space-y-2 sm:w-auto">
                   <div className="flex flex-wrap items-center gap-2">
                     <h4 className="min-w-0 break-all text-sm font-semibold">{credential.label}</h4>
+                    <AgentCredentialDescriptiveLabels labels={credential.descriptiveLabels} />
                     <Badge variant="outline" className={STATUS_TONES[credential.status]}>
                       {formatAgentCredentialStatus(credential.status)}
                     </Badge>
@@ -165,6 +171,15 @@ export function ProjectAgentCredentialList({
                   </Button>
                 </div>
               </div>
+              {onUpdateCredentialLabels ? (
+                <AgentCredentialLabelEditor
+                  credentialId={credential.id}
+                  name={credential.label}
+                  labels={credential.descriptiveLabels}
+                  disabled={mutatingCredentialId !== null}
+                  onSave={(labels) => onUpdateCredentialLabels(credential, labels)}
+                />
+              ) : null}
               <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
                 <p>Last used: {formatTimestamp(credential.lastUsedAt)}</p>
                 <p>Expires: {formatTimestamp(credential.expiresAt)}</p>

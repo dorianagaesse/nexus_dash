@@ -23,6 +23,7 @@ import {
   buildAgentDocumentationUrls,
   buildAgentProjectEnvBlock,
 } from "@/lib/agent-onboarding";
+import { AGENT_DESCRIPTIVE_LABELS_HINT, parseAgentCredentialDescriptiveLabelsDraft } from "@/lib/agent-credential-labels";
 import { ProjectAgentCredentialList } from "./project-agent-credential-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import {
 
 interface CreateProjectAgentCredentialInput {
   label: string;
+  descriptiveLabels: string[];
   scopes: AgentScope[];
   expiresInDays: number | null;
 }
@@ -55,6 +57,7 @@ interface ProjectDashboardOwnerAgentAccessPanelProps {
     mode: "created" | "rotated";
   }) | null;
   onCreateCredential: (input: CreateProjectAgentCredentialInput) => void;
+  onUpdateCredentialLabels?: (credential: ProjectAgentCredentialSummary, labels: string[]) => Promise<boolean>;
   onRotateCredential: (credential: ProjectAgentCredentialSummary) => void;
   onRevokeCredential: (credential: ProjectAgentCredentialSummary) => void;
   onDismissLatestSecret: () => void;
@@ -94,11 +97,13 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   mutatingCredentialId,
   latestIssuedSecret,
   onCreateCredential,
+  onUpdateCredentialLabels,
   onRotateCredential,
   onRevokeCredential,
   onDismissLatestSecret,
 }: ProjectDashboardOwnerAgentAccessPanelProps) {
   const [labelDraft, setLabelDraft] = useState("");
+  const [descriptiveLabelsDraft, setDescriptiveLabelsDraft] = useState("");
   const [expiryDraft, setExpiryDraft] = useState<(typeof EXPIRY_OPTIONS)[number]["value"]>("");
   const [selectedScopes, setSelectedScopes] = useState<AgentScope[]>(() => {
     const defaultPreset = resolveAgentCredentialPreset(
@@ -133,6 +138,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
     issuedSecretInputRef.current?.focus();
     if (latestIssuedSecret.mode === "created") {
       setLabelDraft("");
+      setDescriptiveLabelsDraft("");
       setExpiryDraft("");
       const defaultPreset = resolveAgentCredentialPreset(
         DEFAULT_AGENT_CREDENTIAL_PRESET_ID
@@ -199,6 +205,12 @@ export function ProjectDashboardOwnerAgentAccessPanel({
       return;
     }
 
+    const descriptiveLabels = parseAgentCredentialDescriptiveLabelsDraft(descriptiveLabelsDraft);
+    if (!descriptiveLabels) {
+      setFormError(AGENT_DESCRIPTIVE_LABELS_HINT + " Labels must be non-empty text.");
+      return;
+    }
+
     if (selectedScopes.length === 0) {
       setFormError("Select at least one scope before creating a credential.");
       return;
@@ -209,6 +221,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
     setFormError(null);
     onCreateCredential({
       label,
+      descriptiveLabels,
       scopes: selectedScopes,
       expiresInDays,
     });
@@ -323,6 +336,9 @@ export function ProjectDashboardOwnerAgentAccessPanel({
             <KeyRound className="h-4 w-4" /> New credential
           </Button>
         </div>
+        {actionError?.action === "labels" ? (
+          <p role="alert" aria-label="Credential labels error" className="text-sm text-destructive">{actionError.message}</p>
+        ) : null}
         {actionError?.action === "rotate" ? (
           <p role="alert" aria-label="Credential rotation error" className="text-sm text-destructive">{actionError.message}</p>
         ) : null}
@@ -336,6 +352,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
           <ProjectAgentCredentialList
             credentials={accessSummary.credentials}
             mutatingCredentialId={mutatingCredentialId}
+            onUpdateCredentialLabels={onUpdateCredentialLabels}
             onRotateCredential={onRotateCredential}
             onRevokeCredential={onRevokeCredential}
           />
@@ -425,6 +442,15 @@ export function ProjectDashboardOwnerAgentAccessPanel({
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="min-w-0 space-y-2">
+            <label htmlFor="project-agent-descriptive-labels" className="block text-sm font-medium">Descriptive labels (optional)</label>
+            <input id="project-agent-descriptive-labels" value={descriptiveLabelsDraft}
+              onChange={(event) => { setDescriptiveLabelsDraft(event.target.value); setFormError(null); }}
+              placeholder="GPT-6, Codex" aria-describedby="project-agent-descriptive-labels-hint"
+              className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm" />
+            <p id="project-agent-descriptive-labels-hint" className="text-xs text-muted-foreground">{AGENT_DESCRIPTIVE_LABELS_HINT}</p>
           </div>
 
           <div className="space-y-3">
