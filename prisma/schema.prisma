@@ -218,7 +218,6 @@ model Project {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  agentCanMoveTasksToDone Boolean @default(false)
 
   owner              User                       @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   tasks              Task[]
@@ -939,6 +938,7 @@ enum AuthAuditAction {
   credential_created
   credential_rotated
   credential_revoked
+  credential_capabilities_updated
   token_exchanged
   token_exchange_failed
   request_used
@@ -953,20 +953,21 @@ enum AuthRateLimitScope {
 }
 
 model ApiCredential {
-  id              String    @id @default(cuid())
-  projectId       String
-  createdByUserId String
-  revokedByUserId String?
-  label           String    @db.VarChar(80)
-  publicId        String    @unique @db.VarChar(64)
-  secretHash      String
-  expiresAt       DateTime?
-  lastUsedAt      DateTime?
-  lastExchangedAt DateTime?
-  lastRotatedAt   DateTime?
-  revokedAt       DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  canMoveTasksToDone Boolean   @default(false)
+  id                 String    @id @default(cuid())
+  projectId          String
+  createdByUserId    String
+  revokedByUserId    String?
+  label              String    @db.VarChar(80)
+  publicId           String    @unique @db.VarChar(64)
+  secretHash         String
+  expiresAt          DateTime?
+  lastUsedAt         DateTime?
+  lastExchangedAt    DateTime?
+  lastRotatedAt      DateTime?
+  revokedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   project                             Project                                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdByUser                       User                                     @relation("ApiCredentialCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)

@@ -10916,6 +10916,52 @@ Low-value entries to avoid going forward:
 - Rechecked the static runtime import graph from Task/project facades, Task contracts, and Kanban: 132 local modules, no cycles involving the reviewed Task seams. Pilot guidance records current ND-545 measurement evidence and the existing unpublished-attachment exclusion. Meeting Notes contract work remains the bounded next application after user review and merge.
 - Required validation and the detailed review response are recorded on #654. Leave the PR unmerged for the user; later tasks remain parked. Retarget/reconcile #655 when ND-546 is user-merged; #650 remains parked until its turn.
 
+## 2026-11-05 - ND-654: Per-credential Done-move permission
+
+- Replaced the project-wide Done-move toggle with the independently persisted
+  `ApiCredential.canMoveTasksToDone` flag and an owner-session-only PATCH on each
+  credential. Sharing > Agent access exposes the permission on each credential;
+  changes affect existing bearer tokens immediately.
+- Single-task, bulk-status, and board-reorder transitions use the calling
+  credential's live permission while retaining task-write, project access,
+  expiry, and revocation checks. Denied transitions retain
+  `agent-done-move-disabled` and make no task changes.
+- Migration removes the old Project column and defaults all existing and new
+  credentials to false, including projects with the old toggle enabled. Owners
+  must explicitly re-enable selected credentials. Documented this policy in
+  README, hosted agent guidance, and the architecture decision log.
+- Validation on Node 24.22.1 with local PostgreSQL 16: lint, RLS inventory,
+  PostgreSQL role setup/isolation matrix (including actual migration/default
+  regression), unit/API tests (2,315 passed, 3 skipped), coverage thresholds
+  (95.33% lines, 88.11% branches), production build, version policy, and diff
+  checks passed. Focused browser tests passed (2/2).
+- Full `npm run test:e2e`: 125 passed, 2 skipped, 1 failed. The unrelated
+  ND-433 recovery test expects `Meeting title is required.` after outside-click
+  dismissal (`tests/e2e/nd-433-long-form-recovery.spec.ts:75`). Reproduced the
+  same assertion failure on untouched `origin/main` at
+  `697eab2613d2885c03d5efd85e0bbf5c2340cba2` in a separate worktree, database,
+  and server with `CI=true NODE_ENV=test npx playwright test
+  tests/e2e/nd-433-long-form-recovery.spec.ts --grep 'task drafts recover'`.
+  ND-654 and critical smoke tests passed in the full run.
+
+### 2026-11-05 - ND-654 review: inherited credentials and capability audit
+
+- Fixed the real ownership-transfer failure: credential UPDATE authorization now
+  follows the current project owner, while a trigger keeps the original creator
+  and project immutable and validates changes to revoker attribution. Historical
+  revoker values can remain attached to inherited credentials.
+- Added a real PostgreSQL runtime-role regression for both transfer choices
+  (previous owner stays/leaves), grant/removal, unrelated and foreign credentials,
+  immutable attribution, and denied former-owner administration/request usage.
+- Capability updates now commit with a `credential_capabilities_updated` audit
+  event containing the human actor, credential, boolean value, and request
+  metadata. The owner panel refreshes the audit feed after saving.
+- Verified the HTTP path with a production build served using the non-superuser,
+  NOBYPASSRLS runtime role and separate admin-only test fixtures: all three
+  ND-654 browser tests passed, including transfers in both modes and audit data.
+  Lint, RLS inventory, PostgreSQL setup/isolation matrix, 2,315 unit/API tests
+  (3 skipped), coverage thresholds (95.33% lines / 88.11% branches), and build
+  passed. Normalized the affected Prisma model's formatting.
 
 ## 2026-11-05 - User-selected agent credentials
 
@@ -10924,3 +10970,13 @@ Low-value entries to avoid going forward:
   mappings and fixed credential filenames. Missing credentials stop API work;
   runtime token exchange and secret-handling rules remain in place.
 - Documentation validation: `git diff --check` and link/reference review passed.
+
+### 2026-11-05 - ND-654: reconcile PR #658 with main
+
+- Merged `origin/main` at `852480e` into the task branch. Resolved the appended
+  journal entries by retaining both ND-654 execution history and the user-selected
+  credential documentation entry. Retained main's AGENTS.md and workflow updates.
+- This merge changes documentation only relative to the previously validated task
+  commit `4617dce`; application code and migrations are unchanged. Validation:
+  `git diff --check`, reference review, and release version policy passed. The prior
+  Quality Gates run `42047520646` passed all jobs on `4617dce`.

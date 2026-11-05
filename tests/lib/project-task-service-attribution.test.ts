@@ -536,7 +536,7 @@ describe("agent Done-move policy", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     prismaMock.project.findFirst.mockResolvedValue({ ownerId: "owner-1", memberships: [] });
-    prismaMock.project.findUnique.mockResolvedValue({ agentCanMoveTasksToDone: false });
+    prismaMock.apiCredential.findFirst.mockResolvedValue({ canMoveTasksToDone: false });
   });
   test("rejects a single Done move before changing tasks or project activity", async () => {
     prismaMock.task.findUnique.mockResolvedValue({ id: "task-1", projectId: "project-1", status: "Backlog" });
@@ -557,4 +557,18 @@ describe("agent Done-move policy", () => {
     expect(prismaMock.task.update).not.toHaveBeenCalled();
     expect(prismaMock.project.update).not.toHaveBeenCalled();
   });
+  test("Done permission cannot bypass task:write or project binding", async () => {
+    prismaMock.apiCredential.findFirst.mockResolvedValue({ canMoveTasksToDone: true });
+    const noWrite = await moveTaskStatusForProject("project-1", "task-1", { status: "Done" }, "owner-1", {
+      ...agentAccess, scopes: ["task:read"],
+    });
+    expect(noWrite).toMatchObject({ ok: false, status: 403 });
+    const foreign = await moveTaskStatusForProject("project-2", "task-1", { status: "Done" }, "owner-1", {
+      ...agentAccess, scopes: ["task:write"],
+    });
+    expect(foreign).toMatchObject({ ok: false, status: 404 });
+    expect(prismaMock.apiCredential.findFirst).not.toHaveBeenCalled();
+    expect(prismaMock.task.update).not.toHaveBeenCalled();
+  });
+
 });

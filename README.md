@@ -113,16 +113,26 @@ Open `http://localhost:3000`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
-- Project owners can enable **Allow agents to move tasks to Done** in project
-  settings > Agent access. It defaults to off for new and existing projects and
-  applies to every credential in that project. Denied single-task and
-  board-reorder moves return `403` with `agent-done-move-disabled`; bulk status
-  operations report the same error per operation. Denied board reorders make
-  no task changes. Human moves and reordering tasks already in
-  Done are unaffected. Changes apply to existing bearer tokens immediately.
-- Owner sessions read the setting through `GET /api/projects/{projectId}/agent-access`
-  and update it with `PATCH` and `{ "agentCanMoveTasksToDone": true|false }`.
-  Agents cannot change this setting.
+- In Sharing > Agent access, owners can enable **Allow moves to Done** separately
+  on each credential. Task Write is still required. New and existing credentials
+  default to off, including credentials in projects where the retired project-wide
+  toggle was on: owners must explicitly grant the permission again after migration.
+- Denied single-task and board-reorder moves return `403` with
+  `agent-done-move-disabled`; bulk status operations report that error per
+  operation. Denied board reorders make no task changes. Human moves and
+  reordering tasks already in Done are unaffected. Permission changes apply to
+  existing bearer tokens immediately and never affect other credentials.
+- Owner sessions read credential permissions through
+  `GET /api/projects/{projectId}/agent-access` and update one with
+  `PATCH /api/projects/{projectId}/agent-access/{credentialId}` and
+  `{ "canMoveTasksToDone": true|false }`. The project-wide PATCH endpoint is
+  retired. Agents cannot change these settings. Permission changes are recorded
+  in the credential audit trail with the human actor, credential, granted value,
+  and request metadata, in the same transaction as the update.
+- After project ownership transfer, the new owner can manage inherited credential
+  permissions without rewriting their creator attribution. The previous owner's
+  agents remain subject to the existing ownership guard; issue replacement
+  credentials under the new owner to restore agent access.
 
 Calendar creation and edits use explicit Save; recovery drafts never write to
 Google on a timer. Calendar edit PATCH requests require `expectedEtag` containing
