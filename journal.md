@@ -14,9 +14,23 @@ Use it for important implementation milestones, blockers, validation runs, and r
   revocation, project-wide capabilities, bearer authorization, failure recovery,
   keyboard details, and mobile geometry. Authentication fixtures now follow
   `PORT` so local tests can use an isolated server beside another running app.
-- Local lint, RLS inventory, 2,311 unit/API tests (3 skipped), coverage gates,
-  production build, and the targeted browser flow passed. Full-suite and branch
-  Preview validation are in progress.
+- On Node 24.22.1 and isolated native PostgreSQL 16, lint, RLS inventory,
+  2,311 unit/API tests (3 skipped), coverage gates (95.33% lines), and production
+  build passed. The full Chromium suite finished with 127 passed, 2 skipped,
+  and one failure at `nd-433-long-form-recovery.spec.ts:75` waiting for
+  “Meeting title is required.” The identical failure reproduced on unchanged
+  `main` (`697eab2`) in a fresh detached worktree.
+- Preview [run 42033942104](https://github.com/dorianagaesse/nexus_dash/actions/runs/42033942104)
+  passed. Its logs show checkout of `feature/nd-655-agent-access-list` at
+  `8bb16ff55f0e0aba7e5f7cccd423d2c6be7a16d7`; readiness confirms Preview,
+  that revision, and database health. Both ND-655 browser checks passed on the
+  [immutable deployment](https://nexus-dash-3mbzfaahp-dorian-agaesses-projects.vercel.app),
+  including desktop/mobile geometry and lifecycle authorization. CI core
+  checks and tenant isolation also passed on that implementation commit.
+- [PR #660](https://github.com/dorianagaesse/nexus_dash/pull/660) is open for
+  the user's agent review. Moved execution into a dedicated worktree after
+  another session switched the shared checkout; restored local `main` and
+  canceled the initial old-head preview dispatch before redeploying.
 - Recorded the pre-existing same-second rotation/token timestamp issue as
   ND-657, linked to ND-655. The browser check re-exchanges across that boundary;
   this UI change does not alter token invalidation.
