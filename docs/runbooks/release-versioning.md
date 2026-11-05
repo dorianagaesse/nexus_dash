@@ -59,6 +59,37 @@ Keep pre-1.0 `0.x.y` until the first stable product baseline.
 - **Hotfix**: merge the fix PR to `main` like any other product PR (no version
   change), then prepare an immediate patch release.
 
+The patch component is useful before `1.0.0`: for example, two fix-only
+releases after `0.73.0` become `0.73.1` and `0.73.2`. A subsequent capability
+release becomes `0.74.0`, resetting patch to zero. A mixed release containing
+both capabilities and fixes uses minor. Do not select minor merely because
+several fixes accumulated.
+
+Every new release section must record its decision as unindented, case-sensitive
+lines, each exactly once:
+
+```markdown
+## v0.73.1 - 2026-11-05
+
+Release impact: patch
+Release rationale: Fix stale Epic summaries without adding capabilities.
+
+- Reconcile Epic counts and progress after task changes.
+```
+
+Use `Release impact: minor` for capabilities or mixed releases, or `major`
+for a major release. The rationale must explain the chosen impact. CI enforces
+the exact next patch, minor, or major step from the base version; skipped
+versions and a nonzero patch on a minor bump fail. CI validates the declared
+decision, not the meaning of prose or branch-name keywords. The maintainer
+must review the release contents and classification. Historical changelog
+sections do not need these fields.
+
+For the first stable baseline, the maintainer must also explicitly approve
+`1.0.0` and record `Stable baseline approved: yes` in that release section.
+This field records the decision; the helper and CI cannot grant approval.
+It is not allowed on other releases. See the readiness checklist below.
+
 ## Parallel PRs and In-Flight Work
 
 - Product PRs never change `package.json` / `package-lock.json`, so they can
@@ -79,7 +110,8 @@ Keep pre-1.0 `0.x.y` until the first stable product baseline.
    git switch -c chore/release-v0.74.0 origin/main
    ```
 
-2. Select the version with the helper (dry-run first):
+2. Review the merged release contents and select the impact using the rules
+   above. Select the version with the helper (dry-run first):
 
    ```bash
    npm run release:version -- minor --dry-run
@@ -88,11 +120,17 @@ Keep pre-1.0 `0.x.y` until the first stable product baseline.
 
    Accepts `minor`, `patch`, `major`, or an explicit version such as `0.74.0`.
    The helper updates `package.json` and `package-lock.json` together and
-   refuses to run if they disagree.
+   refuses to run if they disagree. For fix-only releases, use
+   `npm run release:version -- patch`; do not default to minor. Explicit
+   versions must still satisfy the exact step enforced by CI.
 
 3. Compose the release entry in `CHANGELOG.md`: a `## v0.74.0 - <date>`
    section with at least one bullet describing what the release contains,
-   written from the merged PRs since the previous tag.
+   written from the merged PRs since the previous tag. Include
+   `Release impact: minor` and a nonempty `Release rationale:` explaining the
+   capability that warrants minor (or the corresponding patch/major decision).
+   The helper prints the required fields as a reminder; write the actual
+   rationale yourself.
 
 4. Optional: add `docs/releases/v0.74.0.md` when the release needs more detail
    than a changelog entry.
@@ -125,7 +163,10 @@ Keep pre-1.0 `0.x.y` until the first stable product baseline.
     exactly the claimed version
   - the version must be greater than the current `main` version
   - `CHANGELOG.md` must contain a matching `## vX.Y.Z` section with at least
-    one entry bullet
+    one entry bullet, exactly one valid `Release impact:` and one nonempty
+    `Release rationale:`; duplicate matching sections fail
+  - the claimed version must be the exact next step for the declared impact;
+    pre-1.0 major requires `Stable baseline approved: yes`
   - the changed-file set must stay inside the metadata-only allowlist
 - Dependabot PRs follow the same no-bump rule automatically: dependency
   updates never move the product version, and the auto-merge lanes keep
@@ -195,7 +236,9 @@ Move to `1.0.0` when the team is ready to preserve the core product contract:
   accepted as post-1.0 migration work.
 
 Prepare `1.0.0` as a normal release-preparation PR
-(`chore/release-v1.0.0`, `npm run release:version -- 1.0.0`).
+(`chore/release-v1.0.0`, `npm run release:version -- 1.0.0`). Record
+`Release impact: major`, the readiness rationale, and the maintainer's
+`Stable baseline approved: yes` decision in the changelog section.
 
 ## Historical Reconciliations
 

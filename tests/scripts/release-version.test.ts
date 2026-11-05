@@ -60,6 +60,8 @@ describe("release version helper", { timeout: 30_000 }, () => {
     const result = runReleaseVersion(cwd, ["patch"]);
 
     expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Release impact: patch");
+    expect(result.stdout).toContain("Release rationale:");
     expect(readVersions(cwd)).toEqual({
       packageJson: "0.73.1",
       lock: "0.73.1",
@@ -74,6 +76,8 @@ describe("release version helper", { timeout: 30_000 }, () => {
     const result = runReleaseVersion(cwd, ["major"]);
 
     expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Only after the maintainer approves");
+    expect(result.stdout).toContain("Stable baseline approved: yes");
     expect(readVersions(cwd)).toEqual({
       packageJson: "1.0.0",
       lock: "1.0.0",
