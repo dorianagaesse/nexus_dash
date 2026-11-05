@@ -10973,3 +10973,16 @@ Low-value entries to avoid going forward:
   across ND-655, ND-656 and active-agent pickers, including creation/edit/removal,
   375px geometry with maximum-length labels, historical comment reloads, real
   owner/editor sessions, bearer-only denial and cross-project rejection.
+- Preview [run 42039347200](https://github.com/dorianagaesse/nexus_dash/actions/runs/42039347200)
+  passed and applied the additive migration. Checkout logs verify
+  `feature/nd-656-agent-descriptive-labels` at
+  `dc706aa87a4838cffaa3e708260a00658c57367e`; readiness confirms Preview,
+  revision `dc706aa`, and database health on the
+  [immutable deployment](https://nexus-dash-56bpp4yy9-dorian-agaesses-projects.vercel.app).
+  All four ND-655/ND-656 Chromium checks passed against that deployment.
+  Preview fixtures used the matching project's admin session pooler, following
+  the existing TLS compatibility contract, and cleaned up their own records.
+- [PR #661](https://github.com/dorianagaesse/nexus_dash/pull/661) is open against
+  ND-655's branch for the user's agent review. The final follow-up changes only
+  test protection-header forwarding and this evidence; deployed runtime code
+  is unchanged. The task remains In Progress for the reviewer or merger.

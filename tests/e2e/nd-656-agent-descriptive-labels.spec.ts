@@ -123,6 +123,9 @@ test("metadata writes enforce owner sessions, project boundaries and validation"
   const owner = await playwright.request.newContext({
     baseURL: process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${process.env.PORT ?? 3000}`,
     storageState: await page.context().storageState(),
+    extraHTTPHeaders: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+      ? { "x-vercel-protection-bypass": process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+      : undefined,
   });
   let editorId: string | undefined;
   try {
