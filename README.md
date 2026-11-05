@@ -111,33 +111,44 @@ Open `http://localhost:3000`.
 - Session persistence is database-backed (`Session` table) with HttpOnly cookie handling.
 - Logout endpoint: `POST /api/auth/logout`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
-- In **Share project > Agent access**, credentials appear first with their name,
-  status, capabilities, last use, and expiry. Search by name (ignoring case and
-  surrounding spaces), then combine **Status** and **Capability** filters to
-  narrow the list. **Clear filters** restores the full list. A capability filter
-  matches credentials granted that scope, including expired or revoked entries
-  when the status filter allows them.
-- Use **New credential** to jump to creation and choose scopes and expiry.
-  Expand **Credential details** for public ID, creation, exchange, rotation, and
-  revocation dates. **Rotate key** replaces an active credential's secret after
-  confirmation; **Revoke** opens the existing responsibility review before
-  access is removed. Copy newly issued keys immediately; they are shown once.
-  Project-wide capability changes save immediately and apply to every credential.
-  Loading failures offer **Retry loading credentials**. If creation, rotation,
-  or a capability change fails, its message appears beside that action; retry
-  the same action after checking the message. Failed creation preserves input.
+- **Share project > Agent access** opens a credential directory with agent
+  counts, readable access summaries, status, last use, expiry, and a separate
+  task-completion switch for each agent. Search by name (ignoring case and
+  surrounding spaces). Open **Filters** to combine status and capability,
+  including **Complete tasks**; **Clear filters** restores the full directory.
+- **New credential** opens a focused form for the agent name, expiry, and access
+  preset. Expand **Customize permissions** for individual scopes. The API key
+  appears in its own one-time dialog after creation; copy the key or the complete
+  environment setup before hiding it.
+- **Manage** opens one agent's permissions, lifecycle dates, and public ID.
+  **Rotate key** replaces an active key after confirmation. **Revoke access**
+  opens the responsibility review. Completion changes save immediately for only
+  that credential. Loading failures offer **Retry loading credentials**; action
+  errors appear in their relevant flow and failed creation preserves input.
+- **Activity** shows recent credential changes and usage. **Setup guide** contains
+  connection steps, hosted documentation, and the optional environment block.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
-- Project owners can enable **Allow agents to move tasks to Done** in project
-  settings > Agent access. It defaults to off for new and existing projects and
-  applies to every credential in that project. Denied single-task and
-  board-reorder moves return `403` with `agent-done-move-disabled`; bulk status
-  operations report the same error per operation. Denied board reorders make
-  no task changes. Human moves and reordering tasks already in
-  Done are unaffected. Changes apply to existing bearer tokens immediately.
-- Owner sessions read the setting through `GET /api/projects/{projectId}/agent-access`
-  and update it with `PATCH` and `{ "agentCanMoveTasksToDone": true|false }`.
-  Agents cannot change this setting.
+- In Sharing > Agent access, owners can enable **Task completion** separately
+  on each credential. Task Write is still required. New and existing credentials
+  default to off, including credentials in projects where the retired project-wide
+  toggle was on: owners must explicitly grant the permission again after migration.
+- Denied single-task and board-reorder moves return `403` with
+  `agent-done-move-disabled`; bulk status operations report that error per
+  operation. Denied board reorders make no task changes. Human moves and
+  reordering tasks already in Done are unaffected. Permission changes apply to
+  existing bearer tokens immediately and never affect other credentials.
+- Owner sessions read credential permissions through
+  `GET /api/projects/{projectId}/agent-access` and update one with
+  `PATCH /api/projects/{projectId}/agent-access/{credentialId}` and
+  `{ "canMoveTasksToDone": true|false }`. The project-wide PATCH endpoint is
+  retired. Agents cannot change these settings. Permission changes are recorded
+  in the credential audit trail with the human actor, credential, granted value,
+  and request metadata, in the same transaction as the update.
+- After project ownership transfer, the new owner can manage inherited credential
+  permissions without rewriting their creator attribution. The previous owner's
+  agents remain subject to the existing ownership guard; issue replacement
+  credentials under the new owner to restore agent access.
 
 Calendar creation and edits use explicit Save; recovery drafts never write to
 Google on a timer. Calendar edit PATCH requests require `expectedEtag` containing

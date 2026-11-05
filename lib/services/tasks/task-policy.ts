@@ -116,18 +116,23 @@ export async function validateEpicId(input: {
   };
 }
 
-// Read live project policy for each transition; existing bearer tokens do not cache it.
+// Read the calling credential live; existing bearer tokens do not cache this permission.
 export async function requireAgentDoneMoveCapability(
   db: DbClient,
   projectId: string,
   agentAccess?: AgentProjectAccessContext
 ): Promise<ServiceErrorResult | null> {
   if (!agentAccess) return null;
-  const project = await db.project.findUnique({
-    where: { id: projectId },
-    select: { agentCanMoveTasksToDone: true },
+  const credential = await db.apiCredential.findFirst({
+    where: {
+      id: agentAccess.credentialId,
+      projectId,
+      revokedAt: null,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    },
+    select: { canMoveTasksToDone: true },
   });
-  if (!project?.agentCanMoveTasksToDone) {
+  if (!credential?.canMoveTasksToDone) {
     return createError(403, "agent-done-move-disabled");
   }
   return null;

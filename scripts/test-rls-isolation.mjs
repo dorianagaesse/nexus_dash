@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import { readFileSync } from "node:fs";
 import process from "node:process";
 
 import pg from "pg";
@@ -470,6 +471,33 @@ try {
   assert.equal(role.rowCount, 1);
   assert.equal(role.rows[0].rolsuper, false);
   assert.equal(role.rows[0].rolbypassrls, false);
+
+  // Exercise the actual ND-654 migration against temporary tables that shadow
+  // the production names. Both old project-policy values must become deny-by-default.
+  await admin.query("BEGIN");
+  try {
+    await admin.query(`SET LOCAL search_path = pg_temp;
+      CREATE TEMP TABLE "Project" (id text, "agentCanMoveTasksToDone" boolean);
+      CREATE TEMP TABLE "ApiCredential" (id text, "projectId" text);
+      INSERT INTO "Project" VALUES ('enabled', true), ('disabled', false);
+      INSERT INTO "ApiCredential" VALUES ('trusted', 'enabled'), ('other', 'enabled'), ('denied', 'disabled');`);
+    await admin.query(readFileSync(new URL(
+      "../prisma/migrations/20261105140000_nd654_credential_done_permission/migration.sql", import.meta.url
+    ), "utf8"));
+    const migrated = await admin.query(`SELECT "canMoveTasksToDone" FROM "ApiCredential"`);
+    assert.deepEqual(migrated.rows.map((row) => row.canMoveTasksToDone), [false, false, false]);
+    await admin.query(`INSERT INTO "ApiCredential" (id, "projectId") VALUES ('new', 'enabled');
+      UPDATE "ApiCredential" SET "canMoveTasksToDone" = true WHERE id = 'trusted';`);
+    const permissions = await admin.query(`SELECT id, "canMoveTasksToDone" FROM "ApiCredential" ORDER BY id`);
+    assert.deepEqual(permissions.rows, [
+      { id: "denied", canMoveTasksToDone: false },
+      { id: "new", canMoveTasksToDone: false },
+      { id: "other", canMoveTasksToDone: false },
+      { id: "trusted", canMoveTasksToDone: true },
+    ]);
+  } finally {
+    await admin.query("ROLLBACK");
+  }
 
   await seed();
 
@@ -1485,6 +1513,67 @@ try {
   });
   assert.equal(ownershipTransfer.transfer.rows[0].result, "ok");
   assert.equal(ownershipTransfer.project.rows[0].ownerId, ids.editorB);
+
+  // ND-654: exercise the real credential policies under the least-privilege
+  // runtime role, including transfers where the original owner stays or leaves.
+  for (const previousOwnerLeaves of [false, true]) {
+    await runtimeTransaction(ids.ownerB, async () => {
+      // Preserve an earlier revoker too: editing a different capability must
+      // not require relabeling a historical revocation as the new owner's work.
+      await runtime.query(
+        `UPDATE "ApiCredential" SET "revokedAt" = now(), "revokedByUserId" = $1 WHERE id = $2`,
+        [ids.ownerB, ids.credentialB2]
+      );
+      const transfer = await runtime.query(
+        `SELECT app.transfer_project_ownership($1, $2, $3, $4) AS result`,
+        [ids.ownerB, ids.projectB, ids.editorB, previousOwnerLeaves]
+      );
+      assert.equal(transfer.rows[0].result, "ok");
+      await runtime.query("SELECT set_config('app.user_id', $1, true)", [ids.editorB]);
+      for (const allowed of [true, false]) {
+        const updated = await runtime.query(
+          `UPDATE "ApiCredential" SET "canMoveTasksToDone" = $1
+           WHERE id = $2 AND "projectId" = $3
+           RETURNING "createdByUserId", "canMoveTasksToDone"`,
+          [allowed, ids.credentialB, ids.projectB]
+        );
+        assert.deepEqual(updated.rows, [{ createdByUserId: ids.ownerB, canMoveTasksToDone: allowed }]);
+      }
+      const other = await runtime.query(
+        `SELECT "canMoveTasksToDone" FROM "ApiCredential" WHERE id = $1`, [ids.credentialB2]
+      );
+      assert.equal(other.rows[0].canMoveTasksToDone, false);
+      const historicalRevocation = await runtime.query(
+        `UPDATE "ApiCredential" SET "canMoveTasksToDone" = false WHERE id = $1 RETURNING "revokedByUserId"`,
+        [ids.credentialB2]
+      );
+      assert.deepEqual(historicalRevocation.rows, [{ revokedByUserId: ids.ownerB }]);
+      const crossProject = await runtime.query(
+        `UPDATE "ApiCredential" SET "canMoveTasksToDone" = true WHERE id = $1`, [ids.credentialA]
+      );
+      assert.equal(crossProject.rowCount, 0);
+      for (const column of ["createdByUserId", "projectId", "revokedByUserId"]) {
+        await runtime.query("SAVEPOINT credential_identity");
+        await expectRlsViolation(() => runtime.query(
+          `UPDATE "ApiCredential" SET "${column}" = $1 WHERE id = $2`,
+          [column === "projectId" ? ids.projectA : column === "revokedByUserId" ? ids.ownerA : ids.editorB, ids.credentialB]
+        ), `immutable credential ${column}`);
+        await runtime.query("ROLLBACK TO SAVEPOINT credential_identity");
+      }
+      await runtime.query("SELECT set_config('app.user_id', $1, true)", [ids.ownerB]);
+      const previousOwnerWrite = await runtime.query(
+        `UPDATE "ApiCredential" SET "canMoveTasksToDone" = true WHERE id = $1`, [ids.credentialB]
+      );
+      assert.equal(previousOwnerWrite.rowCount, 0);
+      // This is also the usage guard's live-credential write: historical bearer
+      // tokens stay unusable after transfer, even when the creator remains editor.
+      const historicalUsage = await runtime.query(
+        `UPDATE "ApiCredential" SET "lastUsedAt" = now()
+         WHERE id = $1 AND "createdByUserId" = $2`, [ids.credentialB, ids.ownerB]
+      );
+      assert.equal(historicalUsage.rowCount, 0);
+    });
+  }
 
   const ownershipState = await adminTransaction(ids.ownerB, async () => {
     const transfer = await admin.query(

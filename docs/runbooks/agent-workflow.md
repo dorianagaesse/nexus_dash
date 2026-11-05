@@ -34,27 +34,20 @@ that, even if an older brief or generated quickstart says otherwise.
 
 ## Agent credential setup
 
-The client-to-file mapping is in `AGENTS.md`. Create separate Nexus Dash
-project credentials labeled Codex, DeepSeek, and Gemini for the corresponding
-clients.
-Copy `.nd-nexus-dash.example.env` to each matching file under `.config/` and
-fill in the same project ID with that client's own API key. The directory is
-gitignored. The legacy `.config/.nd-nexus-dash.env` is not a fallback.
+Before accessing the Nexus Dash API, explicitly ask the user which credential
+to use, as required by `AGENTS.md`. Use only the credential they identify;
+do not select one based on the coding client, model, provider, or filename.
+If a local credential file is needed, copy `.nd-nexus-dash.example.env` to the
+user-selected location under the gitignored `.config/` directory and configure
+its project ID and API key.
 
-Codex loads the repository `AGENTS.md` at session start. Current Claude Code
-loads it when no project `CLAUDE.md` or `CLAUDE.local.md` takes precedence;
-check `/context` if unsure. This project's Claude Code setup runs DeepSeek,
-so it uses the DeepSeek file. If that setup changes provider, give it a new
-identity before using Nexus Dash. Gemini CLI loads `GEMINI.md`, which imports
-`AGENTS.md`; check `/memory show`. If a client does not load the mapping, fix
-its instruction setup before using Nexus Dash.
-
-For each client, confirm that its selected file has a project ID and its own
-API key without displaying the key. Exchange that key at
-`/api/auth/agent/token` for a short-lived bearer token at runtime. Make a
-small authorized Nexus Dash request, then check the credential label in the
-project's agent activity or audit view. A missing or empty file must stop
-Nexus Dash API work; do not try the legacy file or another client's key.
+Confirm that the selected credential has a project ID and API key without
+displaying the key. Exchange that key at `/api/auth/agent/token` for a
+short-lived bearer token at runtime. Make a small authorized Nexus Dash
+request, then check the credential label in the project's agent activity or
+audit view. If the user has not identified a credential, or it is missing,
+empty, or not configured, stop Nexus Dash API work and ask the user for the
+credential or setup needed. Never fall back to another credential.
 Never commit or print keys or tokens. These instructions guide selection but
 do not isolate secrets when clients can read the same filesystem.
 
