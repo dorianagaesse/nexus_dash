@@ -6,6 +6,7 @@ import {
   AGENT_ATTENTION_MAX_LIMIT,
   AGENT_ATTENTION_ORDERS,
 } from "@/lib/agent-attention";
+import { MAX_AGENT_DESCRIPTIVE_LABELS, MAX_AGENT_DESCRIPTIVE_LABEL_LENGTH } from "@/lib/agent-credential-labels";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
 import { EPIC_STATUSES } from "@/lib/epic";
 import { ROADMAP_STATUSES } from "@/lib/roadmap-milestone";
@@ -369,7 +370,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "List the chronological comment thread for one task.",
     requiredScopes: ["task:read"],
     notes: [
-      "Agent-authored comments include the credential label in author.displayName.",
+      "Agent-authored comments include the credential name in author.displayName and descriptive labels in author.agentCredentialDescriptiveLabels. Both are snapshots taken when the comment is posted and survive later credential changes or removal.",
     ],
   },
   {
@@ -2016,6 +2017,11 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             kind: { type: "string", enum: ["user", "agent"] },
             agentCredentialId: { type: ["string", "null"] },
             agentCredentialLabel: { type: ["string", "null"] },
+            agentCredentialDescriptiveLabels: {
+              type: "array", maxItems: MAX_AGENT_DESCRIPTIVE_LABELS,
+              items: { type: "string", maxLength: MAX_AGENT_DESCRIPTIVE_LABEL_LENGTH },
+              description: "Descriptive labels captured at posting; unchanged by edits or credential lifecycle changes. Empty for human authors and comments posted before this metadata existed.",
+            },
             owner: {
               anyOf: [
                 {

@@ -830,6 +830,7 @@ export function ProjectDashboardOwnerActions({
 
   const handleCreateAgentCredential = async (input: {
     label: string;
+    descriptiveLabels: string[];
     scopes: AgentScope[];
     expiresInDays: number | null;
   }) => {
@@ -879,6 +880,35 @@ export function ProjectDashboardOwnerActions({
       });
     } finally {
       setIsCreatingAgentCredential(false);
+    }
+  };
+
+  const handleUpdateAgentCredentialLabels = async (
+    credential: ProjectAgentCredentialSummary,
+    descriptiveLabels: string[]
+  ): Promise<boolean> => {
+    if (mutatingAgentCredentialId) return false;
+    setAgentAccessError(null);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/agent-access/${credential.id}/labels`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descriptiveLabels }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(mapAgentAccessError(payload.error));
+      setAgentAccessSummary((previous) => previous ? {
+        ...previous,
+        credentials: previous.credentials.map((entry) => entry.id === credential.id
+          ? { ...entry, descriptiveLabels: payload.credential.descriptiveLabels } : entry),
+      } : previous);
+      pushToast({ variant: "success", message: "Descriptive labels saved." });
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not save descriptive labels.";
+      setAgentAccessError(message);
+      pushToast({ variant: "error", message });
+      return false;
     }
   };
 
@@ -1304,6 +1334,7 @@ export function ProjectDashboardOwnerActions({
                       mutatingCredentialId={mutatingAgentCredentialId}
                       latestIssuedSecret={latestAgentCredentialSecret}
                       onCreateCredential={(input) => void handleCreateAgentCredential(input)}
+                      onUpdateCredentialLabels={handleUpdateAgentCredentialLabels}
                       onRotateCredential={(credential) =>
                         void handleRotateAgentCredential(credential)
                       }

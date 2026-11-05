@@ -38,7 +38,7 @@ Implemented today:
     Activity received during local saves reconciles afterward; comment uploads
     stay unpublished until their comment is posted
   - Task comments with agent-authored comment attribution through the project
-    credential label and a shared agent avatar
+    credential name, descriptive labels and a shared agent avatar
 - Per-user Google Calendar connection and calendar target setting (`/account/settings`)
 - Opening a task updates the browser URL; task modals offer **Copy link**.
   Shared links reopen that task after sign-in for people with project access.
@@ -148,6 +148,29 @@ fails through the ordinary Save error and keeps the input. Explicit Cancel
 abandons the edit; reopening then starts from the latest event. Outside click,
 Escape, and the close icon preserve recovery. Context cards follow the same
 invisible-recovery rule with atomic content revisions.
+
+### Agent descriptive labels
+
+Project owners can add optional descriptive labels (for example, `GPT-6` and
+`Codex`) when creating a credential in **Sharing → Agent access**, or use
+**Edit labels** on an existing credential. Enter comma-separated text: at most
+five labels, each 1–40 characters after trimming, with no commas or control
+characters inside a label. Duplicate labels are combined case-insensitively;
+leave the field empty to remove all labels. Names, task labels and permissions
+are separate.
+
+Owner-session credential creation accepts `descriptiveLabels: string[]`;
+`PATCH /api/projects/{projectId}/agent-access/{credentialId}/labels` replaces
+that array and returns the credential ID and saved labels. The owner-only
+Agent access summary includes `descriptiveLabels`; agent bearer tokens cannot
+manage this metadata. These responses never include stored secret hashes.
+
+Task comments snapshot the credential name and descriptive labels at posting.
+The comment API exposes the array as `author.agentCredentialDescriptiveLabels`;
+task readers see the labels beside the author name. Renaming, relabeling,
+rotation, revocation, deletion, or later comment edits preserve that snapshot.
+Comments posted before descriptive labels existed retain an empty array;
+metadata changes apply to future comments.
 
 ## Database and Migrations
 

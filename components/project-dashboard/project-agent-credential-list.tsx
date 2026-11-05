@@ -4,6 +4,8 @@ import { useState } from "react";
 import { RefreshCw, ShieldX } from "lucide-react";
 
 import { AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
+import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
+import { AgentCredentialLabelEditor } from "./agent-credential-label-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +16,7 @@ import {
 interface ProjectAgentCredentialListProps {
   credentials: ProjectAgentCredentialSummary[];
   mutatingCredentialId: string | null;
+  onUpdateCredentialLabels?: (credential: ProjectAgentCredentialSummary, labels: string[]) => Promise<boolean>;
   onRotateCredential: (credential: ProjectAgentCredentialSummary) => void;
   onRevokeCredential: (credential: ProjectAgentCredentialSummary) => void;
 }
@@ -31,6 +34,7 @@ function formatTimestamp(value: string | null): string {
 export function ProjectAgentCredentialList({
   credentials,
   mutatingCredentialId,
+  onUpdateCredentialLabels,
   onRotateCredential,
   onRevokeCredential,
 }: ProjectAgentCredentialListProps) {
@@ -114,6 +118,7 @@ export function ProjectAgentCredentialList({
                 <div className="min-w-0 w-full flex-1 space-y-2 sm:w-auto">
                   <div className="flex flex-wrap items-center gap-2">
                     <h4 className="min-w-0 break-all text-sm font-semibold">{credential.label}</h4>
+                    <AgentCredentialDescriptiveLabels labels={credential.descriptiveLabels} />
                     <Badge variant="outline" className={STATUS_TONES[credential.status]}>
                       {formatAgentCredentialStatus(credential.status)}
                     </Badge>
@@ -154,6 +159,15 @@ export function ProjectAgentCredentialList({
                   </Button>
                 </div>
               </div>
+              {onUpdateCredentialLabels ? (
+                <AgentCredentialLabelEditor
+                  credentialId={credential.id}
+                  name={credential.label}
+                  labels={credential.descriptiveLabels}
+                  disabled={mutatingCredentialId !== null}
+                  onSave={(labels) => onUpdateCredentialLabels(credential, labels)}
+                />
+              ) : null}
               <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
                 <p>Last used: {formatTimestamp(credential.lastUsedAt)}</p>
                 <p>Expires: {formatTimestamp(credential.expiresAt)}</p>

@@ -1264,3 +1264,17 @@ Keep UI-only or task-only notes in `journal.md`.
 - Consequences: Authorized agents can attach context files and create cards with
   links. Revocation/deletion preserves agent history without human misattribution;
   existing human rows and attachment authorization policies remain compatible.
+
+
+## 2026-11-05 - ND-656: Snapshot descriptive credential labels on comments
+
+- Status: Accepted; extends existing agent comment name snapshots.
+- Decision: Keep optional descriptive labels on `ApiCredential`, separate from
+  its name and scope grants. Copy the labels into `TaskComment` at posting and
+  project them with the stored author name; comment edits preserve both.
+  Owner-session services alone may administer credential metadata.
+- Consequences: Model information remains historically accurate after credential
+  rename, relabel, rotation, revocation or deletion. Existing comments keep an
+  empty label array rather than inheriting metadata added after posting. The
+  additive migration must precede the application deploy; token exchange and
+  authorization contracts remain unchanged.

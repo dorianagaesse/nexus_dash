@@ -432,12 +432,15 @@ describe("TaskDetailModal comments", () => {
           avatarSeed: "nexusdash-agent-comment-avatar",
           agentCredentialId: "credential-1",
           agentCredentialLabel: "Build bot",
+          agentCredentialDescriptiveLabels: ["GPT-6", "Codex"],
           owner: ownerSummary,
         },
       },
     ]);
 
     expect(document.body.textContent).toContain("Build bot (agent)");
+    expect(document.body.querySelector('[aria-label="Descriptive labels"]')?.textContent).toContain("GPT-6");
+    expect(document.body.querySelector('[aria-label="Descriptive labels"]')?.textContent).toContain("Codex");
     expect(document.body.textContent).toContain("via owner#0001");
     expect(
       document.body.querySelector("[aria-label='Task reference ND-42']")

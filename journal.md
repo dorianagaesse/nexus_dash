@@ -10947,3 +10947,23 @@ Low-value entries to avoid going forward:
 - Fixed nested Node imports with `node:**` and included exact bare Node built-ins so alternate import spellings cannot bypass the intended pure-helper boundary. Added real-ESLint regression checks for forbidden imports and allowed facades, server components, DTO types, pure helpers, and caller-scoped clients.
 - Rechecked the static runtime import graph from Task/project facades, Task contracts, and Kanban: 132 local modules, no cycles involving the reviewed Task seams. Pilot guidance records current ND-545 measurement evidence and the existing unpublished-attachment exclusion. Meeting Notes contract work remains the bounded next application after user review and merge.
 - Required validation and the detailed review response are recorded on #654. Leave the PR unmerged for the user; later tasks remain parked. Retarget/reconcile #655 when ND-546 is user-merged; #650 remains parked until its turn.
+
+
+# 2026-11-05 - ND-656: descriptive agent credential labels
+
+- Added owner-managed descriptive metadata with shared validation (five labels,
+  40 characters each), creation/edit/removal controls, credential-list badges
+  and task-comment badges. A dedicated metadata endpoint leaves credential
+  names, keys and scope grants independent.
+- Added an additive migration for credential metadata and comment snapshots.
+  Comment reads and edits retain posting-time attribution after credential
+  rename, relabel, revocation or deletion; older comments keep empty arrays.
+  Documented this behavior in README, the agent contract and ADR decisions.
+- Initial validation on Node 24.22.1: lint, RLS inventory, 2,338 unit/API/component
+  tests (three skipped), coverage thresholds (94.16% statements, 88.11% branches),
+  production build and the PostgreSQL tenant-isolation matrix passed. Local
+  PostgreSQL 16 validation used its own database on port 5656, with the Realtime
+  stub installed before migrations and the database timezone set to UTC.
+- The credential label lifecycle and active-agent picker Playwright checks
+  passed at 375px. Added real-session owner/editor, bearer-only and cross-project
+  API checks. ND-655 integration and final browser evidence follow below.
