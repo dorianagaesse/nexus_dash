@@ -10964,6 +10964,12 @@ Low-value entries to avoid going forward:
   production build and the PostgreSQL tenant-isolation matrix passed. Local
   PostgreSQL 16 validation used its own database on port 5656, with the Realtime
   stub installed before migrations and the database timezone set to UTC.
-- The credential label lifecycle and active-agent picker Playwright checks
-  passed at 375px. Added real-session owner/editor, bearer-only and cross-project
-  API checks. ND-655 integration and final browser evidence follow below.
+- Rebased onto ND-655 branch `0fc376a` and placed the label badges and editor
+  in its extracted credential list. The PR is stacked on that branch while
+  ND-655 is under review.
+- Integrated validation passed: lint, RLS inventory, 2,338 unit/API/component
+  tests (three skipped), unchanged coverage thresholds, production build and
+  the PostgreSQL tenant-isolation matrix. Five local Chromium checks passed
+  across ND-655, ND-656 and active-agent pickers, including creation/edit/removal,
+  375px geometry with maximum-length labels, historical comment reloads, real
+  owner/editor sessions, bearer-only denial and cross-project rejection.

@@ -121,7 +121,7 @@ test("metadata writes enforce owner sessions, project boundaries and validation"
   const other = await prisma.project.create({ data: { name: uniqueProjectName("nd656-other"), ownerId } });
   const prefix = `/api/projects/${project.id}/agent-access`;
   const owner = await playwright.request.newContext({
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${process.env.PORT ?? 3000}`,
     storageState: await page.context().storageState(),
   });
   let editorId: string | undefined;
