@@ -43,9 +43,18 @@ Use it for important implementation milestones, blockers, validation runs, and r
   timer-cancellation regression test. Added per-instance filter IDs, normalized
   active-filter detection, typed status state, ref-based creation focus, a named
   creation section, and consistent focus rings.
-- Follow-up lint, RLS inventory, 2,312 unit/API tests (3 skipped), and production
-  build passed. Coverage, full browser validation, and the refreshed branch
-  preview are being completed before the review handoff.
+- Review validation on `f261a295ce22ed7c28bcfb399fa4da1554387009`: lint,
+  RLS inventory, 2,312 unit/API tests (3 skipped), coverage gates (95.33% lines),
+  and production build passed. The full browser suite again finished with
+  127 passed, 2 skipped, and the same baseline ND-433 failure at line 75.
+- Refreshed [Preview run 42043068568](https://github.com/dorianagaesse/nexus_dash/actions/runs/42043068568)
+  passed. Logs verify the branch checkout at `f261a29`, and readiness reports
+  that revision and environment `preview`. Both ND-655 browser flows passed
+  on the [review deployment](https://nexus-dash-qtylcvqun-dorian-agaesses-projects.vercel.app)
+  (17.2 s), including creation, rotation, and capability failure/retry checks.
+  CI core checks and tenant isolation passed on the same code commit.
+- Replied to and resolved all seven review threads on PR #660. The final
+  follow-up commit records evidence in this journal only.
 
 # 2026-10-30 - ND-541: define Tasks/Kanban domain boundary and migration seams
 
