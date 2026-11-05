@@ -123,6 +123,9 @@ Open `http://localhost:3000`.
   confirmation; **Revoke** opens the existing responsibility review before
   access is removed. Copy newly issued keys immediately; they are shown once.
   Project-wide capability changes save immediately and apply to every credential.
+  Loading failures offer **Retry loading credentials**. If creation, rotation,
+  or a capability change fails, its message appears beside that action; retry
+  the same action after checking the message. Failed creation preserves input.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
 - Project owners can enable **Allow agents to move tasks to Done** in project

@@ -111,6 +111,11 @@ export interface ProjectAgentAccessSummary {
   recentEvents: ProjectAgentAuditEventSummary[];
 }
 
+export interface ProjectAgentAccessActionError {
+  action: "create" | "rotate" | "capabilities";
+  message: string;
+}
+
 export interface ProjectAgentCredentialIssuedSecret {
   credential: ProjectAgentCredentialSummary;
   apiKey: string;

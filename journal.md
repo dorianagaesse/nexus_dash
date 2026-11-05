@@ -35,6 +35,18 @@ Use it for important implementation milestones, blockers, validation runs, and r
   ND-657, linked to ND-655. The browser check re-exchanges across that boundary;
   this UI change does not alter token invalidation.
 
+- Review follow-up: separated credential loading failures from create, rotate,
+  and capability-save errors. Loading owns the list retry; action errors appear
+  next to their controls and retain the existing toast feedback. Browser
+  regressions now cover each failure and retry path.
+- Result counts update immediately and announce after a 400 ms pause, with a
+  timer-cancellation regression test. Added per-instance filter IDs, normalized
+  active-filter detection, typed status state, ref-based creation focus, a named
+  creation section, and consistent focus rings.
+- Follow-up lint, RLS inventory, 2,312 unit/API tests (3 skipped), and production
+  build passed. Coverage, full browser validation, and the refreshed branch
+  preview are being completed before the review handoff.
+
 # 2026-10-30 - ND-541: define Tasks/Kanban domain boundary and migration seams
 
 - Authored `adr/nd-541-tasks-kanban-domain-boundary.md` and recorded the summary

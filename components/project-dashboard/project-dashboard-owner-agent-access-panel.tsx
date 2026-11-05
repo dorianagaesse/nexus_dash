@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   formatAgentAuditAction,
+  type ProjectAgentAccessActionError,
   type ProjectAgentAccessSummary,
   type ProjectAgentCredentialIssuedSecret,
   type ProjectAgentCredentialSummary,
@@ -43,7 +44,8 @@ interface ProjectDashboardOwnerAgentAccessPanelProps {
   projectId: string;
   accessSummary: ProjectAgentAccessSummary | null;
   isLoadingAccessSummary: boolean;
-  accessError: string | null;
+  accessLoadError: string | null;
+  actionError: ProjectAgentAccessActionError | null;
   onRefreshAccess: () => void;
   isSavingCapabilities: boolean;
   onUpdateCapabilities: (allowed: boolean) => void;
@@ -83,7 +85,8 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   projectId,
   accessSummary,
   isLoadingAccessSummary,
-  accessError,
+  accessLoadError,
+  actionError,
   onRefreshAccess,
   isSavingCapabilities,
   onUpdateCapabilities,
@@ -107,6 +110,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   const [hasCopiedSecret, setHasCopiedSecret] = useState(false);
   const [hasCopiedQuickstart, setHasCopiedQuickstart] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const labelInputRef = useRef<HTMLInputElement>(null);
   const issuedSecretInputRef = useRef<HTMLInputElement>(null);
   const [runtimeAppOrigin, setRuntimeAppOrigin] = useState(AGENT_BASE_URL_PLACEHOLDER);
 
@@ -239,9 +243,9 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   return (
     <div className="grid min-w-0 max-w-full gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
       {copyError ? <p role="alert" className="text-sm text-destructive xl:col-span-2">{copyError}</p> : null}
-      {accessError ? (
-        <div role="alert" className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive xl:col-span-2">
-          <p className="min-w-0 break-words">{accessError}</p>
+      {accessLoadError ? (
+        <div role="alert" aria-label="Credential loading error" className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive xl:col-span-2">
+          <p className="min-w-0 break-words">{accessLoadError}</p>
           <Button type="button" variant="outline" size="sm" disabled={isLoadingAccessSummary} onClick={onRefreshAccess}>
             Retry loading credentials
           </Button>
@@ -315,10 +319,13 @@ export function ProjectDashboardOwnerAgentAccessPanel({
             <h3 className="text-base font-semibold">Credentials</h3>
             <p className="text-sm text-muted-foreground">Find an agent, review its capabilities, or manage its API key.</p>
           </div>
-          <Button type="button" variant="outline" onClick={() => document.getElementById("project-agent-label")?.focus()}>
+          <Button type="button" variant="outline" onClick={() => labelInputRef.current?.focus()}>
             <KeyRound className="h-4 w-4" /> New credential
           </Button>
         </div>
+        {actionError?.action === "rotate" ? (
+          <p role="alert" aria-label="Credential rotation error" className="text-sm text-destructive">{actionError.message}</p>
+        ) : null}
         {isLoadingAccessSummary ? <p role="status" className="text-sm text-muted-foreground">{accessSummary ? "Refreshing credentials..." : "Loading credentials..."}</p> : null}
         {!isLoadingAccessSummary && accessSummary?.credentials.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
@@ -356,9 +363,12 @@ export function ProjectDashboardOwnerAgentAccessPanel({
             </span>
           </label>
           {isSavingCapabilities ? <p role="status" className="text-sm text-muted-foreground">Saving capabilities...</p> : null}
+          {actionError?.action === "capabilities" ? (
+            <p role="alert" aria-label="Agent capabilities error" className="text-sm text-destructive">{actionError.message}</p>
+          ) : null}
         </section>
 
-        <section className="min-w-0 space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
+        <section aria-labelledby="create-agent-credential" className="min-w-0 space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -383,6 +393,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
                 Credential label
               </label>
               <input
+                ref={labelInputRef}
                 id="project-agent-label"
                 value={labelDraft}
                 onChange={(event) => {
@@ -391,7 +402,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
                 }}
                 placeholder="Release bot"
                 maxLength={MAX_AGENT_CREDENTIAL_LABEL_LENGTH}
-                className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring"
+                className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
 
@@ -494,6 +505,9 @@ export function ProjectDashboardOwnerAgentAccessPanel({
             <div role="alert" className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {formError}
             </div>
+          ) : null}
+          {actionError?.action === "create" ? (
+            <p role="alert" aria-label="Credential creation error" className="text-sm text-destructive">{actionError.message}</p>
           ) : null}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
