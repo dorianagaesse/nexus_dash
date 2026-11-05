@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
+  $transaction: vi.fn(),
+  authAuditEvent: { create: vi.fn() },
   project: {
     findFirst: vi.fn(),
   },
@@ -14,7 +16,10 @@ vi.mock("@/lib/prisma", () => ({ prisma: db }));
 import { updateProjectAgentCredentialCapabilities } from "@/lib/services/project-agent-access-service";
 
 describe("project agent capability administration", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    db.$transaction.mockImplementation(async (callback: (tx: typeof db) => unknown) => callback(db));
+  });
 
   test.each(["editor", "viewer"])(
     "rejects %s members before writing",
@@ -33,6 +38,7 @@ describe("project agent capability administration", () => {
 
       expect(result).toEqual({ ok: false, status: 403, error: "forbidden" });
       expect(db.apiCredential.updateMany).not.toHaveBeenCalled();
+      expect(db.authAuditEvent.create).not.toHaveBeenCalled();
     }
   );
 
@@ -76,6 +82,14 @@ describe("project agent capability administration", () => {
         where: { id: "credential", projectId: "project" },
         data: { canMoveTasksToDone: allowed },
       });
+      expect(db.authAuditEvent.create).toHaveBeenCalledWith({
+        data: {
+          projectId: "project", credentialId: "credential", actorUserId: "owner",
+          actorKind: "human", action: "credential_capabilities_updated",
+          requestId: null, ipAddress: null, userAgent: null,
+          metadata: { canMoveTasksToDone: allowed },
+        },
+      });
     }
   );
   test("does not update a credential from another project", async () => {
@@ -85,6 +99,7 @@ describe("project agent capability administration", () => {
       actorUserId: "owner", projectId: "project", credentialId: "foreign", canMoveTasksToDone: true,
     });
     expect(result).toEqual({ ok: false, status: 404, error: "credential-not-found" });
+    expect(db.authAuditEvent.create).not.toHaveBeenCalled();
     expect(db.apiCredential.updateMany).toHaveBeenCalledWith({
       where: { id: "foreign", projectId: "project" }, data: { canMoveTasksToDone: true },
     });

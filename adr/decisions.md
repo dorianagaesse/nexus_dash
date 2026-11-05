@@ -1282,3 +1282,19 @@ Keep UI-only or task-only notes in `journal.md`.
   no permission is inferred from scopes or inherited from the project.
 - Consequences: Granting one credential cannot authorize another. Human moves,
   ordering tasks already in Done, and repository review requirements are unchanged.
+
+
+### ND-654 review follow-up: ownership transfers and audit
+
+- Credential administration follows the current project owner in both RLS
+  `USING` and `WITH CHECK`. An immutable-identity trigger preserves `projectId`
+  and `createdByUserId`; insert attribution and revoker checks remain enforced.
+  The new owner can grant or remove inherited credential permissions without
+  assigning historical credentials to themselves.
+- Agent identity and usage guards are unchanged: a credential issued by a former
+  owner cannot recover access merely through a completion grant. Owners issue
+  replacement credentials under their own identity when restoring agent access.
+- Every successful capability update and its `credential_capabilities_updated`
+  audit event commit together. Events record the actor, credential, new boolean
+  value, and request metadata. The owner panel refreshes the audit trail after
+  saving. Denied updates create no success event.

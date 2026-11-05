@@ -817,6 +817,7 @@ export function ProjectDashboardOwnerActions({
           entry.id === credential.id ? { ...entry, canMoveTasksToDone } : entry
         ) } : previous
       );
+      await loadAgentAccessSummary();
       pushToast({ variant: "success", message: "Agent capabilities saved." });
     } catch (error) {
       const message = error instanceof Error

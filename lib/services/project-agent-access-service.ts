@@ -1303,6 +1303,9 @@ export async function updateProjectAgentCredentialCapabilities(input: {
   projectId: string;
   credentialId: string;
   canMoveTasksToDone: boolean;
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
 }): Promise<ServiceResult<{ canMoveTasksToDone: boolean }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) return createError(401, "unauthorized");
@@ -1322,6 +1325,19 @@ export async function updateProjectAgentCredentialCapabilities(input: {
       data: { canMoveTasksToDone: input.canMoveTasksToDone },
     });
     if (result.count !== 1) return createError(404, "credential-not-found");
+    await db.authAuditEvent.create({
+      data: {
+        projectId: input.projectId,
+        credentialId: input.credentialId,
+        actorUserId,
+        actorKind: "human",
+        action: "credential_capabilities_updated",
+        requestId: normalizeTrimmedString(input.requestId ?? null),
+        ipAddress: normalizeBoundedString(input.ipAddress ?? null, MAX_IP_ADDRESS_LENGTH),
+        userAgent: normalizeBoundedString(input.userAgent ?? null, MAX_USER_AGENT_LENGTH),
+        metadata: { canMoveTasksToDone: input.canMoveTasksToDone },
+      },
+    });
     return createSuccess(200, { canMoveTasksToDone: input.canMoveTasksToDone });
-  });
+  }, { forceTransaction: true });
 }

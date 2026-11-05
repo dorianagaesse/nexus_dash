@@ -269,6 +269,8 @@ export function formatAgentAuditAction(action: AgentAuditAction): string {
       return "Credential created";
     case "credential_rotated":
       return "Credential rotated";
+    case "credential_capabilities_updated":
+      return "Credential capabilities updated";
     case "credential_revoked":
       return "Credential revoked";
     case "token_exchanged":

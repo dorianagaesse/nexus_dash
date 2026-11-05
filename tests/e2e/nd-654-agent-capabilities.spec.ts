@@ -4,7 +4,7 @@ import { createProjectFromProjectsPage, openNewestProjectDashboard, uniqueProjec
 import { prisma } from "../../lib/prisma";
 
 test("owner grants Done moves to one credential with immediate token enforcement", async ({ page }) => {
-  await signInAsVerifiedUser(page);
+  const ownerId = await signInAsVerifiedUser(page);
   const name = uniqueProjectName("nd654");
   await createProjectFromProjectsPage(page, name);
   await openNewestProjectDashboard(page, name);
@@ -62,6 +62,18 @@ test("owner grants Done moves to one credential with immediate token enforcement
   const summary = await (await page.request.get(`${root}/agent-access`)).json();
   const trusted = summary.credentials.find((entry: { label: string }) => entry.label === "Trusted bot");
   expect(trusted.canMoveTasksToDone).toBe(true);
+  expect(summary.recentEvents.some((event: { action: string; credentialId: string }) =>
+    event.action === "credential_capabilities_updated" && event.credentialId === trusted.id
+  )).toBe(true);
+  await expect(page.getByText("Credential capabilities updated", { exact: true })).toBeVisible();
+  const audit = await prisma.authAuditEvent.findFirstOrThrow({
+    where: { credentialId: trusted.id, action: "credential_capabilities_updated" },
+    orderBy: { createdAt: "desc" },
+  });
+  expect(audit.actorUserId).toBe(ownerId);
+  expect(audit.actorKind).toBe("human");
+  expect(audit.metadata).toEqual({ canMoveTasksToDone: true });
+  expect(audit.requestId).toBeTruthy();
   expect(summary.credentials.find((entry: { id: string }) => entry.id === other.credential.id).canMoveTasksToDone).toBe(false);
   expect(summary).not.toHaveProperty("agentCanMoveTasksToDone");
   expect((await page.request.post(path, { headers: otherHeaders, data: { status: "Done" } })).status()).toBe(403);
@@ -90,3 +102,56 @@ test("owner grants Done moves to one credential with immediate token enforcement
   await prisma.apiCredential.update({ where: { id: trusted.id }, data: { expiresAt: null, revokedAt: new Date() } });
   expect((await page.request.post(path, { headers, data: { status: "Done" } })).status()).toBe(401);
 });
+
+for (const previousOwnerLeaves of [false, true]) {
+  test(`new owner manages inherited credential permissions (previous owner leaves: ${previousOwnerLeaves})`, async ({ page, browser }, testInfo) => {
+    const previousOwnerId = await signInAsVerifiedUser(page);
+    const created = await page.request.post("/api/projects", { data: { name: uniqueProjectName("nd654-transfer") } });
+    expect(created.ok()).toBeTruthy();
+    const { project } = await created.json();
+    const root = `/api/projects/${project.id}`;
+    const issued = await page.request.post(`${root}/agent-access`, {
+      data: { label: "Inherited bot", scopes: ["task:read", "task:write"] },
+    });
+    expect(issued.ok()).toBeTruthy();
+    const { credential } = await issued.json();
+    const otherContext = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
+    try {
+      const newOwnerPage = await otherContext.newPage();
+      const newOwnerId = await signInAsVerifiedUser(newOwnerPage);
+      const membership = await prisma.projectMembership.create({
+        data: { projectId: project.id, userId: newOwnerId, role: "editor" },
+      });
+      const transferred = await page.request.post(`${root}/ownership/transfer`, {
+        data: { newOwnerMembershipId: membership.id, previousOwnerLeaves },
+      });
+      expect(transferred.ok(), await transferred.text()).toBeTruthy();
+      const capabilityPath = `${root}/agent-access/${credential.id}`;
+      const summary = await newOwnerPage.request.get(`${root}/agent-access`);
+      expect(summary.ok()).toBeTruthy();
+      expect((await summary.json()).credentials[0].id).toBe(credential.id);
+      for (const allowed of [true, false]) {
+        const update = await newOwnerPage.request.patch(capabilityPath, {
+          data: { canMoveTasksToDone: allowed },
+        });
+        expect(update.status(), await update.text()).toBe(200);
+        const saved = await prisma.apiCredential.findUniqueOrThrow({ where: { id: credential.id } });
+        expect(saved.canMoveTasksToDone).toBe(allowed);
+        expect(saved.createdByUserId).toBe(previousOwnerId);
+      }
+      const denied = await page.request.patch(capabilityPath, { data: { canMoveTasksToDone: true } });
+      expect([403, 404]).toContain(denied.status());
+      const events = await prisma.authAuditEvent.findMany({
+        where: { credentialId: credential.id, action: "credential_capabilities_updated" },
+        orderBy: { createdAt: "asc" },
+      });
+      expect(events.map((event) => event.actorUserId)).toEqual([newOwnerId, newOwnerId]);
+      expect(events.map((event) => event.metadata)).toEqual([
+        { canMoveTasksToDone: true }, { canMoveTasksToDone: false },
+      ]);
+    } finally {
+      await otherContext.close();
+      await prisma.project.delete({ where: { id: project.id } });
+    }
+  });
+}

@@ -336,6 +336,11 @@ describe("project agent access routes", () => {
 });
 
 describe("PATCH agent capabilities", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    apiGuardMock.resolveRequestId.mockReturnValue("request-123");
+    apiGuardMock.readClientIpAddress.mockReturnValue("198.51.100.42");
+  });
   test.each([null, {}, { canMoveTasksToDone: "true" }])("rejects invalid payload %j", async (data) => {
     apiGuardMock.requireAuthenticatedApiUser.mockResolvedValue({ ok: true, userId: "owner-1" });
     const response = await PATCH(new Request("http://localhost/api/projects/p/agent-access/c", {
@@ -350,7 +355,7 @@ describe("PATCH agent capabilities", () => {
       method: "PATCH", body: JSON.stringify({ canMoveTasksToDone: true }),
     }) as never, { params: Promise.resolve({ projectId: "p", credentialId: "c" }) });
     expect(response.status).toBe(403);
-    expect(projectAgentAccessServiceMock.updateProjectAgentCredentialCapabilities).toHaveBeenCalledWith({ actorUserId: "editor-1", projectId: "p", credentialId: "c", canMoveTasksToDone: true });
+    expect(projectAgentAccessServiceMock.updateProjectAgentCredentialCapabilities).toHaveBeenCalledWith({ actorUserId: "editor-1", projectId: "p", credentialId: "c", canMoveTasksToDone: true, requestId: "request-123", ipAddress: "198.51.100.42", userAgent: null });
   });
   test("returns the saved permission for the selected credential", async () => {
     apiGuardMock.requireAuthenticatedApiUser.mockResolvedValue({ ok: true, userId: "owner-1" });

@@ -10943,3 +10943,22 @@ Low-value entries to avoid going forward:
   and server with `CI=true NODE_ENV=test npx playwright test
   tests/e2e/nd-433-long-form-recovery.spec.ts --grep 'task drafts recover'`.
   ND-654 and critical smoke tests passed in the full run.
+
+### 2026-11-05 - ND-654 review: inherited credentials and capability audit
+
+- Fixed the real ownership-transfer failure: credential UPDATE authorization now
+  follows the current project owner, while a trigger keeps the original creator
+  and project immutable and validates changes to revoker attribution. Historical
+  revoker values can remain attached to inherited credentials.
+- Added a real PostgreSQL runtime-role regression for both transfer choices
+  (previous owner stays/leaves), grant/removal, unrelated and foreign credentials,
+  immutable attribution, and denied former-owner administration/request usage.
+- Capability updates now commit with a `credential_capabilities_updated` audit
+  event containing the human actor, credential, boolean value, and request
+  metadata. The owner panel refreshes the audit feed after saving.
+- Verified the HTTP path with a production build served using the non-superuser,
+  NOBYPASSRLS runtime role and separate admin-only test fixtures: all three
+  ND-654 browser tests passed, including transfers in both modes and audit data.
+  Lint, RLS inventory, PostgreSQL setup/isolation matrix, 2,315 unit/API tests
+  (3 skipped), coverage thresholds (95.33% lines / 88.11% branches), and build
+  passed. Normalized the affected Prisma model's formatting.

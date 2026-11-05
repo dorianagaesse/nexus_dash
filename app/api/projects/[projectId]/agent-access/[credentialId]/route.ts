@@ -70,6 +70,9 @@ export async function PATCH(
     projectId: params.projectId,
     credentialId: params.credentialId,
     canMoveTasksToDone: payload.canMoveTasksToDone,
+    requestId: resolveRequestId(request),
+    ipAddress: readClientIpAddress(request),
+    userAgent: request.headers.get("user-agent"),
   });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json(result.data);

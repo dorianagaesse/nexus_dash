@@ -19,6 +19,7 @@ export type AgentAuditAction =
   | "credential_created"
   | "credential_rotated"
   | "credential_revoked"
+  | "credential_capabilities_updated"
   | "token_exchanged"
   | "token_exchange_failed"
   | "request_used";

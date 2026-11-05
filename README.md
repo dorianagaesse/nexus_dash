@@ -126,7 +126,13 @@ Open `http://localhost:3000`.
   `GET /api/projects/{projectId}/agent-access` and update one with
   `PATCH /api/projects/{projectId}/agent-access/{credentialId}` and
   `{ "canMoveTasksToDone": true|false }`. The project-wide PATCH endpoint is
-  retired. Agents cannot change these settings.
+  retired. Agents cannot change these settings. Permission changes are recorded
+  in the credential audit trail with the human actor, credential, granted value,
+  and request metadata, in the same transaction as the update.
+- After project ownership transfer, the new owner can manage inherited credential
+  permissions without rewriting their creator attribution. The previous owner's
+  agents remain subject to the existing ownership guard; issue replacement
+  credentials under the new owner to restore agent access.
 
 Calendar creation and edits use explicit Save; recovery drafts never write to
 Google on a timer. Calendar edit PATCH requests require `expectedEtag` containing

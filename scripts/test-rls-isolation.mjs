@@ -1514,6 +1514,67 @@ try {
   assert.equal(ownershipTransfer.transfer.rows[0].result, "ok");
   assert.equal(ownershipTransfer.project.rows[0].ownerId, ids.editorB);
 
+  // ND-654: exercise the real credential policies under the least-privilege
+  // runtime role, including transfers where the original owner stays or leaves.
+  for (const previousOwnerLeaves of [false, true]) {
+    await runtimeTransaction(ids.ownerB, async () => {
+      // Preserve an earlier revoker too: editing a different capability must
+      // not require relabeling a historical revocation as the new owner's work.
+      await runtime.query(
+        `UPDATE "ApiCredential" SET "revokedAt" = now(), "revokedByUserId" = $1 WHERE id = $2`,
+        [ids.ownerB, ids.credentialB2]
+      );
+      const transfer = await runtime.query(
+        `SELECT app.transfer_project_ownership($1, $2, $3, $4) AS result`,
+        [ids.ownerB, ids.projectB, ids.editorB, previousOwnerLeaves]
+      );
+      assert.equal(transfer.rows[0].result, "ok");
+      await runtime.query("SELECT set_config('app.user_id', $1, true)", [ids.editorB]);
+      for (const allowed of [true, false]) {
+        const updated = await runtime.query(
+          `UPDATE "ApiCredential" SET "canMoveTasksToDone" = $1
+           WHERE id = $2 AND "projectId" = $3
+           RETURNING "createdByUserId", "canMoveTasksToDone"`,
+          [allowed, ids.credentialB, ids.projectB]
+        );
+        assert.deepEqual(updated.rows, [{ createdByUserId: ids.ownerB, canMoveTasksToDone: allowed }]);
+      }
+      const other = await runtime.query(
+        `SELECT "canMoveTasksToDone" FROM "ApiCredential" WHERE id = $1`, [ids.credentialB2]
+      );
+      assert.equal(other.rows[0].canMoveTasksToDone, false);
+      const historicalRevocation = await runtime.query(
+        `UPDATE "ApiCredential" SET "canMoveTasksToDone" = false WHERE id = $1 RETURNING "revokedByUserId"`,
+        [ids.credentialB2]
+      );
+      assert.deepEqual(historicalRevocation.rows, [{ revokedByUserId: ids.ownerB }]);
+      const crossProject = await runtime.query(
+        `UPDATE "ApiCredential" SET "canMoveTasksToDone" = true WHERE id = $1`, [ids.credentialA]
+      );
+      assert.equal(crossProject.rowCount, 0);
+      for (const column of ["createdByUserId", "projectId", "revokedByUserId"]) {
+        await runtime.query("SAVEPOINT credential_identity");
+        await expectRlsViolation(() => runtime.query(
+          `UPDATE "ApiCredential" SET "${column}" = $1 WHERE id = $2`,
+          [column === "projectId" ? ids.projectA : column === "revokedByUserId" ? ids.ownerA : ids.editorB, ids.credentialB]
+        ), `immutable credential ${column}`);
+        await runtime.query("ROLLBACK TO SAVEPOINT credential_identity");
+      }
+      await runtime.query("SELECT set_config('app.user_id', $1, true)", [ids.ownerB]);
+      const previousOwnerWrite = await runtime.query(
+        `UPDATE "ApiCredential" SET "canMoveTasksToDone" = true WHERE id = $1`, [ids.credentialB]
+      );
+      assert.equal(previousOwnerWrite.rowCount, 0);
+      // This is also the usage guard's live-credential write: historical bearer
+      // tokens stay unusable after transfer, even when the creator remains editor.
+      const historicalUsage = await runtime.query(
+        `UPDATE "ApiCredential" SET "lastUsedAt" = now()
+         WHERE id = $1 AND "createdByUserId" = $2`, [ids.credentialB, ids.ownerB]
+      );
+      assert.equal(historicalUsage.rowCount, 0);
+    });
+  }
+
   const ownershipState = await adminTransaction(ids.ownerB, async () => {
     const transfer = await admin.query(
       `SELECT app.transfer_project_ownership($1, $2, $3, false) AS result`,
