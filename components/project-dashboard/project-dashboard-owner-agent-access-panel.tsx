@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
   BookOpenText,
   Check,
   Copy,
   KeyRound,
-  RefreshCw,
   ShieldCheck,
-  ShieldX,
 } from "lucide-react";
 
 import {
@@ -25,11 +23,11 @@ import {
   buildAgentDocumentationUrls,
   buildAgentProjectEnvBlock,
 } from "@/lib/agent-onboarding";
+import { ProjectAgentCredentialList } from "./project-agent-credential-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   formatAgentAuditAction,
-  formatAgentCredentialStatus,
   type ProjectAgentAccessSummary,
   type ProjectAgentCredentialIssuedSecret,
   type ProjectAgentCredentialSummary,
@@ -46,6 +44,7 @@ interface ProjectDashboardOwnerAgentAccessPanelProps {
   accessSummary: ProjectAgentAccessSummary | null;
   isLoadingAccessSummary: boolean;
   accessError: string | null;
+  onRefreshAccess: () => void;
   isSavingCapabilities: boolean;
   onUpdateCapabilities: (allowed: boolean) => void;
   isCreatingCredential: boolean;
@@ -75,19 +74,6 @@ function formatTimestamp(value: string | null): string {
   return new Date(value).toLocaleString();
 }
 
-function buildStatusTone(status: ProjectAgentCredentialSummary["status"]): string {
-  switch (status) {
-    case "active":
-      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200";
-    case "expired":
-      return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200";
-    case "revoked":
-      return "border-destructive/30 bg-destructive/10 text-destructive";
-    default:
-      return "";
-  }
-}
-
 function buildUsageHint(accessTokenTtlSeconds: number): string {
   const ttlMinutes = Math.max(1, Math.round(accessTokenTtlSeconds / 60));
   return `Exchange this API key at /api/auth/agent/token to get a Bearer token valid for about ${ttlMinutes} minute${ttlMinutes === 1 ? "" : "s"}.`;
@@ -98,6 +84,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   accessSummary,
   isLoadingAccessSummary,
   accessError,
+  onRefreshAccess,
   isSavingCapabilities,
   onUpdateCapabilities,
   isCreatingCredential,
@@ -119,6 +106,8 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   const [formError, setFormError] = useState<string | null>(null);
   const [hasCopiedSecret, setHasCopiedSecret] = useState(false);
   const [hasCopiedQuickstart, setHasCopiedQuickstart] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const issuedSecretInputRef = useRef<HTMLInputElement>(null);
   const [runtimeAppOrigin, setRuntimeAppOrigin] = useState(AGENT_BASE_URL_PLACEHOLDER);
 
   useEffect(() => {
@@ -135,6 +124,9 @@ export function ProjectDashboardOwnerAgentAccessPanel({
     }
 
     setHasCopiedSecret(false);
+    setHasCopiedQuickstart(false);
+    setCopyError(null);
+    issuedSecretInputRef.current?.focus();
     if (latestIssuedSecret.mode === "created") {
       setLabelDraft("");
       setExpiryDraft("");
@@ -158,11 +150,6 @@ export function ProjectDashboardOwnerAgentAccessPanel({
 
     return () => window.clearTimeout(timeoutId);
   }, [hasCopiedQuickstart, hasCopiedSecret]);
-
-  const credentialCountLabel = useMemo(() => {
-    const count = accessSummary?.credentials.length ?? 0;
-    return `${count} credential${count === 1 ? "" : "s"}`;
-  }, [accessSummary?.credentials.length]);
 
   const docsLinks = useMemo(
     () => buildAgentDocumentationUrls(runtimeAppOrigin),
@@ -228,28 +215,129 @@ export function ProjectDashboardOwnerAgentAccessPanel({
       return;
     }
 
+    setCopyError(null);
     try {
       await navigator.clipboard.writeText(latestIssuedSecret.apiKey);
       setHasCopiedSecret(true);
     } catch {
       setHasCopiedSecret(false);
+      setCopyError("Could not copy the API key. Select the key and copy it manually.");
     }
   };
 
   const handleCopyQuickstart = async () => {
+    setCopyError(null);
     try {
       await navigator.clipboard.writeText(quickstartEnvBlock);
       setHasCopiedQuickstart(true);
     } catch {
       setHasCopiedQuickstart(false);
+      setCopyError("Could not copy the env block. Select the block and copy it manually.");
     }
   };
 
   return (
     <div className="grid min-w-0 max-w-full gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+      {copyError ? <p role="alert" className="text-sm text-destructive xl:col-span-2">{copyError}</p> : null}
+      {accessError ? (
+        <div role="alert" className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive xl:col-span-2">
+          <p className="min-w-0 break-words">{accessError}</p>
+          <Button type="button" variant="outline" size="sm" disabled={isLoadingAccessSummary} onClick={onRefreshAccess}>
+            Retry loading credentials
+          </Button>
+        </div>
+      ) : null}
+      {latestIssuedSecret ? (
+        <section className="min-w-0 space-y-4 xl:col-span-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-amber-700 dark:text-amber-200" />
+                <h3 className="text-base font-semibold">
+                  {latestIssuedSecret.mode === "created"
+                    ? "Copy the new API key now"
+                    : "Copy the rotated API key now"}
+                </h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                This value is shown once for <span className="font-medium">{latestIssuedSecret.credential.label}</span>.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onDismissLatestSecret}
+            >
+              Hide key
+            </Button>
+          </div>
+
+          <div className="flex max-w-full items-center gap-2">
+            <input
+              ref={issuedSecretInputRef}
+              readOnly
+              value={latestIssuedSecret.apiKey}
+              aria-label={`API key for ${latestIssuedSecret.credential.label}`}
+              className="h-10 min-w-0 flex-1 rounded-md border border-amber-500/20 bg-background px-3 text-xs text-muted-foreground outline-none sm:text-sm"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label={`Copy API key for ${latestIssuedSecret.credential.label}`}
+              className="h-10 w-10 shrink-0"
+              onClick={() => void handleCopySecret()}
+            >
+              {hasCopiedSecret ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          {hasCopiedSecret ? <p role="status" className="text-sm">API key copied.</p> : null}
+
+          <div className="space-y-1 text-xs text-muted-foreground">
+            <p>{buildUsageHint(latestIssuedSecret.accessTokenTtlSeconds)}</p>
+            <p>
+              Send <code>Authorization: ApiKey &lt;key&gt;</code> to{" "}
+              <code>/api/auth/agent/token</code>, then use the returned bearer token on project,
+              roadmap, task, and context endpoints allowed by this credential&apos;s scopes.
+            </p>
+          </div>
+        </section>
+      ) : null}
+
+      <section aria-label="Agent access" className="min-w-0 space-y-5 rounded-2xl border border-border/60 bg-background/60 p-4 sm:p-5 xl:col-span-2">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <h3 className="text-base font-semibold">Credentials</h3>
+            <p className="text-sm text-muted-foreground">Find an agent, review its capabilities, or manage its API key.</p>
+          </div>
+          <Button type="button" variant="outline" onClick={() => document.getElementById("project-agent-label")?.focus()}>
+            <KeyRound className="h-4 w-4" /> New credential
+          </Button>
+        </div>
+        {isLoadingAccessSummary ? <p role="status" className="text-sm text-muted-foreground">{accessSummary ? "Refreshing credentials..." : "Loading credentials..."}</p> : null}
+        {!isLoadingAccessSummary && accessSummary?.credentials.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
+            No agent credentials exist for this project yet. Create a credential to give a trusted agent access.
+          </div>
+        ) : null}
+        {accessSummary && accessSummary.credentials.length > 0 ? (
+          <ProjectAgentCredentialList
+            credentials={accessSummary.credentials}
+            mutatingCredentialId={mutatingCredentialId}
+            onRotateCredential={onRotateCredential}
+            onRevokeCredential={onRevokeCredential}
+          />
+        ) : null}
+      </section>
       <div className="min-w-0 space-y-6">
         <section className="space-y-3 rounded-2xl border border-border/60 bg-background/60 p-5">
           <h3 className="text-base font-semibold">Agent capabilities</h3>
+          <p className="text-sm text-muted-foreground">Project-wide settings. Changes save immediately.</p>
           <label className="flex items-start gap-3">
             <input
               type="checkbox"
@@ -275,7 +363,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <Bot className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-base font-semibold">Agent access</h3>
+                <h3 id="create-agent-credential" className="text-base font-semibold">Create an agent credential</h3>
               </div>
               <p className="text-sm text-muted-foreground">
                 Create project-scoped API credentials for trusted agents. Raw keys are shown once,
@@ -290,7 +378,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
           </div>
 
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               <label htmlFor="project-agent-label" className="text-sm font-medium">
                 Credential label
               </label>
@@ -303,11 +391,11 @@ export function ProjectDashboardOwnerAgentAccessPanel({
                 }}
                 placeholder="Release bot"
                 maxLength={MAX_AGENT_CREDENTIAL_LABEL_LENGTH}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm outline-none"
+                className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring"
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               <label htmlFor="project-agent-expiry" className="text-sm font-medium">
                 Credential expiry
               </label>
@@ -317,7 +405,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
                 onChange={(event) =>
                   setExpiryDraft(event.target.value as (typeof expiryDraft))
                 }
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                className="h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm"
               >
                 {EXPIRY_OPTIONS.map((option) => (
                   <option key={option.value || "never"} value={option.value}>
@@ -403,206 +491,21 @@ export function ProjectDashboardOwnerAgentAccessPanel({
           </div>
 
           {formError ? (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div role="alert" className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {formError}
             </div>
           ) : null}
 
-          {accessError ? (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {accessError}
-            </div>
-          ) : null}
-
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">{credentialCountLabel}</p>
             <Button
               type="button"
               onClick={handleCreateCredential}
-              disabled={isCreatingCredential}
+              disabled={isCreatingCredential || !accessSummary || isLoadingAccessSummary}
             >
               <KeyRound className="h-4 w-4" />
               {isCreatingCredential ? "Creating..." : "Create credential"}
             </Button>
           </div>
-        </section>
-
-        {latestIssuedSecret ? (
-          <section className="space-y-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-amber-700 dark:text-amber-200" />
-                  <h3 className="text-base font-semibold">
-                    {latestIssuedSecret.mode === "created"
-                      ? "Copy the new API key now"
-                      : "Copy the rotated API key now"}
-                  </h3>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  This value is shown once for <span className="font-medium">{latestIssuedSecret.credential.label}</span>.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={onDismissLatestSecret}
-              >
-                Hide key
-              </Button>
-            </div>
-
-            <div className="flex max-w-full items-center gap-2">
-              <input
-                readOnly
-                value={latestIssuedSecret.apiKey}
-                aria-label={`API key for ${latestIssuedSecret.credential.label}`}
-                className="h-10 min-w-0 flex-1 rounded-md border border-amber-500/20 bg-background px-3 text-xs text-muted-foreground outline-none sm:text-sm"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                aria-label={`Copy API key for ${latestIssuedSecret.credential.label}`}
-                className="h-10 w-10 shrink-0"
-                onClick={() => void handleCopySecret()}
-              >
-                {hasCopiedSecret ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <p>{buildUsageHint(latestIssuedSecret.accessTokenTtlSeconds)}</p>
-              <p>
-                Send <code>Authorization: ApiKey &lt;key&gt;</code> to{" "}
-                <code>/api/auth/agent/token</code>, then use the returned bearer token on project,
-                roadmap, task, and context endpoints allowed by this credential&apos;s scopes.
-              </p>
-            </div>
-          </section>
-        ) : null}
-
-        <section className="min-w-0 space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-1">
-              <h3 className="text-base font-semibold">Credentials</h3>
-              <p className="text-sm text-muted-foreground">
-                Rotate active keys to replace the raw secret, or revoke credentials you no longer
-                trust.
-              </p>
-            </div>
-            {isLoadingAccessSummary && accessSummary ? (
-              <p className="text-xs text-muted-foreground">Refreshing...</p>
-            ) : null}
-          </div>
-
-          {isLoadingAccessSummary && !accessSummary ? (
-            <div
-              role="status"
-              aria-live="polite"
-              className="space-y-3"
-            >
-              <p className="text-sm text-muted-foreground">Loading credentials...</p>
-              <div className="space-y-3" aria-hidden="true">
-                {[0, 1].map((index) => (
-                  <div
-                    key={index}
-                    className="animate-pulse space-y-3 rounded-xl border border-border/60 bg-card p-4"
-                  >
-                    <div className="h-4 w-2/5 rounded bg-muted" />
-                    <div className="h-3 w-3/5 rounded bg-muted" />
-                    <div className="h-3 w-full rounded bg-muted" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {!isLoadingAccessSummary &&
-          accessSummary &&
-          accessSummary.credentials.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No agent credentials exist for this project yet.
-            </p>
-          ) : null}
-
-          {accessSummary?.credentials.length ? (
-            <div className="space-y-3">
-              {accessSummary.credentials.map((credential) => {
-                const isMutating = mutatingCredentialId === credential.id;
-                const canRotate = credential.status === "active";
-                const canRevoke = credential.status !== "revoked";
-
-                return (
-                  <div
-                    key={credential.id}
-                    className="space-y-4 rounded-xl border border-border/60 bg-card p-4"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium">{credential.label}</p>
-                          <Badge
-                            variant="secondary"
-                            className={buildStatusTone(credential.status)}
-                          >
-                            {formatAgentCredentialStatus(credential.status)}
-                          </Badge>
-                        </div>
-                        <p className="min-w-0 text-xs text-muted-foreground">
-                          Public id: <code className="break-all">{credential.publicId}</code>
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onRotateCredential(credential)}
-                          disabled={!canRotate || isMutating}
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                          {isMutating && canRotate ? "Rotating..." : "Rotate"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => onRevokeCredential(credential)}
-                          disabled={!canRevoke || isMutating}
-                        >
-                          <ShieldX className="h-4 w-4" />
-                          {isMutating && canRevoke ? "Revoking..." : "Revoke"}
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {credential.scopes.map((scope) => (
-                        <Badge key={scope} variant="outline" className="rounded-full">
-                          {scope}
-                        </Badge>
-                      ))}
-                    </div>
-
-                    <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                      <p>Created: {formatTimestamp(credential.createdAt)}</p>
-                      <p>Expires: {credential.expiresAt ? formatTimestamp(credential.expiresAt) : "Never"}</p>
-                      <p>Last exchanged: {formatTimestamp(credential.lastExchangedAt)}</p>
-                      <p>Last used: {formatTimestamp(credential.lastUsedAt)}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
         </section>
       </div>
 

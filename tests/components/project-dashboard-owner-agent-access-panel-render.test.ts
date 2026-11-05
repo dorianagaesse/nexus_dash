@@ -35,6 +35,7 @@ describe("project-dashboard-owner-agent-access-panel quickstart", () => {
         },
         isLoadingAccessSummary: false,
         accessError: null,
+        onRefreshAccess: () => {},
         isSavingCapabilities: false,
         onUpdateCapabilities: () => {},
         isCreatingCredential: false,

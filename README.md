@@ -111,6 +111,18 @@ Open `http://localhost:3000`.
 - Session persistence is database-backed (`Session` table) with HttpOnly cookie handling.
 - Logout endpoint: `POST /api/auth/logout`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
+- In **Share project > Agent access**, credentials appear first with their name,
+  status, capabilities, last use, and expiry. Search by name (ignoring case and
+  surrounding spaces), then combine **Status** and **Capability** filters to
+  narrow the list. **Clear filters** restores the full list. A capability filter
+  matches credentials granted that scope, including expired or revoked entries
+  when the status filter allows them.
+- Use **New credential** to jump to creation and choose scopes and expiry.
+  Expand **Credential details** for public ID, creation, exchange, rotation, and
+  revocation dates. **Rotate key** replaces an active credential's secret after
+  confirmation; **Revoke** opens the existing responsibility review before
+  access is removed. Copy newly issued keys immediately; they are shown once.
+  Project-wide capability changes save immediately and apply to every credential.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
 - Project owners can enable **Allow agents to move tasks to Done** in project

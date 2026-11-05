@@ -3,6 +3,24 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-05 - ND-655: refine the Agent access credential list
+
+- Moved credentials ahead of creation and quickstart setup. Added combined name,
+  status, and capability filters, readable scope badges, expandable lifecycle
+  metadata, explicit loading/error/empty/no-match feedback, and a retry action.
+  Long names and management actions stack on narrow screens. Newly issued keys
+  receive keyboard focus and clipboard failures explain manual recovery.
+- Added browser coverage for filtering, creation, rotation confirmation,
+  revocation, project-wide capabilities, bearer authorization, failure recovery,
+  keyboard details, and mobile geometry. Authentication fixtures now follow
+  `PORT` so local tests can use an isolated server beside another running app.
+- Local lint, RLS inventory, 2,311 unit/API tests (3 skipped), coverage gates,
+  production build, and the targeted browser flow passed. Full-suite and branch
+  Preview validation are in progress.
+- Recorded the pre-existing same-second rotation/token timestamp issue as
+  ND-657, linked to ND-655. The browser check re-exchanges across that boundary;
+  this UI change does not alter token invalidation.
+
 # 2026-10-30 - ND-541: define Tasks/Kanban domain boundary and migration seams
 
 - Authored `adr/nd-541-tasks-kanban-domain-boundary.md` and recorded the summary

@@ -1299,6 +1299,7 @@ export function ProjectDashboardOwnerActions({
                       onUpdateCapabilities={(allowed) => void handleUpdateAgentCapabilities(allowed)}
                       isLoadingAccessSummary={isLoadingAgentAccess}
                       accessError={agentAccessError}
+                      onRefreshAccess={() => void loadAgentAccessSummary()}
                       isCreatingCredential={isCreatingAgentCredential}
                       mutatingCredentialId={mutatingAgentCredentialId}
                       latestIssuedSecret={latestAgentCredentialSecret}

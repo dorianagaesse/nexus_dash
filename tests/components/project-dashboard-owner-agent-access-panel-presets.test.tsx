@@ -79,6 +79,7 @@ describe("ProjectDashboardOwnerAgentAccessPanel preset application", () => {
           },
           isLoadingAccessSummary: false,
           accessError: null,
+          onRefreshAccess: () => {},
           isSavingCapabilities: false,
           onUpdateCapabilities: () => {},
           isCreatingCredential: false,
