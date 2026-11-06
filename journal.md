@@ -21,7 +21,21 @@ Use it for important implementation milestones, blockers, validation runs, and r
   choice and moves focus there. Extended the existing browser regressions for
   these recovery paths, key retention, effective access, and narrow layouts.
 - Used a dedicated worktree and isolated PostgreSQL container on port 55655.
-  Validation and branch Preview evidence will be recorded after the runs finish.
+- Validation passed: lint, RLS inventory, 2,344 unit/API tests (3 skipped),
+  coverage gates (95.33% lines), production build, and the three ND-655 browser
+  checks (18s). Inspected 1440px desktop and 375px mobile in both themes; browser
+  checks also cover 812px landscape and reduced motion. The full local suite
+  reproduced the previously documented ND-433 recovery failure. A shrinking
+  checkbox locator in the new keyboard check was corrected before its passing
+  rerun. Current-head CI is linked from PR #660.
+- [Preview workflow 42256963351](https://github.com/dorianagaesse/nexus_dash/actions/runs/42256963351)
+  passed. Checkout logs verify branch `feature/nd-655-agent-access-list` at
+  implementation revision `f4189e85ad92c2aaa42df0eeb878e93f8f0c575e`.
+  The [pinned Preview](https://nexus-dash-32r1jf1mw-dorian-agaesses-projects.vercel.app)
+  returned health 200; its stable sign-in alias is unchanged. Deployed flow tests
+  could not seed sessions with stale saved Preview database credentials.
+  Computer Use ended because it could not verify the browser URL. Local rendered
+  checks and CI provide the UI evidence; no live overlay was injected.
 
 # 2026-11-05 - ND-659: enforce release impact decisions
 
