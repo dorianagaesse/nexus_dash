@@ -478,7 +478,7 @@ test("ND-655: dialog dismissal restores keyboard focus to its opening control", 
   await name.fill("Keyboard review");
   await expect(name).not.toHaveAttribute("aria-invalid", "true");
   await creation.getByText("Customize permissions", { exact: false }).click();
-  for (const checkbox of await creation.locator('input[type="checkbox"]:checked').all()) {
+  for (const checkbox of await creation.getByRole("checkbox").all()) {
     await checkbox.uncheck();
   }
   await creation.getByRole("button", { name: "Create credential", exact: true }).click();
