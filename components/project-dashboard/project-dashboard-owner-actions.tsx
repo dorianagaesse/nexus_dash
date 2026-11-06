@@ -1179,8 +1179,8 @@ export function ProjectDashboardOwnerActions({
           overlayClassName="z-[120]"
         >
                 <DialogTitle className="sr-only">Project settings: {projectName}</DialogTitle>
-                <CardHeader className="flex flex-col gap-4 space-y-0 border-b border-border/60 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-2">
+                <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-border/60">
+                  <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="secondary" className="rounded-full px-3 py-1">
                         Project settings
@@ -1190,7 +1190,7 @@ export function ProjectDashboardOwnerActions({
                       </Badge>
                     </div>
                     <div className="space-y-1">
-                      <CardTitle className="text-xl">{projectName}</CardTitle>
+                      <CardTitle className="[overflow-wrap:anywhere] text-xl">{projectName}</CardTitle>
                       <DialogDescription>
                         Project details, invitations, contributors, and agent access.
                       </DialogDescription>
@@ -1201,11 +1201,11 @@ export function ProjectDashboardOwnerActions({
                     variant="ghost"
                     size="icon"
                     onClick={closeModal}
-                    className="self-end sm:self-auto"
+                    className="shrink-0"
                     aria-label="Close project settings"
                     disabled={!isProjectSettingsDismissible}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4" aria-hidden />
                   </Button>
                 </CardHeader>
 

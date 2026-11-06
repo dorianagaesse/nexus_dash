@@ -3,6 +3,26 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-06 - ND-655: UI and UX review of PR #660
+
+- Kept the credential directory and focused dialogs after two independent
+  Impeccable assessments. The detector found no primary findings or advisories
+  across the seven agent-access components. Reviewed baseline desktop/mobile
+  screenshots and the creation flow; the browser access host was unavailable,
+  so Playwright supplied rendered evidence without a live overlay or server.
+- Protected the one-time API key from Escape/backdrop dismissal, retaining the
+  explicit Hide key action and explaining its consequence. Custom access now
+  includes resource actions; inactive credentials cannot appear to complete work.
+- Expanded the completion switch to a 44px-high control including its label,
+  corrected its dark-theme thumb, and respected reduced motion. Names wrap at
+  word boundaries when possible. The settings close control now shares the
+  mobile heading row instead of consuming a separate row.
+- Creation validation now associates errors with the relevant name or permission
+  choice and moves focus there. Extended the existing browser regressions for
+  these recovery paths, key retention, effective access, and narrow layouts.
+- Used a dedicated worktree and isolated PostgreSQL container on port 55655.
+  Validation and branch Preview evidence will be recorded after the runs finish.
+
 # 2026-11-05 - ND-659: enforce release impact decisions
 
 - Created the fix card and linked GitHub issue #662 after checking the board

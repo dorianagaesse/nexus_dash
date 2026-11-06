@@ -75,7 +75,7 @@ export function ProjectAgentCredentialDetailsDialog({
               onClick={() => onClose()}
             />
             <div className="mb-6 min-w-0 pr-8">
-              <DialogTitle className="break-all text-lg font-semibold">
+              <DialogTitle className="[overflow-wrap:anywhere] text-lg font-semibold">
                 {credential.label}
               </DialogTitle>
               <DialogDescription className="mt-1.5">

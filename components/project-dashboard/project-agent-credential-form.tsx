@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type Ref } from "react";
+import { useRef, useState, type Ref } from "react";
 import { Check, ChevronDown, ShieldCheck } from "lucide-react";
 import {
   AGENT_CREDENTIAL_PRESETS,
@@ -39,7 +39,11 @@ export function ProjectAgentCredentialForm({
   const [scopes, setScopes] = useState<AgentScope[]>(() => [
     ...resolveAgentCredentialPreset(DEFAULT_AGENT_CREDENTIAL_PRESET_ID)!.scopes,
   ]);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<{
+    field: "name" | "permissions";
+    message: string;
+  } | null>(null);
+  const presetsRef = useRef<HTMLDivElement>(null);
 
   return (
     <form
@@ -51,11 +55,23 @@ export function ProjectAgentCredentialForm({
           label.length < 2 ||
           label.length > MAX_AGENT_CREDENTIAL_LABEL_LENGTH
         ) {
-          setFormError("Agent name must be between 2 and 80 characters.");
+          setFormError({
+            field: "name",
+            message: "Agent name must be between 2 and 80 characters.",
+          });
+          (
+            event.currentTarget.elements.namedItem(
+              "project-agent-label"
+            ) as HTMLInputElement
+          ).focus();
           return;
         }
         if (!scopes.length) {
-          setFormError("Choose at least one permission.");
+          setFormError({
+            field: "permissions",
+            message: "Choose a preset or select at least one permission below.",
+          });
+          presetsRef.current?.focus();
           return;
         }
         setFormError(null);
@@ -78,18 +94,27 @@ export function ProjectAgentCredentialForm({
             <input
               id="project-agent-label"
               ref={inputRef}
+              aria-invalid={formError?.field === "name" || undefined}
+              aria-describedby={`project-agent-name-hint${formError?.field === "name" ? " project-agent-name-error" : ""}`}
               value={name}
               maxLength={MAX_AGENT_CREDENTIAL_LABEL_LENGTH}
               onChange={(event) => {
                 setName(event.target.value);
-                setFormError(null);
+                setFormError((current) =>
+                  current?.field === "name" ? null : current
+                );
               }}
               placeholder="e.g. Release assistant"
               className="h-11 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
-            <p className="text-xs text-muted-foreground">
+            <p id="project-agent-name-hint" className="text-xs text-muted-foreground">
               The name you’ll recognize in tasks and comments.
             </p>
+            {formError?.field === "name" ? (
+              <p id="project-agent-name-error" role="alert" className="text-sm text-destructive">
+                {formError.message}
+              </p>
+            ) : null}
           </div>
           <div className="min-w-0 space-y-2">
             <label
@@ -123,9 +148,12 @@ export function ProjectAgentCredentialForm({
             </p>
           </div>
           <div
+            ref={presetsRef}
             role="group"
             aria-label="Scope presets"
-            className="grid gap-2 sm:grid-cols-2"
+            aria-describedby={formError?.field === "permissions" ? "project-agent-permissions-error" : undefined}
+            tabIndex={-1}
+            className="grid gap-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:grid-cols-2"
           >
             {AGENT_CREDENTIAL_PRESETS.map((preset) => {
               const selected =
@@ -138,7 +166,9 @@ export function ProjectAgentCredentialForm({
                   aria-pressed={selected}
                   onClick={() => {
                     setScopes([...preset.scopes]);
-                    setFormError(null);
+                    setFormError((current) =>
+                      current?.field === "permissions" ? null : current
+                    );
                   }}
                   className={`min-w-0 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"}`}
                 >
@@ -165,6 +195,11 @@ export function ProjectAgentCredentialForm({
               );
             })}
           </div>
+          {formError?.field === "permissions" ? (
+            <p id="project-agent-permissions-error" role="alert" className="text-sm text-destructive">
+              {formError.message}
+            </p>
+          ) : null}
         </div>
         <details className="group rounded-xl border border-border/70">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl p-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -193,7 +228,9 @@ export function ProjectAgentCredentialForm({
                         ? current.filter((scope) => scope !== definition.scope)
                         : [...current, definition.scope]
                     );
-                    setFormError(null);
+                    setFormError((current) =>
+                      current?.field === "permissions" ? null : current
+                    );
                   }}
                   className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
                 />
@@ -215,13 +252,13 @@ export function ProjectAgentCredentialForm({
           is off by default; you can grant it separately for this agent.
         </p>
       </div>
-      {formError || error ? (
+      {error ? (
         <p
           role="alert"
           aria-label="Credential creation error"
           className="text-sm text-destructive"
         >
-          {formError ?? error}
+          {error}
         </p>
       ) : null}
       <div className="flex flex-wrap justify-end gap-2 border-t border-border/60 pt-4">

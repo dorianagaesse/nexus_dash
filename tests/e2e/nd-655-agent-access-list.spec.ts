@@ -49,6 +49,11 @@ test("ND-655: readable directory, focused management flows, and independent comp
     const response = await page.request.post(path, { data: { label, scopes } });
     expect(response.ok(), await response.text()).toBeTruthy();
     const { credential } = await response.json();
+    if (label.endsWith("worker"))
+      await prisma.apiCredential.update({
+        where: { id: credential.id },
+        data: { canMoveTasksToDone: true },
+      });
     if (label.startsWith("Expired"))
       await prisma.apiCredential.update({
         where: { id: credential.id },
@@ -62,6 +67,12 @@ test("ND-655: readable directory, focused management flows, and independent comp
   const panel = await openAgentAccess(page);
   const list = panel.getByRole("list", { name: "Agent credentials" });
   await expect(list.getByRole("listitem")).toHaveCount(3);
+  await expect(list.getByText("Tasks: Edit", { exact: true })).toHaveCount(2);
+  for (const label of ["Expired worker", "Revoked worker"]) {
+    const inactive = list.getByRole("listitem", { name: label, exact: true });
+    await expect(inactive.getByText("Inactive", { exact: true })).toBeVisible();
+    await expect(inactive.getByRole("switch")).not.toBeChecked();
+  }
   await expect(page.locator("#project-agent-label")).toHaveCount(0);
   await expect(panel.locator("pre")).toHaveCount(0);
   await expect(list.getByText("Read only", { exact: true })).toBeVisible();
@@ -98,6 +109,9 @@ test("ND-655: readable directory, focused management flows, and independent comp
   ).toBeVisible();
   await panel.getByRole("button", { name: "Clear filters" }).click();
   await expect(list.getByRole("listitem")).toHaveCount(3);
+  await panel.getByLabel("Capability", { exact: true }).selectOption("complete-tasks");
+  await expect(panel.getByText("No matching agents", { exact: true })).toBeVisible();
+  await panel.getByRole("button", { name: "Clear filters" }).click();
   await panel.getByRole("button", { name: "Filters", exact: true }).click();
 
   await panel
@@ -124,6 +138,10 @@ test("ND-655: readable directory, focused management flows, and independent comp
   });
   await expect(key).toBeVisible();
   await expect(key).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(key).toBeVisible();
+  await page.mouse.click(2, 2);
+  await expect(key).toBeVisible();
   await expect(creation).toHaveCount(0);
   const originalKey = await key.inputValue();
   await page.getByRole("button", { name: "Hide key", exact: true }).click();
@@ -196,6 +214,7 @@ test("ND-655: readable directory, focused management flows, and independent comp
     exact: true,
   });
   await expect(completion).not.toBeChecked();
+  expect((await completion.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await completion.click();
   await expect(completion).toBeChecked();
   await expect(
@@ -229,7 +248,7 @@ test("ND-655: readable directory, focused management flows, and independent comp
   await page.setViewportSize({ width: 1440, height: 900 });
   await panel.scrollIntoViewIfNeeded();
   await page.screenshot({ path: ".tmp/nd655-desktop.png" });
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 375, height: 812 });
   expect(
     await panel.evaluate(
       (element) => element.scrollWidth <= element.clientWidth
@@ -242,6 +261,16 @@ test("ND-655: readable directory, focused management flows, and independent comp
   expect(mobileName!.width).toBeGreaterThan(mobilePanel!.width / 2);
   await panel.scrollIntoViewIfNeeded();
   await page.screenshot({ path: ".tmp/nd655-mobile.png" });
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await page.screenshot({ path: ".tmp/nd655-mobile-dark.png" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.screenshot({ path: ".tmp/nd655-desktop-dark.png" });
+  await page.setViewportSize({ width: 812, height: 375 });
+  expect(
+    await panel.evaluate((element) => element.scrollWidth <= element.clientWidth)
+  ).toBe(true);
+  await page.evaluate(() => document.documentElement.classList.remove("dark"));
+  await page.setViewportSize({ width: 375, height: 812 });
 
   await panel.getByRole("button", { name: "Setup guide", exact: true }).click();
   const setup = page.getByRole("dialog", {
@@ -437,6 +466,25 @@ test("ND-655: dialog dismissal restores keyboard focus to its opening control", 
       .getByRole("dialog", { name: "New agent credential", exact: true })
       .getByLabel("Agent name", { exact: true })
   ).toBeFocused();
+  const creation = page.getByRole("dialog", {
+    name: "New agent credential",
+    exact: true,
+  });
+  const name = creation.getByLabel("Agent name", { exact: true });
+  await creation.getByRole("button", { name: "Create credential", exact: true }).click();
+  await expect(name).toBeFocused();
+  await expect(name).toHaveAttribute("aria-invalid", "true");
+  await expect(name).toHaveAccessibleDescription(/Agent name must be between/);
+  await name.fill("Keyboard review");
+  await expect(name).not.toHaveAttribute("aria-invalid", "true");
+  await creation.getByText("Customize permissions", { exact: false }).click();
+  for (const checkbox of await creation.locator('input[type="checkbox"]:checked').all()) {
+    await checkbox.uncheck();
+  }
+  await creation.getByRole("button", { name: "Create credential", exact: true }).click();
+  const presets = creation.getByRole("group", { name: "Scope presets" });
+  await expect(presets).toBeFocused();
+  await expect(presets).toHaveAccessibleDescription(/Choose a preset or select at least one/);
   await page.keyboard.press("Escape");
   await expect(create).toBeFocused();
   const setup = panel.getByRole("button", { name: "Setup guide", exact: true });

@@ -31,19 +31,14 @@ export function ProjectAgentIssuedKeyDialog({
 }: Props) {
   const keyInputRef = useRef<HTMLInputElement>(null);
   return (
-    <Dialog
-      open={Boolean(latestIssuedSecret)}
-      onOpenChange={(open) => {
-        if (!open) onDismissLatestSecret();
-      }}
-    >
+    <Dialog open={Boolean(latestIssuedSecret)}>
       <DialogContent
         data-agent-access-dialog="true"
+        dismissible={false}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             event.preventDefault();
             event.stopPropagation();
-            onDismissLatestSecret();
           }
         }}
         className="z-[180] max-h-[90dvh] max-w-lg overflow-y-auto rounded-2xl p-5 sm:p-6"
@@ -67,7 +62,7 @@ export function ProjectAgentIssuedKeyDialog({
         </DialogTitle>
         <DialogDescription className="mt-2 leading-relaxed">
           Copy this key for{" "}
-          <span className="break-all font-medium text-foreground">
+          <span className="[overflow-wrap:anywhere] font-medium text-foreground">
             {latestIssuedSecret?.credential.label}
           </span>{" "}
           and store it safely. It is shown only once.
@@ -91,9 +86,9 @@ export function ProjectAgentIssuedKeyDialog({
               aria-label={`Copy API key for ${latestIssuedSecret?.credential.label}`}
             >
               {copied === "key" ? (
-                <Check className="h-4 w-4" />
+                <Check className="h-4 w-4" aria-hidden />
               ) : (
-                <Copy className="h-4 w-4" />
+                <Copy className="h-4 w-4" aria-hidden />
               )}
               {copied === "key" ? "Copied key" : "Copy API key"}
             </Button>
@@ -118,10 +113,14 @@ export function ProjectAgentIssuedKeyDialog({
           Next: give this key to your agent using the setup guide. You can
           manage its permissions from the credential list.
         </p>
-        <div className="mt-5 flex justify-end border-t border-border/60 pt-4">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
+          <p id="issued-agent-key-dismiss-hint" className="text-xs text-muted-foreground">
+            Once hidden, this key cannot be viewed again.
+          </p>
           <Button
             type="button"
             variant="outline"
+            aria-describedby="issued-agent-key-dismiss-hint"
             onClick={onDismissLatestSecret}
           >
             Hide key

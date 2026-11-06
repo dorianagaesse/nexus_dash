@@ -52,35 +52,43 @@ export function AgentTaskCompletionSwitch({
   onChange: (allowed: boolean) => void;
 }) {
   const canEditTasks = credential.scopes.includes("task:write");
+  const isActive = credential.status === "active";
+  const canComplete = isActive && canEditTasks && credential.canMoveTasksToDone;
   return (
-    <div className="flex items-center gap-2.5">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={credential.canMoveTasksToDone}
-        aria-label={`Allow ${credential.label} to move tasks to Done`}
-        disabled={disabled || credential.status !== "active" || !canEditTasks}
-        title={
-          !canEditTasks
+    <button
+      type="button"
+      role="switch"
+      aria-checked={canComplete}
+      aria-label={`Allow ${credential.label} to move tasks to Done`}
+      disabled={disabled || !isActive || !canEditTasks}
+      title={
+        !isActive
+          ? "Inactive credentials cannot complete tasks"
+          : !canEditTasks
             ? "Task Write access is required to complete tasks"
             : undefined
-        }
-        onClick={() => onChange(!credential.canMoveTasksToDone)}
-        className={`relative h-6 w-10 shrink-0 rounded-full border border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 ${credential.canMoveTasksToDone ? "bg-primary" : "bg-muted-foreground/25"}`}
+      }
+      onClick={() => onChange(!credential.canMoveTasksToDone)}
+      className="group flex min-h-11 cursor-pointer items-center gap-2.5 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+    >
+      <span
+        aria-hidden
+        className={`relative h-6 w-10 shrink-0 rounded-full border border-transparent transition-colors group-disabled:opacity-40 ${canComplete ? "bg-primary" : "bg-muted-foreground/25"}`}
       >
         <span
-          aria-hidden
-          className={`absolute left-0.5 top-0.5 h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform ${credential.canMoveTasksToDone ? "translate-x-4" : "translate-x-0"}`}
+          className={`absolute left-0.5 top-0.5 h-[18px] w-[18px] rounded-full bg-background shadow-sm transition-transform motion-reduce:transition-none ${canComplete ? "translate-x-4" : "translate-x-0"}`}
         />
-      </button>
-      <span className="text-xs text-muted-foreground">
-        {!canEditTasks
-          ? "No task editing"
-          : credential.canMoveTasksToDone
-            ? "Allowed"
-            : "Review required"}
       </span>
-    </div>
+      <span className="text-xs text-muted-foreground">
+        {!isActive
+          ? "Inactive"
+          : !canEditTasks
+            ? "No task editing"
+            : credential.canMoveTasksToDone
+              ? "Allowed"
+              : "Review required"}
+      </span>
+    </button>
   );
 }
 
@@ -109,6 +117,7 @@ export function ProjectAgentCredentialList({
       (capability === "all" ||
         (capability === "complete-tasks"
           ? credential.canMoveTasksToDone &&
+            credential.status === "active" &&
             credential.scopes.includes("task:write")
           : credential.scopes.includes(capability)))
   );
@@ -257,7 +266,7 @@ export function ProjectAgentCredentialList({
                     <Bot className="h-5 w-5" aria-hidden />
                   </span>
                   <div className="min-w-0 space-y-1.5">
-                    <h4 className="break-all text-sm font-semibold leading-snug">
+                    <h4 className="[overflow-wrap:anywhere] text-sm font-semibold leading-snug">
                       {credential.label}
                     </h4>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -281,12 +290,16 @@ export function ProjectAgentCredentialList({
                   </p>
                   <p className="break-words text-xs leading-relaxed text-muted-foreground">
                     {describeAgentResources(credential.scopes)
-                      .map((resource) => resource.name)
+                      .map((resource) =>
+                        describeAgentAccess(credential.scopes) === "Custom access"
+                          ? `${resource.name}: ${resource.actions}`
+                          : resource.name
+                      )
                       .join(" · ")}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {credential.expiresAt
-                      ? `Expires ${formatAgentDate(credential.expiresAt)}`
+                      ? `${credential.status === "expired" ? "Expired" : "Expires"} ${formatAgentDate(credential.expiresAt)}`
                       : "No expiry"}
                   </p>
                 </div>
