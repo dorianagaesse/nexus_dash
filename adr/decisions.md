@@ -1298,3 +1298,9 @@ Keep UI-only or task-only notes in `journal.md`.
   audit event commit together. Events record the actor, credential, new boolean
   value, and request metadata. The owner panel refreshes the audit trail after
   saving. Denied updates create no success event.
+
+### ND-658: portable agent identity and runtime access
+
+Keep stable actor IDs and separate device entitlements, authentication proofs and
+sessions. Recheck live grants on each runtime request; keep device proofs in the
+OS vault and the launcher parent. See [the focused decision](nd-658-portable-agent-identities.md).

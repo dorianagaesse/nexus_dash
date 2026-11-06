@@ -654,3 +654,12 @@ R2; local storage supports form uploads for signed-in users. Agent attachments
 store their credential ID and display-name snapshot separately from the user
 who owns the storage object. Revoked or deleted credentials retain historical
 agent attribution. Existing file limits, project access, and scope checks apply.
+
+## Portable agent identities
+
+Owners manage persistent identities, device grants and concurrent sessions in
+Project Settings ? Agent access. The terminal launcher pairs each device once,
+stores authentication in the OS vault, and renews short-lived session access
+without giving long-lived keys to AI clients. See the
+[portable identity runbook](docs/runbooks/portable-agent-identities.md) for setup,
+permissions, revocation, compatibility and API contracts.

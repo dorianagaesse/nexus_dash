@@ -1,3 +1,4 @@
+import { verifyAgentRuntimeIsolation } from "./agent-runtime/rls-matrix.mjs";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -500,6 +501,7 @@ try {
   }
 
   await seed();
+  await verifyAgentRuntimeIsolation({ admin, runtime, runtimeTransaction, expectRlsViolation, ids });
 
   // Context attachment provenance keeps the actual agent independent of the
   // owning user, without changing the parent-resource tenant boundary.

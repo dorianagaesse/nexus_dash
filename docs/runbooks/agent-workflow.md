@@ -34,6 +34,12 @@ that, even if an older brief or generated quickstart says otherwise.
 
 ## Agent credential setup
 
+Prefer the [portable identity launcher](portable-agent-identities.md) for new
+work: the owner authorizes a device once, and each explicit identity launch
+receives its own renewable session. Inside that session use
+`node scripts/nd-agent.mjs request`; do not ask for or load a raw API key.
+The following setup remains available for legacy integrations.
+
 Before accessing the Nexus Dash API, explicitly ask the user which credential
 to use, as required by `AGENTS.md`. Use only the credential they identify;
 do not select one based on the coding client, model, provider, or filename.

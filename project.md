@@ -46,6 +46,9 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - agent-authored comments keep project credential attribution by displaying
     the credential label with an `(agent)` suffix and a shared agent avatar
 - Project-scoped agent access:
+  - persistent identities with per-identity scopes and Done capability, separately
+    authorized devices, OS-vault-backed launcher authentication and concurrent
+    sessions with live revocation checks
   - owner-managed API credentials in project settings, with an independently
     controlled move-to-Done permission on each credential (off by default)
   - one-time raw API key reveal with rotate/revoke lifecycle

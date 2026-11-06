@@ -23,6 +23,9 @@ const projectAgentAccessServiceMock = vi.hoisted(() => ({
   recordAgentRequestUsage: vi.fn(),
 }));
 
+const runtimeMock = vi.hoisted(() => ({ validateRuntimeRequest: vi.fn() }));
+vi.mock("@/lib/services/agent-runtime-service", () => runtimeMock);
+
 const loggerMock = vi.hoisted(() => ({
   logServerError: vi.fn(),
 }));
@@ -201,6 +204,24 @@ describe("api-guard", () => {
     await expect(result.response.json()).resolves.toEqual({
       error: "unauthorized",
     });
+    expect(sessionUserMock.getSessionUserIdFromRequest).not.toHaveBeenCalled();
+  });
+
+  test("carries live runtime permission ceilings into services and audits session context", async () => {
+    agentTokenServiceMock.verifyAgentAccessToken.mockReturnValue({ ok: true, data: {
+      credentialId: "oscar", projectId: "project", ownerUserId: "owner", scopes: ["task:read", "task:write"],
+      sessionId: "session", deviceId: "laptop", tokenId: "token", issuedAt: new Date(), expiresAt: new Date(),
+    } });
+    runtimeMock.validateRuntimeRequest.mockResolvedValue({ ok: true, status: 200, data: { scopes: ["task:read"], canMoveTasksToDone: false, client: "Codex", deviceName: "Laptop" } });
+    const request = new NextRequest("http://localhost/api/projects/project/tasks", { headers: { authorization: "Bearer token" } });
+    const result = await requireApiPrincipal(request);
+    expect(result).toMatchObject({ ok: true, principal: { credentialId: "oscar", scopes: ["task:read"], sessionId: "session", deviceId: "laptop", canMoveTasksToDone: false } });
+    if (result.ok) expect(getAgentProjectAccessContext(result.principal)).toMatchObject({ sessionId: "session", canMoveTasksToDone: false });
+    expect(projectAgentAccessServiceMock.recordAgentRequestUsage).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "session", deviceId: "laptop", client: "Codex", deviceName: "Laptop" }));
+    runtimeMock.validateRuntimeRequest.mockResolvedValue({ ok: false, status: 401, error: "runtime-access-denied" });
+    const denied = await requireApiPrincipal(request);
+    expect(denied.ok).toBe(false);
+    if (!denied.ok) expect(denied.response.status).toBe(401);
     expect(sessionUserMock.getSessionUserIdFromRequest).not.toHaveBeenCalled();
   });
 

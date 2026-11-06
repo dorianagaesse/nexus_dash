@@ -35,6 +35,7 @@ test("agent assignment persists credential identity with audit history and inact
 
   await page.getByRole("button", { name: "Share project" }).click();
   await page.getByRole("button", { name: "Agent access" }).click();
+  await page.getByText("Legacy API credentials", { exact: true }).click();
   await page.locator("#project-agent-label").fill(agentLabel);
   await page.getByRole("button", { name: "Create credential" }).click();
   await expect(page.getByText("Copy the new API key now")).toBeVisible();

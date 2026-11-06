@@ -52,6 +52,7 @@ describe("project-agent-access-service", () => {
         id: "credential-1",
         projectId: "project-1",
         createdByUserId: "owner-1",
+        identityMode: false,
         revokedAt: null,
         AND: [
           {

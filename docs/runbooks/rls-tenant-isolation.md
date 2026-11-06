@@ -116,7 +116,10 @@ The matrix covers:
   owner staying or leaving, original creator retention, immutable credential
   project/creator fields, unrelated credential isolation, and denial of former
   owner administration and historical agent request usage;
-- the exact-public-ID agent exchange function.
+- the exact-public-ID agent exchange function;
+- ND-658 runtime devices, authentication credentials and sessions: forced
+  owner-only CRUD, immutable identity/device bindings, exact-proof bootstrap,
+  revoked device rejection and expired authentication rejection.
 
 ## Troubleshooting
 
