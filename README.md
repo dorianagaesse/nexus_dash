@@ -516,7 +516,12 @@ every production deployment: one release can contain many product PRs. A
 capability releases, patch for fix-only releases), composes the `CHANGELOG.md`
 entry, and is tagged and promoted after merge; `1.0.0` remains reserved for
 the first stable product baseline. CI (`npm run release:check`) rejects
-version changes outside release preparation. The detailed checklist lives in
+version changes outside release preparation. New release changelog sections
+must declare `Release impact:` and `Release rationale:`; CI enforces the exact
+next patch/minor/major step. The first `1.0.0` also records the maintainer's
+`Stable baseline approved: yes` decision. Fix-only releases increase patch
+even before `1.0.0`; a capability release increases minor and resets patch.
+The detailed checklist lives in
 [`docs/runbooks/release-versioning.md`](docs/runbooks/release-versioning.md).
 
 The running app displays only the clean product version, for example `v0.18.0`.
