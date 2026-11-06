@@ -17,9 +17,29 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Completion controls explain when Task Write is missing. Status, lifecycle
   dates, and public IDs remain available in Manage. Moved form, detail, key,
   setup, and presentation responsibilities into focused components.
-- Both ND-655 browser flows and the three inherited ND-654 authorization and
-  ownership-transfer checks passed locally before the final visual refinement.
-  Full validation and a fresh immutable Preview are in progress.
+- Branch rules rejected the rebase force-push. Preserved PR #660 through a
+  normal integration merge (`1a52c05`) whose tree exactly matches the locally
+  rebased result; ND-654 is an ancestor and no repository rules were changed.
+- Final lint, RLS inventory, 2,315 unit/API tests (3 skipped), coverage gates
+  (95.33% lines), and production build passed locally. The local full browser
+  run suffered an abnormal stall (125 passed, 2 skipped, 5 failures); four
+  additional failures passed on a fresh-server rerun, leaving the previously
+  reproduced local ND-433 baseline failure.
+
+# 2026-11-06 - ND-655: validate the redesigned tab and repair Preview handoff
+
+- [Quality run 42066431782](https://github.com/dorianagaesse/nexus_dash/actions/runs/42066431782)
+  passed every job on `1a52c05b8fbead8cca6c768cfb3ae0ef35673a8e`, including
+  2,315 unit/API tests, coverage, build, PostgreSQL tenant isolation, all 130
+  browser checks (2 skipped), and the container image.
+- [Preview run 42066421990](https://github.com/dorianagaesse/nexus_dash/actions/runs/42066421990)
+  passed. Checkout logs and readiness verify branch revision `1a52c05` on the
+  [new immutable deployment](https://nexus-dash-jl9iqesy9-dorian-agaesses-projects.vercel.app).
+  All five ND-654/ND-655 browser checks passed there (40.9 s). The same signed-in
+  credential-load probe that returned 500 on the old Preview now returns 200.
+- Refreshed desktop, mobile, and creation-dialog captures. Retired old Preview
+  attachments from ND-655 and linked its ND-654 dependency; PR #660 keeps the
+  current deployment and final validation evidence for review.
 
 
 # 2026-11-05 - ND-655: refine the Agent access credential list
