@@ -19,6 +19,7 @@ test("owner grants Done moves to one credential with immediate token enforcement
   // Create the trusted credential through the owner UI; its permission starts off.
   await page.getByRole("button", { name: "Share project" }).click();
   await page.getByRole("button", { name: "Agent access", exact: true }).click();
+  await page.getByText("Legacy API credentials", { exact: true }).click();
   await page.locator("#project-agent-label").fill("Trusted bot");
   await page.getByRole("button", { name: "Create credential", exact: true }).click();
   const key = page.getByRole("textbox", { name: "API key for Trusted bot", exact: true });
@@ -85,6 +86,7 @@ test("owner grants Done moves to one credential with immediate token enforcement
   await page.reload();
   await page.getByRole("button", { name: "Share project" }).click();
   await page.getByRole("button", { name: "Agent access", exact: true }).click();
+  await page.getByText("Legacy API credentials", { exact: true }).click();
   await expect(toggle).toBeChecked();
   await page.setViewportSize({ width: 390, height: 844 });
   await toggle.click();

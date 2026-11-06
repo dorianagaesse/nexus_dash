@@ -1,5 +1,6 @@
 "use client";
 
+import { AgentIdentitiesPanel } from "./agent-identities-panel";
 import { useEffect, useMemo, useState } from "react";
 import {
   Bot,
@@ -244,6 +245,9 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   };
 
   return (
+    <div className="space-y-6">
+      <AgentIdentitiesPanel projectId={projectId} />
+      <details className="border-t pt-4"><summary className="cursor-pointer text-sm font-medium">Legacy API credentials</summary>
     <div className="grid min-w-0 max-w-full gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
       <div className="min-w-0 space-y-6">
         <section className="min-w-0 space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
@@ -702,6 +706,8 @@ export function ProjectDashboardOwnerAgentAccessPanel({
           ) : null}
         </section>
       </div>
+    </div>
+      </details>
     </div>
   );
 }

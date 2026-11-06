@@ -29,6 +29,7 @@ test("ND-539: meeting notes default to private, hide from other members and agen
   const agentLabel = `Visibility bot ${suffix}`;
   await page.getByRole("button", { name: "Share project" }).click();
   await page.getByRole("button", { name: "Agent access" }).click();
+  await page.getByText("Legacy API credentials", { exact: true }).click();
   await page.locator("#project-agent-label").fill(agentLabel);
   await page.getByRole("button", { name: "Create credential" }).click();
   const apiKeyInput = page.locator(

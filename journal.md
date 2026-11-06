@@ -11009,3 +11009,43 @@ Low-value entries to avoid going forward:
   commit `4617dce`; application code and migrations are unchanged. Validation:
   `git diff --check`, reference review, and release version policy passed. The prior
   Quality Gates run `42047520646` passed all jobs on `4617dce`.
+
+### 2026-11-06 - ND-658: portable identities and runtime access
+
+- Created an isolated worktree from `origin/main` (`83eda9c2`) because the root
+  checkout contained unrelated roadmap changes. Picked up ND-658 using the
+  Codex identity explicitly supplied in the session instructions.
+- Preserved stable actor IDs and added separate device authorization,
+  authentication credentials and concurrent sessions, live scope/capability
+  intersection, independent revocation, owner management and audited context.
+- Added the OS-vault launcher, single-use pairing and per-child loopback proxy.
+  Verified a Windows DPAPI round trip without printing the proof; removed the
+  test vault entry. macOS/Linux vault adapters require platform validation.
+- Added the additive migration and PostgreSQL runtime isolation matrix. A fresh
+  dedicated local database passed all migrations and the complete NOBYPASSRLS
+  matrix, including exact-proof bootstrap and immutable binding checks.
+- Unit/API suite passed (2,370 tests); subsequent coverage run passed (2,372
+  tests, 95.33% lines and 88.11% branches in the repository's configured scope).
+  Lint, RLS inventory and production build passed. The ND-658 desktop/mobile
+  browser scenario passed and screenshots were inspected; the full 132-test
+  browser suite is running before final handoff.
+- Ownership transfer invalidates old device grants. New owners can authorize
+  devices for the same identity without changing original attribution.
+- Added the portable identity runbook, hosted onboarding/OpenAPI contract and
+  focused ADR. No preview or deployment requested or performed.
+
+### 2026-11-06 - ND-658: completed local validation
+
+- Final unit/API and coverage runs: 2,372 passed, three intentionally skipped;
+  configured coverage remained 95.33% lines and 88.11% branches.
+- Full production-build/Playwright run passed: 130 tests, two intentionally
+  skipped (large-board baseline and preview-only auth isolation). Both ND-658
+  scenarios passed, including reauthorization after ownership transfer.
+- Added a refresh control, instance-bound setup command and visibility of all
+  active sessions plus seven days of recent sessions. Rebuilt and reran both
+  ND-658 browser scenarios successfully, including no-session-token rejection,
+  raw-key rotation denial, and retained assignments/mentions after deactivation.
+- Inspected desktop/mobile captures; the design detector reported no findings.
+  PR #669 is open. GitHub Quality Core and PostgreSQL Tenant Isolation passed on
+  the initial PR revision; final-head checks and requested Copilot review are
+  tracked on the PR. No deployment was triggered.

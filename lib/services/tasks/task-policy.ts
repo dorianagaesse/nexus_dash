@@ -123,6 +123,7 @@ export async function requireAgentDoneMoveCapability(
   agentAccess?: AgentProjectAccessContext
 ): Promise<ServiceErrorResult | null> {
   if (!agentAccess) return null;
+  if (agentAccess.sessionId && !agentAccess.canMoveTasksToDone) return createError(403, "agent-done-move-disabled");
   const credential = await db.apiCredential.findFirst({
     where: {
       id: agentAccess.credentialId,

@@ -34,6 +34,7 @@ test("my work lists the tasks and todos assigned to the signed-in user", async (
   const agentLabel = `My work bot ${suffix}`;
   await page.getByRole("button", { name: "Share project" }).click();
   await page.getByRole("button", { name: "Agent access" }).click();
+  await page.getByText("Legacy API credentials", { exact: true }).click();
   await page.locator("#project-agent-label").fill(agentLabel);
   await page.getByRole("button", { name: "Create credential" }).click();
   const apiKeyInput = page.locator(`input[aria-label="API key for ${agentLabel}"]`);

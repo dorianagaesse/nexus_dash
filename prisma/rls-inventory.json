@@ -273,6 +273,27 @@
       "enforcement": "operational",
       "owner": "authentication abuse-control service",
       "rationale": "Rate-limit buckets are cross-request security state keyed by hashed signals, not tenant content."
+    },
+    {
+      "model": "AgentRuntimeDevice",
+      "classification": "indirect-project-derived",
+      "enforcement": "rls",
+      "owner": "agent runtime service",
+      "rationale": "Owner-only through the stable identity anchor; pre-authentication uses an exact high-entropy proof lookup with a fixed search path."
+    },
+    {
+      "model": "AgentRuntimeCredential",
+      "classification": "indirect-project-derived",
+      "enforcement": "rls",
+      "owner": "agent runtime service",
+      "rationale": "Owner-only through the stable identity anchor; pre-authentication uses an exact high-entropy proof lookup with a fixed search path."
+    },
+    {
+      "model": "AgentRuntimeSession",
+      "classification": "indirect-project-derived",
+      "enforcement": "rls",
+      "owner": "agent runtime service",
+      "rationale": "Owner-only through the stable identity anchor; pre-authentication uses an exact high-entropy proof lookup with a fixed search path."
     }
   ]
 }

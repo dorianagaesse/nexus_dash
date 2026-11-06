@@ -77,6 +77,14 @@ describe("agent-token-service", () => {
     });
   });
 
+  test("binds runtime tokens to both session and device with a bounded TTL", () => {
+    const token = issueAgentAccessToken({ credentialId: "oscar", projectId: "project", ownerUserId: "owner", scopes: ["task:read"], sessionId: "session", deviceId: "laptop", ttlSeconds: 300 });
+    expect(token.expiresInSeconds).toBe(300);
+    expect(verifyAgentAccessToken(token.accessToken)).toMatchObject({ ok: true, data: { credentialId: "oscar", sessionId: "session", deviceId: "laptop" } });
+    const missingDevice = issueAgentAccessToken({ credentialId: "oscar", projectId: "project", ownerUserId: "owner", scopes: ["task:read"], sessionId: "session" });
+    expect(verifyAgentAccessToken(missingDevice.accessToken)).toMatchObject({ ok: false, status: 401 });
+  });
+
   test("rejects expired tokens", () => {
     envMock.getAgentTokenRuntimeConfig.mockReturnValue({
       signingSecret: "0123456789abcdef0123456789abcdef",
