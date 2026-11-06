@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { prisma } from "../../lib/prisma";
+import { issueAgentAccessToken } from "../../lib/auth/agent-token-service";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 import {
   createProjectFromProjectsPage,
@@ -113,7 +114,7 @@ test("portable identities enforce runtime bindings, live grants and independent 
   browser,
 }, testInfo) => {
   test.setTimeout(120_000);
-  await signInAsVerifiedUser(page);
+  const ownerId = await signInAsVerifiedUser(page);
   const name = uniqueProjectName("nd658");
   await createProjectFromProjectsPage(page, name);
   await openNewestProjectDashboard(page, name);
@@ -153,6 +154,24 @@ test("portable identities enforce runtime bindings, live grants and independent 
   );
   expect(oscar.roleLabel).toBe("Orchestrator");
   expect(oscar.canMoveTasksToDone).toBe(true);
+  expect(
+    (
+      await page.request.post(`${root}/agent-access/${oscar.id}/rotate`)
+    ).status()
+  ).toBe(409);
+  const unbound = issueAgentAccessToken({
+    credentialId: oscar.id,
+    projectId,
+    ownerUserId: ownerId,
+    scopes: ["task:read"],
+  });
+  expect(
+    (
+      await page.request.get(`${root}/tasks`, {
+        headers: { Authorization: `Bearer ${unbound.accessToken}` },
+      })
+    ).status()
+  ).toBe(401);
   expect(JSON.stringify(identities)).not.toMatch(
     /secretHash|tokenHash|pairingHash/
   );
@@ -168,6 +187,9 @@ test("portable identities enforce runtime bindings, live grants and independent 
   await panel.getByRole("button", { name: "Generate pairing code" }).click();
   const code = panel.locator("[data-pairing-code]");
   await expect(code).toBeVisible();
+  await expect(panel.locator("pre")).toContainText(
+    `--base ${new URL(page.url()).origin}`
+  );
   const paired = await runtime({
     operation: "pair",
     identityId: oscar.id,
@@ -225,11 +247,24 @@ test("portable identities enforce runtime bindings, live grants and independent 
   expect((await read(one)).ok()).toBeTruthy();
   const taskResponse = await page.request.post(`${root}/tasks`, {
     headers: headers(one),
-    data: { title: "Oscar contribution" },
+    data: {
+      title: "Oscar contribution",
+      assignee: { kind: "agent", id: oscar.id },
+    },
   });
   expect(taskResponse.ok(), await taskResponse.text()).toBeTruthy();
   const { task } = await taskResponse.json();
   expect(task.createdBy.id).toBe(oscar.id);
+  const mentioned = await page.request.post(
+    `${root}/tasks/${task.id}/comments`,
+    {
+      data: {
+        content: "@{Oscar} review this",
+        agentMentionSelections: [{ credentialId: oscar.id }],
+      },
+    }
+  );
+  expect(mentioned.ok(), await mentioned.text()).toBeTruthy();
   const status = (session: { accessToken: string }, value = "Done") =>
     page.request.post(`${root}/tasks/${task.id}/status`, {
       headers: headers(session),
@@ -400,9 +435,7 @@ test("portable identities enforce runtime bindings, live grants and independent 
   } finally {
     await outsider.close();
   }
-  await page.reload();
-  await page.getByRole("button", { name: "Share project" }).click();
-  await page.getByRole("button", { name: "Agent access", exact: true }).click();
+  await panel.getByRole("button", { name: "Refresh identities" }).click();
   await panel.getByRole("button", { name: /Oscar Orchestrator/ }).click();
   await expect(panel.getByText("Laptop two", { exact: true })).toBeVisible();
   await page.screenshot({
@@ -431,4 +464,13 @@ test("portable identities enforce runtime bindings, live grants and independent 
       .createdByCredentialId
   ).toBe(oscar.id);
   expect(await prisma.apiCredential.count({ where: { id: oscar.id } })).toBe(1);
+  expect(
+    (await prisma.task.findUniqueOrThrow({ where: { id: task.id } }))
+      .assigneeCredentialId
+  ).toBe(oscar.id);
+  expect(
+    await prisma.taskCommentAgentMention.count({
+      where: { taskId: task.id, agentCredentialId: oscar.id },
+    })
+  ).toBe(1);
 });

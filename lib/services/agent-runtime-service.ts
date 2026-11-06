@@ -99,7 +99,16 @@ export async function manageAgentIdentities(input: {
                 createdAt: true,
                 sessions: {
                   orderBy: { createdAt: "desc" },
-                  take: 30,
+                  where: {
+                    OR: [
+                      { endedAt: null, expiresAt: { gt: new Date() } },
+                      {
+                        createdAt: {
+                          gte: new Date(Date.now() - 7 * 86400_000),
+                        },
+                      },
+                    ],
+                  },
                   select: {
                     id: true,
                     client: true,

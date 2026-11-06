@@ -11033,3 +11033,19 @@ Low-value entries to avoid going forward:
   devices for the same identity without changing original attribution.
 - Added the portable identity runbook, hosted onboarding/OpenAPI contract and
   focused ADR. No preview or deployment requested or performed.
+
+### 2026-11-06 - ND-658: completed local validation
+
+- Final unit/API and coverage runs: 2,372 passed, three intentionally skipped;
+  configured coverage remained 95.33% lines and 88.11% branches.
+- Full production-build/Playwright run passed: 130 tests, two intentionally
+  skipped (large-board baseline and preview-only auth isolation). Both ND-658
+  scenarios passed, including reauthorization after ownership transfer.
+- Added a refresh control, instance-bound setup command and visibility of all
+  active sessions plus seven days of recent sessions. Rebuilt and reran both
+  ND-658 browser scenarios successfully, including no-session-token rejection,
+  raw-key rotation denial, and retained assignments/mentions after deactivation.
+- Inspected desktop/mobile captures; the design detector reported no findings.
+  PR #669 is open. GitHub Quality Core and PostgreSQL Tenant Isolation passed on
+  the initial PR revision; final-head checks and requested Copilot review are
+  tracked on the PR. No deployment was triggered.

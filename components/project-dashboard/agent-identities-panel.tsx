@@ -101,6 +101,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [appOrigin, setAppOrigin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const selected = identities.find((i) => i.id === selectedId);
@@ -113,6 +114,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
     setIdentities(data.identities);
   }, [endpoint]);
   useEffect(() => {
+    setAppOrigin(window.location.origin);
     refresh()
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -167,21 +169,43 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
             own session.
           </p>
         </div>
-        <Button
-          size="sm"
-          disabled={busy}
-          onClick={() => {
-            setSelectedId(null);
-            setName("");
-            setRoleLabel("");
-            setScopes(initialScopes);
-            setDone(false);
-            setEditing(true);
-            setPairingCode(null);
-          }}
-        >
-          New identity
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy || loading}
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              try {
+                await refresh();
+              } catch (e) {
+                setError(
+                  e instanceof Error ? e.message : "Refresh failed. Try again."
+                );
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Refresh identities
+          </Button>
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => {
+              setSelectedId(null);
+              setName("");
+              setRoleLabel("");
+              setScopes(initialScopes);
+              setDone(false);
+              setEditing(true);
+              setPairingCode(null);
+            }}
+          >
+            New identity
+          </Button>
+        </div>
       </div>
       {error && (
         <p role="alert" className="text-sm text-destructive">
@@ -500,8 +524,8 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                 one-time code when prompted.
               </p>
               <pre className="overflow-x-auto whitespace-pre-wrap break-all text-xs">
-                node scripts/nd-agent.mjs login --project {projectId} --identity{" "}
-                {selected.id}
+                node scripts/nd-agent.mjs login --base {appOrigin} --project{" "}
+                {projectId} --identity {selected.id}
               </pre>
               <code className="block select-all break-all" data-pairing-code>
                 {pairingCode}

@@ -172,7 +172,7 @@ function buildGuideSections({
             <p>Create an identity in Project Settings ? Agent access, authorize a device,
               then pair it once in your own terminal. The helper stores authentication in
               the OS vault and renews access for each explicitly selected identity.</p>
-            <CodeBlock value={"node scripts/nd-agent.mjs login --project PROJECT_ID --identity IDENTITY_ID\nnode scripts/nd-agent.mjs run --project PROJECT_ID --identity IDENTITY_ID -- codex"} />
+            <CodeBlock value={`node scripts/nd-agent.mjs login --base ${new URL(docsLinks.docsUrl).origin} --project PROJECT_ID --identity IDENTITY_ID\nnode scripts/nd-agent.mjs run --base ${new URL(docsLinks.docsUrl).origin} --project PROJECT_ID --identity IDENTITY_ID -- codex`} />
             <p>Inside the launched client, use <code>node scripts/nd-agent.mjs request GET /api/projects/PROJECT_ID/tasks</code>.
               Each launch has its own session. Identity, device and session permissions
               are checked on every request; ending one session preserves the identity.</p>
