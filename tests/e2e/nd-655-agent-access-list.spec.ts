@@ -410,3 +410,50 @@ test("ND-655: load recovery and action-specific errors stay in their focused flo
   ).toBeVisible();
   await page.getByRole("button", { name: "Hide key", exact: true }).click();
 });
+
+test("ND-655: dialog dismissal restores keyboard focus to its opening control", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const path = await createWorkspace(page);
+  expect(
+    (
+      await page.request.post(path, {
+        data: {
+          label: "Keyboard assistant",
+          scopes: ["project:read", "task:read", "task:write"],
+        },
+      })
+    ).ok()
+  ).toBeTruthy();
+  const panel = await openAgentAccess(page);
+  const create = panel.getByRole("button", {
+    name: "New credential",
+    exact: true,
+  });
+  await create.click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "New agent credential", exact: true })
+      .getByLabel("Agent name", { exact: true })
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(create).toBeFocused();
+  const setup = panel.getByRole("button", { name: "Setup guide", exact: true });
+  await setup.click();
+  await expect(
+    page.getByRole("dialog", { name: "Connect an agent", exact: true })
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(setup).toBeFocused();
+  const manage = panel.getByRole("button", {
+    name: "Manage Keyboard assistant",
+    exact: true,
+  });
+  await manage.click();
+  await expect(
+    page.getByRole("dialog", { name: "Keyboard assistant", exact: true })
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(manage).toBeFocused();
+});

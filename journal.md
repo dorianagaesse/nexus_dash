@@ -69,6 +69,13 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Refreshed desktop, mobile, and creation-dialog captures. Retired old Preview
   attachments from ND-655 and linked its ND-654 dependency; PR #660 keeps the
   current deployment and final validation evidence for review.
+- Main advanced during handoff. Integrated `83eda9c` through merge `c89ca2d`,
+  preserving both journal histories and adopting its dependency/release-policy
+  updates. Core checks pass with 2,344 unit/API tests (3 skipped).
+- Added explicit focus restoration for creation, management, and setup dialogs.
+  A keyboard regression caught Escape dismissing the parent settings dialog;
+  scoped child-dialog handling now closes only the current agent dialog and
+  restores its trigger. All six ND-654/ND-655 browser checks pass locally.
 
 
 # 2026-11-05 - ND-655: refine the Agent access credential list

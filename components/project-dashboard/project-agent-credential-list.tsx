@@ -23,7 +23,10 @@ import {
 interface ProjectAgentCredentialListProps {
   credentials: ProjectAgentCredentialSummary[];
   mutatingCredentialId: string | null;
-  onManageCredential: (credential: ProjectAgentCredentialSummary) => void;
+  onManageCredential: (
+    credential: ProjectAgentCredentialSummary,
+    trigger: HTMLButtonElement
+  ) => void;
   onUpdateCapabilities: (
     credential: ProjectAgentCredentialSummary,
     allowed: boolean
@@ -322,7 +325,9 @@ export function ProjectAgentCredentialList({
                   size="sm"
                   variant="outline"
                   className="ml-[52px] justify-self-start md:ml-0 md:justify-self-end"
-                  onClick={() => onManageCredential(credential)}
+                  onClick={(event) =>
+                    onManageCredential(credential, event.currentTarget)
+                  }
                   aria-label={`Manage ${credential.label}`}
                 >
                   Manage <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />

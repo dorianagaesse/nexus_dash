@@ -11,6 +11,7 @@ import { DialogCloseButton } from "./project-agent-dialog-close";
 interface Props {
   setupOpen: boolean;
   onClose: () => void;
+  onClosedFocus: () => void;
   docs: { docsUrl: string; openApiUrl: string };
   envBlock: string;
   copied: "key" | "env" | null;
@@ -20,6 +21,7 @@ interface Props {
 export function ProjectAgentSetupGuideDialog({
   setupOpen,
   onClose,
+  onClosedFocus,
   docs,
   envBlock,
   copied,
@@ -34,6 +36,18 @@ export function ProjectAgentSetupGuideDialog({
       }}
     >
       <DialogContent
+        data-agent-access-dialog="true"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+          }
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          onClosedFocus();
+        }}
         className="z-[160] max-h-[90dvh] max-w-xl overflow-y-auto rounded-2xl p-5 sm:p-6"
         overlayClassName="z-[150]"
       >

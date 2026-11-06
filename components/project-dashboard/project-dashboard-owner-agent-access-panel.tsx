@@ -91,6 +91,8 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   const [copyError, setCopyError] = useState<string | null>(null);
   const [origin, setOrigin] = useState(AGENT_BASE_URL_PLACEHOLDER);
   const creationInputRef = useRef<HTMLInputElement>(null);
+  const setupTriggerRef = useRef<HTMLButtonElement>(null);
+  const manageTriggerRef = useRef<HTMLButtonElement>(null);
   const newCredentialRef = useRef<HTMLButtonElement>(null);
   const credentials = accessSummary?.credentials ?? [];
   const managed =
@@ -167,6 +169,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
             <Button
               type="button"
               variant="outline"
+              ref={setupTriggerRef}
               onClick={() => {
                 setCopyError(null);
                 setSetupOpen(true);
@@ -304,7 +307,8 @@ export function ProjectDashboardOwnerAgentAccessPanel({
               <ProjectAgentCredentialList
                 credentials={credentials}
                 mutatingCredentialId={mutatingCredentialId}
-                onManageCredential={(credential) => {
+                onManageCredential={(credential, trigger) => {
+                  manageTriggerRef.current = trigger;
                   onClearActionError();
                   setManagedId(credential.id);
                 }}
@@ -412,6 +416,18 @@ export function ProjectDashboardOwnerAgentAccessPanel({
         }}
       >
         <DialogContent
+          data-agent-access-dialog="true"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              if (!isCreatingCredential) setCreateOpen(false);
+            }
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            if (!latestIssuedSecret) newCredentialRef.current?.focus();
+          }}
           onOpenAutoFocus={(event) => {
             event.preventDefault();
             creationInputRef.current?.focus();
@@ -448,6 +464,10 @@ export function ProjectDashboardOwnerAgentAccessPanel({
 
       <ProjectAgentCredentialDetailsDialog
         credential={managed}
+        onClosedFocus={() => {
+          if (!latestIssuedSecret && manageTriggerRef.current?.isConnected)
+            manageTriggerRef.current.focus();
+        }}
         isMutating={busy}
         actionError={actionError}
         onClose={() => setManagedId(null)}
@@ -468,6 +488,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
 
       <ProjectAgentSetupGuideDialog
         setupOpen={setupOpen}
+        onClosedFocus={() => setupTriggerRef.current?.focus()}
         onClose={() => setSetupOpen(false)}
         docs={docs}
         envBlock={envBlock}

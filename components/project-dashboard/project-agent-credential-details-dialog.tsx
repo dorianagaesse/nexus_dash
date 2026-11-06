@@ -25,6 +25,7 @@ interface Props {
   isMutating: boolean;
   actionError: ProjectAgentAccessActionError | null;
   onClose: () => void;
+  onClosedFocus: () => void;
   onUpdateCapabilities: (
     credential: ProjectAgentCredentialSummary,
     allowed: boolean
@@ -37,6 +38,7 @@ export function ProjectAgentCredentialDetailsDialog({
   isMutating,
   actionError,
   onClose,
+  onClosedFocus,
   onUpdateCapabilities,
   onRotateCredential,
   onRevokeCredential,
@@ -49,6 +51,18 @@ export function ProjectAgentCredentialDetailsDialog({
       }}
     >
       <DialogContent
+        data-agent-access-dialog="true"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!isMutating) onClose();
+          }
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          onClosedFocus();
+        }}
         dismissible={!isMutating}
         className="z-[160] max-h-[90dvh] max-w-xl overflow-y-auto rounded-2xl p-5 sm:p-6"
         overlayClassName="z-[150]"

@@ -38,6 +38,14 @@ export function ProjectAgentIssuedKeyDialog({
       }}
     >
       <DialogContent
+        data-agent-access-dialog="true"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            onDismissLatestSecret();
+          }
+        }}
         className="z-[180] max-h-[90dvh] max-w-lg overflow-y-auto rounded-2xl p-5 sm:p-6"
         overlayClassName="z-[170]"
         onOpenAutoFocus={(event) => {

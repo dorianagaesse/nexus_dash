@@ -1169,6 +1169,11 @@ export function ProjectDashboardOwnerActions({
         }}
       >
         <DialogContent
+          onEscapeKeyDown={(event) => {
+            if (event.target instanceof Element && event.target.closest("[data-agent-access-dialog]")) {
+              event.preventDefault();
+            }
+          }}
           dismissible={isProjectSettingsDismissible}
           className="z-[130] flex max-h-[100dvh] min-w-0 w-full max-w-4xl flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl"
           overlayClassName="z-[120]"

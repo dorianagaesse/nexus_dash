@@ -127,6 +127,7 @@ Open `http://localhost:3000`.
   errors appear in their relevant flow and failed creation preserves input.
 - **Activity** shows recent credential changes and usage. **Setup guide** contains
   connection steps, hosted documentation, and the optional environment block.
+  Escape closes the current agent dialog and returns focus to its opener.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
 - In Sharing > Agent access, owners can enable **Task completion** separately
