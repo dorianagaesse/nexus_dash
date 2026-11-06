@@ -34,12 +34,14 @@ test("my work lists the tasks and todos assigned to the signed-in user", async (
   const agentLabel = `My work bot ${suffix}`;
   await page.getByRole("button", { name: "Share project" }).click();
   await page.getByRole("button", { name: "Agent access" }).click();
+  await page.getByRole("button", { name: "New credential", exact: true }).click();
   await page.locator("#project-agent-label").fill(agentLabel);
   await page.getByRole("button", { name: "Create credential" }).click();
   const apiKeyInput = page.locator(`input[aria-label="API key for ${agentLabel}"]`);
   await expect(apiKeyInput).toBeVisible();
   const apiKey = await apiKeyInput.inputValue();
   expect(apiKey.length).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Hide key", exact: true }).click();
   await page.getByRole("button", { name: "Close project settings" }).click();
 
   const credential = await prisma.apiCredential.findFirst({

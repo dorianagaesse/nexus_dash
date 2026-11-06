@@ -3,6 +3,40 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-06 - ND-655: UI and UX review of PR #660
+
+- Kept the credential directory and focused dialogs after two independent
+  Impeccable assessments. The detector found no primary findings or advisories
+  across the seven agent-access components. Reviewed baseline desktop/mobile
+  screenshots and the creation flow; the browser access host was unavailable,
+  so Playwright supplied rendered evidence without a live overlay or server.
+- Protected the one-time API key from Escape/backdrop dismissal, retaining the
+  explicit Hide key action and explaining its consequence. Custom access now
+  includes resource actions; inactive credentials cannot appear to complete work.
+- Expanded the completion switch to a 44px-high control including its label,
+  corrected its dark-theme thumb, and respected reduced motion. Names wrap at
+  word boundaries when possible. The settings close control now shares the
+  mobile heading row instead of consuming a separate row.
+- Creation validation now associates errors with the relevant name or permission
+  choice and moves focus there. Extended the existing browser regressions for
+  these recovery paths, key retention, effective access, and narrow layouts.
+- Used a dedicated worktree and isolated PostgreSQL container on port 55655.
+- Validation passed: lint, RLS inventory, 2,344 unit/API tests (3 skipped),
+  coverage gates (95.33% lines), production build, and the three ND-655 browser
+  checks (18s). Inspected 1440px desktop and 375px mobile in both themes; browser
+  checks also cover 812px landscape and reduced motion. The full local suite
+  reproduced the previously documented ND-433 recovery failure. A shrinking
+  checkbox locator in the new keyboard check was corrected before its passing
+  rerun. Current-head CI is linked from PR #660.
+- [Preview workflow 42256963351](https://github.com/dorianagaesse/nexus_dash/actions/runs/42256963351)
+  passed. Checkout logs verify branch `feature/nd-655-agent-access-list` at
+  implementation revision `f4189e85ad92c2aaa42df0eeb878e93f8f0c575e`.
+  The [pinned Preview](https://nexus-dash-32r1jf1mw-dorian-agaesses-projects.vercel.app)
+  returned health 200; its stable sign-in alias is unchanged. Deployed flow tests
+  could not seed sessions with stale saved Preview database credentials.
+  Computer Use ended because it could not verify the browser URL. Local rendered
+  checks and CI provide the UI evidence; no live overlay was injected.
+
 # 2026-11-05 - ND-659: enforce release impact decisions
 
 - Created the fix card and linked GitHub issue #662 after checking the board
@@ -31,6 +65,117 @@ Use it for important implementation milestones, blockers, validation runs, and r
   unit/API tests (3 skipped), lint, RLS inventory, coverage, production build,
   release-policy validation, and `git diff --check`. No additional blocking
   issues found against the task's acceptance criteria.
+
+# 2026-11-05 - ND-655: redesign Agent access on the ND-654 baseline
+
+- Rebased PR #660 onto `0c5bd59` (merged ND-654). The old immutable Preview
+  reproduced an owner credential-list 500; Vercel logs identify Prisma P2022
+  for removed `Project.agentCanMoveTasksToDone`. The rebased service and generated
+  client read `ApiCredential.canMoveTasksToDone` instead. Older Preview links
+  need retirement after validation of the new deployment.
+- Replaced the setup-heavy tab with a credential directory, compact agent/access
+  counts, a search and filter toolbar, readable access summaries, and independent
+  completion controls. Creation, credential management, one-time keys, and setup
+  instructions have focused dialogs; audit history has its own Activity view.
+- Completion controls explain when Task Write is missing. Status, lifecycle
+  dates, and public IDs remain available in Manage. Moved form, detail, key,
+  setup, and presentation responsibilities into focused components.
+- Branch rules rejected the rebase force-push. Preserved PR #660 through a
+  normal integration merge (`1a52c05`) whose tree exactly matches the locally
+  rebased result; ND-654 is an ancestor and no repository rules were changed.
+- Final lint, RLS inventory, 2,315 unit/API tests (3 skipped), coverage gates
+  (95.33% lines), and production build passed locally. The local full browser
+  run suffered an abnormal stall (125 passed, 2 skipped, 5 failures); four
+  additional failures passed on a fresh-server rerun, leaving the previously
+  reproduced local ND-433 baseline failure.
+
+# 2026-11-06 - ND-655: validate the redesigned tab and repair Preview handoff
+
+- [Quality run 42066431782](https://github.com/dorianagaesse/nexus_dash/actions/runs/42066431782)
+  passed every job on `1a52c05b8fbead8cca6c768cfb3ae0ef35673a8e`, including
+  2,315 unit/API tests, coverage, build, PostgreSQL tenant isolation, all 130
+  browser checks (2 skipped), and the container image.
+- [Preview run 42066421990](https://github.com/dorianagaesse/nexus_dash/actions/runs/42066421990)
+  passed. Checkout logs and readiness verify branch revision `1a52c05` on the
+  [new immutable deployment](https://nexus-dash-jl9iqesy9-dorian-agaesses-projects.vercel.app).
+  All five ND-654/ND-655 browser checks passed there (40.9 s). The same signed-in
+  credential-load probe that returned 500 on the old Preview now returns 200.
+- Refreshed desktop, mobile, and creation-dialog captures. Retired old Preview
+  attachments from ND-655 and linked its ND-654 dependency; PR #660 keeps the
+  current deployment and final validation evidence for review.
+- Main advanced during handoff. Integrated `83eda9c` through merge `c89ca2d`,
+  preserving both journal histories and adopting its dependency/release-policy
+  updates. Core checks pass with 2,344 unit/API tests (3 skipped).
+- Added explicit focus restoration for creation, management, and setup dialogs.
+  A keyboard regression caught Escape dismissing the parent settings dialog;
+  scoped child-dialog handling now closes only the current agent dialog and
+  restores its trigger. All six ND-654/ND-655 browser checks pass locally.
+- Final [Quality run 42200169133](https://github.com/dorianagaesse/nexus_dash/actions/runs/42200169133)
+  passed every job on `2311a5ae9fc6d3c19b9bbbb96db86efc4eea405c`: 2,344 unit/API
+  tests (3 skipped), coverage, build, tenant isolation, 131 browser tests
+  (2 skipped), and container image. Local full-suite verification finished
+  with 130 passed, 2 skipped, and only the previously reproduced ND-433 failure.
+- Final [Preview run 42200161671](https://github.com/dorianagaesse/nexus_dash/actions/runs/42200161671)
+  passed and its logs verify checkout of `2311a5a`. All six deployed ND-654/ND-655
+  browser checks pass (38.8 s), including Escape/focus restoration. Signed-in
+  credential probes return 200 on both the
+  [pinned deployment](https://nexus-dash-1m83zrxbk-dorian-agaesses-projects.vercel.app)
+  and the verified interactive sign-in alias; both readiness responses report
+  Preview revision `2311a5a`. PR #660 and ND-655 now point to these current URLs.
+
+
+# 2026-11-05 - ND-655: refine the Agent access credential list
+
+- Moved credentials ahead of creation and quickstart setup. Added combined name,
+  status, and capability filters, readable scope badges, expandable lifecycle
+  metadata, explicit loading/error/empty/no-match feedback, and a retry action.
+  Long names and management actions stack on narrow screens. Newly issued keys
+  receive keyboard focus and clipboard failures explain manual recovery.
+- Added browser coverage for filtering, creation, rotation confirmation,
+  revocation, project-wide capabilities, bearer authorization, failure recovery,
+  keyboard details, and mobile geometry. Authentication fixtures now follow
+  `PORT` so local tests can use an isolated server beside another running app.
+- On Node 24.22.1 and isolated native PostgreSQL 16, lint, RLS inventory,
+  2,311 unit/API tests (3 skipped), coverage gates (95.33% lines), and production
+  build passed. The full Chromium suite finished with 127 passed, 2 skipped,
+  and one failure at `nd-433-long-form-recovery.spec.ts:75` waiting for
+  “Meeting title is required.” The identical failure reproduced on unchanged
+  `main` (`697eab2`) in a fresh detached worktree.
+- Preview [run 42033942104](https://github.com/dorianagaesse/nexus_dash/actions/runs/42033942104)
+  passed. Its logs show checkout of `feature/nd-655-agent-access-list` at
+  `8bb16ff55f0e0aba7e5f7cccd423d2c6be7a16d7`; readiness confirms Preview,
+  that revision, and database health. Both ND-655 browser checks passed on the
+  [immutable deployment](https://nexus-dash-3mbzfaahp-dorian-agaesses-projects.vercel.app),
+  including desktop/mobile geometry and lifecycle authorization. CI core
+  checks and tenant isolation also passed on that implementation commit.
+- [PR #660](https://github.com/dorianagaesse/nexus_dash/pull/660) is open for
+  the user's agent review. Moved execution into a dedicated worktree after
+  another session switched the shared checkout; restored local `main` and
+  canceled the initial old-head preview dispatch before redeploying.
+- Recorded the pre-existing same-second rotation/token timestamp issue as
+  ND-657, linked to ND-655. The browser check re-exchanges across that boundary;
+  this UI change does not alter token invalidation.
+
+- Review follow-up: separated credential loading failures from create, rotate,
+  and capability-save errors. Loading owns the list retry; action errors appear
+  next to their controls and retain the existing toast feedback. Browser
+  regressions now cover each failure and retry path.
+- Result counts update immediately and announce after a 400 ms pause, with a
+  timer-cancellation regression test. Added per-instance filter IDs, normalized
+  active-filter detection, typed status state, ref-based creation focus, a named
+  creation section, and consistent focus rings.
+- Review validation on `f261a295ce22ed7c28bcfb399fa4da1554387009`: lint,
+  RLS inventory, 2,312 unit/API tests (3 skipped), coverage gates (95.33% lines),
+  and production build passed. The full browser suite again finished with
+  127 passed, 2 skipped, and the same baseline ND-433 failure at line 75.
+- Refreshed [Preview run 42043068568](https://github.com/dorianagaesse/nexus_dash/actions/runs/42043068568)
+  passed. Logs verify the branch checkout at `f261a29`, and readiness reports
+  that revision and environment `preview`. Both ND-655 browser flows passed
+  on the [review deployment](https://nexus-dash-qtylcvqun-dorian-agaesses-projects.vercel.app)
+  (17.2 s), including creation, rotation, and capability failure/retry checks.
+  CI core checks and tenant isolation passed on the same code commit.
+- Replied to and resolved all seven review threads on PR #660. The final
+  follow-up commit records evidence in this journal only.
 
 # 2026-10-30 - ND-541: define Tasks/Kanban domain boundary and migration seams
 

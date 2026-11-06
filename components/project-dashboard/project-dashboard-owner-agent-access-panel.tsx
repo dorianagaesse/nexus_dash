@@ -1,102 +1,79 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bot,
+  Activity,
+  ArrowRight,
   BookOpenText,
-  Check,
-  Copy,
+  Bot,
+  CheckCheck,
   KeyRound,
+  Plus,
   RefreshCw,
   ShieldCheck,
   ShieldX,
 } from "lucide-react";
-
-import {
-  AGENT_CREDENTIAL_PRESETS,
-  AGENT_SCOPE_DEFINITIONS,
-  DEFAULT_AGENT_CREDENTIAL_PRESET_ID,
-  MAX_AGENT_CREDENTIAL_LABEL_LENGTH,
-  resolveAgentCredentialPreset,
-  type AgentScope,
-} from "@/lib/agent-access";
 import {
   AGENT_BASE_URL_PLACEHOLDER,
   buildAgentDocumentationUrls,
   buildAgentProjectEnvBlock,
 } from "@/lib/agent-onboarding";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ProjectAgentCredentialList } from "./project-agent-credential-list";
+import {
+  ProjectAgentCredentialForm,
+  type CreateProjectAgentCredentialInput,
+} from "./project-agent-credential-form";
+import {
   formatAgentAuditAction,
-  formatAgentCredentialStatus,
+  type ProjectAgentAccessActionError,
   type ProjectAgentAccessSummary,
   type ProjectAgentCredentialIssuedSecret,
   type ProjectAgentCredentialSummary,
-} from "@/components/project-dashboard/project-dashboard-owner-actions.shared";
+} from "./project-dashboard-owner-actions.shared";
 
-interface CreateProjectAgentCredentialInput {
-  label: string;
-  scopes: AgentScope[];
-  expiresInDays: number | null;
-}
+import { DialogCloseButton } from "./project-agent-dialog-close";
+import { ProjectAgentCredentialDetailsDialog } from "./project-agent-credential-details-dialog";
+import { ProjectAgentIssuedKeyDialog } from "./project-agent-issued-key-dialog";
+import { ProjectAgentSetupGuideDialog } from "./project-agent-setup-guide-dialog";
 
 interface ProjectDashboardOwnerAgentAccessPanelProps {
   projectId: string;
   accessSummary: ProjectAgentAccessSummary | null;
   isLoadingAccessSummary: boolean;
-  accessError: string | null;
-  onUpdateCapabilities: (credential: ProjectAgentCredentialSummary, allowed: boolean) => void;
+  accessLoadError: string | null;
+  actionError: ProjectAgentAccessActionError | null;
+  onClearActionError: () => void;
+  onRefreshAccess: () => void;
+  onUpdateCapabilities: (
+    credential: ProjectAgentCredentialSummary,
+    allowed: boolean
+  ) => void;
   isCreatingCredential: boolean;
   mutatingCredentialId: string | null;
-  latestIssuedSecret: (ProjectAgentCredentialIssuedSecret & {
-    mode: "created" | "rotated";
-  }) | null;
+  latestIssuedSecret:
+    | (ProjectAgentCredentialIssuedSecret & { mode: "created" | "rotated" })
+    | null;
   onCreateCredential: (input: CreateProjectAgentCredentialInput) => void;
   onRotateCredential: (credential: ProjectAgentCredentialSummary) => void;
   onRevokeCredential: (credential: ProjectAgentCredentialSummary) => void;
   onDismissLatestSecret: () => void;
 }
 
-const EXPIRY_OPTIONS = [
-  { value: "", label: "No expiry" },
-  { value: "30", label: "30 days" },
-  { value: "90", label: "90 days" },
-  { value: "180", label: "180 days" },
-  { value: "365", label: "365 days" },
-] as const;
-
-function formatTimestamp(value: string | null): string {
-  if (!value) {
-    return "Never";
-  }
-
-  return new Date(value).toLocaleString();
-}
-
-function buildStatusTone(status: ProjectAgentCredentialSummary["status"]): string {
-  switch (status) {
-    case "active":
-      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200";
-    case "expired":
-      return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200";
-    case "revoked":
-      return "border-destructive/30 bg-destructive/10 text-destructive";
-    default:
-      return "";
-  }
-}
-
-function buildUsageHint(accessTokenTtlSeconds: number): string {
-  const ttlMinutes = Math.max(1, Math.round(accessTokenTtlSeconds / 60));
-  return `Exchange this API key at /api/auth/agent/token to get a Bearer token valid for about ${ttlMinutes} minute${ttlMinutes === 1 ? "" : "s"}.`;
-}
-
 export function ProjectDashboardOwnerAgentAccessPanel({
   projectId,
   accessSummary,
   isLoadingAccessSummary,
-  accessError,
+  accessLoadError,
+  actionError,
+  onClearActionError,
+  onRefreshAccess,
   onUpdateCapabilities,
   isCreatingCredential,
   mutatingCredentialId,
@@ -106,602 +83,419 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   onRevokeCredential,
   onDismissLatestSecret,
 }: ProjectDashboardOwnerAgentAccessPanelProps) {
-  const [labelDraft, setLabelDraft] = useState("");
-  const [expiryDraft, setExpiryDraft] = useState<(typeof EXPIRY_OPTIONS)[number]["value"]>("");
-  const [selectedScopes, setSelectedScopes] = useState<AgentScope[]>(() => {
-    const defaultPreset = resolveAgentCredentialPreset(
-      DEFAULT_AGENT_CREDENTIAL_PRESET_ID
-    );
-    return defaultPreset ? [...defaultPreset.scopes] : [];
-  });
-  const [formError, setFormError] = useState<string | null>(null);
-  const [hasCopiedSecret, setHasCopiedSecret] = useState(false);
-  const [hasCopiedQuickstart, setHasCopiedQuickstart] = useState(false);
-  const [runtimeAppOrigin, setRuntimeAppOrigin] = useState(AGENT_BASE_URL_PLACEHOLDER);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    setRuntimeAppOrigin(window.location.origin);
-  }, []);
-
-  useEffect(() => {
-    if (!latestIssuedSecret) {
-      return;
-    }
-
-    setHasCopiedSecret(false);
-    if (latestIssuedSecret.mode === "created") {
-      setLabelDraft("");
-      setExpiryDraft("");
-      const defaultPreset = resolveAgentCredentialPreset(
-        DEFAULT_AGENT_CREDENTIAL_PRESET_ID
-      );
-      setSelectedScopes(defaultPreset ? [...defaultPreset.scopes] : []);
-      setFormError(null);
-    }
-  }, [latestIssuedSecret]);
-
-  useEffect(() => {
-    if (!hasCopiedSecret && !hasCopiedQuickstart) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setHasCopiedSecret(false);
-      setHasCopiedQuickstart(false);
-    }, 1600);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [hasCopiedQuickstart, hasCopiedSecret]);
-
-  const credentialCountLabel = useMemo(() => {
-    const count = accessSummary?.credentials.length ?? 0;
-    return `${count} credential${count === 1 ? "" : "s"}`;
-  }, [accessSummary?.credentials.length]);
-
-  const docsLinks = useMemo(
-    () => buildAgentDocumentationUrls(runtimeAppOrigin),
-    [runtimeAppOrigin]
+  const [view, setView] = useState<"credentials" | "activity">("credentials");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [managedId, setManagedId] = useState<string | null>(null);
+  const [copied, setCopied] = useState<"key" | "env" | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const [origin, setOrigin] = useState(AGENT_BASE_URL_PLACEHOLDER);
+  const creationInputRef = useRef<HTMLInputElement>(null);
+  const setupTriggerRef = useRef<HTMLButtonElement>(null);
+  const manageTriggerRef = useRef<HTMLButtonElement>(null);
+  const newCredentialRef = useRef<HTMLButtonElement>(null);
+  const credentials = accessSummary?.credentials ?? [];
+  const managed =
+    credentials.find((credential) => credential.id === managedId) ?? null;
+  const active = credentials.filter(
+    (credential) => credential.status === "active"
   );
-  const quickstartEnvBlock = useMemo(
+  const canComplete = active.filter(
+    (credential) =>
+      credential.canMoveTasksToDone && credential.scopes.includes("task:write")
+  );
+  const busy = mutatingCredentialId !== null;
+  const docs = useMemo(() => buildAgentDocumentationUrls(origin), [origin]);
+  const envBlock = useMemo(
     () =>
       buildAgentProjectEnvBlock({
-        appOrigin: runtimeAppOrigin,
+        appOrigin: origin,
         projectId,
         apiKey: latestIssuedSecret?.apiKey ?? null,
       }),
-    [latestIssuedSecret?.apiKey, projectId, runtimeAppOrigin]
+    [origin, projectId, latestIssuedSecret?.apiKey]
   );
 
-  const handleToggleScope = (scope: AgentScope) => {
-    setSelectedScopes((currentScopes) =>
-      currentScopes.includes(scope)
-        ? currentScopes.filter((currentScope) => currentScope !== scope)
-        : [...currentScopes, scope].sort(
-            (left, right) =>
-              AGENT_SCOPE_DEFINITIONS.findIndex((entry) => entry.scope === left) -
-              AGENT_SCOPE_DEFINITIONS.findIndex((entry) => entry.scope === right)
-          )
-    );
-    setFormError(null);
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+  useEffect(() => {
+    if (!latestIssuedSecret) return;
+    setCreateOpen(false);
+    setManagedId(null);
+    setCopied(null);
+    setCopyError(null);
+  }, [latestIssuedSecret]);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+  const openCreation = () => {
+    onClearActionError();
+    setCreateOpen(true);
   };
-
-  const handleApplyPreset = (presetId: string) => {
-    const preset = resolveAgentCredentialPreset(presetId);
-    if (!preset) {
-      return;
-    }
-
-    setSelectedScopes([...preset.scopes]);
-    setFormError(null);
-  };
-
-  const handleCreateCredential = () => {
-    const label = labelDraft.trim();
-    if (label.length < 2 || label.length > MAX_AGENT_CREDENTIAL_LABEL_LENGTH) {
-      setFormError("Credential label must be between 2 and 80 characters.");
-      return;
-    }
-
-    if (selectedScopes.length === 0) {
-      setFormError("Select at least one scope before creating a credential.");
-      return;
-    }
-
-    const expiresInDays =
-      expiryDraft.length > 0 ? Number.parseInt(expiryDraft, 10) : null;
-    setFormError(null);
-    onCreateCredential({
-      label,
-      scopes: selectedScopes,
-      expiresInDays,
-    });
-  };
-
-  const handleCopySecret = async () => {
-    if (!latestIssuedSecret) {
-      return;
-    }
-
+  const copy = async (kind: "key" | "env") => {
+    setCopyError(null);
     try {
-      await navigator.clipboard.writeText(latestIssuedSecret.apiKey);
-      setHasCopiedSecret(true);
+      await navigator.clipboard.writeText(
+        kind === "key" ? latestIssuedSecret!.apiKey : envBlock
+      );
+      setCopied(kind);
     } catch {
-      setHasCopiedSecret(false);
-    }
-  };
-
-  const handleCopyQuickstart = async () => {
-    try {
-      await navigator.clipboard.writeText(quickstartEnvBlock);
-      setHasCopiedQuickstart(true);
-    } catch {
-      setHasCopiedQuickstart(false);
+      setCopyError("Could not copy. Select the text and copy it manually.");
     }
   };
 
   return (
-    <div className="grid min-w-0 max-w-full gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-      <div className="min-w-0 space-y-6">
-        <section className="min-w-0 space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <Bot className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-base font-semibold">Agent access</h3>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Create project-scoped API credentials for trusted agents. Raw keys are shown once,
-                exchanged for short-lived bearer tokens, and fully auditable.
+    <>
+      <section aria-label="Agent access" className="min-w-0 space-y-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-primary/15 bg-primary/5 text-primary">
+              <Bot className="h-6 w-6" aria-hidden />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-xl font-semibold tracking-tight">
+                Your agents
+              </h3>
+              <p className="mt-1 hidden max-w-md text-sm leading-relaxed text-muted-foreground sm:block">
+                See who has access, what they can do, and which agents can
+                complete work.
               </p>
             </div>
-            <Badge variant="outline" className="rounded-full px-3 py-1">
-              {accessSummary
-                ? `${Math.max(1, Math.round(accessSummary.accessTokenTtlSeconds / 60))} min token TTL`
-                : "Short-lived tokens"}
-            </Badge>
           </div>
-
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
-            <div className="grid gap-2">
-              <label htmlFor="project-agent-label" className="text-sm font-medium">
-                Credential label
-              </label>
-              <input
-                id="project-agent-label"
-                value={labelDraft}
-                onChange={(event) => {
-                  setLabelDraft(event.target.value);
-                  setFormError(null);
-                }}
-                placeholder="Release bot"
-                maxLength={MAX_AGENT_CREDENTIAL_LABEL_LENGTH}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm outline-none"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <label htmlFor="project-agent-expiry" className="text-sm font-medium">
-                Credential expiry
-              </label>
-              <select
-                id="project-agent-expiry"
-                value={expiryDraft}
-                onChange={(event) =>
-                  setExpiryDraft(event.target.value as (typeof expiryDraft))
-                }
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-              >
-                {EXPIRY_OPTIONS.map((option) => (
-                  <option key={option.value || "never"} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Scopes</p>
-              <p className="text-xs text-muted-foreground">
-                Start from a preset, then adjust with the checkboxes. Most agents only
-                need read + write without delete; attention-only agents can start with
-                Attention read only.
-              </p>
-            </div>
-
-            <div className="grid gap-2 md:grid-cols-2" role="group" aria-label="Scope presets">
-              {AGENT_CREDENTIAL_PRESETS.map((preset) => {
-                const isActive =
-                  selectedScopes.length === preset.scopes.length &&
-                  preset.scopes.every((scope) => selectedScopes.includes(scope));
-
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => handleApplyPreset(preset.id)}
-                    aria-pressed={isActive}
-                    className={`rounded-xl border p-3 text-left transition-colors ${
-                      isActive
-                        ? "border-primary bg-primary/10"
-                        : "border-border/60 bg-card hover:border-primary/40"
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5 text-sm font-medium">
-                      {preset.label}
-                      {preset.recommended ? (
-                        <Badge
-                          variant="outline"
-                          className="rounded-full px-2 py-0 text-[10px]"
-                        >
-                          Recommended
-                        </Badge>
-                      ) : null}
-                    </span>
-                    <span className="mt-1 block text-xs text-muted-foreground">
-                      {preset.description}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              {AGENT_SCOPE_DEFINITIONS.map((definition) => {
-                const isChecked = selectedScopes.includes(definition.scope);
-
-                return (
-                  <label
-                    key={definition.scope}
-                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/60 bg-card p-3"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => handleToggleScope(definition.scope)}
-                      className="mt-0.5 h-4 w-4 rounded border-input"
-                    />
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">{definition.label}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {definition.description}
-                      </p>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          {formError ? (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {formError}
-            </div>
-          ) : null}
-
-          {accessError ? (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {accessError}
-            </div>
-          ) : null}
-
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">{credentialCountLabel}</p>
+          <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              onClick={handleCreateCredential}
-              disabled={isCreatingCredential}
+              variant="outline"
+              ref={setupTriggerRef}
+              onClick={() => {
+                setCopyError(null);
+                setSetupOpen(true);
+              }}
             >
-              <KeyRound className="h-4 w-4" />
-              {isCreatingCredential ? "Creating..." : "Create credential"}
+              <BookOpenText className="h-4 w-4" aria-hidden /> Setup guide
+            </Button>
+            <Button
+              ref={newCredentialRef}
+              type="button"
+              disabled={!accessSummary || isLoadingAccessSummary}
+              onClick={openCreation}
+            >
+              <Plus className="h-4 w-4" aria-hidden /> New credential
             </Button>
           </div>
-        </section>
-
-        {latestIssuedSecret ? (
-          <section className="space-y-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-amber-700 dark:text-amber-200" />
-                  <h3 className="text-base font-semibold">
-                    {latestIssuedSecret.mode === "created"
-                      ? "Copy the new API key now"
-                      : "Copy the rotated API key now"}
-                  </h3>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  This value is shown once for <span className="font-medium">{latestIssuedSecret.credential.label}</span>.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={onDismissLatestSecret}
-              >
-                Hide key
-              </Button>
+        </div>
+        <dl className="grid grid-cols-3 divide-x divide-border/60 rounded-xl border border-border/60 bg-muted/20">
+          {[
+            {
+              label: "Active agents",
+              mobileLabel: "Active",
+              count: active.length,
+              icon: Bot,
+            },
+            {
+              label: "Can complete tasks",
+              mobileLabel: "Can complete",
+              count: canComplete.length,
+              icon: CheckCheck,
+            },
+            {
+              label: "Expired or revoked",
+              mobileLabel: "Inactive",
+              count: credentials.length - active.length,
+              icon: ShieldX,
+            },
+          ].map(({ label, mobileLabel, count, icon: Icon }) => (
+            <div
+              key={label}
+              className="flex min-w-0 items-center gap-2.5 p-3 sm:p-4"
+            >
+              <dt className="flex flex-wrap items-center gap-1.5 text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
+                <Icon className="hidden h-3.5 w-3.5 sm:block" aria-hidden />
+                <span className="hidden sm:inline">{label}</span>
+                <span className="sm:hidden">{mobileLabel}</span>
+              </dt>
+              <dd className="order-first text-2xl font-semibold leading-none tabular-nums">
+                {accessSummary ? count : "—"}
+              </dd>
             </div>
-
-            <div className="flex max-w-full items-center gap-2">
-              <input
-                readOnly
-                value={latestIssuedSecret.apiKey}
-                aria-label={`API key for ${latestIssuedSecret.credential.label}`}
-                className="h-10 min-w-0 flex-1 rounded-md border border-amber-500/20 bg-background px-3 text-xs text-muted-foreground outline-none sm:text-sm"
+          ))}
+        </dl>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70">
+          <div
+            role="group"
+            aria-label="Agent access views"
+            className="flex gap-5"
+          >
+            {(
+              [
+                ["credentials", "Credentials", KeyRound],
+                ["activity", "Activity", Activity],
+              ] as const
+            ).map(([key, label, Icon]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={view === key}
+                onClick={() => setView(key)}
+                className={`flex items-center gap-2 border-b-2 pb-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${view === key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+              >
+                <Icon className="h-4 w-4" aria-hidden />
+                {label}
+              </button>
+            ))}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={isLoadingAccessSummary}
+            onClick={onRefreshAccess}
+            className="mb-2 text-muted-foreground"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${isLoadingAccessSummary ? "animate-spin" : ""}`}
+              aria-hidden
+            />{" "}
+            Refresh
+          </Button>
+        </div>
+        {accessLoadError ? (
+          <div
+            role="alert"
+            aria-label="Credential loading error"
+            className="rounded-xl border border-destructive/30 bg-destructive/5 p-4"
+          >
+            <p className="text-sm font-medium">We couldn’t load agent access</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {accessLoadError}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              disabled={isLoadingAccessSummary}
+              onClick={onRefreshAccess}
+            >
+              Retry loading credentials
+            </Button>
+          </div>
+        ) : null}
+        {isLoadingAccessSummary ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            {accessSummary
+              ? "Refreshing credentials..."
+              : "Loading credentials..."}
+          </p>
+        ) : null}
+        {!accessSummary && isLoadingAccessSummary ? (
+          <div aria-hidden className="space-y-3">
+            {[0, 1, 2].map((index) => (
+              <div
+                key={index}
+                className="h-20 animate-pulse rounded-2xl bg-muted/50"
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                aria-label={`Copy API key for ${latestIssuedSecret.credential.label}`}
-                className="h-10 w-10 shrink-0"
-                onClick={() => void handleCopySecret()}
-              >
-                {hasCopiedSecret ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <p>{buildUsageHint(latestIssuedSecret.accessTokenTtlSeconds)}</p>
+            ))}
+          </div>
+        ) : null}
+        {view === "credentials" && accessSummary ? (
+          <>
+            {credentials.length ? (
+              <ProjectAgentCredentialList
+                credentials={credentials}
+                mutatingCredentialId={mutatingCredentialId}
+                onManageCredential={(credential, trigger) => {
+                  manageTriggerRef.current = trigger;
+                  onClearActionError();
+                  setManagedId(credential.id);
+                }}
+                onUpdateCapabilities={onUpdateCapabilities}
+                actionError={actionError}
+              />
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border bg-background/40 px-6 py-12 text-center">
+                <Bot
+                  className="mx-auto h-10 w-10 text-muted-foreground/60"
+                  aria-hidden
+                />
+                <h4 className="mt-4 text-base font-semibold">
+                  Invite your first agent
+                </h4>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                  Create a credential for an assistant or automation. You choose
+                  its access to this project.
+                </p>
+                <Button
+                  type="button"
+                  className="mt-5"
+                  variant="outline"
+                  onClick={openCreation}
+                >
+                  Create your first credential{" "}
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </Button>
+              </div>
+            )}
+            <div className="flex items-start gap-2.5 rounded-xl bg-muted/35 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+              <ShieldCheck
+                className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+                aria-hidden
+              />
               <p>
-                Send <code>Authorization: ApiKey &lt;key&gt;</code> to{" "}
-                <code>/api/auth/agent/token</code>, then use the returned bearer token on project,
-                roadmap, task, and context endpoints allowed by this credential&apos;s scopes.
+                You choose which agents may mark tasks as Done. Turn on task
+                completion for each trusted agent; changes save immediately and
+                also require Task Write access.
               </p>
             </div>
+          </>
+        ) : null}
+        {view === "activity" && accessSummary ? (
+          <section aria-label="Agent activity" className="min-w-0">
+            <div className="mb-4">
+              <h4 className="text-sm font-semibold">Recent activity</h4>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Credential changes, connections, and requests from your agents.
+              </p>
+            </div>
+            {!accessSummary.recentEvents.length ? (
+              <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                No agent activity yet.
+              </p>
+            ) : (
+              <ol className="divide-y divide-border/60 rounded-2xl border border-border/70 bg-background/60">
+                {accessSummary.recentEvents.map((event) => (
+                  <li
+                    key={event.id}
+                    className="flex min-w-0 items-start gap-3 p-4"
+                  >
+                    <span className="mt-0.5 rounded-lg bg-muted p-2">
+                      <Activity
+                        className="h-3.5 w-3.5 text-muted-foreground"
+                        aria-hidden
+                      />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">
+                        {formatAgentAuditAction(event.action)}
+                      </p>
+                      <p className="mt-1 break-all text-xs text-muted-foreground">
+                        {event.credentialLabel ?? "Unknown agent"} ·{" "}
+                        {new Date(event.createdAt).toLocaleString()}
+                      </p>
+                      {event.httpMethod && event.path ? (
+                        <details className="mt-2 text-xs text-muted-foreground">
+                          <summary className="w-fit cursor-pointer">
+                            Request details
+                          </summary>
+                          <code className="mt-2 block break-all">
+                            {event.httpMethod} {event.path}
+                          </code>
+                          {event.requestId ? (
+                            <p className="mt-1 break-all">
+                              Request id: {event.requestId}
+                            </p>
+                          ) : null}
+                        </details>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
           </section>
         ) : null}
+      </section>
 
-        <section className="min-w-0 space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-1">
-              <h3 className="text-base font-semibold">Credentials</h3>
-              <p className="text-sm text-muted-foreground">
-                Rotate active keys to replace the raw secret, or revoke credentials you no longer
-                trust.
-              </p>
-            </div>
-            {isLoadingAccessSummary && accessSummary ? (
-              <p className="text-xs text-muted-foreground">Refreshing...</p>
-            ) : null}
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          if (!isCreatingCredential) setCreateOpen(open);
+        }}
+      >
+        <DialogContent
+          data-agent-access-dialog="true"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              if (!isCreatingCredential) setCreateOpen(false);
+            }
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            if (!latestIssuedSecret) newCredentialRef.current?.focus();
+          }}
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            creationInputRef.current?.focus();
+          }}
+          dismissible={!isCreatingCredential}
+          className="z-[160] max-h-[90dvh] max-w-xl overflow-y-auto rounded-2xl p-5 sm:p-6"
+          overlayClassName="z-[150]"
+        >
+          <DialogCloseButton
+            label="Close credential creation"
+            disabled={isCreatingCredential}
+            onClick={() => setCreateOpen(false)}
+          />
+          <div className="mb-6 pr-8">
+            <DialogTitle className="text-lg font-semibold">
+              New agent credential
+            </DialogTitle>
+            <DialogDescription className="mt-1.5 leading-relaxed">
+              Give an agent a name and choose the access it needs. You’ll get
+              its API key after creation.
+            </DialogDescription>
           </div>
+          <ProjectAgentCredentialForm
+            inputRef={creationInputRef}
+            isCreating={isCreatingCredential}
+            error={
+              actionError?.action === "create" ? actionError.message : null
+            }
+            onCreate={onCreateCredential}
+            onCancel={() => setCreateOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
 
-          {isLoadingAccessSummary && !accessSummary ? (
-            <div
-              role="status"
-              aria-live="polite"
-              className="space-y-3"
-            >
-              <p className="text-sm text-muted-foreground">Loading credentials...</p>
-              <div className="space-y-3" aria-hidden="true">
-                {[0, 1].map((index) => (
-                  <div
-                    key={index}
-                    className="animate-pulse space-y-3 rounded-xl border border-border/60 bg-card p-4"
-                  >
-                    <div className="h-4 w-2/5 rounded bg-muted" />
-                    <div className="h-3 w-3/5 rounded bg-muted" />
-                    <div className="h-3 w-full rounded bg-muted" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
+      <ProjectAgentCredentialDetailsDialog
+        credential={managed}
+        onClosedFocus={() => {
+          if (!latestIssuedSecret && manageTriggerRef.current?.isConnected)
+            manageTriggerRef.current.focus();
+        }}
+        isMutating={busy}
+        actionError={actionError}
+        onClose={() => setManagedId(null)}
+        onUpdateCapabilities={onUpdateCapabilities}
+        onRotateCredential={onRotateCredential}
+        onRevokeCredential={onRevokeCredential}
+      />
 
-          {!isLoadingAccessSummary &&
-          accessSummary &&
-          accessSummary.credentials.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No agent credentials exist for this project yet.
-            </p>
-          ) : null}
+      <ProjectAgentIssuedKeyDialog
+        latestIssuedSecret={latestIssuedSecret}
+        copied={copied}
+        copyError={copyError}
+        onDismissLatestSecret={onDismissLatestSecret}
+        onClosedFocus={() => newCredentialRef.current?.focus()}
+        onCopyKey={() => void copy("key")}
+        onCopyEnv={() => void copy("env")}
+      />
 
-          {accessSummary?.credentials.length ? (
-            <div className="space-y-3">
-              {accessSummary.credentials.map((credential) => {
-                const isMutating = mutatingCredentialId === credential.id;
-                const canRotate = credential.status === "active";
-                const canRevoke = credential.status !== "revoked";
-
-                return (
-                  <div
-                    key={credential.id}
-                    className="space-y-4 rounded-xl border border-border/60 bg-card p-4"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium">{credential.label}</p>
-                          <Badge
-                            variant="secondary"
-                            className={buildStatusTone(credential.status)}
-                          >
-                            {formatAgentCredentialStatus(credential.status)}
-                          </Badge>
-                        </div>
-                        <p className="min-w-0 text-xs text-muted-foreground">
-                          Public id: <code className="break-all">{credential.publicId}</code>
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onRotateCredential(credential)}
-                          disabled={!canRotate || isMutating}
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                          Rotate
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => onRevokeCredential(credential)}
-                          disabled={!canRevoke || isMutating}
-                        >
-                          <ShieldX className="h-4 w-4" />
-                          Revoke
-                        </Button>
-                      </div>
-                    </div>
-
-                    {isMutating ? <p role="status" className="text-sm text-muted-foreground">Updating credential...</p> : null}
-
-                    <div className="flex flex-wrap gap-2">
-                      {credential.scopes.map((scope) => (
-                        <Badge key={scope} variant="outline" className="rounded-full">
-                          {scope}
-                        </Badge>
-                      ))}
-                    </div>
-
-                    <label className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        role="switch"
-                        checked={credential.canMoveTasksToDone}
-                        disabled={credential.status !== "active" || mutatingCredentialId !== null}
-                        onChange={(event) => onUpdateCapabilities(credential, event.target.checked)}
-                        aria-label={`Allow ${credential.label} to move tasks to Done`}
-                        aria-describedby={`done-move-${credential.id}`}
-                        className="mt-1 h-4 w-4 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                      />
-                      <span className="space-y-1">
-                        <span className="block text-sm font-medium">Allow moves to Done</span>
-                        <span id={`done-move-${credential.id}`} className="block text-sm text-muted-foreground">
-                          Applies only to this credential and requires Task Write. Off by default so a person reviews completed work. Human moves are unaffected.
-                        </span>
-                      </span>
-                    </label>
-
-                    <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                      <p>Created: {formatTimestamp(credential.createdAt)}</p>
-                      <p>Expires: {credential.expiresAt ? formatTimestamp(credential.expiresAt) : "Never"}</p>
-                      <p>Last exchanged: {formatTimestamp(credential.lastExchangedAt)}</p>
-                      <p>Last used: {formatTimestamp(credential.lastUsedAt)}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-        </section>
-      </div>
-
-      <div className="min-w-0 space-y-6">
-        <section className="min-w-0 space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <BookOpenText className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-base font-semibold">Project quickstart</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Use this bootstrap block in the external agent runtime. If you lose the raw API key,
-              rotate the credential here and replace the env value.
-            </p>
-          </div>
-
-          <div className="min-w-0 rounded-xl border border-border/60 bg-card/70 px-4 py-3 text-sm">
-            Project id: <code className="break-all">{projectId}</code>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" size="sm">
-              <a href={docsLinks.docsUrl}>Hosted docs</a>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <a href={docsLinks.openApiUrl}>OpenAPI JSON</a>
-            </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={() => void handleCopyQuickstart()}>
-              {hasCopiedQuickstart ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              {hasCopiedQuickstart ? "Copied env" : "Copy env block"}
-            </Button>
-          </div>
-
-          <pre className="min-w-0 max-w-full overflow-x-auto rounded-xl border border-border/70 bg-slate-950 px-4 py-3 text-xs leading-6 text-slate-50">
-            <code>{quickstartEnvBlock}</code>
-          </pre>
-
-          <div className="space-y-1 text-xs text-muted-foreground">
-            <p>
-              Exchange <code>NEXUSDASH_API_KEY</code> at <code>/api/auth/agent/token</code>,
-              then send the returned bearer token to the scoped project routes.
-            </p>
-            <p>
-              This project ships agent-ready support for project read, roadmap routes, task
-              routes, context-card routes, and documented attachment upload/download flows.
-            </p>
-          </div>
-        </section>
-
-        <section className="min-w-0 space-y-5 rounded-2xl border border-border/60 bg-background/60 p-5">
-          <div className="space-y-1">
-            <h3 className="text-base font-semibold">Recent audit trail</h3>
-            <p className="text-sm text-muted-foreground">
-              Creation, rotation, revocation, token exchange, and request usage are recorded
-              here.
-            </p>
-          </div>
-
-          {!isLoadingAccessSummary &&
-          accessSummary &&
-          accessSummary.recentEvents.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No audit events yet.</p>
-          ) : null}
-
-          {accessSummary?.recentEvents.length ? (
-            <div className="space-y-3">
-              {accessSummary.recentEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="space-y-2 rounded-xl border border-border/60 bg-card p-3"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{formatAgentAuditAction(event.action)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatTimestamp(event.createdAt)}
-                    </p>
-                  </div>
-
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <p>
-                      Credential:{" "}
-                      <span className="font-medium text-foreground">
-                        {event.credentialLabel ?? "Unknown credential"}
-                      </span>
-                    </p>
-                    {event.httpMethod && event.path ? (
-                      <p>
-                        Request:{" "}
-                        <code className="break-all">
-                          {event.httpMethod} {event.path}
-                        </code>
-                      </p>
-                    ) : null}
-                    {event.ipAddress ? <p>IP: {event.ipAddress}</p> : null}
-                    {event.requestId ? <p>Request id: {event.requestId}</p> : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </section>
-      </div>
-    </div>
+      <ProjectAgentSetupGuideDialog
+        setupOpen={setupOpen}
+        onClosedFocus={() => setupTriggerRef.current?.focus()}
+        onClose={() => setSetupOpen(false)}
+        docs={docs}
+        envBlock={envBlock}
+        copied={copied}
+        copyError={copyError}
+        onCopyEnv={() => void copy("env")}
+      />
+    </>
   );
 }

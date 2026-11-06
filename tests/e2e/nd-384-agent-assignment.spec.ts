@@ -35,9 +35,11 @@ test("agent assignment persists credential identity with audit history and inact
 
   await page.getByRole("button", { name: "Share project" }).click();
   await page.getByRole("button", { name: "Agent access" }).click();
+  await page.getByRole("button", { name: "New credential", exact: true }).click();
   await page.locator("#project-agent-label").fill(agentLabel);
   await page.getByRole("button", { name: "Create credential" }).click();
-  await expect(page.getByText("Copy the new API key now")).toBeVisible();
+  await expect(page.getByText("Your agent credential is ready")).toBeVisible();
+  await page.getByRole("button", { name: "Hide key", exact: true }).click();
   await page.getByRole("button", { name: "Close project settings" }).click();
 
   const credential = await prisma.apiCredential.findFirst({

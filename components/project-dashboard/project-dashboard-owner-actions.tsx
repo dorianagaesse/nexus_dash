@@ -26,6 +26,7 @@ import {
   type CollaboratorIdentitySummary,
   type ProjectInvitationEmailDeliverySummary,
   type ProjectAgentAccessSummary,
+  type ProjectAgentAccessActionError,
   type ProjectAgentCredentialIssuedSecret,
   type ProjectAgentCredentialSummary,
   type ProjectCollaboratorRole,
@@ -106,7 +107,9 @@ export function ProjectDashboardOwnerActions({
   const [agentAccessSummary, setAgentAccessSummary] =
     useState<ProjectAgentAccessSummary | null>(null);
   const [isLoadingAgentAccess, setIsLoadingAgentAccess] = useState(false);
-  const [agentAccessError, setAgentAccessError] = useState<string | null>(null);
+  const [agentAccessLoadError, setAgentAccessLoadError] = useState<string | null>(null);
+  const [agentAccessActionError, setAgentAccessActionError] =
+    useState<ProjectAgentAccessActionError | null>(null);
   const [isCreatingAgentCredential, setIsCreatingAgentCredential] = useState(false);
   const [mutatingAgentCredentialId, setMutatingAgentCredentialId] =
     useState<string | null>(null);
@@ -221,7 +224,8 @@ export function ProjectDashboardOwnerActions({
   const openModal = (nextTab: ProjectDashboardSettingsTab) => {
     setProjectError(null);
     setSharingError(null);
-    setAgentAccessError(null);
+    setAgentAccessLoadError(null);
+    setAgentAccessActionError(null);
     setSearchMessage(null);
     setActiveTab(nextTab);
     setIsOpen(true);
@@ -257,7 +261,7 @@ export function ProjectDashboardOwnerActions({
 
   const loadAgentAccessSummary = useCallback(async () => {
     setIsLoadingAgentAccess(true);
-    setAgentAccessError(null);
+    setAgentAccessLoadError(null);
 
     try {
       const response = await fetch(`/api/projects/${projectId}/agent-access`, {
@@ -273,7 +277,7 @@ export function ProjectDashboardOwnerActions({
 
       setAgentAccessSummary(payload);
     } catch (error) {
-      setAgentAccessError(
+      setAgentAccessLoadError(
         error instanceof Error
           ? error.message
           : "Could not load agent access. Please retry."
@@ -298,7 +302,7 @@ export function ProjectDashboardOwnerActions({
     if (
       !isOpen ||
       agentAccessSummary ||
-      agentAccessError ||
+      agentAccessLoadError ||
       isLoadingAgentAccess
     ) {
       return;
@@ -306,7 +310,7 @@ export function ProjectDashboardOwnerActions({
 
     void loadAgentAccessSummary();
   }, [
-    agentAccessError,
+    agentAccessLoadError,
     agentAccessSummary,
     isLoadingAgentAccess,
     isOpen,
@@ -799,7 +803,7 @@ export function ProjectDashboardOwnerActions({
   const handleUpdateAgentCapabilities = async (credential: ProjectAgentCredentialSummary, allowed: boolean) => {
     if (mutatingAgentCredentialId) return;
     setMutatingAgentCredentialId(credential.id);
-    setAgentAccessError(null);
+    setAgentAccessActionError(null);
     try {
       const response = await fetch(`/api/projects/${projectId}/agent-access/${credential.id}`, {
         method: "PATCH",
@@ -823,7 +827,7 @@ export function ProjectDashboardOwnerActions({
       const message = error instanceof Error
         ? error.message
         : "Could not save agent capabilities. Please retry.";
-      setAgentAccessError(message);
+      setAgentAccessActionError({ action: "capabilities", message, credentialId: credential.id });
       pushToast({ variant: "error", message });
     } finally {
       setMutatingAgentCredentialId(null);
@@ -840,7 +844,7 @@ export function ProjectDashboardOwnerActions({
     }
 
     setIsCreatingAgentCredential(true);
-    setAgentAccessError(null);
+    setAgentAccessActionError(null);
 
     try {
       const response = await fetch(`/api/projects/${projectId}/agent-access`, {
@@ -874,7 +878,7 @@ export function ProjectDashboardOwnerActions({
         error instanceof Error
           ? error.message
           : "Could not create the credential. Please retry.";
-      setAgentAccessError(message);
+      setAgentAccessActionError({ action: "create", message });
       pushToast({
         variant: "error",
         message,
@@ -900,7 +904,7 @@ export function ProjectDashboardOwnerActions({
     }
 
     setMutatingAgentCredentialId(credential.id);
-    setAgentAccessError(null);
+    setAgentAccessActionError(null);
 
     try {
       const response = await fetch(
@@ -931,7 +935,7 @@ export function ProjectDashboardOwnerActions({
         error instanceof Error
           ? error.message
           : "Could not rotate the credential. Please retry.";
-      setAgentAccessError(message);
+      setAgentAccessActionError({ action: "rotate", message });
       pushToast({
         variant: "error",
         message,
@@ -1165,13 +1169,18 @@ export function ProjectDashboardOwnerActions({
         }}
       >
         <DialogContent
+          onEscapeKeyDown={(event) => {
+            if (event.target instanceof Element && event.target.closest("[data-agent-access-dialog]")) {
+              event.preventDefault();
+            }
+          }}
           dismissible={isProjectSettingsDismissible}
           className="z-[130] flex max-h-[100dvh] min-w-0 w-full max-w-4xl flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl"
           overlayClassName="z-[120]"
         >
                 <DialogTitle className="sr-only">Project settings: {projectName}</DialogTitle>
-                <CardHeader className="flex flex-col gap-4 space-y-0 border-b border-border/60 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-2">
+                <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-border/60">
+                  <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="secondary" className="rounded-full px-3 py-1">
                         Project settings
@@ -1181,7 +1190,7 @@ export function ProjectDashboardOwnerActions({
                       </Badge>
                     </div>
                     <div className="space-y-1">
-                      <CardTitle className="text-xl">{projectName}</CardTitle>
+                      <CardTitle className="[overflow-wrap:anywhere] text-xl">{projectName}</CardTitle>
                       <DialogDescription>
                         Project details, invitations, contributors, and agent access.
                       </DialogDescription>
@@ -1192,11 +1201,11 @@ export function ProjectDashboardOwnerActions({
                     variant="ghost"
                     size="icon"
                     onClick={closeModal}
-                    className="self-end sm:self-auto"
+                    className="shrink-0"
                     aria-label="Close project settings"
                     disabled={!isProjectSettingsDismissible}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4" aria-hidden />
                   </Button>
                 </CardHeader>
 
@@ -1299,7 +1308,10 @@ export function ProjectDashboardOwnerActions({
                       accessSummary={agentAccessSummary}
                       onUpdateCapabilities={(credential, allowed) => void handleUpdateAgentCapabilities(credential, allowed)}
                       isLoadingAccessSummary={isLoadingAgentAccess}
-                      accessError={agentAccessError}
+                      accessLoadError={agentAccessLoadError}
+                      actionError={agentAccessActionError}
+                      onClearActionError={() => setAgentAccessActionError(null)}
+                      onRefreshAccess={() => void loadAgentAccessSummary()}
                       isCreatingCredential={isCreatingAgentCredential}
                       mutatingCredentialId={mutatingAgentCredentialId}
                       latestIssuedSecret={latestAgentCredentialSecret}

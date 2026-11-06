@@ -99,6 +99,11 @@ npm run test:e2e
 Remove-Item Env:\NODE_ENV
 ```
 
+If another app uses port 3000, set `PORT` to an unused port before running
+`npm run test:e2e`. The local Playwright server and authentication fixtures use
+that port. Leave `PLAYWRIGHT_BASE_URL` unset for these locally managed runs;
+use it when testing an already deployed preview.
+
 Run the real PostgreSQL tenant-isolation matrix after migrations:
 
 ```pwsh

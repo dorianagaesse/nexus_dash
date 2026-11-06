@@ -111,9 +111,31 @@ Open `http://localhost:3000`.
 - Session persistence is database-backed (`Session` table) with HttpOnly cookie handling.
 - Logout endpoint: `POST /api/auth/logout`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
+- **Share project > Agent access** opens a credential directory with agent
+  counts, readable access summaries, status, last use, expiry, and a separate
+  task-completion switch for each agent. Search by name (ignoring case and
+  surrounding spaces). Open **Filters** to combine status and capability,
+  including **Complete tasks**; **Clear filters** restores the full directory.
+  Custom access lists the actions granted for each resource. **Complete tasks**
+  shows active agents with both Task Write and task-completion permission;
+  expired and revoked credentials show task completion as inactive.
+- **New credential** opens a focused form for the agent name, expiry, and access
+  preset. Expand **Customize permissions** for individual scopes. The API key
+  appears in its own one-time dialog after creation; copy the key or the complete
+  environment setup before hiding it. Only **Hide key** dismisses this one-time
+  view, so Escape or an accidental click outside cannot discard the key.
+- **Manage** opens one agent's permissions, lifecycle dates, and public ID.
+  **Rotate key** replaces an active key after confirmation. **Revoke access**
+  opens the responsibility review. Completion changes save immediately for only
+  that credential. Loading failures offer **Retry loading credentials**; action
+  errors appear in their relevant flow and failed creation preserves input.
+- **Activity** shows recent credential changes and usage. **Setup guide** contains
+  connection steps, hosted documentation, and the optional environment block.
+  Escape closes creation, management, and setup dialogs and returns focus to
+  the opener. Invalid creation fields receive focus and show an associated error.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
-- In Sharing > Agent access, owners can enable **Allow moves to Done** separately
+- In Sharing > Agent access, owners can enable **Task completion** separately
   on each credential. Task Write is still required. New and existing credentials
   default to off, including credentials in projects where the retired project-wide
   toggle was on: owners must explicitly grant the permission again after migration.
