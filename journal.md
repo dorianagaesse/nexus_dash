@@ -3,6 +3,35 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-05 - ND-659: enforce release impact decisions
+
+- Created the fix card and linked GitHub issue #662 after checking the board
+  for overlap with the completed ND-457 release-boundary work.
+- Release CI now requires a unique impact and rationale in the new changelog
+  section and validates the exact next patch/minor/major version. The first
+  stable baseline additionally records explicit maintainer approval; existing
+  changelog sections and ordinary product PRs need no metadata changes.
+- Shared version-step arithmetic between the helper and CI, added helper
+  reminders, and documented fix-only, mixed, and stable-baseline releases.
+- Added regression coverage for declared impacts, invalid/duplicate/missing
+  decisions, skipped versions, patch resets, and committed head-ref reads.
+- Validation on Node 24.22.1 passed: lint, RLS inventory, release-policy check,
+  unit/API tests (2,337 passed; 3 skipped), coverage (94.16% statements,
+  88.11% branches, 97.39% functions, 95.33% lines), production build, and
+  `git diff --check`. Unit/build checks used the documented local placeholder
+  environment; the initial test attempt lacked `DATABASE_URL` and was rerun.
+- No UI, auth, or database behavior changed, so E2E and the PostgreSQL matrix
+  were not required. Copilot review monitoring is omitted per user instruction.
+
+- Follow-up review: checked Zoukou's PR notes against ND-659 and addressed
+  all three. The release helper now rejects skipped explicit versions before
+  mutation or decision output; CI field errors explain the unindented,
+  case-sensitive format; invalid impacts name the version section and runbook.
+- Follow-up validation on Node 24.22.1 passed: 52 targeted tests, all 2,344
+  unit/API tests (3 skipped), lint, RLS inventory, coverage, production build,
+  release-policy validation, and `git diff --check`. No additional blocking
+  issues found against the task's acceptance criteria.
+
 # 2026-10-30 - ND-541: define Tasks/Kanban domain boundary and migration seams
 
 - Authored `adr/nd-541-tasks-kanban-domain-boundary.md` and recorded the summary

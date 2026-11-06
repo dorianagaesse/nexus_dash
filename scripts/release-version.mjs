@@ -9,6 +9,7 @@ import {
   compareVersions,
   readJsonFile,
   assertPackageVersionsMatch,
+  bumpVersion,
 } from "./version-utils.mjs";
 
 const BUMP_TYPES = new Set(["minor", "patch", "major"]);
@@ -38,19 +39,6 @@ function currentBranchName() {
   }
 
   return result.stdout.trim();
-}
-
-function bumpVersion(current, requested) {
-  switch (requested) {
-    case "patch":
-      return { ...current, patch: current.patch + 1 };
-    case "minor":
-      return { major: current.major, minor: current.minor + 1, patch: 0 };
-    case "major":
-      return { major: current.major + 1, minor: 0, patch: 0 };
-    default:
-      return parseVersion(requested);
-  }
 }
 
 function runNpmVersion(targetVersion) {
@@ -104,10 +92,23 @@ try {
     "Current"
   );
 
-  const target = bumpVersion(current, requested);
+  const target = BUMP_TYPES.has(requested)
+    ? bumpVersion(current, requested)
+    : parseVersion(requested);
   if (compareVersions(target, current) <= 0) {
     throw new Error(
       `Target version ${formatVersion(target)} must be greater than current version ${formatVersion(current)}.`
+    );
+  }
+  const impact = [...BUMP_TYPES].find(
+    (candidate) => compareVersions(bumpVersion(current, candidate), target) === 0
+  );
+  if (!impact) {
+    const choices = [...BUMP_TYPES].map(
+      (candidate) => `${candidate}: ${formatVersion(bumpVersion(current, candidate))}`
+    );
+    throw new Error(
+      `Target version ${formatVersion(target)} must be an exact next release step (${choices.join(", ")}). See docs/runbooks/release-versioning.md.`
     );
   }
 
@@ -117,6 +118,13 @@ try {
   console.log(`[release-version] Target product version: ${targetVersion}`);
   console.log(`[release-version] Release-preparation branch: ${releaseBranch}`);
   console.log(`[release-version] Tag to create after merge: v${targetVersion}`);
+  console.log("[release-version] In the matching CHANGELOG.md section, record:");
+  console.log(`Release impact: ${impact}`);
+  console.log("Release rationale: <explain the release contents and chosen impact>");
+  if (current.major === 0 && impact === "major") {
+    console.log("[release-version] Only after the maintainer approves the stable baseline, add:");
+    console.log("Stable baseline approved: yes");
+  }
 
   const branch = currentBranchName();
   if (branch && !branch.startsWith(releaseBranch)) {
