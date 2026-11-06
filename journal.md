@@ -76,6 +76,18 @@ Use it for important implementation milestones, blockers, validation runs, and r
   A keyboard regression caught Escape dismissing the parent settings dialog;
   scoped child-dialog handling now closes only the current agent dialog and
   restores its trigger. All six ND-654/ND-655 browser checks pass locally.
+- Final [Quality run 42200169133](https://github.com/dorianagaesse/nexus_dash/actions/runs/42200169133)
+  passed every job on `2311a5ae9fc6d3c19b9bbbb96db86efc4eea405c`: 2,344 unit/API
+  tests (3 skipped), coverage, build, tenant isolation, 131 browser tests
+  (2 skipped), and container image. Local full-suite verification finished
+  with 130 passed, 2 skipped, and only the previously reproduced ND-433 failure.
+- Final [Preview run 42200161671](https://github.com/dorianagaesse/nexus_dash/actions/runs/42200161671)
+  passed and its logs verify checkout of `2311a5a`. All six deployed ND-654/ND-655
+  browser checks pass (38.8 s), including Escape/focus restoration. Signed-in
+  credential probes return 200 on both the
+  [pinned deployment](https://nexus-dash-1m83zrxbk-dorian-agaesses-projects.vercel.app)
+  and the verified interactive sign-in alias; both readiness responses report
+  Preview revision `2311a5a`. PR #660 and ND-655 now point to these current URLs.
 
 
 # 2026-11-05 - ND-655: refine the Agent access credential list
