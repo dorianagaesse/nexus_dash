@@ -47,6 +47,17 @@ import {
   replaceTaskRelations,
   editTaskRelationPairs,
 } from "./task-persistence";
+import {
+  insertTaskWithAttribution,
+  persistTaskContentEdit,
+  appendTaskAssignmentChange,
+  appendTaskBlockedFollowUp,
+  removeTaskWithDependents,
+} from "./task-write-data";
+import {
+  loadTaskLaneTail,
+  loadTaskEditState,
+} from "./task-command-data";
 
 export async function createTaskForProject(
   input: CreateTaskForProjectInput
@@ -143,64 +154,47 @@ export async function createTaskForProject(
         return epicValidation;
       }
 
-      const maxPosition = await db.task.aggregate({
-        where: {
-          projectId: input.projectId,
-          status,
-          project: {
-            OR: [
-              { ownerId: actorUserId },
-              { memberships: { some: { userId: actorUserId } } },
-            ],
-          },
-        },
-        _max: { position: true },
-      });
+      const maxPosition = await loadTaskLaneTail(db, input.projectId, status, actorUserId);
 
-      const nextPosition = (maxPosition._max.position ?? -1) + 1;
+      const nextPosition = (maxPosition ?? -1) + 1;
 
       const agentAttribution = await resolveTaskAgentAttribution({
         db,
         agentAccess: input.agentAccess,
       });
 
-      const createdTask = await db.task.create({
-        data: {
-          projectId: input.projectId,
-          title: command.title,
-          description: command.normalizedDescription,
-          deadlineAt: command.deadlineAt,
-          epicId: epicValidation.data.epicId,
-          label: command.labels[0] ?? null,
-          labelsJson: command.serializedLabels,
-          status,
-          position: nextPosition,
-          createdByUserId: actorUserId,
-          updatedByUserId: actorUserId,
-          ...taskAgentAuthorWriteData(agentAttribution, "createdBy"),
-          ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
-          ...buildTaskAssignmentWriteData(resolvedAssignee, assignmentProvenance),
-        },
-        select: { id: true },
+      const createdTask = await insertTaskWithAttribution(db, {
+        projectId: input.projectId,
+        title: command.title,
+        description: command.normalizedDescription,
+        deadlineAt: command.deadlineAt,
+        epicId: epicValidation.data.epicId,
+        label: command.labels[0] ?? null,
+        labelsJson: command.serializedLabels,
+        status,
+        position: nextPosition,
+        createdByUserId: actorUserId,
+        updatedByUserId: actorUserId,
+        ...taskAgentAuthorWriteData(agentAttribution, "createdBy"),
+        ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
+        ...buildTaskAssignmentWriteData(resolvedAssignee, assignmentProvenance),
       });
 
       createdTaskId = createdTask.id;
 
       if (resolvedAssignee && assignmentActor && assignmentProvenance) {
-        await db.taskAssigneeChange.create({
-          data: buildTaskAssigneeChangeData({
-            taskId: createdTask.id,
-            previous: {
-              assigneeKind: null,
-              assigneeUserId: null,
-              assigneeCredentialId: null,
-              assigneeDisplayNameSnapshot: null,
-            },
-            next: resolvedAssignee,
-            changedBy: assignmentActor,
-            changedAt: assignmentProvenance.assignedAt,
-          }),
-        });
+        await appendTaskAssignmentChange(db, buildTaskAssigneeChangeData({
+          taskId: createdTask.id,
+          previous: {
+            assigneeKind: null,
+            assigneeUserId: null,
+            assigneeCredentialId: null,
+            assigneeDisplayNameSnapshot: null,
+          },
+          next: resolvedAssignee,
+          changedBy: assignmentActor,
+          changedAt: assignmentProvenance.assignedAt,
+        }));
       }
 
       if (relatedTaskValidation.data.relatedTaskIds.length > 0) {
@@ -284,10 +278,7 @@ export async function createTaskForProject(
       };
     } catch (error) {
       if (createdTaskId) {
-        await db.task
-          .delete({
-            where: { id: createdTaskId },
-          })
+        await removeTaskWithDependents(db, createdTaskId)
           .catch((cleanupError) => {
             logServerError("createTaskForProject.cleanup", cleanupError);
           });
@@ -408,26 +399,7 @@ export async function updateTaskForProject(
           ),
         });
       }
-      const existingTask = await db.task.findUnique({
-        where: { id: taskId },
-        select: {
-          id: true,
-          projectId: true,
-          status: true,
-          position: true,
-          epicId: true,
-          assigneeKind: true,
-          assigneeUserId: true,
-          assigneeCredentialId: true,
-          assigneeDisplayNameSnapshot: true,
-          outgoingRelations: loadExistingRelations
-            ? { select: { rightTaskId: true } }
-            : false,
-          incomingRelations: loadExistingRelations
-            ? { select: { leftTaskId: true } }
-            : false,
-        },
-      });
+      const existingTask = await loadTaskEditState(db, taskId, loadExistingRelations);
 
       if (!existingTask || existingTask.projectId !== projectId) {
         return createError(404, "Task not found");
@@ -534,25 +506,22 @@ export async function updateTaskForProject(
           agentAccess,
         });
 
-        await tx.task.update({
-          where: { id: taskId },
-          data: {
-            updatedByUserId: normalizedActorUserId,
-            ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
-            epicId: epicValidation.data.epicId,
-            ...(assignmentWriteData ?? {}),
-            ...(titleProvided ? { title } : {}),
-            ...(labelsProvided
-              ? {
-                  label: normalizedLabels[0] ?? null,
-                  labelsJson: serializedLabels,
-                }
-              : {}),
-            ...(descriptionProvided ? { description } : {}),
-            ...(deadlineProvided
-              ? { deadlineAt }
-              : {}),
-          },
+        await persistTaskContentEdit(tx, taskId, {
+          updatedByUserId: normalizedActorUserId,
+          ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
+          epicId: epicValidation.data.epicId,
+          ...(assignmentWriteData ?? {}),
+          ...(titleProvided ? { title } : {}),
+          ...(labelsProvided
+            ? {
+                label: normalizedLabels[0] ?? null,
+                labelsJson: serializedLabels,
+              }
+            : {}),
+          ...(descriptionProvided ? { description } : {}),
+          ...(deadlineProvided
+            ? { deadlineAt }
+            : {}),
         });
 
         if (parsedAttachmentLinks && parsedAttachmentLinks.length > 0) {
@@ -567,11 +536,9 @@ export async function updateTaskForProject(
         }
 
         if (blockedFollowUpEntry.length > 0 && existingTask.status === "Blocked") {
-          await tx.taskBlockedFollowUp.create({
-            data: {
-              taskId,
-              content: blockedFollowUpEntry,
-            },
+          await appendTaskBlockedFollowUp(tx, {
+            taskId,
+            content: blockedFollowUpEntry,
           });
         }
 
@@ -594,9 +561,7 @@ export async function updateTaskForProject(
         }
 
         if (pendingAssigneeChange) {
-          await tx.taskAssigneeChange.create({
-            data: pendingAssigneeChange,
-          });
+          await appendTaskAssignmentChange(tx, pendingAssigneeChange);
         }
 
         return loadTaskMutationPayload(

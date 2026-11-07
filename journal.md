@@ -11022,3 +11022,24 @@ Low-value entries to avoid going forward:
 - Addressed the review's P1 integration finding. An independent TypeScript source comparison confirms all 60 original declarations remain identical after formatting/export normalization and all 25 public exports are preserved. Authorization, actor-scoped transactions, race/revocation handling, notification and post-commit email behavior, and responsibility-aware offboarding retain their existing code and ordering.
 - The public collaboration entry point remains a facade over owner invitations, membership/offboarding, recipient responses, shared policy/data/types, and email delivery. The architecture decision is proposed for user review rather than carrying forward the old approval claim.
 - Required validation, the invitation/membership browser lifecycle, real PostgreSQL isolation, and the detailed review response are recorded on #650. Leave the PR unmerged and the card In Progress for the user's review and merge.
+
+
+## 2026-11-08 - ND-663: complete Task data ownership
+
+- Started from `origin/main` at `ac7b2fa3` in an isolated worktree, preserving the
+  user's dirty root checkout. Read the live Task brief, moved it to In Progress,
+  and verified the Codex credential attribution on the pickup comment.
+- Moved Task command/lifecycle reads, scalar writes, history/follow-ups, search
+  documents and the legacy dashboard aggregate behind explicit-client data
+  operations. Kept authorization, policy, revision locks/retries, transaction
+  boundaries and activity/notification/storage ordering in application services.
+- Added scoped persistence/import guardrails, including the project-count
+  exception, and regressions for client ownership, lock/write ordering, conflict
+  hydration, foreign-project rejection and failed-child activity suppression.
+  Extended the real-PostgreSQL harness to check draft visibility in search and
+  the legacy dashboard as well as board/mutation responses.
+- Architecture guidance inventories remaining cross-domain operations and
+  encryption integration points. The decision is proposed for user review;
+  broader migration and encryption implementation are outside this task.
+- Detailed validation and performance evidence: `docs/architecture/task-data-boundary-validation.md`.
+  No Copilot review was requested or awaited, per the user's instruction.

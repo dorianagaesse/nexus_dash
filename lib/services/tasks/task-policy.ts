@@ -1,3 +1,4 @@
+import { loadAllowedRelatedTasks, loadTaskRelationDiagnostic } from "./task-command-data";
 import { normalizeRelatedTaskIds } from "@/lib/task-related";
 import type { AgentProjectAccessContext } from "@/lib/services/project-access-service";
 import type { DbClient } from "@/lib/services/rls-context";
@@ -34,15 +35,10 @@ export async function validateRelatedTaskIds(input: {
     };
   }
 
-  const relatedTasks = await input.db.task.findMany({
-    where: {
-      id: { in: filteredRelatedTaskIds },
-      projectId: input.projectId,
-      OR: [{ archivedAt: null }, { id: { in: Array.from(allowedArchivedTaskIds) } }],
-    },
-    select: {
-      id: true,
-    },
+  const relatedTasks = await loadAllowedRelatedTasks(input.db, {
+    projectId: input.projectId,
+    taskIds: filteredRelatedTaskIds,
+    allowedArchivedTaskIds: Array.from(allowedArchivedTaskIds),
   });
 
   if (relatedTasks.length !== filteredRelatedTaskIds.length) {
@@ -53,14 +49,9 @@ export async function validateRelatedTaskIds(input: {
     }
     // A project-bound agent must not learn whether an id exists elsewhere,
     // even when its human owner can see that other project through RLS.
-    const candidates = await input.db.task.findMany({
-      where: {
-        id: failingId,
-        ...(input.agentAccess ? { projectId: input.projectId } : {}),
-      },
-      select: { id: true, projectId: true, archivedAt: true },
-    });
-    const candidate = candidates[0];
+    const candidate = await loadTaskRelationDiagnostic(
+      input.db, failingId, input.agentAccess ? input.projectId : undefined
+    );
     const reason = !candidate
       ? "missing"
       : candidate.projectId !== input.projectId
