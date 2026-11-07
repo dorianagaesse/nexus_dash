@@ -11173,3 +11173,11 @@ Low-value entries to avoid going forward:
 
 - Merged current main without rewriting branch history. Reapplied only ND-547 after the earlier review rollback caused Git to discard its implementation during the automatic merge. Preserved main's later Meeting Notes tests and all other task work.
 - Local lint, RLS inventory, release policy, diff checks, production build, and all six focused Meeting Notes browser checks passed. Full unit/API, coverage, and remote check results are recorded on PR #655 before handoff.
+
+
+## 2026-11-07 - ND-190 review and current-main reconciliation
+
+- Reconciled #650 with main at 410063b3 after the user's ND-547 merge. Explicitly reapplied only the collaboration extraction, focused tests, browser lifecycle, and ownership docs so the rollback merge base cannot silently discard ND-190. Preserved main's later Task/Meeting Notes contracts, credential permissions, dependency updates, release policy, and existing ADR/journal history.
+- Addressed the review's P1 integration finding. An independent TypeScript source comparison confirms all 60 original declarations remain identical after formatting/export normalization and all 25 public exports are preserved. Authorization, actor-scoped transactions, race/revocation handling, notification and post-commit email behavior, and responsibility-aware offboarding retain their existing code and ordering.
+- The public collaboration entry point remains a facade over owner invitations, membership/offboarding, recipient responses, shared policy/data/types, and email delivery. The architecture decision is proposed for user review rather than carrying forward the old approval claim.
+- Required validation, the invitation/membership browser lifecycle, real PostgreSQL isolation, and the detailed review response are recorded on #650. Leave the PR unmerged and the card In Progress for the user's review and merge.
