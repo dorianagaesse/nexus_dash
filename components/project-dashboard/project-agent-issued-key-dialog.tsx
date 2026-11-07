@@ -10,6 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import type { ProjectAgentCredentialIssuedSecret } from "./project-dashboard-owner-actions.shared";
+import { DialogCloseButton } from "./project-agent-dialog-close";
 interface Props {
   latestIssuedSecret:
     | (ProjectAgentCredentialIssuedSecret & { mode: "created" | "rotated" })
@@ -32,14 +33,19 @@ export function ProjectAgentIssuedKeyDialog({
 }: Props) {
   const keyInputRef = useRef<HTMLInputElement>(null);
   return (
-    <Dialog open={Boolean(latestIssuedSecret)}>
+    <Dialog
+      open={Boolean(latestIssuedSecret)}
+      onOpenChange={(open) => {
+        if (!open) onDismissLatestSecret();
+      }}
+    >
       <DialogContent
         data-agent-access-dialog="true"
-        dismissible={false}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             event.preventDefault();
             event.stopPropagation();
+            onDismissLatestSecret();
           }
         }}
         className={`${SLIM_SCROLLBAR_CLASSES} z-[180] max-h-[90dvh] max-w-lg overflow-y-auto rounded-2xl p-5 sm:p-6`}
@@ -53,10 +59,14 @@ export function ProjectAgentIssuedKeyDialog({
           onClosedFocus();
         }}
       >
+        <DialogCloseButton
+          label="Close API key"
+          onClick={onDismissLatestSecret}
+        />
         <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
           <ShieldCheck className="h-6 w-6" aria-hidden />
         </div>
-        <DialogTitle className="text-lg font-semibold">
+        <DialogTitle className="pr-8 text-lg font-semibold">
           {latestIssuedSecret?.mode === "rotated"
             ? "Save your replacement API key"
             : "Your agent credential is ready"}

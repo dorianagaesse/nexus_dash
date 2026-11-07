@@ -138,13 +138,15 @@ test("ND-655: readable directory, focused management flows, and independent comp
   });
   await expect(key).toBeVisible();
   await expect(key).toBeFocused();
-  await page.keyboard.press("Escape");
-  await expect(key).toBeVisible();
-  await page.mouse.click(2, 2);
-  await expect(key).toBeVisible();
+  await page.screenshot({ path: ".tmp/nd655-issued-key.png", mask: [key] });
   await expect(creation).toHaveCount(0);
   const originalKey = await key.inputValue();
-  await page.getByRole("button", { name: "Hide key", exact: true }).click();
+  await page.mouse.click(2, 2);
+  await expect(key).toHaveCount(0);
+  await expect(panel).toBeVisible();
+  await expect(
+    panel.getByRole("button", { name: "New credential", exact: true })
+  ).toBeFocused();
   const created = list.getByRole("listitem", { name: longName, exact: true });
   await expect(created).toContainText("Read & write");
   const current = await (await page.request.get(path)).json();
@@ -208,7 +210,12 @@ test("ND-655: readable directory, focused management flows, and independent comp
       })
     ).status()
   ).toBe(401);
-  await page.getByRole("button", { name: "Hide key", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(key).toHaveCount(0);
+  await expect(panel).toBeVisible();
+  await expect(
+    panel.getByRole("button", { name: "New credential", exact: true })
+  ).toBeFocused();
   const completion = created.getByRole("switch", {
     name: `Allow ${longName} to move tasks to Done`,
     exact: true,
@@ -380,7 +387,14 @@ test("ND-655: load recovery and action-specific errors stay in their focused flo
   await expect(
     page.getByRole("textbox", { name: "API key for Retry worker", exact: true })
   ).toBeVisible();
-  await page.getByRole("button", { name: "Hide key", exact: true }).click();
+  await page.getByRole("button", { name: "Close API key", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", { name: "API key for Retry worker", exact: true })
+  ).toHaveCount(0);
+  await expect(panel).toBeVisible();
+  await expect(
+    panel.getByRole("button", { name: "New credential", exact: true })
+  ).toBeFocused();
   const summary = await (await page.request.get(path)).json();
   const credential = summary.credentials.find(
     (entry: { label: string }) => entry.label === "Retry worker"

@@ -3,6 +3,18 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-655: restore standard API-key dialog dismissal
+
+- The one-time key guard suppressed backdrop and Escape dismissal, causing the
+  reported trapped interaction. Restored both paths and added the standard
+  top-right close button. The existing Hide key button and one-time key warning
+  remain available.
+- Updated the browser regressions to close a newly created key by backdrop,
+  a rotated key by Escape, and another key with the close icon. Each path must
+  keep project settings open and return keyboard focus to the directory.
+- Continued on PR #660's working branch, including current main. Validation
+  and the replacement Preview are recorded in the PR.
+
 # 2026-11-08 - ND-655: use the app scrollbar in Agent access
 
 - Replaced the native scrollbar shown in the expanded credential form with the

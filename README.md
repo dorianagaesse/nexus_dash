@@ -122,8 +122,9 @@ Open `http://localhost:3000`.
 - **New credential** opens a focused form for the agent name, expiry, and access
   preset. Expand **Customize permissions** for individual scopes. The API key
   appears in its own one-time dialog after creation; copy the key or the complete
-  environment setup before hiding it. Only **Hide key** dismisses this one-time
-  view, so Escape or an accidental click outside cannot discard the key.
+  environment setup before closing it. Click outside, press Escape, use the
+  close icon, or choose **Hide key** to dismiss it. The key cannot be viewed
+  again after closing.
 - **Manage** opens one agent's permissions, lifecycle dates, and public ID.
   **Rotate key** replaces an active key after confirmation. **Revoke access**
   opens the responsibility review. Completion changes save immediately for only
@@ -131,8 +132,8 @@ Open `http://localhost:3000`.
   errors appear in their relevant flow and failed creation preserves input.
 - **Activity** shows recent credential changes and usage. **Setup guide** contains
   connection steps, hosted documentation, and the optional environment block.
-  Escape closes creation, management, and setup dialogs and returns focus to
-  the opener. Invalid creation fields receive focus and show an associated error.
+  Escape closes the current agent dialog and returns focus to the directory
+  controls. Invalid creation fields receive focus and show an associated error.
   Settings and Agent access dialogs use the same thin, transparent-track
   scrollbar as the task dialogs and agent guide.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
