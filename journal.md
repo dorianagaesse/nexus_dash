@@ -11009,3 +11009,8 @@ Low-value entries to avoid going forward:
   commit `4617dce`; application code and migrations are unchanged. Validation:
   `git diff --check`, reference review, and release version policy passed. The prior
   Quality Gates run `42047520646` passed all jobs on `4617dce`.
+
+## 2026-11-07 - ND-547 reconcile PR #655 with main
+
+- Merged current main without rewriting branch history. Reapplied only ND-547 after the earlier review rollback caused Git to discard its implementation during the automatic merge. Preserved main's later Meeting Notes tests and all other task work.
+- Local lint, RLS inventory, release policy, diff checks, production build, and all six focused Meeting Notes browser checks passed. Full unit/API, coverage, and remote check results are recorded on PR #655 before handoff.
