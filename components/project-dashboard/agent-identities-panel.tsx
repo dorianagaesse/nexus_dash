@@ -105,6 +105,11 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const selected = identities.find((i) => i.id === selectedId);
+  // Edits and refreshes can remove grants while a device draft stays open.
+  const effectiveDeviceScopes = deviceScopes.filter((scope) =>
+    selected?.scopes.includes(scope)
+  );
+  const effectiveDeviceDone = deviceDone && !!selected?.canMoveTasksToDone;
   const endpoint = `/api/projects/${projectId}/agent-identities`;
   const refresh = useCallback(async () => {
     const response = await fetch(endpoint, { cache: "no-store" });
@@ -468,12 +473,13 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                 className="mt-3 space-y-4"
                 onSubmit={async (e) => {
                   e.preventDefault();
+                  if (!effectiveDeviceScopes.length) return;
                   await mutate({
                     operation: "authorize-device",
                     identityId: selected.id,
                     name: deviceName,
-                    scopes: deviceScopes,
-                    canMoveTasksToDone: deviceDone,
+                    scopes: effectiveDeviceScopes,
+                    canMoveTasksToDone: effectiveDeviceDone,
                   });
                 }}
               >
@@ -493,7 +499,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                   />
                 </label>
                 <ScopeChoices
-                  scopes={deviceScopes}
+                  scopes={effectiveDeviceScopes}
                   onChange={setDeviceScopes}
                   allowed={selected.scopes}
                 />
@@ -501,13 +507,16 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                   <label className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
-                      checked={deviceDone}
+                      checked={effectiveDeviceDone}
                       onChange={(e) => setDeviceDone(e.target.checked)}
                     />
                     Allow Done moves from this device
                   </label>
                 )}
-                <Button type="submit" disabled={busy || !deviceScopes.length}>
+                <Button
+                  type="submit"
+                  disabled={busy || !effectiveDeviceScopes.length}
+                >
                   Generate pairing code
                 </Button>
               </form>

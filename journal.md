@@ -11062,3 +11062,18 @@ Low-value entries to avoid going forward:
 - Addressed the review's P1 integration finding. An independent TypeScript source comparison confirms all 60 original declarations remain identical after formatting/export normalization and all 25 public exports are preserved. Authorization, actor-scoped transactions, race/revocation handling, notification and post-commit email behavior, and responsibility-aware offboarding retain their existing code and ordering.
 - The public collaboration entry point remains a facade over owner invitations, membership/offboarding, recipient responses, shared policy/data/types, and email delivery. The architecture decision is proposed for user review rather than carrying forward the old approval claim.
 - Required validation, the invitation/membership browser lifecycle, real PostgreSQL isolation, and the detailed review response are recorded on #650. Leave the PR unmerged and the card In Progress for the user's review and merge.
+
+### 2026-11-08 - ND-658: address device-grant review
+
+- Reproduced PR #669's P2 finding with component tests: reducing identity scopes
+  and Done permission left hidden stale grants in the next pairing request.
+  A second regression exposed an enabled pairing button when refreshed identity
+  permissions no longer included any selected device scope.
+- Derive displayed and submitted device grants from the current identity,
+  preserve narrower device choices, and disable/guard empty-scope submissions.
+  Both tests failed before the fix and passed afterward. Updated the runbook.
+- Merged `origin/main` at `ac7b2fa3` into the existing PR branch, preserving both
+  sides of the journal conflict and all current-main collaboration/Meeting Notes
+  changes. The PostgreSQL isolation matrix passed after reconciliation.
+- Final baseline and CI results are recorded on PR #669. No deployment or merge
+  to main was performed; the card remains In Progress for reviewer handoff.

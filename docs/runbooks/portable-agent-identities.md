@@ -70,6 +70,9 @@ never silently restarts: launch explicitly again after correcting authorization.
 
 ## Permissions, revocation and history
 
+- The device authorization form uses the identity's current grants after edits
+  or refreshes, preserving any narrower device choices. Pairing is disabled
+  until at least one currently allowed permission is selected.
 - Every bearer request rechecks the session, device, authentication credential,
   identity and project owner against the database. Effective scopes intersect
   the token, session's original grants, device grants and current identity
