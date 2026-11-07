@@ -3,6 +3,27 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-375: production Broadcast configuration investigation
+
+- Recorded Dorian's decision to retain Vercel Pro and picked up ND-375 for the
+  remaining Supabase review. Kept root roadmap edits untouched by using an
+  isolated documentation worktree from `origin/main` at `ac7b2fa3`.
+- Production revision `0c5bd59` reports Broadcast, issues session tokens, and
+  records polling fallbacks. Fresh environment checks reproduce HTTP 401 for
+  the preferred Production publishable key, versus HTTP 200 Auth settings and
+  HTTP 101 WebSocket upgrade for the valid publishable value under the legacy
+  setting. Preview keys validate and sampled Preview transport is polling.
+- Added the evidence, limitations, hosting decision, and staged repair plan in
+  `docs/reports/nd-375-production-realtime-investigation.md`; documented the
+  resolved-key operator preflight in the runtime environment runbook.
+- No Production runtime settings, deployments, schema, or test fixtures were
+  changed. Database load and authenticated private-channel acceptance remain
+  unverified. Follow-up card creation was rejected by automatic approval review
+  (`blocked by policy`); its proposed scope is preserved in the report. ND-375
+  remains In Progress.
+- Documentation validation: `git diff --check` passed; relative report/runbook
+  links resolve and the linked Supabase key/report references were reviewed.
+
 # 2026-11-05 - ND-659: enforce release impact decisions
 
 - Created the fix card and linked GitHub issue #662 after checking the board
