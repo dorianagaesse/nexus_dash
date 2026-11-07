@@ -18,6 +18,21 @@ test.skipIf(process.env.ND545_PERFORMANCE !== "1")("measure actor-scoped Task re
     })) });
     const tasks = await listProjectKanbanTasks(project.id, user.id);
     expect(tasks).toHaveLength(24);
+    const published = await prisma.taskAttachment.create({ data: {
+      taskId: tasks[0].id, uploadedByUserId: user.id, kind: "link",
+      name: "Published attachment", url: "https://example.com/published",
+    } });
+    await prisma.taskAttachment.create({ data: {
+      taskId: tasks[0].id, uploadedByUserId: user.id, kind: "link",
+      name: "Unpublished comment attachment", url: "https://example.com/draft", isCommentDraft: true,
+    } });
+    const visibleTask = (await listProjectKanbanTasks(project.id, user.id)).find(task => task.id === tasks[0].id);
+    expect(visibleTask?.attachments.map(attachment => attachment.id)).toEqual([published.id]);
+    const mutation = await updateTaskForProject(project.id, tasks[0].id, { title: "Check draft isolation" }, user.id);
+    expect(mutation.ok).toBe(true);
+    if (mutation.ok) expect(mutation.data.task.attachments.map(attachment => attachment.id)).toEqual([published.id]);
+    // Keep the performance fixture at its original attachment-free shape.
+    await prisma.taskAttachment.deleteMany({ where: { taskId: tasks[0].id } });
     for (let iteration = 0; iteration < 13; iteration++) {
       const operations = {
         board: async () => { expect(await listProjectKanbanTasks(project.id, user.id)).toHaveLength(24); },

@@ -27,9 +27,14 @@ import {
   requireProjectRole,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
-import { touchProjectActivity } from "@/lib/services/project-activity-service";
+import {
+  recordProjectActivityEvent,
+  touchProjectActivity,
+} from "@/lib/services/project-activity-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 import type { DbClient } from "@/lib/services/rls-context";
+
+import { resolveContextCardMutationActor } from "@/lib/services/context-card-actor-service";
 
 import type { ParsedAttachmentLink } from "@/lib/services/attachment-input-service";
 
@@ -355,6 +360,7 @@ export async function createContextAttachmentsFromDraft(input: {
   files: File[];
   db?: DbClient;
   uploaderDisplayNameSnapshot?: string;
+  uploaderCredentialId?: string | null;
 }): Promise<void> {
   const db = input.db ?? prisma;
   const savedStorageKeys: string[] = [];
@@ -368,7 +374,8 @@ export async function createContextAttachmentsFromDraft(input: {
         data: input.links.map((link) => ({
           resourceId: input.cardId,
           uploadedByUserId: input.actorUserId,
-          uploadedByKind: "human" as const,
+          uploadedByKind: input.uploaderCredentialId ? "agent" as const : "human" as const,
+          uploadedByCredentialId: input.uploaderCredentialId ?? null,
           uploadedByDisplayNameSnapshot: uploaderDisplayNameSnapshot,
           kind: ATTACHMENT_KIND_LINK,
           name: link.name,
@@ -395,7 +402,8 @@ export async function createContextAttachmentsFromDraft(input: {
         data: {
           resourceId: input.cardId,
           uploadedByUserId: input.actorUserId,
-          uploadedByKind: "human",
+          uploadedByKind: input.uploaderCredentialId ? "agent" : "human",
+          uploadedByCredentialId: input.uploaderCredentialId ?? null,
           uploadedByDisplayNameSnapshot: uploaderDisplayNameSnapshot,
           kind: ATTACHMENT_KIND_FILE,
           name: storedFile.originalName,
@@ -451,7 +459,15 @@ export async function createTaskAttachmentFromForm(input: {
       return createError(404, "Task not found");
     }
 
+    const rawCommentDraft = readText(input.formData, "isCommentDraft");
+    if (rawCommentDraft && rawCommentDraft !== "true" && rawCommentDraft !== "false") {
+      return createError(400, "Invalid comment draft flag");
+    }
+    const isCommentDraft = rawCommentDraft === "true";
     const kind = readText(input.formData, "kind");
+    if (isCommentDraft && kind !== ATTACHMENT_KIND_FILE) {
+      return createError(400, "Comment drafts require a file attachment");
+    }
 
     if (!isAttachmentKind(kind)) {
       return createError(400, "Invalid attachment kind");
@@ -487,7 +503,22 @@ export async function createTaskAttachmentFromForm(input: {
         });
 
         await touchTaskActivity(db, input.taskId, actorUserId);
-        await touchProjectActivity({ db, projectId: input.projectId });
+        await recordProjectActivityEvent({
+          db,
+          projectId: input.projectId,
+          actorUserId,
+          domain: "task",
+          action: "updated",
+          entityId: input.taskId,
+          payload: {
+            taskId: input.taskId,
+            attachment: mapTaskAttachmentResponse(
+              input.projectId,
+              input.taskId,
+              attachment
+            ),
+          },
+        });
 
         return {
           ok: true,
@@ -544,6 +575,7 @@ export async function createTaskAttachmentFromForm(input: {
       const attachment = await db.taskAttachment.create({
         data: {
           taskId: input.taskId,
+          isCommentDraft,
           uploadedByUserId: actorUserId,
           kind: ATTACHMENT_KIND_FILE,
           name: providedName || storedFile.originalName,
@@ -562,8 +594,25 @@ export async function createTaskAttachmentFromForm(input: {
         },
       });
 
-      await touchTaskActivity(db, input.taskId, actorUserId);
-      await touchProjectActivity({ db, projectId: input.projectId });
+      if (!isCommentDraft) {
+        await touchTaskActivity(db, input.taskId, actorUserId);
+        await recordProjectActivityEvent({
+          db,
+          projectId: input.projectId,
+          actorUserId,
+          domain: "task",
+          action: "updated",
+          entityId: input.taskId,
+          payload: {
+            taskId: input.taskId,
+            attachment: mapTaskAttachmentResponse(
+              input.projectId,
+              input.taskId,
+              attachment
+            ),
+          },
+        });
+      }
 
       return {
         ok: true,
@@ -849,12 +898,17 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
   actorUserId: string;
   projectId: string;
   taskId: string;
+  isCommentDraft?: unknown;
   storageKey: string;
   name: string;
   mimeType: string;
   sizeBytes: number;
   agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<AttachmentResponsePayload>> {
+  if (input.isCommentDraft !== undefined && typeof input.isCommentDraft !== "boolean") {
+    return createError(400, "Invalid comment draft flag");
+  }
+  const isCommentDraft = input.isCommentDraft === true;
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
@@ -953,6 +1007,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
       const attachment = await db.taskAttachment.create({
         data: {
           taskId: input.taskId,
+          isCommentDraft,
           uploadedByUserId: actorUserId,
           kind: ATTACHMENT_KIND_FILE,
           name: normalizedUpload.data.name,
@@ -971,8 +1026,25 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
         },
       });
 
-      await touchTaskActivity(db, input.taskId, actorUserId);
-      await touchProjectActivity({ db, projectId: input.projectId });
+      if (!isCommentDraft) {
+        await touchTaskActivity(db, input.taskId, actorUserId);
+        await recordProjectActivityEvent({
+          db,
+          projectId: input.projectId,
+          actorUserId,
+          domain: "task",
+          action: "updated",
+          entityId: input.taskId,
+          payload: {
+            taskId: input.taskId,
+            attachment: mapTaskAttachmentResponse(
+              input.projectId,
+              input.taskId,
+              attachment
+            ),
+          },
+        });
+      }
 
       return {
         ok: true,
@@ -1011,10 +1083,6 @@ export async function createContextAttachmentUploadTarget(input: {
     return agentScopeError;
   }
 
-  if (input.agentAccess) {
-    return createError(403, "agent-context-attachments-unsupported");
-  }
-
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
@@ -1037,6 +1105,13 @@ export async function createContextAttachmentUploadTarget(input: {
       card.type !== RESOURCE_TYPE_CONTEXT_CARD
     ) {
       return createError(404, "Context card not found");
+    }
+
+    if (input.agentAccess) {
+      const uploader = await resolveContextCardMutationActor({
+        db, actorUserId, projectId: input.projectId, agentAccess: input.agentAccess,
+      });
+      if (!uploader.ok) return createError(uploader.status, uploader.error);
     }
 
     const normalizedUpload = normalizeDirectUploadInput({
@@ -1108,10 +1183,6 @@ export async function finalizeContextAttachmentDirectUpload(input: {
     return agentScopeError;
   }
 
-  if (input.agentAccess) {
-    return createError(403, "agent-context-attachments-unsupported");
-  }
-
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
@@ -1159,10 +1230,17 @@ export async function finalizeContextAttachmentDirectUpload(input: {
       return normalizedUpload;
     }
 
-    const uploaderDisplayNameSnapshot = await resolveUploaderDisplaySnapshot({
-      db,
-      actorUserId,
-    });
+    const agentUploader = input.agentAccess
+      ? await resolveContextCardMutationActor({
+          db, actorUserId, projectId: input.projectId, agentAccess: input.agentAccess,
+        })
+      : null;
+    if (agentUploader && !agentUploader.ok) {
+      return createError(agentUploader.status, agentUploader.error);
+    }
+    const uploaderDisplayNameSnapshot = agentUploader?.ok
+      ? agentUploader.actor.displayNameSnapshot
+      : await resolveUploaderDisplaySnapshot({ db, actorUserId });
 
     try {
       const metadata = await readAttachmentStoredFileMetadata(normalizedStorageKey);
@@ -1206,7 +1284,8 @@ export async function finalizeContextAttachmentDirectUpload(input: {
         data: {
           resourceId: input.cardId,
           uploadedByUserId: actorUserId,
-          uploadedByKind: "human",
+          uploadedByKind: agentUploader?.ok ? "agent" : "human",
+          uploadedByCredentialId: agentUploader?.ok ? agentUploader.actor.credentialId : null,
           uploadedByDisplayNameSnapshot: uploaderDisplayNameSnapshot,
           kind: ATTACHMENT_KIND_FILE,
           name: normalizedUpload.data.name,
@@ -1425,6 +1504,7 @@ export async function deleteTaskAttachmentForProject(input: {
           storageKey: true,
           uploadedByUserId: true,
           commentId: true,
+          isCommentDraft: true,
           task: {
             select: {
               id: true,
@@ -1467,8 +1547,18 @@ export async function deleteTaskAttachmentForProject(input: {
         where: { id: attachment.id },
       });
 
-      await touchTaskActivity(db, input.taskId, actorUserId);
-      await touchProjectActivity({ db, projectId: input.projectId });
+      if (!attachment.isCommentDraft) {
+        await touchTaskActivity(db, input.taskId, actorUserId);
+        await recordProjectActivityEvent({
+          db,
+          projectId: input.projectId,
+          actorUserId,
+          domain: "task",
+          action: "updated",
+          entityId: input.taskId,
+          payload: { taskId: input.taskId, deletedAttachmentId: attachment.id },
+        });
+      }
 
       if (attachment.kind === ATTACHMENT_KIND_FILE && attachment.storageKey) {
         await deleteAttachmentFile(attachment.storageKey).catch((error) => {
@@ -1620,6 +1710,7 @@ export async function getTaskAttachmentDownload(input: {
       const attachment = await db.taskAttachment.findUnique({
         where: { id: input.attachmentId },
         select: {
+          isCommentDraft: true,
           kind: true,
           name: true,
           mimeType: true,
@@ -1638,6 +1729,7 @@ export async function getTaskAttachmentDownload(input: {
         !attachment ||
         attachment.task.id !== input.taskId ||
         attachment.task.projectId !== input.projectId ||
+        (attachment.isCommentDraft && attachment.uploadedByUserId !== actorUserId) ||
         attachment.kind !== ATTACHMENT_KIND_FILE ||
         !attachment.storageKey ||
         !hasExpectedStoragePrefix(

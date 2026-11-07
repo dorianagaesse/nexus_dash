@@ -1456,7 +1456,7 @@ describe("task comments route", () => {
         uploadedByUserId: "test-user",
         commentId: null,
       },
-      data: { commentId: "comment-image" },
+      data: { commentId: "comment-image", isCommentDraft: false },
     });
     await expect(readJson(response)).resolves.toMatchObject({
       comment: {
@@ -1532,7 +1532,7 @@ describe("task comments route", () => {
         uploadedByUserId: "test-user",
         commentId: null,
       },
-      data: { commentId: "comment-file" },
+      data: { commentId: "comment-file", isCommentDraft: false },
     });
     await expect(readJson(response)).resolves.toMatchObject({
       comment: {

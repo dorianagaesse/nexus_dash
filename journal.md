@@ -3,6 +3,35 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-05 - ND-659: enforce release impact decisions
+
+- Created the fix card and linked GitHub issue #662 after checking the board
+  for overlap with the completed ND-457 release-boundary work.
+- Release CI now requires a unique impact and rationale in the new changelog
+  section and validates the exact next patch/minor/major version. The first
+  stable baseline additionally records explicit maintainer approval; existing
+  changelog sections and ordinary product PRs need no metadata changes.
+- Shared version-step arithmetic between the helper and CI, added helper
+  reminders, and documented fix-only, mixed, and stable-baseline releases.
+- Added regression coverage for declared impacts, invalid/duplicate/missing
+  decisions, skipped versions, patch resets, and committed head-ref reads.
+- Validation on Node 24.22.1 passed: lint, RLS inventory, release-policy check,
+  unit/API tests (2,337 passed; 3 skipped), coverage (94.16% statements,
+  88.11% branches, 97.39% functions, 95.33% lines), production build, and
+  `git diff --check`. Unit/build checks used the documented local placeholder
+  environment; the initial test attempt lacked `DATABASE_URL` and was rerun.
+- No UI, auth, or database behavior changed, so E2E and the PostgreSQL matrix
+  were not required. Copilot review monitoring is omitted per user instruction.
+
+- Follow-up review: checked Zoukou's PR notes against ND-659 and addressed
+  all three. The release helper now rejects skipped explicit versions before
+  mutation or decision output; CI field errors explain the unindented,
+  case-sensitive format; invalid impacts name the version section and runbook.
+- Follow-up validation on Node 24.22.1 passed: 52 targeted tests, all 2,344
+  unit/API tests (3 skipped), lint, RLS inventory, coverage, production build,
+  release-policy validation, and `git diff --check`. No additional blocking
+  issues found against the task's acceptance criteria.
+
 # 2026-10-30 - ND-541: define Tasks/Kanban domain boundary and migration seams
 
 - Authored `adr/nd-541-tasks-kanban-domain-boundary.md` and recorded the summary
@@ -10770,44 +10799,226 @@ Low-value entries to avoid going forward:
 - The user arranges external review, we address that review on the active PR, and the user merges. Leave this recovery PR and every replacement unmerged; keep later replacements as drafts until their turn. Earlier agent review and CI results are historical evidence, not user approval.
 - Reopen the seven board cards and verify the epic is no longer Completed. Revalidate the replacement heads and record their actual checks in the PRs.
 
-## 2026-11-02 - ND-542 restored for external review
 
-- Restored the implementation from original PR #641, commit `355592620cb4c95ac4662405511055923726f4ec`, as its own replacement PR after the review-process rollback.
-- Unify Task create and update API runtime contracts. Historical implementation/check evidence remains on #641; fresh checks belong to this replacement head.
-- External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
+- Continued Gemini's uncommitted fix for the P1 review on PR #641. Trusted
+  create/update commands now use module-private WeakSet identity; update
+  adapters retain commands in a WeakMap instead of a JSON-spoofable property.
+  Raw request markers have no authority and pass through normal validation.
+- Added contract, PATCH persistence, and bulk-operation regressions for forged
+  markers, malformed internal relation shapes, unsafe links/descriptions, and
+  serialized commands.
+- Integrated current main, retaining the ND-542, ND-645, and ND-541 journal
+  entries when concurrent documentation additions conflicted. Documented the
+  server-only trust invariant in the ND-541 ADR. Fixed TypeScript identity
+  lookups to accept objects without casting unvalidated input to commands.
+- Local validation passed on Node 24.22.1: lint, RLS inventory, all 2,232 tests
+  (two expected skips), coverage (95.14% lines, 88.11% branches), production
+  build, and all 12 targeted Playwright checks across task lifecycle, relations,
+  agent assignment, titled links, and screenshot uploads. Browser checks used
+  a separate local database. Initial unit attempts used browser-only environment
+  overrides; corrected those before the successful full run. One local coverage
+  attempt hit the existing panel-position test flake (436px versus 420px);
+  the full retry with two workers passed without changing that test.
+- GitHub Quality Core and PostgreSQL isolation passed on `957356fc` in run
+  [41364774754](https://github.com/dorianagaesse/nexus_dash/actions/runs/41364774754).
+  Copilot review was requested; no review response had arrived at this point.
 
-## 2026-11-02 - ND-543 restored for external review
 
-- Restored the implementation from original PR #644, commit `1e2e2c8e24e1d10664b08788499e808901e63511`, as its own replacement PR after the review-process rollback.
-- Separate Kanban board state, drag, filters and navigation. Historical implementation/check evidence remains on #644; fresh checks belong to this replacement head.
-- External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
+## 2026-10-30 - ND-610 live task attachments
 
-## 2026-11-02 - ND-544 restored for external review
+- Isolated work in `../nexus_dash_nd610` on `fix/nd-610-live-task-attachments` from `b6351a2`; root roadmap edits remain untouched.
+- Task attachment create (link, form file, direct upload) and delete now emit typed task activity deltas. The board merges only attachments, preserving the open modal, pending content edits, and focus.
+- Added service event assertions, component reconciliation coverage (including duplicate delivery and project isolation), and a two-browser-context regression for links, text files, and images. Focused checks passed (14 tests); full baseline and preview validation follow below.
 
-- Restored the implementation from original PR #642, commit `44cac6c4743d314884509a2cbbdc6ef07b3a269d`, as its own replacement PR after the review-process rollback.
-- Separate Task application services by use case. Historical implementation/check evidence remains on #642; fresh checks belong to this replacement head.
-- External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
+- Initial baseline passed lint, RLS inventory, 2,206 tests, coverage (95.32% lines / 85.58% branches), and build. Preview workflow 41069206326 verified checkout 8968b527, but its browser check exposed that polling snapshots carry only a version. Added version-only snapshot notification and a cancellable attachment-only read for the open task; broad dashboard refresh remains deferred during editing. Added regression coverage for polling, duplicate versions, and modal-close cancellation.
 
-## 2026-11-02 - ND-545 restored for external review
+- Final validation passed: lint, RLS inventory, 2,207 unit/API/component tests (2 skipped), coverage (95.32% lines / 85.58% branches), production build, and 125 Playwright checks (2 intentional skips). GitHub Quality Core, E2E, and tenant-isolation jobs also passed on implementation commit `fb3e3c9883bd5d883072e340186e08d06b793132`.
+- Preview workflow [41070693099](https://github.com/dorianagaesse/nexus_dash/actions/runs/41070693099) succeeded and its checkout log confirms `fb3e3c9883bd5d883072e340186e08d06b793132`. Two-browser-context Playwright verification passed against https://nexus-dash-naesrtmet-dorian-agaesses-projects.vercel.app: link, text-file, and image additions/deletions preserve both an unsaved title and the focused link draft. Final cleanup only formats the added code/tests and records this evidence.
+- Delivery: [PR #638](https://github.com/dorianagaesse/nexus_dash/pull/638). Copilot review was requested but no review outcome returned during validation. The task remains In Progress for review/merge; root roadmap edits remain untouched.
 
-- Restored the implementation from original PR #645, commit `c4b58eb88b4372251db975da30cd6cfb284ae776`, as its own replacement PR after the review-process rollback.
-- Extract scoped Task data-access and persistence seams. Historical implementation/check evidence remains on #645; fresh checks belong to this replacement head.
-- External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
 
-## 2026-11-02 - ND-546 restored for external review
+## 2026-11-02 - ND-610 review reconciliation race
 
-- Restored the implementation from original PR #646, commit `988700b7bc9b4ff115c0c0099f06e566fef50c47`, as its own replacement PR after the review-process rollback.
-- Review the Task pilot and enforce public import seams. Historical implementation/check evidence remains on #646; fresh checks belong to this replacement head.
-- External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
+- Addressed PR #638's P2 review: in-flight attachment reads now detect intervening local task mutations, remote deltas, and full task representations. Stale responses trigger a fresh read rather than overwriting newer attachments, even if the newer activity version is already acknowledged.
+- Added six deferred-response regressions for local, remote-delta, and full-representation additions/deletions. All six fail against the prior implementation and pass with the fix; drafts, focus, and attachments missed by the first snapshot are preserved. Modal-close cancellation remains covered.
+- Integrated current main in `27dcbb18`; only the journal conflicted, and both histories were retained. The PR is mergeable. Local lint, RLS inventory, all 2,283 unit/API/component tests (3 skipped), coverage (95.47% lines / 88.64% branches), and production build passed on the combined branch. GitHub Quality Core and PostgreSQL isolation also passed.
+- Preview workflow [41470710497](https://github.com/dorianagaesse/nexus_dash/actions/runs/41470710497) succeeded; its checkout log confirms `27dcbb182e0208d80b4c6d3dab44a8a7be48a921`. The two-session Playwright attachment check passed against https://nexus-dash-gpgnjefq2-dorian-agaesses-projects.vercel.app, preserving the title draft and focused link input through link/file/image additions and deletions. An initial abbreviated-ref dispatch failed at checkout; the full-SHA dispatch succeeded.
+- Replied to and resolved the review thread with the fix and regression evidence. Full local Playwright passed: 126 checks, 2 intentional skips. [Quality Gates 41470565758](https://github.com/dorianagaesse/nexus_dash/actions/runs/41470565758) passed Quality Core, PostgreSQL isolation, E2E, and container image validation on `27dcbb18`. The UI detector returned no findings. The task remains In Progress for review/merge.
 
-## 2026-11-02 - ND-547 restored for external review
 
-- Restored the implementation from original PR #647, commit `bd30c48395528fd74b814ba83ed89f8c869365b9`, as its own replacement PR after the review-process rollback.
-- Unify Meeting Notes create and update request contracts. Historical implementation/check evidence remains on #647; fresh checks belong to this replacement head.
-- External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
+## 2026-11-02 - ND-610 Copilot review follow-up
 
-## 2026-11-02 - ND-190 restored for external review
+- Addressed all three Copilot findings on PR #638: invalidate attachment reads in
+  the shared full-task apply path; replay activity received during local saves,
+  with safe snapshot reconciliation for versions already acknowledged by a local
+  response; persist comment upload draft intent so polling cannot publish it as
+  a loose task attachment. Both form and direct uploads support the draft flag.
+- Added local PATCH/live-save race cases, overlapping-save/deferred activity
+  cases, draft upload/download/binding checks, and cross-session draft isolation.
+  The additive migration defaults legacy files to ordinary task attachments.
+- Integrated `198e7d62` from main before implementation, retaining both journal
+  histories. Main restored the modular monolith work for sequential human review;
+  the fixes follow those current repository boundaries.
+- Focused regressions pass. The real PostgreSQL isolation matrix passed on a
+  fresh `nd610_copilot_rls` database with the Realtime stub installed before
+  migrations. The initial run against the older local database failed its
+  existing Realtime join assertion because that fixture lacked its policies.
+- Preserved comment-file recovery after excluding drafts from shared reads:
+  recovery records retain display metadata locally, and restoration rebuilds
+  the authorized download path instead of trusting a stored URL. Added a reload
+  regression for an unpublished comment file and legacy-record compatibility.
+- Final local validation on `2d57b24b` passed lint, RLS inventory, 2,241
+  unit/API/component tests (2 intentional skips), coverage (95.32% lines /
+  85.58% branches), production build, and 11 affected Playwright flows covering
+  uploads, comments, recovery, task lifecycle, and cross-session synchronization.
+- Preview workflow [41480460304](https://github.com/dorianagaesse/nexus_dash/actions/runs/41480460304)
+  succeeded with Broadcast explicitly enabled; checkout's `git log -1` confirms
+  `2d57b24bda99431e505fabefcdb6a3ec65a678b4`. All three deployed Playwright cases
+  passed against https://nexus-dash-adnxcpaif-dorian-agaesses-projects.vercel.app,
+  including unpublished-file isolation/binding and mobile comment-file recovery.
+  An earlier preview hit Supabase's transient `MissingPartition` join error;
+  both subsequent private Broadcast verification runs passed.
+- All three Copilot threads were replied to and resolved. GitHub Quality Core
+  and PostgreSQL isolation passed in [41480466042](https://github.com/dorianagaesse/nexus_dash/actions/runs/41480466042);
+  the broader CI browser run was still in progress when recording these notes.
+  The task remains In Progress for review/merge.
 
-- Restored the implementation from original PR #643, commit `1a120957fd86a4b46060372f31989cb47db0ff6a`, as its own replacement PR after the review-process rollback.
-- Separate collaboration invitation and membership services. Historical implementation/check evidence remains on #643; fresh checks belong to this replacement head.
-- External review and user merge are pending. Earlier agent approval does not authorize merge; later task PRs stay draft until their turn.
+## 2026-11-02 - ND-542 external-review follow-up
+
+- Reconciled the restored Task contract implementation with the cleanup merge and current main, preserving ND-610 remote-attachment changes. The merged source is independently constructed from current main plus the isolated ND-542 patch.
+- Addressed Copilot findings for schema acceptance typing, pure Task-person imports, and malformed Meeting Notes create JSON. Restored and extended the compiler regression for create/update/bulk inference and raw non-narrowing; five malformed JSON root cases prove rejection before service calls. The regressions failed on the old implementation. No reliance on a later task for these fixes.
+- Validation and review evidence belong to PR #649. Leave the PR unmerged for external review and the user to merge; later epic PRs remain draft.
+
+## 2026-11-02 - ND-543 review and current-main reconciliation
+
+- Reconciled PR #651 with current main after ND-542's user merge. Reapplied only the isolated Kanban extraction to main, removing unrelated reversals from the review diff and retaining the merged schema typing/compiler tests, pure Task-person import, and Meeting Notes JSON guard.
+- Preserved ND-610 attachment synchronization. Source checks prove identical public component parameters, rendered JSX, and attachment reconciliation; 77 focused component checks pass, covering keyboard settlement, filtered hidden-card persistence, attachment draft/focus handling, comments, task search, board rendering, and live refresh.
+- The PR now contains ND-543 only against main. Full validation and review replies are recorded on #651; leave it unmerged for external review and the user to merge. Later epic PRs remain parked.
+
+## 2026-11-03 - ND-544 review and current-main reconciliation
+
+- Reconciled #652 against current main after ND-543's user merge. Reapplied only the Task application-service extraction, retaining the merged schema typing/compiler tests, pure Task-person validator, Meeting Notes JSON guard, and Kanban hooks.
+- Kept ND-610's unpublished comment-attachment exclusion in the extracted mutation projection. Compared all 40 canonical declarations with current main: no missing or changed declarations. Public facade exports remain identical; authorization, actor-scoped clients, revision locks, retries, mutation/notification/history ordering, and responses stay in their existing use cases.
+- Passed 177 focused contract/service/API/attachment checks. Full validation and review evidence are recorded on #652. Leave the PR unmerged for external review and the user to merge; later epic PRs remain parked.
+
+# 2026-11-03 - ND-649 agent context-card uploads
+
+- Created ND-649 and GitHub issue #656 after tracing the unconditional upload
+  rejection to TASK-342's temporary attribution workaround.
+- Added credential provenance and snapshot fallback; replaced the human-only
+  uploader constraint and restored agent direct uploads and card-creation links.
+  Storage ownership, project authorization, scopes and file checks are retained.
+- Validation passed: lint, RLS inventory, 254 unit/API/component files (2,285
+  tests; two skipped), coverage thresholds (94.16% statements, 88.11% branches),
+  production build, PostgreSQL isolation matrix, and all seven targeted e2es
+  (new agent upload lifecycle plus the critical UI smoke flows).
+- Preview workflow 41657525171 deploys explicit branch
+  fix/nd-649-agent-context-uploads; deployment verification and automated PR
+  review are pending before handoff.
+
+- Preview workflow 41657525171 succeeded. Checkout logs show branch
+  fix/nd-649-agent-context-uploads at 42323813cfe55531127a80e95396f692a9034e73
+  (the implementation commit; later changes are documentation/test cleanup).
+  Immutable preview: https://nexus-dash-qit8stkjk-dorian-agaesses-projects.vercel.app.
+- Playwright passed the real R2 signed PUT, finalization, byte-for-byte download,
+  and active/revoked/deleted attribution flow on that preview. The direct DB
+  hostname was unreachable locally; validation used the documented admin session
+  pooler fallback. The test now cleans up storage via the deployed cleanup API
+  and removes its temporary user/project, and passed again locally and remotely.
+- Opened PR #657. CI Quality Core and tenant isolation passed; broader E2E and
+  the requested Copilot review were still pending when evidence was recorded.
+
+
+## 2026-11-03 - ND-545 DeepSeek review and current-main reconciliation
+
+- Reconciled #653 with main at 7f49c65d using an ordinary merge commit and the isolated ND-545 patch. Preserved ND-542 contracts/compiler checks, ND-543 Kanban hooks, ND-544 use cases, ND-610 attachment publication rules, and ND-649 context uploads; the review diff contains only Task data-access work.
+- Restored `isCommentDraft: false` in both shared projections. A source-level comparison confirms the board and both conditional mutation projections exactly match main. The real PostgreSQL harness checks published-versus-draft attachment visibility through board reads and mutation responses before measuring performance.
+- Addressed the remaining review notes: consistent database-client-first archive helper, shared TaskStatus target input (stored source statuses remain strings, matching Prisma and preserving existing behavior), query indentation, and upward-move/source-compaction regression coverage. Lint, RLS inventory, 38 focused tests, and the least-privilege PostgreSQL matrix passed.
+- Compared main and the reconciled tree sequentially on the same local database with 24 tasks, three warmups and ten samples. SQL calls remained board/update/reorder = 16/20/31. Median milliseconds before -> after: 21.0 -> 21.9, 29.3 -> 30.0, 59.8 -> 58.1; p95: 41.6 -> 52.9, 70.2 -> 54.9, 108.4 -> 109.3. Earlier samples varied with concurrent local load; identical projections/query counts and unchanged lane statement order show no added database work. These small shared-host samples are diagnostic evidence, not a production latency guarantee.
+- Full validation and review replies are recorded on #653. Leave it unmerged for the user's review and merge; later epic tasks remain parked.
+
+
+## 2026-11-04 - ND-546 DeepSeek review and current-main reconciliation
+
+- Reconciled #654 with main at 9e31da66 after the user's ND-545 merge. Reapplied only the scoped lint rules, pilot review, service guidance, and ADR; preserved all runtime code and main's complete create/update/bulk compiler fixtures. Replaced stale stack and pre-cleanup approval claims with the current implementation baseline and user-owned review gate.
+- Fixed nested Node imports with `node:**` and included exact bare Node built-ins so alternate import spellings cannot bypass the intended pure-helper boundary. Added real-ESLint regression checks for forbidden imports and allowed facades, server components, DTO types, pure helpers, and caller-scoped clients.
+- Rechecked the static runtime import graph from Task/project facades, Task contracts, and Kanban: 132 local modules, no cycles involving the reviewed Task seams. Pilot guidance records current ND-545 measurement evidence and the existing unpublished-attachment exclusion. Meeting Notes contract work remains the bounded next application after user review and merge.
+- Required validation and the detailed review response are recorded on #654. Leave the PR unmerged for the user; later tasks remain parked. Retarget/reconcile #655 when ND-546 is user-merged; #650 remains parked until its turn.
+
+## 2026-11-05 - ND-654: Per-credential Done-move permission
+
+- Replaced the project-wide Done-move toggle with the independently persisted
+  `ApiCredential.canMoveTasksToDone` flag and an owner-session-only PATCH on each
+  credential. Sharing > Agent access exposes the permission on each credential;
+  changes affect existing bearer tokens immediately.
+- Single-task, bulk-status, and board-reorder transitions use the calling
+  credential's live permission while retaining task-write, project access,
+  expiry, and revocation checks. Denied transitions retain
+  `agent-done-move-disabled` and make no task changes.
+- Migration removes the old Project column and defaults all existing and new
+  credentials to false, including projects with the old toggle enabled. Owners
+  must explicitly re-enable selected credentials. Documented this policy in
+  README, hosted agent guidance, and the architecture decision log.
+- Validation on Node 24.22.1 with local PostgreSQL 16: lint, RLS inventory,
+  PostgreSQL role setup/isolation matrix (including actual migration/default
+  regression), unit/API tests (2,315 passed, 3 skipped), coverage thresholds
+  (95.33% lines, 88.11% branches), production build, version policy, and diff
+  checks passed. Focused browser tests passed (2/2).
+- Full `npm run test:e2e`: 125 passed, 2 skipped, 1 failed. The unrelated
+  ND-433 recovery test expects `Meeting title is required.` after outside-click
+  dismissal (`tests/e2e/nd-433-long-form-recovery.spec.ts:75`). Reproduced the
+  same assertion failure on untouched `origin/main` at
+  `697eab2613d2885c03d5efd85e0bbf5c2340cba2` in a separate worktree, database,
+  and server with `CI=true NODE_ENV=test npx playwright test
+  tests/e2e/nd-433-long-form-recovery.spec.ts --grep 'task drafts recover'`.
+  ND-654 and critical smoke tests passed in the full run.
+
+### 2026-11-05 - ND-654 review: inherited credentials and capability audit
+
+- Fixed the real ownership-transfer failure: credential UPDATE authorization now
+  follows the current project owner, while a trigger keeps the original creator
+  and project immutable and validates changes to revoker attribution. Historical
+  revoker values can remain attached to inherited credentials.
+- Added a real PostgreSQL runtime-role regression for both transfer choices
+  (previous owner stays/leaves), grant/removal, unrelated and foreign credentials,
+  immutable attribution, and denied former-owner administration/request usage.
+- Capability updates now commit with a `credential_capabilities_updated` audit
+  event containing the human actor, credential, boolean value, and request
+  metadata. The owner panel refreshes the audit feed after saving.
+- Verified the HTTP path with a production build served using the non-superuser,
+  NOBYPASSRLS runtime role and separate admin-only test fixtures: all three
+  ND-654 browser tests passed, including transfers in both modes and audit data.
+  Lint, RLS inventory, PostgreSQL setup/isolation matrix, 2,315 unit/API tests
+  (3 skipped), coverage thresholds (95.33% lines / 88.11% branches), and build
+  passed. Normalized the affected Prisma model's formatting.
+
+## 2026-11-05 - User-selected agent credentials
+
+- Updated AGENTS.md and the agent workflow runbook to require explicitly asking
+  the user which credential to use before Nexus Dash API access, removing client
+  mappings and fixed credential filenames. Missing credentials stop API work;
+  runtime token exchange and secret-handling rules remain in place.
+- Documentation validation: `git diff --check` and link/reference review passed.
+
+### 2026-11-05 - ND-654: reconcile PR #658 with main
+
+- Merged `origin/main` at `852480e` into the task branch. Resolved the appended
+  journal entries by retaining both ND-654 execution history and the user-selected
+  credential documentation entry. Retained main's AGENTS.md and workflow updates.
+- This merge changes documentation only relative to the previously validated task
+  commit `4617dce`; application code and migrations are unchanged. Validation:
+  `git diff --check`, reference review, and release version policy passed. The prior
+  Quality Gates run `42047520646` passed all jobs on `4617dce`.
+
+## 2026-11-07 - ND-547 reconcile PR #655 with main
+
+- Merged current main without rewriting branch history. Reapplied only ND-547 after the earlier review rollback caused Git to discard its implementation during the automatic merge. Preserved main's later Meeting Notes tests and all other task work.
+- Local lint, RLS inventory, release policy, diff checks, production build, and all six focused Meeting Notes browser checks passed. Full unit/API, coverage, and remote check results are recorded on PR #655 before handoff.
+
+
+## 2026-11-07 - ND-190 review and current-main reconciliation
+
+- Reconciled #650 with main at 410063b3 after the user's ND-547 merge. Explicitly reapplied only the collaboration extraction, focused tests, browser lifecycle, and ownership docs so the rollback merge base cannot silently discard ND-190. Preserved main's later Task/Meeting Notes contracts, credential permissions, dependency updates, release policy, and existing ADR/journal history.
+- Addressed the review's P1 integration finding. An independent TypeScript source comparison confirms all 60 original declarations remain identical after formatting/export normalization and all 25 public exports are preserved. Authorization, actor-scoped transactions, race/revocation handling, notification and post-commit email behavior, and responsibility-aware offboarding retain their existing code and ordering.
+- The public collaboration entry point remains a facade over owner invitations, membership/offboarding, recipient responses, shared policy/data/types, and email delivery. The architecture decision is proposed for user review rather than carrying forward the old approval claim.
+- Required validation, the invitation/membership browser lifecycle, real PostgreSQL isolation, and the detailed review response are recorded on #650. Leave the PR unmerged and the card In Progress for the user's review and merge.

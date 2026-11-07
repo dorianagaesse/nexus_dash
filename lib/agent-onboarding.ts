@@ -406,7 +406,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     method: "POST",
     path: "/api/projects/{projectId}/tasks/reorder",
     title: "Reorder tasks",
-    description: "Persist task ordering across board columns and status lanes. Moving tasks into Done requires the owner to enable the project agent capability; otherwise the entire reorder returns 403 agent-done-move-disabled.",
+    description: "Persist task ordering across board columns and status lanes. Moving tasks into Done requires the owner to enable the calling credential’s Allow moves to Done capability; otherwise the entire reorder returns 403 agent-done-move-disabled.",
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
     notes: [
@@ -419,7 +419,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     method: "POST",
     path: "/api/projects/{projectId}/tasks/{taskId}/status",
     title: "Transition task status",
-    description: "Move one task to another status column without rewriting the whole board. Moving into Done is disabled for agents by default; the owner can enable it in Agent access settings. A denied move returns 403 agent-done-move-disabled without changing tasks.",
+    description: "Move one task to another status column without rewriting the whole board. Moving into Done is disabled for agents by default; the owner can enable it for this credential in Sharing > Agent access. A denied move returns 403 agent-done-move-disabled without changing tasks.",
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
     notes: [
@@ -499,6 +499,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/tasks/{taskId}/attachments/direct",
     title: "Finalize task attachment upload",
     description: "Attach a previously uploaded file to the task.",
+    notes: ["Set isCommentDraft=true for an unposted comment file. Drafts stay out of task reads, search, and activity until comment creation binds them; only the uploader can download them before posting."],
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
   },
@@ -590,6 +591,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requiredScopes: ["context:write"],
     requestContentType: "application/json",
     notes: [
+      "Requires signed direct uploads. Uploaders are attributed to their agent credential, not its human owner.",
       `Binary uploads are limited to ${AGENT_ATTACHMENT_MAX_FILE_SIZE_LABEL} per file.`,
       "After uploading bytes to storage, finalize the upload on the direct route.",
     ],
@@ -3919,7 +3921,10 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             content: {
               "application/json": {
                 schema: {
-                  $ref: "#/components/schemas/AttachmentDirectFinalizeRequest",
+                  allOf: [
+                    { $ref: "#/components/schemas/AttachmentDirectFinalizeRequest" },
+                    { type: "object", properties: { isCommentDraft: { type: "boolean", default: false, description: "Keep the upload unpublished until comment binding." } } },
+                  ],
                 },
               },
             },

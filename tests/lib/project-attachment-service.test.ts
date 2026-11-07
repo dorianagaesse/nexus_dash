@@ -5,6 +5,7 @@ import { AttachmentStorageUnavailableError } from "@/lib/storage/errors";
 
 const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
+  projectActivityEvent: { create: vi.fn() },
   project: {
     findFirst: vi.fn(),
     update: vi.fn(),
@@ -21,7 +22,9 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
     delete: vi.fn(),
   },
+  apiCredential: { findFirst: vi.fn() },
   resourceAttachment: {
+    createMany: vi.fn(),
     create: vi.fn(),
   },
   user: {
@@ -63,10 +66,12 @@ vi.mock("@/lib/observability/logger", () => ({
 
 import {
   createContextAttachmentUploadTarget,
+  createContextAttachmentsFromDraft,
   createContextAttachmentFromForm,
   createTaskAttachmentUploadTarget,
   createTaskAttachmentFromForm,
   deleteTaskAttachmentForProject,
+  getTaskAttachmentDownload,
   finalizeContextAttachmentDirectUpload,
   finalizeTaskAttachmentDirectUpload,
 } from "@/lib/services/project-attachment-service";
@@ -76,6 +81,13 @@ describe("project-attachment-service", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.apiCredential.findFirst.mockResolvedValue({
+      id: "credential-1", projectId: "project-1", label: "TellmetrY agent",
+      revokedAt: null, expiresAt: null,
+    });
+    prismaMock.projectActivityEvent.create.mockImplementation(async ({ data }) => ({
+      id: "event-1", createdAt: new Date(), ...data,
+    }));
     prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
     prismaMock.project.findFirst.mockResolvedValue({ ownerId: actorUserId, memberships: [] });
     prismaMock.user.findUnique.mockResolvedValue({
@@ -116,6 +128,16 @@ describe("project-attachment-service", () => {
     expect(prismaMock.taskAttachment.delete).toHaveBeenCalledWith({
       where: { id: "att-draft" },
     });
+    expect(prismaMock.projectActivityEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          domain: "task",
+          action: "updated",
+          entityId: "task-1",
+          payload: { taskId: "task-1", deletedAttachmentId: "att-draft" },
+        }),
+      })
+    );
   });
 
   test("prevents an editor from deleting another actor's task upload", async () => {
@@ -204,6 +226,59 @@ describe("project-attachment-service", () => {
     expect(attachmentStorageMock.deleteAttachmentFile).not.toHaveBeenCalled();
   });
 
+  test.each(["link", "file"])(
+    "emits a task attachment event for a %s upload",
+    async (kind) => {
+      prismaMock.task.findUnique.mockResolvedValueOnce({
+        id: "task-1",
+        projectId: "project-1",
+      });
+      const attachment = {
+        id: "att-1",
+        commentId: null,
+        kind,
+        name: "note",
+        url: kind === "link" ? "https://example.com/" : null,
+        mimeType: kind === "file" ? "text/plain" : null,
+        sizeBytes: kind === "file" ? 5 : null,
+      };
+      prismaMock.taskAttachment.create.mockResolvedValueOnce(attachment);
+      attachmentStorageMock.saveAttachmentFile.mockResolvedValueOnce({
+        storageKey: "key",
+        originalName: "note.txt",
+        mimeType: "text/plain",
+        sizeBytes: 5,
+      });
+      const formData = new FormData();
+      formData.set("kind", kind);
+      formData.set("url", "https://example.com/");
+      formData.set(
+        "file",
+        new File(["hello"], "note.txt", { type: "text/plain" })
+      );
+      const result = await createTaskAttachmentFromForm({
+        actorUserId,
+        projectId: "project-1",
+        taskId: "task-1",
+        formData,
+      });
+      expect(result.ok).toBe(true);
+      expect(prismaMock.projectActivityEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            domain: "task",
+            action: "updated",
+            entityId: "task-1",
+            payload: {
+              taskId: "task-1",
+              attachment: expect.objectContaining(attachment),
+            },
+          }),
+        })
+      );
+    }
+  );
+
   test("creates task direct-upload target when storage provider supports signed uploads", async () => {
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "task-1",
@@ -273,7 +348,7 @@ describe("project-attachment-service", () => {
     );
   });
 
-  test("creates context direct-upload target when storage provider supports signed uploads", async () => {
+  test.each([false, true])("creates context direct-upload target (agent=%s)", async (isAgent) => {
     prismaMock.resource.findUnique.mockResolvedValueOnce({
       id: "card-1",
       projectId: "project-1",
@@ -289,6 +364,7 @@ describe("project-attachment-service", () => {
 
     const result = await createContextAttachmentUploadTarget({
       actorUserId,
+      agentAccess: isAgent ? { credentialId: "credential-1", projectId: "project-1", scopes: ["context:write"] } : undefined,
       projectId: "project-1",
       cardId: "card-1",
       name: "spec.pdf",
@@ -365,9 +441,25 @@ describe("project-attachment-service", () => {
       select: { id: true },
     });
     expect(attachmentStorageMock.deleteAttachmentFile).not.toHaveBeenCalled();
+    expect(prismaMock.projectActivityEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          domain: "task",
+          action: "updated",
+          entityId: "task-1",
+          payload: {
+            taskId: "task-1",
+            attachment: expect.objectContaining({
+              kind: "file",
+              mimeType: "application/pdf",
+            }),
+          },
+        }),
+      })
+    );
   });
 
-  test("finalizes context direct upload by reading metadata and persisting attachment", async () => {
+  test.each([false, true])("finalizes context direct upload with uploader identity (agent=%s)", async (isAgent) => {
     prismaMock.resource.findUnique.mockResolvedValueOnce({
       id: "card-1",
       projectId: "project-1",
@@ -388,6 +480,7 @@ describe("project-attachment-service", () => {
 
     const result = await finalizeContextAttachmentDirectUpload({
       actorUserId,
+      agentAccess: isAgent ? { credentialId: "credential-1", projectId: "project-1", scopes: ["context:write"] } : undefined,
       projectId: "project-1",
       cardId: "card-1",
       storageKey: "v1/user-1/project-1/context-card/card-1/key-spec.pdf",
@@ -409,31 +502,86 @@ describe("project-attachment-service", () => {
           "/api/projects/project-1/context-cards/card-1/attachments/att-ctx-1/download",
       },
     });
-    expect(prismaMock.resourceAttachment.create).toHaveBeenCalledTimes(1);
+    expect(prismaMock.resourceAttachment.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        uploadedByUserId: actorUserId,
+        uploadedByCredentialId: isAgent ? "credential-1" : null,
+        uploadedByKind: isAgent ? "agent" : "human",
+        uploadedByDisplayNameSnapshot: isAgent ? "TellmetrY agent" : "ada",
+      }),
+    }));
     expect(attachmentStorageMock.deleteAttachmentFile).not.toHaveBeenCalled();
   });
 
-  test("rejects agent context uploads instead of misattributing them to a human", async () => {
+  test.each(["scope", "project", "viewer", "card", "key", "revoked", "missing credential"])("rejects unauthorized context upload: %s", async (reason) => {
+    prismaMock.resource.findUnique.mockResolvedValue({ id: "card-1", projectId: reason === "card" ? "other-project" : "project-1", type: RESOURCE_TYPE_CONTEXT_CARD });
+    if (reason === "viewer") prismaMock.project.findFirst.mockResolvedValueOnce({ ownerId: "someone-else", memberships: [{ role: "viewer" }] });
+    if (reason === "revoked") prismaMock.apiCredential.findFirst.mockResolvedValueOnce({ id: "credential-1", projectId: "project-1", label: "Agent", revokedAt: new Date(), expiresAt: null });
+    if (reason === "missing credential") prismaMock.apiCredential.findFirst.mockResolvedValueOnce(null);
     const result = await finalizeContextAttachmentDirectUpload({
-      actorUserId,
-      projectId: "project-1",
-      cardId: "card-1",
-      storageKey: "v1/user-1/project-1/context-card/card-1/key-spec.pdf",
-      name: "spec.pdf",
-      mimeType: "application/pdf",
-      sizeBytes: 2048,
-      agentAccess: {
-        credentialId: "credential-1",
-        projectId: "project-1",
-        scopes: ["context:write"],
-      },
+      actorUserId, projectId: "project-1", cardId: "card-1",
+      storageKey: reason === "key" ? "v1/other-user/project-1/context-card/card-1/spec.pdf" : "v1/user-1/project-1/context-card/card-1/spec.pdf",
+      name: "spec.pdf", mimeType: "application/pdf", sizeBytes: 2048,
+      agentAccess: { credentialId: "credential-1", projectId: reason === "project" ? "other-project" : "project-1", scopes: reason === "scope" ? ["context:read"] : ["context:write"] },
     });
-
-    expect(result).toEqual({
-      ok: false,
-      status: 403,
-      error: "agent-context-attachments-unsupported",
-    });
+    expect(result).toMatchObject({ ok: false, status: ["card", "project"].includes(reason) ? 404 : reason === "key" ? 400 : 403 });
     expect(prismaMock.resourceAttachment.create).not.toHaveBeenCalled();
+    expect(attachmentStorageMock.readAttachmentStoredFileMetadata).not.toHaveBeenCalled();
   });
+
+  test("attributes draft context links and files to the agent credential", async () => {
+    attachmentStorageMock.saveAttachmentFile.mockResolvedValueOnce({ storageKey: "stored", originalName: "notes.txt", mimeType: "text/plain", sizeBytes: 5 });
+    await createContextAttachmentsFromDraft({ actorUserId, projectId: "project-1", cardId: "card-1", db: prismaMock as never,
+      links: [{ name: "Spec", url: "https://example.com" }], files: [new File(["notes"], "notes.txt", { type: "text/plain" })],
+      uploaderCredentialId: "credential-1", uploaderDisplayNameSnapshot: "TellmetrY agent" });
+    const identity = { uploadedByUserId: actorUserId, uploadedByCredentialId: "credential-1", uploadedByKind: "agent", uploadedByDisplayNameSnapshot: "TellmetrY agent" };
+    expect(prismaMock.resourceAttachment.createMany).toHaveBeenCalledWith({ data: [expect.objectContaining(identity)] });
+    expect(prismaMock.resourceAttachment.create).toHaveBeenCalledWith({ data: expect.objectContaining(identity) });
+  });
+  test.each(["form", "direct"])("keeps a %s comment upload out of project activity until binding", async (mode) => {
+    prismaMock.task.findUnique.mockResolvedValue({ id: "task-1", projectId: "project-1" });
+    const stored = { storageKey: "v1/user-1/project-1/task/task-1/draft.txt", originalName: "draft.txt", mimeType: "text/plain", sizeBytes: 5 };
+    attachmentStorageMock.saveAttachmentFile.mockResolvedValue(stored);
+    attachmentStorageMock.readAttachmentStoredFileMetadata.mockResolvedValue(stored);
+    prismaMock.taskAttachment.create.mockResolvedValue({ id: "draft", commentId: null, kind: "file", name: "draft.txt", mimeType: "text/plain", sizeBytes: 5 });
+    const formData = new FormData();
+    formData.set("kind", "file"); formData.set("isCommentDraft", "true");
+    formData.set("file", new File(["draft"], "draft.txt", { type: "text/plain" }));
+    const input = { actorUserId, projectId: "project-1", taskId: "task-1" };
+    const result = mode === "form"
+      ? await createTaskAttachmentFromForm({ ...input, formData })
+      : await finalizeTaskAttachmentDirectUpload({ ...input, ...stored, name: "draft.txt", isCommentDraft: true });
+    expect(result.ok).toBe(true);
+    expect(prismaMock.taskAttachment.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ isCommentDraft: true }) }));
+    expect(prismaMock.projectActivityEvent.create).not.toHaveBeenCalled();
+    expect(prismaMock.project.update).not.toHaveBeenCalled();
+    expect(prismaMock.task.update).not.toHaveBeenCalled();
+  });
+
+  test("deleting an abandoned comment upload does not emit a task attachment event", async () => {
+    prismaMock.taskAttachment.findUnique.mockResolvedValue({ id: "draft", kind: "file", storageKey: null, isCommentDraft: true, commentId: null, uploadedByUserId: actorUserId, task: { id: "task-1", projectId: "project-1" } });
+    const result = await deleteTaskAttachmentForProject({ actorUserId, projectId: "project-1", taskId: "task-1", attachmentId: "draft" });
+    expect(result.ok).toBe(true);
+    expect(prismaMock.taskAttachment.delete).toHaveBeenCalled();
+    expect(prismaMock.projectActivityEvent.create).not.toHaveBeenCalled();
+    expect(prismaMock.project.update).not.toHaveBeenCalled();
+  });
+
+  test.each([actorUserId, "other-uploader"])("authorizes draft downloads only for their uploader (%s)", async (uploader) => {
+    prismaMock.taskAttachment.findUnique.mockResolvedValue({ kind: "file", name: "draft.txt", mimeType: "text/plain", storageKey: `v1/${uploader}/project-1/task/task-1/draft.txt`, uploadedByUserId: uploader, isCommentDraft: true, task: { id: "task-1", projectId: "project-1" } });
+    attachmentStorageMock.getAttachmentDownloadUrl.mockResolvedValue("https://storage.example/draft");
+    const result = await getTaskAttachmentDownload({ actorUserId, projectId: "project-1", taskId: "task-1", attachmentId: "draft", disposition: "inline" });
+    expect(result.ok).toBe(uploader === actorUserId);
+    if (uploader !== actorUserId) {
+      expect(result).toMatchObject({ status: 404 });
+      expect(attachmentStorageMock.getAttachmentDownloadUrl).not.toHaveBeenCalled();
+    }
+  });
+
+  test("rejects non-boolean direct-upload draft flags", async () => {
+    const result = await finalizeTaskAttachmentDirectUpload({ actorUserId, projectId: "project-1", taskId: "task-1", storageKey: "key", name: "draft.txt", mimeType: "text/plain", sizeBytes: 5, isCommentDraft: "true" });
+    expect(result).toMatchObject({ ok: false, status: 400 });
+    expect(prismaMock.taskAttachment.create).not.toHaveBeenCalled();
+  });
+
 });

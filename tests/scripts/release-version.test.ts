@@ -60,6 +60,8 @@ describe("release version helper", { timeout: 30_000 }, () => {
     const result = runReleaseVersion(cwd, ["patch"]);
 
     expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Release impact: patch");
+    expect(result.stdout).toContain("Release rationale:");
     expect(readVersions(cwd)).toEqual({
       packageJson: "0.73.1",
       lock: "0.73.1",
@@ -74,6 +76,8 @@ describe("release version helper", { timeout: 30_000 }, () => {
     const result = runReleaseVersion(cwd, ["major"]);
 
     expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Only after the maintainer approves");
+    expect(result.stdout).toContain("Stable baseline approved: yes");
     expect(readVersions(cwd)).toEqual({
       packageJson: "1.0.0",
       lock: "1.0.0",
@@ -85,11 +89,32 @@ describe("release version helper", { timeout: 30_000 }, () => {
     const cwd = createRepo("0.73.0");
     repos.push(cwd);
 
-    const result = runReleaseVersion(cwd, ["0.75.2"]);
+    const result = runReleaseVersion(cwd, ["0.74.0"]);
 
     expect(result.status).toBe(0);
-    expect(readVersions(cwd).packageJson).toBe("0.75.2");
+    expect(readVersions(cwd).packageJson).toBe("0.74.0");
+    expect(result.stdout).toContain("Release impact: minor");
   });
+
+  test.each(["0.75.0", "0.73.2", "0.74.1", "2.0.0"])(
+    "rejects explicit target %s without modifying package files or printing a decision",
+    (target) => {
+      const cwd = createRepo("0.73.0");
+      repos.push(cwd);
+      for (const flags of [[], ["--dry-run"]]) {
+        const result = runReleaseVersion(cwd, [target, ...flags]);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("must be an exact next release step");
+        expect(result.stderr).toContain("patch: 0.73.1");
+        expect(result.stderr).toContain("minor: 0.74.0");
+        expect(result.stderr).toContain("major: 1.0.0");
+        expect(result.stdout).not.toContain("Release impact:");
+        expect(readVersions(cwd)).toEqual({
+          packageJson: "0.73.0", lock: "0.73.0", lockRoot: "0.73.0",
+        });
+      }
+    }
+  );
 
   test("dry runs leave the package files unchanged", () => {
     const cwd = createRepo("0.73.0");

@@ -1,7 +1,7 @@
 # ND-190: Collaboration service ownership
 
-- Date: 2026-11-02
-- Status: Accepted
+- Date: 2026-11-07
+- Status: Proposed for user review in #650; adoption follows the user's merge
 
 `lib/services/project-collaboration-service.ts` remains the public entry point
 for routes, server actions, and other services. It re-exports the existing

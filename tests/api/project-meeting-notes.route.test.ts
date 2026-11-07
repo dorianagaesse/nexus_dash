@@ -592,6 +592,26 @@ describe("project meeting notes routes", () => {
     });
   });
 
+  test.each([null, [], "text", 123, true].map((body) => ({ body })))(
+    "POST rejects a non-object JSON body: $body",
+    async ({ body }) => {
+      const response = await createMeetingNote(
+        new NextRequest("http://localhost/api/projects/project-1/meeting-notes", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+        projectParams("project-1")
+      );
+
+      expect(response.status).toBe(400);
+      await expect(readJson(response)).resolves.toEqual({
+        error: "invalid-request-body",
+      });
+      expect(meetingNoteServiceMock.createProjectMeetingNote).not.toHaveBeenCalled();
+    }
+  );
+
   test("POST returns 400 for invalid json", async () => {
     const response = await createMeetingNote(
       new NextRequest("http://localhost/api/projects/project-1/meeting-notes", {
