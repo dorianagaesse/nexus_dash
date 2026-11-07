@@ -3,6 +3,18 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-655: copy the issued key before closing
+
+- Applied the user's revised direction: retain the one-time key's outside-click
+  and Escape protection, remove the close icon, and replace Hide key with the
+  primary Copy and close action. It waits for successful clipboard writing
+  before clearing the secret and shows pending feedback during the operation.
+- Clipboard failures retain the visible key and offer retry or an explicit
+  Close after manual copy recovery action, avoiding a trapped dialog when
+  browser clipboard access is unavailable. The regular copy actions remain.
+- This supersedes the preceding dismissal change. Updated regression checks,
+  validation results, and the final Preview are recorded in PR #660.
+
 # 2026-11-08 - ND-655: restore standard API-key dialog dismissal
 
 - The one-time key guard suppressed backdrop and Escape dismissal, causing the

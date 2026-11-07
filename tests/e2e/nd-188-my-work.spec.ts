@@ -1,3 +1,4 @@
+import { copyAndCloseAgentKey } from "./helpers/agent-access-helpers";
 import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
@@ -41,7 +42,7 @@ test("my work lists the tasks and todos assigned to the signed-in user", async (
   await expect(apiKeyInput).toBeVisible();
   const apiKey = await apiKeyInput.inputValue();
   expect(apiKey.length).toBeGreaterThan(0);
-  await page.getByRole("button", { name: "Hide key", exact: true }).click();
+  await copyAndCloseAgentKey(page);
   await page.getByRole("button", { name: "Close project settings" }).click();
 
   const credential = await prisma.apiCredential.findFirst({

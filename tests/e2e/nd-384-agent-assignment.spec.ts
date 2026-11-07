@@ -1,3 +1,4 @@
+import { copyAndCloseAgentKey } from "./helpers/agent-access-helpers";
 import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
@@ -39,7 +40,7 @@ test("agent assignment persists credential identity with audit history and inact
   await page.locator("#project-agent-label").fill(agentLabel);
   await page.getByRole("button", { name: "Create credential" }).click();
   await expect(page.getByText("Your agent credential is ready")).toBeVisible();
-  await page.getByRole("button", { name: "Hide key", exact: true }).click();
+  await copyAndCloseAgentKey(page);
   await page.getByRole("button", { name: "Close project settings" }).click();
 
   const credential = await prisma.apiCredential.findFirst({

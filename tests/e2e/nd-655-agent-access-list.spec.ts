@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
+import { copyAndCloseAgentKey } from "./helpers/agent-access-helpers";
 
 let projectId: string | null = null;
 let ownerId: string | null = null;
@@ -141,8 +142,16 @@ test("ND-655: readable directory, focused management flows, and independent comp
   await page.screenshot({ path: ".tmp/nd655-issued-key.png", mask: [key] });
   await expect(creation).toHaveCount(0);
   const originalKey = await key.inputValue();
+  await page.keyboard.press("Escape");
+  await expect(key).toBeVisible();
   await page.mouse.click(2, 2);
+  await expect(key).toBeVisible();
+  await expect(page.getByRole("button", { name: "Close API key", exact: true })).toHaveCount(0);
+  await copyAndCloseAgentKey(page);
   await expect(key).toHaveCount(0);
+  expect(await page.evaluate(async (expected) =>
+    (await navigator.clipboard.readText()) === expected, originalKey
+  )).toBe(true);
   await expect(panel).toBeVisible();
   await expect(
     panel.getByRole("button", { name: "New credential", exact: true })
@@ -210,7 +219,7 @@ test("ND-655: readable directory, focused management flows, and independent comp
       })
     ).status()
   ).toBe(401);
-  await page.keyboard.press("Escape");
+  await copyAndCloseAgentKey(page);
   await expect(key).toHaveCount(0);
   await expect(panel).toBeVisible();
   await expect(
@@ -387,7 +396,7 @@ test("ND-655: load recovery and action-specific errors stay in their focused flo
   await expect(
     page.getByRole("textbox", { name: "API key for Retry worker", exact: true })
   ).toBeVisible();
-  await page.getByRole("button", { name: "Close API key", exact: true }).click();
+  await copyAndCloseAgentKey(page);
   await expect(
     page.getByRole("textbox", { name: "API key for Retry worker", exact: true })
   ).toHaveCount(0);
@@ -451,7 +460,72 @@ test("ND-655: load recovery and action-specific errors stay in their focused flo
   await expect(
     page.getByRole("textbox", { name: "API key for Retry worker", exact: true })
   ).toBeVisible();
-  await page.getByRole("button", { name: "Hide key", exact: true }).click();
+  await copyAndCloseAgentKey(page);
+});
+
+test("ND-655: copy and close waits for the clipboard and recovers from failure", async ({ page }) => {
+  await createWorkspace(page);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  const panel = await openAgentAccess(page);
+  const issueKey = async (label: string) => {
+    await panel.getByRole("button", { name: "New credential", exact: true }).click();
+    const creation = page.getByRole("dialog", { name: "New agent credential", exact: true });
+    await creation.getByLabel("Agent name", { exact: true }).fill(label);
+    await creation.getByRole("button", { name: "Create credential", exact: true }).click();
+    const key = page.getByRole("textbox", { name: `API key for ${label}`, exact: true });
+    await expect(key).toBeVisible();
+    return key;
+  };
+  const denyCopy = () => page.evaluate(() => {
+    Object.defineProperty(navigator.clipboard, "writeText", {
+      configurable: true,
+      value: async () => { throw new Error("Clipboard unavailable"); },
+    });
+  });
+  const key = await issueKey("Clipboard retry worker");
+  const secret = await key.inputValue();
+  await denyCopy();
+  await page.getByRole("button", { name: "Copy and close", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Could not copy");
+  await expect(key).toBeVisible();
+  expect((await key.inputValue()) === secret).toBe(true);
+  await expect(page.getByRole("button", { name: "Close after manual copy", exact: true })).toBeVisible();
+
+  await page.evaluate(() => {
+    const state = window as Window & { nd655CopiedKey?: string; nd655FinishCopy?: () => void };
+    Object.defineProperty(navigator.clipboard, "writeText", {
+      configurable: true,
+      value: (text: string) => new Promise<void>((resolve) => {
+        state.nd655CopiedKey = text;
+        state.nd655FinishCopy = resolve;
+      }),
+    });
+  });
+  await page.getByRole("button", { name: "Copy and close", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Copying…", exact: true })).toBeDisabled();
+  await expect(key).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(key).toBeVisible();
+  await page.evaluate(() => (window as Window & { nd655FinishCopy: () => void }).nd655FinishCopy());
+  await expect(key).toHaveCount(0);
+  expect(await page.evaluate((expected) =>
+    (window as Window & { nd655CopiedKey?: string }).nd655CopiedKey === expected, secret
+  )).toBe(true);
+  await expect(panel.getByRole("button", { name: "New credential", exact: true })).toBeFocused();
+
+  const manualKey = await issueKey("Manual copy worker");
+  const manualSecret = await manualKey.inputValue();
+  await denyCopy();
+  await page.getByRole("button", { name: "Copy and close", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Could not copy");
+  await manualKey.press("ControlOrMeta+A");
+  await manualKey.press("ControlOrMeta+C");
+  expect(await page.evaluate(async (expected) =>
+    (await navigator.clipboard.readText()) === expected, manualSecret
+  )).toBe(true);
+  await page.getByRole("button", { name: "Close after manual copy", exact: true }).click();
+  await expect(manualKey).toHaveCount(0);
+  await expect(panel).toBeVisible();
 });
 
 test("ND-655: dialog dismissal restores keyboard focus to its opening control", async ({

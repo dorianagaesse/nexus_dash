@@ -143,8 +143,10 @@ export function ProjectDashboardOwnerAgentAccessPanel({
         kind === "key" ? latestIssuedSecret!.apiKey : envBlock
       );
       setCopied(kind);
+      return true;
     } catch {
       setCopyError("Could not copy. Select the text and copy it manually.");
+      return false;
     }
   };
 
@@ -483,7 +485,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
         copyError={copyError}
         onDismissLatestSecret={onDismissLatestSecret}
         onClosedFocus={() => newCredentialRef.current?.focus()}
-        onCopyKey={() => void copy("key")}
+        onCopyKey={() => copy("key")}
         onCopyEnv={() => void copy("env")}
       />
 

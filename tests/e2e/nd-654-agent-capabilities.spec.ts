@@ -1,3 +1,4 @@
+import { copyAndCloseAgentKey } from "./helpers/agent-access-helpers";
 import { expect, test } from "@playwright/test";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 import { createProjectFromProjectsPage, openNewestProjectDashboard, uniqueProjectName } from "./helpers/project-helpers";
@@ -28,7 +29,7 @@ test("owner grants Done moves to one credential with immediate token enforcement
   expect(exchange.ok()).toBeTruthy();
   const { accessToken } = await exchange.json();
   const headers = { Authorization: `Bearer ${accessToken}` };
-  await page.getByRole("button", { name: "Hide key", exact: true }).click();
+  await copyAndCloseAgentKey(page);
   const toggle = page.getByRole("switch", { name: "Allow Trusted bot to move tasks to Done", exact: true });
   await expect(toggle).not.toBeChecked();
 

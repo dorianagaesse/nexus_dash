@@ -1,5 +1,5 @@
 "use client";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Check, Copy, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SLIM_SCROLLBAR_CLASSES } from "@/components/ui/scrollbar";
@@ -10,7 +10,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import type { ProjectAgentCredentialIssuedSecret } from "./project-dashboard-owner-actions.shared";
-import { DialogCloseButton } from "./project-agent-dialog-close";
 interface Props {
   latestIssuedSecret:
     | (ProjectAgentCredentialIssuedSecret & { mode: "created" | "rotated" })
@@ -19,7 +18,7 @@ interface Props {
   copyError: string | null;
   onDismissLatestSecret: () => void;
   onClosedFocus: () => void;
-  onCopyKey: () => void;
+  onCopyKey: () => Promise<boolean>;
   onCopyEnv: () => void;
 }
 export function ProjectAgentIssuedKeyDialog({
@@ -32,20 +31,25 @@ export function ProjectAgentIssuedKeyDialog({
   onCopyEnv,
 }: Props) {
   const keyInputRef = useRef<HTMLInputElement>(null);
+  const [isCopyingAndClosing, setIsCopyingAndClosing] = useState(false);
+  const copyAndClose = async () => {
+    if (isCopyingAndClosing) return;
+    setIsCopyingAndClosing(true);
+    try {
+      if (await onCopyKey()) onDismissLatestSecret();
+    } finally {
+      setIsCopyingAndClosing(false);
+    }
+  };
   return (
-    <Dialog
-      open={Boolean(latestIssuedSecret)}
-      onOpenChange={(open) => {
-        if (!open) onDismissLatestSecret();
-      }}
-    >
+    <Dialog open={Boolean(latestIssuedSecret)}>
       <DialogContent
         data-agent-access-dialog="true"
+        dismissible={false}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             event.preventDefault();
             event.stopPropagation();
-            onDismissLatestSecret();
           }
         }}
         className={`${SLIM_SCROLLBAR_CLASSES} z-[180] max-h-[90dvh] max-w-lg overflow-y-auto rounded-2xl p-5 sm:p-6`}
@@ -59,14 +63,10 @@ export function ProjectAgentIssuedKeyDialog({
           onClosedFocus();
         }}
       >
-        <DialogCloseButton
-          label="Close API key"
-          onClick={onDismissLatestSecret}
-        />
         <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
           <ShieldCheck className="h-6 w-6" aria-hidden />
         </div>
-        <DialogTitle className="pr-8 text-lg font-semibold">
+        <DialogTitle className="text-lg font-semibold">
           {latestIssuedSecret?.mode === "rotated"
             ? "Save your replacement API key"
             : "Your agent credential is ready"}
@@ -93,7 +93,9 @@ export function ProjectAgentIssuedKeyDialog({
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              onClick={() => onCopyKey()}
+              variant="outline"
+              disabled={isCopyingAndClosing}
+              onClick={() => void onCopyKey()}
               aria-label={`Copy API key for ${latestIssuedSecret?.credential.label}`}
             >
               {copied === "key" ? (
@@ -103,7 +105,7 @@ export function ProjectAgentIssuedKeyDialog({
               )}
               {copied === "key" ? "Copied key" : "Copy API key"}
             </Button>
-            <Button type="button" variant="outline" onClick={() => onCopyEnv()}>
+            <Button type="button" variant="outline" disabled={isCopyingAndClosing} onClick={() => onCopyEnv()}>
               {copied === "env" ? "Copied setup" : "Copy env block"}
             </Button>
           </div>
@@ -115,9 +117,14 @@ export function ProjectAgentIssuedKeyDialog({
             </p>
           ) : null}
           {copyError ? (
-            <p role="alert" className="text-sm text-destructive">
-              {copyError}
-            </p>
+            <div className="space-y-2">
+              <p role="alert" className="text-sm text-destructive">
+                {copyError}
+              </p>
+              <Button type="button" variant="outline" disabled={isCopyingAndClosing} onClick={onDismissLatestSecret}>
+                Close after manual copy
+              </Button>
+            </div>
           ) : null}
         </div>
         <p className="mt-5 rounded-xl bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
@@ -126,15 +133,17 @@ export function ProjectAgentIssuedKeyDialog({
         </p>
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
           <p id="issued-agent-key-dismiss-hint" className="text-xs text-muted-foreground">
-            Once hidden, this key cannot be viewed again.
+            Once closed, this key cannot be viewed again.
           </p>
           <Button
             type="button"
-            variant="outline"
+            className="ml-auto shrink-0"
+            disabled={isCopyingAndClosing}
+            aria-busy={isCopyingAndClosing}
             aria-describedby="issued-agent-key-dismiss-hint"
-            onClick={onDismissLatestSecret}
+            onClick={() => void copyAndClose()}
           >
-            Hide key
+            {isCopyingAndClosing ? "Copying…" : "Copy and close"}
           </Button>
         </div>
       </DialogContent>

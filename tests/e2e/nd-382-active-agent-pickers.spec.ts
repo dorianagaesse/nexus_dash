@@ -1,3 +1,4 @@
+import { copyAndCloseAgentKey } from "./helpers/agent-access-helpers";
 import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
@@ -31,7 +32,7 @@ test("active credential labels appear safely in mention and task-assignee picker
   await page.locator("#project-agent-label").fill(uiLabel);
   await page.getByRole("button", { name: "Create credential" }).click();
   await expect(page.getByText("Your agent credential is ready")).toBeVisible();
-  await page.getByRole("button", { name: "Hide key", exact: true }).click();
+  await copyAndCloseAgentKey(page);
   await page.getByRole("button", { name: "Close project settings" }).click();
 
   // Regression: an agent created in this session must reach task pickers without a manual reload.
