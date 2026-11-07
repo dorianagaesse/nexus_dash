@@ -16,6 +16,13 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-11-07 - ND-190: Collaboration use-case ownership
+
+- Status: Proposed for user review in #650; adoption follows the user's merge
+- Decision: Preserve the public collaboration service facade and separate owner invitation management, membership operations, and recipient invitation responses under `lib/services/collaboration/`.
+- Consequences: Each use case retains its authorization and transaction scope; shared invitation queries use the caller's client and email delivery remains after commit.
+- Links: [Collaboration service ownership](./nd-190-collaboration-service-boundaries.md).
+
 ## 2026-11-04 - ND-546: Enforce the reviewed Task import seams
 
 - Status: Proposed for user review in #654; adoption follows the user's merge
