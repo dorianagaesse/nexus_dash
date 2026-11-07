@@ -133,6 +133,8 @@ Open `http://localhost:3000`.
   connection steps, hosted documentation, and the optional environment block.
   Escape closes creation, management, and setup dialogs and returns focus to
   the opener. Invalid creation fields receive focus and show an associated error.
+  Settings and Agent access dialogs use the same thin, transparent-track
+  scrollbar as the task dialogs and agent guide.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
 - In Sharing > Agent access, owners can enable **Task completion** separately

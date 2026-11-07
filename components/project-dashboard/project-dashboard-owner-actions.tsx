@@ -10,6 +10,7 @@ import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SLIM_SCROLLBAR_CLASSES } from "@/components/ui/scrollbar";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ProjectDashboardOwnerAgentAccessPanel } from "@/components/project-dashboard/project-dashboard-owner-agent-access-panel";
@@ -1209,7 +1210,7 @@ export function ProjectDashboardOwnerActions({
                   </Button>
                 </CardHeader>
 
-                <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-6">
+                <CardContent className={`${SLIM_SCROLLBAR_CLASSES} flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-6`}>
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"

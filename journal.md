@@ -3,6 +3,20 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-655: use the app scrollbar in Agent access
+
+- Replaced the native scrollbar shown in the expanded credential form with the
+  existing thin, muted-thumb, transparent-track treatment used by task dialogs,
+  board lanes, and the agent guide. Extracted the guide's unchanged class list
+  into a shared UI utility and reused it for creation, management, key handoff,
+  setup, and the surrounding project settings scroll area.
+- Continued on `feature/nd-655-agent-access-list` / PR #660 and merged current
+  main. The temporary `chore/nd-655-before-uiux-review` comparison branch is
+  unchanged. This is a visual consistency fix; the creation layout and behavior
+  retain the earlier implementation and its validation/focus refinements.
+- Validation results, desktop/mobile render evidence, and the branch Preview
+  are recorded in PR #660.
+
 # 2026-11-06 - ND-655: UI and UX review of PR #660
 
 - Kept the credential directory and focused dialogs after two independent

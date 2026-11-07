@@ -2,6 +2,7 @@
 import { useRef } from "react";
 import { Check, Copy, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SLIM_SCROLLBAR_CLASSES } from "@/components/ui/scrollbar";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +42,7 @@ export function ProjectAgentIssuedKeyDialog({
             event.stopPropagation();
           }
         }}
-        className="z-[180] max-h-[90dvh] max-w-lg overflow-y-auto rounded-2xl p-5 sm:p-6"
+        className={`${SLIM_SCROLLBAR_CLASSES} z-[180] max-h-[90dvh] max-w-lg overflow-y-auto rounded-2xl p-5 sm:p-6`}
         overlayClassName="z-[170]"
         onOpenAutoFocus={(event) => {
           event.preventDefault();

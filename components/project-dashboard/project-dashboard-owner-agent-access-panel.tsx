@@ -19,6 +19,7 @@ import {
   buildAgentProjectEnvBlock,
 } from "@/lib/agent-onboarding";
 import { Button } from "@/components/ui/button";
+import { SLIM_SCROLLBAR_CLASSES } from "@/components/ui/scrollbar";
 import {
   Dialog,
   DialogContent,
@@ -433,7 +434,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
             creationInputRef.current?.focus();
           }}
           dismissible={!isCreatingCredential}
-          className="z-[160] max-h-[90dvh] max-w-xl overflow-y-auto rounded-2xl p-5 sm:p-6"
+          className={`${SLIM_SCROLLBAR_CLASSES} z-[160] max-h-[90dvh] max-w-xl overflow-y-auto rounded-2xl p-5 sm:p-6`}
           overlayClassName="z-[150]"
         >
           <DialogCloseButton
