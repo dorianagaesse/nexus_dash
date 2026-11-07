@@ -218,7 +218,6 @@ model Project {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  agentCanMoveTasksToDone Boolean @default(false)
 
   owner              User                       @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   tasks              Task[]
@@ -770,6 +769,7 @@ model TaskAttachment {
   id               String       @id @default(cuid())
   taskId           String
   commentId        String?
+  isCommentDraft   Boolean      @default(false)
   uploadedByUserId String
   task             Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
   comment          TaskComment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
@@ -791,10 +791,12 @@ model ResourceAttachment {
   id                            String               @id @default(cuid())
   resourceId                    String
   uploadedByUserId              String
+  uploadedByCredentialId        String?
   uploadedByKind                ContextCardActorKind @default(human)
   uploadedByDisplayNameSnapshot String               @default("Unknown uploader") @db.VarChar(80)
   resource                      Resource             @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   uploadedBy                    User                 @relation("ResourceAttachmentUploader", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  uploadedByCredential          ApiCredential?       @relation("ResourceAttachmentUploaderCredential", fields: [uploadedByCredentialId], references: [id], onDelete: SetNull)
   kind                          String
   name                          String
   url                           String?
@@ -805,6 +807,7 @@ model ResourceAttachment {
 
   @@index([resourceId])
   @@index([uploadedByUserId])
+  @@index([uploadedByCredentialId])
 }
 
 model TaskBlockedFollowUp {
@@ -935,6 +938,7 @@ enum AuthAuditAction {
   credential_created
   credential_rotated
   credential_revoked
+  credential_capabilities_updated
   token_exchanged
   token_exchange_failed
   request_used
@@ -949,20 +953,21 @@ enum AuthRateLimitScope {
 }
 
 model ApiCredential {
-  id              String    @id @default(cuid())
-  projectId       String
-  createdByUserId String
-  revokedByUserId String?
-  label           String    @db.VarChar(80)
-  publicId        String    @unique @db.VarChar(64)
-  secretHash      String
-  expiresAt       DateTime?
-  lastUsedAt      DateTime?
-  lastExchangedAt DateTime?
-  lastRotatedAt   DateTime?
-  revokedAt       DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  canMoveTasksToDone Boolean   @default(false)
+  id                 String    @id @default(cuid())
+  projectId          String
+  createdByUserId    String
+  revokedByUserId    String?
+  label              String    @db.VarChar(80)
+  publicId           String    @unique @db.VarChar(64)
+  secretHash         String
+  expiresAt          DateTime?
+  lastUsedAt         DateTime?
+  lastExchangedAt    DateTime?
+  lastRotatedAt      DateTime?
+  revokedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   project                             Project                                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdByUser                       User                                     @relation("ApiCredentialCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
@@ -977,6 +982,7 @@ model ApiCredential {
   meetingTodoActionsCreated           ProjectMeetingNoteAction[]               @relation("MeetingTodoCreatedByCredential")
   meetingTodoActionsAssigned          ProjectMeetingNoteAction[]               @relation("MeetingTodoAssignedToCredential")
   meetingTodoActionsCompleted         ProjectMeetingNoteAction[]               @relation("MeetingTodoCompletedByCredential")
+  contextAttachmentsUploaded          ResourceAttachment[]                     @relation("ResourceAttachmentUploaderCredential")
   contextCardsCreated                 Resource[]                               @relation("ContextCardCreatedByCredential")
   contextCardsLastEdited              Resource[]                               @relation("ContextCardLastEditedByCredential")
   meetingNotesStewarded               ProjectMeetingNote[]                     @relation("MeetingNoteStewardCredential")

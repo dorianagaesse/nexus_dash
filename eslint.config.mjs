@@ -1,3 +1,4 @@
+import { builtinModules } from "node:module";
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 
 const repoIgnorePatterns = [
@@ -75,8 +76,15 @@ const config = [
         "error",
         {
           ...prismaRestrictionForLibLayers[1],
+          paths: [
+            ...prismaRestrictionForLibLayers[1].paths,
+            ...builtinModules.map(name => ({
+              name,
+              message: "Task domain helpers must stay independent of Node built-ins.",
+            })),
+          ],
           patterns: [{
-            group: ["node:*", "server-only", "**/services/**", "**/app/**", "**/components/**"],
+            group: ["node:**", "server-only", "**/services/**", "**/app/**", "**/components/**"],
             message: "Task domain helpers must stay independent of services, delivery, and UI.",
           }],
         },

@@ -32,6 +32,11 @@ Implemented today:
   - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
   - Calendar panel (Google Calendar list/create/update/delete)
+  - Task attachment additions and deletions sync into open task modals across
+    sessions while preserving pending edits and focus; reconciliation re-reads
+    attachments if a local or remote task change overtakes an in-flight read.
+    Activity received during local saves reconciles afterward; comment uploads
+    stay unpublished until their comment is posted
   - Task comments with agent-authored comment attribution through the project
     credential label and a shared agent avatar
 - Per-user Google Calendar connection and calendar target setting (`/account/settings`)
@@ -108,16 +113,26 @@ Open `http://localhost:3000`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
-- Project owners can enable **Allow agents to move tasks to Done** in project
-  settings > Agent access. It defaults to off for new and existing projects and
-  applies to every credential in that project. Denied single-task and
-  board-reorder moves return `403` with `agent-done-move-disabled`; bulk status
-  operations report the same error per operation. Denied board reorders make
-  no task changes. Human moves and reordering tasks already in
-  Done are unaffected. Changes apply to existing bearer tokens immediately.
-- Owner sessions read the setting through `GET /api/projects/{projectId}/agent-access`
-  and update it with `PATCH` and `{ "agentCanMoveTasksToDone": true|false }`.
-  Agents cannot change this setting.
+- In Sharing > Agent access, owners can enable **Allow moves to Done** separately
+  on each credential. Task Write is still required. New and existing credentials
+  default to off, including credentials in projects where the retired project-wide
+  toggle was on: owners must explicitly grant the permission again after migration.
+- Denied single-task and board-reorder moves return `403` with
+  `agent-done-move-disabled`; bulk status operations report that error per
+  operation. Denied board reorders make no task changes. Human moves and
+  reordering tasks already in Done are unaffected. Permission changes apply to
+  existing bearer tokens immediately and never affect other credentials.
+- Owner sessions read credential permissions through
+  `GET /api/projects/{projectId}/agent-access` and update one with
+  `PATCH /api/projects/{projectId}/agent-access/{credentialId}` and
+  `{ "canMoveTasksToDone": true|false }`. The project-wide PATCH endpoint is
+  retired. Agents cannot change these settings. Permission changes are recorded
+  in the credential audit trail with the human actor, credential, granted value,
+  and request metadata, in the same transaction as the update.
+- After project ownership transfer, the new owner can manage inherited credential
+  permissions without rewriting their creator attribution. The previous owner's
+  agents remain subject to the existing ownership guard; issue replacement
+  credentials under the new owner to restore agent access.
 
 Calendar creation and edits use explicit Save; recovery drafts never write to
 Google on a timer. Calendar edit PATCH requests require `expectedEtag` containing
@@ -485,7 +500,12 @@ every production deployment: one release can contain many product PRs. A
 capability releases, patch for fix-only releases), composes the `CHANGELOG.md`
 entry, and is tagged and promoted after merge; `1.0.0` remains reserved for
 the first stable product baseline. CI (`npm run release:check`) rejects
-version changes outside release preparation. The detailed checklist lives in
+version changes outside release preparation. New release changelog sections
+must declare `Release impact:` and `Release rationale:`; CI enforces the exact
+next patch/minor/major step. The first `1.0.0` also records the maintainer's
+`Stable baseline approved: yes` decision. Fix-only releases increase patch
+even before `1.0.0`; a capability release increases minor and resets patch.
+The detailed checklist lives in
 [`docs/runbooks/release-versioning.md`](docs/runbooks/release-versioning.md).
 
 The running app displays only the clean product version, for example `v0.18.0`.
@@ -624,3 +644,13 @@ Only the creator can change visibility. Team notes are shared with project membe
 and agents. Todos remain project-visible even when their meeting is private;
 project editors can complete and reassign them. Private note text, participants,
 labels and titles are not revealed through shared todo views or mutation responses.
+
+### Agent context-card attachments
+
+Agents with `context:write` can create context cards with `attachmentLinks` and
+upload files using the context-card `attachments/upload-url`, signed `PUT`, then
+`attachments/direct` flow documented at `/docs/agent/v1`. Signed uploads require
+R2; local storage supports form uploads for signed-in users. Agent attachments
+store their credential ID and display-name snapshot separately from the user
+who owns the storage object. Revoked or deleted credentials retain historical
+agent attribution. Existing file limits, project access, and scope checks apply.

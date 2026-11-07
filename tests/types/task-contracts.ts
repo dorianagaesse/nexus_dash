@@ -1,7 +1,11 @@
 import {
+  taskBulkRequestContract,
   taskCreateContract,
   taskUpdateContract,
   type CreateTaskCommand,
+  type InferTaskContractInput,
+  type InferTaskContractOutput,
+  type TaskBulkRequestPayload,
   type TaskCreateContractInput,
   type TaskCreateContractOutput,
   type TaskCreateInputShape,
@@ -17,6 +21,8 @@ type Equal<T, U> =
 type Assert<T extends true> = T;
 
 export type ContractInference = [
+  Assert<Equal<InferTaskContractInput<typeof taskBulkRequestContract>, TaskBulkRequestPayload>>,
+  Assert<Equal<InferTaskContractOutput<typeof taskBulkRequestContract>, TaskBulkRequestPayload>>,
   Assert<Equal<TaskCreateContractInput, TaskCreateInputShape>>,
   Assert<Equal<TaskUpdateContractInput, UpdateTaskPayload>>,
   Assert<Equal<TaskCreateContractOutput, CreateTaskCommand>>,
@@ -47,4 +53,17 @@ const parsedUpdate = taskUpdateContract.parse(rawUpdate);
 if (parsedUpdate.ok) {
   const command: UpdateTaskCommand = parsedUpdate.data;
   void command;
+}
+
+const rawBulk: unknown = { operations: [{ type: "status", taskId: "task-1", status: "Done" }] };
+if (taskBulkRequestContract.is(rawBulk)) {
+  // @ts-expect-error Acceptance is boolean for bulk requests too.
+  const declaredInput: TaskBulkRequestPayload = rawBulk;
+  void declaredInput;
+}
+
+const parsedBulk = taskBulkRequestContract.parse(rawBulk);
+if (parsedBulk.ok) {
+  const request: TaskBulkRequestPayload = parsedBulk.data;
+  void request;
 }

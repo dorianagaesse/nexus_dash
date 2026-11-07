@@ -215,13 +215,6 @@ export async function createContextCardForProject(
     return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
-  if (
-    input.agentAccess &&
-    (parsedLinks.links.length > 0 || input.attachmentFiles.length > 0)
-  ) {
-    return createError(403, "agent-context-attachments-unsupported");
-  }
-
   let createdCardId: string | null = null;
 
   return withActorRlsContext(actorUserId, async (db) => {
@@ -277,6 +270,7 @@ export async function createContextCardForProject(
         files: input.attachmentFiles,
         db,
         uploaderDisplayNameSnapshot: mutationActor.actor.displayNameSnapshot,
+        uploaderCredentialId: mutationActor.actor.credentialId,
       });
 
       const createdCardWithAttachments = await db.resource.findUnique({

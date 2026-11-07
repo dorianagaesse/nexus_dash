@@ -108,7 +108,14 @@ The matrix covers:
 - revoked membership;
 - child rows reached through foreign IDs;
 - agent credential, scope-grant, and audit visibility;
+- ND-654 migration against temporary PostgreSQL tables: old enabled/disabled
+  project policies and newly created credentials all default to denying Done
+  moves, and granting one credential leaves the others unchanged;
 - Calendar connection, source, preference, and composite-owner isolation;
+- new-owner credential permission updates after transfers with the previous
+  owner staying or leaving, original creator retention, immutable credential
+  project/creator fields, unrelated credential isolation, and denial of former
+  owner administration and historical agent request usage;
 - the exact-public-ID agent exchange function.
 
 ## Troubleshooting

@@ -37,7 +37,7 @@ export async function listProjectKanbanTasks(
   }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
-    await archiveStaleDoneTasks(projectId, normalizedActorUserId, db);
+    await archiveStaleDoneTasks(db, projectId, normalizedActorUserId);
 
     return listProjectKanbanTaskRecords(db, projectId, normalizedActorUserId, filters);
   });

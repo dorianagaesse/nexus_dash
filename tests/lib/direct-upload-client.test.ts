@@ -299,3 +299,15 @@ describe("direct-upload-client", () => {
     expect(successFiles).toHaveLength(4);
   });
 });
+
+
+test("passes comment draft intent to finalization without overriding stored file identity", async () => {
+  const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ upload: { storageKey: "real-key", uploadUrl: "https://storage.example/upload", method: "PUT", headers: {} } })))
+    .mockResolvedValueOnce(new Response(null, { status: 200 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ attachment: { id: "draft" } })));
+  vi.stubGlobal("fetch", fetchMock);
+  try {
+    await uploadFileAttachmentDirect({ file: new File(["draft"], "draft.txt", { type: "text/plain" }), uploadTargetUrl: "/target", finalizeUrl: "/finalize", fallbackErrorMessage: "Failed", finalizeMetadata: { isCommentDraft: true, storageKey: "wrong-key" } });
+    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ isCommentDraft: true, storageKey: "real-key", name: "draft.txt", mimeType: "text/plain", sizeBytes: 5 });
+  } finally { vi.unstubAllGlobals(); }
+});

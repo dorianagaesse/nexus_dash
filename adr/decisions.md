@@ -16,9 +16,9 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
-## 2026-11-02 - ND-546: Enforce the reviewed Task import seams
+## 2026-11-04 - ND-546: Enforce the reviewed Task import seams
 
-- Status: Accepted
+- Status: Proposed for user review in #654; adoption follows the user's merge
 - Decision: Keep Task delivery on public service facades, require caller-scoped data clients, and enforce pure Task helper and Kanban client import boundaries with narrowly scoped lint rules.
 - Consequences: Server components and unrelated DTO imports remain allowed. Meeting Notes contract migration requires validated review of the integrated pilot source; later Task source changes require re-review.
 - Links: [Tasks pilot review](../docs/architecture/task-pilot-review.md).
@@ -1228,7 +1228,73 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## 2026-10-30 - ND-449: Project agent capability policy
 
-- Status: Accepted.
+- Status: Superseded by ND-654 for capability storage and administration.
 - Decision: Store the default-off `agentCanMoveTasksToDone` capability on Project, separate from credential scopes. Only project owners using a human session may administer it.
 - Enforcement: Status-transition and board-reorder services read current project policy after authorization and before task writes. Bulk status operations reuse the same transition service. A credential still needs `task:write`; enabling the capability grants no additional scopes.
 - Consequences: Existing tokens observe policy changes without reissue. Human transitions and ordering tasks already in Done remain available. A denied reorder rejects all included changes. Repository workflow instructions may continue to require human review even when a project's capability is enabled.
+
+
+## 2026-11-02 - ND-610: Distinguish unpublished comment uploads
+
+- Status: Accepted; extends the ND-399 attachment lifecycle.
+- Decision: `TaskAttachment.isCommentDraft` defaults to false for existing and
+  ordinary task files. Comment uploads set it through multipart upload or direct
+  finalization, and comment creation clears it atomically with `commentId` binding.
+  Drafts do not emit task activity or appear in task reads/search; downloads are
+  service-authorized for the uploader until binding. Existing project RLS stays
+  unchanged. Unclassified legacy uploads remain task files rather than guessing
+  their original intent.
+- Consequences: A migration is required before the updated application runs.
+  Comment recovery stores file display metadata locally and rebuilds authorized
+  download routes; it does not put unpublished files back into shared task reads.
+  Abandoned comment uploads remain unpublished, including across polling and
+  page reloads. Existing draft removal and task deletion still clean up files.
+
+## 2026-11-03 - ND-649: Restore agent context attachments with credential provenance
+
+- Status: Accepted; replaces TASK-342's temporary agent attachment restriction.
+- Context: Context uploads were disabled for all agents because attachment rows
+  could only identify the owning human. The documented agent upload API therefore
+  rejected valid `context:write` credentials.
+- Decision: Add nullable `ResourceAttachment.uploadedByCredentialId` with
+  `ON DELETE SET NULL`, and retain `uploadedByKind` plus the display snapshot.
+  Keep `uploadedByUserId` for storage ownership and existing RLS boundaries.
+  Resolve active credentials through the shared actor service when accepting
+  uploads and through the project actor registry when projecting provenance.
+- Consequences: Authorized agents can attach context files and create cards with
+  links. Revocation/deletion preserves agent history without human misattribution;
+  existing human rows and attachment authorization policies remain compatible.
+
+
+## 2026-11-05 - ND-654: Per-credential task completion permission
+
+- Status: Accepted; supersedes ND-449's project-wide toggle.
+- Decision: Store `ApiCredential.canMoveTasksToDone` separately from scopes and
+  expose an owner-session-only PATCH on the individual credential. Keep the
+  existing `task:write` and project authorization requirements.
+- Enforcement: Single and bulk status transitions and board reorders share the
+  credential policy check, which reads the current credential by ID and project
+  and rejects missing, revoked, expired, or ungranted credentials before task
+  writes. Existing bearer tokens observe permission changes immediately.
+- Migration: Drop `Project.agentCanMoveTasksToDone` and initialize every existing
+  and future credential to false, even if its old project policy was enabled.
+  Owners explicitly grant completion rights to chosen credentials after rollout;
+  no permission is inferred from scopes or inherited from the project.
+- Consequences: Granting one credential cannot authorize another. Human moves,
+  ordering tasks already in Done, and repository review requirements are unchanged.
+
+
+### ND-654 review follow-up: ownership transfers and audit
+
+- Credential administration follows the current project owner in both RLS
+  `USING` and `WITH CHECK`. An immutable-identity trigger preserves `projectId`
+  and `createdByUserId`; insert attribution and revoker checks remain enforced.
+  The new owner can grant or remove inherited credential permissions without
+  assigning historical credentials to themselves.
+- Agent identity and usage guards are unchanged: a credential issued by a former
+  owner cannot recover access merely through a completion grant. Owners issue
+  replacement credentials under their own identity when restoring agent access.
+- Every successful capability update and its `credential_capabilities_updated`
+  audit event commit together. Events record the actor, credential, new boolean
+  value, and request metadata. The owner panel refreshes the audit trail after
+  saving. Denied updates create no success event.

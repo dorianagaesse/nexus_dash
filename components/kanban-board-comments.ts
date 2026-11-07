@@ -1,4 +1,6 @@
-import type { TaskComment } from "@/components/kanban-board-types";
+import { resolveAttachmentMimeType } from "@/lib/task-attachment";
+import { MAX_TASK_COMMENT_ATTACHMENTS } from "@/lib/task-comment";
+import type { TaskAttachment, TaskComment } from "@/components/kanban-board-types";
 
 export function isOptimisticTaskCommentRepresented(
   optimisticComment: TaskComment,
@@ -81,4 +83,31 @@ export function mergeSubmittedTaskComment(
   );
 
   return [...withoutOptimisticOrSubmitted, submittedComment];
+}
+
+
+// Draft files are intentionally absent from shared task reads. Keep only safe
+// display metadata locally; every restored download still uses server auth.
+export function restoreCommentDraftAttachments(input: {
+  attachmentIds: string[];
+  snapshots?: unknown;
+  taskAttachments: TaskAttachment[];
+  projectId: string;
+  taskId: string;
+}): TaskAttachment[] {
+  const ids = new Set(input.attachmentIds);
+  const entries = Array.isArray(input.snapshots) ? input.snapshots : input.taskAttachments;
+  const restored: TaskAttachment[] = [];
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object" || typeof entry.id !== "string" ||
+      !ids.delete(entry.id) || entry.kind !== "file" || typeof entry.name !== "string") continue;
+    restored.push({
+      id: entry.id, kind: "file", name: entry.name, commentId: null, url: null,
+      mimeType: resolveAttachmentMimeType(typeof entry.mimeType === "string" ? entry.mimeType : null, entry.name),
+      sizeBytes: typeof entry.sizeBytes === "number" && Number.isFinite(entry.sizeBytes) && entry.sizeBytes > 0 ? entry.sizeBytes : null,
+      downloadUrl: `/api/projects/${encodeURIComponent(input.projectId)}/tasks/${encodeURIComponent(input.taskId)}/attachments/${encodeURIComponent(entry.id)}/download`,
+    });
+    if (restored.length === MAX_TASK_COMMENT_ATTACHMENTS) break;
+  }
+  return restored;
 }
