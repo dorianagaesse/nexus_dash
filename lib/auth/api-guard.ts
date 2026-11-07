@@ -188,7 +188,7 @@ export async function requireApiPrincipal(
         ownerUserId: verifiedToken.data.ownerUserId,
         projectId: verifiedToken.data.projectId,
         tokenId: verifiedToken.data.tokenId,
-        issuedAt: verifiedToken.data.issuedAt,
+        credentialPublicId: verifiedToken.data.credentialPublicId,
         requestId,
         ipAddress: readClientIpAddress(request),
         userAgent: request.headers.get("user-agent"),

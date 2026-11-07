@@ -3,6 +3,29 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+
+# 2026-11-08 - ND-657: immediate agent token use after key rotation
+
+- Started from current main in an isolated worktree, then included ND-655's
+  branch as the prerequisite so its temporary browser re-exchange polling can
+  be removed in this change. ND-656 is independent and is not included.
+- Bound signed bearer tokens to the credential's existing public key ID. The
+  atomic usage write checks that generation with the existing project, creator,
+  revocation, and expiry filters. No schema change or timestamp tolerance is
+  needed. Legacy tokens are accepted only on never-rotated credentials;
+  previously rotated credentials must re-exchange their current key at rollout.
+- Added signed-claim validation, API-guard propagation, exchange-race coverage,
+  and real PostgreSQL service regressions at .000, .001, and .999 with a frozen
+  Date clock. Repeated same-millisecond rotations reject every previous key and
+  token; delayed old-generation issuance, revocation, and expiry remain denied.
+- Initial validation passed: 37 focused unit/API checks, all three deterministic
+  PostgreSQL boundary cases, lint, RLS inventory, production build, and the full
+  PostgreSQL isolation matrix. Full unit/coverage and browser runs are in progress.
+  Initial local setup attempts omitted unit-test DATABASE_URL and the matrix's
+  pre-migration Realtime stub; reruns use the documented explicit environment and
+  a separate matrix database initialized with that stub.
+
+
 # 2026-11-08 - ND-655: copy the issued key before closing
 
 - Applied the user's revised direction: retain the one-time key's outside-click
