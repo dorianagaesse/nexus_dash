@@ -14,7 +14,7 @@ because each owns a distinct operational lane.
 | Notification Email Dispatch Scheduler | `.github/workflows/notification-email-dispatch.yml` | Call the protected notification email dispatcher on the active no-new-cost production cadence. | schedule every 30 minutes, `workflow_dispatch` | none | `NOTIFICATION_EMAIL_DISPATCH_SECRET` or legacy `CRON_SECRET` | dispatcher response and parsed summary in job summary |
 | Dependency Security | `.github/workflows/dependency-security.yml` | Run the scheduled/manual npm audit baseline, fail closed on scanner errors, and alert on failures. | weekly schedule, `workflow_dispatch` | `contents: read`; alert jobs also use `issues: write` | none | production/full npm audit JSON plus status/stderr diagnostics; alert issue create/update/close |
 | Dependabot Auto Triage | `.github/workflows/dependabot-auto-triage.yml` | Label and approve safe Dependabot lanes, then merge safe green Dependabot PRs. | `pull_request_target` for Dependabot, `workflow_run` after required PR checks | per-job `contents`, `issues`, and `pull-requests` write where needed | `GITHUB_TOKEN` | labels/reviews/merge state; no artifact |
-| Dependabot Repair Agent | `.github/workflows/dependabot-repair-agent.yml` | Scan red Dependabot PRs and use Copilot CLI to open repo-owned repair PRs when possible. | weekly schedule, `workflow_dispatch` | per-job read for scan; write for repair PR creation/status updates | `COPILOT_ACTIONS_TOKEN` to activate Copilot CLI; `GITHUB_TOKEN` | PR comments/branches created by repair script; job summary when skipped |
+| Dependabot Repair Agent | `.github/workflows/dependabot-repair-agent.yml` | Scan red Dependabot PRs and use Copilot CLI to open repo-owned repair PRs when possible. | weekly schedule, `workflow_dispatch` | per-job read for scan; write for repair PR creation/status updates | `COPILOT_ACTIONS_TOKEN` to activate Copilot CLI; `GITHUB_TOKEN` | PR comments/branches; failed authentication or invalid repair results fail the run |
 
 The Tenant Isolation job creates a minimal `realtime` schema/role/function stub
 before Prisma migrations. This makes the guarded Supabase Broadcast policies
@@ -160,10 +160,25 @@ summary shows the dispatcher response and parsed send/reconciliation metrics.
 
 - `Dependency Security` runs every Monday at 07:00 UTC and can be run manually.
 - Dependabot opens grouped dependency PRs from `.github/dependabot.yml`.
+  `vitest-toolchain` groups Vitest and its `@vitest/*` companions across major,
+  minor, and patch updates to keep their exact peer dependencies aligned. This
+  group remains in the manual-review lane.
 - `Dependabot Auto Triage` labels safe lanes and merges only safe Dependabot
-  PRs after required checks pass.
+  PRs after required checks pass, including `Tenant Isolation (PostgreSQL RLS)`.
+  The repair scanner and mirrored replacement-PR statuses include that same gate.
 - `Dependabot Repair Agent` runs every Monday at 09:15 UTC. It needs
-  `COPILOT_ACTIONS_TOKEN`; without that secret it records a skip summary.
+  `COPILOT_ACTIONS_TOKEN`; a missing or invalid secret fails authentication
+  before repair execution. A green scan with no repair jobs does not prove
+  Copilot authentication works. Validate it explicitly with:
+
+  ```bash
+  gh workflow run dependabot-repair-agent.yml -f healthcheck_only=true
+  ```
+
+  Replace an expired/revoked token in the repository Actions secret, then rerun
+  this health check before retrying repairs. Never put a token in PR comments
+  or workflow logs. See the [2026-11-08 audit](./dependabot-audit-2026-11-08.md)
+  for the last observed failure and PR decisions.
 
 #### Dependency Security failure handling
 
