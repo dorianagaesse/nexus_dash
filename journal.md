@@ -11314,3 +11314,11 @@ Low-value entries to avoid going forward:
   and main's Dependabot audit. Application files merged automatically.
 - Whitespace, reference and release-policy checks passed. GitHub Quality Gates
   validates the combined branch after push; no additional Copilot review requested.
+
+## 2026-11-08 - ND-130 granular project capabilities
+
+- Started from origin/main `9d61fb52` in an isolated worktree, preserving the root checkout's unrelated roadmap edits.
+- Added shared module/action capabilities, owner-managed invitation/member restrictions, explicit meeting/epic agent scopes, additive migrations, and service/RLS enforcement. Existing roles and credentials retain their access through migration.
+- Restricted dashboard projections, module controls, attachment access and child records. Shared broadcasts carry invalidation metadata only; authorized HTTP reads supply content.
+- Fresh PostgreSQL migrations and the expanded least-privilege isolation matrix passed. Desktop/mobile browser checks passed for invitation propagation, owner controls, direct API denial, and assignment without access. Final suite/preview evidence follows at handoff.
+- Copilot review is disabled; the user explicitly requested opening the PR without waiting for it.
