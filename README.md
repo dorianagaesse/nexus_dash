@@ -699,3 +699,19 @@ moderation; this grants neither read nor publishing access. Once posted, project
 readers may download the file. Binding is atomic and a draft can be published once.
 Direct-upload keys must be used by the actor that requested them. Finalization and
 cleanup reject an already-finalized key; agents cannot claim legacy human keys.
+
+### Agent files with local storage
+
+Create the task using JSON, then POST multipart form data to
+`/api/projects/{projectId}/tasks/{taskId}/attachments` with the bearer token,
+`kind=file` and `file`. This path supports local and R2 providers, with the
+existing 4 MiB MIME/size limit and actual credential attribution. For a comment
+file, add `isCommentDraft=true`, then POST its ID in `attachmentIds` to the task
+comments route. Only that credential may bind or read the unpublished file.
+
+Agent multipart task creation with `attachmentFiles` remains unsupported; the
+two-request create/upload flow is its supported equivalent. R2 direct upload
+remains preferred for files up to 25 MiB. Local storage returns 400 for signed
+upload targets; use multipart instead. Authentication or authorization failures
+must not trigger a fallback to a human session. Context-card local uploads remain
+outside this contract.

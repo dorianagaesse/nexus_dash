@@ -444,11 +444,15 @@ export async function createTaskAttachmentFromForm(input: {
   projectId: string;
   taskId: string;
   formData: FormData;
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<AttachmentResponsePayload>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
   }
+
+  const scopeError = requireAttachmentAgentScopes({ agentAccess: input.agentAccess, projectId: input.projectId, requiredScopes: ["task:write"] });
+  if (scopeError) return scopeError;
 
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
@@ -460,7 +464,7 @@ export async function createTaskAttachmentFromForm(input: {
     if (!access.ok) {
       return createError(access.status, access.error);
     }
-    const uploader = await resolveTaskAttachmentUploader({ db, actorUserId, projectId: input.projectId });
+    const uploader = await resolveTaskAttachmentUploader({ db, actorUserId, projectId: input.projectId, agentAccess: input.agentAccess });
     if (!uploader.ok) return createError(uploader.status, uploader.error);
 
     const task = await db.task.findUnique({
@@ -578,7 +582,7 @@ export async function createTaskAttachmentFromForm(input: {
         scope: "task",
         actorUserId,
         projectId: input.projectId,
-        ownerId: input.taskId,
+        ownerId: taskUploadStorageOwnerId(input.taskId, input.agentAccess?.credentialId),
         file: fileEntry,
       });
       storageKey = storedFile.storageKey;

@@ -1,5 +1,15 @@
 # Development Journal
 
+# 2026-11-08 - ND-673: agent multipart task uploads
+
+- Enabled bearer principals on the existing task attachment form route and
+  propagated credential identity through scope checks, storage paths and actor
+  attribution. Reused the existing MIME/4 MiB limits and draft protections.
+- Published multipart schemas and the JSON-create then multipart-upload path for
+  local storage, retaining R2 direct upload and the multipart-at-create restriction.
+- Added local/API checks for regular and comment files, invalid tokens, missing
+  scopes, MIME/size rejection, attribution, privacy, binding and download/removal.
+
 # 2026-11-08 - ND-670: draft attachment ownership
 
 - Bound unpublished task files to the exact human or credential uploader for
