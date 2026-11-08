@@ -682,3 +682,24 @@ R2; local storage supports form uploads for signed-in users. Agent attachments
 store their credential ID and display-name snapshot separately from the user
 who owns the storage object. Revoked or deleted credentials retain historical
 agent attribution. Existing file limits, project access, and scope checks apply.
+
+### Actor discovery and comment mention round-tripping
+
+`GET /api/projects/{projectId}/actors/search?query=...` accepts any one of
+`project:read`, `task:read`, or `task:write`, with viewer project access. It trims
+the query, removes one leading `@`, matches case-insensitively, and returns at
+most 12 active actors without pagination. Revoked/expired credentials are omitted.
+
+For human mentions on comment creation, send `mentionSelections` with `userId`,
+`username`, and the current four-digit `discriminator` matching the visible `@username#1234`
+token. For agents, send `agentMentionSelections: [{ credentialId }]` and the exact
+visible `@{Credential Label}` token. Selected IDs do not replace visible tokens.
+Comment responses expose `agentMentions: [{ credentialId, label }]` when present.
+
+Comment PATCH replaces agent selections, including clearing them when omitted.
+For unrelated text edits, retain the visible tokens and map existing
+`agentMentions` to `agentMentionSelections: [{ credentialId }]`. Edits do not emit
+new human mention notifications. Create and edit accept sanitized rich-text HTML;
+the 4000-character limit counts UTF-16 code units in the server plain-text
+projection after sanitization and whitespace normalization, not raw HTML markup.
+Sanitizer-escaped entities and list markers can contribute to this count. See the hosted guide for complete examples and schemas.

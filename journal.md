@@ -1,5 +1,16 @@
 # Development Journal
 
+# 2026-11-08 - ND-674: actor discovery and mention contracts
+
+- Published actor search with its three alternative scopes, normalization,
+  12-result bound and active-only response shape. The guide labels OR scopes.
+- Completed human mention selections and agent mention response schemas, added
+  discovery-based rich-text examples, and documented replacement on PATCH.
+- Removed the incorrect raw-HTML maxLength from comment edits. Documented the
+  normalized plain-text projection limit and required human discriminator.
+- Added runtime/contract tests for alternative scopes, response fields, bounds
+  and a browser/API example for mention preservation and rich-text limits.
+
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 

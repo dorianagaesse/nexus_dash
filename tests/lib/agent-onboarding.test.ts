@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   AGENT_API_ENDPOINTS,
   buildAgentAttentionExample,
+  buildAgentTaskCommentExample,
   buildAgentOpenApiDocument,
 } from "@/lib/agent-onboarding";
 import {
@@ -592,4 +593,19 @@ describe("agent-onboarding contract", () => {
     expect(example).toContain("revoked, expired, or rotated away");
     expect(example).not.toContain("nda_");
   });
+});
+
+test("comment mention schemas and examples support safe round-tripping", () => {
+  const schemas = buildAgentOpenApiDocument("https://example.test").components.schemas;
+  expect(schemas.TaskCommentCreateRequest.properties.mentionSelections.items.required).toEqual(["userId", "username", "discriminator"]);
+  expect(schemas.TaskCommentRecord.properties.agentMentions.items.required).toEqual(["credentialId", "label"]);
+  expect(schemas.TaskCommentUpdateRequest.properties.agentMentionSelections.description).toContain("Omission or [] clears");
+  expect(schemas.TaskCommentUpdateRequest.properties.content).not.toHaveProperty("maxLength");
+  expect(schemas.TaskCommentUpdateRequest.properties.content.description).toContain("4000");
+  const example = buildAgentTaskCommentExample();
+  const payload = JSON.parse(example.split("\n").find(line => line.includes("  -d "))!.split("'")[1]);
+  expect(payload.content).toContain("@alice#1234");
+  expect(payload.content).toContain("@{Release bot}");
+  expect(payload.mentionSelections[0]).toEqual({ userId: "user_123", username: "alice", discriminator: "1234" });
+  expect(payload.agentMentionSelections[0]).toEqual({ credentialId: "credential_123" });
 });
