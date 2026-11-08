@@ -33,7 +33,7 @@ without changing already-applied migrations or deleting data.
 ## API contract
 
 - `GET /api/projects/{projectId}/todos`: the caller's items and edit/delete flags.
-- `POST /api/projects/{projectId}/todos`: `{ content }`, 1?500 trimmed characters.
+- `POST /api/projects/{projectId}/todos`: `{ content }`, 1-500 trimmed characters.
 - `PATCH /api/projects/{projectId}/todos/{todoId}`: `{ revision, content }` or
   `{ revision, completed }`; one operation per request.
 - `DELETE /api/projects/{projectId}/todos/{todoId}`: `{ revision }`.
