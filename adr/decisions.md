@@ -1328,3 +1328,50 @@ Keep UI-only or task-only notes in `journal.md`.
 - Consequences: New keys work immediately and old generations fail even across
   repeated rotations at one timestamp, clock skew, or delayed token issuance.
   The existing atomic authorization update and audit transaction remain intact.
+
+## 2026-11-08 - ND-663: complete the Task persistence boundary
+
+- Status: Proposed for user review; broader domain adoption remains a separate decision.
+- Decision: Extend the existing Task data modules with named command reads,
+  scalar write contracts, search documents and the legacy dashboard aggregate.
+  Keep actor authorization, policy, transaction/retry boundaries and effect
+  ordering in application services. All data operations require the caller's client.
+- Alternatives: A generic repository would expose persistence vocabulary without
+  owning projections; a Bridge or interchangeable backend interface has no second
+  implementation to justify it. Focused functions behind the existing service
+  facade provide the needed seam with less wiring. Single-statement operations
+  are useful here because they constrain writable fields and own future content
+  transforms, rather than forwarding arbitrary Prisma arguments.
+- Consequences: Task application modules cannot directly use Task delegates or raw
+  SQL. Data modules cannot import global Prisma or create independent transactions.
+  Cross-domain comments, uploads, offboarding, aggregates and operational reminder
+  SQL remain explicit exceptions in `docs/architecture/task-services.md`.
+  Encryption will need those exceptions as well as the completed Task seam.
+
+## 2026-11-08 - ND-191: personal todos in the existing project queue
+
+- Status: Proposed for review in ND-191; revised after product feedback.
+- Decision: Store text-only personal todos in `ProjectTodo`, separate from
+  Kanban tasks and meeting actions, but show them in the same Todo list.
+  Capture assigns the authenticated human creator. Personal todos show
+  **Only you**; existing meeting actions show **Project members**, including
+  actions attached to private meeting notes. No second checklist or creator
+  filter is exposed. Existing assignment and completion behavior is preserved.
+- Authorization: Service predicates and forced RLS require the creator and
+  current project membership. Project owners cannot access another person's
+  items; agents and orphaned rows have no access. Editors/owners may manage
+  their own items, and viewers remain read-only. Personal deletion uses
+  `task:write`, since it removes only the actor's own item, not project content.
+  ND-130's canonical capability function remains the authority through the
+  restrictive adapter; neither grants nor the shared guard are duplicated.
+- Migration: The new forward-only privacy migration replaces the initial
+  shared-checklist policies. Existing rows become private to their recorded
+  creator; creator-less rows remain inaccessible. Applied migrations are not
+  rewritten and no existing data is deleted.
+- Concurrency: Revisions protect edits, completion and deletion. Unknown,
+  foreign, other-person, stale and deleted IDs return the same conflict.
+  Failed saves and refreshes retain edit text, including when filters hide it.
+- Activity: Personal changes do not emit project-wide activity or notifications.
+  The client uses the existing local mutation lifecycle to refresh the actor's
+  navigation count. Meeting completion and realtime transport are unchanged.
+  ND-378 remains canceled; there is no global Todos or cross-project search.

@@ -1,3 +1,4 @@
+import { loadLegacyTaskDashboard } from "./tasks/task-dashboard-data";
 import { archiveStaleDoneTasks } from "@/lib/services/tasks/task-data";
 export { projectKanbanTaskInclude, type ProjectKanbanTaskRecord } from "@/lib/services/tasks/task-data";
 export { listProjectKanbanTasks, getProjectKanbanTaskById, type TaskListAssigneeFilter, type TaskListFilters } from "@/lib/services/tasks/task-read-use-cases";
@@ -694,57 +695,6 @@ export async function getProjectDashboardById(projectId: string, actorUserId: st
   return withActorRlsContext(normalizedActorUserId, async (db) => {
     await archiveStaleDoneTasks(db, projectId, normalizedActorUserId);
 
-    return db.project.findFirst({
-      where: {
-        id: projectId,
-        ...buildProjectPrincipalWhere(normalizedActorUserId),
-      },
-      include: {
-        tasks: {
-          orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
-          include: {
-            attachments: {
-              where: { isCommentDraft: false },
-              orderBy: [{ createdAt: "desc" }],
-            },
-            blockedFollowUps: {
-              orderBy: [{ createdAt: "desc" }],
-            },
-            outgoingRelations: {
-              select: {
-                rightTask: {
-                  select: {
-                    id: true,
-                    title: true,
-                    status: true,
-                    archivedAt: true,
-                  },
-                },
-              },
-            },
-            incomingRelations: {
-              select: {
-                leftTask: {
-                  select: {
-                    id: true,
-                    title: true,
-                    status: true,
-                    archivedAt: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        resources: {
-          orderBy: [{ createdAt: "desc" }],
-          include: {
-            attachments: {
-              orderBy: [{ createdAt: "desc" }],
-            },
-          },
-        },
-      },
-    });
+    return loadLegacyTaskDashboard(db, projectId, normalizedActorUserId);
   });
 }
