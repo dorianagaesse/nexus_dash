@@ -1325,3 +1325,19 @@ Keep UI-only or task-only notes in `journal.md`.
   Cross-domain comments, uploads, offboarding, aggregates and operational reminder
   SQL remain explicit exceptions in `docs/architecture/task-services.md`.
   Encryption will need those exceptions as well as the completed Task seam.
+
+## 2026-11-08 ? ND-130: Project module capability restrictions
+
+Use a shared module/action vocabulary for humans and agents. Human grants are
+optional restrictions within existing owner/editor/viewer ceilings; null keeps
+legacy access, an empty array denies all modules. Only project ownership grants
+administrative authority. Membership and invitation grants are stored as nullable
+JSON and copied on acceptance. Service checks and restrictive PostgreSQL policies
+compose with existing tenant, private-note, author, and owner safeguards.
+
+Split meeting/epic agent scopes from task scopes and migrate existing credentials
+to explicit equivalent grants. Reserve shared-schedule scopes without changing
+personal Calendar authorization. Shared broadcast messages carry invalidation
+metadata only to prevent an already-authorized socket from leaking module
+content after permissions change. This trades direct payload application for
+capability-filtered refreshes. See the project-capabilities runbook for rollout.

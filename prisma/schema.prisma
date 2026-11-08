@@ -390,6 +390,7 @@ model ProjectActivityEvent {
 }
 
 model ProjectMembership {
+  capabilities Json?
   id        String                @id @default(cuid())
   projectId String
   userId    String
@@ -405,6 +406,7 @@ model ProjectMembership {
 }
 
 model ProjectInvitation {
+  capabilities Json?
   id              String                @id @default(cuid())
   projectId       String
   invitedEmail    String
@@ -916,6 +918,16 @@ model CalendarPreference {
 }
 
 enum ApiCredentialScope {
+  meeting_read
+  meeting_write
+  meeting_delete
+  epic_read
+  epic_write
+  epic_delete
+  schedule_read
+  schedule_write
+  schedule_delete
+
   project_read
   task_read
   task_write

@@ -90,7 +90,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     title: "List meeting notes and todos",
     description:
       "List project meeting notes with todo creator, assignee, assigner, completion actor, and access state.",
-    requiredScopes: ["task:read"],
+    requiredScopes: ["meeting:read"],
     notes: ["External meeting participants are attendance context and cannot be assignees."],
   },
   {
@@ -100,7 +100,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     title: "Update meeting todo accountability",
     description:
       "Complete, reopen, assign, or unassign one meeting todo without replacing sibling todos.",
-    requiredScopes: ["task:write"],
+    requiredScopes: ["meeting:write"],
     requestContentType: "application/json",
     notes: [
       "Send exactly one of completed or assignee.",
@@ -124,7 +124,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/epics",
     title: "List epics",
     description: "List project epics with automatic status, progress, and linked task summaries.",
-    requiredScopes: ["task:read"],
+    requiredScopes: ["epic:read"],
     notes: [
       "Archived epics are excluded by default; pass includeArchived=true to include them.",
       "Epic status is derived automatically from linked task states.",
@@ -137,7 +137,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/epics",
     title: "Create epic",
     description: "Create a new project epic.",
-    requiredScopes: ["task:write"],
+    requiredScopes: ["epic:write"],
     requestContentType: "application/json",
     notes: ["Epic names must stay unique within a project."],
   },
@@ -147,7 +147,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/epics/{epicId}",
     title: "Update epic",
     description: "Update an existing project epic.",
-    requiredScopes: ["task:write"],
+    requiredScopes: ["epic:write"],
     requestContentType: "application/json",
     notes: ["Epic names must stay unique within a project."],
   },
@@ -157,7 +157,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/epics/{epicId}",
     title: "Delete epic",
     description: "Delete an epic and clear the epic link from its tasks.",
-    requiredScopes: ["task:write"],
+    requiredScopes: ["epic:delete"],
     notes: ["Deleting an epic does not delete its tasks."],
   },
   {
@@ -166,7 +166,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/epics/{epicId}/archive",
     title: "Archive epic",
     description: "Archive an epic so it is hidden from the default epic list.",
-    requiredScopes: ["task:write"],
+    requiredScopes: ["epic:write"],
     notes: [
       "Completed epics are archived automatically after a grace period; this operation archives an epic immediately.",
       "Archiving an epic does not change its linked tasks, and linking new tasks does not unarchive it.",
@@ -179,7 +179,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/epics/{epicId}/archive",
     title: "Restore epic",
     description: "Restore an archived epic to the default epic list.",
-    requiredScopes: ["task:write"],
+    requiredScopes: ["epic:write"],
     notes: ["Restoring an epic that is not archived is a no-op that returns the epic."],
   },
   {
@@ -663,7 +663,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "Stable item ids: assignment:task:<taskId> and assignment:meeting_todo:<actionId>.",
       "state=active|completed filters by artifact completion (Done task / completed to-do); invalid values are rejected.",
       "occurredAt is the assignment time; assignments stored before provenance tracking report null and sort as oldest.",
-      "Following a source reference is a separate read: task and meeting-note routes require task:read, so an attention:read-only credential gets 403 on them.",
+      "Following a source reference is a separate read: task routes require task:read and meeting-note routes require meeting:read, so an attention:read-only credential gets 403 on them.",
       `Filters: artifactType=task|meeting_todo, since/until, limit 1-${AGENT_ATTENTION_MAX_LIMIT} (default ${AGENT_ATTENTION_DEFAULT_LIMIT}), order asc|desc, and an opaque cursor.`,
       "Invalid filter values return agent-attention-invalid-filter; invalid or mismatched cursors return agent-attention-invalid-cursor.",
     ],

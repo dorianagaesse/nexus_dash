@@ -101,6 +101,16 @@ export interface ProjectAgentAccessSummary {
 }
 
 const AGENT_SCOPE_TO_DB_SCOPE: Record<AgentScope, ApiCredentialScope> = {
+  "meeting:read": ApiCredentialScope.meeting_read,
+  "meeting:write": ApiCredentialScope.meeting_write,
+  "meeting:delete": ApiCredentialScope.meeting_delete,
+  "epic:read": ApiCredentialScope.epic_read,
+  "epic:write": ApiCredentialScope.epic_write,
+  "epic:delete": ApiCredentialScope.epic_delete,
+  "schedule:read": ApiCredentialScope.schedule_read,
+  "schedule:write": ApiCredentialScope.schedule_write,
+  "schedule:delete": ApiCredentialScope.schedule_delete,
+
   "project:read": ApiCredentialScope.project_read,
   "task:read": ApiCredentialScope.task_read,
   "task:write": ApiCredentialScope.task_write,
@@ -115,6 +125,16 @@ const AGENT_SCOPE_TO_DB_SCOPE: Record<AgentScope, ApiCredentialScope> = {
 };
 
 const DB_SCOPE_TO_AGENT_SCOPE: Record<ApiCredentialScope, AgentScope> = {
+  [ApiCredentialScope.meeting_read]: "meeting:read",
+  [ApiCredentialScope.meeting_write]: "meeting:write",
+  [ApiCredentialScope.meeting_delete]: "meeting:delete",
+  [ApiCredentialScope.epic_read]: "epic:read",
+  [ApiCredentialScope.epic_write]: "epic:write",
+  [ApiCredentialScope.epic_delete]: "epic:delete",
+  [ApiCredentialScope.schedule_read]: "schedule:read",
+  [ApiCredentialScope.schedule_write]: "schedule:write",
+  [ApiCredentialScope.schedule_delete]: "schedule:delete",
+
   [ApiCredentialScope.project_read]: "project:read",
   [ApiCredentialScope.task_read]: "task:read",
   [ApiCredentialScope.task_write]: "task:write",

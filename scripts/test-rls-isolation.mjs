@@ -599,15 +599,9 @@ try {
       );
       assert.equal(messages.rowCount, 1);
       assert.deepEqual(messages.rows[0].payload, {
-        eventId: `rls_realtime_event_${suffix}`,
         projectId: ids.projectA,
         version,
         serverTime: messages.rows[0].payload.serverTime,
-        actorUserId: ids.ownerA,
-        domain: "task",
-        action: "updated",
-        entityId: ids.taskA,
-        payload: { title: "Changed" },
       });
     });
 
@@ -1652,6 +1646,27 @@ try {
     `SELECT "contentRevision" FROM "Task" WHERE id = $1 FOR UPDATE`, [ids.taskB]
   ));
   assert.equal(hiddenRevision.rowCount, 0, "conditional edit locks cannot expose another project's revision");
+
+  // Owner-issued restrictions apply to parent/child reads and writes, even to assigned work.
+  await runtimeTransaction(ids.ownerB, async () => {
+    await runtime.query(`UPDATE "ProjectMembership" SET capabilities = '["task:read"]'::jsonb
+      WHERE "projectId"=$1 AND "userId"=$2`, [ids.projectB, ids.editorB]);
+    await runtime.query("SELECT set_config('app.user_id', $1, true)", [ids.editorB]);
+    assert.equal((await runtime.query(`SELECT id FROM "Task" WHERE id=$1`, [ids.taskB])).rowCount, 1);
+    assert.equal((await runtime.query(`UPDATE "Task" SET title='Forbidden' WHERE id=$1 RETURNING id`, [ids.taskB])).rowCount, 0);
+    assert.equal((await runtime.query(`SELECT id FROM "ProjectMeetingNote" WHERE id=$1`, [ids.meetingB])).rowCount, 0);
+    assert.equal((await runtime.query(`SELECT id FROM "ProjectMeetingNoteAction" WHERE id=$1`, [ids.meetingActionB])).rowCount, 0);
+    assert.equal((await runtime.query(`SELECT id FROM "Resource" WHERE id=$1`, [ids.resourceB])).rowCount, 0);
+    await runtime.query("SELECT set_config('app.user_id', $1, true)", [ids.ownerB]);
+    await runtime.query(`UPDATE "ProjectMembership" SET capabilities = '[]'::jsonb
+      WHERE "projectId"=$1 AND "userId"=$2`, [ids.projectB, ids.editorB]);
+    await runtime.query("SELECT set_config('app.user_id', $1, true)", [ids.editorB]);
+    assert.equal((await runtime.query(`SELECT id FROM "Task" WHERE id=$1`, [ids.taskB])).rowCount, 0);
+    assert.equal((await runtime.query(`SELECT id FROM "TaskComment" WHERE id=$1`, [ids.commentB])).rowCount, 0);
+    assert.equal((await runtime.query(`SELECT app.has_project_capability($1, 'task:read') AS allowed`, [ids.projectA])).rows[0].allowed, false);
+    await runtime.query("SELECT set_config('app.user_id', $1, true)", [ids.ownerB]);
+    assert.equal((await runtime.query(`SELECT app.has_project_capability($1, 'task:delete') AS allowed`, [ids.projectB])).rows[0].allowed, true);
+  });
 
   console.log(
     "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, append-only assignment history, revoked membership, safe project actor reads, responsibility resolution, ownership transfer, Calendar connections/sources/preferences, and agent credentials."

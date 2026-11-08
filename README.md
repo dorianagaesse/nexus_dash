@@ -682,3 +682,5 @@ R2; local storage supports form uploads for signed-in users. Agent attachments
 store their credential ID and display-name snapshot separately from the user
 who owns the storage object. Revoked or deleted credentials retain historical
 agent attribution. Existing file limits, project access, and scope checks apply.
+
+Project module permissions and rollout: [project capabilities](docs/runbooks/project-capabilities.md).

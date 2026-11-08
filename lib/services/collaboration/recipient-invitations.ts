@@ -139,6 +139,7 @@ export async function respondToProjectInvitation(input: {
         projectId: true,
         invitedEmail: true,
         role: true,
+        capabilities: true,
         acceptedAt: true,
         revokedAt: true,
         replacedAt: true,
@@ -283,6 +284,7 @@ export async function respondToProjectInvitation(input: {
             projectId: invitation.projectId,
             userId: actorUserId,
             role: requireCollaboratorRole(invitation.role),
+            ...(invitation.capabilities != null ? { capabilities: invitation.capabilities } : {}),
           },
         });
         createdMembership = true;

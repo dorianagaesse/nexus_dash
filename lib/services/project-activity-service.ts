@@ -433,7 +433,11 @@ export async function listProjectActivityEventsSince(input: {
 
     return {
       ok: true,
-      data: events.map(mapProjectActivityEventRecord),
+      data: events.filter((event) => {
+        const modules: Record<string, "task" | "context" | "meeting" | "epic" | undefined> = { task: "task", "task-comment": "task", "context-card": "context", "meeting-note": "meeting", epic: "epic" };
+        const projectModule = modules[event.domain];
+        return projectModule ? access.capabilities.includes(`${projectModule}:read`) : access.role === "owner";
+      }).map(mapProjectActivityEventRecord),
     };
   });
 }

@@ -1,3 +1,4 @@
+import { roleCapabilities } from "@/lib/project-capabilities";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const projectAccessServiceMock = vi.hoisted(() => ({
@@ -113,7 +114,7 @@ describe("project-epic-service", () => {
     projectAccessServiceMock.requireAgentProjectScopes.mockReturnValue({ ok: true });
     projectAccessServiceMock.requireProjectRole.mockResolvedValue({
       ok: true,
-      role: "owner",
+      role: "owner", capabilities: roleCapabilities("owner"),
     });
     activityMock.touchProjectActivity.mockResolvedValue(undefined);
     dbMock.epic.findMany.mockResolvedValue([]);
@@ -637,7 +638,7 @@ describe("project-epic-service", () => {
   test("viewers list epics without running the archive sweep", async () => {
     projectAccessServiceMock.requireProjectRole.mockResolvedValueOnce({
       ok: true,
-      role: "viewer",
+      role: "viewer", capabilities: roleCapabilities("viewer"),
     });
     dbMock.epic.findMany.mockResolvedValueOnce([epicSummaryFixture()]);
 

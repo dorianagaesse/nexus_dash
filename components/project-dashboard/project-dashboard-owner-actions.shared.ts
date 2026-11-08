@@ -1,3 +1,4 @@
+import type { ProjectCapability } from "@/lib/project-capabilities";
 import type {
   AgentAuditAction,
   AgentCredentialStatus,
@@ -22,6 +23,7 @@ export interface CollaboratorIdentitySummary {
 export interface ProjectMemberSummary extends CollaboratorIdentitySummary {
   membershipId: string;
   role: "owner" | ProjectCollaboratorRole;
+  capabilities?: ProjectCapability[];
   joinedAt: string;
   isOwner: boolean;
 }
@@ -40,6 +42,7 @@ export interface ProjectInvitationSummary {
   role: ProjectCollaboratorRole;
   createdAt: string;
   expiresAt: string;
+  capabilities?: ProjectCapability[];
   inviteLinkPath: string;
 }
 

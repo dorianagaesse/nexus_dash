@@ -5,6 +5,9 @@ const RESOURCE_NAMES = {
   task: "Tasks",
   context: "Context cards",
   roadmap: "Roadmap",
+  meeting: "Meeting notes",
+  epic: "Epics",
+  schedule: "Shared schedule (reserved)",
   attention: "Mentions & assignments",
 } as const;
 
