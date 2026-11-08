@@ -37,8 +37,19 @@ not require a hosted preview.
 
 An initial coverage run passed the other 2,361 tests but timed out loading ESLint
 configuration at 30 seconds during concurrent browser work. The setup allowance
-is now 60 seconds (assertion timeouts are unchanged); isolated full coverage is
-being rerun before handoff.
+is now 60 seconds (assertion timeouts are unchanged). The isolated full rerun
+passed 2,399 tests with three opt-in tests skipped and all coverage thresholds:
+94.34% statements, 88.64% branches, 97.54% functions and 95.47% lines.
+Lint, release policy, whitespace and changed-document references also passed.
+
+GitHub Quality Core, E2E Smoke, Tenant Isolation and Container Image passed for
+application commit
+`a00f47f3a01320fc095e676ddefd4c7a735482ff` in
+[Quality Gates run 42427881143](https://github.com/dorianagaesse/nexus_dash/actions/runs/42427881143).
+The first browser attempt hit an unchanged meeting-preparation dismissal
+assertion that also passed locally; the identical application commit passed on
+retry. Final evidence-only changes affect this report and the journal, not runtime
+code or tests.
 
 The supplemental repository-wide `tsc --noEmit` command reports pre-existing
 plain-object route-param typing errors in tests. Production compilation uses the

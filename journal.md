@@ -11043,3 +11043,22 @@ Low-value entries to avoid going forward:
   broader migration and encryption implementation are outside this task.
 - Detailed validation and performance evidence: `docs/architecture/task-data-boundary-validation.md`.
   No Copilot review was requested or awaited, per the user's instruction.
+
+### ND-663 delivery validation
+
+- Full local validation passed: lint, RLS inventory, unit/API/component tests,
+  coverage (2,399 tests; 95.47% lines and 88.64% branches), production builds,
+  129 Chromium tests with two gated checks skipped, and the PostgreSQL isolation
+  matrix. Final boundary/client/lane tests passed 46 cases; rebuilt relation and
+  revision browser checks passed all four cases. Release policy, whitespace and
+  architecture references passed.
+- Preserved explicit empty diagnostic project scopes during final review and
+  added a regression. Increased only the ESLint configuration startup allowance
+  after a resource-contention timeout; the isolated full coverage rerun passed.
+- SQL driver counts stayed at 16/20/31 for board/update/reorder. The validation
+  report records repeat timings and shared-host tail variability.
+- PR: https://github.com/dorianagaesse/nexus_dash/pull/672. Application commit
+  `a00f47f3a01320fc095e676ddefd4c7a735482ff` passed GitHub Quality Core, E2E Smoke,
+  Tenant Isolation and Container Image in run `42427881143`; one unchanged meeting-dialog browser
+  assertion passed on retry of that same commit. Copilot review was skipped as
+  requested. The user reviews and merges; the board card remains In Progress.
