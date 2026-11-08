@@ -1052,7 +1052,7 @@ model AuthRateLimitBucket {
   @@index([createdAt])
 }
 
-// Standalone project checklist items; meeting actions retain their own lifecycle.
+// Creator-private personal todos; meeting actions retain their own lifecycle.
 model ProjectTodo {
   id              String   @id @default(cuid())
   projectId       String

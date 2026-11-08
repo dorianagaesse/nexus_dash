@@ -1,8 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
-import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
-import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   deleteProjectTodo,
   updateProjectTodo,
@@ -35,17 +33,7 @@ async function mutate(request: NextRequest, context: Context, remove: boolean) {
       { error: result.error },
       { status: result.status }
     );
-  const version = await recordProjectActivityEventVersion({
-    actorUserId: auth.userId,
-    projectId,
-    domain: "project",
-    action: "updated",
-    entityId: projectId,
-  });
-  return NextResponse.json(
-    { todo: result.data },
-    { headers: withProjectActivityVersionHeader(new Headers(), version) }
-  );
+  return NextResponse.json({ todo: result.data });
 }
 
 export async function PATCH(request: NextRequest, context: Context) {

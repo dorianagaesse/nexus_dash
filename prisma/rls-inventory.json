@@ -279,7 +279,7 @@
       "classification": "project-scoped-direct-rls",
       "enforcement": "rls",
       "owner": "project todo service",
-      "rationale": "Standalone checklist rows inherit project membership and role authorization; task capabilities apply through ND-130."
+      "rationale": "Personal todo rows require the human creator plus current project membership and role authorization; task capabilities apply through ND-130. Project owners have no visibility override."
     }
   ]
 }

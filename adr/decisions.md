@@ -1326,23 +1326,30 @@ Keep UI-only or task-only notes in `journal.md`.
   SQL remain explicit exceptions in `docs/architecture/task-services.md`.
   Encryption will need those exceptions as well as the completed Task seam.
 
-## 2026-11-08 - ND-191: standalone project checklist items
+## 2026-11-08 - ND-191: personal todos in the existing project queue
 
-- Status: Proposed for review in ND-191.
-- Decision: Store lightweight checklist items in `ProjectTodo`, separate from
-  Kanban tasks and meeting actions. Capture requires only text; completion is a
-  nullable timestamp. Items inherit project visibility rather than introducing
-  personal/private ownership semantics. A creator filter is a view of shared data.
-- Authorization: Keep access in the service's actor RLS transaction and use
-  forced project/role policies. Reuse ND-130's `task:read/write/delete` vocabulary
-  and access guard. A feature-local restrictive RLS adapter delegates to the
-  canonical capability function when present, allowing either migration order
-  without copying grants or modifying another card's framework. Baseline role
-  restrictions remain active throughout; provider errors never allow access.
-- Concurrency: Require item revisions on edits, completion changes and deletes.
-  Foreign IDs and stale/deleted rows have the same conflict response, scoped to
-  the already-authorized project. Keep text drafts on conflicts and save failures.
-- Consequences: Checklists do not allocate task references, require meetings,
-  introduce an agent identity model, or change the realtime transport. Human
-  sessions use the existing project activity/version path. Global Todos/search
-  (ND-378) was canceled and is outside this change.
+- Status: Proposed for review in ND-191; revised after product feedback.
+- Decision: Store text-only personal todos in `ProjectTodo`, separate from
+  Kanban tasks and meeting actions, but show them in the same Todo list.
+  Capture assigns the authenticated human creator. Personal todos show
+  **Only you**; existing meeting actions show **Project members**, including
+  actions attached to private meeting notes. No second checklist or creator
+  filter is exposed. Existing assignment and completion behavior is preserved.
+- Authorization: Service predicates and forced RLS require the creator and
+  current project membership. Project owners cannot access another person's
+  items; agents and orphaned rows have no access. Editors/owners may manage
+  their own items, and viewers remain read-only. Personal deletion uses
+  `task:write`, since it removes only the actor's own item, not project content.
+  ND-130's canonical capability function remains the authority through the
+  restrictive adapter; neither grants nor the shared guard are duplicated.
+- Migration: The new forward-only privacy migration replaces the initial
+  shared-checklist policies. Existing rows become private to their recorded
+  creator; creator-less rows remain inaccessible. Applied migrations are not
+  rewritten and no existing data is deleted.
+- Concurrency: Revisions protect edits, completion and deletion. Unknown,
+  foreign, other-person, stale and deleted IDs return the same conflict.
+  Failed saves and refreshes retain edit text, including when filters hide it.
+- Activity: Personal changes do not emit project-wide activity or notifications.
+  The client uses the existing local mutation lifecycle to refresh the actor's
+  navigation count. Meeting completion and realtime transport are unchanged.
+  ND-378 remains canceled; there is no global Todos or cross-project search.

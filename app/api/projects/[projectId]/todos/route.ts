@@ -1,8 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
-import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
-import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import {
   createProjectTodo,
   listProjectTodos,
@@ -19,7 +17,7 @@ export async function GET(request: NextRequest, context: Context) {
     projectId,
   });
   return result.ok
-    ? NextResponse.json(result.data)
+    ? NextResponse.json(result.data, { headers: { "Cache-Control": "no-store" } })
     : NextResponse.json({ error: result.error }, { status: result.status });
 }
 
@@ -40,18 +38,5 @@ export async function POST(request: NextRequest, context: Context) {
       { error: result.error },
       { status: result.status }
     );
-  const version = await recordProjectActivityEventVersion({
-    actorUserId: auth.userId,
-    projectId,
-    domain: "project",
-    action: "updated",
-    entityId: projectId,
-  });
-  return NextResponse.json(
-    { todo: result.data },
-    {
-      status: 201,
-      headers: withProjectActivityVersionHeader(new Headers(), version),
-    }
-  );
+  return NextResponse.json({ todo: result.data }, { status: 201 });
 }

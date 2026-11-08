@@ -19,12 +19,12 @@ Implemented today:
 - DB-backed session cookies
 - Protected routes: `/projects/**`, `/account/**`
 - Project CRUD
-- Project Todos includes a standalone checklist: capture an item with just text,
-  edit it inline, complete or reopen it, and filter to items you created. Items
-  are shared with the project, not private personal notes. Owners/editors can
-  capture and update; viewers can read; only owners can delete. Meeting
-  follow-ups remain a separate section on the same page, and the floating
-  meeting-todo panel keeps its existing assignment filter.
+- Project Todos combines meeting actions and personal todos in one list. Add
+  a todo for yourself with just text; edit, complete/reopen, or delete your own
+  items. Personal todos show **Only you** and are hidden from other members,
+  including project owners. Meeting actions show **Project members** and retain
+  their existing assignment and private-note rules. Open/Completed and
+  responsibility filters apply to the combined list. Viewers remain read-only.
 - Project sharing with owner-managed membership/invitation flows, including email-bound invite links
 - In-app notification center for durable unread/read notification review, starting with project invitations
 - Project notification email digests, delayed invitation reminders, and

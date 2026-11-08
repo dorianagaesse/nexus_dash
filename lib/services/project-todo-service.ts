@@ -22,12 +22,9 @@ function access(
   const request = {
     ...input,
     db,
-    minimumRole: (operation === "read"
-      ? "viewer"
-      : operation === "write"
-        ? "editor"
-        : "owner") as ProjectMembershipRole,
-    capability: `task:${operation}` as const,
+    minimumRole: (operation === "read" ? "viewer" : "editor") as ProjectMembershipRole,
+    // Removing your own private item is a personal write, not a project-wide delete.
+    capability: operation === "read" ? "task:read" as const : "task:write" as const,
   };
   return requireProjectRole(request);
 }
@@ -55,7 +52,7 @@ export async function listProjectTodos(
       access(input, db, "write"),
       access(input, db, "delete"),
       db.projectTodo.findMany({
-        where: { projectId: input.projectId },
+        where: { projectId: input.projectId, createdByUserId: input.actorUserId },
         select: todoSelect,
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       }),
@@ -68,6 +65,16 @@ export async function listProjectTodos(
         canDelete: remove.ok,
       },
     };
+  });
+}
+
+export async function countOpenPersonalTodos(input: ActorInput): Promise<number> {
+  return withActorRlsContext(input.actorUserId, async (db) => {
+    const allowed = await access(input, db, "read");
+    if (!allowed.ok) return 0;
+    return db.projectTodo.count({
+      where: { projectId: input.projectId, createdByUserId: input.actorUserId, completedAt: null },
+    });
   });
 }
 
@@ -121,6 +128,7 @@ export async function updateProjectTodo(
       where: {
         id: input.todoId,
         projectId: input.projectId,
+        createdByUserId: input.actorUserId,
         revision: input.revision as number,
       },
       data: {
@@ -133,7 +141,7 @@ export async function updateProjectTodo(
     if (!changed.count)
       return { ok: false, status: 409, error: "todo-changed-or-deleted" };
     const todo = await db.projectTodo.findFirst({
-      where: { id: input.todoId, projectId: input.projectId },
+      where: { id: input.todoId, projectId: input.projectId, createdByUserId: input.actorUserId },
       select: todoSelect,
     });
     if (!todo)
@@ -154,6 +162,7 @@ export async function deleteProjectTodo(
       where: {
         id: input.todoId,
         projectId: input.projectId,
+        createdByUserId: input.actorUserId,
         revision: input.revision as number,
       },
     });

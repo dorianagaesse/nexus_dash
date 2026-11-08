@@ -11350,3 +11350,37 @@ Low-value entries to avoid going forward:
   and main's Dependabot audit. Application files merged automatically.
 - Whitespace, reference and release-policy checks passed. GitHub Quality Gates
   validates the combined branch after push; no additional Copilot review requested.
+
+
+## 2026-11-08 - ND-191 revision: one list and private personal capture
+
+- Dorian rejected the initial separate shared checklist. Revised the same PR
+  to one Todo list: existing meeting actions plus creator-private personal
+  items, one Open/Completed control and existing responsibility filters.
+  Capture and personal rows explain Only you; meeting rows explicitly say
+  Project members. Existing meeting-note privacy/assignment behavior remains.
+- Added a forward-only privacy migration. Service reads/counts/writes bind
+  both project and creator; RLS also rejects other members, project owners,
+  agents and revoked creators. No personal data enters shared activity events.
+  Own deletion uses task:write, coordinated with ND-130 PR #680. Actual ND-130
+  migrations pass legacy, denied, read-only, write and meeting-only grant cases.
+- Removed the separate checklist component and its redundant controls. Kept
+  recovery for failed capture, stale saves, remotely removed items and hidden
+  edits. Navigation counts include only the caller's own personal items.
+- Initial browser checks needed test fixes: scope the alert locator away from
+  Next's route announcer, match the existing lower-case accessible tab names,
+  and await navigation before reloading. No product behavior was changed to
+  satisfy those assertions. The corrected personal flows and existing meeting
+  flows pass. The first visual pass found a cramped mobile meeting title;
+  moved its assignee below the text on phones and confirmed the batched
+  desktop/mobile/light/dark/landscape captures. No horizontal overflow at
+  enlarged text. The manual design detector returned no findings.
+- PostgreSQL isolation matrix and 47 focused tests pass. The first broad unit
+  invocation omitted DATABASE_URL; reran with the documented local environment:
+  2,433 tests pass, 3 skipped. Required coverage/full browser gates and the
+  independent finish review are recorded in the final PR handoff.
+- Coverage passes: 95.56% lines and 89.08% branches. Fresh Impeccable review
+  accepted the single-list structure, explicit privacy and responsive layout,
+  and requested one loading-label encoding correction. Fixed the label to
+  Adding... and added a pending/duplicate-submission regression test. Final
+  reviewer verdict and complete browser/CI results are linked from PR #682.

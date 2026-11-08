@@ -71,7 +71,8 @@ test("all routes use session auth, including before body parsing", async () => {
 });
 
 test("routes bind service calls to the session actor and path project", async () => {
-  await GET(request("GET"), context);
+  const listResponse = await GET(request("GET"), context);
+  expect(listResponse.headers.get("cache-control")).toBe("no-store");
   expect(mocks.list).toHaveBeenCalledWith({
     actorUserId: "actor",
     projectId: "project",
@@ -103,6 +104,7 @@ test("routes bind service calls to the session actor and path project", async ()
     completed: true,
   });
   await DELETE(request("DELETE", { revision: 3 }), context);
+  expect(mocks.activity).not.toHaveBeenCalled();
   expect(mocks.remove).toHaveBeenCalledWith({
     actorUserId: "actor",
     projectId: "project",

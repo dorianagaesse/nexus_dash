@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   access: vi.fn(),
   todo: {
     findMany: vi.fn(),
+    count: vi.fn(),
     create: vi.fn(),
     updateMany: vi.fn(),
     findFirst: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock("@/lib/services/rls-context", () => ({
 }));
 
 import {
+  countOpenPersonalTodos,
   createProjectTodo,
   deleteProjectTodo,
   listProjectTodos,
@@ -59,7 +61,7 @@ describe("standalone project todos", () => {
       data: { todos: [todo], canEdit: false, canDelete: false },
     });
     expect(mocks.todo.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { projectId: "project" } })
+      expect.objectContaining({ where: { projectId: "project", createdByUserId: "user" } })
     );
   });
 
@@ -123,7 +125,7 @@ describe("standalone project todos", () => {
         completed,
       });
       expect(mocks.todo.updateMany).toHaveBeenCalledWith({
-        where: { id: "todo", projectId: "project", revision: 3 },
+        where: { id: "todo", projectId: "project", createdByUserId: "user", revision: 3 },
         data: {
           completedAt: completed ? expect.any(Date) : null,
           revision: { increment: 1 },
@@ -131,6 +133,16 @@ describe("standalone project todos", () => {
       });
     }
   );
+
+  test("navigation counts only the actor's open personal todos and respects denied read", async () => {
+    mocks.todo.count.mockResolvedValue(2);
+    expect(await countOpenPersonalTodos(actor)).toBe(2);
+    expect(mocks.todo.count).toHaveBeenCalledWith({ where: { projectId: "project", createdByUserId: "user", completedAt: null } });
+    mocks.todo.count.mockClear();
+    mocks.access.mockResolvedValue({ ok: false, status: 403, error: "forbidden" });
+    expect(await countOpenPersonalTodos(actor)).toBe(0);
+    expect(mocks.todo.count).not.toHaveBeenCalled();
+  });
 
   test("edits text without changing completion", async () => {
     await updateProjectTodo({
@@ -173,18 +185,18 @@ describe("standalone project todos", () => {
     expect(mocks.todo.findFirst).not.toHaveBeenCalled();
   });
 
-  test("delete requires owner, task delete capability and current revision", async () => {
+  test("delete requires personal write capability, creator and current revision", async () => {
     expect(
       await deleteProjectTodo({ ...actor, todoId: "todo", revision: 0 })
     ).toEqual({ ok: true, data: null });
     expect(mocks.access).toHaveBeenCalledWith(
       expect.objectContaining({
-        minimumRole: "owner",
-        capability: "task:delete",
+        minimumRole: "editor",
+        capability: "task:write",
       })
     );
     expect(mocks.todo.deleteMany).toHaveBeenCalledWith({
-      where: { id: "todo", projectId: "project", revision: 0 },
+      where: { id: "todo", projectId: "project", createdByUserId: "user", revision: 0 },
     });
     mocks.todo.deleteMany.mockResolvedValue({ count: 0 });
     expect(
