@@ -1,5 +1,15 @@
 # Development Journal
 
+# 2026-11-08 - ND-671: independent reaction actors
+
+- Reaction rows now store human/agent kind, nullable credential and a durable
+  snapshot. Human storage ownership stays separate from reaction identity.
+- Extracted the reaction service, shared actor-aware projection, and serialized
+  atomic toggle/replacement. Agent responses no longer project the human owner
+  as their reactor; tooltips identify agents. Published the three reaction routes.
+- Added a three-actor lifecycle browser test and PostgreSQL coverage for agent
+  reaction reads, write denial and credential deletion history.
+
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 

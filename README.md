@@ -682,3 +682,14 @@ R2; local storage supports form uploads for signed-in users. Agent attachments
 store their credential ID and display-name snapshot separately from the user
 who owns the storage object. Revoked or deleted credentials retain historical
 agent attribution. Existing file limits, project access, and scope checks apply.
+
+### Comment reaction actors
+
+A human and each project credential have independent comment reactions. POST an
+emoji to `/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions`
+to toggle it off or replace your previous emoji. GET requires `task:read`; POST
+and DELETE `/{reactionId}` require `task:write`. Removal affects only your actor.
+Responses group counts and caller-specific `reacted` state. Each reaction's
+`actor` identifies the human or agent; `user` is null for agents. Credential
+removal preserves the agent display snapshot with a null actor ID. Reaction
+button tooltips show these actors, including the agent marker.

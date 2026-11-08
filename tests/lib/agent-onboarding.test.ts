@@ -593,3 +593,13 @@ describe("agent-onboarding contract", () => {
     expect(example).not.toContain("nda_");
   });
 });
+
+test("publishes actor-aware reaction endpoints and ownership semantics", () => {
+  const doc = buildAgentOpenApiDocument("https://example.test");
+  const path = "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions";
+  expect(doc.paths[path].get).toBeDefined();
+  expect(doc.paths[path].post.requestBody.content["application/json"].schema.properties.emoji.maxLength).toBe(32);
+  expect(doc.paths[`${path}/{reactionId}`].delete).toBeDefined();
+  expect(AGENT_API_ENDPOINTS.filter(e => e.path.startsWith(path)).map(e => e.requiredScopes)).toEqual([["task:read"], ["task:write"], ["task:write"]]);
+  expect(doc.components.schemas.TaskReactionResponse.properties.reactions.items.properties.reactions.items.properties.actor.properties.id.type).toContain("null");
+});

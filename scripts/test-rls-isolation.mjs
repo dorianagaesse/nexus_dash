@@ -534,7 +534,18 @@ try {
   const crossAttachmentUpdate = await runtimeTransaction(ids.ownerA, () => runtime.query(
     `UPDATE "ResourceAttachment" SET name = 'Cross tenant' WHERE id = $1`, [attachmentId]));
   assert.equal(crossAttachmentUpdate.rowCount, 0);
+  const agentReactionId = `rls_agent_reaction_${suffix}`;
+  const reactionInsert = `INSERT INTO "TaskCommentReaction" (id, "commentId", "userId", emoji, "actorKind", "actorCredentialId", "actorDisplayNameSnapshot") VALUES ($1, $2, $3, 'check', 'agent', $4, 'Upload agent')`;
+  await runtimeTransaction(ids.ownerB, () => runtime.query(reactionInsert, [agentReactionId, ids.commentB, ids.ownerB, uploadCredentialId]));
+  await admin.query(reactionInsert, [agentReactionId, ids.commentB, ids.ownerB, uploadCredentialId]);
+  for (const actor of [ids.viewerB, ids.ownerA, ids.outsider]) {
+    const read = await runtimeTransaction(actor, () => runtime.query(`SELECT id FROM "TaskCommentReaction" WHERE id=$1`, [agentReactionId]));
+    assert.equal(read.rowCount, actor === ids.viewerB ? 1 : 0);
+  }
+  await expectRlsViolation(() => runtimeTransaction(ids.viewerB, () => runtime.query(reactionInsert, [`${agentReactionId}_denied`, ids.commentB, ids.viewerB, ids.credentialB])), "viewer agent reaction insert");
   await admin.query(`DELETE FROM "ApiCredential" WHERE id = $1`, [uploadCredentialId]);
+  const historicalReaction = await runtimeTransaction(ids.viewerB, () => runtime.query(`SELECT "actorKind", "actorCredentialId", "actorDisplayNameSnapshot" FROM "TaskCommentReaction" WHERE id=$1`, [agentReactionId]));
+  assert.deepEqual(historicalReaction.rows, [{ actorKind: "agent", actorCredentialId: null, actorDisplayNameSnapshot: "Upload agent" }]);
   const historicalAttachment = await runtimeTransaction(ids.viewerB, () => runtime.query(
     `SELECT "uploadedByCredentialId", "uploadedByKind", "uploadedByDisplayNameSnapshot" FROM "ResourceAttachment" WHERE id = $1`, [attachmentId]));
   assert.deepEqual(historicalAttachment.rows, [{ uploadedByCredentialId: null, uploadedByKind: "agent", uploadedByDisplayNameSnapshot: "Upload agent" }]);
