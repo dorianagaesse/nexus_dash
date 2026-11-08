@@ -107,3 +107,25 @@ confirm that alias also targets the intended feature before testing it. If the
 alias moved, deploy the explicit ND-130 branch again and refresh the recipient
 page before retrying Accept. Do not weaken the grant policy or recreate the
 invitation to bypass this deployment mismatch.
+
+
+## Notification copies and delivery
+
+Human notification recipients need the current module read grant, including for
+assignment, comment mentions, task due dates, and overdue meeting todos. The
+notification service checks before persistence. Inbox reads, unread counts,
+awareness banners, email enqueue and dispatch also check current access, so
+copies queued before a grant change cannot disclose restricted titles later.
+Invitations remain visible without membership; agent `attention:read` is a
+separate explicit projection and does not grant humans an exception.
+
+The notification capability migration adds restrictive SELECT/INSERT/UPDATE
+policies and filters the definer-owned Realtime snapshot. Membership and owner
+changes advance a dedicated user notification-access cursor and broadcast a
+fresh snapshot. This keeps versions monotonic even when the newest visible
+notification disappears, and refreshes already-open inboxes without changing
+notification timestamps or invalidating unrelated email fingerprints.
+
+Validation covers no-grant and meeting-only assignment/mention recipients,
+pre-existing notification copies after revocation, live inbox/banner updates,
+queued-email suppression, owner and legacy grants, and the runtime-role policies.

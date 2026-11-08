@@ -1444,3 +1444,13 @@ as listing, with module and private-note checks retained in services and RLS.
   The client uses the existing local mutation lifecycle to refresh the actor's
   navigation count. Meeting completion and realtime transport are unchanged.
   ND-378 remains canceled; there is no global Todos or cross-project search.
+
+
+## 2026-11-09 - ND-130 review: notification copies retain module authorization
+
+Notifications and queued email are copies of protected module content. Enforce
+recipient read capability at creation, reads, enqueue and dispatch, and add
+restrictive notification policies. Definer-owned Realtime snapshots must apply
+the same filter explicitly. Advance User.notificationAccessUpdatedAt on relevant
+membership/owner changes; use it in snapshot versions so revocation refreshes
+existing clients without regressing the cursor or mutating email fingerprints.

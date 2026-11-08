@@ -11642,3 +11642,22 @@ Low-value entries to avoid going forward:
 - Integrated current main after ND-191 personal todos and ND-657 token rotation
   landed. Resolved token-guard conflicts by retaining both current key-generation
   binding and live scope-subset checks; preserved both branches' execution notes.
+
+
+## 2026-11-09 - ND-130 review follow-up
+
+- Confirmed the P1 notification-copy disclosure: task authorization did not gate
+  recipient notifications, stored copies, or delayed email. Added recipient
+  capability gates for task/meeting notifications, all inbox/banner queries,
+  email enqueue and dispatch, plus restrictive database policies and filtered
+  Realtime snapshots. A dedicated access cursor refreshes open clients when
+  grants or ownership change without changing queued notification fingerprints.
+- Resolved current-main conflicts while preserving agent descriptive labels,
+  task module guards and editable agent scopes. Added producer, inbox/banner,
+  queued-email and real PostgreSQL policy regressions for restricted recipients.
+
+Validation for the ND-130 review fix: 2,507 unit tests pass (3 intentional skips),
+coverage thresholds, lint, RLS inventory and production build pass. The real
+PostgreSQL matrix verifies recipient-grant insert/read enforcement and filtered
+Realtime snapshots. Four focused browser scenarios pass, including live inbox
+revocation, editable agent permissions and both descriptive-label scenarios.

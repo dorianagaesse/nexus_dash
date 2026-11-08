@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type Ref } from "react";
+import { useRef, useState, type Ref } from "react";
 import { ShieldCheck } from "lucide-react";
 import {
   AGENT_CREDENTIAL_PRESETS,

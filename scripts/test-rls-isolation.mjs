@@ -1,3 +1,4 @@
+import { testNotificationCapabilityRls } from "./test-notification-capability-rls.mjs";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -501,6 +502,7 @@ try {
   }
 
   await seed();
+  await testNotificationCapabilityRls({ admin, runtime, runtimeTransaction, expectRlsViolation, ids });
   await testProjectTodoRls({ admin, runtime, runtimeTransaction, expectRlsViolation, ids });
 
   // Public current author metadata is readable by members without exposing
