@@ -10,7 +10,7 @@ on:
     types: [completed]
 
 env:
-  REQUIRED_CHECK_NAMES_JSON: '["check-name","Quality Core (lint, test, coverage, build)","E2E Smoke (Playwright)","Container Image (build + metadata artifact)"]'
+  REQUIRED_CHECK_NAMES_JSON: '["check-name","Quality Core (lint, test, coverage, build)","E2E Smoke (Playwright)","Tenant Isolation (PostgreSQL RLS)","Container Image (build + metadata artifact)"]'
 
 jobs:
   triage-safe-pr:

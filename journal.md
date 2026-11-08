@@ -17,6 +17,40 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Updated browser checks exercise the merged dialogs, failed/pending saves,
   focus, maximum-length labels on mobile, and historical comment attribution.
 - Validation and the refreshed Preview handoff are recorded in PR #661.
+# 2026-11-08 - ND-375: production Broadcast configuration investigation
+
+- Recorded Dorian's decision to retain Vercel Pro and picked up ND-375 for the
+  remaining Supabase review. Kept root roadmap edits untouched by using an
+  isolated documentation worktree from `origin/main` at `ac7b2fa3`.
+- Production revision `0c5bd59` reports Broadcast, issues session tokens, and
+  records polling fallbacks. Fresh environment checks reproduce HTTP 401 for
+  the preferred Production publishable key, versus HTTP 200 Auth settings and
+  HTTP 101 WebSocket upgrade for the valid publishable value under the legacy
+  setting. Preview keys validate and sampled Preview transport is polling.
+- Added the evidence, limitations, hosting decision, and staged repair plan in
+  `docs/reports/nd-375-production-realtime-investigation.md`; documented the
+  resolved-key operator preflight in the runtime environment runbook.
+- No Production runtime settings, deployments, schema, or test fixtures were
+  changed. Database load and authenticated private-channel acceptance remain
+  unverified. Follow-up card creation was rejected by automatic approval review
+  (`blocked by policy`); its proposed scope is preserved in the report. ND-375
+  remains In Progress.
+- Documentation validation: `git diff --check` passed; relative report/runbook
+  links resolve and the linked Supabase key/report references were reviewed.
+- Follow-up at 11:04–11:08 Paris: Dorian corrected the preferred Production
+  publishable key. A fresh pull and direct checks now return HTTP 200/101.
+  Manual staging run 42469846601 succeeded; checkout logs, deployment metadata,
+  and health verify the unchanged live source `0c5bd59`. Staged deployment
+  `dpl_2QF7kBTw64Lb2XBT2v45jvR5cjqc` serves root/readiness with HTTP 200 and
+  has no aliases. No migration or promotion ran; signed-in acceptance is next.
+- Staged acceptance follow-up: Dorian confirmed a task created in the normal
+  browser appeared automatically in a separate Incognito session, with both
+  windows visible and no refresh or focus change. Recorded this as manual
+  cross-session project-delivery evidence, not a complete notification,
+  token-renewal, or authorization regression run.
+- Resolved the PR #670 journal conflict against `origin/main` at `4448df01`,
+  preserving both the ND-375 and ND-655 histories. Production promotion and
+  the remaining operational review stay separate from this documentation merge.
 
 # 2026-11-08 - ND-655: copy the issued key before closing
 
@@ -11279,3 +11313,17 @@ Low-value entries to avoid going forward:
 - Addressed the review's P1 integration finding. An independent TypeScript source comparison confirms all 60 original declarations remain identical after formatting/export normalization and all 25 public exports are preserved. Authorization, actor-scoped transactions, race/revocation handling, notification and post-commit email behavior, and responsibility-aware offboarding retain their existing code and ordering.
 - The public collaboration entry point remains a facade over owner invitations, membership/offboarding, recipient responses, shared policy/data/types, and email delivery. The architecture decision is proposed for user review rather than carrying forward the old approval claim.
 - Required validation, the invitation/membership browser lifecycle, real PostgreSQL isolation, and the detailed review response are recorded on #650. Leave the PR unmerged and the card In Progress for the user's review and merge.
+# 2026-11-08 - Dependabot queue cleanup and automation audit
+
+- Reviewed all three open Dependabot PRs. Merged #666 (Next lint config patch,
+  `4c6fa0d9`) and #667 (Playwright patch, `0b43fd98`) after inspecting their
+  diffs and complete green CI. Closed #668 because its standalone Vitest 5
+  upgrade conflicts with the retained Vitest 4 coverage provider at install.
+- Reproduced the repair agent's invalid Copilot credential with authentication
+  health-check run 42466641623 (HTTP 401), matching scheduled run 41420208219.
+  Restoring the repository secret remains an owner action; no secret changed.
+- Added tenant isolation to both automation check lists and a regression for
+  isolation-only failures/recovery. Grouped future Vitest toolchain updates
+  while retaining manual review. Corrected stale credential-failure guidance.
+- Evidence and per-PR decisions: docs/runbooks/dependabot-audit-2026-11-08.md.
+  Work is isolated from the root checkout's existing local changes.
