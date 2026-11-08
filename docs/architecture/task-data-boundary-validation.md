@@ -28,9 +28,17 @@ migration is part of this change.
 
 Node 24.15.0, PostgreSQL 16 in a dedicated Docker container, Chromium, Windows.
 The full unit/API/component run passed 2,398 tests with three opt-in tests skipped.
-The final focused boundary/client/lane run passed all 45 tests. RLS inventory and
-the real PostgreSQL isolation matrix passed. Remaining final gate results are
-recorded before PR handoff.
+The final focused boundary/client/lane run passed all 46 tests. RLS inventory and
+the real PostgreSQL isolation matrix passed. Production builds passed, the full
+Chromium suite passed 129 tests (two gated checks skipped), and the final rebuilt
+relation/revision browser run passed all four tests. Skips are the opt-in
+large-board audit and immutable-preview authentication check; this refactor does
+not require a hosted preview.
+
+An initial coverage run passed the other 2,361 tests but timed out loading ESLint
+configuration at 30 seconds during concurrent browser work. The setup allowance
+is now 60 seconds (assertion timeouts are unchanged); isolated full coverage is
+being rerun before handoff.
 
 The supplemental repository-wide `tsc --noEmit` command reports pre-existing
 plain-object route-param typing errors in tests. Production compilation uses the

@@ -20,6 +20,8 @@ vi.mock("@/lib/services/project-access-service", () => ({
 }));
 vi.mock("@/lib/services/project-activity-service", () => ({ recordProjectActivityEvent: state.activity }));
 
+import { loadTaskRelationDiagnostic } from "@/lib/services/tasks/task-command-data";
+import type { DbClient } from "@/lib/services/rls-context";
 import { updateTaskForProject } from "@/lib/services/project-task-service";
 
 const person = { id: "owner", name: "Owner", email: null, username: null, usernameDiscriminator: null, avatarSeed: null };
@@ -78,6 +80,13 @@ describe("Task application/data collaboration", () => {
     ]);
     expect(state.db.task.update).toHaveBeenCalledWith({ where: { id: "task" }, data: expect.objectContaining({ title: "New title" }) });
     expect(state.db.task.findUnique.mock.calls[1][0].select.attachments.where).toEqual({ isCommentDraft: false });
+  });
+
+  test("never widens an explicitly supplied diagnostic project scope, even if empty", async () => {
+    await loadTaskRelationDiagnostic(state.db as unknown as DbClient, "foreign", "");
+    expect(state.db.task.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "foreign", projectId: "" },
+    }));
   });
 
   test("hydrates a revision conflict without issuing writes or activity", async () => {

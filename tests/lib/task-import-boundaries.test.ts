@@ -5,10 +5,11 @@ import { beforeAll, describe, expect, test } from "vitest";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const eslint = new ESLint({ cwd: root });
 
-// Loading the repository's Next/TypeScript plugins is slower than a single lint.
+// Loading Next/TypeScript plugins under coverage can be slow on shared hosts.
+// This allowance covers configuration startup only; individual assertions keep their timeout.
 beforeAll(async () => {
   await eslint.calculateConfigForFile("lib/task-boundary-probe.ts");
-}, 30_000);
+}, 60_000);
 
 async function importViolations(filePath: string, source: string) {
   const [result] = await eslint.lintText(source, { filePath });

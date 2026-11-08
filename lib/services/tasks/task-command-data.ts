@@ -140,7 +140,7 @@ export async function loadTaskRelationDiagnostic(db: DbClient, taskId: string, p
   const candidates = await db.task.findMany({
     where: {
       id: taskId,
-      ...(projectId ? { projectId } : {}),
+      ...(projectId !== undefined ? { projectId } : {}),
     },
     select: { id: true, projectId: true, archivedAt: true },
   });
