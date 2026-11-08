@@ -32,6 +32,8 @@ test("ND-539: meeting notes default to private, hide from other members and agen
   await page.getByRole("button", { name: "Agent access" }).click();
   await page.getByRole("button", { name: "New credential", exact: true }).click();
   await page.locator("#project-agent-label").fill(agentLabel);
+  await page.getByText("Customize permissions", { exact: false }).click();
+  await page.getByRole("checkbox", { name: /Meeting notes read/ }).check();
   await page.getByRole("button", { name: "Create credential" }).click();
   const apiKeyInput = page.locator(
     `input[aria-label="API key for ${agentLabel}"]`

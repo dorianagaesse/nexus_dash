@@ -1037,7 +1037,7 @@ export function buildAgentAttentionExample(): string {
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
     "",
     "# 5. Follow the source reference before acting on an item. These source",
-    "#    reads need task:read on top of attention:read; an attention-only",
+    "#    reads need task:read or meeting:read on top of attention:read; an attention-only",
     "#    credential gets 403 and should work from the item summary instead:",
     "#    - artifact.type=task_comment -> GET .../tasks/$ARTIFACT_TASK_ID/comments",
     "#    - artifact.type=task         -> GET .../tasks/$ARTIFACT_TASK_ID",

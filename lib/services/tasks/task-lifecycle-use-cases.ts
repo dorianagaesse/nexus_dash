@@ -235,7 +235,7 @@ export async function moveTaskStatusForProject(
         existingTask.archivedAt === null &&
         completedAtUnchanged
       ) {
-        const task = await loadTaskMutationPayload(db, projectId, taskId, !agentAccess || agentAccess.scopes.includes("epic:read"));
+        const task = await loadTaskMutationPayload(db, projectId, taskId, access.capabilities.includes("epic:read") && (!agentAccess || agentAccess.scopes.includes("epic:read")));
         if (!task) {
           return createError(404, "Task not found");
         }
@@ -271,7 +271,7 @@ export async function moveTaskStatusForProject(
 
       await touchProjectActivity({ db, projectId });
 
-      const task = await loadTaskMutationPayload(db, projectId, taskId, !agentAccess || agentAccess.scopes.includes("epic:read"));
+      const task = await loadTaskMutationPayload(db, projectId, taskId, access.capabilities.includes("epic:read") && (!agentAccess || agentAccess.scopes.includes("epic:read")));
       if (!task) {
         return createError(500, "Failed to move task");
       }

@@ -37,6 +37,18 @@ test("owner grants survive invitations and restrict UI, direct APIs and assigned
     expect(denied.status()).toBe(403);
     const ownerRoute = `/api/projects/${projectId}/sharing/members/${membership.id}`;
     expect((await memberPage.request.patch(ownerRoute, { data: { role: "editor", capabilities: null } })).status()).toBe(403);
+    const epicResponse = await page.request.post(`/api/projects/${projectId}/epics`, { data: { name: "Owner epic", description: "Restricted linked work" } });
+    expect(epicResponse.status()).toBe(201);
+    const epicId = (await epicResponse.json()).epic.id;
+    expect((await page.request.patch(`/api/projects/${projectId}/tasks/${taskId}`, { data: { epicId } })).ok()).toBe(true);
+    const taskEdit = await memberPage.request.patch(`/api/projects/${projectId}/tasks/${taskId}`, { data: { title: "Allowed task edit" } });
+    expect(taskEdit.ok()).toBe(true);
+    expect((await taskEdit.json()).task.epic).toBeNull();
+    expect((await memberPage.request.patch(`/api/projects/${projectId}/tasks/${taskId}`, { data: { epicId } })).status()).toBe(403);
+    expect((await page.request.patch(ownerRoute, { data: { role: "editor", capabilities: ["epic:read", "epic:write"] } })).ok()).toBe(true);
+    const epicEdit = await memberPage.request.patch(`/api/projects/${projectId}/epics/${epicId}`, { data: { name: "Allowed epic edit", description: "Still no task access" } });
+    expect(epicEdit.ok()).toBe(true);
+    expect((await epicEdit.json()).epic).toMatchObject({ linkedTasks: [], taskCount: 0 });
     expect((await page.request.patch(ownerRoute, { data: { role: "editor", capabilities: ["task:read"] } })).ok()).toBe(true);
     expect((await memberPage.request.post(`/api/projects/${projectId}/tasks`, { data: { title: "Forbidden task" } })).status()).toBe(403);
     expect((await page.request.patch(`/api/projects/${projectId}/tasks/${taskId}`, { data: { assignee: { kind: "human", id: memberId } } })).ok()).toBe(true);

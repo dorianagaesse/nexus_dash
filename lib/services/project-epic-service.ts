@@ -546,7 +546,7 @@ export async function createProjectEpic(
         db,
         epicId: createdEpic.id,
         projectId: input.projectId,
-        canReadTasks: !input.agentAccess || input.agentAccess.scopes.includes("task:read"),
+        canReadTasks: access.capabilities.includes("task:read") && (!input.agentAccess || input.agentAccess.scopes.includes("task:read")),
       });
       if (!epic) {
         return createError(500, "epic-create-failed");
@@ -665,7 +665,7 @@ export async function updateProjectEpic(
         db,
         epicId,
         projectId: input.projectId,
-        canReadTasks: !input.agentAccess || input.agentAccess.scopes.includes("task:read"),
+        canReadTasks: access.capabilities.includes("task:read") && (!input.agentAccess || input.agentAccess.scopes.includes("task:read")),
       });
       if (!epic) {
         return createError(404, "epic-not-found");
@@ -776,7 +776,7 @@ async function setProjectEpicArchivedAt(
   const agentScopeAccess = requireAgentProjectScopes({
     agentAccess: input.agentAccess,
     projectId: input.projectId,
-    requiredScopes: ["epic:delete"],
+    requiredScopes: ["epic:write"],
   });
   if (!agentScopeAccess.ok) {
     return createError(agentScopeAccess.status, agentScopeAccess.error);
@@ -789,7 +789,7 @@ async function setProjectEpicArchivedAt(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
-      capability: "epic:delete",
+      capability: "epic:write",
       db,
     });
     if (!access.ok) {
@@ -857,7 +857,7 @@ async function setProjectEpicArchivedAt(
         db,
         epicId,
         projectId: input.projectId,
-        canReadTasks: !input.agentAccess || input.agentAccess.scopes.includes("task:read"),
+        canReadTasks: access.capabilities.includes("task:read") && (!input.agentAccess || input.agentAccess.scopes.includes("task:read")),
       });
       if (!epic) {
         return createError(404, "epic-not-found");

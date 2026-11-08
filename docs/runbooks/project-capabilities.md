@@ -19,7 +19,8 @@ access. Private meeting-note rules still apply in addition to module grants.
 It is validated against the role ceiling. A write/delete grant requires read
 for that module. `null` uses the role preset; `[]` denies every module. Omission
 on member PATCH preserves existing restrictions, including when changing role.
-The effective grant is always intersected with the current role. Only the
+The effective grant is always intersected with the current role. Archiving and
+restoring tasks or epics use write permission; permanent deletion uses delete. Only the
 project owner's identity bypasses module restrictions. Invitations copy their
 stored grants on acceptance; acceptance cannot supply a replacement grant.
 
