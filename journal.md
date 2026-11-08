@@ -20,8 +20,22 @@ Use it for important implementation milestones, blockers, validation runs, and r
   immutable identity, replay invalidation, and denied cross-project/viewer
   allocation passed. The complete tenant-isolation matrix also passed against
   a freshly migrated database with the required realtime stub.
-- Lint, RLS inventory, focused unit/API tests, and production build passed. Full
-  unit, coverage, and Playwright suites are in progress; final results follow.
+- Local validation passed on Node 24.15.0: lint, RLS inventory, production build,
+  38 focused tests and 100% statement/branch/function/line coverage of the new
+  resolver and route, plus the real PostgreSQL migration/isolation matrix.
+- GitHub Quality Core and Tenant Isolation passed on implementation commit
+  7fb1991e: 2,402 unit/API tests passed (3 skipped), with coverage of 94.44%
+  statements, 88.91% branches, 97.57% functions and 95.53% lines. Duplicate full
+  local unit/coverage runs were stopped after CI passed to free shared machine
+  resources for browser validation. Initial local setup attempts needed explicit
+  environment values and the realtime test stub; both were corrected.
+- CI evidence: https://github.com/dorianagaesse/nexus_dash/actions/runs/42428168499.
+  Reviewable PR: https://github.com/dorianagaesse/nexus_dash/pull/673. Copilot
+  review was not awaited, as requested. Production migration remains a release
+  operation requiring the documented maintenance window and verified backup.
+- Full local Playwright suite passed: 129 tests, 2 expected environment-specific
+  skips (13.2 minutes), including the expanded task numbering, project-scoped
+  lookup/search, foreign-project related-task exclusion, and stable-link flow.
 
 # 2026-11-05 - ND-659: enforce release impact decisions
 
