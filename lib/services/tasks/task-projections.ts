@@ -55,6 +55,18 @@ export const projectKanbanTaskInclude = {
   },
 } satisfies Prisma.TaskInclude;
 
+// The legacy dashboard predates person/epic/count hydration. Preserve its narrower
+// response while sharing publication and relation projections with board reads.
+export const legacyDashboardTasks = {
+  orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
+  include: {
+    attachments: projectKanbanTaskInclude.attachments,
+    blockedFollowUps: projectKanbanTaskInclude.blockedFollowUps,
+    outgoingRelations: projectKanbanTaskInclude.outgoingRelations,
+    incomingRelations: projectKanbanTaskInclude.incomingRelations,
+  },
+} satisfies Prisma.TaskFindManyArgs;
+
 export type ProjectKanbanTaskRecord = Prisma.TaskGetPayload<{
   include: typeof projectKanbanTaskInclude;
 }>;

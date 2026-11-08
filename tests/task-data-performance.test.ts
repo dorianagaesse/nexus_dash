@@ -6,8 +6,9 @@ import { expect, test } from "vitest";
 test.skipIf(process.env.ND545_PERFORMANCE !== "1")("measure actor-scoped Task reads and writes", async () => {
   const { prisma } = await import("@/lib/prisma");
   const { getRealtimeMetricsSnapshot } = await import("@/lib/observability/realtime-metrics");
-  const { listProjectKanbanTasks } = await import("@/lib/services/project-service");
+  const { listProjectKanbanTasks, getProjectDashboardById } = await import("@/lib/services/project-service");
   const { reorderProjectTasks, updateTaskForProject } = await import("@/lib/services/project-task-service");
+  const { searchProjectTaskIds } = await import("@/lib/services/project-task-search-service");
   const user = await prisma.user.create({ data: { name: "Task data measurement" } });
   const project = await prisma.project.create({ data: { ownerId: user.id, name: "ND-545 measurement" } });
   const samples: Record<string, Array<{ queries: number; ms: number }>> = {};
@@ -31,6 +32,13 @@ test.skipIf(process.env.ND545_PERFORMANCE !== "1")("measure actor-scoped Task re
     const mutation = await updateTaskForProject(project.id, tasks[0].id, { title: "Check draft isolation" }, user.id);
     expect(mutation.ok).toBe(true);
     if (mutation.ok) expect(mutation.data.task.attachments.map(attachment => attachment.id)).toEqual([published.id]);
+    const dashboard = await getProjectDashboardById(project.id, user.id);
+    expect(dashboard?.tasks.find(task => task.id === tasks[0].id)?.attachments.map(attachment => attachment.id))
+      .toEqual([published.id]);
+    const publishedSearch = await searchProjectTaskIds({ actorUserId: user.id, projectId: project.id, query: "Published attachment" });
+    expect(publishedSearch).toMatchObject({ ok: true, data: { taskIds: [tasks[0].id], totalMatches: 1 } });
+    const draftSearch = await searchProjectTaskIds({ actorUserId: user.id, projectId: project.id, query: "Unpublished comment attachment" });
+    expect(draftSearch).toMatchObject({ ok: true, data: { taskIds: [], totalMatches: 0 } });
     // Keep the performance fixture at its original attachment-free shape.
     await prisma.taskAttachment.deleteMany({ where: { taskId: tasks[0].id } });
     for (let iteration = 0; iteration < 13; iteration++) {
