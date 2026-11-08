@@ -1193,6 +1193,7 @@ export async function exchangeAgentApiKeyForAccessToken(input: {
   );
   const issuedToken = issueAgentAccessToken({
     credentialId: credential.id,
+    credentialPublicId: credential.publicId,
     projectId: credential.projectId,
     ownerUserId: credential.createdByUserId,
     scopes,
@@ -1240,8 +1241,8 @@ export async function recordAgentRequestUsage(input: {
   ownerUserId: string;
   projectId: string;
   tokenId: string;
-  issuedAt: Date;
   scopes: AgentScope[];
+  credentialPublicId?: string;
   requestId?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
@@ -1263,17 +1264,17 @@ export async function recordAgentRequestUsage(input: {
           projectId: input.projectId,
           createdByUserId: ownerUserId,
           revokedAt: null,
+          // Rotation replaces publicId atomically with the key. Bind usage to
+          // the key verified during exchange, even if rotation raced issuance.
+          // Legacy tokens cannot prove their generation after any rotation.
+          ...(input.credentialPublicId !== undefined
+            ? { publicId: input.credentialPublicId }
+            : { lastRotatedAt: null }),
           AND: [
             // A previously issued token cannot retain a scope removed by the owner.
             ...input.scopes.map((scope) => ({ scopeGrants: { some: { scope: AGENT_SCOPE_TO_DB_SCOPE[scope] } } })),
             {
               OR: [{ expiresAt: null }, { expiresAt: { gt: requestTimestamp } }],
-            },
-            {
-              OR: [
-                { lastRotatedAt: null },
-                { lastRotatedAt: { lte: input.issuedAt } },
-              ],
             },
           ],
         },

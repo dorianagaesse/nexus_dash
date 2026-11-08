@@ -1307,6 +1307,28 @@ Keep UI-only or task-only notes in `journal.md`.
   saving. Denied updates create no success event.
 
 
+## 2026-11-08 - ND-657: Bind agent bearer tokens to the current key generation
+
+- Status: Proposed for review.
+- Context: JWT `iat` uses whole seconds, while credential rotation records
+  milliseconds. Timestamp comparison rejects newly exchanged tokens within the
+  rotation second. Rounding the rotation time would accept old tokens, and a
+  millisecond issuance claim would still be ambiguous for equal timestamps or an
+  exchange racing rotation.
+- Decision: Sign the credential's existing `publicId` into each token as
+  `credentialPublicId`. Rotation already replaces this non-secret identifier
+  atomically with the secret hash. The usage update matches it alongside project,
+  creator, revocation, and expiry; issuance retains the generation read before
+  secret verification. No new database column or migration is needed.
+- Compatibility: Tokens without the claim remain usable only when
+  `lastRotatedAt` is null. Previously rotated credentials must re-exchange once
+  during rollout; accepting their legacy tokens cannot prove which key issued
+  them. Malformed claims fail signature/payload validation. JWT expiry remains
+  independent of the key generation.
+- Consequences: New keys work immediately and old generations fail even across
+  repeated rotations at one timestamp, clock skew, or delayed token issuance.
+  The existing atomic authorization update and audit transaction remain intact.
+
 ## 2026-11-08 - ND-663: complete the Task persistence boundary
 
 - Status: Proposed for user review; broader domain adoption remains a separate decision.
@@ -1352,3 +1374,30 @@ rejects older broader tokens immediately; adding a scope requires a new token
 exchange to use it. Scope replacement locks the credential first to serialize
 concurrent owner edits. Meeting CRUD routes use the same agent-principal guard
 as listing, with module and private-note checks retained in services and RLS.
+## 2026-11-08 - ND-191: personal todos in the existing project queue
+
+- Status: Proposed for review in ND-191; revised after product feedback.
+- Decision: Store text-only personal todos in `ProjectTodo`, separate from
+  Kanban tasks and meeting actions, but show them in the same Todo list.
+  Capture assigns the authenticated human creator. Personal todos show
+  **Only you**; existing meeting actions show **Project members**, including
+  actions attached to private meeting notes. No second checklist or creator
+  filter is exposed. Existing assignment and completion behavior is preserved.
+- Authorization: Service predicates and forced RLS require the creator and
+  current project membership. Project owners cannot access another person's
+  items; agents and orphaned rows have no access. Editors/owners may manage
+  their own items, and viewers remain read-only. Personal deletion uses
+  `task:write`, since it removes only the actor's own item, not project content.
+  ND-130's canonical capability function remains the authority through the
+  restrictive adapter; neither grants nor the shared guard are duplicated.
+- Migration: The new forward-only privacy migration replaces the initial
+  shared-checklist policies. Existing rows become private to their recorded
+  creator; creator-less rows remain inaccessible. Applied migrations are not
+  rewritten and no existing data is deleted.
+- Concurrency: Revisions protect edits, completion and deletion. Unknown,
+  foreign, other-person, stale and deleted IDs return the same conflict.
+  Failed saves and refreshes retain edit text, including when filters hide it.
+- Activity: Personal changes do not emit project-wide activity or notifications.
+  The client uses the existing local mutation lifecycle to refresh the actor's
+  navigation count. Meeting completion and realtime transport are unchanged.
+  ND-378 remains canceled; there is no global Todos or cross-project search.

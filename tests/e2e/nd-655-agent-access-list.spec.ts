@@ -193,24 +193,13 @@ test("ND-655: readable directory, focused management flows, and independent comp
       })
     ).ok()
   ).toBeFalsy();
-  // ND-657: re-exchange across the existing second-precision rotation boundary.
-  let accessToken = "";
-  const rotatedKey = await key.inputValue();
-  await expect
-    .poll(async () => {
-      const exchange = await page.request.post("/api/auth/agent/token", {
-        data: { apiKey: rotatedKey },
-      });
-      expect(exchange.ok()).toBeTruthy();
-      accessToken = (await exchange.json()).accessToken;
-      return (
-        await page.request.get(`/api/projects/${projectId}/tasks`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        })
-      ).ok();
-    })
-    .toBe(true);
+  const exchange = await page.request.post("/api/auth/agent/token", {
+    data: { apiKey: await key.inputValue() },
+  });
+  expect(exchange.ok()).toBeTruthy();
+  const { accessToken } = await exchange.json();
   const headers = { Authorization: `Bearer ${accessToken}` };
+  expect((await page.request.get(`/api/projects/${projectId}/tasks`, { headers })).status()).toBe(200);
   expect(
     (
       await page.request.patch(capabilityPath, {

@@ -19,6 +19,12 @@ Implemented today:
 - DB-backed session cookies
 - Protected routes: `/projects/**`, `/account/**`
 - Project CRUD
+- Project Todos combines meeting actions and personal todos in one list. Add
+  a todo for yourself with just text; edit, complete/reopen, or delete your own
+  items. Personal todos show **Only you** and are hidden from other members,
+  including project owners. Meeting actions show **Project members** and retain
+  their existing assignment and private-note rules. Open/Completed and
+  responsibility filters apply to the combined list. Viewers remain read-only.
 - Project sharing with owner-managed membership/invitation flows, including email-bound invite links
 - In-app notification center for durable unread/read notification review, starting with project invitations
 - Project notification email digests, delayed invitation reminders, and
@@ -140,6 +146,13 @@ Open `http://localhost:3000`.
   Settings and Agent access dialogs use the same thin, transparent-track
   scrollbar as the task dialogs and agent guide.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
+- Key rotation immediately invalidates tokens from the previous key. A token
+  exchanged with the new key works immediately, even within the same millisecond.
+  Bearer tokens are bound to the key's public ID rather than a rounded issuance
+  timestamp; revocation and credential expiry are still checked on every request.
+  During the ND-657 rollout, older tokens without that binding remain usable only
+  on never-rotated credentials. Agents with previously rotated credentials must
+  exchange their current API key again if they receive `401`.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
 - In Sharing > Agent access, owners can enable **Task completion** separately
   on each credential. Task Write is still required. New and existing credentials

@@ -128,3 +128,23 @@ npx vercel curl /api/health/live --deployment <preview-url>
 
 TASK-059 is ready to merge only when all assertions above pass on the deployed
 preview and cleanup is complete.
+
+
+## ND-657 rotation boundary regression
+
+The browser credential-management test exchanges the rotated key once and uses
+its token immediately; it must not poll, sleep, or re-exchange to hide a `401`.
+`tests/e2e/nd-657-agent-token-rotation.spec.ts` additionally freezes only Node's
+Date clock and runs the actual credential services and usage query against
+PostgreSQL at `.000`, `.001`, and `.999`. It covers repeated rotations in one
+millisecond, previous keys/tokens, legacy tokens, delayed old-generation issuance,
+revocation, and expiry. Run it with the normal local E2E database setup:
+
+```sh
+npx playwright test tests/e2e/nd-657-agent-token-rotation.spec.ts tests/e2e/nd-655-agent-access-list.spec.ts
+```
+
+The server must use this branch's production build. Bearer payloads now contain
+the public key ID as a signed generation binding. Legacy tokens without it are
+accepted only for never-rotated credentials; re-exchange the current key after
+rollout if a previously rotated credential receives `401`.

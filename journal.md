@@ -3,6 +3,113 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+
+# 2026-11-08 - ND-657: reconcile review against current main
+
+- Addressed PR #671's integration blocker by merging main at `2f65f739` into
+  the existing task branch. Preserved both sides of the ADR and journal
+  additions, including ND-663 and ND-191, and retained the single-exchange
+  browser assertion instead of main's temporary retry workaround.
+- The review found no actionable correctness or security defects in ND-657.
+  Application auth code is unchanged; integrated validation and the final
+  commit are recorded on PR #671. Its base is now main, so the earlier stacking
+  instructions are historical. ND-657 remains In Progress for final review.
+
+
+# 2026-11-08 - ND-657: immediate agent token use after key rotation
+
+- Started from current main in an isolated worktree, then included ND-655's
+  branch as the prerequisite so its temporary browser re-exchange polling can
+  be removed in this change. ND-656 is independent and is not included.
+- Bound signed bearer tokens to the credential's existing public key ID. The
+  atomic usage write checks that generation with the existing project, creator,
+  revocation, and expiry filters. No schema change or timestamp tolerance is
+  needed. Legacy tokens are accepted only on never-rotated credentials;
+  previously rotated credentials must re-exchange their current key at rollout.
+- Added signed-claim validation, API-guard propagation, exchange-race coverage,
+  and real PostgreSQL service regressions at .000, .001, and .999 with a frozen
+  Date clock. Repeated same-millisecond rotations reject every previous key and
+  token; delayed old-generation issuance, revocation, and expiry remain denied.
+- Initial validation passed: 37 focused unit/API checks, all three deterministic
+  PostgreSQL boundary cases, lint, RLS inventory, production build, and the full
+  PostgreSQL isolation matrix. Full unit/coverage and browser runs are in progress.
+  Initial local setup attempts omitted unit-test DATABASE_URL and the matrix's
+  pre-migration Realtime stub; reruns use the documented explicit environment and
+  a separate matrix database initialized with that stub.
+- Final implementation validation: local lint, RLS inventory, 2,393 unit/API
+  tests (three expected skips), production build, and PostgreSQL isolation passed.
+  [Quality Gates 42427535277](https://github.com/dorianagaesse/nexus_dash/actions/runs/42427535277)
+  passed every job on `be33dc8aa4455e014cfa9b7fa972ec9179b9613d`, including
+  coverage (94.34% statements, 88.64% branches, 95.47% lines), all 136 browser
+  checks (two expected skips), and the container build.
+- The full local browser run passed 135 checks with two expected skips and one
+  unrelated meeting-todo dialog-opening timeout. That exact check passed unchanged
+  in isolation, and the full CI browser run was green. All four ND-655 UI checks
+  and the three deterministic ND-657 database cases passed in the full local run.
+- Delivered [PR #671](https://github.com/dorianagaesse/nexus_dash/pull/671),
+  stacked on ND-655 until its human merge. The final journal follow-up changes
+  documentation only; application code and tests match the validated implementation.
+  Automated review was requested; review results and any follow-up remain on the PR.
+
+# 2026-11-08 - ND-191: lightweight project checklist
+
+- Implemented text-only standalone checklist capture on the existing project
+  Todos page, with inline editing, completion/reopening, creator filtering,
+  owner deletion, and draft recovery after failed or conflicting writes.
+  Meeting follow-ups and the personal floating panel retain their contracts.
+- Used an isolated worktree from `origin/main` (`9d61fb52`) and opened PR #682.
+  Dorian canceled ND-378 during implementation; recorded the cancellation and
+  narrowed the epic to ND-191. No global search or navigation was implemented.
+- Coordinated `task:read/write/delete` with ND-130 / PR #680. The checklist's
+  RLS adapter delegates to the canonical capability function when installed;
+  no capability grants, identity framework, or realtime transport were copied.
+  Tested both baseline role enforcement and late capability-provider arrival.
+  Also applied ND-130's actual schema/enforcement migrations from `ebebbcfc`
+  to an isolated database containing ND-191: legacy, denied, task-read,
+  task-write, and meeting-only grants behaved correctly, and editors could
+  never delete checklist rows.
+- PostgreSQL validation used a dedicated container on port 55191. Installed
+  the existing Realtime policy stub before migrations for the standard matrix.
+  Local checks use Node 24.22.1; full Vitest runs use explicit `NODE_ENV=test`,
+  one thread worker and the verbose reporter on Windows.
+- Validation: full unit and coverage runs passed (2,425 tests, 3 skipped),
+  plus seven focused checklist recovery/filter tests. Coverage: 94.39% statements,
+  89.06% branches, 97.05% functions, 95.55% lines. Lint, RLS inventory, real
+  PostgreSQL matrix and production build passed. The full local browser run had
+  134 passes and 2 skips; its sole failure was a checklist test expecting a
+  checkbox to stay mounted after moving into Completed. Corrected that assertion
+  and rebuilt: all eight checklist/meeting-todo browser tests passed. Desktop
+  (1440px) and mobile (390px) captures are attached to the Playwright report;
+  the design detector returned no findings. Copilot review was skipped per
+  Dorian's instruction because it is currently unavailable.
+- A fresh visual/source review caught an active draft being closed by a
+  different item's mutation. Limited editor closure to saving that item's text;
+  unrelated completion/deletion and completion of the edited item now preserve
+  the draft. Regression tests cover each path.
+
+# 2026-11-08 - ND-425: agent task-edit coverage audit
+
+- Audited the current Kanban UI, shared task contracts, routes, services,
+  attachment/comment actor policies, and hosted agent OpenAPI from
+  `origin/main` at `9d61fb5243f90931fe238fc359324be24f516548`, using an isolated
+  worktree to preserve unrelated root edits.
+- Confirmed ND-649's PR #657 is merged. The user-authorized attempt to move
+  ND-649 to Done returned 403 `agent-done-move-disabled`; left its credential
+  permissions unchanged and reported the required owner action.
+- Added `docs/audits/nd-425-agent-task-api-coverage.md` with per-operation
+  coverage, source-derived findings, explicit exclusions, and historical
+  closure of ND-424 / GitHub #486 and ND-451. Corrected the runbook's stale
+  assertion that existing task link attachments can be edited in the UI.
+- Searched the live task/epic inventory and created the related epic
+  "Agent task API parity and actor-safe collaboration" with ND-669 through
+  ND-674: task attachment attribution, unpublished uploader isolation,
+  reaction attribution, nested reaction parents, local-storage task uploads,
+  and actor/mention contract documentation. Read back each card to verify its
+  Backlog lane, labels, criteria, report attachment, epic and relationships.
+- Validation: documentation-only diff; `git diff --check` and relative-link
+  validation passed. Inspected existing regression tests; no runtime tests,
+  schema changes, deployments or production file/reaction probes were needed.
+
 # 2026-11-08 - ND-375: production Broadcast configuration investigation
 
 - Recorded Dorian's decision to retain Vercel Pro and picked up ND-375 for the
@@ -11348,3 +11455,54 @@ Low-value entries to avoid going forward:
   protection, owner-only scope editing, cancel/save, unchanged keys and existing
   token behavior. Extended the real PostgreSQL RLS matrix for scope replacement
   and non-owner/cross-project denials. Updated hosted agent API documentation.
+
+## 2026-11-08 - ND-191 revision: one list and private personal capture
+
+- Dorian rejected the initial separate shared checklist. Revised the same PR
+  to one Todo list: existing meeting actions plus creator-private personal
+  items, one Open/Completed control and existing responsibility filters.
+  Capture and personal rows explain Only you; meeting rows explicitly say
+  Project members. Existing meeting-note privacy/assignment behavior remains.
+- Added a forward-only privacy migration. Service reads/counts/writes bind
+  both project and creator; RLS also rejects other members, project owners,
+  agents and revoked creators. No personal data enters shared activity events.
+  Own deletion uses task:write, coordinated with ND-130 PR #680. Actual ND-130
+  migrations pass legacy, denied, read-only, write and meeting-only grant cases.
+- Removed the separate checklist component and its redundant controls. Kept
+  recovery for failed capture, stale saves, remotely removed items and hidden
+  edits. Navigation counts include only the caller's own personal items.
+- Initial browser checks needed test fixes: scope the alert locator away from
+  Next's route announcer, match the existing lower-case accessible tab names,
+  and await navigation before reloading. No product behavior was changed to
+  satisfy those assertions. The corrected personal flows and existing meeting
+  flows pass. The first visual pass found a cramped mobile meeting title;
+  moved its assignee below the text on phones and confirmed the batched
+  desktop/mobile/light/dark/landscape captures. No horizontal overflow at
+  enlarged text. The manual design detector returned no findings.
+- PostgreSQL isolation matrix and 47 focused tests pass. The first broad unit
+  invocation omitted DATABASE_URL; reran with the documented local environment:
+  2,433 tests pass, 3 skipped. Required coverage/full browser gates and the
+  independent finish review are recorded in the final PR handoff.
+- Coverage passes: 95.56% lines and 89.08% branches. Fresh Impeccable review
+  accepted the single-list structure, explicit privacy and responsive layout,
+  and requested one loading-label encoding correction. Fixed the label to
+  Adding... and added a pending/duplicate-submission regression test. Final
+  reviewer verdict and complete browser/CI results are linked from PR #682.
+- The broad browser run exposed a superseded mobile assertion requiring
+  assignee/text vertical overlap. Updated it to require readable full-width
+  text above the chip. A separate unchanged floating-panel test missed a
+  pre-hydration click; applied the existing suite's bounded open/retry pattern.
+  Both assertions retain their functional checks. Final rerun evidence is
+  recorded on the PR and card.
+
+
+### ND-130 integration handoff
+
+- The scoped-meeting and permission-editor follow-up passed 2,409 unit tests,
+  coverage, lint, build, the real PostgreSQL isolation matrix, and 64 live checks
+  using the two supplied Preview credentials. Full access includes meeting CRUD
+  and Done transitions; read-only mutations returned 403. Temporary records were
+  removed. Preview run 42529527257 verified revision 65769da and both URL targets.
+- Integrated current main after ND-191 personal todos and ND-657 token rotation
+  landed. Resolved token-guard conflicts by retaining both current key-generation
+  binding and live scope-subset checks; preserved both branches' execution notes.
