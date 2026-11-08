@@ -8,7 +8,9 @@ import { ProjectAgentCredentialList } from "@/components/project-dashboard/proje
 import type { ProjectAgentCredentialSummary } from "@/components/project-dashboard/project-dashboard-owner-actions.shared";
 
 (globalThis as { React?: typeof React }).React = React;
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 afterEach(() => {
   vi.useRealTimers();
@@ -20,40 +22,69 @@ test("announces only the settled result count while updating visible matches imm
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
-  const credentials: ProjectAgentCredentialSummary[] = ["Release agent", "Observer"].map((label, index) => ({
-    id: `credential-${index}`, label, publicId: `nda_${index}`, scopes: ["task:read"], status: "active",
-    expiresAt: null, lastUsedAt: null, lastExchangedAt: null, lastRotatedAt: null, revokedAt: null,
-    createdAt: "2026-11-05T09:00:00.000Z", updatedAt: "2026-11-05T09:00:00.000Z",
+  const credentials: ProjectAgentCredentialSummary[] = [
+    "Release agent",
+    "Observer",
+  ].map((label, index) => ({
+    id: `credential-${index}`,
+    label,
+    publicId: `nda_${index}`,
+    scopes: ["task:read"],
+    status: "active",
+    canMoveTasksToDone: false,
+    expiresAt: null,
+    lastUsedAt: null,
+    lastExchangedAt: null,
+    lastRotatedAt: null,
+    revokedAt: null,
+    createdAt: "2026-11-05T09:00:00.000Z",
+    updatedAt: "2026-11-05T09:00:00.000Z",
   }));
 
   try {
-    await act(async () => root.render(<ProjectAgentCredentialList
-      credentials={credentials}
-      mutatingCredentialId={null}
-      onRotateCredential={() => {}}
-      onRevokeCredential={() => {}}
-    />));
+    await act(async () =>
+      root.render(
+        <ProjectAgentCredentialList
+          credentials={credentials}
+          mutatingCredentialId={null}
+          onManageCredential={() => {}}
+          onUpdateCapabilities={() => {}}
+          actionError={null}
+        />
+      )
+    );
     const announcement = container.querySelector('[role="status"]')!;
     expect(announcement.textContent).toBe("");
-    await act(async () => { vi.advanceTimersByTime(400); });
+    await act(async () => {
+      vi.advanceTimersByTime(400);
+    });
     expect(announcement.textContent).toBe("Showing 2 of 2 credentials");
 
     const search = container.querySelector('input[type="search"]')!;
     const fill = async (value: string) => {
       await act(async () => {
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, value);
+        Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          "value"
+        )!.set!.call(search, value);
         search.dispatchEvent(new Event("input", { bubbles: true }));
       });
     };
     await fill("Release");
     expect(container.querySelectorAll("li")).toHaveLength(1);
     expect(announcement.textContent).toBe("Showing 2 of 2 credentials");
-    await act(async () => { vi.advanceTimersByTime(200); });
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
     await fill("No match");
     expect(container.querySelectorAll("li")).toHaveLength(0);
-    await act(async () => { vi.advanceTimersByTime(399); });
+    await act(async () => {
+      vi.advanceTimersByTime(399);
+    });
     expect(announcement.textContent).toBe("Showing 2 of 2 credentials");
-    await act(async () => { vi.advanceTimersByTime(1); });
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
     expect(announcement.textContent).toBe("Showing 0 of 2 credentials");
   } finally {
     await act(async () => root.unmount());
@@ -79,7 +110,7 @@ test("model labels are searchable and still combine with status and capability f
     });
   };
   try {
-    await act(async () => root.render(<ProjectAgentCredentialList credentials={credentials} mutatingCredentialId={null} onRotateCredential={() => {}} onRevokeCredential={() => {}} />));
+    await act(async () => root.render(<ProjectAgentCredentialList credentials={credentials} mutatingCredentialId={null} onManageCredential={() => {}} onUpdateCapabilities={() => {}} actionError={null} />));
     const search = container.querySelector('input[type="search"]')!;
     await change(search, " cOdEx ");
     expect([...container.querySelectorAll("li")].map(li => li.getAttribute("aria-label"))).toEqual(["Release agent"]);

@@ -29,6 +29,19 @@ export function compareVersions(left, right) {
   return 0;
 }
 
+export function bumpVersion(current, impact) {
+  switch (impact) {
+    case "patch":
+      return { ...current, patch: current.patch + 1 };
+    case "minor":
+      return { major: current.major, minor: current.minor + 1, patch: 0 };
+    case "major":
+      return { major: current.major + 1, minor: 0, patch: 0 };
+    default:
+      throw new Error(`Invalid release impact: ${impact}. Use patch, minor, or major.`);
+  }
+}
+
 export function readJsonFile(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }

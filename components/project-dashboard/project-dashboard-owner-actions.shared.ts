@@ -76,6 +76,7 @@ export type ResponsibilityResolution =
   | { mode: "unassign" };
 
 export interface ProjectAgentCredentialSummary {
+  canMoveTasksToDone: boolean;
   id: string;
   label: string;
   descriptiveLabels?: string[];
@@ -105,7 +106,6 @@ export interface ProjectAgentAuditEventSummary {
 }
 
 export interface ProjectAgentAccessSummary {
-  agentCanMoveTasksToDone: boolean;
   projectId: string;
   accessTokenTtlSeconds: number;
   credentials: ProjectAgentCredentialSummary[];
@@ -113,6 +113,7 @@ export interface ProjectAgentAccessSummary {
 }
 
 export interface ProjectAgentAccessActionError {
+  credentialId?: string;
   action: "create" | "rotate" | "capabilities" | "labels";
   message: string;
 }
@@ -287,6 +288,8 @@ export function formatAgentAuditAction(action: AgentAuditAction): string {
       return "Credential created";
     case "credential_rotated":
       return "Credential rotated";
+    case "credential_capabilities_updated":
+      return "Credential capabilities updated";
     case "credential_revoked":
       return "Credential revoked";
     case "token_exchanged":

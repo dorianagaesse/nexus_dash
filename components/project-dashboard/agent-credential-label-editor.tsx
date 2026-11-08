@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import {
   AGENT_DESCRIPTIVE_LABELS_HINT,
@@ -21,11 +21,13 @@ export function AgentCredentialLabelEditor({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const id = `credential-labels-${credentialId}`;
 
   if (!isEditing) {
     return (
-      <Button type="button" variant="outline" size="sm" disabled={disabled}
+      <Button ref={triggerRef} type="button" variant="outline" size="sm" disabled={disabled}
         aria-label={`Edit descriptive labels for ${name}`}
         onClick={() => {
           setDraft((labels ?? []).join(", "));
@@ -41,11 +43,15 @@ export function AgentCredentialLabelEditor({
     const parsed = parseAgentCredentialDescriptiveLabelsDraft(draft);
     if (!parsed) {
       setError(AGENT_DESCRIPTIVE_LABELS_HINT + " Labels must be non-empty text.");
+      inputRef.current?.focus();
       return;
     }
     setIsSaving(true);
     try {
-      if (await onSave(parsed)) setIsEditing(false);
+      if (await onSave(parsed)) {
+        setIsEditing(false);
+        requestAnimationFrame(() => triggerRef.current?.focus());
+      }
       else setError("Could not save labels. Please retry.");
     } catch {
       setError("Could not save labels. Please retry.");
@@ -57,17 +63,20 @@ export function AgentCredentialLabelEditor({
   return (
     <div className="w-full min-w-0 space-y-2">
       <label htmlFor={id} className="block text-sm font-medium">Descriptive labels for {name}</label>
-      <input id={id} autoFocus value={draft} disabled={disabled || isSaving}
+      <input ref={inputRef} id={id} autoFocus value={draft} disabled={disabled || isSaving}
         aria-describedby={`${id}-hint${error ? ` ${id}-error` : ""}`}
         aria-invalid={Boolean(error)}
         onChange={(event) => { setDraft(event.target.value); setError(null); }}
-        className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm"
+        className="h-11 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
       <p id={`${id}-hint`} className="text-xs text-muted-foreground">{AGENT_DESCRIPTIVE_LABELS_HINT} Leave empty to remove all labels.</p>
       {error ? <p id={`${id}-error`} role="alert" className="text-sm text-destructive">{error}</p> : null}
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" disabled={disabled || isSaving} onClick={() => void save()}>{isSaving ? "Saving labels..." : "Save labels"}</Button>
-        <Button type="button" size="sm" variant="ghost" disabled={isSaving} onClick={() => setIsEditing(false)}>Cancel</Button>
+        <Button type="button" size="sm" variant="ghost" disabled={isSaving} onClick={() => {
+          setIsEditing(false);
+          requestAnimationFrame(() => triggerRef.current?.focus());
+        }}>Cancel</Button>
       </div>
     </div>
   );

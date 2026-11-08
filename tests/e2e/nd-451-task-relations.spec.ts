@@ -13,16 +13,16 @@ test("agent pair edits preserve other edges and read back from both endpoints", 
   const projectPath = `/api/projects/${project.id}`;
 
   try {
-    // This fixture archives through the agent, so the owner explicitly permits Done moves.
-    const capabilities = await page.request.patch(`${projectPath}/agent-access`, {
-      data: { agentCanMoveTasksToDone: true },
-    });
-    expect(capabilities.status()).toBe(200);
     const credential = await page.request.post(`${projectPath}/agent-access`, {
       data: { label: "Relation test agent", scopes: ["task:read", "task:write"] },
     });
     expect(credential.status()).toBe(201);
-    const { apiKey } = await credential.json();
+    const { apiKey, credential: issued } = await credential.json();
+    // Only this credential may complete the fixture task before archiving it.
+    const capabilities = await page.request.patch(`${projectPath}/agent-access/${issued.id}`, {
+      data: { canMoveTasksToDone: true },
+    });
+    expect(capabilities.status()).toBe(200);
     const exchange = await page.request.post("/api/auth/agent/token", {
       headers: { Authorization: `ApiKey ${apiKey}` },
     });

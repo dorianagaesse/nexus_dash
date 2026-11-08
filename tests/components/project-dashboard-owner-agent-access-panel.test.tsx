@@ -1,165 +1,86 @@
-import React from "react";
+import React, { type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
-
 import { ProjectDashboardOwnerAgentAccessPanel } from "@/components/project-dashboard/project-dashboard-owner-agent-access-panel";
 
 (globalThis as { React?: typeof React }).React = React;
+const props: ComponentProps<typeof ProjectDashboardOwnerAgentAccessPanel> = {
+  projectId: "project-1",
+  accessSummary: {
+    projectId: "project-1",
+    accessTokenTtlSeconds: 600,
+    recentEvents: [],
+    credentials: [
+      {
+        id: "credential-1",
+        label: "Release assistant",
+        publicId: "nda_public",
+        canMoveTasksToDone: false,
+        scopes: ["project:read", "task:read", "task:write"],
+        status: "active",
+        expiresAt: null,
+        lastUsedAt: null,
+        lastExchangedAt: null,
+        lastRotatedAt: null,
+        revokedAt: null,
+        createdAt: "2026-11-05T09:00:00Z",
+        updatedAt: "2026-11-05T09:00:00Z",
+      },
+    ],
+  },
+  isLoadingAccessSummary: false,
+  accessLoadError: null,
+  actionError: null,
+  onClearActionError: () => {},
+  onRefreshAccess: () => {},
+  onUpdateCapabilities: () => {},
+  isCreatingCredential: false,
+  mutatingCredentialId: null,
+  latestIssuedSecret: null,
+  onCreateCredential: () => {},
+  onRotateCredential: () => {},
+  onRevokeCredential: () => {},
+  onDismissLatestSecret: () => {},
+};
 
-describe("project-dashboard-owner-agent-access-panel", () => {
-  test("renders an immediate loading state with width-contained panel layout", () => {
+describe("Agent access directory", () => {
+  test("puts human-readable access and per-agent completion ahead of setup details", () => {
     const result = renderToStaticMarkup(
-      React.createElement(ProjectDashboardOwnerAgentAccessPanel, {
-        projectId: "project-with-an-extremely-long-identifier-that-must-not-widen-the-modal",
-        accessSummary: null,
-        isLoadingAccessSummary: true,
-        accessLoadError: null,
-        actionError: null,
-        onRefreshAccess: () => {},
-        isSavingCapabilities: false,
-        onUpdateCapabilities: () => {},
-        isCreatingCredential: false,
-        mutatingCredentialId: null,
-        latestIssuedSecret: null,
-        onCreateCredential: () => {},
-        onRotateCredential: () => {},
-        onRevokeCredential: () => {},
-        onDismissLatestSecret: () => {},
-      })
+      <ProjectDashboardOwnerAgentAccessPanel {...props} />
     );
+    expect(result).toContain("Release assistant");
+    expect(result).toContain("Read &amp; write");
+    expect(result).toContain("Review required");
+    expect(result).toContain("Allow Release assistant to move tasks to Done");
+    expect(result).toContain("New credential");
+    expect(result).toContain("Setup guide");
+    expect(result).not.toContain("nda_public");
+    expect(result).not.toContain("NEXUSDASH_API_KEY");
+    expect(result).not.toContain("Customize permissions");
+  });
 
-    expect(result).toContain('role="status"');
+  test("shows a loading state instead of implying the project has no agents", () => {
+    const result = renderToStaticMarkup(
+      <ProjectDashboardOwnerAgentAccessPanel
+        {...props}
+        accessSummary={null}
+        isLoadingAccessSummary
+      />
+    );
     expect(result).toContain("Loading credentials...");
-    expect(result).toContain("grid min-w-0 max-w-full");
-    expect(result).toContain("min-w-0 max-w-full overflow-x-auto");
-    expect(result).toContain("break-all");
+    expect(result).not.toContain("Invite your first agent");
   });
 
-  test("renders one-time key reveal, credential metadata, and audit events", () => {
+  test("makes load failures actionable without showing a misleading empty directory", () => {
     const result = renderToStaticMarkup(
-      React.createElement(ProjectDashboardOwnerAgentAccessPanel, {
-        projectId: "project-1",
-        accessSummary: {
-          projectId: "project-1",
-          agentCanMoveTasksToDone: false,
-          accessTokenTtlSeconds: 600,
-          credentials: [
-            {
-              id: "credential-1",
-              label: "Release bot",
-              publicId: "nda_public",
-              scopes: ["task:read", "task:write"],
-              status: "active",
-              expiresAt: null,
-              lastUsedAt: "2026-03-31T09:05:00.000Z",
-              lastExchangedAt: "2026-03-31T09:00:00.000Z",
-              lastRotatedAt: null,
-              revokedAt: null,
-              createdAt: "2026-03-31T08:30:00.000Z",
-              updatedAt: "2026-03-31T09:05:00.000Z",
-            },
-          ],
-          recentEvents: [
-            {
-              id: "audit-1",
-              action: "request_used",
-              credentialId: "credential-1",
-              credentialLabel: "Release bot",
-              requestId: "request-123",
-              ipAddress: "198.51.100.42",
-              userAgent: "Vitest",
-              httpMethod: "GET",
-              path: "/api/projects/project-1/tasks",
-              createdAt: "2026-03-31T09:05:00.000Z",
-            },
-          ],
-        },
-        isLoadingAccessSummary: false,
-        accessLoadError: null,
-        actionError: null,
-        onRefreshAccess: () => {},
-        isSavingCapabilities: false,
-        onUpdateCapabilities: () => {},
-        isCreatingCredential: false,
-        mutatingCredentialId: null,
-        latestIssuedSecret: {
-          mode: "created",
-          credential: {
-            id: "credential-1",
-            label: "Release bot",
-            publicId: "nda_public",
-            scopes: ["task:read", "task:write"],
-            status: "active",
-            expiresAt: null,
-            lastUsedAt: null,
-            lastExchangedAt: null,
-            lastRotatedAt: null,
-            revokedAt: null,
-            createdAt: "2026-03-31T08:30:00.000Z",
-            updatedAt: "2026-03-31T08:30:00.000Z",
-          },
-          apiKey: "nda_public.secret",
-          accessTokenTtlSeconds: 600,
-        },
-        onCreateCredential: () => {},
-        onRotateCredential: () => {},
-        onRevokeCredential: () => {},
-        onDismissLatestSecret: () => {},
-      })
+      <ProjectDashboardOwnerAgentAccessPanel
+        {...props}
+        accessSummary={null}
+        accessLoadError="Could not load credentials. Please retry."
+      />
     );
-
-    expect(result).toContain("Agent access");
-    expect(result).toContain("Copy the new API key now");
-    expect(result).toContain("nda_public.secret");
-    expect(result).toContain("Release bot");
-    expect(result).toContain("task:read");
-    expect(result).toContain("Request used");
-    expect(result).toContain("Request:");
-    expect(result).toContain("/api/projects/project-1/tasks");
-    expect(result).toContain("Project quickstart");
-    expect(result).toContain("NEXUSDASH_PROJECT_ID=project-1");
-    expect(result).toContain("NEXUSDASH_API_KEY=nda_public.secret");
-    expect(result).toContain('aria-label="Copy API key for Release bot"');
-  });
-
-  test("renders scope presets with the non-destructive default pre-selected", () => {
-    const result = renderToStaticMarkup(
-      React.createElement(ProjectDashboardOwnerAgentAccessPanel, {
-        projectId: "project-1",
-        accessSummary: {
-          projectId: "project-1",
-          agentCanMoveTasksToDone: false,
-          accessTokenTtlSeconds: 600,
-          credentials: [],
-          recentEvents: [],
-        },
-        isLoadingAccessSummary: false,
-        accessLoadError: null,
-        actionError: null,
-        onRefreshAccess: () => {},
-        isSavingCapabilities: false,
-        onUpdateCapabilities: () => {},
-        isCreatingCredential: false,
-        mutatingCredentialId: null,
-        latestIssuedSecret: null,
-        onCreateCredential: () => {},
-        onRotateCredential: () => {},
-        onRevokeCredential: () => {},
-        onDismissLatestSecret: () => {},
-      })
-    );
-
-    expect(result).toContain("Read only");
-    expect(result).toContain("Read + write (no delete)");
-    expect(result).toContain("Full access");
-    expect(result).toContain("Recommended");
-    expect(result).toContain("Scope presets");
-    expect(result).toContain(
-      "Start from a preset, then adjust with the checkboxes."
-    );
-
-    expect(result).toContain('aria-pressed="true"');
-    const checkedCount = (result.match(/checked=""/g) ?? []).length;
-    expect(checkedCount).toBe(3);
+    expect(result).toContain('aria-label="Credential loading error"');
+    expect(result).toContain("Retry loading credentials");
+    expect(result).not.toContain("Invite your first agent");
   });
 });

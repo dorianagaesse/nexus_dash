@@ -10,6 +10,7 @@ import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SLIM_SCROLLBAR_CLASSES } from "@/components/ui/scrollbar";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ProjectDashboardOwnerAgentAccessPanel } from "@/components/project-dashboard/project-dashboard-owner-agent-access-panel";
@@ -104,7 +105,6 @@ export function ProjectDashboardOwnerActions({
   const [sharingSummary, setSharingSummary] = useState<ProjectSharingSummary | null>(null);
   const [isLoadingSharing, setIsLoadingSharing] = useState(false);
   const [sharingError, setSharingError] = useState<string | null>(null);
-  const [isSavingAgentCapabilities, setIsSavingAgentCapabilities] = useState(false);
   const [agentAccessSummary, setAgentAccessSummary] =
     useState<ProjectAgentAccessSummary | null>(null);
   const [isLoadingAgentAccess, setIsLoadingAgentAccess] = useState(false);
@@ -801,34 +801,37 @@ export function ProjectDashboardOwnerActions({
     }
   };
 
-  const handleUpdateAgentCapabilities = async (allowed: boolean) => {
-    if (isSavingAgentCapabilities) return;
-    setIsSavingAgentCapabilities(true);
+  const handleUpdateAgentCapabilities = async (credential: ProjectAgentCredentialSummary, allowed: boolean) => {
+    if (mutatingAgentCredentialId) return;
+    setMutatingAgentCredentialId(credential.id);
     setAgentAccessActionError(null);
     try {
-      const response = await fetch(`/api/projects/${projectId}/agent-access`, {
+      const response = await fetch(`/api/projects/${projectId}/agent-access/${credential.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentCanMoveTasksToDone: allowed }),
+        body: JSON.stringify({ canMoveTasksToDone: allowed }),
       });
       const payload = (await response.json().catch(() => null)) as
-        { agentCanMoveTasksToDone?: boolean; error?: string } | null;
-      if (!response.ok || typeof payload?.agentCanMoveTasksToDone !== "boolean") {
+        { canMoveTasksToDone?: boolean; error?: string } | null;
+      if (!response.ok || typeof payload?.canMoveTasksToDone !== "boolean") {
         throw new Error("Could not save agent capabilities. Please retry.");
       }
-      const agentCanMoveTasksToDone = payload.agentCanMoveTasksToDone;
+      const canMoveTasksToDone = payload.canMoveTasksToDone;
       setAgentAccessSummary((previous) =>
-        previous ? { ...previous, agentCanMoveTasksToDone } : previous
+        previous ? { ...previous, credentials: previous.credentials.map((entry) =>
+          entry.id === credential.id ? { ...entry, canMoveTasksToDone } : entry
+        ) } : previous
       );
+      await loadAgentAccessSummary();
       pushToast({ variant: "success", message: "Agent capabilities saved." });
     } catch (error) {
       const message = error instanceof Error
         ? error.message
         : "Could not save agent capabilities. Please retry.";
-      setAgentAccessActionError({ action: "capabilities", message });
+      setAgentAccessActionError({ action: "capabilities", message, credentialId: credential.id });
       pushToast({ variant: "error", message });
     } finally {
-      setIsSavingAgentCapabilities(false);
+      setMutatingAgentCredentialId(null);
     }
   };
 
@@ -893,6 +896,7 @@ export function ProjectDashboardOwnerActions({
   ): Promise<boolean> => {
     if (mutatingAgentCredentialId) return false;
     setAgentAccessActionError(null);
+    setMutatingAgentCredentialId(credential.id);
     try {
       const response = await fetch(`/api/projects/${projectId}/agent-access/${credential.id}/labels`, {
         method: "PATCH",
@@ -916,9 +920,11 @@ export function ProjectDashboardOwnerActions({
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not save descriptive labels.";
-      setAgentAccessActionError({ action: "labels", message });
+      setAgentAccessActionError({ action: "labels", message, credentialId: credential.id });
       pushToast({ variant: "error", message });
       return false;
+    } finally {
+      setMutatingAgentCredentialId(null);
     }
   };
 
@@ -1203,13 +1209,18 @@ export function ProjectDashboardOwnerActions({
         }}
       >
         <DialogContent
+          onEscapeKeyDown={(event) => {
+            if (event.target instanceof Element && event.target.closest("[data-agent-access-dialog]")) {
+              event.preventDefault();
+            }
+          }}
           dismissible={isProjectSettingsDismissible}
           className="z-[130] flex max-h-[100dvh] min-w-0 w-full max-w-4xl flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl"
           overlayClassName="z-[120]"
         >
                 <DialogTitle className="sr-only">Project settings: {projectName}</DialogTitle>
-                <CardHeader className="flex flex-col gap-4 space-y-0 border-b border-border/60 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-2">
+                <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-border/60">
+                  <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="secondary" className="rounded-full px-3 py-1">
                         Project settings
@@ -1219,7 +1230,7 @@ export function ProjectDashboardOwnerActions({
                       </Badge>
                     </div>
                     <div className="space-y-1">
-                      <CardTitle className="text-xl">{projectName}</CardTitle>
+                      <CardTitle className="[overflow-wrap:anywhere] text-xl">{projectName}</CardTitle>
                       <DialogDescription>
                         Project details, invitations, contributors, and agent access.
                       </DialogDescription>
@@ -1230,15 +1241,15 @@ export function ProjectDashboardOwnerActions({
                     variant="ghost"
                     size="icon"
                     onClick={closeModal}
-                    className="self-end sm:self-auto"
+                    className="shrink-0"
                     aria-label="Close project settings"
                     disabled={!isProjectSettingsDismissible}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4" aria-hidden />
                   </Button>
                 </CardHeader>
 
-                <CardContent className="flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-6">
+                <CardContent className={`${SLIM_SCROLLBAR_CLASSES} flex min-h-0 min-w-0 flex-1 flex-col gap-5 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-6`}>
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
@@ -1335,11 +1346,11 @@ export function ProjectDashboardOwnerActions({
                     <ProjectDashboardOwnerAgentAccessPanel
                       projectId={projectId}
                       accessSummary={agentAccessSummary}
-                      isSavingCapabilities={isSavingAgentCapabilities}
-                      onUpdateCapabilities={(allowed) => void handleUpdateAgentCapabilities(allowed)}
+                      onUpdateCapabilities={(credential, allowed) => void handleUpdateAgentCapabilities(credential, allowed)}
                       isLoadingAccessSummary={isLoadingAgentAccess}
                       accessLoadError={agentAccessLoadError}
                       actionError={agentAccessActionError}
+                      onClearActionError={() => setAgentAccessActionError(null)}
                       onRefreshAccess={() => void loadAgentAccessSummary()}
                       isCreatingCredential={isCreatingAgentCredential}
                       mutatingCredentialId={mutatingAgentCredentialId}

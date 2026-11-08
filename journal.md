@@ -3,6 +3,180 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-656: review after ND-655 merged
+
+- Integrated current main after PR #660 merged and resolved the stale stacked
+  UI, documentation, schema and test conflicts. Kept the accepted directory,
+  shared scrollbar, and protected Copy and close key handoff unchanged.
+- Added descriptive labels to the extracted creation form and credential
+  details dialog, retaining directory/comment badges and name-or-label search.
+  Label errors belong to their credential; saving locks competing credential
+  actions. Invalid fields receive focus; save/cancel restore the edit trigger.
+- Reviewed owner authorization, validation, additive metadata migration and
+  posting-time comment snapshots. Existing review feedback is already resolved.
+  Updated browser checks exercise the merged dialogs, failed/pending saves,
+  focus, maximum-length labels on mobile, and historical comment attribution.
+- Validation and the refreshed Preview handoff are recorded in PR #661.
+
+# 2026-11-08 - ND-655: copy the issued key before closing
+
+- Applied the user's revised direction: retain the one-time key's outside-click
+  and Escape protection, remove the close icon, and replace Hide key with the
+  primary Copy and close action. It waits for successful clipboard writing
+  before clearing the secret and shows pending feedback during the operation.
+- Clipboard failures retain the visible key and offer retry or an explicit
+  Close after manual copy recovery action, avoiding a trapped dialog when
+  browser clipboard access is unavailable. The regular copy actions remain.
+- This supersedes the preceding dismissal change. Updated regression checks,
+  validation results, and the final Preview are recorded in PR #660.
+
+# 2026-11-08 - ND-655: restore standard API-key dialog dismissal
+
+- The one-time key guard suppressed backdrop and Escape dismissal, causing the
+  reported trapped interaction. Restored both paths and added the standard
+  top-right close button. The existing Hide key button and one-time key warning
+  remain available.
+- Updated the browser regressions to close a newly created key by backdrop,
+  a rotated key by Escape, and another key with the close icon. Each path must
+  keep project settings open and return keyboard focus to the directory.
+- Continued on PR #660's working branch, including current main. Validation
+  and the replacement Preview are recorded in the PR.
+
+# 2026-11-08 - ND-655: use the app scrollbar in Agent access
+
+- Replaced the native scrollbar shown in the expanded credential form with the
+  existing thin, muted-thumb, transparent-track treatment used by task dialogs,
+  board lanes, and the agent guide. Extracted the guide's unchanged class list
+  into a shared UI utility and reused it for creation, management, key handoff,
+  setup, and the surrounding project settings scroll area.
+- Continued on `feature/nd-655-agent-access-list` / PR #660 and merged current
+  main. The temporary `chore/nd-655-before-uiux-review` comparison branch is
+  unchanged. This is a visual consistency fix; the creation layout and behavior
+  retain the earlier implementation and its validation/focus refinements.
+- Validation results, desktop/mobile render evidence, and the branch Preview
+  are recorded in PR #660.
+
+# 2026-11-06 - ND-655: UI and UX review of PR #660
+
+- Kept the credential directory and focused dialogs after two independent
+  Impeccable assessments. The detector found no primary findings or advisories
+  across the seven agent-access components. Reviewed baseline desktop/mobile
+  screenshots and the creation flow; the browser access host was unavailable,
+  so Playwright supplied rendered evidence without a live overlay or server.
+- Protected the one-time API key from Escape/backdrop dismissal, retaining the
+  explicit Hide key action and explaining its consequence. Custom access now
+  includes resource actions; inactive credentials cannot appear to complete work.
+- Expanded the completion switch to a 44px-high control including its label,
+  corrected its dark-theme thumb, and respected reduced motion. Names wrap at
+  word boundaries when possible. The settings close control now shares the
+  mobile heading row instead of consuming a separate row.
+- Creation validation now associates errors with the relevant name or permission
+  choice and moves focus there. Extended the existing browser regressions for
+  these recovery paths, key retention, effective access, and narrow layouts.
+- Used a dedicated worktree and isolated PostgreSQL container on port 55655.
+- Validation passed: lint, RLS inventory, 2,344 unit/API tests (3 skipped),
+  coverage gates (95.33% lines), production build, and the three ND-655 browser
+  checks (18s). Inspected 1440px desktop and 375px mobile in both themes; browser
+  checks also cover 812px landscape and reduced motion. The full local suite
+  reproduced the previously documented ND-433 recovery failure. A shrinking
+  checkbox locator in the new keyboard check was corrected before its passing
+  rerun. Current-head CI is linked from PR #660.
+- [Preview workflow 42256963351](https://github.com/dorianagaesse/nexus_dash/actions/runs/42256963351)
+  passed. Checkout logs verify branch `feature/nd-655-agent-access-list` at
+  implementation revision `f4189e85ad92c2aaa42df0eeb878e93f8f0c575e`.
+  The [pinned Preview](https://nexus-dash-32r1jf1mw-dorian-agaesses-projects.vercel.app)
+  returned health 200; its stable sign-in alias is unchanged. Deployed flow tests
+  could not seed sessions with stale saved Preview database credentials.
+  Computer Use ended because it could not verify the browser URL. Local rendered
+  checks and CI provide the UI evidence; no live overlay was injected.
+
+# 2026-11-05 - ND-659: enforce release impact decisions
+
+- Created the fix card and linked GitHub issue #662 after checking the board
+  for overlap with the completed ND-457 release-boundary work.
+- Release CI now requires a unique impact and rationale in the new changelog
+  section and validates the exact next patch/minor/major version. The first
+  stable baseline additionally records explicit maintainer approval; existing
+  changelog sections and ordinary product PRs need no metadata changes.
+- Shared version-step arithmetic between the helper and CI, added helper
+  reminders, and documented fix-only, mixed, and stable-baseline releases.
+- Added regression coverage for declared impacts, invalid/duplicate/missing
+  decisions, skipped versions, patch resets, and committed head-ref reads.
+- Validation on Node 24.22.1 passed: lint, RLS inventory, release-policy check,
+  unit/API tests (2,337 passed; 3 skipped), coverage (94.16% statements,
+  88.11% branches, 97.39% functions, 95.33% lines), production build, and
+  `git diff --check`. Unit/build checks used the documented local placeholder
+  environment; the initial test attempt lacked `DATABASE_URL` and was rerun.
+- No UI, auth, or database behavior changed, so E2E and the PostgreSQL matrix
+  were not required. Copilot review monitoring is omitted per user instruction.
+
+- Follow-up review: checked Zoukou's PR notes against ND-659 and addressed
+  all three. The release helper now rejects skipped explicit versions before
+  mutation or decision output; CI field errors explain the unindented,
+  case-sensitive format; invalid impacts name the version section and runbook.
+- Follow-up validation on Node 24.22.1 passed: 52 targeted tests, all 2,344
+  unit/API tests (3 skipped), lint, RLS inventory, coverage, production build,
+  release-policy validation, and `git diff --check`. No additional blocking
+  issues found against the task's acceptance criteria.
+
+# 2026-11-05 - ND-655: redesign Agent access on the ND-654 baseline
+
+- Rebased PR #660 onto `0c5bd59` (merged ND-654). The old immutable Preview
+  reproduced an owner credential-list 500; Vercel logs identify Prisma P2022
+  for removed `Project.agentCanMoveTasksToDone`. The rebased service and generated
+  client read `ApiCredential.canMoveTasksToDone` instead. Older Preview links
+  need retirement after validation of the new deployment.
+- Replaced the setup-heavy tab with a credential directory, compact agent/access
+  counts, a search and filter toolbar, readable access summaries, and independent
+  completion controls. Creation, credential management, one-time keys, and setup
+  instructions have focused dialogs; audit history has its own Activity view.
+- Completion controls explain when Task Write is missing. Status, lifecycle
+  dates, and public IDs remain available in Manage. Moved form, detail, key,
+  setup, and presentation responsibilities into focused components.
+- Branch rules rejected the rebase force-push. Preserved PR #660 through a
+  normal integration merge (`1a52c05`) whose tree exactly matches the locally
+  rebased result; ND-654 is an ancestor and no repository rules were changed.
+- Final lint, RLS inventory, 2,315 unit/API tests (3 skipped), coverage gates
+  (95.33% lines), and production build passed locally. The local full browser
+  run suffered an abnormal stall (125 passed, 2 skipped, 5 failures); four
+  additional failures passed on a fresh-server rerun, leaving the previously
+  reproduced local ND-433 baseline failure.
+
+# 2026-11-06 - ND-655: validate the redesigned tab and repair Preview handoff
+
+- [Quality run 42066431782](https://github.com/dorianagaesse/nexus_dash/actions/runs/42066431782)
+  passed every job on `1a52c05b8fbead8cca6c768cfb3ae0ef35673a8e`, including
+  2,315 unit/API tests, coverage, build, PostgreSQL tenant isolation, all 130
+  browser checks (2 skipped), and the container image.
+- [Preview run 42066421990](https://github.com/dorianagaesse/nexus_dash/actions/runs/42066421990)
+  passed. Checkout logs and readiness verify branch revision `1a52c05` on the
+  [new immutable deployment](https://nexus-dash-jl9iqesy9-dorian-agaesses-projects.vercel.app).
+  All five ND-654/ND-655 browser checks passed there (40.9 s). The same signed-in
+  credential-load probe that returned 500 on the old Preview now returns 200.
+- Refreshed desktop, mobile, and creation-dialog captures. Retired old Preview
+  attachments from ND-655 and linked its ND-654 dependency; PR #660 keeps the
+  current deployment and final validation evidence for review.
+- Main advanced during handoff. Integrated `83eda9c` through merge `c89ca2d`,
+  preserving both journal histories and adopting its dependency/release-policy
+  updates. Core checks pass with 2,344 unit/API tests (3 skipped).
+- Added explicit focus restoration for creation, management, and setup dialogs.
+  A keyboard regression caught Escape dismissing the parent settings dialog;
+  scoped child-dialog handling now closes only the current agent dialog and
+  restores its trigger. All six ND-654/ND-655 browser checks pass locally.
+- Final [Quality run 42200169133](https://github.com/dorianagaesse/nexus_dash/actions/runs/42200169133)
+  passed every job on `2311a5ae9fc6d3c19b9bbbb96db86efc4eea405c`: 2,344 unit/API
+  tests (3 skipped), coverage, build, tenant isolation, 131 browser tests
+  (2 skipped), and container image. Local full-suite verification finished
+  with 130 passed, 2 skipped, and only the previously reproduced ND-433 failure.
+- Final [Preview run 42200161671](https://github.com/dorianagaesse/nexus_dash/actions/runs/42200161671)
+  passed and its logs verify checkout of `2311a5a`. All six deployed ND-654/ND-655
+  browser checks pass (38.8 s), including Escape/focus restoration. Signed-in
+  credential probes return 200 on both the
+  [pinned deployment](https://nexus-dash-1m83zrxbk-dorian-agaesses-projects.vercel.app)
+  and the verified interactive sign-in alias; both readiness responses report
+  Preview revision `2311a5a`. PR #660 and ND-655 now point to these current URLs.
+
+
 # 2026-11-05 - ND-655: refine the Agent access credential list
 
 - Moved credentials ahead of creation and quickstart setup. Added combined name,
@@ -11028,3 +11202,80 @@ Low-value entries to avoid going forward:
   [review-fix deployment](https://nexus-dash-dm7hrf2r4-dorian-agaesses-projects.vercel.app).
   All four ND-655/ND-656 Chromium checks passed there, including the updated
   error recovery, label search, accessibility and distinct-label validation.
+## 2026-11-05 - ND-654: Per-credential Done-move permission
+
+- Replaced the project-wide Done-move toggle with the independently persisted
+  `ApiCredential.canMoveTasksToDone` flag and an owner-session-only PATCH on each
+  credential. Sharing > Agent access exposes the permission on each credential;
+  changes affect existing bearer tokens immediately.
+- Single-task, bulk-status, and board-reorder transitions use the calling
+  credential's live permission while retaining task-write, project access,
+  expiry, and revocation checks. Denied transitions retain
+  `agent-done-move-disabled` and make no task changes.
+- Migration removes the old Project column and defaults all existing and new
+  credentials to false, including projects with the old toggle enabled. Owners
+  must explicitly re-enable selected credentials. Documented this policy in
+  README, hosted agent guidance, and the architecture decision log.
+- Validation on Node 24.22.1 with local PostgreSQL 16: lint, RLS inventory,
+  PostgreSQL role setup/isolation matrix (including actual migration/default
+  regression), unit/API tests (2,315 passed, 3 skipped), coverage thresholds
+  (95.33% lines, 88.11% branches), production build, version policy, and diff
+  checks passed. Focused browser tests passed (2/2).
+- Full `npm run test:e2e`: 125 passed, 2 skipped, 1 failed. The unrelated
+  ND-433 recovery test expects `Meeting title is required.` after outside-click
+  dismissal (`tests/e2e/nd-433-long-form-recovery.spec.ts:75`). Reproduced the
+  same assertion failure on untouched `origin/main` at
+  `697eab2613d2885c03d5efd85e0bbf5c2340cba2` in a separate worktree, database,
+  and server with `CI=true NODE_ENV=test npx playwright test
+  tests/e2e/nd-433-long-form-recovery.spec.ts --grep 'task drafts recover'`.
+  ND-654 and critical smoke tests passed in the full run.
+
+### 2026-11-05 - ND-654 review: inherited credentials and capability audit
+
+- Fixed the real ownership-transfer failure: credential UPDATE authorization now
+  follows the current project owner, while a trigger keeps the original creator
+  and project immutable and validates changes to revoker attribution. Historical
+  revoker values can remain attached to inherited credentials.
+- Added a real PostgreSQL runtime-role regression for both transfer choices
+  (previous owner stays/leaves), grant/removal, unrelated and foreign credentials,
+  immutable attribution, and denied former-owner administration/request usage.
+- Capability updates now commit with a `credential_capabilities_updated` audit
+  event containing the human actor, credential, boolean value, and request
+  metadata. The owner panel refreshes the audit feed after saving.
+- Verified the HTTP path with a production build served using the non-superuser,
+  NOBYPASSRLS runtime role and separate admin-only test fixtures: all three
+  ND-654 browser tests passed, including transfers in both modes and audit data.
+  Lint, RLS inventory, PostgreSQL setup/isolation matrix, 2,315 unit/API tests
+  (3 skipped), coverage thresholds (95.33% lines / 88.11% branches), and build
+  passed. Normalized the affected Prisma model's formatting.
+
+## 2026-11-05 - User-selected agent credentials
+
+- Updated AGENTS.md and the agent workflow runbook to require explicitly asking
+  the user which credential to use before Nexus Dash API access, removing client
+  mappings and fixed credential filenames. Missing credentials stop API work;
+  runtime token exchange and secret-handling rules remain in place.
+- Documentation validation: `git diff --check` and link/reference review passed.
+
+### 2026-11-05 - ND-654: reconcile PR #658 with main
+
+- Merged `origin/main` at `852480e` into the task branch. Resolved the appended
+  journal entries by retaining both ND-654 execution history and the user-selected
+  credential documentation entry. Retained main's AGENTS.md and workflow updates.
+- This merge changes documentation only relative to the previously validated task
+  commit `4617dce`; application code and migrations are unchanged. Validation:
+  `git diff --check`, reference review, and release version policy passed. The prior
+  Quality Gates run `42047520646` passed all jobs on `4617dce`.
+
+## 2026-11-07 - ND-547 reconcile PR #655 with main
+
+- Merged current main without rewriting branch history. Reapplied only ND-547 after the earlier review rollback caused Git to discard its implementation during the automatic merge. Preserved main's later Meeting Notes tests and all other task work.
+- Local lint, RLS inventory, release policy, diff checks, production build, and all six focused Meeting Notes browser checks passed. Full unit/API, coverage, and remote check results are recorded on PR #655 before handoff.
+
+
+## 2026-11-07 - ND-190 review and current-main reconciliation
+
+- Reconciled #650 with main at 410063b3 after the user's ND-547 merge. Explicitly reapplied only the collaboration extraction, focused tests, browser lifecycle, and ownership docs so the rollback merge base cannot silently discard ND-190. Preserved main's later Task/Meeting Notes contracts, credential permissions, dependency updates, release policy, and existing ADR/journal history.
+- Addressed the review's P1 integration finding. An independent TypeScript source comparison confirms all 60 original declarations remain identical after formatting/export normalization and all 25 public exports are preserved. Authorization, actor-scoped transactions, race/revocation handling, notification and post-commit email behavior, and responsibility-aware offboarding retain their existing code and ordering.
+- The public collaboration entry point remains a facade over owner invitations, membership/offboarding, recipient responses, shared policy/data/types, and email delivery. The architecture decision is proposed for user review rather than carrying forward the old approval claim.
+- Required validation, the invitation/membership browser lifecycle, real PostgreSQL isolation, and the detailed review response are recorded on #650. Leave the PR unmerged and the card In Progress for the user's review and merge.

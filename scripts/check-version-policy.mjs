@@ -9,6 +9,7 @@ import {
   compareVersions,
   readJsonFile,
   assertPackageVersionsMatch,
+  bumpVersion,
 } from "./version-utils.mjs";
 
 const RELEASE_BRANCH_PATTERN = /^chore\/release-v(\d+\.\d+\.\d+)(?:$|[-_])/;
@@ -29,7 +30,9 @@ Validates the release-boundary version policy:
   must not change the product version; they join the next release.
 - Release-preparation branches (chore/release-vX.Y.Z) must carry exactly that
   version in package.json and package-lock.json, move forward from the base
-  version, stay metadata-only, and include a non-empty CHANGELOG.md section.
+  version, stay metadata-only, and include a non-empty CHANGELOG.md section
+  declaring Release impact and Release rationale. The exact next version
+  step must match the impact; 1.0.0 also records stable-baseline approval.
 
 Examples:
   npm run release:check -- --base origin/main --branch chore/release-v0.74.0
@@ -113,12 +116,16 @@ function isReleasePrepFile(file) {
 function changelogSectionBody(changelog, version) {
   const heading = `## v${formatVersion(version)}`;
   const lines = changelog.split(/\r?\n/);
-  const headingIndex = lines.findIndex(
-    (line) => line.trim() === heading || line.trim().startsWith(`${heading} `)
+  const headings = lines.flatMap((line, index) =>
+    line.trim() === heading || line.trim().startsWith(`${heading} `) ? [index] : []
   );
-  if (headingIndex === -1) {
+  if (headings.length === 0) {
     return null;
   }
+  if (headings.length !== 1) {
+    fail(`CHANGELOG.md must contain exactly one ${heading} section.`);
+  }
+  const headingIndex = headings[0];
 
   const body = [];
   for (let index = headingIndex + 1; index < lines.length; index += 1) {
@@ -131,7 +138,38 @@ function changelogSectionBody(changelog, version) {
   return body;
 }
 
-function assertChangelogEntry({ changedFiles, headRef, version }) {
+function assertReleaseDecision(sectionBody, baseVersion, version) {
+  function field(name, required = true) {
+    const prefix = `${name}:`;
+    const matches = sectionBody.filter((line) => line.startsWith(prefix));
+    if (matches.length === 0 && !required) return null;
+    if (matches.length !== 1 || !matches[0].slice(prefix.length).trim()) {
+      fail(`Release section must include exactly one nonempty, unindented, case-sensitive "${prefix}" line. Use "${prefix} <value>" with the exact spelling shown. See docs/runbooks/release-versioning.md.`);
+    }
+    return matches[0].slice(prefix.length).trim();
+  }
+
+  const impact = field("Release impact");
+  if (!["patch", "minor", "major"].includes(impact)) {
+    fail(`Invalid release impact "${impact}" in CHANGELOG.md section ## v${formatVersion(version)}. Use "Release impact: patch", "Release impact: minor", or "Release impact: major". See docs/runbooks/release-versioning.md.`);
+  }
+  field("Release rationale");
+  const expected = bumpVersion(baseVersion, impact);
+  if (compareVersions(expected, version) !== 0) {
+    fail(`Release impact ${impact} requires version ${formatVersion(expected)} from ${formatVersion(baseVersion)}; received ${formatVersion(version)}. Use patch for fix-only releases, minor for capabilities or mixed releases.`);
+  }
+
+  const stableBaseline = baseVersion.major === 0 && impact === "major";
+  const approval = field("Stable baseline approved", stableBaseline);
+  if (stableBaseline && approval !== "yes") {
+    fail('The 1.0.0 baseline requires maintainer approval recorded as "Stable baseline approved: yes".');
+  }
+  if (!stableBaseline && approval !== null) {
+    fail('"Stable baseline approved:" belongs only to the first 1.0.0 release.');
+  }
+}
+
+function assertChangelogEntry({ changedFiles, headRef, version, baseVersion }) {
   if (!changedFiles.includes("CHANGELOG.md")) {
     fail("Release-preparation PRs must update CHANGELOG.md with the release entry.");
   }
@@ -149,6 +187,7 @@ function assertChangelogEntry({ changedFiles, headRef, version }) {
   if (!sectionBody.some((line) => /^[-*]\s+\S/.test(line.trim()))) {
     fail(`${heading} must include at least one release entry bullet.`);
   }
+  assertReleaseDecision(sectionBody, baseVersion, version);
 }
 
 function parseArgs(argv) {
@@ -274,6 +313,7 @@ try {
     changedFiles,
     headRef: options.headRef,
     version: headVersion,
+    baseVersion,
   });
 
   info(
