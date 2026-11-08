@@ -21,8 +21,10 @@ test("owner grants survive invitations and restrict UI, direct APIs and assigned
     const { invitation: invite } = await invitation.json();
     await memberPage.goto(`/invite/project/${invite.invitationId}`);
     await expect(memberPage.getByText("Tasks: read and edit", { exact: true })).toBeVisible();
-    const accepted = await memberPage.request.post(`/api/account/invitations/${invite.invitationId}/respond`, { data: { decision: "accept" } });
-    expect(accepted.ok()).toBe(true);
+    await memberPage.goto("/account/notifications");
+    await memberPage.getByRole("button", { name: "Accept", exact: true }).click();
+    await expect(memberPage).toHaveURL(/status=invitation-accepted/);
+    await expect(memberPage.getByText("Could not accept the invitation. Please retry.", { exact: true })).toHaveCount(0);
     const membership = await prisma.projectMembership.findUniqueOrThrow({ where: { projectId_userId: { projectId, userId: memberId } } });
     expect(membership.capabilities).toEqual(["task:read", "task:write"]);
     await memberPage.goto(`/projects/${projectId}`);

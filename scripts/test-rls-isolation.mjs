@@ -1647,6 +1647,40 @@ try {
   ));
   assert.equal(hiddenRevision.rowCount, 0, "conditional edit locks cannot expose another project's revision");
 
+  // Invitation acceptance must work under the runtime role and copy the exact grant.
+  // Older applications omit capabilities; reproducing that insert must fail closed.
+  const capabilityInvitationId = `rls_capability_invite_${suffix}`;
+  await admin.query(`UPDATE "User" SET "emailVerified"=now() WHERE id=$1`, [ids.outsider]);
+  await admin.query(`INSERT INTO "ProjectInvitation"
+    (id, "projectId", "invitedEmail", "invitedByUserId", role, "expiresAt", "createdAt", "updatedAt")
+    VALUES ($1,$2,$3,$4,'editor',now()+interval '1 day',now(),now())`,
+    [capabilityInvitationId, ids.projectA, `${ids.outsider}@example.test`, ids.ownerA]);
+  for (const grants of [null, [], ["task:read", "task:write"]]) {
+    await admin.query("SELECT set_config('app.user_id', $1, false)", [ids.ownerA]);
+    await admin.query(`UPDATE "ProjectInvitation" SET capabilities=$2::jsonb WHERE id=$1`,
+      [capabilityInvitationId, grants === null ? null : JSON.stringify(grants)]);
+    await admin.query("SELECT set_config('app.user_id', '', false)");
+    if (grants !== null) {
+      await expectRlsViolation(() => runtimeTransaction(ids.outsider, () => runtime.query(
+        `INSERT INTO "ProjectMembership" (id,"projectId","userId",role,"createdAt","updatedAt")
+         VALUES ($1,$2,$3,'editor',now(),now())`,
+        [`rls_invited_membership_${suffix}`, ids.projectA, ids.outsider]
+      )), "accepting a custom-grant invitation without copying its grants");
+    }
+    await runtimeTransaction(ids.outsider, async () => {
+      const membership = await runtime.query(`INSERT INTO "ProjectMembership"
+        (id,"projectId","userId",role,capabilities,"createdAt","updatedAt")
+        VALUES ($1,$2,$3,'editor',$4::jsonb,now(),now()) RETURNING capabilities`,
+        [`rls_invited_membership_${suffix}`, ids.projectA, ids.outsider, grants === null ? null : JSON.stringify(grants)]);
+      assert.deepEqual(membership.rows[0].capabilities, grants);
+      const accepted = await runtime.query(`UPDATE "ProjectInvitation" SET "acceptedAt"=now()
+        WHERE id=$1 AND "acceptedAt" IS NULL RETURNING id`, [capabilityInvitationId]);
+      assert.equal(accepted.rowCount, 1, "recipient can finish accepting the invitation");
+      const access = await runtime.query(`SELECT app.has_project_capability($1,'task:read') AS allowed`, [ids.projectA]);
+      assert.equal(access.rows[0].allowed, grants === null || grants.includes("task:read"));
+    });
+  }
+
   // Owner-issued restrictions apply to parent/child reads and writes, even to assigned work.
   await runtimeTransaction(ids.ownerB, async () => {
     await runtime.query(`UPDATE "ProjectMembership" SET capabilities = '["task:read"]'::jsonb

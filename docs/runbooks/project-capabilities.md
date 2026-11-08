@@ -70,3 +70,19 @@ them: retain the new service/RLS enforcement or restore the pre-rollout database
 snapshot and application together during maintenance. Never drop grants or
 restrictive policies as a routine rollback. Shared preview databases retain
 these additive schema changes when another branch is deployed.
+
+## Preview invitation acceptance
+
+The stable Preview auth address is shared by feature branches. Deploying another
+branch can move it to an application that does not copy ND-130 invitation grants,
+while the shared database still enforces those grants. That older application
+fails to accept a custom-grant invitation; the database correctly rejects the
+attempt to create broader, role-default membership.
+
+Before a two-account test, compare `/api/health/ready` on the owner and recipient
+origins with the revision in the feature deployment run. Use the same immutable
+ND-130 deployment for both accounts. OAuth may use the stable auth address;
+confirm that alias also targets the intended feature before testing it. If the
+alias moved, deploy the explicit ND-130 branch again and refresh the recipient
+page before retrying Accept. Do not weaken the grant policy or recreate the
+invitation to bypass this deployment mismatch.
