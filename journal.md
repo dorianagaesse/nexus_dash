@@ -24,6 +24,20 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Initial local setup attempts omitted unit-test DATABASE_URL and the matrix's
   pre-migration Realtime stub; reruns use the documented explicit environment and
   a separate matrix database initialized with that stub.
+- Final implementation validation: local lint, RLS inventory, 2,393 unit/API
+  tests (three expected skips), production build, and PostgreSQL isolation passed.
+  [Quality Gates 42427535277](https://github.com/dorianagaesse/nexus_dash/actions/runs/42427535277)
+  passed every job on `be33dc8aa4455e014cfa9b7fa972ec9179b9613d`, including
+  coverage (94.34% statements, 88.64% branches, 95.47% lines), all 136 browser
+  checks (two expected skips), and the container build.
+- The full local browser run passed 135 checks with two expected skips and one
+  unrelated meeting-todo dialog-opening timeout. That exact check passed unchanged
+  in isolation, and the full CI browser run was green. All four ND-655 UI checks
+  and the three deterministic ND-657 database cases passed in the full local run.
+- Delivered [PR #671](https://github.com/dorianagaesse/nexus_dash/pull/671),
+  stacked on ND-655 until its human merge. The final journal follow-up changes
+  documentation only; application code and tests match the validated implementation.
+  Automated review was requested; review results and any follow-up remain on the PR.
 
 
 # 2026-11-08 - ND-655: copy the issued key before closing
