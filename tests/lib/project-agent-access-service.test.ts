@@ -36,6 +36,7 @@ describe("project-agent-access-service", () => {
       ownerUserId: "owner-1",
       projectId: "project-1",
       tokenId: "token-1",
+      scopes: ["task:read"],
       issuedAt,
       requestId: "request-1",
       httpMethod: "GET",
@@ -54,6 +55,7 @@ describe("project-agent-access-service", () => {
         createdByUserId: "owner-1",
         revokedAt: null,
         AND: [
+          { scopeGrants: { some: { scope: "task_read" } } },
           {
             OR: [{ expiresAt: null }, { expiresAt: { gt: expect.any(Date) } }],
           },
@@ -76,6 +78,7 @@ describe("project-agent-access-service", () => {
       ownerUserId: "owner-1",
       projectId: "project-1",
       tokenId: "token-1",
+      scopes: ["task:read"],
       issuedAt: new Date("2026-03-31T09:00:00.000Z"),
       requestId: "request-1",
       httpMethod: "GET",

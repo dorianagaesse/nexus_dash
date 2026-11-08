@@ -1,4 +1,5 @@
 "use client";
+import type { AgentScope } from "@/lib/agent-access";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -56,6 +57,7 @@ interface ProjectDashboardOwnerAgentAccessPanelProps {
     credential: ProjectAgentCredentialSummary,
     allowed: boolean
   ) => void;
+  onUpdateScopes: (credential: ProjectAgentCredentialSummary, scopes: AgentScope[]) => Promise<boolean>;
   isCreatingCredential: boolean;
   mutatingCredentialId: string | null;
   latestIssuedSecret:
@@ -76,6 +78,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   onClearActionError,
   onRefreshAccess,
   onUpdateCapabilities,
+  onUpdateScopes,
   isCreatingCredential,
   mutatingCredentialId,
   latestIssuedSecret,
@@ -475,6 +478,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
         actionError={actionError}
         onClose={() => setManagedId(null)}
         onUpdateCapabilities={onUpdateCapabilities}
+        onUpdateScopes={onUpdateScopes}
         onRotateCredential={onRotateCredential}
         onRevokeCredential={onRevokeCredential}
       />

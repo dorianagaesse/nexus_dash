@@ -48,6 +48,27 @@ credentials receive explicit meeting/epic grants matching the access formerly
 implied by their task scopes. Re-exchange any pre-migration token before using
 those modules; no permanent task-to-other-module fallback exists.
 
+Owners can edit an existing credential in **Agent access > Manage > Edit
+permissions**. The Read/Edit/Delete matrix shows live modules; Edit permits
+creation and updates. Save replaces the selected scopes atomically and records
+an audit event; Cancel discards the draft. The API key stays unchanged. Exchange
+it for a new bearer token after editing permissions. Every request checks that
+all scopes in its token still exist on the credential, so removing any scope
+invalidates older broader tokens immediately. Adding a scope does not expand an
+already-issued token. Only a human project owner can PATCH credential scopes.
+
+Meeting-note list/detail/create/update/delete routes accept agent principals
+and enforce `meeting:read`, `meeting:write`, or `meeting:delete` in services.
+Agent-created notes default to team visibility. Private notes remain accessible
+only to their human creator, including when the agent's credential belongs to
+that creator. Agents cannot create private notes or change team notes to private.
+
+The earlier "future shared schedule" permissions reserve the capability names
+for a shared project schedule that is not implemented yet. They do not grant
+access to a person's connected calendar. Reserved scopes are hidden from the
+permission controls; existing reserved grants are preserved when other modules
+are edited.
+
 ## Deployment and rollback
 
 The two migrations are additive. The first adds nullable JSON grant columns and

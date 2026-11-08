@@ -1341,3 +1341,14 @@ personal Calendar authorization. Shared broadcast messages carry invalidation
 metadata only to prevent an already-authorized socket from leaking module
 content after permissions change. This trades direct payload application for
 capability-filtered refreshes. See the project-capabilities runbook for rollout.
+
+
+## 2026-11-08 - ND-130: Editable agent scope grants
+
+Owners may replace a credential's scopes in an audited transaction without
+rotating its API key. Every authenticated agent request checks that the signed
+token's scopes remain a subset of the live grants. Removing a scope therefore
+rejects older broader tokens immediately; adding a scope requires a new token
+exchange to use it. Scope replacement locks the credential first to serialize
+concurrent owner edits. Meeting CRUD routes use the same agent-principal guard
+as listing, with module and private-note checks retained in services and RLS.

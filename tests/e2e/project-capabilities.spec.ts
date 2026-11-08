@@ -71,7 +71,7 @@ test("owner grants survive invitations and restrict UI, direct APIs and assigned
     // Verify the actual owner controls at desktop and mobile widths.
     await page.getByRole("button", { name: "Project settings", exact: true }).click();
     await page.getByRole("button", { name: "Contributors", exact: true }).click();
-    await page.getByText(`Module access for ${member.username}`, { exact: false }).first().click();
+    await page.getByLabel(`Module access for ${member.username}`, { exact: false }).first().click();
     await expect(page.getByLabel("Tasks access", { exact: true })).toBeVisible();
     await page.getByLabel("Tasks access", { exact: true }).selectOption("write");
     await expect.poll(async () => (await prisma.projectMembership.findUniqueOrThrow({ where: { id: membership.id } })).capabilities).toContain("task:write");

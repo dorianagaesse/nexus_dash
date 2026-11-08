@@ -11331,3 +11331,20 @@ Low-value entries to avoid going forward:
 - Added runtime-role PostgreSQL acceptance regressions for legacy, empty, and custom grants, including rejection when an older application omits custom grants. The matrix passed. Changed ND-130's browser scenario to accept through the Notifications button; the full scenario and production build passed.
 - [Preview run 42525680805](https://github.com/dorianagaesse/nexus_dash/actions/runs/42525680805) redeployed the explicit ND-130 branch. Workflow logs and a fresh stable-alias readiness request confirmed revision `9603574` and a healthy database. [Immutable preview](https://nexus-dash-o8179fk7r-dorian-agaesses-projects.vercel.app). Existing pending invitations can be retried after refreshing onto this deployment.
 - Documented the shared-alias mismatch and same-revision requirement for two-account tests. Application authorization and database safeguards remain unchanged.
+
+
+## 2026-11-08 - ND-130 permission editing and meeting-note follow-up
+
+- Reproduced the full-access preview credential's meeting-note failure: create,
+  detail, update and delete routes used a human-only guard although their
+  services already accepted scoped agents. Switched those routes to agent
+  principals; private notes remain human creator-only and agents create team notes.
+- Replaced long permission cards/lists with module rows for people and a compact
+  Read/Edit/Delete matrix for agents. Hid reserved shared-schedule controls.
+- Added owner-managed scope editing on existing credentials, with explicit Save
+  and Cancel. Scope replacement and audit are transactional; the API key stays
+  unchanged and removed scopes immediately invalidate older broader tokens.
+- Added end-to-end coverage for meeting CRUD, read-only denials, private-note
+  protection, owner-only scope editing, cancel/save, unchanged keys and existing
+  token behavior. Extended the real PostgreSQL RLS matrix for scope replacement
+  and non-owner/cross-project denials. Updated hosted agent API documentation.

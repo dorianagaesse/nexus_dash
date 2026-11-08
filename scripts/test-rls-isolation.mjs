@@ -1508,6 +1508,30 @@ try {
   assert.equal(ownershipTransfer.transfer.rows[0].result, "ok");
   assert.equal(ownershipTransfer.project.rows[0].ownerId, ids.editorB);
 
+  // ND-130: owners can replace scope grants atomically; other members and
+  // foreign owners cannot change them. Removed scopes fail the live-token guard.
+  await runtimeTransaction(ids.ownerB, async () => {
+    await runtime.query(`UPDATE "ApiCredential" SET "updatedAt" = now() WHERE id = $1`, [ids.credentialB]);
+    await runtime.query(`DELETE FROM "ApiCredentialScopeGrant" WHERE "credentialId" = $1`, [ids.credentialB]);
+    await runtime.query(`INSERT INTO "ApiCredentialScopeGrant" ("credentialId", scope) VALUES ($1, 'meeting_read')`, [ids.credentialB]);
+    const grants = await runtime.query(`SELECT scope FROM "ApiCredentialScopeGrant" WHERE "credentialId" = $1`, [ids.credentialB]);
+    assert.deepEqual(grants.rows, [{ scope: "meeting_read" }]);
+    for (const [scope, expected] of [["meeting_read", 1], ["meeting_write", 0]]) {
+      const usage = await runtime.query(`UPDATE "ApiCredential" c SET "lastUsedAt" = now()
+        WHERE c.id = $1 AND EXISTS (SELECT 1 FROM "ApiCredentialScopeGrant" g WHERE g."credentialId" = c.id AND g.scope = $2::"ApiCredentialScope")`, [ids.credentialB, scope]);
+      assert.equal(usage.rowCount, expected);
+    }
+  });
+  for (const actor of [ids.editorB, ids.viewerB, ids.ownerA]) {
+    await runtimeTransaction(actor, async () => {
+      const deleted = await runtime.query(`DELETE FROM "ApiCredentialScopeGrant" WHERE "credentialId" = $1`, [ids.credentialB]);
+      assert.equal(deleted.rowCount, 0);
+    });
+    await expectRlsViolation(() => runtimeTransaction(actor, () => runtime.query(
+      `INSERT INTO "ApiCredentialScopeGrant" ("credentialId", scope) VALUES ($1, 'meeting_delete')`, [ids.credentialB]
+    )), "non-owner scope grant insert");
+  }
+
   // ND-654: exercise the real credential policies under the least-privilege
   // runtime role, including transfers where the original owner stays or leaves.
   for (const previousOwnerLeaves of [false, true]) {

@@ -8,6 +8,7 @@ import {
 
 import {
   AGENT_API_KEY_PUBLIC_ID_PREFIX,
+  AGENT_SCOPE_VALUES,
   buildRawAgentApiKey,
   parseAgentScopes,
   parseRawAgentApiKey,
@@ -1240,6 +1241,7 @@ export async function recordAgentRequestUsage(input: {
   projectId: string;
   tokenId: string;
   issuedAt: Date;
+  scopes: AgentScope[];
   requestId?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
@@ -1262,6 +1264,8 @@ export async function recordAgentRequestUsage(input: {
           createdByUserId: ownerUserId,
           revokedAt: null,
           AND: [
+            // A previously issued token cannot retain a scope removed by the owner.
+            ...input.scopes.map((scope) => ({ scopeGrants: { some: { scope: AGENT_SCOPE_TO_DB_SCOPE[scope] } } })),
             {
               OR: [{ expiresAt: null }, { expiresAt: { gt: requestTimestamp } }],
             },
@@ -1322,16 +1326,27 @@ export async function updateProjectAgentCredentialCapabilities(input: {
   actorUserId: string;
   projectId: string;
   credentialId: string;
-  canMoveTasksToDone: boolean;
+  canMoveTasksToDone?: boolean;
+  scopes?: unknown;
   requestId?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
-}): Promise<ServiceResult<{ canMoveTasksToDone: boolean }>> {
+}): Promise<ServiceResult<{ canMoveTasksToDone?: boolean; scopes?: AgentScope[] }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) return createError(401, "unauthorized");
-  if (typeof input.canMoveTasksToDone !== "boolean") {
+  if ((input.canMoveTasksToDone === undefined && input.scopes === undefined) ||
+      (input.canMoveTasksToDone !== undefined && typeof input.canMoveTasksToDone !== "boolean")) {
     return createError(400, "invalid-agent-capabilities");
   }
+  if (input.scopes !== undefined && (!Array.isArray(input.scopes) || input.scopes.length === 0 ||
+      !input.scopes.every((scope) => typeof scope === "string" && AGENT_SCOPE_VALUES.includes(scope as AgentScope)))) {
+    return createError(400, "invalid-agent-scopes");
+  }
+  const scopes = input.scopes === undefined ? undefined : parseAgentScopes(input.scopes);
+  const changes = {
+    ...(input.canMoveTasksToDone === undefined ? {} : { canMoveTasksToDone: input.canMoveTasksToDone }),
+    ...(scopes === undefined ? {} : { scopes }),
+  };
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
@@ -1342,9 +1357,14 @@ export async function updateProjectAgentCredentialCapabilities(input: {
     if (!access.ok) return createError(access.status, access.error);
     const result = await db.apiCredential.updateMany({
       where: { id: input.credentialId, projectId: input.projectId },
-      data: { canMoveTasksToDone: input.canMoveTasksToDone },
+      // Lock the credential before replacing grants so concurrent saves stay atomic.
+      data: { ...(input.canMoveTasksToDone === undefined ? {} : { canMoveTasksToDone: input.canMoveTasksToDone }), updatedAt: new Date() },
     });
     if (result.count !== 1) return createError(404, "credential-not-found");
+    if (scopes !== undefined) {
+      await db.apiCredentialScopeGrant.deleteMany({ where: { credentialId: input.credentialId } });
+      await db.apiCredentialScopeGrant.createMany({ data: scopes.map((scope) => ({ credentialId: input.credentialId, scope: AGENT_SCOPE_TO_DB_SCOPE[scope] })) });
+    }
     await db.authAuditEvent.create({
       data: {
         projectId: input.projectId,
@@ -1355,9 +1375,9 @@ export async function updateProjectAgentCredentialCapabilities(input: {
         requestId: normalizeTrimmedString(input.requestId ?? null),
         ipAddress: normalizeBoundedString(input.ipAddress ?? null, MAX_IP_ADDRESS_LENGTH),
         userAgent: normalizeBoundedString(input.userAgent ?? null, MAX_USER_AGENT_LENGTH),
-        metadata: { canMoveTasksToDone: input.canMoveTasksToDone },
+        metadata: changes,
       },
     });
-    return createSuccess(200, { canMoveTasksToDone: input.canMoveTasksToDone });
+    return createSuccess(200, changes);
   }, { forceTransaction: true });
 }

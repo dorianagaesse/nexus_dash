@@ -94,6 +94,26 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     notes: ["External meeting participants are attendance context and cannot be assignees."],
   },
   {
+    tag: "Meetings", method: "POST", path: "/api/projects/{projectId}/meeting-notes",
+    title: "Create meeting note", description: "Create a team-visible meeting note.",
+    requiredScopes: ["meeting:write"], requestContentType: "application/json",
+    notes: ["Agents cannot create private notes; visibility defaults to team."],
+  },
+  {
+    tag: "Meetings", method: "GET", path: "/api/projects/{projectId}/meeting-notes/{noteId}",
+    title: "Read meeting note", description: "Read one team-visible meeting note.", requiredScopes: ["meeting:read"],
+    notes: ["Private notes remain inaccessible to agents, including credentials belonging to their creator."],
+  },
+  {
+    tag: "Meetings", method: "PATCH", path: "/api/projects/{projectId}/meeting-notes/{noteId}",
+    title: "Update meeting note", description: "Update a team-visible meeting note.", requiredScopes: ["meeting:write"], requestContentType: "application/json",
+    notes: ["Agents cannot change a note to private. Conditional If-Match revisions are supported."],
+  },
+  {
+    tag: "Meetings", method: "DELETE", path: "/api/projects/{projectId}/meeting-notes/{noteId}",
+    title: "Delete meeting note", description: "Delete a team-visible meeting note.", requiredScopes: ["meeting:delete"],
+  },
+  {
     tag: "Meetings",
     method: "PATCH",
     path: "/api/projects/{projectId}/meeting-notes/{noteId}/actions/{actionId}",
@@ -1152,6 +1172,29 @@ function buildCommonErrorResponses() {
 export function buildAgentOpenApiDocument(appOrigin?: string | null) {
   const serverUrl = normalizeOrigin(appOrigin);
   const commonErrorResponses = buildCommonErrorResponses();
+  const meetingBody = {
+    type: "object",
+    properties: {
+      title: { type: "string" },
+      scheduledAt: { type: ["string", "null"], format: "date-time" },
+      visibility: { type: "string", enum: ["team"], description: "Agents can only access team notes; omitted visibility defaults to team on creation." },
+      inputNotes: { type: "string" }, outputNotes: { type: "string" }, decisions: { type: "string" },
+      labels: { type: "array", items: { type: "string" } },
+      status: { type: ["string", "null"] },
+      participants: { type: "array", items: { oneOf: [{ type: "string" }, { type: "object", properties: { userId: { type: ["string", "null"] }, displayName: { type: "string" } } }] } },
+      actions: { type: "array", items: { type: "object", required: ["content"], properties: {
+        id: { type: ["string", "null"] }, content: { type: "string" },
+        completedAt: { type: ["string", "null"], format: "date-time" },
+        assignee: { type: ["object", "null"], properties: { kind: { type: "string", enum: ["human", "agent"] }, id: { type: "string" } } },
+      } } },
+    },
+  };
+  const meetingResponse = { description: "Team meeting note returned", content: { "application/json": { schema: {
+    type: "object", required: ["note"], properties: { note: { type: "object", additionalProperties: true, required: ["id", "projectId", "title", "visibility"], properties: {
+      ...meetingBody.properties, id: { type: "string" }, projectId: { type: "string" },
+    } } },
+  } } } };
+
   const contentEtagHeaders = {
     ETag: { description: "Strong entity/content revision validator for conditional PATCH.", schema: { type: "string" } },
   };
@@ -3428,6 +3471,13 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
       },
       "/api/projects/{projectId}/meeting-notes": {
+        post: {
+          ...buildOperationMetadata("POST", "/api/projects/{projectId}/meeting-notes"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          requestBody: { required: true, content: { "application/json": { schema: { ...meetingBody, required: ["title"] } } } },
+          responses: { 201: meetingResponse, ...commonErrorResponses },
+        },
         get: {
           ...buildOperationMetadata(
             "GET",
@@ -3500,6 +3550,27 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
             ...commonErrorResponses,
           },
+        },
+      },
+      "/api/projects/{projectId}/meeting-notes/{noteId}": {
+        get: {
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/meeting-notes/{noteId}"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { name: "noteId", in: "path", required: true, schema: { type: "string" } }],
+          responses: { 200: meetingResponse, ...commonErrorResponses },
+        },
+        patch: {
+          ...buildOperationMetadata("PATCH", "/api/projects/{projectId}/meeting-notes/{noteId}"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { name: "noteId", in: "path", required: true, schema: { type: "string" } }],
+          requestBody: { required: true, content: { "application/json": { schema: meetingBody } } },
+          responses: { 200: meetingResponse, ...commonErrorResponses },
+        },
+        delete: {
+          ...buildOperationMetadata("DELETE", "/api/projects/{projectId}/meeting-notes/{noteId}"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { name: "noteId", in: "path", required: true, schema: { type: "string" } }],
+          responses: { 200: { description: "Meeting note deleted", content: { "application/json": { schema: { $ref: "#/components/schemas/OkResponse" } } } }, ...commonErrorResponses },
         },
       },
       "/api/projects/{projectId}/meeting-notes/{noteId}/actions/{actionId}": {

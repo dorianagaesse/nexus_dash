@@ -806,35 +806,37 @@ export function ProjectDashboardOwnerActions({
     }
   };
 
-  const handleUpdateAgentCapabilities = async (credential: ProjectAgentCredentialSummary, allowed: boolean) => {
-    if (mutatingAgentCredentialId) return;
+  const handleUpdateAgentCapabilities = async (credential: ProjectAgentCredentialSummary, allowed: boolean | AgentScope[]): Promise<boolean> => {
+    if (mutatingAgentCredentialId) return false;
     setMutatingAgentCredentialId(credential.id);
     setAgentAccessActionError(null);
     try {
       const response = await fetch(`/api/projects/${projectId}/agent-access/${credential.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ canMoveTasksToDone: allowed }),
+        body: JSON.stringify(Array.isArray(allowed) ? { scopes: allowed } : { canMoveTasksToDone: allowed }),
       });
       const payload = (await response.json().catch(() => null)) as
-        { canMoveTasksToDone?: boolean; error?: string } | null;
-      if (!response.ok || typeof payload?.canMoveTasksToDone !== "boolean") {
+        { canMoveTasksToDone?: boolean; scopes?: AgentScope[]; error?: string } | null;
+      if (!response.ok || (Array.isArray(allowed) ? !Array.isArray(payload?.scopes) : typeof payload?.canMoveTasksToDone !== "boolean")) {
         throw new Error("Could not save agent capabilities. Please retry.");
       }
-      const canMoveTasksToDone = payload.canMoveTasksToDone;
+      const saved = payload!;
       setAgentAccessSummary((previous) =>
         previous ? { ...previous, credentials: previous.credentials.map((entry) =>
-          entry.id === credential.id ? { ...entry, canMoveTasksToDone } : entry
+          entry.id === credential.id ? { ...entry, ...(saved.canMoveTasksToDone === undefined ? {} : { canMoveTasksToDone: saved.canMoveTasksToDone }), ...(saved.scopes ? { scopes: saved.scopes } : {}) } : entry
         ) } : previous
       );
       await loadAgentAccessSummary();
       pushToast({ variant: "success", message: "Agent capabilities saved." });
+      return true;
     } catch (error) {
       const message = error instanceof Error
         ? error.message
         : "Could not save agent capabilities. Please retry.";
       setAgentAccessActionError({ action: "capabilities", message, credentialId: credential.id });
       pushToast({ variant: "error", message });
+      return false;
     } finally {
       setMutatingAgentCredentialId(null);
     }
@@ -1315,6 +1317,7 @@ export function ProjectDashboardOwnerActions({
                       projectId={projectId}
                       accessSummary={agentAccessSummary}
                       onUpdateCapabilities={(credential, allowed) => void handleUpdateAgentCapabilities(credential, allowed)}
+                      onUpdateScopes={(credential, scopes) => handleUpdateAgentCapabilities(credential, scopes)}
                       isLoadingAccessSummary={isLoadingAgentAccess}
                       accessLoadError={agentAccessLoadError}
                       actionError={agentAccessActionError}

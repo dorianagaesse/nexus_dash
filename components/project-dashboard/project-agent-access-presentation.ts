@@ -7,7 +7,6 @@ const RESOURCE_NAMES = {
   roadmap: "Roadmap",
   meeting: "Meeting notes",
   epic: "Epics",
-  schedule: "Shared schedule (reserved)",
   attention: "Mentions & assignments",
 } as const;
 
