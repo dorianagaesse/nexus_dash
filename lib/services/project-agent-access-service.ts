@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
 
+import { parseAgentCredentialDescriptiveLabels } from "@/lib/agent-credential-labels";
+
 import {
   ApiCredentialScope,
   Prisma,
@@ -69,6 +71,7 @@ export interface ProjectAgentCredentialSummary {
   canMoveTasksToDone: boolean;
   id: string;
   label: string;
+  descriptiveLabels: string[];
   publicId: string;
   scopes: AgentScope[];
   status: AgentCredentialStatus;
@@ -124,6 +127,11 @@ const AGENT_SCOPE_TO_DB_SCOPE: Record<AgentScope, ApiCredentialScope> = {
   "roadmap:delete": ApiCredentialScope.roadmap_delete,
   "attention:read": ApiCredentialScope.attention_read,
 };
+
+// A shared database can contain scope enum values from a newer deployment.
+// Prisma rejects those values before application mapping can filter them, so
+// restrict relation reads in SQL, matching token exchange's supported scopes.
+const SUPPORTED_AGENT_DB_SCOPES = Object.values(AGENT_SCOPE_TO_DB_SCOPE);
 
 const DB_SCOPE_TO_AGENT_SCOPE: Record<ApiCredentialScope, AgentScope> = {
   [ApiCredentialScope.meeting_read]: "meeting:read",
@@ -337,6 +345,7 @@ function buildCredentialSummary(record: {
   canMoveTasksToDone: boolean;
   id: string;
   label: string;
+  descriptiveLabels: string[];
   publicId: string;
   expiresAt: Date | null;
   lastUsedAt: Date | null;
@@ -352,6 +361,7 @@ function buildCredentialSummary(record: {
   return {
     id: record.id,
     label: record.label,
+    descriptiveLabels: record.descriptiveLabels ?? [],
     publicId: record.publicId,
     canMoveTasksToDone: record.canMoveTasksToDone,
     scopes: record.scopeGrants.map((grant) => mapDbScopeToAgentScope(grant.scope)),
@@ -544,6 +554,7 @@ async function createCredentialRecordWithUniquePublicId(
     projectId: string;
     createdByUserId: string;
     label: string;
+    descriptiveLabels: string[];
     secretHash: string;
     expiresAt: Date | null;
     scopes: AgentScope[];
@@ -562,6 +573,7 @@ async function createCredentialRecordWithUniquePublicId(
           projectId: input.projectId,
           createdByUserId: input.createdByUserId,
           label: input.label,
+          descriptiveLabels: input.descriptiveLabels,
           publicId,
           secretHash: input.secretHash,
           expiresAt: input.expiresAt,
@@ -574,6 +586,7 @@ async function createCredentialRecordWithUniquePublicId(
         select: {
           id: true,
           label: true,
+          descriptiveLabels: true,
           publicId: true,
           canMoveTasksToDone: true,
           expiresAt: true,
@@ -584,6 +597,7 @@ async function createCredentialRecordWithUniquePublicId(
           createdAt: true,
           updatedAt: true,
           scopeGrants: {
+            where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
             select: {
               scope: true,
             },
@@ -630,6 +644,7 @@ async function rotateCredentialSecretWithUniquePublicId(
         select: {
           id: true,
           label: true,
+          descriptiveLabels: true,
           publicId: true,
           canMoveTasksToDone: true,
           expiresAt: true,
@@ -640,6 +655,7 @@ async function rotateCredentialSecretWithUniquePublicId(
           createdAt: true,
           updatedAt: true,
           scopeGrants: {
+            where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
             select: {
               scope: true,
             },
@@ -688,6 +704,7 @@ export async function getProjectAgentAccessSummary(input: {
         select: {
           id: true,
           label: true,
+          descriptiveLabels: true,
           publicId: true,
           canMoveTasksToDone: true,
           expiresAt: true,
@@ -698,6 +715,7 @@ export async function getProjectAgentAccessSummary(input: {
           createdAt: true,
           updatedAt: true,
           scopeGrants: {
+            where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
             orderBy: [{ scope: "asc" }],
             select: {
               scope: true,
@@ -742,6 +760,7 @@ export async function createProjectAgentCredential(input: {
   actorUserId: string;
   projectId: string;
   label: string;
+  descriptiveLabels?: unknown;
   scopes: AgentScope[];
   expiresInDays: number | null;
   requestId?: string | null;
@@ -762,6 +781,13 @@ export async function createProjectAgentCredential(input: {
   const label = normalizeAgentCredentialLabel(input.label);
   if (!isValidAgentCredentialLabel(label)) {
     return createError(400, "invalid-label");
+  }
+
+  const descriptiveLabels = parseAgentCredentialDescriptiveLabels(
+    input.descriptiveLabels === undefined ? [] : input.descriptiveLabels
+  );
+  if (!descriptiveLabels) {
+    return createError(400, "invalid-descriptive-labels");
   }
 
   const scopes = parseAgentScopes(input.scopes);
@@ -792,6 +818,7 @@ export async function createProjectAgentCredential(input: {
       projectId: input.projectId,
       createdByUserId: actorUserId,
       label,
+      descriptiveLabels,
       secretHash,
       expiresAt,
       scopes,
@@ -970,6 +997,7 @@ export async function revokeProjectAgentCredential(input: {
       select: {
         id: true,
         label: true,
+        descriptiveLabels: true,
         publicId: true,
         canMoveTasksToDone: true,
         expiresAt: true,
@@ -980,6 +1008,7 @@ export async function revokeProjectAgentCredential(input: {
         createdAt: true,
         updatedAt: true,
         scopeGrants: {
+          where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
           orderBy: [{ scope: "asc" }],
           select: {
             scope: true,
@@ -1018,6 +1047,7 @@ export async function revokeProjectAgentCredential(input: {
       select: {
         id: true,
         label: true,
+        descriptiveLabels: true,
         publicId: true,
         canMoveTasksToDone: true,
         expiresAt: true,
@@ -1028,6 +1058,7 @@ export async function revokeProjectAgentCredential(input: {
         createdAt: true,
         updatedAt: true,
         scopeGrants: {
+          where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
           orderBy: [{ scope: "asc" }],
           select: {
             scope: true,
@@ -1381,4 +1412,35 @@ export async function updateProjectAgentCredentialCapabilities(input: {
     });
     return createSuccess(200, changes);
   }, { forceTransaction: true });
+}
+
+/** Owner-only descriptive metadata update; leaves names, secrets and grants intact. */
+export async function updateProjectAgentCredentialDescriptiveLabels(input: {
+  actorUserId: string;
+  projectId: string;
+  credentialId: string;
+  descriptiveLabels: unknown;
+}): Promise<ServiceResult<{ credential: { id: string; descriptiveLabels: string[] } }>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) return createError(401, "unauthorized");
+  const descriptiveLabels = parseAgentCredentialDescriptiveLabels(input.descriptiveLabels);
+  if (!descriptiveLabels) return createError(400, "invalid-descriptive-labels");
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId, projectId: input.projectId, minimumRole: "owner", db,
+    });
+    if (!access.ok) return createError(access.status, access.error);
+    const credential = await db.apiCredential.findFirst({
+      where: { id: input.credentialId, projectId: input.projectId },
+      select: { id: true },
+    });
+    if (!credential) return createError(404, "credential-not-found");
+    const updated = await db.apiCredential.update({
+      where: { id: credential.id, projectId: input.projectId },
+      data: { descriptiveLabels },
+      select: { id: true, descriptiveLabels: true },
+    });
+    return createSuccess(200, { credential: updated });
+  });
 }

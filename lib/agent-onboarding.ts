@@ -6,6 +6,7 @@ import {
   AGENT_ATTENTION_MAX_LIMIT,
   AGENT_ATTENTION_ORDERS,
 } from "@/lib/agent-attention";
+import { MAX_AGENT_DESCRIPTIVE_LABELS, MAX_AGENT_DESCRIPTIVE_LABEL_LENGTH } from "@/lib/agent-credential-labels";
 import { CONTEXT_CARD_COLORS } from "@/lib/context-card-colors";
 import { EPIC_STATUSES } from "@/lib/epic";
 import { ROADMAP_STATUSES } from "@/lib/roadmap-milestone";
@@ -389,7 +390,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "List the chronological comment thread for one task.",
     requiredScopes: ["task:read"],
     notes: [
-      "Agent-authored comments include the credential label in author.displayName.",
+      "Agent-authored comments resolve the current name in author.displayName and current labels in author.agentCredentialDescriptiveLabels from a retained public author identity. Name and label edits apply to existing comments; API key removal retains the final public identity.",
     ],
   },
   {
@@ -403,7 +404,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     notes: [
       "Task comments preserve line breaks and can subsequently be edited via PATCH.",
       "A comment may include up to 10 previously uploaded file attachment ids (images, PDF, text, Markdown, CSV, or JSON); content may be empty when at least one file is attached.",
-      "Agent-authored comments are attributed to the credential label with an (agent) suffix.",
+      "Agent-authored comments display the current author name and descriptive labels across all linked comments. No agent suffix is appended; author.kind identifies agent authors. Rotation, revocation and key deletion retain the public identity. Previously orphaned comments use saved attribution.",
       "Tag project agents by inserting the exact `@{Credential Label}` token in content and listing the credentialId in agentMentionSelections; mismatched, revoked, expired, or out-of-project selections fail the whole request with task-comment-agent-mention-invalid.",
     ],
   },
@@ -2059,6 +2060,11 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             kind: { type: "string", enum: ["user", "agent"] },
             agentCredentialId: { type: ["string", "null"] },
             agentCredentialLabel: { type: ["string", "null"] },
+            agentCredentialDescriptiveLabels: {
+              type: "array", maxItems: MAX_AGENT_DESCRIPTIVE_LABELS,
+              items: { type: "string", maxLength: MAX_AGENT_DESCRIPTIVE_LABEL_LENGTH },
+              description: "Current agent author labels, including on older comments. Public identity survives API key deletion; previously orphaned comments use their saved labels. Empty for human authors or an agent with no labels.",
+            },
             owner: {
               anyOf: [
                 {
@@ -2446,7 +2452,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             displayName: {
               type: "string",
               description:
-                "Human display name, or the credential label with an (agent) suffix.",
+                "Human display name, or the credential name without an appended agent suffix. Use kind to distinguish agent authors.",
             },
             usernameTag: {
               type: ["string", "null"],
@@ -4498,7 +4504,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                               taskTitle: "Prepare release checklist",
                             },
                             summary:
-                              'owner mentioned Release bot (agent) in a comment on "Prepare release checklist"',
+                              'owner mentioned Release bot in a comment on "Prepare release checklist"',
                             actor: {
                               kind: "human",
                               id: "user_123",
@@ -4639,7 +4645,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                               title: "Draft launch notes",
                             },
                             summary:
-                              'owner assigned Release bot (agent) to task "Draft launch notes"',
+                              'owner assigned Release bot to task "Draft launch notes"',
                             actor: {
                               kind: "human",
                               id: "user_123",
@@ -4684,7 +4690,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                               meetingNoteTitle: "Weekly sync",
                             },
                             summary:
-                              'owner assigned Release bot (agent) to the meeting to-do "Send the recap to stakeholders" in "Weekly sync"',
+                              'owner assigned Release bot to the meeting to-do "Send the recap to stakeholders" in "Weekly sync"',
                             actor: {
                               kind: "human",
                               id: "user_123",

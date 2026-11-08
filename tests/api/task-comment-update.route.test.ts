@@ -334,6 +334,21 @@ describe("PATCH /api/projects/[projectId]/tasks/[taskId]/comments/[commentId]", 
     expect(payload.error).toBe("forbidden");
   });
 
+  test("a retained agent identity cannot become a human-owned comment after key deletion", async () => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({ id: "task-1", title: "Task", projectId: "project-1" });
+    prismaMock.taskComment.findUnique.mockResolvedValueOnce({
+      id: "comment-1", taskId: "task-1", authorUserId: "user-1",
+      authorAgentCredentialId: null, authorAgentCredentialLabel: null,
+      authorAgentIdentityId: "retained-agent", attachments: [],
+    });
+    const response = await PATCH(new Request("https://nexusdash.test", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "Human edit of a retained agent comment" }),
+    }) as never, { params: Promise.resolve({ projectId: "project-1", taskId: "task-1", commentId: "comment-1" }) });
+    expect(response.status).toBe(403);
+    expect(prismaMock.taskComment.update).not.toHaveBeenCalled();
+  });
+
   test("returns 403 when an agent lacks task:write scope", async () => {
     apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
       ok: true,
@@ -642,7 +657,7 @@ describe("PATCH /api/projects/[projectId]/tasks/[taskId]/comments/[commentId]", 
       content: "<p>Agent updated content</p>",
       author: {
         kind: "agent",
-        displayName: "CodeReviewBot (agent)",
+        displayName: "CodeReviewBot",
         agentCredentialId: "cred-agent-1",
       },
     });

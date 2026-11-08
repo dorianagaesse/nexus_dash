@@ -1307,6 +1307,49 @@ Keep UI-only or task-only notes in `journal.md`.
   saving. Denied updates create no success event.
 
 
+## 2026-11-05 - ND-656: Snapshot descriptive credential labels on comments
+
+- Status: Superseded by the 2026-11-08 current-author decision below.
+- Decision: Keep optional descriptive labels on `ApiCredential`, separate from
+  its name and scope grants. Copy the labels into `TaskComment` at posting and
+  project them with the stored author name; comment edits preserve both.
+  Owner-session services alone may administer credential metadata.
+- Consequences: Model information remains historically accurate after credential
+  rename, relabel, rotation, revocation or deletion. Existing comments keep an
+  empty label array rather than inheriting metadata added after posting. The
+  additive migration must precede the application deploy; token exchange and
+  authorization contracts remain unchanged.
+
+- Audit boundary: descriptive label edits remain display-metadata changes and
+  do not add an `AuthAuditEvent` action. The existing authentication audit covers
+  credential issuance, rotation, revocation, token exchange and request use.
+  Label edits change neither authority nor historical attribution; posting-time
+  comment snapshots remain the record of the labels used for each comment.
+  A general metadata-change audit can be added separately if required.
+
+## 2026-11-08 - ND-656: current public author identity for comments
+
+- Status: Accepted following Dorian's explicit preference for current names and
+  labels on all comments, including comments posted before metadata edits.
+- Decision: Add a project-scoped `AgentAuthorIdentity` containing only public
+  name and labels. Its stable ID matches the originating credential. A narrow
+  credential trigger maintains it atomically and invalidates project activity;
+  deleting the secret-bearing credential leaves the public identity intact.
+  Comments reference this identity independently of their credential FK and
+  resolve it in their existing authorized read, create and edit queries.
+- Migration: Backfill current credential metadata and links for existing
+  comments. A comment-insert trigger also links writes from older immutable
+  deployments. Already-orphaned comments retain snapshots: their original IDs
+  were removed by the old `ON DELETE SET NULL` behavior and cannot be recovered
+  reliably. New display reads never access credential secrets or require owner
+  access; forced RLS limits public identities to current project members.
+- Consequences: Adding, removing or changing labels, and renaming an agent,
+  changes every linked comment's author display. Empty current labels remain
+  empty instead of falling back to posting-time labels. Open threads refresh
+  on project metadata activity. Comment contents, creation/edit timestamps,
+  permissions and task revisions are unaffected. This is current profile data,
+  not evidence of which model generated an old comment; any future execution
+  provenance must be modeled separately. Legacy snapshots remain a fallback.
 ## 2026-11-08 - ND-657: Bind agent bearer tokens to the current key generation
 
 - Status: Proposed for review.

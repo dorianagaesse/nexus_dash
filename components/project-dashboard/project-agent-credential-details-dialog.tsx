@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { DialogCloseButton } from "./project-agent-dialog-close";
 import { AgentTaskCompletionSwitch } from "./project-agent-credential-list";
+import { AgentCredentialLabelEditor } from "./agent-credential-label-editor";
+import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
 import {
   formatAgentDate,
 } from "./project-agent-access-presentation";
@@ -34,6 +36,7 @@ interface Props {
   ) => void;
   onUpdateScopes: (credential: ProjectAgentCredentialSummary, scopes: AgentScope[]) => Promise<boolean>;
   onRotateCredential: (credential: ProjectAgentCredentialSummary) => void;
+  onUpdateCredentialLabels?: (credential: ProjectAgentCredentialSummary, labels: string[]) => Promise<boolean>;
   onRevokeCredential: (credential: ProjectAgentCredentialSummary) => void;
 }
 export function ProjectAgentCredentialDetailsDialog({
@@ -45,6 +48,7 @@ export function ProjectAgentCredentialDetailsDialog({
   onUpdateCapabilities,
   onUpdateScopes,
   onRotateCredential,
+  onUpdateCredentialLabels,
   onRevokeCredential,
 }: Props) {
   return (
@@ -90,6 +94,29 @@ export function ProjectAgentCredentialDetailsDialog({
               </Badge>
             </div>
             <div className="space-y-6">
+              <section className="min-w-0 space-y-3">
+                <div>
+                  <h4 className="text-sm font-semibold">Descriptive labels</h4>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Add model names or other details to help people recognize this agent.
+                  </p>
+                </div>
+                {onUpdateCredentialLabels ? (
+                  <AgentCredentialLabelEditor
+                    key={credential.id}
+                    credentialId={credential.id}
+                    name={credential.label}
+                    labels={credential.descriptiveLabels}
+                    disabled={isMutating}
+                    onSave={(labels) => onUpdateCredentialLabels(credential, labels)}
+                  />
+                ) : <AgentCredentialDescriptiveLabels labels={credential.descriptiveLabels} />}
+                {actionError?.action === "labels" && actionError.credentialId === credential.id ? (
+                  <p role="alert" aria-label="Credential labels error" className="text-sm text-destructive">
+                    {actionError.message}
+                  </p>
+                ) : null}
+              </section>
               <AgentPermissionEditor key={credential.id} credential={credential} busy={isMutating} error={actionError?.action === "capabilities" && actionError.credentialId === credential.id ? actionError.message : null} onSave={onUpdateScopes} />
               <section className="space-y-3">
                 <div>

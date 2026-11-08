@@ -242,7 +242,7 @@ describe("project-epic-service", () => {
     });
     expect(result.data.epic.createdBy).toMatchObject({
       kind: "agent",
-      displayName: "Release Agent (agent)",
+      displayName: "Release Agent",
     });
   });
 
