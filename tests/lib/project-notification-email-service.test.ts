@@ -839,7 +839,7 @@ describe("project-notification-email-service", () => {
       metadata: {
         ...mentionNotification().metadata,
         authorDisplayName: "Credential Owner",
-        actorDisplayName: "Build bot (agent)",
+        actorDisplayName: "Build bot",
       },
     });
     prismaMock.$queryRaw
@@ -866,7 +866,7 @@ describe("project-notification-email-service", () => {
     expect(outboundEmailMock.sendOutboundEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         text: expect.stringContaining(
-          "Build bot (agent) mentioned you on Ship orchestration"
+          "Build bot mentioned you on Ship orchestration"
         ),
       })
     );

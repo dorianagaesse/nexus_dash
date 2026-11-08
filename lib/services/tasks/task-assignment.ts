@@ -141,7 +141,7 @@ export function buildPersonDisplayName(input: {
 
 export function buildAgentDisplayName(label: string | null | undefined): string {
   const normalizedLabel = normalizeText(label);
-  return normalizedLabel ? `${normalizedLabel} (agent)` : "Agent";
+  return normalizedLabel || "Agent";
 }
 
 export async function resolveAgentCredentialLabel(input: {

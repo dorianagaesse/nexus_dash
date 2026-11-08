@@ -44,7 +44,7 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - chronological author-attributed comment history in the task detail modal
   - lazy-loaded thread reads with lightweight board-level comment counts
   - agent-authored comments keep project credential attribution by displaying
-    the credential label with an `(agent)` suffix and a shared agent avatar
+    the credential name, descriptive labels, and a shared agent avatar
 - Project-scoped agent access:
   - owner-managed API credentials in project settings, with an independently
     controlled move-to-Done permission on each credential (off by default)

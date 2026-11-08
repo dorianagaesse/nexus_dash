@@ -3,6 +3,15 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-656: remove the automatic agent-name suffix
+
+- Removed the automatically appended `(agent)` from comment and creator names,
+  attention/assignment display text, and meeting-todo identity presentation.
+  Agent kind, credential IDs, avatars, descriptive labels and original name
+  snapshots remain intact. Explicitly named text is preserved verbatim.
+- Updated API documentation and existing attribution regressions. Validation
+  and the refreshed Preview handoff are recorded in PR #661.
+
 # 2026-11-08 - ND-656: Enter-to-add labels and task-label colors
 
 - Replaced comma-separated credential label fields with one shared chip editor

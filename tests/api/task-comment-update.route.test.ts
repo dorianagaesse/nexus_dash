@@ -642,7 +642,7 @@ describe("PATCH /api/projects/[projectId]/tasks/[taskId]/comments/[commentId]", 
       content: "<p>Agent updated content</p>",
       author: {
         kind: "agent",
-        displayName: "CodeReviewBot (agent)",
+        displayName: "CodeReviewBot",
         agentCredentialId: "cred-agent-1",
       },
     });

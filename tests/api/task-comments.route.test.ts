@@ -223,7 +223,7 @@ describe("task comments route", () => {
           createdAt: "2026-04-19T09:30:00.000Z",
           author: {
             id: "owner-1",
-            displayName: "Build bot (agent)",
+            displayName: "Build bot",
             usernameTag: null,
             avatarSeed: "nexusdash-agent-comment-avatar",
             kind: "agent",
@@ -518,7 +518,7 @@ describe("task comments route", () => {
       comment: {
         author: {
           id: "credential-1",
-          displayName: "Build bot (agent)",
+          displayName: "Build bot",
           usernameTag: null,
           avatarSeed: "nexusdash-agent-comment-avatar",
           kind: "agent",
@@ -546,14 +546,14 @@ describe("task comments route", () => {
         expect.objectContaining({
           recipientUserId: "owner-1",
           body:
-            "Build bot (agent) mentioned you in a comment on Agent mention task.",
+            "Build bot mentioned you in a comment on Agent mention task.",
           sourceType: "task_comment_mention",
           sourceId: "comment-agent-mention",
           metadata: expect.objectContaining({
             authorDisplayName: "Owner",
             actorKind: "agent",
             actorUserId: "owner-1",
-            actorDisplayName: "Build bot (agent)",
+            actorDisplayName: "Build bot",
             actorCredentialId: "credential-1",
             actorCredentialLabel: "Build bot",
           }),

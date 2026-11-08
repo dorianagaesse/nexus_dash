@@ -125,7 +125,7 @@ function normalizeText(value: string | null | undefined): string {
 
 function buildAgentDisplayName(label: string | null | undefined): string {
   const normalizedLabel = normalizeText(label);
-  return normalizedLabel ? `${normalizedLabel} (agent)` : "Agent";
+  return normalizedLabel || "Agent";
 }
 
 async function resolveAgentCredentialAttribution(input: {

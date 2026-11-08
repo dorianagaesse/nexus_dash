@@ -173,7 +173,8 @@ test("owners manage credential labels and comments preserve attribution across t
       const response = await page.request.get(commentsUrl);
       expect(response.ok()).toBeTruthy();
       const rows = (await response.json()).comments;
-      expect(rows[0].author.displayName).toBe(`${name} (agent)`);
+      expect(rows[0].author.displayName).toBe(`${name}`);
+      expect(rows[0].author.kind).toBe("agent");
       expect(rows[0].author.agentCredentialDescriptiveLabels).toEqual(["GPT-6", "Codex"]);
       expect(rows[1].author.agentCredentialDescriptiveLabels).toEqual(["GPT-6.1", "Research"]);
     };
@@ -191,7 +192,9 @@ test("owners manage credential labels and comments preserve attribution across t
     await expect(original.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("Codex");
     await expect(original.getByRole("group", { name: "Descriptive labels", exact: true }).getByText("GPT-6", { exact: true }))
       .toHaveCSS("background-color", originalLabelColor);
-    await expect(original).toContainText(`${name} (agent)`);
+    await expect(original.getByText(name, { exact: true })).toBeVisible();
+    await expect(original.getByText(`${name} (agent)`, { exact: true })).toHaveCount(0);
+    await page.screenshot({ path: test.info().outputPath("agent-comment-name.png"), animations: "disabled" });
     await page.reload();
     await expect(original.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("Codex");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();

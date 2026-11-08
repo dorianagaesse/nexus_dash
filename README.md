@@ -196,6 +196,8 @@ Agent access summary includes `descriptiveLabels`; agent bearer tokens cannot
 manage this metadata. These responses never include stored secret hashes.
 
 Task comments snapshot the credential name and descriptive labels at posting.
+Agent display names use the credential name without an appended `(agent)`
+suffix; avatars, descriptive labels and structured actor kind distinguish them.
 The comment API exposes the array as `author.agentCredentialDescriptiveLabels`;
 task readers see the labels beside the author name. Renaming, relabeling,
 rotation, revocation, deletion, or later comment edits preserve that snapshot.
