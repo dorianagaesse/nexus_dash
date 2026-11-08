@@ -534,11 +534,32 @@ try {
   const crossAttachmentUpdate = await runtimeTransaction(ids.ownerA, () => runtime.query(
     `UPDATE "ResourceAttachment" SET name = 'Cross tenant' WHERE id = $1`, [attachmentId]));
   assert.equal(crossAttachmentUpdate.rowCount, 0);
+  const taskUploadId = `${attachmentId}_task`;
+  const taskUpload = await runtimeTransaction(ids.editorB, () => runtime.query(
+    `INSERT INTO "TaskAttachment" (id, "taskId", "uploadedByUserId", "uploadedByCredentialId", "uploadedByKind", "uploadedByDisplayNameSnapshot", kind, name)
+     VALUES ($1, $2, $3, $4, 'agent', 'Upload agent', 'file', 'Task upload') RETURNING id`,
+    [taskUploadId, ids.taskB, ids.editorB, uploadCredentialId]));
+  assert.equal(taskUpload.rowCount, 1);
+  await admin.query(`INSERT INTO "TaskAttachment" (id, "taskId", "uploadedByUserId", "uploadedByCredentialId", "uploadedByKind", "uploadedByDisplayNameSnapshot", kind, name)
+    VALUES ($1, $2, $3, $4, 'agent', 'Upload agent', 'file', 'Task upload')`,
+    [taskUploadId, ids.taskB, ids.editorB, uploadCredentialId]);
+  for (const actor of [ids.viewerB, ids.ownerA, ids.outsider]) {
+    const read = await runtimeTransaction(actor, () => runtime.query(`SELECT id FROM "TaskAttachment" WHERE id = $1`, [taskUploadId]));
+    assert.equal(read.rowCount, actor === ids.viewerB ? 1 : 0);
+  }
+  await expectRlsViolation(() => runtimeTransaction(ids.viewerB, () => runtime.query(
+    `INSERT INTO "TaskAttachment" (id, "taskId", "uploadedByUserId", "uploadedByKind", kind, name)
+     VALUES ($1, $2, $3, 'human', 'file', 'Denied')`,
+    [`${taskUploadId}_denied`, ids.taskB, ids.viewerB])), "viewer task attachment insert");
   await admin.query(`DELETE FROM "ApiCredential" WHERE id = $1`, [uploadCredentialId]);
   const historicalAttachment = await runtimeTransaction(ids.viewerB, () => runtime.query(
     `SELECT "uploadedByCredentialId", "uploadedByKind", "uploadedByDisplayNameSnapshot" FROM "ResourceAttachment" WHERE id = $1`, [attachmentId]));
   assert.deepEqual(historicalAttachment.rows, [{ uploadedByCredentialId: null, uploadedByKind: "agent", uploadedByDisplayNameSnapshot: "Upload agent" }]);
 
+
+  const historicalTaskUpload = await runtimeTransaction(ids.viewerB, () => runtime.query(
+    `SELECT "uploadedByCredentialId", "uploadedByKind", "uploadedByDisplayNameSnapshot" FROM "TaskAttachment" WHERE id = $1`, [taskUploadId]));
+  assert.deepEqual(historicalTaskUpload.rows, [{ uploadedByCredentialId: null, uploadedByKind: "agent", uploadedByDisplayNameSnapshot: "Upload agent" }]);
 
   const hasRealtimeStub = await admin.query(
     "SELECT to_regclass('realtime.messages') IS NOT NULL AS available"

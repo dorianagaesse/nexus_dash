@@ -1376,6 +1376,15 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             "downloadUrl",
           ],
           properties: {
+            uploadedBy: {
+              type: "object", required: ["kind", "id", "displayName"],
+              description: "Task attachment uploader snapshot, distinct from the human storage owner. Deleted credentials retain kind and displayName with a null id.",
+              properties: {
+                kind: { type: "string", enum: ["human", "agent"] },
+                id: { type: ["string", "null"] },
+                displayName: { type: "string" },
+              },
+            },
             id: { type: "string" },
             commentId: {
               type: ["string", "null"],

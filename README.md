@@ -682,3 +682,12 @@ R2; local storage supports form uploads for signed-in users. Agent attachments
 store their credential ID and display-name snapshot separately from the user
 who owns the storage object. Revoked or deleted credentials retain historical
 agent attribution. Existing file limits, project access, and scope checks apply.
+
+### Task attachment attribution
+
+Task link and file responses include `uploadedBy: { kind, id, displayName }`.
+The uploader snapshot distinguishes agents from their human storage owner and
+survives credential deletion (`id: null`, agent kind and name retained). Task
+attachment add/delete writes also update the actual task editor and activity
+payload actor. Legacy uploads remain human-attributed; their history is not
+retroactively assigned to a credential.

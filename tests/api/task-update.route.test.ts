@@ -1421,6 +1421,7 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
   });
 
   test("agent appends link attachment and reads it back in the task response", async () => {
+    prismaMock.apiCredential.findFirst.mockResolvedValue({ id: "credential-1", label: "Upload agent", revokedAt: null, expiresAt: null });
     apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
       ok: true,
       principal: {
