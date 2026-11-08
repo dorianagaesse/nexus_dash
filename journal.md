@@ -23,6 +23,12 @@ Use it for important implementation milestones, blockers, validation runs, and r
   remains In Progress.
 - Documentation validation: `git diff --check` passed; relative report/runbook
   links resolve and the linked Supabase key/report references were reviewed.
+- Follow-up at 11:04–11:08 Paris: Dorian corrected the preferred Production
+  publishable key. A fresh pull and direct checks now return HTTP 200/101.
+  Manual staging run 42469846601 succeeded; checkout logs, deployment metadata,
+  and health verify the unchanged live source `0c5bd59`. Staged deployment
+  `dpl_2QF7kBTw64Lb2XBT2v45jvR5cjqc` serves root/readiness with HTTP 200 and
+  has no aliases. No migration or promotion ran; signed-in acceptance is next.
 
 # 2026-11-05 - ND-659: enforce release impact decisions
 

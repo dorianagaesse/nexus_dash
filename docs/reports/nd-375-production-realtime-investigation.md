@@ -1,7 +1,8 @@
 # ND-375 production realtime investigation
 
 Investigation date: 8 November 2026 (Europe/Paris).
-Status: investigation complete; configuration repair and release validation pending.
+Status: investigation complete; preferred key corrected and fresh deployment
+staged; signed-in acceptance and production promotion pending.
 Hosting decision: retain Vercel Pro, as chosen by Dorian on 8 November 2026.
 
 ## Conclusion
@@ -16,6 +17,26 @@ Broadcast delivery.
 The immediate repair is a Production environment correction followed by staged
 private-channel validation. There is no measured reason here to migrate hosting
 or upgrade Supabase merely to fix this authentication failure.
+
+### Configuration correction and staged release, 8 November 2026
+
+After Dorian saved the corrected Production `SUPABASE_PUBLISHABLE_KEY`, a fresh
+environment pull confirmed it matches the verified publishable value under
+`SUPABASE_API_KEY`. The preferred key now receives HTTP 200 from Auth settings
+and HTTP 101 from the Realtime WebSocket upgrade.
+
+[Workflow run 42469846601](https://github.com/dorianagaesse/nexus_dash/actions/runs/42469846601)
+staged the existing live source revision
+`0c5bd59ca339fec8d7bd18ecf66ae2125528b25a` with the corrected environment.
+Checkout logs, the deployment metadata, and readiness agree on that revision;
+the workflow's `headBranch`/`headSha` alone were not used as checkout evidence.
+
+The resulting [staged deployment](https://nexus-dash-dq8jyyns7-dorian-agaesses-projects.vercel.app)
+is Ready, serves `/` and `/api/health/ready` with HTTP 200, and has no aliases.
+Its ID is `dpl_2QF7kBTw64Lb2XBT2v45jvR5cjqc`. The run did not apply migrations
+or promote production. Signed-in private subscription/delivery checks remain
+the next gate; gateway HTTP 101 is not their substitute. The observations
+below describe the original investigation snapshot, before this correction.
 
 No Production runtime settings, deployments, schema, or test fixtures were
 changed during this investigation. The Nexus Dash task was moved to In Progress,
