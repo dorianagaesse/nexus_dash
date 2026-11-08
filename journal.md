@@ -11,6 +11,8 @@ Use it for important implementation milestones, blockers, validation runs, and r
   snapshots remain intact. Explicitly named text is preserved verbatim.
 - Updated API documentation and existing attribution regressions. Validation
   and the refreshed Preview handoff are recorded in PR #661.
+- Integrated ND-663 after it merged during this change; preserved both ADR
+  entries and the completed Task data-access boundary alongside the name fix.
 
 # 2026-11-08 - ND-656: Enter-to-add labels and task-label colors
 
@@ -11335,6 +11337,57 @@ Low-value entries to avoid going forward:
 - Addressed the review's P1 integration finding. An independent TypeScript source comparison confirms all 60 original declarations remain identical after formatting/export normalization and all 25 public exports are preserved. Authorization, actor-scoped transactions, race/revocation handling, notification and post-commit email behavior, and responsibility-aware offboarding retain their existing code and ordering.
 - The public collaboration entry point remains a facade over owner invitations, membership/offboarding, recipient responses, shared policy/data/types, and email delivery. The architecture decision is proposed for user review rather than carrying forward the old approval claim.
 - Required validation, the invitation/membership browser lifecycle, real PostgreSQL isolation, and the detailed review response are recorded on #650. Leave the PR unmerged and the card In Progress for the user's review and merge.
+
+
+## 2026-11-08 - ND-663: complete Task data ownership
+
+- Started from `origin/main` at `ac7b2fa3` in an isolated worktree, preserving the
+  user's dirty root checkout. Read the live Task brief, moved it to In Progress,
+  and verified the Codex credential attribution on the pickup comment.
+- Moved Task command/lifecycle reads, scalar writes, history/follow-ups, search
+  documents and the legacy dashboard aggregate behind explicit-client data
+  operations. Kept authorization, policy, revision locks/retries, transaction
+  boundaries and activity/notification/storage ordering in application services.
+- Added scoped persistence/import guardrails, including the project-count
+  exception, and regressions for client ownership, lock/write ordering, conflict
+  hydration, foreign-project rejection and failed-child activity suppression.
+  Extended the real-PostgreSQL harness to check draft visibility in search and
+  the legacy dashboard as well as board/mutation responses.
+- Architecture guidance inventories remaining cross-domain operations and
+  encryption integration points. The decision is proposed for user review;
+  broader migration and encryption implementation are outside this task.
+- Detailed validation and performance evidence: `docs/architecture/task-data-boundary-validation.md`.
+  No Copilot review was requested or awaited, per the user's instruction.
+
+### ND-663 delivery validation
+
+- Full local validation passed: lint, RLS inventory, unit/API/component tests,
+  coverage (2,399 tests; 95.47% lines and 88.64% branches), production builds,
+  129 Chromium tests with two gated checks skipped, and the PostgreSQL isolation
+  matrix. Final boundary/client/lane tests passed 46 cases; rebuilt relation and
+  revision browser checks passed all four cases. Release policy, whitespace and
+  architecture references passed.
+- Preserved explicit empty diagnostic project scopes during final review and
+  added a regression. Increased only the ESLint configuration startup allowance
+  after a resource-contention timeout; the isolated full coverage rerun passed.
+- SQL driver counts stayed at 16/20/31 for board/update/reorder. The validation
+  report records repeat timings and shared-host tail variability.
+- PR: https://github.com/dorianagaesse/nexus_dash/pull/672. Application commit
+  `a00f47f3a01320fc095e676ddefd4c7a735482ff` passed GitHub Quality Core, E2E Smoke,
+  Tenant Isolation and Container Image in run `42427881143`; one unchanged meeting-dialog browser
+  assertion passed on retry of that same commit. Copilot review was skipped as
+  requested. The user reviews and merges; the board card remains In Progress.
+
+
+### ND-663 requested visual verification (2026-11-08)
+
+- Exercised the PR build locally in Chromium: 16 targeted interaction regressions
+  and one additional Task lifecycle walkthrough passed. Inspected desktop/mobile
+  screenshots covering persisted details, attachment/relation scrolling, archive,
+  restore and deletion. No uncaught browser errors or application fixes.
+- Recorded scope, harness corrections, artifact locations and local-only limits
+  in `docs/architecture/task-data-boundary-validation.md`.
+
 # 2026-11-08 - Dependabot queue cleanup and automation audit
 
 - Reviewed all three open Dependabot PRs. Merged #666 (Next lint config patch,
@@ -11349,3 +11402,12 @@ Low-value entries to avoid going forward:
   while retaining manual review. Corrected stale credential-failure guidance.
 - Evidence and per-PR decisions: docs/runbooks/dependabot-audit-2026-11-08.md.
   Work is isolated from the root checkout's existing local changes.
+
+
+### 2026-11-08 - ND-663 current-main reconciliation
+
+- Merged main at `4448df01` into PR #672 without rewriting review history.
+  The only conflict was appended journal content; retained both ND-663 evidence
+  and main's Dependabot audit. Application files merged automatically.
+- Whitespace, reference and release-policy checks passed. GitHub Quality Gates
+  validates the combined branch after push; no additional Copilot review requested.

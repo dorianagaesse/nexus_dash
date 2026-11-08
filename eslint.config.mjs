@@ -45,6 +45,38 @@ const prismaRestrictionForLibLayers = [
   },
 ];
 
+// Scope the guard to Task persistence, while allowing response.task and DTO
+// destructuring. These lexical checks supplement review; they are not a type checker.
+const taskDataFiles = [
+  "lib/services/tasks/task-data.ts",
+  "lib/services/tasks/task-command-data.ts",
+  "lib/services/tasks/task-search-data.ts",
+  "lib/services/tasks/task-dashboard-data.ts",
+  "lib/services/tasks/task-write-data.ts",
+  "lib/services/tasks/task-persistence.ts",
+  "lib/services/tasks/task-projections.ts",
+];
+const taskDelegateNames = "^(task|taskRelation|taskAssigneeChange|taskBlockedFollowUp|taskAttachment|taskComment.*)$";
+const clientNames = "^(db|tx|client|prisma)$";
+const persistenceMethods = "^(findUnique.*|findFirst.*|findMany|create.*|update.*|upsert|delete.*|count|aggregate|groupBy|fields)$";
+const taskPersistenceRestrictions = [
+  ...["name", "value"].flatMap(key => [
+    `MemberExpression[property.${key}=/${taskDelegateNames}/][object.name=/${clientNames}/]`,
+    `MemberExpression[property.${key}=/${taskDelegateNames}/][object.property.name=/${clientNames}/]`,
+    `MemberExpression[object.property.${key}=/${taskDelegateNames}/][property.name=/${persistenceMethods}/]`,
+    `MemberExpression[object.property.${key}=/${taskDelegateNames}/][property.value=/${persistenceMethods}/]`,
+    `VariableDeclarator[init.name=/${clientNames}/] > ObjectPattern > Property[key.${key}=/${taskDelegateNames}/]`,
+    `VariableDeclarator[init.property.name=/${clientNames}/] > ObjectPattern > Property[key.${key}=/${taskDelegateNames}/]`,
+  ]).map(selector => ({
+    selector,
+    message: "Task application services must use named Task data operations.",
+  })),
+  {
+    selector: "MemberExpression[property.name=/^\\$(queryRaw|executeRaw)/], MemberExpression[property.value=/^\\$(queryRaw|executeRaw)/]",
+    message: "Raw SQL belongs to data operations or the shared content revision lock.",
+  },
+];
+
 const config = [
   ...nextCoreWebVitals,
   {
@@ -121,6 +153,36 @@ const config = [
           }],
         },
       ],
+    },
+  },
+  {
+    files: ["lib/services/tasks/**/*.ts", "lib/services/project-task-service.ts", "lib/services/project-task-search-service.ts"],
+    ignores: taskDataFiles,
+    rules: { "no-restricted-syntax": ["error", ...taskPersistenceRestrictions] },
+  },
+  {
+    files: ["lib/services/project-service.ts"],
+    rules: {
+      "no-restricted-syntax": ["error", {
+        selector: "MemberExpression[object.property.name='task'][property.name!='count'], MemberExpression[object.property.value='task'][property.name!='count']",
+        message: "Project statistics may count Tasks; Task content queries belong to Task data modules.",
+      }, {
+        selector: "Property[key.name='tasks'][value.type='ObjectExpression']",
+        message: "Keep the legacy Task dashboard projection in the Task data boundary.",
+      }],
+    },
+  },
+  {
+    files: taskDataFiles,
+    rules: {
+      "no-restricted-syntax": ["error", {
+        selector: "MemberExpression[property.name='$transaction'], MemberExpression[property.value='$transaction']",
+        message: "Task data operations must participate in the caller's transaction.",
+      }],
+      "no-restricted-imports": ["error", {
+        paths: [{ name: "@/lib/services/rls-context", importNames: ["withActorRlsContext"], message: "The caller owns actor context and transactions; import only DbClient here." }],
+        patterns: [{ group: ["@/lib/prisma", "**/prisma"], message: "Task data operations require an explicit actor-scoped DbClient." }],
+      }],
     },
   },
 ];

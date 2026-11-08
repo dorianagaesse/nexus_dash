@@ -1326,3 +1326,22 @@ Keep UI-only or task-only notes in `journal.md`.
   Label edits change neither authority nor historical attribution; posting-time
   comment snapshots remain the record of the labels used for each comment.
   A general metadata-change audit can be added separately if required.
+
+## 2026-11-08 - ND-663: complete the Task persistence boundary
+
+- Status: Proposed for user review; broader domain adoption remains a separate decision.
+- Decision: Extend the existing Task data modules with named command reads,
+  scalar write contracts, search documents and the legacy dashboard aggregate.
+  Keep actor authorization, policy, transaction/retry boundaries and effect
+  ordering in application services. All data operations require the caller's client.
+- Alternatives: A generic repository would expose persistence vocabulary without
+  owning projections; a Bridge or interchangeable backend interface has no second
+  implementation to justify it. Focused functions behind the existing service
+  facade provide the needed seam with less wiring. Single-statement operations
+  are useful here because they constrain writable fields and own future content
+  transforms, rather than forwarding arbitrary Prisma arguments.
+- Consequences: Task application modules cannot directly use Task delegates or raw
+  SQL. Data modules cannot import global Prisma or create independent transactions.
+  Cross-domain comments, uploads, offboarding, aggregates and operational reminder
+  SQL remain explicit exceptions in `docs/architecture/task-services.md`.
+  Encryption will need those exceptions as well as the completed Task seam.

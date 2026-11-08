@@ -1,9 +1,9 @@
+import { loadTaskAssignmentContext } from "./task-command-data";
 import type { AgentProjectAccessContext } from "@/lib/services/project-access-service";
 import {
   type NotificationActorKind,
   createTaskAssignmentNotification,
 } from "@/lib/services/notification-service";
-import { taskPersonSummarySelect } from "@/lib/task-person";
 import type { DbClient } from "@/lib/services/rls-context";
 import type { ProjectActorReference } from "@/lib/project-actor";
 import {
@@ -239,25 +239,7 @@ export async function buildTaskAssignmentNotification(input: {
   assigneeUserId: string;
   agentAccess?: AgentProjectAccessContext;
 }): Promise<PendingTaskAssignmentNotification | null> {
-  const task = await input.db.task.findUnique({
-    where: { id: input.taskId },
-    select: {
-      id: true,
-      title: true,
-      projectId: true,
-      project: {
-        select: {
-          name: true,
-        },
-      },
-      assigneeUser: {
-        select: taskPersonSummarySelect,
-      },
-      updatedByUser: {
-        select: taskPersonSummarySelect,
-      },
-    },
-  });
+  const task = await loadTaskAssignmentContext(input.db, input.taskId);
 
   if (
     !task ||
