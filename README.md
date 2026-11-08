@@ -195,14 +195,18 @@ that array and returns the credential ID and saved labels. The owner-only
 Agent access summary includes `descriptiveLabels`; agent bearer tokens cannot
 manage this metadata. These responses never include stored secret hashes.
 
-Task comments snapshot the credential name and descriptive labels at posting.
+Task comments resolve the agent's current name and descriptive labels from a
+project-scoped public author identity, including comments posted before an edit.
 Agent display names use the credential name without an appended `(agent)`
 suffix; avatars, descriptive labels and structured actor kind distinguish them.
 The comment API exposes the array as `author.agentCredentialDescriptiveLabels`;
-task readers see the labels beside the author name. Renaming, relabeling,
-rotation, revocation, deletion, or later comment edits preserve that snapshot.
-Comments posted before descriptive labels existed retain an empty array;
-metadata changes apply to future comments.
+task readers see the current labels beside the author name. Renaming and label
+additions/removals apply to all linked comments. Metadata edits refresh open
+threads through project activity without changing comment contents or timestamps.
+Rotation and revocation retain the same identity; deleting the API credential
+retains its final public name and labels. The additive migration links existing
+comments to current metadata. Older comments whose credential was already hard
+deleted retain their saved attribution because their original link is gone.
 
 ## Database and Migrations
 

@@ -157,6 +157,11 @@ function mapTaskComment(input: {
   authorAgentCredentialId: string | null;
   authorAgentCredentialLabel: string | null;
   authorAgentCredentialDescriptiveLabels?: string[];
+  authorAgentIdentity?: {
+    id: string;
+    label: string;
+    descriptiveLabels: string[];
+  } | null;
   author: {
     id: string;
     name: string | null;
@@ -180,9 +185,9 @@ function mapTaskComment(input: {
   }>;
 }, projectId: string, taskId: string): TaskCommentSummary {
   const owner = mapTaskPersonSummary(input.author)!;
-  const agentCredentialLabel = normalizeText(input.authorAgentCredentialLabel);
+  const agentCredentialLabel = normalizeText(input.authorAgentIdentity?.label ?? input.authorAgentCredentialLabel);
   const isAgentComment = Boolean(
-    input.authorAgentCredentialId || agentCredentialLabel
+    input.authorAgentIdentity || input.authorAgentCredentialId || agentCredentialLabel
   );
 
   return {
@@ -203,14 +208,15 @@ function mapTaskComment(input: {
       })),
     author: isAgentComment
       ? {
-          id: input.authorAgentCredentialId ?? input.author.id,
+          id: input.authorAgentIdentity?.id ?? input.authorAgentCredentialId ?? input.author.id,
           kind: "agent",
           displayName: buildAgentDisplayName(agentCredentialLabel),
           usernameTag: null,
           avatarSeed: AGENT_COMMENT_AVATAR_SEED,
           agentCredentialId: input.authorAgentCredentialId,
           agentCredentialLabel: agentCredentialLabel || null,
-          agentCredentialDescriptiveLabels: input.authorAgentCredentialDescriptiveLabels ?? [],
+          agentCredentialDescriptiveLabels: input.authorAgentIdentity?.descriptiveLabels
+            ?? input.authorAgentCredentialDescriptiveLabels ?? [],
           owner,
         }
       : {
@@ -672,6 +678,7 @@ export async function listTaskCommentsForProject(input: {
           authorAgentCredentialId: true,
           authorAgentCredentialLabel: true,
           authorAgentCredentialDescriptiveLabels: true,
+          authorAgentIdentity: { select: { id: true, label: true, descriptiveLabels: true } },
           author: {
             select: {
               id: true,
@@ -869,6 +876,7 @@ export async function createTaskCommentForProject(input: {
             authorAgentCredentialId: true,
             authorAgentCredentialLabel: true,
             authorAgentCredentialDescriptiveLabels: true,
+            authorAgentIdentity: { select: { id: true, label: true, descriptiveLabels: true } },
             author: {
               select: {
                 id: true,
@@ -1139,6 +1147,7 @@ export async function updateTaskCommentForProject(
           authorAgentCredentialId: true,
           authorAgentCredentialLabel: true,
           authorAgentCredentialDescriptiveLabels: true,
+          authorAgentIdentity: { select: { id: true, label: true, descriptiveLabels: true } },
           author: {
             select: {
               id: true,

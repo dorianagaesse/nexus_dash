@@ -3,6 +3,20 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-656: current names and labels across comment history
+
+- Replaced posting-time display with a retained public agent author identity,
+  following Dorian's revised direction. The additive migration backfills linked
+  old comments; credential triggers maintain current metadata and preserve it
+  after key deletion. Previously orphaned comments retain their fallback.
+- Comment reads/create/edit resolve current public metadata in their existing
+  queries, including empty label lists. Project activity refreshes open threads
+  without rewriting comment content, timestamps or task revisions. Added real
+  PostgreSQL backfill, retention, RLS and cross-tab viewer regressions.
+- Integrated current main and preserved both journal histories. Superseded the
+  original snapshot ADR and updated user/API docs; validation and the refreshed
+  Preview handoff are recorded in PR #661.
+
 # 2026-11-08 - ND-656: credential loading across shared Preview migrations
 
 - Identified the deployed owner-list failure as Prisma P2023: `meeting_read`

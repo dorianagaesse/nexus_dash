@@ -230,6 +230,7 @@ model Project {
   invitations        ProjectInvitation[]
   taskRelations      TaskRelation[]
   apiCredentials     ApiCredential[]
+  agentAuthorIdentities AgentAuthorIdentity[]
   authAuditEvents    AuthAuditEvent[]
   notificationEmails ProjectNotificationEmail[]
   meetingNotes       ProjectMeetingNote[]
@@ -662,6 +663,8 @@ model TaskComment {
   authorAgentCredentialId    String?
   authorAgentCredentialLabel String?        @db.VarChar(80)
   authorAgentCredentialDescriptiveLabels String[] @default([]) @db.VarChar(40)
+  authorAgentIdentityId       String?
+  authorAgentIdentity         AgentAuthorIdentity? @relation(fields: [authorAgentIdentityId], references: [id], onDelete: SetNull)
   task                       Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
   author                     User           @relation("TaskCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
   authorAgentCredential      ApiCredential? @relation("TaskCommentAgentAuthorCredential", fields: [authorAgentCredentialId], references: [id], onDelete: SetNull)
@@ -676,6 +679,22 @@ model TaskComment {
   @@index([taskId, createdAt])
   @@index([authorUserId])
   @@index([authorAgentCredentialId])
+  @@index([authorAgentIdentityId])
+}
+
+// Public author metadata survives removal of the secret-bearing credential.
+// Its ID matches the credential ID; database triggers keep the metadata current.
+model AgentAuthorIdentity {
+  id                String   @id
+  projectId         String
+  label             String   @db.VarChar(80)
+  descriptiveLabels String[] @default([]) @db.VarChar(40)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  project           Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  comments          TaskComment[]
+
+  @@index([projectId])
 }
 
 model TaskCommentAgentMention {

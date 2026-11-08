@@ -242,6 +242,24 @@ describe("task comments route", () => {
     });
   });
 
+  test.each([{ descriptiveLabels: ["Current", "Codex"] }, { descriptiveLabels: [] }])("GET resolves current author labels $descriptiveLabels even after key deletion", async ({ descriptiveLabels }) => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({ id: "task-1", projectId: "project-1" });
+    prismaMock.taskComment.findMany.mockResolvedValueOnce([{
+      id: "comment-agent", content: "Old comment", createdAt: new Date("2026-04-19T09:30:00.000Z"),
+      authorAgentCredentialId: null, authorAgentCredentialLabel: "Old name",
+      authorAgentCredentialDescriptiveLabels: ["Old label"],
+      authorAgentIdentity: { id: "agent-1", label: "Current name", descriptiveLabels },
+      author: { id: "owner-1", name: "Owner", email: "owner@example.com", username: null, usernameDiscriminator: null, avatarSeed: null },
+    }]);
+    const response = await GET(new Request("http://localhost/api/projects/project-1/tasks/task-1/comments") as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) });
+    expect(response.status).toBe(200);
+    const { comments } = await response.json();
+    expect(comments[0].author).toMatchObject({ id: "agent-1", kind: "agent", displayName: "Current name",
+      agentCredentialId: null, agentCredentialDescriptiveLabels: descriptiveLabels });
+    expect(JSON.stringify(comments)).not.toContain("Old label");
+  });
+
   test("GET returns 404 when task is outside the project", async () => {
     prismaMock.task.findUnique.mockResolvedValueOnce({
       id: "task-1",

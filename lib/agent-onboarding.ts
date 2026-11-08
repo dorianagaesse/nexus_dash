@@ -370,7 +370,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     description: "List the chronological comment thread for one task.",
     requiredScopes: ["task:read"],
     notes: [
-      "Agent-authored comments include the credential name in author.displayName and descriptive labels in author.agentCredentialDescriptiveLabels. Both are snapshots taken when the comment is posted and survive later credential changes or removal.",
+      "Agent-authored comments resolve the current name in author.displayName and current labels in author.agentCredentialDescriptiveLabels from a retained public author identity. Name and label edits apply to existing comments; API key removal retains the final public identity.",
     ],
   },
   {
@@ -384,7 +384,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     notes: [
       "Task comments preserve line breaks and can subsequently be edited via PATCH.",
       "A comment may include up to 10 previously uploaded file attachment ids (images, PDF, text, Markdown, CSV, or JSON); content may be empty when at least one file is attached.",
-      "Agent-authored comments snapshot the credential name in author.displayName and descriptive labels in author.agentCredentialDescriptiveLabels when posted. No agent suffix is appended; author.kind identifies agent authors. Later credential changes and comment edits preserve both snapshots.",
+      "Agent-authored comments display the current author name and descriptive labels across all linked comments. No agent suffix is appended; author.kind identifies agent authors. Rotation, revocation and key deletion retain the public identity. Previously orphaned comments use saved attribution.",
       "Tag project agents by inserting the exact `@{Credential Label}` token in content and listing the credentialId in agentMentionSelections; mismatched, revoked, expired, or out-of-project selections fail the whole request with task-comment-agent-mention-invalid.",
     ],
   },
@@ -2020,7 +2020,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             agentCredentialDescriptiveLabels: {
               type: "array", maxItems: MAX_AGENT_DESCRIPTIVE_LABELS,
               items: { type: "string", maxLength: MAX_AGENT_DESCRIPTIVE_LABEL_LENGTH },
-              description: "Descriptive labels captured at posting; unchanged by edits or credential lifecycle changes. Empty for human authors and comments posted before this metadata existed.",
+              description: "Current agent author labels, including on older comments. Public identity survives API key deletion; previously orphaned comments use their saved labels. Empty for human authors or an agent with no labels.",
             },
             owner: {
               anyOf: [

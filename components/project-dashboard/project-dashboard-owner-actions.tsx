@@ -917,6 +917,7 @@ export function ProjectDashboardOwnerActions({
           ? { ...entry, descriptiveLabels: savedLabels } : entry),
       } : previous);
       pushToast({ variant: "success", message: "Descriptive labels saved." });
+      router.refresh();
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not save descriptive labels.";

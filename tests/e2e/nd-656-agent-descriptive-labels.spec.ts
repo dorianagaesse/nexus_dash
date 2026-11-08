@@ -4,7 +4,7 @@ import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
 import { copyAndCloseAgentKey } from "./helpers/agent-access-helpers";
 
-test("owners manage credential labels and comments preserve attribution across the credential lifecycle", async ({ page, playwright }) => {
+test("owners manage current author labels across all comments and credential lifecycle changes", async ({ page, playwright }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   const userId = await signInAsVerifiedUser(page);
   const project = await prisma.project.create({ data: {
@@ -132,7 +132,7 @@ test("owners manage credential labels and comments preserve attribution across t
     await expect(page.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("Research");
     const edited = await agent.patch(`${commentsUrl}/${comment.id}`, { headers, data: { content: "Original model attribution, edited" } });
     expect(edited.status()).toBe(200);
-    expect((await edited.json()).comment.author.agentCredentialDescriptiveLabels).toEqual(["GPT-6", "Codex"]);
+    expect((await edited.json()).comment.author.agentCredentialDescriptiveLabels).toEqual(["GPT-6.1", "Research"]);
     const next = await agent.post(commentsUrl, { headers, data: { content: "New model attribution" } });
     expect(next.status()).toBe(201);
     expect((await next.json()).comment.author.agentCredentialDescriptiveLabels).toEqual(["GPT-6.1", "Research"]);
@@ -169,17 +169,27 @@ test("owners manage credential labels and comments preserve attribution across t
     await details.getByRole("button", { name: "Close credential details", exact: true }).click();
     const empty = await (await page.request.get(`${prefix}/agent-access`)).json();
     expect(empty.credentials.find((entry: {id: string}) => entry.id === credential.id).descriptiveLabels).toEqual([]);
+    const clearedComments = (await (await page.request.get(commentsUrl)).json()).comments;
+    expect(clearedComments.map((entry: {author: {agentCredentialDescriptiveLabels: string[]}}) => entry.author.agentCredentialDescriptiveLabels)).toEqual([[], []]);
+    // Both existing comments adopt these current labels, including the second
+    // comment which was posted with a different model/classification.
+    expect((await page.request.patch(`${prefix}/agent-access/${credential.id}/labels`, {
+      data: { descriptiveLabels: ["GPT-6", "Codex"] },
+    })).status()).toBe(200);
     const assertHistory = async () => {
       const response = await page.request.get(commentsUrl);
       expect(response.ok()).toBeTruthy();
       const rows = (await response.json()).comments;
-      expect(rows[0].author.displayName).toBe(`${name}`);
+      expect(rows[0].author.displayName).toBe("Renamed agent");
       expect(rows[0].author.kind).toBe("agent");
       expect(rows[0].author.agentCredentialDescriptiveLabels).toEqual(["GPT-6", "Codex"]);
-      expect(rows[1].author.agentCredentialDescriptiveLabels).toEqual(["GPT-6.1", "Research"]);
+      expect(rows[1].author.displayName).toBe("Renamed agent");
+      expect(rows[1].author.agentCredentialDescriptiveLabels).toEqual(["GPT-6", "Codex"]);
     };
     // Rename is another owner-managed field; simulate it independently from labels.
     await prisma.apiCredential.update({ where: { id: credential.id }, data: { label: "Renamed agent" } });
+    await assertHistory();
+    expect((await page.request.post(`${prefix}/agent-access/${credential.id}/rotate`)).status()).toBe(200);
     await assertHistory();
     const revoke = await page.request.delete(`${prefix}/agent-access/${credential.id}`);
     expect(revoke.status()).toBe(200);
@@ -192,8 +202,8 @@ test("owners manage credential labels and comments preserve attribution across t
     await expect(original.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("Codex");
     await expect(original.getByRole("group", { name: "Descriptive labels", exact: true }).getByText("GPT-6", { exact: true }))
       .toHaveCSS("background-color", originalLabelColor);
-    await expect(original.getByText(name, { exact: true })).toBeVisible();
-    await expect(original.getByText(`${name} (agent)`, { exact: true })).toHaveCount(0);
+    await expect(original.getByText("Renamed agent", { exact: true })).toBeVisible();
+    await expect(original.getByText("Renamed agent (agent)", { exact: true })).toHaveCount(0);
     await page.screenshot({ path: test.info().outputPath("agent-comment-name.png"), animations: "disabled" });
     await page.reload();
     await expect(original.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("Codex");
