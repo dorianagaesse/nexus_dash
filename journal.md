@@ -11,7 +11,12 @@
 - Comment binding now always uses a transaction and propagates a failed atomic
   bind through rollback before returning an error, avoiding orphan comments.
 - Added a three-actor browser/API regression with cross-actor denials, concurrent
-  publication, posted reader access and revoked credential rejection.
+  publication, posted reader access and revoked/expired credential rejection.
+- Lint, RLS inventory/matrix, 2,405 unit/API tests (3 skipped), coverage thresholds
+  and production build passed. Eight local browser scenarios passed after fixing
+  the new fixture creator fields. Preview workflow 42490026682 verified runtime
+  `1f07733c2c80fa1eee6e377298da214dc542fc7d`; the hosted three-actor regression
+  passed at `https://nexus-dash-bqppck26v-dorian-agaesses-projects.vercel.app`.
 
 # 2026-11-08 - ND-669: task attachment attribution
 

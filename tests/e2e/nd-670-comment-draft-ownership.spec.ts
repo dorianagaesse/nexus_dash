@@ -9,7 +9,7 @@ test("unpublished task files belong to a human or a single credential, including
   const userId = await signInAsVerifiedUser(page);
   const project = await prisma.project.create({ data: { name: uniqueProjectName("nd670"), ownerId: userId, memberships: { create: { userId, role: "owner" } } } });
   const prefix = `/api/projects/${project.id}`;
-  const task = await prisma.task.create({ data: { projectId: project.id, title: "Draft ownership", status: "Backlog", position: 0 } });
+  const task = await prisma.task.create({ data: { projectId: project.id, createdByUserId: userId, updatedByUserId: userId, title: "Draft ownership", status: "Backlog", position: 0 } });
   const taskUrl = `${prefix}/tasks/${task.id}`;
   const actors: { id?: string; headers: Record<string, string> }[] = [{ headers: {} }];
   const files: { id: string; key: string }[] = [];
@@ -61,11 +61,13 @@ test("unpublished task files belong to a human or a single credential, including
     expect(attempts.filter(response => [400, 409].includes(response.status()))).toHaveLength(1);
     expect(await prisma.taskComment.count({ where: { taskId: task.id } })).toBe(1);
     for (const actor of actors) expect((await page.request.get(`${taskUrl}/attachments/${draft.id}/download`, { headers: actor.headers })).status()).toBe(200);
-    const otherTask = await prisma.task.create({ data: { projectId: project.id, title: "Other task", status: "Backlog", position: 1 } });
+    const otherTask = await prisma.task.create({ data: { projectId: project.id, createdByUserId: userId, updatedByUserId: userId, title: "Other task", status: "Backlog", position: 1 } });
     expect((await page.request.post(`${prefix}/tasks/${otherTask.id}/comments`, { headers: actors[2].headers, data: { content: "Wrong task", attachmentIds: [files[2].id] } })).status()).toBe(400);
     await prisma.apiCredential.update({ where: { id: actors[2].id! }, data: { revokedAt: new Date() } });
     expect((await page.request.get(`${taskUrl}/attachments/${files[2].id}/download`, { headers: actors[2].headers })).status()).toBe(401);
     expect((await page.request.delete(`${taskUrl}/attachments/${files[2].id}`)).ok()).toBeTruthy();
+    await prisma.apiCredential.update({ where: { id: actors[1].id! }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    expect((await page.request.get(`${taskUrl}/attachments/${draft.id}/download`, { headers: actors[1].headers })).status()).toBe(401);
   } finally {
     for (const file of files) await page.request.delete(`${taskUrl}/attachments/${file.id}`);
     await prisma.project.delete({ where: { id: project.id } });
