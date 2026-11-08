@@ -11661,3 +11661,9 @@ coverage thresholds, lint, RLS inventory and production build pass. The real
 PostgreSQL matrix verifies recipient-grant insert/read enforcement and filtered
 Realtime snapshots. Four focused browser scenarios pass, including live inbox
 revocation, editable agent permissions and both descriptive-label scenarios.
+
+The full CI browser run exposed two stale fixtures: the forward-scope test used
+meeting/epic scopes that ND-130 now supports, and the shell navigation notification
+omitted project metadata. Switched to synthetic unknown enum values and supplied
+the notification project/task IDs. All eight affected browser scenarios pass locally;
+the original run passed the other 143 scenarios, including notification revocation.
