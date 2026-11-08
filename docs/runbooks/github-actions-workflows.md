@@ -82,6 +82,17 @@ delivery. A browser check covers two signed-in sessions, token renewal, and
 Broadcast to polling degradation while project changes continue to
 arrive. It also rejects a signed-out token request, then removes the fixtures.
 
+### ND-654 credential permission rollout
+
+ND-654 moved completion permission to `ApiCredential.canMoveTasksToDone` and
+removed `Project.agentCanMoveTasksToDone`. Older immutable Previews still query
+the removed column and return 500 from the owner agent-access endpoint, even
+when `/api/health/ready` reports healthy. Rebase dependent branches onto ND-654,
+regenerate Prisma, and deploy the updated ref. Validate the signed-in owner’s
+credential list and per-credential permission controls against the new immutable
+URL; replace obsolete Preview links in the PR and board handoff. The shared
+Preview schema stays at its forward migration state.
+
 ### ND-185 Preview Migration Recovery
 
 The 2026-10-04 ND-185 Preview run applied
