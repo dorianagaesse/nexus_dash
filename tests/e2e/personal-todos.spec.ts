@@ -201,11 +201,9 @@ test("one list preserves meeting actions and adds private personal todos", async
         (dark) => document.documentElement.classList.toggle("dark", dark),
         dark
       );
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= window.innerWidth
-        )
-      ).toBe(true);
+      await expect.poll(() => page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth
+      )).toBe(true);
       await page.evaluate(() => window.scrollTo(0, 0));
       const path = `.tmp/personal-todos-review/${name}.png`;
       await page.screenshot({ path, fullPage: true });
@@ -214,11 +212,9 @@ test("one list preserves meeting actions and adds private personal todos", async
     await page.evaluate(() => {
       document.documentElement.style.fontSize = "32px";
     });
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth
-      )
-    ).toBe(true);
+    await expect.poll(() => page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth
+    )).toBe(true);
     await page.evaluate(() => {
       document.documentElement.style.fontSize = "";
     });
