@@ -273,6 +273,13 @@
       "enforcement": "operational",
       "owner": "authentication abuse-control service",
       "rationale": "Rate-limit buckets are cross-request security state keyed by hashed signals, not tenant content."
+    },
+    {
+      "model": "TaskReferenceCounter",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "task reference allocation trigger",
+      "rationale": "One transactional counter per project; only owners and editors can allocate and task deletion never resets the counter."
     }
   ]
 }

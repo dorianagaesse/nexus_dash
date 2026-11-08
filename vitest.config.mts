@@ -31,6 +31,7 @@ export default defineConfig({
         "app/api/projects/[projectId]/context-cards/[cardId]/attachments/[attachmentId]/download/route.ts",
         "app/api/projects/[projectId]/tasks/reorder/route.ts",
         "app/api/projects/[projectId]/tasks/search/route.ts",
+        "app/api/projects/[projectId]/tasks/reference/route.ts",
         "app/api/projects/[projectId]/tasks/[taskId]/route.ts",
         "components/kanban/kanban-filter-bar.tsx",
         "components/kanban/kanban-filter-utils.ts",
@@ -49,6 +50,7 @@ export default defineConfig({
         "lib/task-label.ts",
         "lib/task-status.ts",
         "lib/services/project-task-search-service.ts",
+        "lib/services/project-task-reference-service.ts",
       ],
       thresholds: {
         lines: 85,

@@ -3,6 +3,50 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-536: PR review follow-up
+
+- Read PR #673 review 5817617926 and the live task/comment thread: no blocking
+  code findings; the required follow-up is conflict resolution and validation.
+- Merged origin/main at 134bff0c into the existing feature branch. The only
+  conflict was competing journal additions; retained all ND-536, ND-375 and
+  ND-655 entries. README merged cleanly and retains both numbering and runtime
+  guidance. Task numbering implementation and migration remain unchanged.
+- Validation evidence for the combined head is recorded in PR #673.
+
+# 2026-11-08 - ND-536: project-local task numbering
+
+- Isolated worktree/branch from origin/main ac7b2fa3; picked up the live board card
+  using the Codex credential. Existing root-checkout changes were left intact.
+- Replaced the global sequence with project-local composite uniqueness and an
+  RLS-protected transactional allocator; preserved CUID identity and legacy
+  aliases. Added explicit authorized current/legacy reference lookup.
+- Migration orders all tasks by createdAt/id within project, verifies the
+  snapshot, invalidates stale activity task snapshots, and advances project
+  versions for connected clients. Added compatibility, cutover evidence, and
+  tested-backup restore procedures plus the superseding architecture decision.
+- Real PostgreSQL fixture evidence: 4 tasks before/after; deterministic ties,
+  archived task, relation/comment identity, both unique indexes, 12 concurrent
+  creates, concurrent new-project creation, rollback, failed insert, deletion,
+  immutable identity, replay invalidation, and denied cross-project/viewer
+  allocation passed. The complete tenant-isolation matrix also passed against
+  a freshly migrated database with the required realtime stub.
+- Local validation passed on Node 24.15.0: lint, RLS inventory, production build,
+  38 focused tests and 100% statement/branch/function/line coverage of the new
+  resolver and route, plus the real PostgreSQL migration/isolation matrix.
+- GitHub Quality Core and Tenant Isolation passed on implementation commit
+  7fb1991e: 2,402 unit/API tests passed (3 skipped), with coverage of 94.44%
+  statements, 88.91% branches, 97.57% functions and 95.53% lines. Duplicate full
+  local unit/coverage runs were stopped after CI passed to free shared machine
+  resources for browser validation. Initial local setup attempts needed explicit
+  environment values and the realtime test stub; both were corrected.
+- CI evidence: https://github.com/dorianagaesse/nexus_dash/actions/runs/42428168499.
+  Reviewable PR: https://github.com/dorianagaesse/nexus_dash/pull/673. Copilot
+  review was not awaited, as requested. Production migration remains a release
+  operation requiring the documented maintenance window and verified backup.
+- Full local Playwright suite passed: 129 tests, 2 expected environment-specific
+  skips (13.2 minutes), including the expanded task numbering, project-scoped
+  lookup/search, foreign-project related-task exclusion, and stable-link flow.
+
 # 2026-11-08 - ND-375: production Broadcast configuration investigation
 
 - Recorded Dorian's decision to retain Vercel Pro and picked up ND-375 for the

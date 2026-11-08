@@ -64,6 +64,12 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 
 ## 3. Architecture and Stack
 
+Task display references are project-local; immutable CUIDs retain database,
+API, and deep-link identity. A transactional `TaskReferenceCounter` row per
+project allocates numbers through a PostgreSQL insert trigger. Migrated global
+numbers remain explicit legacy aliases; see
+[`project-task-numbering.md`](docs/runbooks/project-task-numbering.md).
+
 - Framework: Next.js 16 App Router + TypeScript strict
 - UI: Tailwind CSS + Shadcn UI + Lucide + `@hello-pangea/dnd`
 - Data: Prisma 7 + PostgreSQL

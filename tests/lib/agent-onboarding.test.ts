@@ -15,6 +15,18 @@ import { MAX_BULK_TASK_OPERATIONS } from "@/lib/task-bulk";
 import { TASK_STATUSES } from "@/lib/task-status";
 
 describe("agent-onboarding contract", () => {
+  test("documents explicit project-local and legacy reference resolution", () => {
+    const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
+    const endpoint = AGENT_API_ENDPOINTS.find(entry => entry.path === "/api/projects/{projectId}/tasks/reference");
+    expect(endpoint?.requiredScopes).toEqual(["task:read"]);
+    expect(endpoint?.notes.join(" ")).toContain("No fallback");
+    const operation = document.paths["/api/projects/{projectId}/tasks/reference"].get;
+    expect(operation.parameters).toContainEqual(expect.objectContaining({
+      name: "namespace", schema: { type: "string", enum: ["current", "legacy"], default: "current" },
+    }));
+    expect(operation.responses[200].content["application/json"].schema.properties.legacyReference.type)
+      .toEqual(["string", "null"]);
+  });
   test("documents additive relation edits and excludes mixed replace mode", () => {
     const document = buildAgentOpenApiDocument("https://preview.nexusdash.test");
     const schema = document.components.schemas.TaskUpdateRequest;
