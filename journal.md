@@ -11670,3 +11670,7 @@ Low-value entries to avoid going forward:
   are recorded on PR #669.
 - Added and read back an explicit short test procedure on ND-658, with detailed
   setup in the portable-identities runbook. No deployment or merge to main.
+- The integrated browser run exposed a closed legacy directory after returning
+  from revocation and an ambiguous label assertion across the two lists. Lifted
+  disclosure state above the offboarding dialog and scoped the legacy assertion
+  to its directory. The existing lifecycle scenarios cover both regressions.

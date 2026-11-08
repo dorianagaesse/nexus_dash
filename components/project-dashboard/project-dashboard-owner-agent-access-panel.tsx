@@ -47,6 +47,8 @@ import { ProjectAgentSetupGuideDialog } from "./project-agent-setup-guide-dialog
 
 interface ProjectDashboardOwnerAgentAccessPanelProps {
   projectId: string;
+  legacyCredentialsOpen: boolean;
+  onLegacyCredentialsOpenChange: (open: boolean) => void;
   accessSummary: ProjectAgentAccessSummary | null;
   isLoadingAccessSummary: boolean;
   accessLoadError: string | null;
@@ -71,6 +73,8 @@ interface ProjectDashboardOwnerAgentAccessPanelProps {
 
 export function ProjectDashboardOwnerAgentAccessPanel({
   projectId,
+  legacyCredentialsOpen,
+  onLegacyCredentialsOpenChange,
   accessSummary,
   isLoadingAccessSummary,
   accessLoadError,
@@ -156,7 +160,11 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   return (
     <>
       <AgentIdentitiesPanel projectId={projectId} />
-      <details className="border-t pt-4">
+      <details
+        className="border-t pt-4"
+        open={legacyCredentialsOpen}
+        onToggle={(event) => onLegacyCredentialsOpenChange(event.currentTarget.open)}
+      >
         <summary className="cursor-pointer text-sm font-medium">Legacy API credentials</summary>
       <section aria-label="Agent access" className="min-w-0 space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-4">

@@ -163,7 +163,8 @@ identity IDs; localhost databases on separate laptops are not the same instance.
    (macOS/Linux: use `-- bash`). In each bound shell, run
    `node scripts/nd-agent.mjs request GET /api/projects/PROJECT_ID/tasks`.
    All requests succeed; settings show one Oscar and three distinct sessions.
-3. Create a task/comment through a bound shell. Its author is Oscar. An Oscar
+3. Authorize, pair and launch Nova separately with its own identity ID. Create a
+   task/comment through Oscar's bound shell. Its author is Oscar. An Oscar
    status request may move the task to Done; the same request in a Nova session
    returns 403. After five minutes, another read succeeds through automatic renewal.
 4. End one session: only it fails on its next request. Revoke the first device:
@@ -175,7 +176,9 @@ identity IDs; localhost databases on separate laptops are not the same instance.
    remains allowed, pairing stays disabled until an allowed scope is selected.
 6. Rename/relabel Oscar: existing linked comments show the current name/labels.
    Deactivate Oscar: access stops; assignments, mentions and comments remain.
-7. Expand **Legacy API credentials**. Verify search/filter/manage/label controls.
+7. Expand **Legacy API credentials**, create a test credential, and verify the
+   search/filter/manage/label controls. Refresh identities and authorize/pair a
+   device for this credential before testing rotation.
    Rotate a legacy key: its old bearer fails immediately and a newly exchanged
    token works immediately. A separately paired device session for that same
    legacy identity remains valid across the key rotation.

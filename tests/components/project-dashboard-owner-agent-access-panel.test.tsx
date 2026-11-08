@@ -6,6 +6,8 @@ import { ProjectDashboardOwnerAgentAccessPanel } from "@/components/project-dash
 (globalThis as { React?: typeof React }).React = React;
 const props: ComponentProps<typeof ProjectDashboardOwnerAgentAccessPanel> = {
   projectId: "project-1",
+  legacyCredentialsOpen: false,
+  onLegacyCredentialsOpenChange: () => {},
   accessSummary: {
     projectId: "project-1",
     accessTokenTtlSeconds: 600,
