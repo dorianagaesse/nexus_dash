@@ -6,6 +6,9 @@
   project/task/comment/reaction chain before reading or mutating reactions.
 - Added route/service mismatch tests and a real API regression with two threads
   and human/agent requests, checking that rejected paths leave both unchanged.
+- Lint, RLS inventory/matrix, 2,405 unit/API tests (3 skipped), coverage thresholds
+  and production build passed. Both targeted local reaction browser/API scenarios
+  passed, including credential lifecycle and mismatched parent non-mutation.
 
 # 2026-11-08 - ND-671: independent reaction actors
 
