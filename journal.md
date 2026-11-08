@@ -11413,3 +11413,22 @@ Low-value entries to avoid going forward:
   pre-hydration click; applied the existing suite's bounded open/retry pattern.
   Both assertions retain their functional checks. Final rerun evidence is
   recorded on the PR and card.
+
+### 2026-11-08 — ND-815 custom 404 page
+
+- Created and read back ND-815, checked for overlapping board work, and moved
+  it to In Progress using the configured Codex identity. Started from current
+  origin/main in an isolated worktree to preserve unrelated roadmap edits.
+- Added the root App Router not-found page with NexusDash branding, existing
+  theme tokens and buttons, and Projects/Home recovery links. Existing route
+  authentication and API responses remain unchanged.
+- Added browser coverage for unknown URLs, missing projects, signed-in/out
+  recovery, keyboard navigation, noindex, and 320px/1440px light/dark layouts.
+  All six focused browser checks pass. Inspected all four theme/viewport
+  screenshots; controls remain visible and the page has no horizontal overflow.
+- Adjusted the missing-project test to allow the framework's duplicate noindex
+  tags during streaming. Unmatched URLs return HTTP 404; streamed project
+  boundaries retain the existing Next.js status behavior.
+- Production build, lint, RLS inventory, and whitespace checks pass. Full
+  unit, coverage, and browser results are recorded below before PR handoff.
+- Copilot review monitoring is omitted at the user's explicit request.

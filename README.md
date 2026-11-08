@@ -18,6 +18,8 @@ Implemented today:
 - Email verification and password recovery for credentials accounts
 - DB-backed session cookies
 - Protected routes: `/projects/**`, `/account/**`
+- Branded 404 page for unknown URLs and unavailable pages, with Projects and
+  Home recovery links, responsive layouts, and light/dark theme support
 - Project CRUD
 - Project Todos combines meeting actions and personal todos in one list. Add
   a todo for yourself with just text; edit, complete/reopen, or delete your own
