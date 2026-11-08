@@ -123,10 +123,13 @@ test("owners manage credential labels and comments preserve attribution across t
     const bounds = await details.getByRole("group", { name: "Descriptive labels", exact: true }).boundingBox();
     expect(bounds).toBeTruthy();
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(375);
-    await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    // NexusDash uses an explicit root class rather than the OS color scheme.
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await expect(page.locator("html")).toHaveClass(/dark/);
     await page.screenshot({ path: test.info().outputPath("labels-mobile-dark.png") });
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.emulateMedia({ colorScheme: "light" });
+    await page.evaluate(() => document.documentElement.classList.remove("dark"));
     await page.screenshot({ path: test.info().outputPath("labels-desktop-light.png") });
     await page.setViewportSize({ width: 375, height: 812 });
     await page.getByRole("button", { name: `Edit descriptive labels for ${name}`, exact: true }).click();
