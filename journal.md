@@ -11429,6 +11429,11 @@ Low-value entries to avoid going forward:
 - Adjusted the missing-project test to allow the framework's duplicate noindex
   tags during streaming. Unmatched URLs return HTTP 404; streamed project
   boundaries retain the existing Next.js status behavior.
-- Production build, lint, RLS inventory, and whitespace checks pass. Full
-  unit, coverage, and browser results are recorded below before PR handoff.
+- Validation: production build, lint, RLS inventory, release policy, and
+  whitespace checks pass. Unit tests: 2,434 passed, 3 skipped. Coverage passes
+  with 95.56% lines and 89.08% branches. Local validation uses an isolated
+  PostgreSQL database on port 55815; initial runs were restarted with explicit
+  database environment values and four Vitest workers.
+- Full npm run test:e2e passes: 141 passed, 2 skipped, including all six
+  new 404 checks. Desktop/mobile and light/dark screenshot review passed.
 - Copilot review monitoring is omitted at the user's explicit request.
