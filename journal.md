@@ -10,6 +10,10 @@
   normalized plain-text projection limit and required human discriminator.
 - Added runtime/contract tests for alternative scopes, response fields, bounds
   and a browser/API example for mention preservation and rich-text limits.
+- Lint, RLS inventory, 2,404 unit/API tests (3 skipped), coverage thresholds and
+  build passed. The local and hosted discovery/mention/browser contract tests
+  passed. Workflow 42492696187 verified `ae82a86bcb16c79dfd33bbab426c2c33ac0f88d6`
+  at `https://nexus-dash-k7hq700v1-dorian-agaesses-projects.vercel.app`.
 
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
