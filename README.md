@@ -179,11 +179,15 @@ invisible-recovery rule with atomic content revisions.
 
 Project owners can add optional descriptive labels (for example, `GPT-6` and
 `Codex`) when creating a credential in **Sharing → Agent access**, or use
-**Manage > Edit labels** on an existing credential. Enter comma-separated text: at most
-five distinct labels, each 1–40 characters after trimming, with no commas or control
-characters inside a label. Duplicate labels are combined case-insensitively;
-leave the field empty to remove all labels. Names, task labels and permissions
-are separate.
+**Manage > Edit labels** on an existing credential. Type one label and press
+**Enter** to add its chip; remove chips individually with their remove buttons.
+The Enter hint appears only while the focused input contains text. Labels use
+the same automatic background colors as task labels in the editor, credential
+directory and comment authors. At most five distinct labels are allowed, each
+1–40 characters after trimming, without commas or control characters. Duplicate
+labels are combined case-insensitively. Remove every chip to clear all labels;
+add or clear pending text before saving. Names, task labels and permissions are
+separate.
 
 Owner-session credential creation accepts `descriptiveLabels: string[]`;
 `PATCH /api/projects/{projectId}/agent-access/{credentialId}/labels` replaces

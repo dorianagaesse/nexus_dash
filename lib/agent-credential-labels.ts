@@ -1,7 +1,10 @@
 export const MAX_AGENT_DESCRIPTIVE_LABELS = 5;
 export const MAX_AGENT_DESCRIPTIVE_LABEL_LENGTH = 40;
 export const AGENT_DESCRIPTIVE_LABELS_HINT =
-  "Separate labels with commas. Up to 5 distinct labels, 40 characters each.";
+  "Up to 5 distinct labels, 40 characters each.";
+
+export const AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR =
+  "Add the pending label with Enter, or clear the input before saving.";
 
 /** Credential descriptions only; never used for authorization or task labels. */
 export function parseAgentCredentialDescriptiveLabels(value: unknown): string[] | null {
@@ -28,8 +31,4 @@ export function parseAgentCredentialDescriptiveLabels(value: unknown): string[] 
     }
   }
   return labels;
-}
-
-export function parseAgentCredentialDescriptiveLabelsDraft(value: string): string[] | null {
-  return parseAgentCredentialDescriptiveLabels(value.trim() ? value.split(",") : []);
 }

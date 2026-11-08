@@ -3,6 +3,19 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-656: Enter-to-add labels and task-label colors
+
+- Replaced comma-separated credential label fields with one shared chip editor
+  for creation and management. Enter explicitly adds a label; blur preserves
+  pending text, and save focuses pending text until it is added or cleared.
+  Individual remove buttons support label removal without rewriting a string.
+- Show the Enter instruction only for a focused, non-empty input. Reuse task
+  label color assignment and dark foregrounds for editor chips, directory
+  badges and comment attribution. Existing validation and snapshots remain.
+- Updated interaction regressions and documentation. Validation, refreshed
+  Preview evidence, and the requested ND-1 Preview comment are recorded on
+  PR #661; credentials remain in the user-provided ignored env file.
+
 # 2026-11-08 - ND-656: review after ND-655 merged
 
 - Integrated current main after PR #660 merged and resolved the stale stacked

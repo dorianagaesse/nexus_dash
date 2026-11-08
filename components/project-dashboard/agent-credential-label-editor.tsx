@@ -4,9 +4,11 @@ import { useRef, useState } from "react";
 
 import {
   AGENT_DESCRIPTIVE_LABELS_HINT,
-  parseAgentCredentialDescriptiveLabelsDraft,
+  AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR,
+  parseAgentCredentialDescriptiveLabels,
 } from "@/lib/agent-credential-labels";
 import { Button } from "@/components/ui/button";
+import { AgentCredentialLabelsField } from "./agent-credential-labels-field";
 
 export function AgentCredentialLabelEditor({
   credentialId, name, labels, disabled, onSave,
@@ -19,6 +21,7 @@ export function AgentCredentialLabelEditor({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [draftLabels, setDraftLabels] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -30,7 +33,8 @@ export function AgentCredentialLabelEditor({
       <Button ref={triggerRef} type="button" variant="outline" size="sm" disabled={disabled}
         aria-label={`Edit descriptive labels for ${name}`}
         onClick={() => {
-          setDraft((labels ?? []).join(", "));
+          setDraftLabels([...(labels ?? [])]);
+          setDraft("");
           setError(null);
           setIsEditing(true);
         }}>
@@ -40,9 +44,9 @@ export function AgentCredentialLabelEditor({
   }
 
   const save = async () => {
-    const parsed = parseAgentCredentialDescriptiveLabelsDraft(draft);
-    if (!parsed) {
-      setError(AGENT_DESCRIPTIVE_LABELS_HINT + " Labels must be non-empty text.");
+    const parsed = parseAgentCredentialDescriptiveLabels(draftLabels);
+    if (draft.trim() || !parsed) {
+      setError(draft.trim() ? AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR : AGENT_DESCRIPTIVE_LABELS_HINT);
       inputRef.current?.focus();
       return;
     }
@@ -62,15 +66,12 @@ export function AgentCredentialLabelEditor({
 
   return (
     <div className="w-full min-w-0 space-y-2">
-      <label htmlFor={id} className="block text-sm font-medium">Descriptive labels for {name}</label>
-      <input ref={inputRef} id={id} autoFocus value={draft} disabled={disabled || isSaving}
-        aria-describedby={`${id}-hint${error ? ` ${id}-error` : ""}`}
-        aria-invalid={Boolean(error)}
-        onChange={(event) => { setDraft(event.target.value); setError(null); }}
-        className="h-11 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      <AgentCredentialLabelsField
+        id={id} label={`Descriptive labels for ${name}`} inputRef={inputRef} autoFocus
+        labels={draftLabels} onLabelsChange={setDraftLabels}
+        draft={draft} onDraftChange={setDraft} error={error} onErrorChange={setError}
+        disabled={disabled || isSaving}
       />
-      <p id={`${id}-hint`} className="text-xs text-muted-foreground">{AGENT_DESCRIPTIVE_LABELS_HINT} Leave empty to remove all labels.</p>
-      {error ? <p id={`${id}-error`} role="alert" className="text-sm text-destructive">{error}</p> : null}
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" disabled={disabled || isSaving} onClick={() => void save()}>{isSaving ? "Saving labels..." : "Save labels"}</Button>
         <Button type="button" size="sm" variant="ghost" disabled={isSaving} onClick={() => {

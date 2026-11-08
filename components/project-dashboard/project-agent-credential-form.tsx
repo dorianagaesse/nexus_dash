@@ -14,8 +14,10 @@ import { Button } from "@/components/ui/button";
 import { describeAgentAccess } from "./project-agent-access-presentation";
 import {
   AGENT_DESCRIPTIVE_LABELS_HINT,
-  parseAgentCredentialDescriptiveLabelsDraft,
+  AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR,
+  parseAgentCredentialDescriptiveLabels,
 } from "@/lib/agent-credential-labels";
+import { AgentCredentialLabelsField } from "./agent-credential-labels-field";
 
 export interface CreateProjectAgentCredentialInput {
   label: string;
@@ -41,6 +43,7 @@ export function ProjectAgentCredentialForm({
 }: ProjectAgentCredentialFormProps) {
   const [name, setName] = useState("");
   const [labelsDraft, setLabelsDraft] = useState("");
+  const [labels, setLabels] = useState<string[]>([]);
   const labelsRef = useRef<HTMLInputElement>(null);
   const [expiry, setExpiry] = useState("");
   const [scopes, setScopes] = useState<AgentScope[]>(() => [
@@ -73,9 +76,9 @@ export function ProjectAgentCredentialForm({
           ).focus();
           return;
         }
-        const descriptiveLabels = parseAgentCredentialDescriptiveLabelsDraft(labelsDraft);
-        if (!descriptiveLabels) {
-          setFormError({ field: "labels", message: AGENT_DESCRIPTIVE_LABELS_HINT + " Labels must be non-empty text." });
+        const descriptiveLabels = parseAgentCredentialDescriptiveLabels(labels);
+        if (labelsDraft.trim() || !descriptiveLabels) {
+          setFormError({ field: "labels", message: labelsDraft.trim() ? AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR : AGENT_DESCRIPTIVE_LABELS_HINT });
           labelsRef.current?.focus();
           return;
         }
@@ -151,28 +154,14 @@ export function ProjectAgentCredentialForm({
             </select>
           </div>
         </div>
-        <div className="min-w-0 space-y-2">
-          <label htmlFor="project-agent-descriptive-labels" className="text-sm font-medium">
-            Descriptive labels (optional)
-          </label>
-          <input
-            id="project-agent-descriptive-labels"
-            ref={labelsRef}
-            value={labelsDraft}
-            aria-invalid={formError?.field === "labels" || undefined}
-            aria-describedby={`project-agent-labels-hint${formError?.field === "labels" ? " project-agent-labels-error" : ""}`}
-            onChange={(event) => {
-              setLabelsDraft(event.target.value);
-              setFormError((current) => current?.field === "labels" ? null : current);
-            }}
-            placeholder="e.g. GPT-6, Codex"
-            className="h-11 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          <p id="project-agent-labels-hint" className="text-xs text-muted-foreground">{AGENT_DESCRIPTIVE_LABELS_HINT}</p>
-          {formError?.field === "labels" ? (
-            <p id="project-agent-labels-error" role="alert" className="text-sm text-destructive">{formError.message}</p>
-          ) : null}
-        </div>
+        <AgentCredentialLabelsField
+          id="project-agent-descriptive-labels" label="Descriptive labels (optional)" inputRef={labelsRef}
+          labels={labels} onLabelsChange={setLabels} draft={labelsDraft} onDraftChange={setLabelsDraft}
+          error={formError?.field === "labels" ? formError.message : null}
+          onErrorChange={(message) => setFormError((current) => message
+            ? { field: "labels", message } : current?.field === "labels" ? null : current)}
+          disabled={isCreating}
+        />
         <div className="space-y-3">
           <div>
             <p className="text-sm font-medium">

@@ -22,10 +22,24 @@ test("owners manage credential labels and comments preserve attribution across t
     await page.locator("#project-agent-label").fill(name);
     const createLabels = page.getByLabel("Descriptive labels (optional)", { exact: true });
     await createLabels.fill("x".repeat(41));
-    await page.getByRole("button", { name: "Create credential", exact: true }).click();
+    await createLabels.press("Enter");
     await expect(createLabels).toBeFocused();
     await expect(createLabels).toHaveAttribute("aria-invalid", "true");
-    await page.getByLabel("Descriptive labels (optional)", { exact: true }).fill(" GPT-6, Codex ");
+    await createLabels.fill(" GPT-6 ");
+    await expect(page.getByText("Press Enter to add a label", { exact: true })).toBeVisible();
+    await page.locator("#project-agent-label").click();
+    await expect(page.getByText("Press Enter to add a label", { exact: true })).toHaveCount(0);
+    await createLabels.focus();
+    await createLabels.press("Enter");
+    await expect(page.getByRole("button", { name: "Remove label GPT-6", exact: true })).toBeVisible();
+    await expect(createLabels).toHaveValue("");
+    await expect(page.getByText("Press Enter to add a label", { exact: true })).toHaveCount(0);
+    await createLabels.fill("Codex");
+    await page.getByRole("button", { name: "Create credential", exact: true }).click();
+    await expect(createLabels).toBeFocused();
+    await expect(page.getByRole("alert")).toContainText("Add the pending label with Enter");
+    await createLabels.press("Enter");
+    await expect(page.getByRole("dialog", { name: "New agent credential", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Create credential", exact: true }).click();
     const apiKey = await page.getByRole("textbox", { name: `API key for ${name}`, exact: true }).inputValue();
     await copyAndCloseAgentKey(page);
@@ -36,6 +50,9 @@ test("owners manage credential labels and comments preserve attribution across t
     expect(JSON.stringify(summary)).not.toContain(apiKey);
     await expect(page.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("GPT-6");
     await expect(page.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("Codex");
+    const originalLabelColor = await page.getByRole("group", { name: "Descriptive labels", exact: true })
+      .getByText("GPT-6", { exact: true }).evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(originalLabelColor).not.toBe("rgba(0, 0, 0, 0)");
 
     await page.getByLabel("Search credentials", { exact: true }).fill(" codex ");
     await expect(page.getByRole("listitem", { name, exact: true })).toBeVisible();
@@ -68,10 +85,15 @@ test("owners manage credential labels and comments preserve attribution across t
     await details.getByRole("button", { name: `Edit descriptive labels for ${name}`, exact: true }).click();
     const editField = page.getByLabel(`Descriptive labels for ${name}`, { exact: true });
     await editField.fill("x".repeat(41));
-    await page.getByRole("button", { name: "Save labels", exact: true }).click();
+    await editField.press("Enter");
     await expect(page.getByRole("alert").filter({ hasText: "40 characters" })).toBeVisible();
     await expect(editField).toBeFocused();
-    await editField.fill("GPT-6.1, Research");
+    await details.getByRole("button", { name: "Remove label GPT-6", exact: true }).click();
+    await details.getByRole("button", { name: "Remove label Codex", exact: true }).click();
+    await editField.fill("GPT-6.1");
+    await editField.press("Enter");
+    await editField.fill("Research");
+    await editField.press("Enter");
     const labelsRoute = `**${prefix}/agent-access/${credential.id}/labels`;
     await page.route(labelsRoute, (route) => route.fulfill({
       status: 503, json: { error: "credential-labels-update-failed" },
@@ -79,7 +101,9 @@ test("owners manage credential labels and comments preserve attribution across t
     await page.getByRole("button", { name: "Save labels", exact: true }).click();
     await expect(page.getByRole("alert", { name: "Credential labels error" })).toContainText("Could not save descriptive labels");
     await expect(page.getByRole("button", { name: "Retry loading credentials" })).toHaveCount(0);
-    await expect(editField).toHaveValue("GPT-6.1, Research");
+    await expect(editField).toHaveValue("");
+    await expect(details.getByRole("list", { name: "Added descriptive labels", exact: true })).toContainText("GPT-6.1");
+    await expect(details.getByRole("list", { name: "Added descriptive labels", exact: true })).toContainText("Research");
     await page.unroute(labelsRoute);
     let releaseSave!: () => void;
     const pendingSave = new Promise<void>((resolve) => { releaseSave = resolve; });
@@ -115,9 +139,12 @@ test("owners manage credential labels and comments preserve attribution across t
 
     await page.getByRole("button", { name: `Manage ${name}`, exact: true }).click();
     await page.getByRole("button", { name: `Edit descriptive labels for ${name}`, exact: true }).click();
-    await page.getByLabel(`Descriptive labels for ${name}`, { exact: true }).fill(
-      Array.from({ length: 5 }, (_, index) => String(index).repeat(40)).join(", ")
-    );
+    await details.getByRole("button", { name: "Remove label GPT-6.1", exact: true }).click();
+    await details.getByRole("button", { name: "Remove label Research", exact: true }).click();
+    for (let index = 0; index < 5; index++) {
+      await editField.fill(String(index).repeat(40));
+      await editField.press("Enter");
+    }
     await page.getByRole("button", { name: "Save labels", exact: true }).click();
     await expect(page.getByRole("button", { name: `Edit descriptive labels for ${name}`, exact: true })).toBeVisible();
     const bounds = await details.getByRole("group", { name: "Descriptive labels", exact: true }).boundingBox();
@@ -133,7 +160,9 @@ test("owners manage credential labels and comments preserve attribution across t
     await page.screenshot({ path: test.info().outputPath("labels-desktop-light.png") });
     await page.setViewportSize({ width: 375, height: 812 });
     await page.getByRole("button", { name: `Edit descriptive labels for ${name}`, exact: true }).click();
-    await page.getByLabel(`Descriptive labels for ${name}`, { exact: true }).fill("");
+    for (let index = 0; index < 5; index++) {
+      await details.getByRole("button", { name: `Remove label ${String(index).repeat(40)}`, exact: true }).click();
+    }
     await page.getByRole("button", { name: "Save labels", exact: true }).click();
     await expect(page.getByRole("button", { name: `Edit descriptive labels for ${name}`, exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: `Edit descriptive labels for ${name}`, exact: true })).toBeFocused();
@@ -160,6 +189,8 @@ test("owners manage credential labels and comments preserve attribution across t
     const original = page.locator("article").filter({ hasText: "Original model attribution, edited" });
     await expect(original.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("GPT-6");
     await expect(original.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("Codex");
+    await expect(original.getByRole("group", { name: "Descriptive labels", exact: true }).getByText("GPT-6", { exact: true }))
+      .toHaveCSS("background-color", originalLabelColor);
     await expect(original).toContainText(`${name} (agent)`);
     await page.reload();
     await expect(original.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("Codex");
