@@ -39,6 +39,29 @@ Use it for important implementation milestones, blockers, validation runs, and r
   unrelated completion/deletion and completion of the edited item now preserve
   the draft. Regression tests cover each path.
 
+# 2026-11-08 - ND-425: agent task-edit coverage audit
+
+- Audited the current Kanban UI, shared task contracts, routes, services,
+  attachment/comment actor policies, and hosted agent OpenAPI from
+  `origin/main` at `9d61fb5243f90931fe238fc359324be24f516548`, using an isolated
+  worktree to preserve unrelated root edits.
+- Confirmed ND-649's PR #657 is merged. The user-authorized attempt to move
+  ND-649 to Done returned 403 `agent-done-move-disabled`; left its credential
+  permissions unchanged and reported the required owner action.
+- Added `docs/audits/nd-425-agent-task-api-coverage.md` with per-operation
+  coverage, source-derived findings, explicit exclusions, and historical
+  closure of ND-424 / GitHub #486 and ND-451. Corrected the runbook's stale
+  assertion that existing task link attachments can be edited in the UI.
+- Searched the live task/epic inventory and created the related epic
+  "Agent task API parity and actor-safe collaboration" with ND-669 through
+  ND-674: task attachment attribution, unpublished uploader isolation,
+  reaction attribution, nested reaction parents, local-storage task uploads,
+  and actor/mention contract documentation. Read back each card to verify its
+  Backlog lane, labels, criteria, report attachment, epic and relationships.
+- Validation: documentation-only diff; `git diff --check` and relative-link
+  validation passed. Inspected existing regression tests; no runtime tests,
+  schema changes, deployments or production file/reaction probes were needed.
+
 # 2026-11-08 - ND-375: production Broadcast configuration investigation
 
 - Recorded Dorian's decision to retain Vercel Pro and picked up ND-375 for the
