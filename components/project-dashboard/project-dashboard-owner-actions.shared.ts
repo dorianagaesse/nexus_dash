@@ -111,6 +111,12 @@ export interface ProjectAgentAccessSummary {
   recentEvents: ProjectAgentAuditEventSummary[];
 }
 
+export interface ProjectAgentAccessActionError {
+  credentialId?: string;
+  action: "create" | "rotate" | "capabilities";
+  message: string;
+}
+
 export interface ProjectAgentCredentialIssuedSecret {
   credential: ProjectAgentCredentialSummary;
   apiKey: string;
@@ -219,6 +225,14 @@ export function buildRoleSummary(role: ProjectCollaboratorRole): string {
 
 export function mapAgentAccessError(errorCode: string): string {
   switch (errorCode) {
+    case "agent-access-load-failed":
+      return "Could not load credentials. Please retry.";
+    case "credential-create-failed":
+      return "Could not create the credential. Please retry.";
+    case "credential-rotate-failed":
+      return "Could not rotate the API key. Please retry.";
+    case "credential-revoke-failed":
+      return "Could not revoke the credential. Please retry.";
     case "invalid-json":
       return "The request payload was invalid. Refresh and retry.";
     case "invalid-label":

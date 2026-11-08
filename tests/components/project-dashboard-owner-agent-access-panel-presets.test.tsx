@@ -5,7 +5,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { ProjectDashboardOwnerAgentAccessPanel } from "@/components/project-dashboard/project-dashboard-owner-agent-access-panel";
+import { ProjectAgentCredentialForm } from "@/components/project-dashboard/project-agent-credential-form";
 import {
   AGENT_CREDENTIAL_PRESETS,
   AGENT_SCOPE_DEFINITIONS,
@@ -13,9 +13,14 @@ import {
 } from "@/lib/agent-access";
 
 (globalThis as { React?: typeof React }).React = React;
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
-function findPresetButton(container: HTMLElement, presetLabel: string): HTMLButtonElement {
+function findPresetButton(
+  container: HTMLElement,
+  presetLabel: string
+): HTMLButtonElement {
   const button = [...container.querySelectorAll("button")].find(
     (candidate) =>
       candidate.hasAttribute("aria-pressed") &&
@@ -68,24 +73,11 @@ describe("ProjectDashboardOwnerAgentAccessPanel preset application", () => {
 
     await act(async () => {
       root.render(
-        React.createElement(ProjectDashboardOwnerAgentAccessPanel, {
-          projectId: "project-1",
-          accessSummary: {
-            projectId: "project-1",
-            accessTokenTtlSeconds: 600,
-            credentials: [],
-            recentEvents: [],
-          },
-          isLoadingAccessSummary: false,
-          accessError: null,
-          onUpdateCapabilities: () => {},
-          isCreatingCredential: false,
-          mutatingCredentialId: null,
-          latestIssuedSecret: null,
-          onCreateCredential,
-          onRotateCredential: () => {},
-          onRevokeCredential: () => {},
-          onDismissLatestSecret: () => {},
+        React.createElement(ProjectAgentCredentialForm, {
+          isCreating: false,
+          error: null,
+          onCreate: onCreateCredential,
+          onCancel: () => {},
         })
       );
     });
@@ -116,7 +108,9 @@ describe("ProjectDashboardOwnerAgentAccessPanel preset application", () => {
         );
       });
 
-      expect(findPresetButton(container, preset.label).getAttribute("aria-pressed")).toBe("true");
+      expect(
+        findPresetButton(container, preset.label).getAttribute("aria-pressed")
+      ).toBe("true");
       expect(getCheckedScopes(container)).toEqual(preset.scopes);
 
       await act(async () => {
@@ -134,7 +128,9 @@ describe("ProjectDashboardOwnerAgentAccessPanel preset application", () => {
       expect(lastCall.scopes).toEqual(preset.scopes);
     }
 
-    expect(onCreateCredential).toHaveBeenCalledTimes(AGENT_CREDENTIAL_PRESETS.length);
+    expect(onCreateCredential).toHaveBeenCalledTimes(
+      AGENT_CREDENTIAL_PRESETS.length
+    );
 
     await act(async () => {
       root.unmount();

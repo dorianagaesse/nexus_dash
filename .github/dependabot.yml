@@ -9,6 +9,11 @@ updates:
       timezone: "UTC"
     open-pull-requests-limit: 5
     groups:
+      vitest-toolchain:
+        applies-to: "version-updates"
+        patterns:
+          - "vitest"
+          - "@vitest/*"
       safe-dev-dependencies:
         applies-to: "version-updates"
         dependency-type: "development"

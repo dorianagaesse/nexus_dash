@@ -58,6 +58,9 @@ jobs:
       - name: Check RLS model inventory
         run: npm run rls:check
 
+      - name: Test Dependabot repair orchestration
+        run: python3 -m unittest scripts.test_dependabot_repair_agent
+
       - name: Lint
         run: npm run lint
 

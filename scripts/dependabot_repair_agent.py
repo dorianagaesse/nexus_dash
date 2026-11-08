@@ -24,6 +24,7 @@ REQUIRED_CHECK_NAMES = {
     "check-name",
     "Quality Core (lint, test, coverage, build)",
     "E2E Smoke (Playwright)",
+    "Tenant Isolation (PostgreSQL RLS)",
     "Container Image (build + metadata artifact)",
 }
 MAX_REPLACEMENT_SUMMARY_CHARS = 2500

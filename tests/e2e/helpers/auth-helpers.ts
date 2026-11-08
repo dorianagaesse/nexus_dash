@@ -26,7 +26,7 @@ function toUsernameDiscriminator(rawValue: string): string {
 
 function resolveBaseUrl(): URL {
   const configuredBaseUrl = process.env.PLAYWRIGHT_BASE_URL?.trim();
-  const fallbackBaseUrl = "http://127.0.0.1:3000";
+  const fallbackBaseUrl = `http://127.0.0.1:${process.env.PORT ?? 3000}`;
   return new URL(configuredBaseUrl || fallbackBaseUrl);
 }
 
