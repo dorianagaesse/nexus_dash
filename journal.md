@@ -3,6 +3,41 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-375: production Broadcast configuration investigation
+
+- Recorded Dorian's decision to retain Vercel Pro and picked up ND-375 for the
+  remaining Supabase review. Kept root roadmap edits untouched by using an
+  isolated documentation worktree from `origin/main` at `ac7b2fa3`.
+- Production revision `0c5bd59` reports Broadcast, issues session tokens, and
+  records polling fallbacks. Fresh environment checks reproduce HTTP 401 for
+  the preferred Production publishable key, versus HTTP 200 Auth settings and
+  HTTP 101 WebSocket upgrade for the valid publishable value under the legacy
+  setting. Preview keys validate and sampled Preview transport is polling.
+- Added the evidence, limitations, hosting decision, and staged repair plan in
+  `docs/reports/nd-375-production-realtime-investigation.md`; documented the
+  resolved-key operator preflight in the runtime environment runbook.
+- No Production runtime settings, deployments, schema, or test fixtures were
+  changed. Database load and authenticated private-channel acceptance remain
+  unverified. Follow-up card creation was rejected by automatic approval review
+  (`blocked by policy`); its proposed scope is preserved in the report. ND-375
+  remains In Progress.
+- Documentation validation: `git diff --check` passed; relative report/runbook
+  links resolve and the linked Supabase key/report references were reviewed.
+- Follow-up at 11:04–11:08 Paris: Dorian corrected the preferred Production
+  publishable key. A fresh pull and direct checks now return HTTP 200/101.
+  Manual staging run 42469846601 succeeded; checkout logs, deployment metadata,
+  and health verify the unchanged live source `0c5bd59`. Staged deployment
+  `dpl_2QF7kBTw64Lb2XBT2v45jvR5cjqc` serves root/readiness with HTTP 200 and
+  has no aliases. No migration or promotion ran; signed-in acceptance is next.
+- Staged acceptance follow-up: Dorian confirmed a task created in the normal
+  browser appeared automatically in a separate Incognito session, with both
+  windows visible and no refresh or focus change. Recorded this as manual
+  cross-session project-delivery evidence, not a complete notification,
+  token-renewal, or authorization regression run.
+- Resolved the PR #670 journal conflict against `origin/main` at `4448df01`,
+  preserving both the ND-375 and ND-655 histories. Production promotion and
+  the remaining operational review stay separate from this documentation merge.
+
 # 2026-11-08 - ND-655: copy the issued key before closing
 
 - Applied the user's revised direction: retain the one-time key's outside-click
