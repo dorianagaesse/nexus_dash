@@ -9,6 +9,13 @@
   local storage, retaining R2 direct upload and the multipart-at-create restriction.
 - Added local/API checks for regular and comment files, invalid tokens, missing
   scopes, MIME/size rejection, attribution, privacy, binding and download/removal.
+- Lint, RLS inventory/matrix, 2,408 unit/API tests (3 skipped), coverage thresholds
+  and build passed. Eight local browser scenarios passed initially; the meeting
+  smoke bounding-box assertion missed its tolerance by 2.5px and passed an
+  unchanged isolated rerun. All three hosted upload/draft lifecycle checks passed.
+- Preview workflow 42491849366 verified `164ae18b` at
+  `https://nexus-dash-2527p5sp8-dorian-agaesses-projects.vercel.app`, covering the
+  multipart path and existing R2 direct upload, actor history and draft ownership.
 
 # 2026-11-08 - ND-670: draft attachment ownership
 
