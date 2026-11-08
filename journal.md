@@ -1,5 +1,12 @@
 # Development Journal
 
+# 2026-11-08 - ND-672: nested reaction parent validation
+
+- Forwarded task and comment IDs through reaction routes and validated the entire
+  project/task/comment/reaction chain before reading or mutating reactions.
+- Added route/service mismatch tests and a real API regression with two threads
+  and human/agent requests, checking that rejected paths leave both unchanged.
+
 # 2026-11-08 - ND-671: independent reaction actors
 
 - Reaction rows now store human/agent kind, nullable credential and a durable

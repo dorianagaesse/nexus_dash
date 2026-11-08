@@ -418,19 +418,19 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     tag: "Tasks", method: "GET", path: "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions",
     title: "List comment reactions", description: "Reactions belong to a human or a specific credential; credentials sharing an owner have separate state.",
     requiredScopes: ["task:read"],
-    notes: ["POST toggles the same emoji off or replaces this actor's previous emoji. DELETE affects only this actor's reaction. Each response groups counts and sets reacted for the caller; actor carries durable provenance and user is null for agents. Deleted credentials retain kind and displayName with a null actor id. Invalid emoji returns 400, insufficient access 403, and missing project-scoped records 404."],
+    notes: ["POST toggles the same emoji off or replaces this actor's previous emoji. DELETE affects only this actor's reaction. Each response groups counts and sets reacted for the caller; actor carries durable provenance and user is null for agents. Deleted credentials retain kind and displayName with a null actor id. Invalid emoji returns 400, insufficient access 403, and missing or mismatched project/task/comment/reaction parents 404 without mutation."],
   },
   {
     tag: "Tasks", method: "POST", path: "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions",
     title: "Toggle comment reaction", description: "Reactions belong to a human or a specific credential; credentials sharing an owner have separate state.",
     requiredScopes: ["task:write"],
-    notes: ["POST toggles the same emoji off or replaces this actor's previous emoji. DELETE affects only this actor's reaction. Each response groups counts and sets reacted for the caller; actor carries durable provenance and user is null for agents. Deleted credentials retain kind and displayName with a null actor id. Invalid emoji returns 400, insufficient access 403, and missing project-scoped records 404."],
+    notes: ["POST toggles the same emoji off or replaces this actor's previous emoji. DELETE affects only this actor's reaction. Each response groups counts and sets reacted for the caller; actor carries durable provenance and user is null for agents. Deleted credentials retain kind and displayName with a null actor id. Invalid emoji returns 400, insufficient access 403, and missing or mismatched project/task/comment/reaction parents 404 without mutation."],
   },
   {
     tag: "Tasks", method: "DELETE", path: "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions/{reactionId}",
     title: "Remove own comment reaction", description: "Reactions belong to a human or a specific credential; credentials sharing an owner have separate state.",
     requiredScopes: ["task:write"],
-    notes: ["POST toggles the same emoji off or replaces this actor's previous emoji. DELETE affects only this actor's reaction. Each response groups counts and sets reacted for the caller; actor carries durable provenance and user is null for agents. Deleted credentials retain kind and displayName with a null actor id. Invalid emoji returns 400, insufficient access 403, and missing project-scoped records 404."],
+    notes: ["POST toggles the same emoji off or replaces this actor's previous emoji. DELETE affects only this actor's reaction. Each response groups counts and sets reacted for the caller; actor carries durable provenance and user is null for agents. Deleted credentials retain kind and displayName with a null actor id. Invalid emoji returns 400, insufficient access 403, and missing or mismatched project/task/comment/reaction parents 404 without mutation."],
   },
   {
     tag: "Tasks",

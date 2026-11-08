@@ -693,3 +693,7 @@ Responses group counts and caller-specific `reacted` state. Each reaction's
 `actor` identifies the human or agent; `user` is null for agents. Credential
 removal preserves the agent display snapshot with a null actor ID. Reaction
 button tooltips show these actors, including the agent marker.
+
+Reaction routes validate the entire project/task/comment/reaction path. A known
+comment under the wrong task, or a reaction under the wrong comment, returns 404
+and never reads or changes the other thread's reactions.
