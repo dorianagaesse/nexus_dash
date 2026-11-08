@@ -9,6 +9,10 @@
   as their reactor; tooltips identify agents. Published the three reaction routes.
 - Added a three-actor lifecycle browser test and PostgreSQL coverage for agent
   reaction reads, write denial and credential deletion history.
+- Lint, RLS inventory/matrix, 2,402 unit/API tests (3 skipped), coverage thresholds,
+  build and seven local browser checks passed. Hosted lifecycle and tooltip
+  checks passed at `https://nexus-dash-mrrtbkqj3-dorian-agaesses-projects.vercel.app`.
+  Workflow 42490841055 verified `230ea34d69a4eb911ed07f87dff49c7dfd53dc86`.
 
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
