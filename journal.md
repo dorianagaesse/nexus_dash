@@ -24,6 +24,20 @@ Use it for important implementation milestones, blockers, validation runs, and r
   the existing Realtime policy stub before migrations for the standard matrix.
   Local checks use Node 24.22.1; full Vitest runs use explicit `NODE_ENV=test`,
   one thread worker and the verbose reporter on Windows.
+- Validation: full unit and coverage runs passed (2,425 tests, 3 skipped),
+  plus seven focused checklist recovery/filter tests. Coverage: 94.39% statements,
+  89.06% branches, 97.05% functions, 95.55% lines. Lint, RLS inventory, real
+  PostgreSQL matrix and production build passed. The full local browser run had
+  134 passes and 2 skips; its sole failure was a checklist test expecting a
+  checkbox to stay mounted after moving into Completed. Corrected that assertion
+  and rebuilt: all eight checklist/meeting-todo browser tests passed. Desktop
+  (1440px) and mobile (390px) captures are attached to the Playwright report;
+  the design detector returned no findings. Copilot review was skipped per
+  Dorian's instruction because it is currently unavailable.
+- A fresh visual/source review caught an active draft being closed by a
+  different item's mutation. Limited editor closure to saving that item's text;
+  unrelated completion/deletion and completion of the edited item now preserve
+  the draft. Regression tests cover each path.
 
 # 2026-11-08 - ND-375: production Broadcast configuration investigation
 

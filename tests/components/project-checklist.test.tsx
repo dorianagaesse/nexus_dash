@@ -28,6 +28,7 @@ afterEach(async () => {
   for (const node of containers.splice(0)) node.remove();
   vi.unstubAllGlobals();
   vi.resetAllMocks();
+  vi.restoreAllMocks();
 });
 async function render(canEdit = true) {
   const container = document.createElement("div");
@@ -138,4 +139,117 @@ test("creator filter narrows shared items while viewers remain read-only", async
   await act(async () => mine.click());
   expect(container.textContent).toContain("First item");
   expect(container.textContent).not.toContain("Other person's item");
+});
+
+test("a remote completion keeps the conflicting edit recoverable in its new view", async () => {
+  mocks.mutate.mockResolvedValue(new Response("{}", { status: 409 }));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          canEdit: true,
+          canDelete: true,
+          todos: [
+            { ...todo, completedAt: "2026-11-08T12:00:00Z", revision: 1 },
+          ],
+        })
+      )
+    )
+  );
+  const container = await render();
+  await act(async () =>
+    container
+      .querySelector<HTMLButtonElement>('[aria-label="Edit: First item"]')!
+      .click()
+  );
+  const edit = container.querySelector<HTMLInputElement>("#edit-one")!;
+  await type(edit, "Still my draft");
+  await act(async () =>
+    edit.form!.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true })
+    )
+  );
+  expect(
+    container.querySelector<HTMLTextAreaElement>("#checklist-recovery")?.value
+  ).toBe("Still my draft");
+  const restore = Array.from(container.querySelectorAll("button")).find(
+    (button) => button.textContent === "Return to item"
+  )!;
+  await act(async () => restore.click());
+  expect(container.querySelector<HTMLInputElement>("#edit-one")?.value).toBe(
+    "Still my draft"
+  );
+});
+
+test.each(["complete", "delete"])(
+  "%s on another item preserves the active text draft",
+  async (operation) => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    mocks.mutate.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          todo:
+            operation === "delete"
+              ? null
+              : {
+                  ...todo,
+                  id: "two",
+                  content: "Other person's item",
+                  createdByUserId: "other",
+                  completedAt: "2026-11-08T12:00:00Z",
+                  revision: 1,
+                },
+        })
+      )
+    );
+    const container = await render();
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Edit: First item"]')!
+        .click()
+    );
+    await type(
+      container.querySelector<HTMLInputElement>("#edit-one")!,
+      "Keep this separate edit"
+    );
+    const label =
+      operation === "delete"
+        ? "Delete: Other person's item"
+        : "Complete: Other person's item";
+    await act(async () =>
+      container.querySelector<HTMLElement>(`[aria-label="${label}"]`)!.click()
+    );
+    expect(container.querySelector<HTMLInputElement>("#edit-one")?.value).toBe(
+      "Keep this separate edit"
+    );
+  }
+);
+
+test("completing the edited item retains its draft in recovery", async () => {
+  mocks.mutate.mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        todo: { ...todo, completedAt: "2026-11-08T12:00:00Z", revision: 1 },
+      })
+    )
+  );
+  const container = await render();
+  await act(async () =>
+    container
+      .querySelector<HTMLButtonElement>('[aria-label="Edit: First item"]')!
+      .click()
+  );
+  await type(
+    container.querySelector<HTMLInputElement>("#edit-one")!,
+    "Keep this completed edit"
+  );
+  await act(async () =>
+    container
+      .querySelector<HTMLInputElement>('[aria-label="Complete: First item"]')!
+      .click()
+  );
+  expect(
+    container.querySelector<HTMLTextAreaElement>("#checklist-recovery")?.value
+  ).toBe("Keep this completed edit");
 });

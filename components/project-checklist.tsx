@@ -102,7 +102,13 @@ export function ProjectChecklist({
         setContent("");
         setCompleted(false);
       }
-      if (method !== "POST") setEditingId(null);
+      if (
+        method === "PATCH" &&
+        todo?.id === editingId &&
+        typeof values.content === "string"
+      ) {
+        setEditingId(null);
+      }
       setFeedback(
         method === "DELETE"
           ? "Item deleted."
@@ -132,6 +138,7 @@ export function ProjectChecklist({
   const visible = matching.filter(
     (todo) => Boolean(todo.completedAt) === completed
   );
+  const editingTodo = data.todos.find((todo) => todo.id === editingId);
 
   return (
     <section aria-labelledby="project-checklist-heading" className="space-y-4">
@@ -204,10 +211,10 @@ export function ProjectChecklist({
           {error}
         </p>
       )}
-      {editingId && !data.todos.some((todo) => todo.id === editingId) && (
+      {editingId && !visible.some((todo) => todo.id === editingId) && (
         <div className="space-y-2 rounded-lg border p-3">
           <label htmlFor="checklist-recovery" className="text-sm font-medium">
-            Unsaved edit — this item is no longer available
+            Unsaved checklist edit
           </label>
           <textarea
             id="checklist-recovery"
@@ -215,19 +222,33 @@ export function ProjectChecklist({
             value={editContent}
             readOnly
           />
-          {data.canEdit && (
+          {editingTodo ? (
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => {
-                setContent(editContent);
-                setEditingId(null);
-                addInput.current?.focus();
+                setCompleted(Boolean(editingTodo.completedAt));
+                setMine(false);
               }}
             >
-              Use text in a new item
+              Return to item
             </Button>
+          ) : (
+            data.canEdit && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setContent(editContent);
+                  setEditingId(null);
+                  addInput.current?.focus();
+                }}
+              >
+                Use text in a new item
+              </Button>
+            )
           )}
         </div>
       )}
