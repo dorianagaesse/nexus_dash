@@ -2,21 +2,25 @@
 
 Investigation date: 8 November 2026 (Europe/Paris).
 Status: investigation complete; preferred key corrected and fresh deployment
-staged; signed-in acceptance and production promotion pending.
+staged; manual cross-session task delivery confirmed; production promotion and
+remaining operational checks pending.
 Hosting decision: retain Vercel Pro, as chosen by Dorian on 8 November 2026.
 
 ## Conclusion
 
 The SSE retirement and polling-efficiency work produced a substantial measured
-reduction in Vercel consumption. Production is configured for Broadcast, but
-its preferred Supabase publishable key is rejected by Supabase. Observed
-clients are using the supported polling fallback. The cost improvement is
-therefore evidence of the remediation's value, not proof of healthy production
-Broadcast delivery.
+reduction in Vercel consumption. The original production investigation found
+Broadcast configured with a rejected preferred Supabase publishable key and
+observed clients using the supported polling fallback. Dorian subsequently
+corrected the setting, and a fresh staged deployment now passes gateway checks
+and the manual cross-session task-delivery check below. The earlier cost
+improvement is evidence of the remediation's value, not proof that production
+Broadcast was healthy during that measurement window.
 
-The immediate repair is a Production environment correction followed by staged
-private-channel validation. There is no measured reason here to migrate hosting
-or upgrade Supabase merely to fix this authentication failure.
+The environment correction and a staged project-delivery check are complete;
+production promotion and the remaining validation are separate release steps.
+There is no measured reason here to migrate hosting or upgrade Supabase merely
+to fix this authentication failure.
 
 ### Configuration correction and staged release, 8 November 2026
 
@@ -34,15 +38,37 @@ the workflow's `headBranch`/`headSha` alone were not used as checkout evidence.
 The resulting [staged deployment](https://nexus-dash-dq8jyyns7-dorian-agaesses-projects.vercel.app)
 is Ready, serves `/` and `/api/health/ready` with HTTP 200, and has no aliases.
 Its ID is `dpl_2QF7kBTw64Lb2XBT2v45jvR5cjqc`. The run did not apply migrations
-or promote production. Signed-in private subscription/delivery checks remain
-the next gate; gateway HTTP 101 is not their substitute. The observations
-below describe the original investigation snapshot, before this correction.
+or promote production. Gateway HTTP 101 is not a substitute for authenticated
+subscription and delivery checks.
 
-No Production runtime settings, deployments, schema, or test fixtures were
-changed during this investigation. The Nexus Dash task was moved to In Progress,
-and the hosting decision and pickup were recorded on the card.
+### Staged signed-in checks, 8 November 2026
 
-## What is running
+Dorian signed into the staged deployment, created a task, refreshed, and
+reported no visible or console errors. Staged request logs show two successful
+token requests. A sampled instance reported two activity snapshot checks and
+zero activity polling fallbacks. Notifications had four initial fallback
+requests; after the refresh, the request timeline showed no further summary
+polling between 10:12:52 and 10:15:05 UTC. This is a short observation, not proof
+that notification fallback never occurs.
+
+For a separate delivery check, Dorian opened the same staged project in normal
+and Incognito windows, kept both visible, and confirmed that creating a task
+in one appeared automatically in the other without refreshing or changing
+focus. This is manual cross-session project-update evidence beyond local
+optimistic rendering and same-profile tab coordination. Browser automation
+access was unavailable, so the visible delivery result is user-reported.
+
+Notification event delivery, a new token-renewal run, unauthorized-topic/client
+publish denial, forced-outage recovery, and the database-load review were not
+repeated during this manual check. Earlier automated Preview/security evidence
+is linked below; it must not be relabeled as a fresh Production test.
+
+The initial investigation changed no runtime settings, deployments, schema,
+or test fixtures. Dorian then corrected the preferred Production setting, and
+the agent created the staged deployment described above. No production alias
+was promoted by this work. The Nexus Dash task remains In Progress.
+
+## Original investigation snapshot
 
 | Layer | Observed state | Evidence and limits |
 | --- | --- | --- |
@@ -142,7 +168,7 @@ repository report.
 
 ## Recommended plan
 
-1. **Correct the Production publishable-key setting.** Use a currently valid
+1. **Production publishable-key correction: completed and staged.** Use a currently valid
    publishable key belonging to the Production Supabase project for
    `SUPABASE_PUBLISHABLE_KEY`. The valid publishable value already configured
    under `SUPABASE_API_KEY` is a candidate, subject to the same preflight at
@@ -154,7 +180,8 @@ repository report.
    app. Reject a provider 401 before migrations or alias changes. Root-page
    HTTP 200 and database readiness are insufficient. Keep keys out of logs.
    A gateway preflight is an early gate, not a substitute for private joins.
-3. **Validate private Broadcast on the staged release.** Check the exact
+3. **Complete staged Broadcast validation.** Manual cross-session task delivery
+   is confirmed above. Check the exact
    revision, token issuance, authorized project/user subscriptions, unauthorized
    join and client-publish denial, two-session project/notification delivery,
    token renewal, duplicate/hidden-tab coordination, and visibility recovery.
