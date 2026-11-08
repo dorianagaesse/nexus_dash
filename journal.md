@@ -11407,3 +11407,9 @@ Low-value entries to avoid going forward:
   and requested one loading-label encoding correction. Fixed the label to
   Adding... and added a pending/duplicate-submission regression test. Final
   reviewer verdict and complete browser/CI results are linked from PR #682.
+- The broad browser run exposed a superseded mobile assertion requiring
+  assignee/text vertical overlap. Updated it to require readable full-width
+  text above the chip. A separate unchanged floating-panel test missed a
+  pre-hydration click; applied the existing suite's bounded open/retry pattern.
+  Both assertions retain their functional checks. Final rerun evidence is
+  recorded on the PR and card.
