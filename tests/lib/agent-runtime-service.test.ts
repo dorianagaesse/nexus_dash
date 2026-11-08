@@ -52,6 +52,7 @@ const future = () => new Date(Date.now() + 3600_000);
 const proof = "a".repeat(43);
 const identity = () => ({
   id: "oscar",
+  publicId: "identity-oscar",
   projectId: "project",
   label: "Oscar",
   createdByUserId: "owner",
@@ -253,6 +254,17 @@ describe("portable runtime authorization", () => {
       })
     ).toMatchObject({ ok: false, status: 403 });
     expect(mocks.db.apiCredential.create).not.toHaveBeenCalled();
+  });
+
+  test("uses the shared descriptive-label validation and storage for identities", async () => {
+    mocks.db.apiCredential.create.mockResolvedValue({ id: "oscar" });
+    const base = { actorUserId: "owner", projectId: "project" };
+    const command = { operation: "create", name: "Oscar", scopes: ["task:read"], canMoveTasksToDone: false };
+    expect(await manageAgentIdentities({ ...base, command: { ...command, descriptiveLabels: ["  Orchestrator  ", "orchestrator", "Codex"] } })).toMatchObject({ ok: true });
+    expect(mocks.db.apiCredential.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ descriptiveLabels: ["Orchestrator", "Codex"] }) }));
+    for (const descriptiveLabels of [null, ["bad,label"], ["x".repeat(41)]]) {
+      expect(await manageAgentIdentities({ ...base, command: { ...command, descriptiveLabels } })).toMatchObject({ ok: false, status: 400 });
+    }
   });
 
   test("device grants cannot exceed identity grants, including Done capability", async () => {

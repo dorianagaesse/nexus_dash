@@ -1,3 +1,4 @@
+import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -1803,6 +1804,7 @@ function TaskReadOnlyContent({
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <p className="text-sm font-medium">{comment.author.displayName}</p>
+                          {isAgentCommentAuthor(comment.author) ? <AgentCredentialDescriptiveLabels labels={comment.author.agentCredentialDescriptiveLabels} /> : null}
                           {getCommentIdentityMeta(comment.author) ? (
                             <p className="text-[11px] text-muted-foreground">
                               {getCommentIdentityMeta(comment.author)}

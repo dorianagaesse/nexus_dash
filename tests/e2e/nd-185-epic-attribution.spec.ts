@@ -179,11 +179,11 @@ test("renders agent credential attribution with the durable label snapshot", asy
 
   const createdBy = epicArticle.locator('[title^="Created by:"]');
   await expect(createdBy).toBeVisible();
-  await expect(createdBy).toContainText("Release Agent (agent)");
+  await expect(createdBy).toContainText("Release Agent");
   await expect(
     createdBy.locator('[data-agent-avatar="true"]')
   ).toBeVisible();
   await expect(
     epicArticle.locator('[title^="Last edited by:"]')
-  ).toContainText("Release Agent (agent)");
+  ).toContainText("Release Agent");
 });

@@ -106,7 +106,7 @@ authentication hashes. `POST` accepts an explicit `operation`:
 
 | Operation | Additional fields |
 | --- | --- |
-| `create` | `name`, optional `roleLabel`/`avatarSeed`, `scopes`, `canMoveTasksToDone` |
+| `create` | `name`, optional `descriptiveLabels`/`avatarSeed`, `scopes`, `canMoveTasksToDone` |
 | `update` | `identityId` and the same configuration as create |
 | `deactivate` | `identityId` |
 | `authorize-device` | `identityId`, `name`, `scopes`, `canMoveTasksToDone`; returns one-time `pairingCode` |
@@ -122,6 +122,11 @@ rate-limited. Only the launcher should handle these proof-bearing exchanges.
 
 ## Compatibility and validation
 
+Identity labels use the shared descriptive-label field (up to five labels,
+40 characters each). Current names/labels appear on linked comments. Raw-key
+rotation invalidates old legacy tokens immediately; authorized device sessions
+remain independent of that key rotation.
+
 Existing API credentials retain their actor IDs and remain under **Legacy API
 credentials**. Their existing exchange/rotation and expiry behavior is retained;
 they can also authorize devices. New identities have no usable legacy API key
@@ -136,3 +141,48 @@ The migration is additive and leaves historical foreign keys intact. See
 the runtime service/proxy tests, the extended PostgreSQL matrix and
 `tests/e2e/nd-658-portable-agent-identities.spec.ts`. No deployment is needed to
 exercise these paths locally.
+
+## Reviewer test procedure
+
+Use this PR branch with a disposable local PostgreSQL database, apply all
+migrations, build and start the app as described in [local validation](local-validation.md).
+Set `TRUSTED_ORIGINS` to the local app origin and use `NODE_ENV=test` for automated
+browser tests so mail delivery uses test behavior. Leave `TRUSTED_ORIGINS` unset
+for unit/coverage tests, which provide their own origins. Do not point tests at production.
+For a second laptop, use a localhost SSH tunnel to the same instance, or an
+already-authorized HTTPS test origin. Both devices must use the same project and
+identity IDs; localhost databases on separate laptops are not the same instance.
+
+1. Open **Share project → Agent access** as owner. Create Oscar with the
+   descriptive label `Orchestrator` (press Enter to add it), task read/write and
+   Done enabled. Create Nova with task read/write and Done disabled.
+2. Authorize two devices for Oscar. On each device run the displayed `login`
+   command and enter its own one-time code at the hidden prompt. Launch two
+   sessions on the first device and one on the second:
+   `node scripts/nd-agent.mjs run --base ORIGIN --project PROJECT_ID --identity IDENTITY_ID -- powershell.exe -NoProfile`
+   (macOS/Linux: use `-- bash`). In each bound shell, run
+   `node scripts/nd-agent.mjs request GET /api/projects/PROJECT_ID/tasks`.
+   All requests succeed; settings show one Oscar and three distinct sessions.
+3. Create a task/comment through a bound shell. Its author is Oscar. An Oscar
+   status request may move the task to Done; the same request in a Nova session
+   returns 403. After five minutes, another read succeeds through automatic renewal.
+4. End one session: only it fails on its next request. Revoke the first device:
+   its remaining session fails while the second device still reads. Wrong project,
+   unauthorized identity or missing/expired bindings must fail without fallback.
+5. Edit Oscar to remove task write and Done, then authorize another device without
+   reselecting Oscar. Pairing succeeds with the remaining read scope, with no
+   hidden Done/write grant. Active writes return 403. If no selected device scope
+   remains allowed, pairing stays disabled until an allowed scope is selected.
+6. Rename/relabel Oscar: existing linked comments show the current name/labels.
+   Deactivate Oscar: access stops; assignments, mentions and comments remain.
+7. Expand **Legacy API credentials**. Verify search/filter/manage/label controls.
+   Rotate a legacy key: its old bearer fails immediately and a newly exchanged
+   token works immediately. A separately paired device session for that same
+   legacy identity remains valid across the key rotation.
+
+Automated gates: `npm run lint`, `npm run rls:check`, `npm test`,
+`npm run test:coverage`, `npm run test:e2e` (includes build), then
+`npm run test:rls:setup` and `npm run test:rls` with the documented separate
+admin/runtime URLs. The ND-655, ND-656, ND-657 and ND-658 browser/service tests
+cover the integrated flows. Native macOS/Linux vault behavior still needs testing
+on those platforms; Windows DPAPI was exercised locally.

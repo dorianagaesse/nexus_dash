@@ -237,7 +237,7 @@ describe("createTaskForProject attribution", () => {
     expect(result.data.task.createdBy).toEqual({
       id: "cred-1",
       kind: "agent",
-      displayName: "Release bot (agent)",
+      displayName: "Release bot",
       usernameTag: null,
       avatarSeed: AGENT_TASK_AUTHOR_AVATAR_SEED,
       agentCredentialId: "cred-1",

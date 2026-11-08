@@ -108,6 +108,9 @@ The matrix covers:
 - revoked membership;
 - child rows reached through foreign IDs;
 - agent credential, scope-grant, and audit visibility;
+- current public agent author metadata for project readers, denial of direct
+  runtime identity mutations, cross-project author links and ID reuse, and
+  retention of current name/empty labels after credential deletion;
 - ND-654 migration against temporary PostgreSQL tables: old enabled/disabled
   project policies and newly created credentials all default to denying Done
   moves, and granting one credential leaves the others unchanged;

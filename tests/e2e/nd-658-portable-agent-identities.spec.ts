@@ -138,7 +138,8 @@ test("portable identities enforce runtime bindings, live grants and independent 
   const panel = page.getByRole("region", { name: "Agent identities" });
   await panel.getByRole("button", { name: "New identity" }).click();
   await panel.getByLabel("Name", { exact: true }).fill("Oscar");
-  await panel.getByLabel("Role label (optional)").fill("Orchestrator");
+  await panel.getByLabel("Descriptive labels (optional)").fill("Orchestrator");
+  await panel.getByLabel("Descriptive labels (optional)").press("Enter");
   await panel.getByLabel("Allow moving tasks to Done", { exact: true }).check();
   await panel
     .getByRole("button", { name: "Create identity", exact: true })
@@ -152,7 +153,7 @@ test("portable identities enforce runtime bindings, live grants and independent 
   const oscar = identities.identities.find(
     (i: { name: string }) => i.name === "Oscar"
   );
-  expect(oscar.roleLabel).toBe("Orchestrator");
+  expect(oscar.descriptiveLabels).toEqual(["Orchestrator"]);
   expect(oscar.canMoveTasksToDone).toBe(true);
   expect(
     (
@@ -161,6 +162,7 @@ test("portable identities enforce runtime bindings, live grants and independent 
   ).toBe(409);
   const unbound = issueAgentAccessToken({
     credentialId: oscar.id,
+    credentialPublicId: "unbound-test-generation",
     projectId,
     ownerUserId: ownerId,
     scopes: ["task:read"],
@@ -255,6 +257,45 @@ test("portable identities enforce runtime bindings, live grants and independent 
   expect(taskResponse.ok(), await taskResponse.text()).toBeTruthy();
   const { task } = await taskResponse.json();
   expect(task.createdBy.id).toBe(oscar.id);
+  const posted = await page.request.post(`${root}/tasks/${task.id}/comments`, {
+    headers: headers(one), data: { content: "Portable identity comment" },
+  });
+  expect(posted.status()).toBe(201);
+  const originalComment = (await posted.json()).comment;
+  expect(originalComment.author.agentCredentialDescriptiveLabels).toEqual(["Orchestrator"]);
+  await manage({ operation: "update", identityId: oscar.id, name: "Oscar",
+    descriptiveLabels: ["Coordinator", "Codex"], scopes, canMoveTasksToDone: true });
+  const comments = (await (await page.request.get(`${root}/tasks/${task.id}/comments`)).json()).comments;
+  expect(comments.find((comment: { id: string }) => comment.id === originalComment.id).author.agentCredentialDescriptiveLabels).toEqual(["Coordinator", "Codex"]);
+
+  // A legacy identity can also authorize devices. Rotating its API key must
+  // reject old legacy tokens without ending independent device sessions.
+  const legacyResponse = await page.request.post(`${root}/agent-access`, {
+    data: { label: "Legacy runtime actor", scopes },
+  });
+  expect(legacyResponse.status()).toBe(201);
+  const legacy = await legacyResponse.json();
+  const legacyToken = await page.request.post("/api/auth/agent/token", { data: { apiKey: legacy.apiKey } });
+  expect(legacyToken.status()).toBe(200);
+  const oldLegacyToken = await legacyToken.json();
+  const legacyGrant = await manage({ operation: "authorize-device", identityId: legacy.credential.id,
+    name: "Legacy laptop", scopes, canMoveTasksToDone: false });
+  const legacyPair = await runtime({ operation: "pair", identityId: legacy.credential.id, proof: legacyGrant.pairingCode });
+  expect(legacyPair.status()).toBe(200);
+  const legacyProof = (await legacyPair.json()).runtimeCredential;
+  const legacySession = await start(legacyProof, legacy.credential.id, "Codex");
+  const rotated = await page.request.post(`${root}/agent-access/${legacy.credential.id}/rotate`);
+  expect(rotated.status()).toBe(200);
+  const replacement = await page.request.post("/api/auth/agent/token", { data: { apiKey: (await rotated.json()).apiKey } });
+  expect(replacement.status()).toBe(200);
+  expect((await read(await replacement.json())).ok()).toBeTruthy();
+  expect((await read(oldLegacyToken)).status()).toBe(401);
+  expect((await read(legacySession)).ok()).toBeTruthy();
+  const legacyRenewed = await runtime({ operation: "renew", identityId: legacy.credential.id,
+    proof: legacyProof, sessionId: legacySession.sessionId });
+  expect(legacyRenewed.status()).toBe(200);
+  expect((await read(await legacyRenewed.json())).ok()).toBeTruthy();
+
   const mentioned = await page.request.post(
     `${root}/tasks/${task.id}/comments`,
     {
@@ -363,7 +404,7 @@ test("portable identities enforce runtime bindings, live grants and independent 
     operation: "update",
     identityId: oscar.id,
     name: "Oscar",
-    roleLabel: "Orchestrator",
+    descriptiveLabels: ["Orchestrator"],
     scopes: ["task:read"],
     canMoveTasksToDone: false,
   });
@@ -373,7 +414,7 @@ test("portable identities enforce runtime bindings, live grants and independent 
     operation: "update",
     identityId: oscar.id,
     name: "Oscar",
-    roleLabel: "Orchestrator",
+    descriptiveLabels: ["Orchestrator"],
     scopes,
     canMoveTasksToDone: true,
   });

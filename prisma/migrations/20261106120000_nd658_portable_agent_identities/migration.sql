@@ -1,7 +1,6 @@
 -- AlterTable
 ALTER TABLE "ApiCredential" ADD COLUMN     "avatarSeed" VARCHAR(64),
-ADD COLUMN     "identityMode" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "roleLabel" VARCHAR(80);
+ADD COLUMN     "identityMode" BOOLEAN NOT NULL DEFAULT false;
 
 -- CreateTable
 CREATE TABLE "AgentRuntimeDevice" (

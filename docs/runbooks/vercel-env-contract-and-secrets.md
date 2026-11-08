@@ -208,6 +208,26 @@ Broadcast prerequisites, separately for Preview and Production:
    `SUPABASE_REALTIME_TOKEN_TTL_SECONDS` is an integer from 60 to 600 (default
    600). Missing secret or invalid TTL fails startup in Broadcast mode.
 
+Before staging or promoting Broadcast, verify the **resolved** publishable key
+against the configured Supabase project. `SUPABASE_PUBLISHABLE_KEY` wins when
+nonempty; `SUPABASE_API_KEY` is only an absence fallback. A valid legacy value
+cannot rescue an invalid preferred value. Use publishable/anon keys only for
+this browser configuration, never a secret or service-role key.
+
+A bounded `GET /auth/v1/settings` with the resolved key in the `apikey` header
+can detect a rejected key without joining channels or changing data. A valid
+key should receive HTTP 200; treat provider rejection as a failed preflight.
+Do not log the key or an unredacted WebSocket URL. This is an operator check;
+the existing promotion workflow does not yet enforce it automatically.
+Private-channel joins, token renewal, and cross-session delivery still need
+their separate authenticated acceptance checks.
+
+Neither a successful page render, `/api/health/ready`, an HTTP 200 from the
+app's token route, nor `transport: broadcast` proves a healthy Supabase
+subscription. Inspect browser join/delivery evidence and fallback counters.
+See the dated [ND-375 investigation](../reports/nd-375-production-realtime-investigation.md)
+for the preferred-key failure this check is intended to catch.
+
 For a branch Preview smoke, dispatch `deploy-vercel.yml` with
 `action=deploy-preview`, `git_ref=<branch-or-sha>`, and
 `preview_realtime_transport=broadcast`. The workflow applies the migration

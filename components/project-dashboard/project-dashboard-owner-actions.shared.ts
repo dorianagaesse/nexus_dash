@@ -79,6 +79,7 @@ export interface ProjectAgentCredentialSummary {
   canMoveTasksToDone: boolean;
   id: string;
   label: string;
+  descriptiveLabels?: string[];
   publicId: string;
   scopes: AgentScope[];
   status: AgentCredentialStatus;
@@ -109,6 +110,12 @@ export interface ProjectAgentAccessSummary {
   accessTokenTtlSeconds: number;
   credentials: ProjectAgentCredentialSummary[];
   recentEvents: ProjectAgentAuditEventSummary[];
+}
+
+export interface ProjectAgentAccessActionError {
+  credentialId?: string;
+  action: "create" | "rotate" | "capabilities" | "labels";
+  message: string;
 }
 
 export interface ProjectAgentCredentialIssuedSecret {
@@ -219,12 +226,24 @@ export function buildRoleSummary(role: ProjectCollaboratorRole): string {
 
 export function mapAgentAccessError(errorCode: string): string {
   switch (errorCode) {
+    case "agent-access-load-failed":
+      return "Could not load credentials. Please retry.";
+    case "credential-create-failed":
+      return "Could not create the credential. Please retry.";
+    case "credential-rotate-failed":
+      return "Could not rotate the API key. Please retry.";
+    case "credential-revoke-failed":
+      return "Could not revoke the credential. Please retry.";
     case "invalid-json":
       return "The request payload was invalid. Refresh and retry.";
     case "invalid-label":
       return "Credential label must be between 2 and 80 characters.";
     case "scopes-required":
       return "Select at least one agent scope.";
+    case "credential-labels-update-failed":
+      return "Could not save descriptive labels. Please retry.";
+    case "invalid-descriptive-labels":
+      return "Use up to 5 non-empty descriptive labels, 40 characters each.";
     case "invalid-expiry":
       return "Expiry must be between 1 and 365 days, or left empty.";
     case "credential-required":

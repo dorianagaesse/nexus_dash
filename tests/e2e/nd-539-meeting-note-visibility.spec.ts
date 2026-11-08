@@ -1,3 +1,4 @@
+import { copyAndCloseAgentKey } from "./helpers/agent-access-helpers";
 import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
@@ -30,6 +31,7 @@ test("ND-539: meeting notes default to private, hide from other members and agen
   await page.getByRole("button", { name: "Share project" }).click();
   await page.getByRole("button", { name: "Agent access" }).click();
   await page.getByText("Legacy API credentials", { exact: true }).click();
+  await page.getByRole("button", { name: "New credential", exact: true }).click();
   await page.locator("#project-agent-label").fill(agentLabel);
   await page.getByRole("button", { name: "Create credential" }).click();
   const apiKeyInput = page.locator(
@@ -38,6 +40,7 @@ test("ND-539: meeting notes default to private, hide from other members and agen
   await expect(apiKeyInput).toBeVisible();
   const apiKey = await apiKeyInput.inputValue();
   expect(apiKey.length).toBeGreaterThan(0);
+  await copyAndCloseAgentKey(page);
   await page.getByRole("button", { name: "Close project settings" }).click();
 
   const tokenResponse = await page.request.post("/api/auth/agent/token", {

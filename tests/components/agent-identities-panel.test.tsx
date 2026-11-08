@@ -18,7 +18,7 @@ describe("AgentIdentitiesPanel device grants", () => {
   let identity: {
     id: string;
     name: string;
-    roleLabel: string;
+    descriptiveLabels: string[];
     identityMode: boolean;
     revokedAt: null;
     expiresAt: null;
@@ -65,7 +65,7 @@ describe("AgentIdentitiesPanel device grants", () => {
     identity = {
       id: "oscar",
       name: "Oscar",
-      roleLabel: "Orchestrator",
+      descriptiveLabels: ["Orchestrator"],
       identityMode: true,
       revokedAt: null,
       expiresAt: null,

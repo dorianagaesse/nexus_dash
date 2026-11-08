@@ -19,6 +19,12 @@ Implemented today:
 - DB-backed session cookies
 - Protected routes: `/projects/**`, `/account/**`
 - Project CRUD
+- Project Todos combines meeting actions and personal todos in one list. Add
+  a todo for yourself with just text; edit, complete/reopen, or delete your own
+  items. Personal todos show **Only you** and are hidden from other members,
+  including project owners. Meeting actions show **Project members** and retain
+  their existing assignment and private-note rules. Open/Completed and
+  responsibility filters apply to the combined list. Viewers remain read-only.
 - Project sharing with owner-managed membership/invitation flows, including email-bound invite links
 - In-app notification center for durable unread/read notification review, starting with project invitations
 - Project notification email digests, delayed invitation reminders, and
@@ -38,7 +44,7 @@ Implemented today:
     Activity received during local saves reconciles afterward; comment uploads
     stay unpublished until their comment is posted
   - Task comments with agent-authored comment attribution through the project
-    credential label and a shared agent avatar
+    credential name, descriptive labels and a shared agent avatar
 - Per-user Google Calendar connection and calendar target setting (`/account/settings`)
 - Opening a task updates the browser URL; task modals offer **Copy link**.
   Shared links reopen that task after sign-in for people with project access.
@@ -111,9 +117,44 @@ Open `http://localhost:3000`.
 - Session persistence is database-backed (`Session` table) with HttpOnly cookie handling.
 - Logout endpoint: `POST /api/auth/logout`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
+- **Share project > Agent access** opens a credential directory with agent
+  counts, readable access summaries, status, last use, expiry, and a separate
+  task-completion switch for each agent. Search by name or descriptive label (ignoring case and
+  surrounding spaces). Open **Filters** to combine status and capability,
+  including **Complete tasks**; **Clear filters** restores the full directory.
+  Custom access lists the actions granted for each resource. **Complete tasks**
+  shows active agents with both Task Write and task-completion permission;
+  expired and revoked credentials show task completion as inactive.
+- **New credential** opens a focused form for the agent name, expiry, and access
+  preset. Expand **Customize permissions** for individual scopes. The API key
+  appears in its own one-time dialog after creation; copy the key or the complete
+  environment setup before closing it. **Copy and close** copies the API key
+  and dismisses the dialog only after copying succeeds. Outside clicks and
+  Escape do not dismiss this one-time view, and it has no close icon. If copying
+  fails, the key stays visible for retry or manual copying; **Close after manual
+  copy** provides an explicit recovery path. The key cannot be viewed again
+  after closing.
+- **Manage** opens one agent's permissions, lifecycle dates, and public ID.
+  **Rotate key** replaces an active key after confirmation. **Revoke access**
+  opens the responsibility review. Completion changes save immediately for only
+  that credential. Loading failures offer **Retry loading credentials**; action
+  errors appear in their relevant flow and failed creation preserves input.
+- **Activity** shows recent credential changes and usage. **Setup guide** contains
+  connection steps, hosted documentation, and the optional environment block.
+  Escape closes creation, management, and setup dialogs and returns focus to
+  the directory controls. Invalid creation fields receive focus and show an associated error.
+  Settings and Agent access dialogs use the same thin, transparent-track
+  scrollbar as the task dialogs and agent guide.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
+- Key rotation immediately invalidates tokens from the previous key. A token
+  exchanged with the new key works immediately, even within the same millisecond.
+  Bearer tokens are bound to the key's public ID rather than a rounded issuance
+  timestamp; revocation and credential expiry are still checked on every request.
+  During the ND-657 rollout, older tokens without that binding remain usable only
+  on never-rotated credentials. Agents with previously rotated credentials must
+  exchange their current API key again if they receive `401`.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
-- In Sharing > Agent access, owners can enable **Allow moves to Done** separately
+- In Sharing > Agent access, owners can enable **Task completion** separately
   on each credential. Task Write is still required. New and existing credentials
   default to off, including credentials in projects where the retired project-wide
   toggle was on: owners must explicitly grant the permission again after migration.
@@ -146,6 +187,39 @@ fails through the ordinary Save error and keeps the input. Explicit Cancel
 abandons the edit; reopening then starts from the latest event. Outside click,
 Escape, and the close icon preserve recovery. Context cards follow the same
 invisible-recovery rule with atomic content revisions.
+
+### Agent descriptive labels
+
+Project owners can add optional descriptive labels (for example, `GPT-6` and
+`Codex`) when creating a credential in **Sharing → Agent access**, or use
+**Manage > Edit labels** on an existing credential. Type one label and press
+**Enter** to add its chip; remove chips individually with their remove buttons.
+The Enter hint appears only while the focused input contains text. Labels use
+the same automatic background colors as task labels in the editor, credential
+directory and comment authors. At most five distinct labels are allowed, each
+1–40 characters after trimming, without commas or control characters. Duplicate
+labels are combined case-insensitively. Remove every chip to clear all labels;
+add or clear pending text before saving. Names, task labels and permissions are
+separate.
+
+Owner-session credential creation accepts `descriptiveLabels: string[]`;
+`PATCH /api/projects/{projectId}/agent-access/{credentialId}/labels` replaces
+that array and returns the credential ID and saved labels. The owner-only
+Agent access summary includes `descriptiveLabels`; agent bearer tokens cannot
+manage this metadata. These responses never include stored secret hashes.
+
+Task comments resolve the agent's current name and descriptive labels from a
+project-scoped public author identity, including comments posted before an edit.
+Agent display names use the credential name without an appended `(agent)`
+suffix; avatars, descriptive labels and structured actor kind distinguish them.
+The comment API exposes the array as `author.agentCredentialDescriptiveLabels`;
+task readers see the current labels beside the author name. Renaming and label
+additions/removals apply to all linked comments. Metadata edits refresh open
+threads through project activity without changing comment contents or timestamps.
+Rotation and revocation retain the same identity; deleting the API credential
+retains its final public name and labels. The additive migration links existing
+comments to current metadata. Older comments whose credential was already hard
+deleted retain their saved attribution because their original link is gone.
 
 ## Database and Migrations
 

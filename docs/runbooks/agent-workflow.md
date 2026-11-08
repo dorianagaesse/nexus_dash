@@ -80,8 +80,10 @@ card should be independently understandable:
   `/api/projects/{projectId}/tasks/{taskId}` with `attachmentLinks`; this
   appends and preserves existing attachments. Remove a link or file with
   `DELETE /api/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}`.
-  Editing a link's name or URL in place remains a kanban UI operation; the
-  wider agent API edit gaps are tracked in ND-425.
+  The current task UI and API do not edit an existing link's name or URL in
+  place; replace it by deleting and re-adding it when authorized. The
+  [ND-425 coverage audit](../audits/nd-425-agent-task-api-coverage.md) maps
+  supported operations, intentional restrictions, and filed follow-ups.
 
 Read a newly created card back through the agent API and verify its lane,
 description, labels, attachments, and relationships. Creation is incomplete

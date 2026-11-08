@@ -2,6 +2,13 @@
   "version": 1,
   "models": [
     {
+      "model": "AgentAuthorIdentity",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "agent credential and task comment services",
+      "rationale": "Members can read current public author metadata; privileged credential triggers maintain it and preserve it after key deletion."
+    },
+    {
       "model": "User",
       "classification": "system-operational-exempt",
       "enforcement": "service",
@@ -294,6 +301,13 @@
       "enforcement": "rls",
       "owner": "agent runtime service",
       "rationale": "Owner-only through the stable identity anchor; pre-authentication uses an exact high-entropy proof lookup with a fixed search path."
+    },
+    {
+      "model": "ProjectTodo",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "project todo service",
+      "rationale": "Personal todo rows require the human creator plus current project membership and role authorization; task capabilities apply through ND-130. Project owners have no visibility override."
     }
   ]
 }

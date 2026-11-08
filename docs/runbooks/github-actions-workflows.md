@@ -14,7 +14,7 @@ because each owns a distinct operational lane.
 | Notification Email Dispatch Scheduler | `.github/workflows/notification-email-dispatch.yml` | Call the protected notification email dispatcher on the active no-new-cost production cadence. | schedule every 30 minutes, `workflow_dispatch` | none | `NOTIFICATION_EMAIL_DISPATCH_SECRET` or legacy `CRON_SECRET` | dispatcher response and parsed summary in job summary |
 | Dependency Security | `.github/workflows/dependency-security.yml` | Run the scheduled/manual npm audit baseline, fail closed on scanner errors, and alert on failures. | weekly schedule, `workflow_dispatch` | `contents: read`; alert jobs also use `issues: write` | none | production/full npm audit JSON plus status/stderr diagnostics; alert issue create/update/close |
 | Dependabot Auto Triage | `.github/workflows/dependabot-auto-triage.yml` | Label and approve safe Dependabot lanes, then merge safe green Dependabot PRs. | `pull_request_target` for Dependabot, `workflow_run` after required PR checks | per-job `contents`, `issues`, and `pull-requests` write where needed | `GITHUB_TOKEN` | labels/reviews/merge state; no artifact |
-| Dependabot Repair Agent | `.github/workflows/dependabot-repair-agent.yml` | Scan red Dependabot PRs and use Copilot CLI to open repo-owned repair PRs when possible. | weekly schedule, `workflow_dispatch` | per-job read for scan; write for repair PR creation/status updates | `COPILOT_ACTIONS_TOKEN` to activate Copilot CLI; `GITHUB_TOKEN` | PR comments/branches created by repair script; job summary when skipped |
+| Dependabot Repair Agent | `.github/workflows/dependabot-repair-agent.yml` | Scan red Dependabot PRs and use Copilot CLI to open repo-owned repair PRs when possible. | weekly schedule, `workflow_dispatch` | per-job read for scan; write for repair PR creation/status updates | `COPILOT_ACTIONS_TOKEN` to activate Copilot CLI; `GITHUB_TOKEN` | PR comments/branches; failed authentication or invalid repair results fail the run |
 
 The Tenant Isolation job creates a minimal `realtime` schema/role/function stub
 before Prisma migrations. This makes the guarded Supabase Broadcast policies
@@ -81,6 +81,31 @@ refusal, denied client publishing, and database-owned activity and notification
 delivery. A browser check covers two signed-in sessions, token renewal, and
 Broadcast to polling degradation while project changes continue to
 arrive. It also rejects a signed-out token request, then removes the fixtures.
+
+### ND-654 credential permission rollout
+
+ND-654 moved completion permission to `ApiCredential.canMoveTasksToDone` and
+removed `Project.agentCanMoveTasksToDone`. Older immutable Previews still query
+the removed column and return 500 from the owner agent-access endpoint, even
+when `/api/health/ready` reports healthy. Rebase dependent branches onto ND-654,
+regenerate Prisma, and deploy the updated ref. Validate the signed-in owner’s
+credential list and per-credential permission controls against the new immutable
+URL; replace obsolete Preview links in the PR and board handoff. The shared
+Preview schema stays at its forward migration state.
+
+### Shared Preview scope-enum compatibility
+
+ND-130 adds meeting, epic and schedule values to `ApiCredentialScope` and
+backfills grants on existing credentials. Older immutable deployments cannot
+deserialize those values through a generated Prisma client that predates them;
+credential listing can return `P2023` even when readiness and token exchange
+work. Credential-management relation reads filter to the scopes supported by
+their build before Prisma deserialization, matching token exchange. This read
+filter leaves all stored grants intact during label edits, rotation and revoke.
+
+After permission migrations, validate the signed-in owner's credential list and
+lifecycle actions as well as readiness. The scope-compatibility browser test
+adds newer database enum values without regenerating its older Prisma client.
 
 ### ND-185 Preview Migration Recovery
 
@@ -160,10 +185,25 @@ summary shows the dispatcher response and parsed send/reconciliation metrics.
 
 - `Dependency Security` runs every Monday at 07:00 UTC and can be run manually.
 - Dependabot opens grouped dependency PRs from `.github/dependabot.yml`.
+  `vitest-toolchain` groups Vitest and its `@vitest/*` companions across major,
+  minor, and patch updates to keep their exact peer dependencies aligned. This
+  group remains in the manual-review lane.
 - `Dependabot Auto Triage` labels safe lanes and merges only safe Dependabot
-  PRs after required checks pass.
+  PRs after required checks pass, including `Tenant Isolation (PostgreSQL RLS)`.
+  The repair scanner and mirrored replacement-PR statuses include that same gate.
 - `Dependabot Repair Agent` runs every Monday at 09:15 UTC. It needs
-  `COPILOT_ACTIONS_TOKEN`; without that secret it records a skip summary.
+  `COPILOT_ACTIONS_TOKEN`; a missing or invalid secret fails authentication
+  before repair execution. A green scan with no repair jobs does not prove
+  Copilot authentication works. Validate it explicitly with:
+
+  ```bash
+  gh workflow run dependabot-repair-agent.yml -f healthcheck_only=true
+  ```
+
+  Replace an expired/revoked token in the repository Actions secret, then rerun
+  this health check before retrying repairs. Never put a token in PR comments
+  or workflow logs. See the [2026-11-08 audit](./dependabot-audit-2026-11-08.md)
+  for the last observed failure and PR decisions.
 
 #### Dependency Security failure handling
 

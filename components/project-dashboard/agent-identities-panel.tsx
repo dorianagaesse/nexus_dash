@@ -1,7 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
+import { AgentCredentialLabelsField } from "./agent-credential-labels-field";
+import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
+import { AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR } from "@/lib/agent-credential-labels";
 import { Button } from "@/components/ui/button";
 
 type Session = {
@@ -26,7 +29,7 @@ type Device = {
 type Identity = {
   id: string;
   name: string;
-  roleLabel: string | null;
+  descriptiveLabels: string[];
   identityMode: boolean;
   revokedAt: string | null;
   expiresAt: string | null;
@@ -92,7 +95,10 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
-  const [roleLabel, setRoleLabel] = useState("");
+  const [descriptiveLabels, setDescriptiveLabels] = useState<string[]>([]);
+  const [labelDraft, setLabelDraft] = useState("");
+  const [labelError, setLabelError] = useState<string | null>(null);
+  const labelInputRef = useRef<HTMLInputElement>(null);
   const [scopes, setScopes] = useState<AgentScope[]>(initialScopes);
   const [done, setDone] = useState(false);
   const [deviceName, setDeviceName] = useState("");
@@ -201,7 +207,9 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
             onClick={() => {
               setSelectedId(null);
               setName("");
-              setRoleLabel("");
+              setDescriptiveLabels([]);
+              setLabelDraft("");
+              setLabelError(null);
               setScopes(initialScopes);
               setDone(false);
               setEditing(true);
@@ -242,18 +250,14 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
           <button
             type="button"
             key={identity.id}
-            aria-label={`${identity.name} ${identity.roleLabel ?? ""}`.trim()}
+            aria-label={`${identity.name} ${identity.descriptiveLabels.join(" ")}`.trim()}
             aria-pressed={selectedId === identity.id}
             onClick={() => select(identity)}
             className={`flex w-full items-center justify-between gap-3 px-2 py-3 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selectedId === identity.id ? "bg-muted" : ""}`}
           >
             <span>
               <span className="font-medium">{identity.name}</span>
-              {identity.roleLabel && (
-                <span className="ml-2 text-muted-foreground">
-                  {identity.roleLabel}
-                </span>
-              )}
+              <AgentCredentialDescriptiveLabels labels={identity.descriptiveLabels} />
               <span className="mt-1 block text-xs text-muted-foreground">
                 {identity.scopes.length} permissions ·{" "}
                 {
@@ -280,12 +284,17 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
           className="space-y-4 border-t pt-4"
           onSubmit={async (e) => {
             e.preventDefault();
+            if (labelDraft.trim()) {
+              setLabelError(AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR);
+              labelInputRef.current?.focus();
+              return;
+            }
             if (
               await mutate({
                 operation: selected ? "update" : "create",
                 identityId: selectedId,
                 name,
-                roleLabel,
+                descriptiveLabels,
                 scopes,
                 canMoveTasksToDone: done,
               })
@@ -307,16 +316,18 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               onChange={(e) => setName(e.target.value)}
             />
           </label>
-          <label className="block space-y-1 text-sm">
-            Role label (optional)
-            <input
-              maxLength={80}
-              className={fieldClass}
-              value={roleLabel}
-              onChange={(e) => setRoleLabel(e.target.value)}
-              placeholder="Orchestrator"
-            />
-          </label>
+          <AgentCredentialLabelsField
+            id="agent-identity-labels"
+            label="Descriptive labels (optional)"
+            labels={descriptiveLabels}
+            onLabelsChange={setDescriptiveLabels}
+            draft={labelDraft}
+            onDraftChange={setLabelDraft}
+            error={labelError}
+            onErrorChange={setLabelError}
+            inputRef={labelInputRef}
+            disabled={busy}
+          />
           <ScopeChoices scopes={scopes} onChange={setScopes} />
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -363,7 +374,9 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               disabled={busy || !!selected.revokedAt}
               onClick={() => {
                 setName(selected.name);
-                setRoleLabel(selected.roleLabel ?? "");
+                setDescriptiveLabels(selected.descriptiveLabels);
+                setLabelDraft("");
+                setLabelError(null);
                 setScopes(selected.scopes);
                 setDone(selected.canMoveTasksToDone);
                 setEditing(true);

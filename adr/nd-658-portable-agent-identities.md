@@ -9,8 +9,10 @@ storage name is a compatibility detail: task authors, assignees, mentions,
 meeting todos, epics and historical snapshots already reference it. Renaming or
 rekeying every actor relationship would add migration risk without changing the
 product contract. The new public surface calls these records **identities**.
-`label` remains the display name; `roleLabel` and optional `avatarSeed` are
-descriptive profile fields. Scope grants and the Done capability remain the
+`label` remains the display name; ND-656 `descriptiveLabels` and optional
+`avatarSeed` are descriptive profile fields. The shared public
+`AgentAuthorIdentity` projection keeps linked comments on current names/labels,
+including after deactivation; no second label model is introduced. Scope grants and the Done capability remain the
 single source of identity permissions.
 
 New `identityMode` anchors contain an unusable legacy hash and an incompatible
@@ -62,3 +64,10 @@ scheduling and conflict resolution are explicitly outside this design.
 - Local API/E2E, launcher isolation tests and the real PostgreSQL role matrix
   cover fail-closed boundaries. Preview/deployment was explicitly excluded from
   this delivery by the requester.
+
+## Integration with ND-657
+
+Legacy bearer requests retain the current key-generation check. Runtime tokens
+carry the signed identifier for consistency, but validated device/session access
+is independent of raw-key rotation. Runtime requests still recheck identity,
+device, credential and session revocation on every request.

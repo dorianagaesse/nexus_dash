@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { ApiCredentialScope, type Prisma } from "@prisma/client";
 import { parseAgentScopes, type AgentScope } from "@/lib/agent-access";
 import { issueAgentAccessToken } from "@/lib/auth/agent-token-service";
+import { parseAgentCredentialDescriptiveLabels } from "@/lib/agent-credential-labels";
 import { prisma } from "@/lib/prisma";
 import { requireProjectRole } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
@@ -78,7 +79,7 @@ export async function manageAgentIdentities(input: {
           select: {
             id: true,
             label: true,
-            roleLabel: true,
+            descriptiveLabels: true,
             avatarSeed: true,
             identityMode: true,
             revokedAt: true,
@@ -148,8 +149,9 @@ export async function manageAgentIdentities(input: {
       const identityId = text(c.identityId, 128);
       const name = text(c.name);
       const scopes = scopesFrom(c.scopes);
+      const descriptiveLabels = parseAgentCredentialDescriptiveLabels(c.descriptiveLabels === undefined ? [] : c.descriptiveLabels);
       if (op === "create") {
-        if (!name || !scopes || typeof c.canMoveTasksToDone !== "boolean")
+        if (!name || !scopes || !descriptiveLabels || typeof c.canMoveTasksToDone !== "boolean")
           return fail(400, "invalid-identity");
         const identity = await db.apiCredential.create({
           data: {
@@ -157,7 +159,7 @@ export async function manageAgentIdentities(input: {
             createdByUserId: input.actorUserId,
             identityMode: true,
             label: name,
-            roleLabel: text(c.roleLabel) || null,
+            descriptiveLabels,
             avatarSeed: text(c.avatarSeed, 64) || null,
             publicId: `identity_${crypto.randomUUID()}`,
             secretHash: "disabled:runtime-only",
@@ -180,13 +182,13 @@ export async function manageAgentIdentities(input: {
       if (!identity) return fail(404, "identity-not-found");
       const context = { ...input, identityId };
       if (op === "update") {
-        if (!name || !scopes || typeof c.canMoveTasksToDone !== "boolean")
+        if (!name || !scopes || !descriptiveLabels || typeof c.canMoveTasksToDone !== "boolean")
           return fail(400, "invalid-identity");
         await db.apiCredential.update({
           where: { id: identityId },
           data: {
             label: name,
-            roleLabel: text(c.roleLabel) || null,
+            descriptiveLabels,
             avatarSeed: text(c.avatarSeed, 64) || null,
             canMoveTasksToDone: c.canMoveTasksToDone,
             scopeGrants: {
@@ -427,6 +429,7 @@ export async function exchangeRuntimeAccess(input: Record<string, unknown>) {
       if (!scopes.length) return fail(403, "runtime-permissions-empty");
       const token = issueAgentAccessToken({
         credentialId: identity.id,
+        credentialPublicId: identity.publicId,
         ownerUserId: binding.owner_id,
         projectId: identity.projectId,
         scopes,

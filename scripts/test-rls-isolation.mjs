@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import process from "node:process";
 
 import pg from "pg";
+import { testProjectTodoRls } from "./test-project-todo-rls.mjs";
 
 const { Client } = pg;
 
@@ -502,6 +503,50 @@ try {
 
   await seed();
   await verifyAgentRuntimeIsolation({ admin, runtime, runtimeTransaction, expectRlsViolation, ids });
+  await testProjectTodoRls({ admin, runtime, runtimeTransaction, expectRlsViolation, ids });
+
+  // Public current author metadata is readable by members without exposing
+  // credential secrets, remains tenant-bound and outlives a deleted key.
+  for (const actor of [undefined, ids.outsider, ids.ownerA, ids.editorB, ids.viewerB]) {
+    const identity = await runtimeTransaction(actor, () => runtime.query(
+      `SELECT id, label FROM "AgentAuthorIdentity" WHERE id = $1`, [ids.credentialB]
+    ));
+    assert.equal(identity.rowCount, [ids.editorB, ids.viewerB].includes(actor) ? 1 : 0);
+  }
+  await runtimeTransaction(ids.ownerB, async () => {
+    const forged = await runtime.query(`UPDATE "AgentAuthorIdentity" SET label = 'Forged' WHERE id = $1 RETURNING id`, [ids.credentialB]);
+    assert.equal(forged.rowCount, 0, "public identity is a read-only projection");
+    const removed = await runtime.query(`DELETE FROM "AgentAuthorIdentity" WHERE id = $1 RETURNING id`, [ids.credentialB]);
+    assert.equal(removed.rowCount, 0, "public author identity cannot be removed through the runtime role");
+    await runtime.query(`UPDATE "ApiCredential" SET label = 'Current agent', "descriptiveLabels" = ARRAY['New', 'Codex'] WHERE id = $1`, [ids.credentialB]);
+    const identity = await runtime.query(`SELECT label, "descriptiveLabels" FROM "AgentAuthorIdentity" WHERE id = $1`, [ids.credentialB]);
+    assert.deepEqual(identity.rows, [{ label: "Current agent", descriptiveLabels: ["New", "Codex"] }]);
+  });
+  const authorCommentId = `rls_current_author_${suffix}`;
+  const bound = await runtimeTransaction(ids.ownerB, () => runtime.query(
+    `INSERT INTO "TaskComment" (id,"taskId","authorUserId","authorAgentCredentialId",content)
+     VALUES ($1,$2,$3,$4,'Runtime author binding') RETURNING "authorAgentIdentityId"`,
+    [`rls_runtime_author_${suffix}`, ids.taskB, ids.ownerB, ids.credentialB]
+  ));
+  assert.equal(bound.rows[0].authorAgentIdentityId, ids.credentialB);
+  const retainedForeignId = `rls_foreign_author_${suffix}`;
+  await admin.query(`INSERT INTO "AgentAuthorIdentity" (id, "projectId", label) VALUES ($1,$2,'Retained foreign author')`, [retainedForeignId, ids.projectA]);
+  await assert.rejects(runtimeTransaction(ids.ownerB, () => runtime.query(
+    `INSERT INTO "ApiCredential" (id, "projectId", "createdByUserId", label, "publicId", "secretHash", "updatedAt") VALUES ($1,$2,$3,'Reused identity',$4,'test-hash',NOW())`,
+    [retainedForeignId, ids.projectB, ids.ownerB, `nda_${retainedForeignId}`]
+  )), (error) => error.code === "23514");
+  await admin.query(`INSERT INTO "TaskComment" (id, "taskId", "authorUserId", "authorAgentCredentialId", "authorAgentCredentialLabel", content)
+    VALUES ($1,$2,$3,$4,'Old agent','Current author regression')`, [authorCommentId, ids.taskB, ids.ownerB, ids.credentialB]);
+  await assert.rejects(runtimeTransaction(ids.ownerB, () => runtime.query(
+    `UPDATE "TaskComment" SET "authorAgentIdentityId" = $1 WHERE id = $2`, [ids.credentialA, authorCommentId]
+  )), (error) => error.code === "23514");
+  const retainedIdentity = await adminTransaction(ids.ownerB, async () => {
+    await admin.query(`UPDATE "ApiCredential" SET label = 'Retained agent', "descriptiveLabels" = ARRAY[]::varchar(40)[] WHERE id = $1`, [ids.credentialB]);
+    await admin.query(`DELETE FROM "ApiCredential" WHERE id = $1`, [ids.credentialB]);
+    return admin.query(`SELECT comment."authorAgentCredentialId", identity.id, identity.label, identity."descriptiveLabels"
+      FROM "TaskComment" comment JOIN "AgentAuthorIdentity" identity ON identity.id = comment."authorAgentIdentityId" WHERE comment.id = $1`, [authorCommentId]);
+  });
+  assert.deepEqual(retainedIdentity.rows, [{ authorAgentCredentialId: null, id: ids.credentialB, label: "Retained agent", descriptiveLabels: [] }]);
 
   // Context attachment provenance keeps the actual agent independent of the
   // owning user, without changing the parent-resource tenant boundary.
