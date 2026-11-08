@@ -294,6 +294,19 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
   {
     tag: "Tasks",
     method: "GET",
+    path: "/api/projects/{projectId}/tasks/reference",
+    title: "Resolve task reference",
+    description: "Resolve a project-local or explicitly legacy ND reference to its stable internal task id.",
+    requiredScopes: ["task:read"],
+    notes: [
+      "reference must be ND-<positive integer>. namespace defaults to current; use legacy for pre-migration global numbers. No fallback between namespaces is performed.",
+      "Includes archived tasks. Returns id, projectId, reference, legacyReference (nullable), and a stable internal-id URL. Unknown or deleted tasks return 404.",
+      "ND numbers are unique only within a project. Historical prose and external references are not rewritten; resolve old numbers explicitly with namespace=legacy.",
+    ],
+  },
+  {
+    tag: "Tasks",
+    method: "GET",
     path: "/api/projects/{projectId}/tasks/search",
     title: "Search tasks",
     description:
@@ -1423,7 +1436,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               type: "integer",
               minimum: 1,
               description:
-                "Global task reference number. Render as ND-<referenceNumber>.",
+                "Project-local task reference number. Render as ND-<referenceNumber>; always retain project context.",
             },
             title: { type: "string" },
             status: {
@@ -1819,6 +1832,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             reference: {
               type: "string",
               pattern: "^ND-[1-9][0-9]*$",
+              description: "Project-local display reference; use the internal id for links and API mutations.",
             },
             title: { type: "string" },
             description: { type: ["string", "null"] },
@@ -2895,6 +2909,30 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                   },
                 },
               },
+            },
+            ...commonErrorResponses,
+          },
+        },
+      },
+      "/api/projects/{projectId}/tasks/reference": {
+        get: {
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/tasks/reference"),
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { $ref: "#/components/parameters/ProjectId" },
+            { name: "reference", in: "query", required: true, schema: { type: "string", pattern: "^[Nn][Dd]-[1-9][0-9]*$" } },
+            { name: "namespace", in: "query", schema: { type: "string", enum: ["current", "legacy"], default: "current" } },
+          ],
+          responses: {
+            200: {
+              description: "Resolved stable task identity",
+              content: { "application/json": { schema: {
+                type: "object", required: ["id", "projectId", "reference", "legacyReference", "url"],
+                properties: {
+                  id: { type: "string" }, projectId: { type: "string" }, reference: { type: "string" },
+                  legacyReference: { type: ["string", "null"] }, url: { type: "string" },
+                },
+              } } },
             },
             ...commonErrorResponses,
           },

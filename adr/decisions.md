@@ -1305,3 +1305,22 @@ Keep UI-only or task-only notes in `journal.md`.
   audit event commit together. Events record the actor, credential, new boolean
   value, and request metadata. The owner panel refreshes the audit trail after
   saving. Denied updates create no success event.
+
+
+## 2026-11-08 - ND-536: Project-local task numbering
+
+- Status: Accepted; supersedes the global numbering decision in ND-202.
+- Keep immutable Task CUIDs for keys, relations, API paths and deep links. Scope
+  human-facing ND numbers to projects, with a composite unique constraint.
+- Allocate in a SECURITY INVOKER insert trigger using one RLS-protected counter
+  row per project. The counter update shares the insert transaction, serializes
+  concurrent creates and rolls back on failure. Deletion does not reuse numbers.
+  This also covers direct Prisma and batch inserts without duplicating service
+  allocators. The tradeoff is a per-project write lock and migration-owned SQL.
+- Renumber the existing snapshot by createdAt and internal ID, including archives;
+  retain old global numbers as immutable nullable unique legacy aliases. Explicit
+  namespace selection avoids resolving historical numbers to unrelated current
+  tasks. Preserve authored text and existing ID links rather than rewriting prose.
+- Ship transactional snapshot verification and a production write-window/restore
+  runbook in docs/runbooks/project-task-numbering.md. Normal inserts are required;
+  conflict-ignoring imports are not a gap-free allocation contract.

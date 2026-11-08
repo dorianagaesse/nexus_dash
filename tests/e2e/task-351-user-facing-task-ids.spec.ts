@@ -57,6 +57,32 @@ test("task references stay stable and identify related-task candidates", async (
   });
   const currentReference = formatTaskReference(currentTask.referenceNumber)!;
   const candidateReference = formatTaskReference(candidateTask.referenceNumber)!;
+  expect(currentReference).toBe("ND-1");
+  expect(candidateReference).toBe("ND-2");
+
+  const otherProject = await prisma.project.create({
+    data: { name: uniqueProjectName("other-reference"), ownerId: userId },
+  });
+  const otherResponse = await page.request.post(`/api/projects/${otherProject.id}/tasks`, {
+    data: { title: "Other project's first task" },
+  });
+  expect(otherResponse.ok()).toBe(true);
+  const otherTask = (await otherResponse.json()).task;
+  expect(otherTask.reference).toBe("ND-1");
+  const foreignCandidate = await page.request.post(`/api/projects/${otherProject.id}/tasks`, {
+    data: { title: "Foreign reference candidate" },
+  });
+  expect(foreignCandidate.ok()).toBe(true);
+  expect((await foreignCandidate.json()).task.reference).toBe("ND-2");
+  for (const [projectId, expectedId] of [[project.id, currentTask.id], [otherProject.id, otherTask.id]]) {
+    const response = await page.request.get(`/api/projects/${projectId}/tasks/reference?reference=ND-1`);
+    expect(response.ok()).toBe(true);
+    expect((await response.json()).id).toBe(expectedId);
+    const search = await page.request.get(`/api/projects/${projectId}/tasks/search?q=ND-1`);
+    expect((await search.json()).taskIds).toEqual([expectedId]);
+  }
+  const missingLegacy = await page.request.get(`/api/projects/${project.id}/tasks/reference?reference=ND-1&namespace=legacy`);
+  expect(missingLegacy.status()).toBe(404);
 
   await page.goto(`/projects/${project.id}?taskId=${currentTask.id}`);
   await expect(
@@ -77,6 +103,7 @@ test("task references stay stable and identify related-task candidates", async (
   });
   await expect(detailCandidate).toBeVisible();
   await expect(detailCandidate).toContainText(candidateReference);
+  await expect(page.getByRole("option", { name: "Foreign reference candidate" })).toHaveCount(0);
 
   if (screenshotDirectory) {
     await mkdir(screenshotDirectory, { recursive: true });
@@ -140,7 +167,7 @@ test("task references stay stable and identify related-task candidates", async (
   const createPayload = (await createResponse.json()) as {
     task: { id: string; reference: string };
   };
-  expect(createPayload.task.reference).toMatch(/^ND-[1-9][0-9]*$/);
+  expect(createPayload.task.reference).toBe("ND-3");
   expect(createPayload.task.reference).not.toBe(currentReference);
   expect(createPayload.task.reference).not.toBe(candidateReference);
 

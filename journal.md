@@ -3,6 +3,26 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-536: project-local task numbering
+
+- Isolated worktree/branch from origin/main ac7b2fa3; picked up the live board card
+  using the Codex credential. Existing root-checkout changes were left intact.
+- Replaced the global sequence with project-local composite uniqueness and an
+  RLS-protected transactional allocator; preserved CUID identity and legacy
+  aliases. Added explicit authorized current/legacy reference lookup.
+- Migration orders all tasks by createdAt/id within project, verifies the
+  snapshot, invalidates stale activity task snapshots, and advances project
+  versions for connected clients. Added compatibility, cutover evidence, and
+  tested-backup restore procedures plus the superseding architecture decision.
+- Real PostgreSQL fixture evidence: 4 tasks before/after; deterministic ties,
+  archived task, relation/comment identity, both unique indexes, 12 concurrent
+  creates, concurrent new-project creation, rollback, failed insert, deletion,
+  immutable identity, replay invalidation, and denied cross-project/viewer
+  allocation passed. The complete tenant-isolation matrix also passed against
+  a freshly migrated database with the required realtime stub.
+- Lint, RLS inventory, focused unit/API tests, and production build passed. Full
+  unit, coverage, and Playwright suites are in progress; final results follow.
+
 # 2026-11-05 - ND-659: enforce release impact decisions
 
 - Created the fix card and linked GitHub issue #662 after checking the board
