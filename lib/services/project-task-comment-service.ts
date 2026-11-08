@@ -1080,6 +1080,7 @@ export async function updateTaskCommentForProject(
         taskId: true,
         authorUserId: true,
         authorAgentCredentialId: true,
+        authorAgentIdentityId: true,
         authorAgentCredentialLabel: true,
         attachments: { select: { id: true } },
       },
@@ -1094,7 +1095,7 @@ export async function updateTaskCommentForProject(
     }
 
     const isAgentComment = Boolean(
-      existingComment.authorAgentCredentialId ||
+      existingComment.authorAgentIdentityId || existingComment.authorAgentCredentialId ||
         normalizeText(existingComment.authorAgentCredentialLabel)
     );
 
