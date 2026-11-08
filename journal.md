@@ -11205,3 +11205,17 @@ Low-value entries to avoid going forward:
 - Addressed the review's P1 integration finding. An independent TypeScript source comparison confirms all 60 original declarations remain identical after formatting/export normalization and all 25 public exports are preserved. Authorization, actor-scoped transactions, race/revocation handling, notification and post-commit email behavior, and responsibility-aware offboarding retain their existing code and ordering.
 - The public collaboration entry point remains a facade over owner invitations, membership/offboarding, recipient responses, shared policy/data/types, and email delivery. The architecture decision is proposed for user review rather than carrying forward the old approval claim.
 - Required validation, the invitation/membership browser lifecycle, real PostgreSQL isolation, and the detailed review response are recorded on #650. Leave the PR unmerged and the card In Progress for the user's review and merge.
+# 2026-11-08 - Dependabot queue cleanup and automation audit
+
+- Reviewed all three open Dependabot PRs. Merged #666 (Next lint config patch,
+  `4c6fa0d9`) and #667 (Playwright patch, `0b43fd98`) after inspecting their
+  diffs and complete green CI. Closed #668 because its standalone Vitest 5
+  upgrade conflicts with the retained Vitest 4 coverage provider at install.
+- Reproduced the repair agent's invalid Copilot credential with authentication
+  health-check run 42466641623 (HTTP 401), matching scheduled run 41420208219.
+  Restoring the repository secret remains an owner action; no secret changed.
+- Added tenant isolation to both automation check lists and a regression for
+  isolation-only failures/recovery. Grouped future Vitest toolchain updates
+  while retaining manual review. Corrected stale credential-failure guidance.
+- Evidence and per-PR decisions: docs/runbooks/dependabot-audit-2026-11-08.md.
+  Work is isolated from the root checkout's existing local changes.
