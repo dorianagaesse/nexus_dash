@@ -117,6 +117,11 @@ const AGENT_SCOPE_TO_DB_SCOPE: Record<AgentScope, ApiCredentialScope> = {
   "attention:read": ApiCredentialScope.attention_read,
 };
 
+// A shared database can contain scope enum values from a newer deployment.
+// Prisma rejects those values before application mapping can filter them, so
+// restrict relation reads in SQL, matching token exchange's supported scopes.
+const SUPPORTED_AGENT_DB_SCOPES = Object.values(AGENT_SCOPE_TO_DB_SCOPE);
+
 const DB_SCOPE_TO_AGENT_SCOPE: Record<ApiCredentialScope, AgentScope> = {
   [ApiCredentialScope.project_read]: "project:read",
   [ApiCredentialScope.task_read]: "task:read",
@@ -571,6 +576,7 @@ async function createCredentialRecordWithUniquePublicId(
           createdAt: true,
           updatedAt: true,
           scopeGrants: {
+            where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
             select: {
               scope: true,
             },
@@ -628,6 +634,7 @@ async function rotateCredentialSecretWithUniquePublicId(
           createdAt: true,
           updatedAt: true,
           scopeGrants: {
+            where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
             select: {
               scope: true,
             },
@@ -687,6 +694,7 @@ export async function getProjectAgentAccessSummary(input: {
           createdAt: true,
           updatedAt: true,
           scopeGrants: {
+            where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
             orderBy: [{ scope: "asc" }],
             select: {
               scope: true,
@@ -979,6 +987,7 @@ export async function revokeProjectAgentCredential(input: {
         createdAt: true,
         updatedAt: true,
         scopeGrants: {
+          where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
           orderBy: [{ scope: "asc" }],
           select: {
             scope: true,
@@ -1028,6 +1037,7 @@ export async function revokeProjectAgentCredential(input: {
         createdAt: true,
         updatedAt: true,
         scopeGrants: {
+          where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
           orderBy: [{ scope: "asc" }],
           select: {
             scope: true,

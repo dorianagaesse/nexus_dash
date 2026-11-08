@@ -3,6 +3,20 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-656: credential loading across shared Preview migrations
+
+- Identified the deployed owner-list failure as Prisma P2023: `meeting_read`
+  was absent from ND-656's generated scope enum after ND-130 added/backfilled
+  scopes in the shared Preview database. Token exchange already filtered its
+  raw scope strings, so the earlier agent-comment check missed this owner path.
+- Reproduced the HTTP 500 with a real PostgreSQL enum extension. Filter scope
+  relation reads before Prisma deserialization for listing, create, rotation
+  and revoke. Supported scopes remain unchanged; newer stored grants are not
+  deleted or rewritten by credential management.
+- Added a browser regression for owner loading, label edits, rotation, revoke
+  and retention of future scope grants. Updated the Preview rollout runbook;
+  validation and deployed owner-flow evidence are recorded in PR #661.
+
 # 2026-11-08 - ND-656: remove the automatic agent-name suffix
 
 - Removed the automatically appended `(agent)` from comment and creator names,
