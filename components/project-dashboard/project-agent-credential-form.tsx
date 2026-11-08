@@ -12,9 +12,16 @@ import {
 } from "@/lib/agent-access";
 import { Button } from "@/components/ui/button";
 import { describeAgentAccess } from "./project-agent-access-presentation";
+import {
+  AGENT_DESCRIPTIVE_LABELS_HINT,
+  AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR,
+  parseAgentCredentialDescriptiveLabels,
+} from "@/lib/agent-credential-labels";
+import { AgentCredentialLabelsField } from "./agent-credential-labels-field";
 
 export interface CreateProjectAgentCredentialInput {
   label: string;
+  descriptiveLabels: string[];
   scopes: AgentScope[];
   expiresInDays: number | null;
 }
@@ -35,12 +42,15 @@ export function ProjectAgentCredentialForm({
   onCancel,
 }: ProjectAgentCredentialFormProps) {
   const [name, setName] = useState("");
+  const [labelsDraft, setLabelsDraft] = useState("");
+  const [labels, setLabels] = useState<string[]>([]);
+  const labelsRef = useRef<HTMLInputElement>(null);
   const [expiry, setExpiry] = useState("");
   const [scopes, setScopes] = useState<AgentScope[]>(() => [
     ...resolveAgentCredentialPreset(DEFAULT_AGENT_CREDENTIAL_PRESET_ID)!.scopes,
   ]);
   const [formError, setFormError] = useState<{
-    field: "name" | "permissions";
+    field: "name" | "labels" | "permissions";
     message: string;
   } | null>(null);
   const presetsRef = useRef<HTMLDivElement>(null);
@@ -66,6 +76,12 @@ export function ProjectAgentCredentialForm({
           ).focus();
           return;
         }
+        const descriptiveLabels = parseAgentCredentialDescriptiveLabels(labels);
+        if (labelsDraft.trim() || !descriptiveLabels) {
+          setFormError({ field: "labels", message: labelsDraft.trim() ? AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR : AGENT_DESCRIPTIVE_LABELS_HINT });
+          labelsRef.current?.focus();
+          return;
+        }
         if (!scopes.length) {
           setFormError({
             field: "permissions",
@@ -77,6 +93,7 @@ export function ProjectAgentCredentialForm({
         setFormError(null);
         onCreate({
           label,
+          descriptiveLabels,
           scopes,
           expiresInDays: expiry ? Number(expiry) : null,
         });
@@ -137,6 +154,14 @@ export function ProjectAgentCredentialForm({
             </select>
           </div>
         </div>
+        <AgentCredentialLabelsField
+          id="project-agent-descriptive-labels" label="Descriptive labels (optional)" inputRef={labelsRef}
+          labels={labels} onLabelsChange={setLabels} draft={labelsDraft} onDraftChange={setLabelsDraft}
+          error={formError?.field === "labels" ? formError.message : null}
+          onErrorChange={(message) => setFormError((current) => message
+            ? { field: "labels", message } : current?.field === "labels" ? null : current)}
+          disabled={isCreating}
+        />
         <div className="space-y-3">
           <div>
             <p className="text-sm font-medium">

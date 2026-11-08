@@ -3,6 +3,83 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-656: merge ND-657 and restore label-editor focus reliably
+
+- Integrated main after ND-657 merged, preserving both ADR and journal histories
+  and retaining its key-generation token checks alongside scope compatibility.
+- Investigated the failed CI focus assertion. Label saves raced a whole-page
+  refresh and a one-frame focus callback; wait until the restored Edit labels
+  button is mounted and enabled. Project activity already refreshes comment
+  readers, so label saves keep the current dialog local. Added a regression
+  where the parent remains disabled after the save promise resolves.
+- Validation and the refreshed merge handoff are recorded in PR #661.
+
+# 2026-11-08 - ND-656: current names and labels across comment history
+
+- Replaced posting-time display with a retained public agent author identity,
+  following Dorian's revised direction. The additive migration backfills linked
+  old comments; credential triggers maintain current metadata and preserve it
+  after key deletion. Previously orphaned comments retain their fallback.
+- Comment reads/create/edit resolve current public metadata in their existing
+  queries, including empty label lists. Project activity refreshes open threads
+  without rewriting comment content, timestamps or task revisions. Added real
+  PostgreSQL backfill, retention, RLS and cross-tab viewer regressions.
+- Integrated current main and preserved both journal histories. Superseded the
+  original snapshot ADR and updated user/API docs; validation and the refreshed
+  Preview handoff are recorded in PR #661.
+
+# 2026-11-08 - ND-656: credential loading across shared Preview migrations
+
+- Identified the deployed owner-list failure as Prisma P2023: `meeting_read`
+  was absent from ND-656's generated scope enum after ND-130 added/backfilled
+  scopes in the shared Preview database. Token exchange already filtered its
+  raw scope strings, so the earlier agent-comment check missed this owner path.
+- Reproduced the HTTP 500 with a real PostgreSQL enum extension. Filter scope
+  relation reads before Prisma deserialization for listing, create, rotation
+  and revoke. Supported scopes remain unchanged; newer stored grants are not
+  deleted or rewritten by credential management.
+- Added a browser regression for owner loading, label edits, rotation, revoke
+  and retention of future scope grants. Updated the Preview rollout runbook;
+  validation and deployed owner-flow evidence are recorded in PR #661.
+
+# 2026-11-08 - ND-656: remove the automatic agent-name suffix
+
+- Removed the automatically appended `(agent)` from comment and creator names,
+  attention/assignment display text, and meeting-todo identity presentation.
+  Agent kind, credential IDs, avatars, descriptive labels and original name
+  snapshots remain intact. Explicitly named text is preserved verbatim.
+- Updated API documentation and existing attribution regressions. Validation
+  and the refreshed Preview handoff are recorded in PR #661.
+- Integrated ND-663 after it merged during this change; preserved both ADR
+  entries and the completed Task data-access boundary alongside the name fix.
+
+# 2026-11-08 - ND-656: Enter-to-add labels and task-label colors
+
+- Replaced comma-separated credential label fields with one shared chip editor
+  for creation and management. Enter explicitly adds a label; blur preserves
+  pending text, and save focuses pending text until it is added or cleared.
+  Individual remove buttons support label removal without rewriting a string.
+- Show the Enter instruction only for a focused, non-empty input. Reuse task
+  label color assignment and dark foregrounds for editor chips, directory
+  badges and comment attribution. Existing validation and snapshots remain.
+- Updated interaction regressions and documentation. Validation, refreshed
+  Preview evidence, and the requested ND-1 Preview comment are recorded on
+  PR #661; credentials remain in the user-provided ignored env file.
+
+# 2026-11-08 - ND-656: review after ND-655 merged
+
+- Integrated current main after PR #660 merged and resolved the stale stacked
+  UI, documentation, schema and test conflicts. Kept the accepted directory,
+  shared scrollbar, and protected Copy and close key handoff unchanged.
+- Added descriptive labels to the extracted creation form and credential
+  details dialog, retaining directory/comment badges and name-or-label search.
+  Label errors belong to their credential; saving locks competing credential
+  actions. Invalid fields receive focus; save/cancel restore the edit trigger.
+- Reviewed owner authorization, validation, additive metadata migration and
+  posting-time comment snapshots. Existing review feedback is already resolved.
+  Updated browser checks exercise the merged dialogs, failed/pending saves,
+  focus, maximum-length labels on mobile, and historical comment attribution.
+- Validation and the refreshed Preview handoff are recorded in PR #661.
 
 # 2026-11-08 - ND-657: reconcile review against current main
 
@@ -11270,6 +11347,65 @@ Low-value entries to avoid going forward:
 - Rechecked the static runtime import graph from Task/project facades, Task contracts, and Kanban: 132 local modules, no cycles involving the reviewed Task seams. Pilot guidance records current ND-545 measurement evidence and the existing unpublished-attachment exclusion. Meeting Notes contract work remains the bounded next application after user review and merge.
 - Required validation and the detailed review response are recorded on #654. Leave the PR unmerged for the user; later tasks remain parked. Retarget/reconcile #655 when ND-546 is user-merged; #650 remains parked until its turn.
 
+
+# 2026-11-05 - ND-656: descriptive agent credential labels
+
+- Added owner-managed descriptive metadata with shared validation (five labels,
+  40 characters each), creation/edit/removal controls, credential-list badges
+  and task-comment badges. A dedicated metadata endpoint leaves credential
+  names, keys and scope grants independent.
+- Added an additive migration for credential metadata and comment snapshots.
+  Comment reads and edits retain posting-time attribution after credential
+  rename, relabel, revocation or deletion; older comments keep empty arrays.
+  Documented this behavior in README, the agent contract and ADR decisions.
+- Initial validation on Node 24.22.1: lint, RLS inventory, 2,338 unit/API/component
+  tests (three skipped), coverage thresholds (94.16% statements, 88.11% branches),
+  production build and the PostgreSQL tenant-isolation matrix passed. Local
+  PostgreSQL 16 validation used its own database on port 5656, with the Realtime
+  stub installed before migrations and the database timezone set to UTC.
+- Rebased onto ND-655 branch `0fc376a` and placed the label badges and editor
+  in its extracted credential list. The PR is stacked on that branch while
+  ND-655 is under review.
+- Integrated validation passed: lint, RLS inventory, 2,338 unit/API/component
+  tests (three skipped), unchanged coverage thresholds, production build and
+  the PostgreSQL tenant-isolation matrix. Five local Chromium checks passed
+  across ND-655, ND-656 and active-agent pickers, including creation/edit/removal,
+  375px geometry with maximum-length labels, historical comment reloads, real
+  owner/editor sessions, bearer-only denial and cross-project rejection.
+- Preview [run 42039347200](https://github.com/dorianagaesse/nexus_dash/actions/runs/42039347200)
+  passed and applied the additive migration. Checkout logs verify
+  `feature/nd-656-agent-descriptive-labels` at
+  `dc706aa87a4838cffaa3e708260a00658c57367e`; readiness confirms Preview,
+  revision `dc706aa`, and database health on the
+  [immutable deployment](https://nexus-dash-56bpp4yy9-dorian-agaesses-projects.vercel.app).
+  All four ND-655/ND-656 Chromium checks passed against that deployment.
+  Preview fixtures used the matching project's admin session pooler, following
+  the existing TLS compatibility contract, and cleaned up their own records.
+- [PR #661](https://github.com/dorianagaesse/nexus_dash/pull/661) is open against
+  ND-655's branch for the user's agent review. The final follow-up changes only
+  test protection-header forwarding and this evidence; deployed runtime code
+  is unchanged. The task remains In Progress for the reviewer or merger.
+
+- Review follow-up: merged ND-655 through `800c835` (including its `f261a29`
+  credential-management changes), resolved the list imports, and integrated
+  label failures into the separate action-error model. Failed label saves keep
+  the draft and no longer offer a credential-loading retry.
+- Added named badge groups for assistive technology, name-or-label search with
+  the existing combined filters, and a limit of five distinct labels after
+  case-insensitive de-duplication. Aligned the comment POST documentation and
+  documented the intentional authentication-audit boundary in the ADR.
+- Revalidation passed: production type-check/build, lint, RLS inventory,
+  2,341 unit/API/component tests (three skipped), coverage gates (94.16%
+  statements, 88.11% branches), PostgreSQL tenant-isolation matrix, and all five
+  targeted local Chromium checks. Regressions include label-save failure and
+  recovery, accessible badge groups, model-label search and duplicate limits.
+- Refreshed preview [run 42046467857](https://github.com/dorianagaesse/nexus_dash/actions/runs/42046467857)
+  passed. Logs verify checkout of the task branch at
+  `8b5c2a404375bce9a26c1b8d6339ff8df3bd2d65`; immutable readiness confirms
+  Preview, that revision, and database health on the
+  [review-fix deployment](https://nexus-dash-dm7hrf2r4-dorian-agaesses-projects.vercel.app).
+  All four ND-655/ND-656 Chromium checks passed there, including the updated
+  error recovery, label search, accessibility and distinct-label validation.
 ## 2026-11-05 - ND-654: Per-credential Done-move permission
 
 - Replaced the project-wide Done-move toggle with the independently persisted

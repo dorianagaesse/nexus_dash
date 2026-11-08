@@ -44,7 +44,7 @@ Implemented today:
     Activity received during local saves reconciles afterward; comment uploads
     stay unpublished until their comment is posted
   - Task comments with agent-authored comment attribution through the project
-    credential label and a shared agent avatar
+    credential name, descriptive labels and a shared agent avatar
 - Per-user Google Calendar connection and calendar target setting (`/account/settings`)
 - Opening a task updates the browser URL; task modals offer **Copy link**.
   Shared links reopen that task after sign-in for people with project access.
@@ -119,7 +119,7 @@ Open `http://localhost:3000`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
 - **Share project > Agent access** opens a credential directory with agent
   counts, readable access summaries, status, last use, expiry, and a separate
-  task-completion switch for each agent. Search by name (ignoring case and
+  task-completion switch for each agent. Search by name or descriptive label (ignoring case and
   surrounding spaces). Open **Filters** to combine status and capability,
   including **Complete tasks**; **Clear filters** restores the full directory.
   Custom access lists the actions granted for each resource. **Complete tasks**
@@ -187,6 +187,39 @@ fails through the ordinary Save error and keeps the input. Explicit Cancel
 abandons the edit; reopening then starts from the latest event. Outside click,
 Escape, and the close icon preserve recovery. Context cards follow the same
 invisible-recovery rule with atomic content revisions.
+
+### Agent descriptive labels
+
+Project owners can add optional descriptive labels (for example, `GPT-6` and
+`Codex`) when creating a credential in **Sharing → Agent access**, or use
+**Manage > Edit labels** on an existing credential. Type one label and press
+**Enter** to add its chip; remove chips individually with their remove buttons.
+The Enter hint appears only while the focused input contains text. Labels use
+the same automatic background colors as task labels in the editor, credential
+directory and comment authors. At most five distinct labels are allowed, each
+1–40 characters after trimming, without commas or control characters. Duplicate
+labels are combined case-insensitively. Remove every chip to clear all labels;
+add or clear pending text before saving. Names, task labels and permissions are
+separate.
+
+Owner-session credential creation accepts `descriptiveLabels: string[]`;
+`PATCH /api/projects/{projectId}/agent-access/{credentialId}/labels` replaces
+that array and returns the credential ID and saved labels. The owner-only
+Agent access summary includes `descriptiveLabels`; agent bearer tokens cannot
+manage this metadata. These responses never include stored secret hashes.
+
+Task comments resolve the agent's current name and descriptive labels from a
+project-scoped public author identity, including comments posted before an edit.
+Agent display names use the credential name without an appended `(agent)`
+suffix; avatars, descriptive labels and structured actor kind distinguish them.
+The comment API exposes the array as `author.agentCredentialDescriptiveLabels`;
+task readers see the current labels beside the author name. Renaming and label
+additions/removals apply to all linked comments. Metadata edits refresh open
+threads through project activity without changing comment contents or timestamps.
+Rotation and revocation retain the same identity; deleting the API credential
+retains its final public name and labels. The additive migration links existing
+comments to current metadata. Older comments whose credential was already hard
+deleted retain their saved attribution because their original link is gone.
 
 ## Database and Migrations
 

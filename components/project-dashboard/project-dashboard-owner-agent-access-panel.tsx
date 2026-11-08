@@ -62,6 +62,7 @@ interface ProjectDashboardOwnerAgentAccessPanelProps {
     | (ProjectAgentCredentialIssuedSecret & { mode: "created" | "rotated" })
     | null;
   onCreateCredential: (input: CreateProjectAgentCredentialInput) => void;
+  onUpdateCredentialLabels?: (credential: ProjectAgentCredentialSummary, labels: string[]) => Promise<boolean>;
   onRotateCredential: (credential: ProjectAgentCredentialSummary) => void;
   onRevokeCredential: (credential: ProjectAgentCredentialSummary) => void;
   onDismissLatestSecret: () => void;
@@ -80,6 +81,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
   mutatingCredentialId,
   latestIssuedSecret,
   onCreateCredential,
+  onUpdateCredentialLabels,
   onRotateCredential,
   onRevokeCredential,
   onDismissLatestSecret,
@@ -475,6 +477,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
         actionError={actionError}
         onClose={() => setManagedId(null)}
         onUpdateCapabilities={onUpdateCapabilities}
+        onUpdateCredentialLabels={onUpdateCredentialLabels}
         onRotateCredential={onRotateCredential}
         onRevokeCredential={onRevokeCredential}
       />

@@ -40,6 +40,7 @@ export interface ProjectEpicOption extends TaskEpicSummary {
 }
 
 export interface TaskCommentAuthor extends TaskPersonSummary {
+  agentCredentialDescriptiveLabels?: string[];
   kind?: TaskCommentAuthorKind;
   agentCredentialId?: string | null;
   agentCredentialLabel?: string | null;

@@ -79,6 +79,7 @@ export interface ProjectAgentCredentialSummary {
   canMoveTasksToDone: boolean;
   id: string;
   label: string;
+  descriptiveLabels?: string[];
   publicId: string;
   scopes: AgentScope[];
   status: AgentCredentialStatus;
@@ -113,7 +114,7 @@ export interface ProjectAgentAccessSummary {
 
 export interface ProjectAgentAccessActionError {
   credentialId?: string;
-  action: "create" | "rotate" | "capabilities";
+  action: "create" | "rotate" | "capabilities" | "labels";
   message: string;
 }
 
@@ -239,6 +240,10 @@ export function mapAgentAccessError(errorCode: string): string {
       return "Credential label must be between 2 and 80 characters.";
     case "scopes-required":
       return "Select at least one agent scope.";
+    case "credential-labels-update-failed":
+      return "Could not save descriptive labels. Please retry.";
+    case "invalid-descriptive-labels":
+      return "Use up to 5 non-empty descriptive labels, 40 characters each.";
     case "invalid-expiry":
       return "Expiry must be between 1 and 365 days, or left empty.";
     case "credential-required":
