@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import process from "node:process";
 
 import pg from "pg";
+import { testProjectTodoRls } from "./test-project-todo-rls.mjs";
 
 const { Client } = pg;
 
@@ -500,6 +501,7 @@ try {
   }
 
   await seed();
+  await testProjectTodoRls({ admin, runtime, runtimeTransaction, expectRlsViolation, ids });
 
   // Public current author metadata is readable by members without exposing
   // credential secrets, remains tenant-bound and outlives a deleted key.

@@ -69,6 +69,42 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Updated browser checks exercise the merged dialogs, failed/pending saves,
   focus, maximum-length labels on mobile, and historical comment attribution.
 - Validation and the refreshed Preview handoff are recorded in PR #661.
+# 2026-11-08 - ND-191: lightweight project checklist
+
+- Implemented text-only standalone checklist capture on the existing project
+  Todos page, with inline editing, completion/reopening, creator filtering,
+  owner deletion, and draft recovery after failed or conflicting writes.
+  Meeting follow-ups and the personal floating panel retain their contracts.
+- Used an isolated worktree from `origin/main` (`9d61fb52`) and opened PR #682.
+  Dorian canceled ND-378 during implementation; recorded the cancellation and
+  narrowed the epic to ND-191. No global search or navigation was implemented.
+- Coordinated `task:read/write/delete` with ND-130 / PR #680. The checklist's
+  RLS adapter delegates to the canonical capability function when installed;
+  no capability grants, identity framework, or realtime transport were copied.
+  Tested both baseline role enforcement and late capability-provider arrival.
+  Also applied ND-130's actual schema/enforcement migrations from `ebebbcfc`
+  to an isolated database containing ND-191: legacy, denied, task-read,
+  task-write, and meeting-only grants behaved correctly, and editors could
+  never delete checklist rows.
+- PostgreSQL validation used a dedicated container on port 55191. Installed
+  the existing Realtime policy stub before migrations for the standard matrix.
+  Local checks use Node 24.22.1; full Vitest runs use explicit `NODE_ENV=test`,
+  one thread worker and the verbose reporter on Windows.
+- Validation: full unit and coverage runs passed (2,425 tests, 3 skipped),
+  plus seven focused checklist recovery/filter tests. Coverage: 94.39% statements,
+  89.06% branches, 97.05% functions, 95.55% lines. Lint, RLS inventory, real
+  PostgreSQL matrix and production build passed. The full local browser run had
+  134 passes and 2 skips; its sole failure was a checklist test expecting a
+  checkbox to stay mounted after moving into Completed. Corrected that assertion
+  and rebuilt: all eight checklist/meeting-todo browser tests passed. Desktop
+  (1440px) and mobile (390px) captures are attached to the Playwright report;
+  the design detector returned no findings. Copilot review was skipped per
+  Dorian's instruction because it is currently unavailable.
+- A fresh visual/source review caught an active draft being closed by a
+  different item's mutation. Limited editor closure to saving that item's text;
+  unrelated completion/deletion and completion of the edited item now preserve
+  the draft. Regression tests cover each path.
+
 # 2026-11-08 - ND-425: agent task-edit coverage audit
 
 - Audited the current Kanban UI, shared task contracts, routes, services,
@@ -11462,3 +11498,43 @@ Low-value entries to avoid going forward:
   and main's Dependabot audit. Application files merged automatically.
 - Whitespace, reference and release-policy checks passed. GitHub Quality Gates
   validates the combined branch after push; no additional Copilot review requested.
+
+
+## 2026-11-08 - ND-191 revision: one list and private personal capture
+
+- Dorian rejected the initial separate shared checklist. Revised the same PR
+  to one Todo list: existing meeting actions plus creator-private personal
+  items, one Open/Completed control and existing responsibility filters.
+  Capture and personal rows explain Only you; meeting rows explicitly say
+  Project members. Existing meeting-note privacy/assignment behavior remains.
+- Added a forward-only privacy migration. Service reads/counts/writes bind
+  both project and creator; RLS also rejects other members, project owners,
+  agents and revoked creators. No personal data enters shared activity events.
+  Own deletion uses task:write, coordinated with ND-130 PR #680. Actual ND-130
+  migrations pass legacy, denied, read-only, write and meeting-only grant cases.
+- Removed the separate checklist component and its redundant controls. Kept
+  recovery for failed capture, stale saves, remotely removed items and hidden
+  edits. Navigation counts include only the caller's own personal items.
+- Initial browser checks needed test fixes: scope the alert locator away from
+  Next's route announcer, match the existing lower-case accessible tab names,
+  and await navigation before reloading. No product behavior was changed to
+  satisfy those assertions. The corrected personal flows and existing meeting
+  flows pass. The first visual pass found a cramped mobile meeting title;
+  moved its assignee below the text on phones and confirmed the batched
+  desktop/mobile/light/dark/landscape captures. No horizontal overflow at
+  enlarged text. The manual design detector returned no findings.
+- PostgreSQL isolation matrix and 47 focused tests pass. The first broad unit
+  invocation omitted DATABASE_URL; reran with the documented local environment:
+  2,433 tests pass, 3 skipped. Required coverage/full browser gates and the
+  independent finish review are recorded in the final PR handoff.
+- Coverage passes: 95.56% lines and 89.08% branches. Fresh Impeccable review
+  accepted the single-list structure, explicit privacy and responsive layout,
+  and requested one loading-label encoding correction. Fixed the label to
+  Adding... and added a pending/duplicate-submission regression test. Final
+  reviewer verdict and complete browser/CI results are linked from PR #682.
+- The broad browser run exposed a superseded mobile assertion requiring
+  assignee/text vertical overlap. Updated it to require readable full-width
+  text above the chip. A separate unchanged floating-panel test missed a
+  pre-hydration click; applied the existing suite's bounded open/retry pattern.
+  Both assertions retain their functional checks. Final rerun evidence is
+  recorded on the PR and card.
