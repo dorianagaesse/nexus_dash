@@ -202,6 +202,33 @@ export function ProjectChecklist({
           {error}
         </p>
       )}
+      {editingId && !data.todos.some((todo) => todo.id === editingId) && (
+        <div className="space-y-2 rounded-lg border p-3">
+          <label htmlFor="checklist-recovery" className="text-sm font-medium">
+            Unsaved edit — this item is no longer available
+          </label>
+          <textarea
+            id="checklist-recovery"
+            className="w-full rounded-md border border-input bg-background p-2 text-sm"
+            value={editContent}
+            readOnly
+          />
+          {data.canEdit && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setContent(editContent);
+                setEditingId(null);
+                addInput.current?.focus();
+              }}
+            >
+              Use text in a new item
+            </Button>
+          )}
+        </div>
+      )}
       <p role="status" className="sr-only">
         {feedback}
       </p>

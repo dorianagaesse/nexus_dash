@@ -78,7 +78,8 @@ export async function testProjectTodoRls({
 
   // Install a contract double transactionally: prove a capability provider
   // arriving after the checklist migration takes effect without another deploy.
-  const role = (await runtime.query("SELECT current_user AS name")).rows[0].name;
+  const role = (await runtime.query("SELECT current_user AS name")).rows[0]
+    .name;
   await admin.query("BEGIN");
   try {
     await admin.query(`CREATE OR REPLACE FUNCTION app.has_project_capability(target_project_id TEXT, capability TEXT)
@@ -86,17 +87,37 @@ export async function testProjectTodoRls({
         SELECT capability = ANY(string_to_array(current_setting('app.test_todo_capabilities', true), ','))
       $$`);
     await admin.query(`SET LOCAL ROLE "${role.replaceAll('"', '""')}"`);
-    await admin.query("SELECT set_config('app.user_id', $1, true)", [ids.editorB]);
+    await admin.query("SELECT set_config('app.user_id', $1, true)", [
+      ids.editorB,
+    ]);
     for (const grants of ["", "task:read", "task:read,task:write"]) {
-      await admin.query("SELECT set_config('app.test_todo_capabilities', $1, true)", [grants]);
-      const rows = await admin.query(`SELECT id FROM "ProjectTodo" WHERE id = $1`, [id]);
+      await admin.query(
+        "SELECT set_config('app.test_todo_capabilities', $1, true)",
+        [grants]
+      );
+      const rows = await admin.query(
+        `SELECT id FROM "ProjectTodo" WHERE id = $1`,
+        [id]
+      );
       assert.equal(rows.rowCount, grants.includes("task:read") ? 1 : 0);
-      const update = await admin.query(`UPDATE "ProjectTodo" SET content = 'Capability check' WHERE id = $1`, [id]);
+      const update = await admin.query(
+        `UPDATE "ProjectTodo" SET content = 'Capability check' WHERE id = $1`,
+        [id]
+      );
       assert.equal(update.rowCount, grants.includes("task:write") ? 1 : 0);
     }
-    await admin.query("SELECT set_config('app.test_todo_capabilities', 'task:read,task:write,task:delete', true)");
-    const remove = await admin.query(`DELETE FROM "ProjectTodo" WHERE id = $1`, [id]);
-    assert.equal(remove.rowCount, 0, "capabilities cannot elevate an editor to owner-only delete");
+    await admin.query(
+      "SELECT set_config('app.test_todo_capabilities', 'task:read,task:write,task:delete', true)"
+    );
+    const remove = await admin.query(
+      `DELETE FROM "ProjectTodo" WHERE id = $1`,
+      [id]
+    );
+    assert.equal(
+      remove.rowCount,
+      0,
+      "capabilities cannot elevate an editor to owner-only delete"
+    );
   } finally {
     await admin.query("ROLLBACK");
   }

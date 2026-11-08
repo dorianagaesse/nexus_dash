@@ -1325,3 +1325,24 @@ Keep UI-only or task-only notes in `journal.md`.
   Cross-domain comments, uploads, offboarding, aggregates and operational reminder
   SQL remain explicit exceptions in `docs/architecture/task-services.md`.
   Encryption will need those exceptions as well as the completed Task seam.
+
+## 2026-11-08 - ND-191: standalone project checklist items
+
+- Status: Proposed for review in ND-191.
+- Decision: Store lightweight checklist items in `ProjectTodo`, separate from
+  Kanban tasks and meeting actions. Capture requires only text; completion is a
+  nullable timestamp. Items inherit project visibility rather than introducing
+  personal/private ownership semantics. A creator filter is a view of shared data.
+- Authorization: Keep access in the service's actor RLS transaction and use
+  forced project/role policies. Reuse ND-130's `task:read/write/delete` vocabulary
+  and access guard. A feature-local restrictive RLS adapter delegates to the
+  canonical capability function when present, allowing either migration order
+  without copying grants or modifying another card's framework. Baseline role
+  restrictions remain active throughout; provider errors never allow access.
+- Concurrency: Require item revisions on edits, completion changes and deletes.
+  Foreign IDs and stale/deleted rows have the same conflict response, scoped to
+  the already-authorized project. Keep text drafts on conflicts and save failures.
+- Consequences: Checklists do not allocate task references, require meetings,
+  introduce an agent identity model, or change the realtime transport. Human
+  sessions use the existing project activity/version path. Global Todos/search
+  (ND-378) was canceled and is outside this change.

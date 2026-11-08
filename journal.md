@@ -3,6 +3,28 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-191: lightweight project checklist
+
+- Implemented text-only standalone checklist capture on the existing project
+  Todos page, with inline editing, completion/reopening, creator filtering,
+  owner deletion, and draft recovery after failed or conflicting writes.
+  Meeting follow-ups and the personal floating panel retain their contracts.
+- Used an isolated worktree from `origin/main` (`9d61fb52`) and opened PR #682.
+  Dorian canceled ND-378 during implementation; recorded the cancellation and
+  narrowed the epic to ND-191. No global search or navigation was implemented.
+- Coordinated `task:read/write/delete` with ND-130 / PR #680. The checklist's
+  RLS adapter delegates to the canonical capability function when installed;
+  no capability grants, identity framework, or realtime transport were copied.
+  Tested both baseline role enforcement and late capability-provider arrival.
+  Also applied ND-130's actual schema/enforcement migrations from `ebebbcfc`
+  to an isolated database containing ND-191: legacy, denied, task-read,
+  task-write, and meeting-only grants behaved correctly, and editors could
+  never delete checklist rows.
+- PostgreSQL validation used a dedicated container on port 55191. Installed
+  the existing Realtime policy stub before migrations for the standard matrix.
+  Local checks use Node 24.22.1; full Vitest runs use explicit `NODE_ENV=test`,
+  one thread worker and the verbose reporter on Windows.
+
 # 2026-11-08 - ND-375: production Broadcast configuration investigation
 
 - Recorded Dorian's decision to retain Vercel Pro and picked up ND-375 for the

@@ -26,14 +26,24 @@ test("standalone checklist capture, edit, completion, reopen and project isolati
       exact: true,
     });
     await checklist.getByLabel("New checklist item").fill("Pack the demo kit");
-    await page.route(`**/api/projects/${project.id}/todos`, async (route) => {
-      if (route.request().method() === "POST") {
-        await route.fulfill({ status: 500, contentType: "application/json", body: '{"error":"temporary-failure"}' });
-      } else await route.continue();
-    }, { times: 1 });
+    await page.route(
+      `**/api/projects/${project.id}/todos`,
+      async (route) => {
+        if (route.request().method() === "POST") {
+          await route.fulfill({
+            status: 500,
+            contentType: "application/json",
+            body: '{"error":"temporary-failure"}',
+          });
+        } else await route.continue();
+      },
+      { times: 1 }
+    );
     await checklist.getByRole("button", { name: "Add item" }).click();
     await expect(checklist.getByRole("alert")).toContainText("Could not save");
-    await expect(checklist.getByLabel("New checklist item")).toHaveValue("Pack the demo kit");
+    await expect(checklist.getByLabel("New checklist item")).toHaveValue(
+      "Pack the demo kit"
+    );
     await checklist.getByLabel("New checklist item").press("Enter");
     await expect(
       checklist.getByText("Pack the demo kit", { exact: true })
