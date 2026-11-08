@@ -37,7 +37,7 @@ test("task links and files preserve their actual uploader through credential del
     } else {
       expect(process.env.PLAYWRIGHT_BASE_URL).toBeFalsy();
       expect(target.status()).toBe(400);
-      storageKey = (await saveAttachmentFile({ scope: "task", actorUserId: userId, projectId: project.id, ownerId: taskId!, file: new File([bytes], metadata.name, { type: metadata.mimeType }) })).storageKey;
+      storageKey = (await saveAttachmentFile({ scope: "task", actorUserId: userId, projectId: project.id, ownerId: `${taskId}/actors/agent/${agents[0].id}`, file: new File([bytes], metadata.name, { type: metadata.mimeType }) })).storageKey;
     }
     const uploaded = await page.request.post(`${taskUrl}/attachments/direct`, { headers: agents[0].headers, data: { ...metadata, storageKey } });
     expect(uploaded.ok()).toBeTruthy();

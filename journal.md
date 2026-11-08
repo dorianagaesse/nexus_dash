@@ -1,5 +1,18 @@
 # Development Journal
 
+# 2026-11-08 - ND-670: draft attachment ownership
+
+- Bound unpublished task files to the exact human or credential uploader for
+  download, comment publication and removal. Human project owners retain an
+  explicit removal-only moderation exception.
+- Agent direct uploads now use credential-specific object paths. Serialized
+  finalization/cleanup rejects already-finalized objects. Human legacy paths
+  remain valid only for humans. Published files retain project-reader access.
+- Comment binding now always uses a transaction and propagates a failed atomic
+  bind through rollback before returning an error, avoiding orphan comments.
+- Added a three-actor browser/API regression with cross-actor denials, concurrent
+  publication, posted reader access and revoked credential rejection.
+
 # 2026-11-08 - ND-669: task attachment attribution
 
 - Added uploader kind, credential relation and durable display snapshot to task

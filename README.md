@@ -691,3 +691,11 @@ survives credential deletion (`id: null`, agent kind and name retained). Task
 attachment add/delete writes also update the actual task editor and activity
 payload actor. Legacy uploads remain human-attributed; their history is not
 retroactively assigned to a credential.
+
+Unpublished task comment files belong to the exact uploading human or credential,
+including credentials with the same human owner. Only that actor may read or bind
+its draft to a comment. Human project owners may remove another actor's draft for
+moderation; this grants neither read nor publishing access. Once posted, project
+readers may download the file. Binding is atomic and a draft can be published once.
+Direct-upload keys must be used by the actor that requested them. Finalization and
+cleanup reject an already-finalized key; agents cannot claim legacy human keys.

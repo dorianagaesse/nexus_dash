@@ -5,6 +5,7 @@ import { AttachmentStorageUnavailableError } from "@/lib/storage/errors";
 
 const prismaMock = vi.hoisted(() => ({
   $transaction: vi.fn(),
+  $executeRaw: vi.fn(),
   projectActivityEvent: { create: vi.fn() },
   project: {
     findFirst: vi.fn(),
@@ -18,6 +19,7 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
   },
   taskAttachment: {
+    findFirst: vi.fn(),
     createMany: vi.fn(),
     create: vi.fn(),
     findUnique: vi.fn(),
@@ -83,6 +85,7 @@ describe("project-attachment-service", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.taskAttachment.findFirst.mockResolvedValue(null);
     prismaMock.apiCredential.findFirst.mockResolvedValue({
       id: "credential-1", projectId: "project-1", label: "TellmetrY agent",
       revokedAt: null, expiresAt: null,
