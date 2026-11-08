@@ -273,6 +273,13 @@
       "enforcement": "operational",
       "owner": "authentication abuse-control service",
       "rationale": "Rate-limit buckets are cross-request security state keyed by hashed signals, not tenant content."
+    },
+    {
+      "model": "ProjectTodo",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "project todo service",
+      "rationale": "Standalone checklist rows inherit project membership and role authorization; task capabilities apply through ND-130."
     }
   ]
 }

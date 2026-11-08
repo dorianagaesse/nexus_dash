@@ -19,6 +19,10 @@ export default defineConfig({
       reporter: ["text", "html", "json-summary"],
       reportsDirectory: "coverage",
       include: [
+        "lib/project-todo.ts",
+        "lib/services/project-todo-service.ts",
+        "app/api/projects/[projectId]/todos/route.ts",
+        "app/api/projects/[projectId]/todos/[todoId]/route.ts",
         "app/api/auth/google/route.ts",
         "app/api/auth/callback/google/route.ts",
         "app/api/calendar/events/route.ts",

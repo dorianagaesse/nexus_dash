@@ -8,6 +8,9 @@ import {
   type ProjectMeetingTodoItem,
 } from "@/components/meeting-todos/project-meeting-todos";
 import { Badge } from "@/components/ui/badge";
+import { ProjectChecklist } from "@/components/project-checklist";
+import { listProjectTodos } from "@/lib/services/project-todo-service";
+import type { ProjectTodoList } from "@/lib/project-todo";
 import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { logServerError } from "@/lib/observability/logger";
 import {
@@ -51,6 +54,16 @@ export default async function ProjectTodosPage({
   ]);
   let result: ProjectMeetingTodoList | null = null;
   let loadError: string | null = null;
+  let checklist: ProjectTodoList | null = null;
+  let checklistError: string | null = null;
+
+  try {
+    const response = await listProjectTodos({ actorUserId, projectId });
+    if (response.ok) checklist = response.data;
+  } catch (error) {
+    logServerError("ProjectTodosPage.listProjectTodos", error, { projectId });
+    checklistError = "Could not load the checklist. Refresh to retry.";
+  }
 
   try {
     result = await listProjectMeetingTodos({ actorUserId, projectId });
@@ -61,7 +74,7 @@ export default async function ProjectTodosPage({
     loadError = "Could not load meeting todos. Refresh to retry.";
   }
 
-  if (!loadError && !result) {
+  if (!loadError && !checklistError && !result && !checklist) {
     notFound();
   }
 
@@ -89,20 +102,37 @@ export default async function ProjectTodosPage({
               Todos
             </h1>
             <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-              Review this project&apos;s meeting follow-ups and open the source
-              meeting whenever you need more context.
+              Capture small actions in the checklist and review this
+              project&apos;s meeting follow-ups.
             </p>
           </div>
         </div>
 
-        <ProjectMeetingTodos
-          projectId={projectId}
-          canEdit={result?.project.canEdit ?? false}
-          currentActorUserId={result?.currentActorUserId ?? actorUserId}
-          actors={result?.actors ?? []}
-          initialTodos={initialTodos}
-          loadError={loadError}
-        />
+        {checklist && (
+          <ProjectChecklist
+            projectId={projectId}
+            actorUserId={actorUserId}
+            initialData={checklist}
+          />
+        )}
+        {checklistError && (
+          <p role="alert" className="text-sm text-destructive">
+            {checklistError}
+          </p>
+        )}
+        {(result || loadError) && (
+          <section aria-label="Meeting follow-ups" className="space-y-4">
+            <h2 className="text-xl font-semibold">Meeting follow-ups</h2>
+            <ProjectMeetingTodos
+              projectId={projectId}
+              canEdit={result?.project.canEdit ?? false}
+              currentActorUserId={result?.currentActorUserId ?? actorUserId}
+              actors={result?.actors ?? []}
+              initialTodos={initialTodos}
+              loadError={loadError}
+            />
+          </section>
+        )}
       </div>
     </main>
   );
