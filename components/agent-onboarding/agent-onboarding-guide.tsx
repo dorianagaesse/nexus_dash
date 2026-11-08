@@ -40,16 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-const SLIM_SCROLLBAR_CLASSES = [
-  "[scrollbar-color:rgba(148,163,184,0.52)_transparent]",
-  "[scrollbar-width:thin]",
-  "[&::-webkit-scrollbar]:w-2",
-  "[&::-webkit-scrollbar-track]:rounded-full",
-  "[&::-webkit-scrollbar-track]:bg-transparent",
-  "[&::-webkit-scrollbar-thumb]:rounded-full",
-  "[&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]",
-].join(" ");
+import { SLIM_SCROLLBAR_CLASSES } from "@/components/ui/scrollbar";
 
 interface AgentOnboardingGuideProps {
   initialAppOrigin?: string | null;

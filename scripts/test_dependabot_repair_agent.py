@@ -83,5 +83,33 @@ class RetryMarkerTests(unittest.TestCase):
         self.assertNotIn(terminal_marker, infrastructure_marker)
 
 
+class TenantIsolationGateTests(unittest.TestCase):
+    def test_isolation_failure_is_repairable_even_when_other_checks_pass(self) -> None:
+        checks = [
+            {"name": name, "status": "COMPLETED", "conclusion": "SUCCESS"}
+            for name in (
+                "check-name",
+                "Quality Core (lint, test, coverage, build)",
+                "E2E Smoke (Playwright)",
+                "Container Image (build + metadata artifact)",
+            )
+        ]
+        checks.append({
+            "name": "Tenant Isolation (PostgreSQL RLS)",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "completedAt": "2026-11-08T09:00:00Z",
+        })
+        self.assertTrue(agent.pr_has_failure({"statusCheckRollup": checks}))
+
+        checks.append({
+            "name": "Tenant Isolation (PostgreSQL RLS)",
+            "status": "COMPLETED",
+            "conclusion": "SUCCESS",
+            "completedAt": "2026-11-08T09:10:00Z",
+        })
+        self.assertFalse(agent.pr_has_failure({"statusCheckRollup": checks}))
+
+
 if __name__ == "__main__":
     unittest.main()
