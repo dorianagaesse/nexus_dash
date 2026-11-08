@@ -60,13 +60,13 @@ test("standalone checklist capture, edit, completion, reopen and project isolati
     await expect(checklist.getByText(title, { exact: true })).toBeVisible();
     await checklist
       .getByRole("checkbox", { name: `Complete: ${title}` })
-      .check();
+      .click();
     await expect(checklist.getByText(title, { exact: true })).toHaveCount(0);
     await checklist.getByRole("button", { name: "Completed (1)" }).click();
     await expect(checklist.getByText(title, { exact: true })).toBeVisible();
     await checklist
       .getByRole("checkbox", { name: `Reopen: ${title}` })
-      .uncheck();
+      .click();
     await checklist.getByRole("button", { name: "Open (1)" }).click();
     await page.reload();
     await expect(checklist.getByText(title, { exact: true })).toBeVisible();
@@ -93,11 +93,13 @@ test("standalone checklist capture, edit, completion, reopen and project isolati
       path: ".tmp/checklist-review/desktop.png",
       fullPage: true,
     });
+    await test.info().attach("checklist-desktop", { path: ".tmp/checklist-review/desktop.png", contentType: "image/png" });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({
       path: ".tmp/checklist-review/mobile.png",
       fullPage: true,
     });
+    await test.info().attach("checklist-mobile", { path: ".tmp/checklist-review/mobile.png", contentType: "image/png" });
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth

@@ -34,6 +34,9 @@ export function ProjectChecklist({
   useEffect(() => {
     setData(initialData);
   }, [initialData]);
+  useEffect(() => {
+    if (!pending && feedback === "Item added.") addInput.current?.focus();
+  }, [pending, feedback]);
 
   async function refresh() {
     const response = await fetch(`/api/projects/${projectId}/todos`, {
@@ -98,7 +101,6 @@ export function ProjectChecklist({
       if (method === "POST") {
         setContent("");
         setCompleted(false);
-        addInput.current?.focus();
       }
       if (method !== "POST") setEditingId(null);
       setFeedback(
@@ -238,7 +240,9 @@ export function ProjectChecklist({
             ? "No completed checklist items yet."
             : mine
               ? "No open items created by you."
-              : "No open checklist items. Add a small action above to get started."}
+              : data.canEdit
+                ? "No open checklist items. Add a small action above to get started."
+                : "No open checklist items."}
         </p>
       ) : (
         <ul className="divide-y rounded-xl border">
