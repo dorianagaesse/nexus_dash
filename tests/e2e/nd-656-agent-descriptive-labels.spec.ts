@@ -154,10 +154,10 @@ test("owners manage credential labels and comments preserve attribution across t
     // NexusDash uses an explicit root class rather than the OS color scheme.
     await page.evaluate(() => document.documentElement.classList.add("dark"));
     await expect(page.locator("html")).toHaveClass(/dark/);
-    await page.screenshot({ path: test.info().outputPath("labels-mobile-dark.png") });
+    await page.screenshot({ path: test.info().outputPath("labels-mobile-dark.png"), animations: "disabled" });
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.evaluate(() => document.documentElement.classList.remove("dark"));
-    await page.screenshot({ path: test.info().outputPath("labels-desktop-light.png") });
+    await page.screenshot({ path: test.info().outputPath("labels-desktop-light.png"), animations: "disabled" });
     await page.setViewportSize({ width: 375, height: 812 });
     await page.getByRole("button", { name: `Edit descriptive labels for ${name}`, exact: true }).click();
     for (let index = 0; index < 5; index++) {

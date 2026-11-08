@@ -9,6 +9,7 @@ import {
 } from "@/lib/agent-credential-labels";
 import { Button } from "@/components/ui/button";
 import { AgentCredentialLabelsField } from "./agent-credential-labels-field";
+import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
 
 export function AgentCredentialLabelEditor({
   credentialId, name, labels, disabled, onSave,
@@ -30,16 +31,19 @@ export function AgentCredentialLabelEditor({
 
   if (!isEditing) {
     return (
-      <Button ref={triggerRef} type="button" variant="outline" size="sm" disabled={disabled}
-        aria-label={`Edit descriptive labels for ${name}`}
-        onClick={() => {
-          setDraftLabels([...(labels ?? [])]);
-          setDraft("");
-          setError(null);
-          setIsEditing(true);
-        }}>
-        Edit labels
-      </Button>
+      <div className="min-w-0 space-y-3">
+        <AgentCredentialDescriptiveLabels labels={labels} />
+        <Button ref={triggerRef} type="button" variant="outline" size="sm" disabled={disabled}
+          aria-label={`Edit descriptive labels for ${name}`}
+          onClick={() => {
+            setDraftLabels([...(labels ?? [])]);
+            setDraft("");
+            setError(null);
+            setIsEditing(true);
+          }}>
+          Edit labels
+        </Button>
+      </div>
     );
   }
 

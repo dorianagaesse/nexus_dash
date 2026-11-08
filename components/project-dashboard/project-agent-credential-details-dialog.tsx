@@ -98,7 +98,6 @@ export function ProjectAgentCredentialDetailsDialog({
                     Add model names or other details to help people recognize this agent.
                   </p>
                 </div>
-                <AgentCredentialDescriptiveLabels labels={credential.descriptiveLabels} />
                 {onUpdateCredentialLabels ? (
                   <AgentCredentialLabelEditor
                     key={credential.id}
@@ -108,7 +107,7 @@ export function ProjectAgentCredentialDetailsDialog({
                     disabled={isMutating}
                     onSave={(labels) => onUpdateCredentialLabels(credential, labels)}
                   />
-                ) : null}
+                ) : <AgentCredentialDescriptiveLabels labels={credential.descriptiveLabels} />}
                 {actionError?.action === "labels" && actionError.credentialId === credential.id ? (
                   <p role="alert" aria-label="Credential labels error" className="text-sm text-destructive">
                     {actionError.message}
