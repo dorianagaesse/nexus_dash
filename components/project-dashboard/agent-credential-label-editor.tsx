@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import {
   AGENT_DESCRIPTIVE_LABELS_HINT,
@@ -27,7 +27,15 @@ export function AgentCredentialLabelEditor({
   const [isSaving, setIsSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const restoreTriggerFocus = useRef(false);
   const id = `credential-labels-${credentialId}`;
+
+  useLayoutEffect(() => {
+    if (restoreTriggerFocus.current && !isEditing && !disabled && !isSaving) {
+      triggerRef.current?.focus();
+      restoreTriggerFocus.current = false;
+    }
+  }, [isEditing, disabled, isSaving]);
 
   if (!isEditing) {
     return (
@@ -57,8 +65,8 @@ export function AgentCredentialLabelEditor({
     setIsSaving(true);
     try {
       if (await onSave(parsed)) {
+        restoreTriggerFocus.current = true;
         setIsEditing(false);
-        requestAnimationFrame(() => triggerRef.current?.focus());
       }
       else setError("Could not save labels. Please retry.");
     } catch {
@@ -79,8 +87,8 @@ export function AgentCredentialLabelEditor({
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" disabled={disabled || isSaving} onClick={() => void save()}>{isSaving ? "Saving labels..." : "Save labels"}</Button>
         <Button type="button" size="sm" variant="ghost" disabled={isSaving} onClick={() => {
+          restoreTriggerFocus.current = true;
           setIsEditing(false);
-          requestAnimationFrame(() => triggerRef.current?.focus());
         }}>Cancel</Button>
       </div>
     </div>

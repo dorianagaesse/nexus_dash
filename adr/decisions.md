@@ -1350,6 +1350,27 @@ Keep UI-only or task-only notes in `journal.md`.
   permissions and task revisions are unaffected. This is current profile data,
   not evidence of which model generated an old comment; any future execution
   provenance must be modeled separately. Legacy snapshots remain a fallback.
+## 2026-11-08 - ND-657: Bind agent bearer tokens to the current key generation
+
+- Status: Proposed for review.
+- Context: JWT `iat` uses whole seconds, while credential rotation records
+  milliseconds. Timestamp comparison rejects newly exchanged tokens within the
+  rotation second. Rounding the rotation time would accept old tokens, and a
+  millisecond issuance claim would still be ambiguous for equal timestamps or an
+  exchange racing rotation.
+- Decision: Sign the credential's existing `publicId` into each token as
+  `credentialPublicId`. Rotation already replaces this non-secret identifier
+  atomically with the secret hash. The usage update matches it alongside project,
+  creator, revocation, and expiry; issuance retains the generation read before
+  secret verification. No new database column or migration is needed.
+- Compatibility: Tokens without the claim remain usable only when
+  `lastRotatedAt` is null. Previously rotated credentials must re-exchange once
+  during rollout; accepting their legacy tokens cannot prove which key issued
+  them. Malformed claims fail signature/payload validation. JWT expiry remains
+  independent of the key generation.
+- Consequences: New keys work immediately and old generations fail even across
+  repeated rotations at one timestamp, clock skew, or delayed token issuance.
+  The existing atomic authorization update and audit transaction remain intact.
 
 ## 2026-11-08 - ND-663: complete the Task persistence boundary
 

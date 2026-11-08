@@ -3,6 +3,17 @@
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
+# 2026-11-08 - ND-656: merge ND-657 and restore label-editor focus reliably
+
+- Integrated main after ND-657 merged, preserving both ADR and journal histories
+  and retaining its key-generation token checks alongside scope compatibility.
+- Investigated the failed CI focus assertion. Label saves raced a whole-page
+  refresh and a one-frame focus callback; wait until the restored Edit labels
+  button is mounted and enabled. Project activity already refreshes comment
+  readers, so label saves keep the current dialog local. Added a regression
+  where the parent remains disabled after the save promise resolves.
+- Validation and the refreshed merge handoff are recorded in PR #661.
+
 # 2026-11-08 - ND-656: current names and labels across comment history
 
 - Replaced posting-time display with a retained public agent author identity,
@@ -69,6 +80,54 @@ Use it for important implementation milestones, blockers, validation runs, and r
   Updated browser checks exercise the merged dialogs, failed/pending saves,
   focus, maximum-length labels on mobile, and historical comment attribution.
 - Validation and the refreshed Preview handoff are recorded in PR #661.
+
+# 2026-11-08 - ND-657: reconcile review against current main
+
+- Addressed PR #671's integration blocker by merging main at `2f65f739` into
+  the existing task branch. Preserved both sides of the ADR and journal
+  additions, including ND-663 and ND-191, and retained the single-exchange
+  browser assertion instead of main's temporary retry workaround.
+- The review found no actionable correctness or security defects in ND-657.
+  Application auth code is unchanged; integrated validation and the final
+  commit are recorded on PR #671. Its base is now main, so the earlier stacking
+  instructions are historical. ND-657 remains In Progress for final review.
+
+
+# 2026-11-08 - ND-657: immediate agent token use after key rotation
+
+- Started from current main in an isolated worktree, then included ND-655's
+  branch as the prerequisite so its temporary browser re-exchange polling can
+  be removed in this change. ND-656 is independent and is not included.
+- Bound signed bearer tokens to the credential's existing public key ID. The
+  atomic usage write checks that generation with the existing project, creator,
+  revocation, and expiry filters. No schema change or timestamp tolerance is
+  needed. Legacy tokens are accepted only on never-rotated credentials;
+  previously rotated credentials must re-exchange their current key at rollout.
+- Added signed-claim validation, API-guard propagation, exchange-race coverage,
+  and real PostgreSQL service regressions at .000, .001, and .999 with a frozen
+  Date clock. Repeated same-millisecond rotations reject every previous key and
+  token; delayed old-generation issuance, revocation, and expiry remain denied.
+- Initial validation passed: 37 focused unit/API checks, all three deterministic
+  PostgreSQL boundary cases, lint, RLS inventory, production build, and the full
+  PostgreSQL isolation matrix. Full unit/coverage and browser runs are in progress.
+  Initial local setup attempts omitted unit-test DATABASE_URL and the matrix's
+  pre-migration Realtime stub; reruns use the documented explicit environment and
+  a separate matrix database initialized with that stub.
+- Final implementation validation: local lint, RLS inventory, 2,393 unit/API
+  tests (three expected skips), production build, and PostgreSQL isolation passed.
+  [Quality Gates 42427535277](https://github.com/dorianagaesse/nexus_dash/actions/runs/42427535277)
+  passed every job on `be33dc8aa4455e014cfa9b7fa972ec9179b9613d`, including
+  coverage (94.34% statements, 88.64% branches, 95.47% lines), all 136 browser
+  checks (two expected skips), and the container build.
+- The full local browser run passed 135 checks with two expected skips and one
+  unrelated meeting-todo dialog-opening timeout. That exact check passed unchanged
+  in isolation, and the full CI browser run was green. All four ND-655 UI checks
+  and the three deterministic ND-657 database cases passed in the full local run.
+- Delivered [PR #671](https://github.com/dorianagaesse/nexus_dash/pull/671),
+  stacked on ND-655 until its human merge. The final journal follow-up changes
+  documentation only; application code and tests match the validated implementation.
+  Automated review was requested; review results and any follow-up remain on the PR.
+
 # 2026-11-08 - ND-191: lightweight project checklist
 
 - Implemented text-only standalone checklist capture on the existing project

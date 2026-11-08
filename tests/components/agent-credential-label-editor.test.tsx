@@ -54,6 +54,32 @@ test("adds chips only with Enter, shows the hint while typing with focus, and pr
   } finally { await act(async () => root.unmount()); container.remove(); }
 });
 
+test("restores focus after a successful save once the parent enables the edit trigger", async () => {
+  const container = document.createElement("div"); document.body.appendChild(container);
+  const root = createRoot(container);
+  let finishSave!: (saved: boolean) => void;
+  const saved = new Promise<boolean>((resolve) => { finishSave = resolve; });
+  const frames: FrameRequestCallback[] = [];
+  const animationFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation(callback => { frames.push(callback); return frames.length; });
+  const render = async (disabled: boolean) => act(async () => root.render(
+    <AgentCredentialLabelEditor credentialId="c" name="Bot" labels={["Codex"]} disabled={disabled} onSave={() => saved} />
+  ));
+  try {
+    await render(false);
+    await act(async () => container.querySelector("button")!.click());
+    await act(async () => [...container.querySelectorAll("button")].find(button => button.textContent === "Save labels")!.click());
+    await render(true);
+    await act(async () => { finishSave(true); });
+    const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Edit descriptive labels for Bot"]')!;
+    expect(trigger.disabled).toBe(true);
+    await act(async () => { frames.splice(0).forEach(callback => callback(0)); });
+    await render(false);
+    expect(document.activeElement).toBe(trigger);
+  } finally {
+    await act(async () => root.unmount()); container.remove(); animationFrame.mockRestore();
+  }
+});
+
 test("validates individual labels and limits, preserves invalid input, and combines duplicate labels", async () => {
   const container = document.createElement("div"); document.body.appendChild(container);
   const root = createRoot(container);
