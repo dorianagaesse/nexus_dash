@@ -1544,6 +1544,9 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         {
           taskId: "t1",
           uploadedByUserId: "owner-1",
+          uploadedByKind: "agent",
+          uploadedByCredentialId: "credential-1",
+          uploadedByDisplayNameSnapshot: "Upload agent",
           kind: "link",
           name: "NexusDash board",
           url: "https://nexus-dash.app/",
@@ -1626,6 +1629,9 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
         {
           taskId: "t1",
           uploadedByUserId: "test-user",
+          uploadedByKind: "human",
+          uploadedByCredentialId: null,
+          uploadedByDisplayNameSnapshot: "reviewer",
           kind: "link",
           name: "tracker.example.com",
           url: "https://tracker.example.com/issues/486",
