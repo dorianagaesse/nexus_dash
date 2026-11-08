@@ -11062,3 +11062,13 @@ Low-value entries to avoid going forward:
   Tenant Isolation and Container Image in run `42427881143`; one unchanged meeting-dialog browser
   assertion passed on retry of that same commit. Copilot review was skipped as
   requested. The user reviews and merges; the board card remains In Progress.
+
+
+### ND-663 requested visual verification (2026-11-08)
+
+- Exercised the PR build locally in Chromium: 16 targeted interaction regressions
+  and one additional Task lifecycle walkthrough passed. Inspected desktop/mobile
+  screenshots covering persisted details, attachment/relation scrolling, archive,
+  restore and deletion. No uncaught browser errors or application fixes.
+- Recorded scope, harness corrections, artifact locations and local-only limits
+  in `docs/architecture/task-data-boundary-validation.md`.

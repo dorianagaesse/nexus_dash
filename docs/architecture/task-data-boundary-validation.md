@@ -90,3 +90,29 @@ npx vitest run tests/task-data-performance.test.ts --maxWorkers=1
 
 `ND545_REPORT_PATH` optionally writes the JSON measurements. Keep performance runs
 separate from CPU/memory-heavy validation when comparing timings.
+
+## Additional browser and visual verification (2026-11-08)
+
+At the user's request, exercised the reviewed PR build locally with Chromium,
+PostgreSQL and polling transport using disposable test projects. All 16 targeted
+browser regressions passed: search/filter combinations and project isolation,
+pointer/keyboard reorder under filters, viewer affordances, desktop/mobile
+cancel and focus recovery, footer layouts across breakpoints/themes, bilateral
+relations after reload, and cross-session attachment synchronization that keeps
+an unfinished draft focused and excludes unpublished comment uploads.
+
+A separate browser walkthrough passed creation with a label and link attachment,
+assignment, title/description edits, relation selection, posting a comment,
+reload persistence, moving to Done, archive/deep-link/unarchive, and confirmed
+deletion after the board finished reloading. Inspected screenshots at 1440x1000
+and 390x844, including the scrolled mobile attachment/relation section. The tested
+controls remained reachable, text readable, and mobile horizontal overflow absent.
+No uncaught page errors were recorded. No application changes were needed.
+
+The temporary walkthrough initially needed fixture refresh, scoped locators and
+the correct DELETE archive response predicate; these were harness corrections.
+The final run passed in 13.4 seconds; the 16 regression cases passed in 2.3 minutes.
+Local screenshots, video and trace are retained under
+`.tmp/visual/results-final/walkthrough-ND-663-visual-Task-walkthrough/`, with logs
+in `.tmp/visual/`. These ignored artifacts are not published with the repository.
+This was local browser verification, not a hosted-preview or Broadcast check.
