@@ -11612,6 +11612,39 @@ Low-value entries to avoid going forward:
 - Whitespace, reference and release-policy checks passed. GitHub Quality Gates
   validates the combined branch after push; no additional Copilot review requested.
 
+## 2026-11-08 - ND-130 granular project capabilities
+
+- Started from origin/main `9d61fb52` in an isolated worktree, preserving the root checkout's unrelated roadmap edits.
+- Added shared module/action capabilities, owner-managed invitation/member restrictions, explicit meeting/epic agent scopes, additive migrations, and service/RLS enforcement. Existing roles and credentials retain their access through migration.
+- Restricted dashboard projections, module controls, attachment access and child records. Shared broadcasts carry invalidation metadata only; authorized HTTP reads supply content.
+- Fresh PostgreSQL migrations and the expanded least-privilege isolation matrix passed. Lint, RLS inventory, build, and the initial full unit/coverage runs passed (2,403 tests plus 3 skipped; statements 94.35%, branches 88.72%). Follow-up cross-module response hardening has 40 focused regressions passing; CI exposed and prompted correction of one legacy authorization mock.
+- Full Playwright run: 132 passed, 2 skipped, and 2 outdated test assumptions corrected (contributor-name locator and explicit meeting scope). All 3 targeted browser reruns passed, including the expanded ND-130 scenario for invitation propagation, owner controls, direct API denial, linked-module redaction, and assignment without access. Desktop and 390px mobile screenshots were inspected.
+- Opened [PR #680](https://github.com/dorianagaesse/nexus_dash/pull/680). [Preview run 42487574736](https://github.com/dorianagaesse/nexus_dash/actions/runs/42487574736) succeeded for the explicit feature branch; logs verified application revision `1538d49` and database readiness. [Immutable preview](https://nexus-dash-r3fc8idav-dorian-agaesses-projects.vercel.app); later changes are test fixtures and handoff documentation only.
+- Copilot review is disabled; the user explicitly requested opening the PR without waiting for it.
+
+## 2026-11-08 - ND-130 preview invitation acceptance follow-up
+
+- Investigated the reported Notifications acceptance failure. The shared Preview auth alias served ND-191 revision `62e94a9`, while ND-130's immutable deployment served `1538d49`. ND-191 does not copy invitation capabilities, and the shared database correctly denies that broader membership insert.
+- Added runtime-role PostgreSQL acceptance regressions for legacy, empty, and custom grants, including rejection when an older application omits custom grants. The matrix passed. Changed ND-130's browser scenario to accept through the Notifications button; the full scenario and production build passed.
+- [Preview run 42525680805](https://github.com/dorianagaesse/nexus_dash/actions/runs/42525680805) redeployed the explicit ND-130 branch. Workflow logs and a fresh stable-alias readiness request confirmed revision `9603574` and a healthy database. [Immutable preview](https://nexus-dash-o8179fk7r-dorian-agaesses-projects.vercel.app). Existing pending invitations can be retried after refreshing onto this deployment.
+- Documented the shared-alias mismatch and same-revision requirement for two-account tests. Application authorization and database safeguards remain unchanged.
+
+
+## 2026-11-08 - ND-130 permission editing and meeting-note follow-up
+
+- Reproduced the full-access preview credential's meeting-note failure: create,
+  detail, update and delete routes used a human-only guard although their
+  services already accepted scoped agents. Switched those routes to agent
+  principals; private notes remain human creator-only and agents create team notes.
+- Replaced long permission cards/lists with module rows for people and a compact
+  Read/Edit/Delete matrix for agents. Hid reserved shared-schedule controls.
+- Added owner-managed scope editing on existing credentials, with explicit Save
+  and Cancel. Scope replacement and audit are transactional; the API key stays
+  unchanged and removed scopes immediately invalidate older broader tokens.
+- Added end-to-end coverage for meeting CRUD, read-only denials, private-note
+  protection, owner-only scope editing, cancel/save, unchanged keys and existing
+  token behavior. Extended the real PostgreSQL RLS matrix for scope replacement
+  and non-owner/cross-project denials. Updated hosted agent API documentation.
 
 ## 2026-11-08 - ND-191 revision: one list and private personal capture
 
@@ -11674,3 +11707,46 @@ Low-value entries to avoid going forward:
   from revocation and an ambiguous label assertion across the two lists. Lifted
   disclosure state above the offboarding dialog and scoped the legacy assertion
   to its directory. The existing lifecycle scenarios cover both regressions.
+
+
+### ND-130 integration handoff
+
+- The scoped-meeting and permission-editor follow-up passed 2,409 unit tests,
+  coverage, lint, build, the real PostgreSQL isolation matrix, and 64 live checks
+  using the two supplied Preview credentials. Full access includes meeting CRUD
+  and Done transitions; read-only mutations returned 403. Temporary records were
+  removed. Preview run 42529527257 verified revision 65769da and both URL targets.
+- Integrated current main after ND-191 personal todos and ND-657 token rotation
+  landed. Resolved token-guard conflicts by retaining both current key-generation
+  binding and live scope-subset checks; preserved both branches' execution notes.
+
+
+## 2026-11-09 - ND-130 review follow-up
+
+- Confirmed the P1 notification-copy disclosure: task authorization did not gate
+  recipient notifications, stored copies, or delayed email. Added recipient
+  capability gates for task/meeting notifications, all inbox/banner queries,
+  email enqueue and dispatch, plus restrictive database policies and filtered
+  Realtime snapshots. A dedicated access cursor refreshes open clients when
+  grants or ownership change without changing queued notification fingerprints.
+- Resolved current-main conflicts while preserving agent descriptive labels,
+  task module guards and editable agent scopes. Added producer, inbox/banner,
+  queued-email and real PostgreSQL policy regressions for restricted recipients.
+
+Validation for the ND-130 review fix: 2,507 unit tests pass (3 intentional skips),
+coverage thresholds, lint, RLS inventory and production build pass. The real
+PostgreSQL matrix verifies recipient-grant insert/read enforcement and filtered
+Realtime snapshots. Four focused browser scenarios pass, including live inbox
+revocation, editable agent permissions and both descriptive-label scenarios.
+
+The full CI browser run exposed two stale fixtures: the forward-scope test used
+meeting/epic scopes that ND-130 now supports, and the shell navigation notification
+omitted project metadata. Switched to synthetic unknown enum values and supplied
+the notification project/task IDs. All eight affected browser scenarios pass locally;
+the original run passed the other 143 scenarios, including notification revocation.
+
+### 2026-11-09 - ND-658: Windows validation and current-main integration
+
+- Reconciled PR #669 with main at `2e12457`, preserving ND-130 module permissions, notification isolation, runtime session audit context and both PostgreSQL matrices. Runtime usage checks receive the effective live scopes; legacy token scope removal still invalidates the token. Extended the guard regression assertion and corrected the compatibility documentation.
+- Native Windows DPAPI validation exposed an inherited PowerShell 7 module path that prevented Windows PowerShell from loading its security module. Reset only the child module path; the encrypted write/read roundtrip now passes. Added a Windows vault regression with isolated temporary storage.
+- Validation and manual-test environment evidence are recorded on PR #669. The user owns the Done transition; physical second-device and native macOS/Linux checks remain separate from local automation.

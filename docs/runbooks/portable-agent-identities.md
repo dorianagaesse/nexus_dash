@@ -30,6 +30,9 @@ replace an expired or lost device credential. The raw credential is never
 printed, passed in process arguments, placed in the child environment, or
 written into the checkout.
 
+On Windows the helper starts Windows PowerShell with its default module search
+path so launching from PowerShell 7 does not break the built-in DPAPI commands.
+
 Use `--base https://your-instance.example` for a different instance, on both
 login and run. The default is `https://nexus-dash.app`. HTTP is accepted only on
 localhost for development. Origin, project ID and identity ID form an exact
@@ -131,9 +134,10 @@ Existing API credentials retain their actor IDs and remain under **Legacy API
 credentials**. Their existing exchange/rotation and expiry behavior is retained;
 they can also authorize devices. New identities have no usable legacy API key
 and cannot be converted into raw keys by the rotation API. Prefer the launcher
-for new workflows. Legacy bearer scope reductions retain the existing token TTL
-window; Done permission remains live. Runtime sessions use the stricter checks
-above.
+for new workflows. Removing a legacy scope invalidates existing tokens containing
+that scope immediately; exchange a new token to use the remaining grants. Done
+permission remains live. Runtime sessions intersect their token scopes with live
+grants on each request, so remaining read access continues after a write reduction.
 
 The migration is additive and leaves historical foreign keys intact. See
 [the architecture decision](../../adr/nd-658-portable-agent-identities.md) and

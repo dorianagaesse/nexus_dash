@@ -217,7 +217,7 @@ describe("api-guard", () => {
     const result = await requireApiPrincipal(request);
     expect(result).toMatchObject({ ok: true, principal: { credentialId: "oscar", scopes: ["task:read"], sessionId: "session", deviceId: "laptop", canMoveTasksToDone: false } });
     if (result.ok) expect(getAgentProjectAccessContext(result.principal)).toMatchObject({ sessionId: "session", canMoveTasksToDone: false });
-    expect(projectAgentAccessServiceMock.recordAgentRequestUsage).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "session", deviceId: "laptop", client: "Codex", deviceName: "Laptop" }));
+    expect(projectAgentAccessServiceMock.recordAgentRequestUsage).toHaveBeenCalledWith(expect.objectContaining({ scopes: ["task:read"], sessionId: "session", deviceId: "laptop", client: "Codex", deviceName: "Laptop" }));
     runtimeMock.validateRuntimeRequest.mockResolvedValue({ ok: false, status: 401, error: "runtime-access-denied" });
     const denied = await requireApiPrincipal(request);
     expect(denied.ok).toBe(false);
@@ -265,6 +265,7 @@ describe("api-guard", () => {
       },
     });
     expect(projectAgentAccessServiceMock.recordAgentRequestUsage).toHaveBeenCalledWith({
+      scopes: ["task:read"],
       credentialId: "credential-1",
       ownerUserId: "owner-1",
       projectId: "project-1",

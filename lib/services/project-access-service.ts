@@ -1,3 +1,4 @@
+import { effectiveProjectCapabilities, type ProjectCapability } from "@/lib/project-capabilities";
 import { ProjectMembershipRole } from "@prisma/client";
 
 import { hasAgentScopes, type AgentScope } from "@/lib/agent-access";
@@ -15,6 +16,7 @@ interface ProjectAccessError {
 interface ProjectAccessSuccess {
   ok: true;
   role: ProjectMembershipRole;
+  capabilities: ProjectCapability[];
 }
 
 type ProjectAccessResult = ProjectAccessError | ProjectAccessSuccess;
@@ -90,7 +92,7 @@ export async function getProjectAccess(input: {
       ownerId: true,
       memberships: {
         where: { userId: actorUserId },
-        select: { role: true },
+        select: { role: true, capabilities: true },
         take: 1,
       },
     },
@@ -103,15 +105,16 @@ export async function getProjectAccess(input: {
   const actorRole: ProjectMembershipRole =
     project.ownerId === actorUserId
       ? "owner"
-      : (project.memberships[0]?.role ?? "viewer");
+      : (project.memberships[0]?.role === "owner" ? "editor" : (project.memberships[0]?.role ?? "viewer"));
 
-  return { ok: true, role: actorRole };
+  return { ok: true, role: actorRole, capabilities: effectiveProjectCapabilities(actorRole, project.memberships[0]?.capabilities) };
 }
 
 export async function requireProjectRole(input: {
   actorUserId: string;
   projectId: string;
   minimumRole: ProjectRoleRequirement;
+  capability?: ProjectCapability;
   db?: DbClient;
 }): Promise<ProjectAccessResult> {
   const access = await getProjectAccess(input);
@@ -119,7 +122,8 @@ export async function requireProjectRole(input: {
     return access;
   }
 
-  if (!hasRequiredRole(access.role, input.minimumRole)) {
+  if (!hasRequiredRole(access.role, input.minimumRole) ||
+      (input.capability && !access.capabilities.includes(input.capability))) {
     return { ok: false, status: 403, error: "forbidden" };
   }
 

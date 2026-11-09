@@ -6,10 +6,18 @@ import { join } from "node:path";
 // Never pass secret values in process arguments, environment variables or logs.
 function command(file, args, input = "") {
   return new Promise((resolve, reject) => {
+    const env = { ...process.env };
+    if (process.platform === "win32") {
+      // Windows PowerShell must load its own built-in security module. A
+      // PowerShell 7 parent's module path can load incompatible type data.
+      for (const name of Object.keys(env)) {
+        if (name.toLowerCase() === "psmodulepath") delete env[name];
+      }
+    }
     const child = execFile(
       file,
       args,
-      { windowsHide: true, encoding: "utf8", maxBuffer: 1024 * 1024 },
+      { windowsHide: true, encoding: "utf8", maxBuffer: 1024 * 1024, env },
       (error, stdout) => {
         if (error)
           reject(

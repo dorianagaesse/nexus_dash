@@ -1204,7 +1204,7 @@ export async function listProjectMeetingNotes(input: {
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:read"],
+      requiredScopes: ["meeting:read"],
     });
     if (!agentScopeAccess.ok) {
       return [];
@@ -1221,6 +1221,7 @@ export async function listProjectMeetingNotes(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "viewer",
+      capability: "meeting:read",
       db,
     });
     if (!access.ok) {
@@ -1297,7 +1298,7 @@ export async function createProjectMeetingNote(
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:write"],
+      requiredScopes: ["meeting:write"],
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
@@ -1316,6 +1317,7 @@ export async function createProjectMeetingNote(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "meeting:write",
       db,
     });
     if (!access.ok) {
@@ -1500,7 +1502,7 @@ export async function updateProjectMeetingNote(
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:write"],
+      requiredScopes: ["meeting:write"],
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
@@ -1512,6 +1514,7 @@ export async function updateProjectMeetingNote(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "meeting:write",
       db,
     });
     if (!access.ok) {
@@ -1934,7 +1937,7 @@ export async function getProjectMeetingNote(input: {
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:read"],
+      requiredScopes: ["meeting:read"],
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
@@ -1945,6 +1948,7 @@ export async function getProjectMeetingNote(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "viewer",
+      capability: "meeting:read",
       db,
     });
     if (!access.ok) return createError(access.status, access.error);
@@ -1979,7 +1983,7 @@ export async function setProjectMeetingNoteActionCompletion(
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:write"],
+      requiredScopes: ["meeting:write"],
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
@@ -1991,6 +1995,7 @@ export async function setProjectMeetingNoteActionCompletion(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "meeting:write",
       db,
     });
     if (!access.ok) {
@@ -2102,7 +2107,7 @@ export async function setProjectMeetingNoteActionAssignee(
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:write"],
+      requiredScopes: ["meeting:write"],
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
@@ -2114,6 +2119,7 @@ export async function setProjectMeetingNoteActionAssignee(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "meeting:write",
       db,
     });
     if (!access.ok) {
@@ -2284,7 +2290,7 @@ export async function setProjectMeetingNoteSteward(
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:write"],
+      requiredScopes: ["meeting:write"],
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
@@ -2296,6 +2302,7 @@ export async function setProjectMeetingNoteSteward(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "meeting:write",
       db,
     });
     if (!access.ok) {
@@ -2413,7 +2420,7 @@ export async function deleteProjectMeetingNote(input: {
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:write"],
+      requiredScopes: ["meeting:delete"],
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
@@ -2425,6 +2432,7 @@ export async function deleteProjectMeetingNote(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "meeting:delete",
       db,
     });
     if (!access.ok) {

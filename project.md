@@ -14,6 +14,7 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 - DB-backed session authentication with protected app routes (`/projects/**`, `/account/**`).
 - Multi-project workspace with project CRUD.
 - Project sharing v2 with owner-managed invites, role-based membership, email-bound invitation flows, and resumable invite acceptance.
+- Owner-managed module restrictions for invitations and memberships, with shared human/agent capability names, service checks, and restrictive PostgreSQL policies.
 - Project dashboard with core panels:
   - Project Todos combines shared meeting actions and creator-private personal
     todos, with one completion queue and responsibility filters.

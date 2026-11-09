@@ -202,6 +202,9 @@ export async function requireApiPrincipal(
         projectId: verifiedToken.data.projectId,
         tokenId: verifiedToken.data.tokenId,
         ...(verifiedToken.data.sessionId ? { sessionId: verifiedToken.data.sessionId, deviceId: verifiedToken.data.deviceId, client: runtimeAccess?.data?.client, deviceName: runtimeAccess?.data?.deviceName } : {}),
+        // Runtime grants already reflect the live ceilings. Legacy requests
+        // retain all token scopes for main's live scope-subset check.
+        scopes,
         credentialPublicId: verifiedToken.data.credentialPublicId,
         requestId,
         ipAddress: readClientIpAddress(request),

@@ -56,7 +56,9 @@ scheduling and conflict resolution are explicitly outside this design.
 - Existing actor pickers and all historical relationships continue using the
   same IDs. Deactivation marks an actor inactive without erasing responsibilities.
 - New runtime access is independent of legacy key rotation; existing legacy
-  consumers retain their previous lifecycle and token-scope TTL behavior.
+  consumers retain their key lifecycle. After ND-130 integration, removing a
+  scope invalidates legacy tokens containing it immediately. Runtime sessions
+  instead continue with the intersection of their token and current live grants.
 - Per-request database validation costs reads but avoids stale authorization
   caches and makes revocation behavior understandable.
 - The helper needs an unlocked OS vault and the repository helper files. No

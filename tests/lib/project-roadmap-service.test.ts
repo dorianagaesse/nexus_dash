@@ -157,6 +157,7 @@ describe("project-roadmap-service", () => {
       actorUserId: "user-1",
       projectId: "project-1",
       minimumRole: "viewer",
+      capability: "roadmap:read",
       db: dbMock,
     });
   });

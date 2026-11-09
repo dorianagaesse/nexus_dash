@@ -17,14 +17,14 @@ test("credential management tolerates permission scopes added by a newer deploym
     expect(created.status()).toBe(201);
     const credential = (await created.json()).credential;
 
-    // ND-130 adds these values to the shared Preview enum and backfills grants.
-    // This build deliberately keeps its older generated Prisma scope enum.
-    await prisma.$executeRaw`ALTER TYPE "ApiCredentialScope" ADD VALUE IF NOT EXISTS 'meeting_read'`;
-    await prisma.$executeRaw`ALTER TYPE "ApiCredentialScope" ADD VALUE IF NOT EXISTS 'epic_read'`;
+    // Use synthetic future values absent from this build, including after ND-130.
+    // Do not regenerate Prisma: the runtime must ignore and preserve unknown grants.
+    await prisma.$executeRaw`ALTER TYPE "ApiCredentialScope" ADD VALUE IF NOT EXISTS 'e2e_future_read'`;
+    await prisma.$executeRaw`ALTER TYPE "ApiCredentialScope" ADD VALUE IF NOT EXISTS 'e2e_future_write'`;
     await prisma.$executeRaw`
       INSERT INTO "ApiCredentialScopeGrant" ("credentialId", "scope")
-      VALUES (${credential.id}, 'meeting_read'::"ApiCredentialScope"),
-             (${credential.id}, 'epic_read'::"ApiCredentialScope")
+      VALUES (${credential.id}, 'e2e_future_read'::"ApiCredentialScope"),
+             (${credential.id}, 'e2e_future_write'::"ApiCredentialScope")
       ON CONFLICT DO NOTHING
     `;
 
@@ -53,7 +53,7 @@ test("credential management tolerates permission scopes added by a newer deploym
     const remainingGrants = await prisma.$queryRaw<Array<{ scope: string }>>`
       SELECT scope::text AS scope FROM "ApiCredentialScopeGrant" WHERE "credentialId" = ${credential.id}
     `;
-    expect(remainingGrants.map((entry) => entry.scope)).toEqual(expect.arrayContaining(["meeting_read", "epic_read"]));
+    expect(remainingGrants.map((entry) => entry.scope)).toEqual(expect.arrayContaining(["e2e_future_read", "e2e_future_write"]));
   } finally {
     await prisma.project.delete({ where: { id: project.id } });
     await prisma.user.delete({ where: { id: userId } });
