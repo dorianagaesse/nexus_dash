@@ -1,16 +1,17 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, copyFile, writeFile, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdtemp, copyFile, writeFile, readFile, rm, unlink } from "node:fs/promises";
+import { tmpdir, homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { DockerBroker, docker } from "../../scripts/agent-runtime/docker-broker.mjs";
-import { pairDevice } from "../../scripts/agent-runtime/client.mjs";
+import { pairDevice, bindingKey, openRuntime } from "../../scripts/agent-runtime/client.mjs";
+import { createVault } from "../../scripts/agent-runtime/vault.mjs";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 
 // Explicit opt-in: this test creates only named disposable Docker resources.
 test("Docker executions retain actor identity with independent, isolated sessions", async ({ page }, testInfo) => {
   test.skip(process.env.ND_DOCKER_VALIDATION !== "1", "Enable ND_DOCKER_VALIDATION=1 with a local Docker daemon and OpenSSL");
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
   await signInAsVerifiedUser(page);
   const projectResponse = await page.request.post("/api/projects", { data: { name: "ND823 disposable Docker validation" } });
   expect(projectResponse.ok()).toBeTruthy();
@@ -26,10 +27,12 @@ test("Docker executions retain actor identity with independent, isolated session
   const binding = { base: String(testInfo.project.use.baseURL), projectId: project.id, identityId };
   const { pairingCode, deviceId } = await command({ operation: "authorize-device", identityId, name: "Disposable broker", scopes, canMoveTasksToDone: false });
   const secrets = new Map<string, string>();
-  const vault = { write: async (key: string, value: string) => { secrets.set(key, value); }, read: async (key: string) => {
-    if (!secrets.has(key)) throw new Error("Missing exact binding"); return secrets.get(key);
+  const nativeVault = createVault();
+  const vault = { write: async (key: string, value: string) => { secrets.set(key, value); await nativeVault.write(key, value); }, read: async (key: string) => {
+    if (!secrets.has(key)) throw new Error("Missing exact binding"); return nativeVault.read(key);
   } };
   await pairDevice(binding, pairingCode, vault);
+  await expect(openRuntime({ ...binding, identityId: "wrong-identity" }, vault, "invalid")).rejects.toThrow();
   const directory = await mkdtemp(join(tmpdir(), "nd823-docker-"));
   const suffix = Date.now();
   const names = [`nd823-one-${suffix}`, `nd823-two-${suffix}`];
@@ -69,6 +72,7 @@ test("Docker executions retain actor identity with independent, isolated session
     expect(inspect.Config.Env.join(" ")).not.toContain(pairingCode);
     for (const proof of secrets.values()) expect(JSON.stringify(inspect)).not.toContain(proof);
     await expect(docker(["exec", names[0], "test", "-e", "/var/run/docker.sock"])).rejects.toThrow();
+    await expect(docker(["exec", names[0], "test", "-e", `/run/worker-${names[1]}/binding.json`])).rejects.toThrow();
     // One session is ended by the owner; polling must never resurrect it.
     await command({ operation: "end-session", identityId, sessionId: first.sessionId });
     await expect(request(0)).rejects.toThrow();
@@ -109,5 +113,7 @@ test("Docker executions retain actor identity with independent, isolated session
     await docker(["image", "rm", image]);
     // This is the unique mkdtemp directory created by this test, never a supplied path.
     await rm(directory, { recursive: true, force: true });
+    if (process.platform === "win32") await unlink(join(homedir(), ".nexusdash", "vault", bindingKey(binding)));
+    else if (process.platform === "linux") execFileSync("secret-tool", ["clear", "service", "nexusdash-agent", "binding", bindingKey(binding)]);
   }
 });

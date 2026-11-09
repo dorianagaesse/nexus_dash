@@ -235,3 +235,13 @@ summary shows the dispatcher response and parsed send/reconciliation metrics.
 - Keep notification scheduler changes aligned with
   `docs/runbooks/notification-email-dispatch.md`.
 - Do not send production secrets to arbitrary manual-dispatch targets.
+
+### Docker identity broker validation
+The E2E job enables ND-823's disposable Docker test on its Linux runner. It
+starts a disposable Secret Service session with libsecret-tools/gnome-keyring,
+pairs into the native Linux vault, and uses local PostgreSQL. Only an isolated
+worker transport directory enters each container. No repository secrets are
+needed. Windows uses the same test with DPAPI: set `ND_DOCKER_VALIDATION=1`
+and run `npm run test:e2e -- tests/e2e/nd-823-docker-broker.spec.ts` with Docker
+Desktop Linux containers and OpenSSL. The test cleans up its containers, image,
+transport files and its own vault entry.
