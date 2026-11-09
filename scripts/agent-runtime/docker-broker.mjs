@@ -91,8 +91,17 @@ export class DockerBroker {
         this.pending = this.pending.filter(e => e !== entry);
         continue;
       }
+      if (entry.retryAt && entry.retryAt > Date.now()) continue;
       try { await this.end(entry.binding, entry.sessionId); }
-      catch { continue; } // Revoked/expired sessions already deny access. Retry at the bounded poll interval.
+      catch (error) {
+        if (![401, 403, 404].includes(error.status)) {
+          entry.attempts = (entry.attempts ?? 0) + 1;
+          entry.retryAt = Date.now() + Math.min(300_000, 30_000 * 2 ** Math.min(entry.attempts - 1, 4));
+          continue;
+        }
+        // Already ended/revoked/expired is terminal, not a reason to consume
+        // the IP-wide runtime exchange failure budget indefinitely.
+      }
       this.pending = this.pending.filter(e => e !== entry);
     }
     await this.save();

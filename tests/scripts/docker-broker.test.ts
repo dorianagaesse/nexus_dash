@@ -97,3 +97,20 @@ test("configuration fails closed and Docker Desktop mount paths normalize", () =
   expect(hostMountPath("/run/desktop/mnt/host/c/Users/Test")).toBe(hostMountPath("C:\\Users\\Test"));
   expect(hostMountPath("/tmp/Worker")).not.toBe(hostMountPath("/tmp/worker"));
 });
+
+test("terminal cleanup rejection is forgotten and outages back off without consuming sibling auth budget", async () => {
+  const { broker, end } = await setup();
+  broker.pending.push({ binding, sessionId: "revoked", createdAt: Date.now() });
+  end.mockRejectedValueOnce(Object.assign(new Error("revoked"), { status: 401 }));
+  await broker.cleanup();
+  await broker.cleanup();
+  expect(end).toHaveBeenCalledTimes(1);
+  expect(broker.pending).toHaveLength(0);
+  broker.pending.push({ binding, sessionId: "offline", createdAt: Date.now() });
+  end.mockRejectedValue(new Error("offline"));
+  await broker.cleanup();
+  await broker.cleanup();
+  expect(end).toHaveBeenCalledTimes(2);
+  expect(broker.pending[0].retryAt).toBeGreaterThan(Date.now());
+  await broker.close();
+});

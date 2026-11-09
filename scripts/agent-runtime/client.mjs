@@ -40,9 +40,9 @@ export async function runtimeCall(binding, body) {
     }
   );
   if (!response.ok)
-    throw new Error(
+    throw Object.assign(new Error(
       `Runtime access rejected (${response.status}). Check the selected identity and device authorization.`
-    );
+    ), { status: response.status });
   return response.json();
 }
 
@@ -88,13 +88,14 @@ export async function openRuntime(binding, vault, client) {
   let renewAt = Date.now() + Math.max(1, token.expiresInSeconds - 30) * 1000;
   let renewing;
   let closed = false;
+  let denied = false;
   const capability = randomBytes(32).toString("base64url");
   const server = createServer(async (request, response) => {
     response.setHeader("Cache-Control", "no-store");
     const supplied = Buffer.from(request.headers.authorization ?? "");
     const expected = Buffer.from(`Bearer ${capability}`);
     if (
-      closed ||
+      closed || denied ||
       request.headers.origin ||
       request.headers.host !== `127.0.0.1:${server.address().port}` ||
       supplied.length !== expected.length ||
@@ -135,6 +136,12 @@ export async function openRuntime(binding, vault, client) {
             token = next;
             renewAt =
               Date.now() + Math.max(1, next.expiresInSeconds - 30) * 1000;
+          })
+          .catch(error => {
+            // Terminal authorization rejection requires operator recovery. Do
+            // not let a worker hammer the proof exchange and block siblings.
+            if ([401, 403, 404].includes(error.status)) denied = true;
+            throw error;
           })
           .finally(() => {
             renewing = null;

@@ -99,7 +99,10 @@ use separate broker configurations/state directories for independent management.
   This prevents broker recovery from reviving an owner-ended session.
 - A broker crash leaves a `broker.lock` in its state directory. Verify the old
   process has stopped before removing that lock and restarting without `--create`.
-  Failed cleanup stays in `sessions.json` and retries during reconciliation;
+  Transient cleanup failures stay in `sessions.json` and retry with exponential
+  backoff from 30 seconds to five minutes; terminal authorization rejection
+  removes the entry without consuming the shared authentication failure budget.
+  Rejected renewal closes that execution to further requests;
   entries expire after the session's 12-hour maximum. A crash between server
   session creation and journal persistence can leave an orphan until that bound.
   Bearers stay only in broker memory and expire in five minutes; workers have
