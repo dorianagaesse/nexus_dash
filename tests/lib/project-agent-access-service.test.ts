@@ -69,10 +69,12 @@ describe("project-agent-access-service", () => {
   });
 
   test("runtime sessions use device authorization independently of legacy key generations", async () => {
-    await recordAgentRequestUsage({
+    const result = await recordAgentRequestUsage({
       credentialId: "credential-1", ownerUserId: "owner-1", projectId: "project-1",
       tokenId: "token-1", sessionId: "session-1", deviceId: "device-1", credentialPublicId: "old-generation",
+      scopes: ["task:read"],
     });
+    expect(result).toEqual({ ok: true, status: 200, data: { ok: true } });
     const where = prismaMock.apiCredential.updateMany.mock.calls[0][0].where;
     expect(where).toMatchObject({ project: { ownerId: "owner-1" }, revokedAt: null });
     expect(where).not.toHaveProperty("publicId");
