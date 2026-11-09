@@ -77,10 +77,11 @@ test("broker recovery cleans journaled sessions and requires an explicit new exe
 });
 
 test("daemon failure immediately retires local access; stale cleanup remains journaled during outage", async () => {
-  const { broker, generations, end, directory } = await setup();
+  const { broker, generations, end, close, directory } = await setup();
   generations.one = "container:start";
   await broker.reconcile();
   end.mockRejectedValue(new Error("offline"));
+  close.mockRejectedValue(new Error("offline"));
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.mocked(broker.inspect).mockRejectedValue(new Error("daemon offline"));
   await broker.reconcile();

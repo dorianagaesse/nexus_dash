@@ -133,7 +133,13 @@ export class DockerBroker {
     worker.runtime = null;
     worker.capability = null;
     await atomicJson(join(this.transport(worker), "binding.json"), { error: "worker-not-authorized" });
-    if (runtime) { try { await runtime.close(); } catch { /* persisted cleanup is retried */ } }
+    if (runtime) {
+      try {
+        await runtime.close();
+        this.pending = this.pending.filter(entry => entry.sessionId !== runtime.sessionId);
+        await this.save();
+      } catch { /* persisted cleanup is retried */ }
+    }
   }
 
   async reconcileWorker(worker) {
