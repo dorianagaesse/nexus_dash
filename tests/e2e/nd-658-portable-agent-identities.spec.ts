@@ -184,8 +184,10 @@ test("portable identities enforce runtime bindings, live grants and independent 
     .locator("details")
     .filter({ hasText: "Authorize a device" })
     .getByRole("checkbox");
-  for (let i = 0; i < (await permissionInputs.count()); i++)
-    await permissionInputs.nth(i).check();
+  for (let i = 0; i < (await permissionInputs.count()); i++) {
+    // Module rows keep unavailable actions visible but disabled for devices.
+    if (await permissionInputs.nth(i).isEnabled()) await permissionInputs.nth(i).check();
+  }
   await panel.getByRole("button", { name: "Generate pairing code" }).click();
   const code = panel.locator("[data-pairing-code]");
   await expect(panel.getByRole("button", { name: "Copy pairing command", exact: true })).toBeVisible();
