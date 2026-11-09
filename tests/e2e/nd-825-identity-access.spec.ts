@@ -37,10 +37,10 @@ test("owners manage active sessions and confirm device revocation with keyboard 
   const confirm = panel.getByRole("button", { name: "Confirm revoke Work laptop" });
   await confirm.focus();
   await expect(confirm).toBeFocused();
-  await page.screenshot({ path: ".tmp/nd825-desktop.png", fullPage: true });
+  await page.screenshot({ path: ".tmp/nd825-desktop.png", fullPage: false });
   await page.setViewportSize({ width: 390, height: 844 });
   await confirm.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: ".tmp/nd825-mobile.png", fullPage: true });
+  await page.screenshot({ path: ".tmp/nd825-mobile.png", fullPage: false });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.keyboard.press("Enter");
   await expect(panel.getByText("Active sessions (0)")).toBeVisible();
@@ -49,5 +49,5 @@ test("owners manage active sessions and confirm device revocation with keyboard 
   await expect(panel.getByLabel("Tasks edit", { exact: true })).toBeChecked();
   await expect(panel.getByText(/Done moves also require Tasks edit/)).toBeVisible();
   await expect(panel.getByText("Reserved capabilities", { exact: true })).toBeVisible();
-  await page.screenshot({ path: ".tmp/nd825-permissions-mobile.png", fullPage: true });
+  await page.screenshot({ path: ".tmp/nd825-permissions-mobile.png", fullPage: false });
 });
