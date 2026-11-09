@@ -33,9 +33,13 @@ test("Docker executions retain actor identity with independent, isolated session
   } };
   await pairDevice(binding, pairingCode, vault);
   await expect(openRuntime({ ...binding, identityId: "wrong-identity" }, vault, "invalid")).rejects.toThrow();
+  const nova = await command({ operation: "create", name: "Docker Nova", scopes, canMoveTasksToDone: false });
+  const novaBinding = { ...binding, identityId: nova.identityId };
+  const novaGrant = await command({ operation: "authorize-device", identityId: nova.identityId, name: "Independent Nova", scopes, canMoveTasksToDone: false });
+  await pairDevice(novaBinding, novaGrant.pairingCode, vault);
   const directory = await mkdtemp(join(tmpdir(), "nd823-docker-"));
   const suffix = Date.now();
-  const names = [`nd823-one-${suffix}`, `nd823-two-${suffix}`];
+  const names = [`nd823-one-${suffix}`, `nd823-two-${suffix}`, `nd823-nova-${suffix}`];
   const image = `nd823-worker:${suffix}`;
   const certFile = join(directory, "cert.pem");
   const keyFile = join(directory, "key.pem");
@@ -48,7 +52,7 @@ test("Docker executions retain actor identity with independent, isolated session
   await writeFile(join(directory, ".dockerignore"), "*\n!Dockerfile\n!request.mjs\n");
   execFileSync("docker", ["build", "-q", "-t", image, directory], { windowsHide: true, timeout: 60000, stdio: "pipe" });
   const broker = new DockerBroker({ url: "https://host.docker.internal:44483", keyFile, certFile,
-    stateDirectory: join(directory, "state"), workers: names.map(name => ({ name, image, binding, command: ["node", "-e", "setInterval(()=>{},1000)"] })) }, vault);
+    stateDirectory: join(directory, "state"), workers: names.map((name, index) => ({ name, image, binding: index === 2 ? novaBinding : binding, command: ["node", "-e", "setInterval(()=>{},1000)"] })) }, vault);
   const readBinding = async (index: number) => JSON.parse(await readFile(join(broker.transport(broker.workers.get(names[index])), "binding.json"), "utf8"));
   const request = (index: number, method = "GET", path = `/api/projects/${project.id}/tasks`, body?: string) =>
     docker(["exec", names[index], "node", "/request.mjs", method, path, ...(body ? [body] : [])]);
@@ -62,6 +66,7 @@ test("Docker executions retain actor identity with independent, isolated session
     expect(first.identityId).toBe(identityId);
     expect(first.sessionId).not.toBe(second.sessionId);
     expect(first.capability).not.toBe(second.capability);
+    expect((await readBinding(2)).identityId).toBe(nova.identityId);
     expect(JSON.parse(await request(0)).tasks).toEqual([]);
     const task = JSON.parse(await request(0, "POST", `/api/projects/${project.id}/tasks`, JSON.stringify({ title: "Docker actor contribution" })));
     expect(task.task.createdBy.id).toBe(identityId);
@@ -97,23 +102,26 @@ test("Docker executions retain actor identity with independent, isolated session
     expect((await readBinding(0)).error).toBe("worker-not-authorized");
     await docker(["rm", names[0]]);
     // Recreate one configured worker through a temporary single-worker view.
-    const sibling = broker.workers.get(names[1]);
-    broker.workers.delete(names[1]);
+    const siblings = names.slice(1).map(name => [name, broker.workers.get(name)] as const);
+    for (const [name] of siblings) broker.workers.delete(name);
     await broker.createWorkers();
-    broker.workers.set(names[1], sibling);
+    for (const [name, sibling] of siblings) broker.workers.set(name, sibling);
     await broker.reconcile();
     expect((await readBinding(0)).identityId).toBe(identityId);
     expect((await readBinding(0)).sessionId).not.toBe(restarted.sessionId);
     await command({ operation: "revoke-device", identityId, deviceId });
     await expect(request(0)).rejects.toThrow();
     await expect(request(1)).rejects.toThrow();
+    expect(JSON.parse(await request(2)).tasks).toHaveLength(1);
   } finally {
     await broker.close();
     for (const name of names) { try { await docker(["rm", "-f", name]); } catch { /* already removed */ } }
     await docker(["image", "rm", image]);
     // This is the unique mkdtemp directory created by this test, never a supplied path.
     await rm(directory, { recursive: true, force: true });
-    if (process.platform === "win32") await unlink(join(homedir(), ".nexusdash", "vault", bindingKey(binding)));
-    else if (process.platform === "linux") execFileSync("secret-tool", ["clear", "service", "nexusdash-agent", "binding", bindingKey(binding)]);
+    for (const item of [binding, novaBinding]) {
+      if (process.platform === "win32") await unlink(join(homedir(), ".nexusdash", "vault", bindingKey(item)));
+      else if (process.platform === "linux") execFileSync("secret-tool", ["clear", "service", "nexusdash-agent", "binding", bindingKey(item)]);
+    }
   }
 });
