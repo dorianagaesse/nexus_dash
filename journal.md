@@ -11690,3 +11690,15 @@ meeting/epic scopes that ND-130 now supports, and the shell navigation notificat
 omitted project metadata. Switched to synthetic unknown enum values and supplied
 the notification project/task IDs. All eight affected browser scenarios pass locally;
 the original run passed the other 143 scenarios, including notification revocation.
+
+### 2026-11-09 — ND-815 recovery action follow-up
+
+- Removed Go home at the user's request because it redirects signed-in users
+  to Projects. The 404 page now has one Go to projects recovery link.
+- Updated the board brief, README, and existing browser assertions for the
+  single action, including keyboard recovery and both session states.
+- Integrated current main and resolved the journal-only conflict by retaining
+  both histories. Copilot review monitoring remains omitted as requested.
+- Validation passes: lint, RLS inventory, production build, 2,507 unit tests
+  (3 skipped), coverage (95.56% lines, 89.12% branches), and all six focused
+  404 browser checks. Reviewed desktop/mobile screenshots in both themes.
