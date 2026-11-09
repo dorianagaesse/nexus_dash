@@ -35,8 +35,9 @@ async function atomicJson(path, value) {
 }
 
 export function hostMountPath(path) {
-  return path.replaceAll("\\", "/").replace(/^\/run\/desktop\/mnt\/host\/([a-z])\//i, "$1:/")
-    .replace(/^\/host_mnt\/([a-z])\//i, "$1:/").toLowerCase();
+  const normalized = path.replaceAll("\\", "/").replace(/^\/run\/desktop\/mnt\/host\/([a-z])\//i, "$1:/")
+    .replace(/^\/host_mnt\/([a-z])\//i, "$1:/");
+  return /^[a-z]:\//i.test(normalized) ? normalized.toLowerCase() : normalized;
 }
 
 // A single operator owns this state directory. Only the worker's own transport

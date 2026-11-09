@@ -95,4 +95,5 @@ test("configuration fails closed and Docker Desktop mount paths normalize", () =
   expect(() => validateConfig({ url: "http://host.docker.internal" })).toThrow();
   expect(() => validateConfig({ url: "https://host/path" })).toThrow();
   expect(hostMountPath("/run/desktop/mnt/host/c/Users/Test")).toBe(hostMountPath("C:\\Users\\Test"));
+  expect(hostMountPath("/tmp/Worker")).not.toBe(hostMountPath("/tmp/worker"));
 });
