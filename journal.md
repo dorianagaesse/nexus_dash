@@ -11752,3 +11752,9 @@ the original run passed the other 143 scenarios, including notification revocati
 - Validation and manual-test environment evidence are recorded on PR #669. The user owns the Done transition; physical second-device and native macOS/Linux checks remain separate from local automation.
 
 - Browser integration exposed a legacy permission test that did not expand the new disclosure, plus an identity-list 500 when a shared database contains newer scope enums. Updated the existing browser scenario and filtered runtime identity grant reads before Prisma enum deserialization; the compatibility browser test now asserts the identity endpoint as well as the legacy directory.
+
+### 2026-11-09 - ND-658: identity panel visual cleanup
+
+- Applied Impeccable's polish workflow to the existing identity manager: clearer identity/device/session hierarchy, readable permission labels, larger controls, keyboard focus, and wrapping for technical IDs and long names. Session controls include their client and device in accessible names. Paired-device wording describes completed pairing separately from session state.
+- Kept legacy API credentials visible behind their existing disclosure with a short explanation. No changes to authentication, grants, persistence, or API operations. Docker integration and functional setup/permission changes remain in ND-823/824/825.
+- Desktop and 390px mobile review passed without horizontal overflow; both edited components passed the Impeccable detector. Existing device-grant unit checks, lint, RLS inventory and production build passed. Full baseline results and final production-render evidence are recorded on PR #669.

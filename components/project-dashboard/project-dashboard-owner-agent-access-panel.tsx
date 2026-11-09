@@ -168,7 +168,11 @@ export function ProjectDashboardOwnerAgentAccessPanel({
         open={legacyCredentialsOpen}
         onToggle={(event) => onLegacyCredentialsOpenChange(event.currentTarget.open)}
       >
-        <summary className="cursor-pointer text-sm font-medium">Legacy API credentials</summary>
+        <summary className="min-h-11 cursor-pointer rounded-md py-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Legacy API credentials</summary>
+        <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+          API keys remain available for existing integrations and clients that use
+          token exchange. Create, rotate and manage them here.
+        </p>
       <section aria-label="Agent access" className="min-w-0 space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
