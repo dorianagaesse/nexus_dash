@@ -68,7 +68,7 @@ const describePermissions = (scopes: AgentScope[]) =>
       (scope) =>
         AGENT_SCOPE_DEFINITIONS.find((s) => s.scope === scope)?.label ?? scope
     )
-    .join(" Â· ");
+    .join(" · ");
 
 function ScopeChoices({
   scopes,
@@ -281,7 +281,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
       )}
       {loading ? (
         <p role="status" className="text-sm text-muted-foreground">
-          Loading identitiesâ€¦
+          Loading identities…
         </p>
       ) : !identities.length && !editing ? (
         <p className="rounded-xl border border-dashed border-border px-5 py-6 text-sm leading-relaxed text-muted-foreground">
@@ -314,13 +314,13 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               </span>
               <span className="mt-1 block text-xs text-muted-foreground">
                 {identity.scopes.length}{" "}
-                {identity.scopes.length === 1 ? "permission" : "permissions"} Â·{" "}
+                {identity.scopes.length === 1 ? "permission" : "permissions"} ·{" "}
                 {
                   identity.devices.filter(
                     (d) => agentDeviceState(d, now) === "Paired"
                   ).length
                 }{" "}
-                paired devices Â· {identity.devices.filter(d => agentDeviceState(d, now) === "Pending pairing").length} pending
+                paired devices · {identity.devices.filter(d => agentDeviceState(d, now) === "Pending pairing").length} pending
               </span>
             </span>
             <span className={statusClass}>
@@ -405,7 +405,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               disabled={busy || !scopes.length}
             >
               {busy
-                ? "Savingâ€¦"
+                ? "Saving…"
                 : selected
                   ? "Save identity"
                   : "Create identity"}
@@ -489,7 +489,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               >
                 <p className="text-sm text-muted-foreground">
                   Authorize this device for {selected.name} only, for 90 days.
-                  Its permissions cannot exceed this identityâ€™s permissions.
+                  Its permissions cannot exceed this identity’s permissions.
                 </p>
                 <label className="block space-y-1 text-sm">
                   Device name
@@ -559,16 +559,16 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                       "_",
                       " "
                     )}
-                    {a.metadata?.client ? ` Â· ${a.metadata.client}` : ""}
+                    {a.metadata?.client ? ` · ${a.metadata.client}` : ""}
                     {a.metadata?.deviceName
-                      ? ` Â· ${a.metadata.deviceName}`
+                      ? ` · ${a.metadata.deviceName}`
                       : ""}
-                    {a.metadata?.path ? ` Â· ${a.metadata.path}` : ""}
+                    {a.metadata?.path ? ` · ${a.metadata.path}` : ""}
                   </span>
                   <span className="block text-muted-foreground">
                     {date(a.createdAt)}
                     {a.metadata?.sessionId
-                      ? ` Â· Session ${a.metadata.sessionId}`
+                      ? ` · Session ${a.metadata.sessionId}`
                       : ""}
                   </span>
                 </li>

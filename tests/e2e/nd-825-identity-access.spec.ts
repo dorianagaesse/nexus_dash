@@ -1,0 +1,53 @@
+import { expect, test } from "@playwright/test";
+import { signInAsVerifiedUser } from "./helpers/auth-helpers";
+
+test("owners manage active sessions and confirm device revocation with keyboard access", async ({ page }) => {
+  await signInAsVerifiedUser(page);
+  const created = await page.request.post("/api/projects", { data: { name: "ND825 access clarity" } });
+  const { project } = await created.json();
+  const endpoint = `/api/projects/${project.id}/agent-identities`;
+  const manage = async (data: Record<string, unknown>) => {
+    const response = await page.request.post(endpoint, { data });
+    expect(response.ok(), await response.text()).toBeTruthy(); return response.json();
+  };
+  const scopes = ["project:read", "task:read", "task:write"];
+  const { identityId } = await manage({ operation: "create", name: "Oscar", scopes, canMoveTasksToDone: true });
+  const { pairingCode } = await manage({ operation: "authorize-device", identityId, name: "Work laptop", scopes, canMoveTasksToDone: true });
+  const runtime = async (data: Record<string, unknown>) => {
+    const response = await page.request.post("/api/auth/agent/runtime", { data: { projectId: project.id, identityId, ...data } });
+    expect(response.ok()).toBeTruthy(); return response.json();
+  };
+  const { runtimeCredential } = await runtime({ operation: "pair", proof: pairingCode });
+  for (let i = 0; i < 2; i++) await runtime({ operation: "start", proof: runtimeCredential, client: "Codex" });
+  await page.goto(`/projects/${project.id}`);
+  await page.getByRole("button", { name: "Share project" }).click();
+  await page.getByRole("button", { name: "Agent access", exact: true }).click();
+  const panel = page.getByRole("region", { name: "Agent identities", exact: true });
+  await panel.getByRole("button", { name: "Oscar", exact: true }).click();
+  await expect(panel.getByText("Active sessions (2)")).toBeVisible();
+  const ends = panel.getByRole("button", { name: /^End Codex session on Work laptop/ });
+  await expect(ends).toHaveCount(2);
+  expect(await ends.nth(0).getAttribute("aria-label")).not.toBe(await ends.nth(1).getAttribute("aria-label"));
+  await ends.first().focus();
+  await page.keyboard.press("Enter");
+  await expect(panel.getByText("Active sessions (1)")).toBeVisible();
+  await expect(panel.getByText("Codex session ended. Other sessions keep their access.")).toBeVisible();
+  await panel.getByRole("button", { name: "Revoke Work laptop", exact: true }).click();
+  await expect(panel.getByText(/ends all its sessions and prevents new launches/)).toBeVisible();
+  const confirm = panel.getByRole("button", { name: "Confirm revoke Work laptop" });
+  await confirm.focus();
+  await expect(confirm).toBeFocused();
+  await page.screenshot({ path: ".tmp/nd825-desktop.png", fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await confirm.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: ".tmp/nd825-mobile.png", fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.keyboard.press("Enter");
+  await expect(panel.getByText("Active sessions (0)")).toBeVisible();
+  await expect(panel.getByText("Work laptop revoked. Its sessions no longer have access.")).toBeVisible();
+  await panel.getByRole("button", { name: "Edit identity" }).click();
+  await expect(panel.getByLabel("Tasks edit", { exact: true })).toBeChecked();
+  await expect(panel.getByText(/Done moves also require Tasks edit/)).toBeVisible();
+  await expect(panel.getByText("Reserved capabilities", { exact: true })).toBeVisible();
+  await page.screenshot({ path: ".tmp/nd825-permissions-mobile.png", fullPage: true });
+});

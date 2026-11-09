@@ -11761,3 +11761,11 @@ the original run passed the other 143 scenarios, including notification revocati
 
 ## 2026-11-09 - ND-824 pairing completion
 Built against ND-658 PR #669. Added accurate authorization states/counts, bounded pending refresh, consumed/expired code hiding, copy feedback and bound launch guidance. Component regressions cover completion and expiry; browser regression includes keyboard focus and desktop/mobile captures. Validation results will be recorded before handoff.
+
+## 2026-11-10 - ND-825 access management
+Reused module permission fields and presets, separated reserved capabilities,
+explained Task Write/Done coupling, and prioritized active sessions over history.
+Added uniquely named session actions, nearby operation feedback and device
+revocation confirmation. Integrated the latest ND-658 UI polish and ND-824
+pairing flow. Focused component coverage passed; full gate/browser evidence
+will be recorded before handoff.
