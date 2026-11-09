@@ -117,6 +117,9 @@ Open `http://localhost:3000`.
 - Session persistence is database-backed (`Session` table) with HttpOnly cookie handling.
 - Logout endpoint: `POST /api/auth/logout`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
+- Legacy API credentials remain a supported option. For the proposed portable
+  identity/container direction and its current validation limits, see the
+  [Docker identity investigation](docs/reports/nd-822-container-agent-identities.md).
 - **Share project > Agent access** opens a credential directory with agent
   counts, readable access summaries, status, last use, expiry, and a separate
   task-completion switch for each agent. Search by name or descriptive label (ignoring case and

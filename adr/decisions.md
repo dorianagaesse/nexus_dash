@@ -16,6 +16,22 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-11-09 - ND-822: Container identity boundary and retained legacy access
+
+- Status: Proposed; Docker integration is not implemented by this investigation.
+- Context: ND-658's desktop launcher assumes an OS vault, shared loopback and a
+  foreground child. Docker probes confirmed that these do not establish worker
+  access or track detached container lifetime.
+- Decision: Recommend an operator-controlled broker outside the agent sandbox,
+  retaining authorization while issuing a fresh session per worker execution.
+  Preserve explicitly selected legacy credentials as a supported option; never
+  silently fall back from failed runtime authentication.
+- Consequences: Per-sandbox transport, credential isolation, lifecycle
+  reconciliation and expiry recovery need implementation and validation. Runtime
+  identities cannot currently be converted to raw-key identities. Legacy actors
+  can use both paths, but shared-anchor revocation/expiry disables both.
+- Links: [Investigation and reproduction](../docs/reports/nd-822-container-agent-identities.md).
+
 ## 2026-11-07 - ND-190: Collaboration use-case ownership
 
 - Status: Proposed for user review in #650; adoption follows the user's merge
