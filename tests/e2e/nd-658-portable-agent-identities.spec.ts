@@ -188,14 +188,16 @@ test("portable identities enforce runtime bindings, live grants and independent 
     await permissionInputs.nth(i).check();
   await panel.getByRole("button", { name: "Generate pairing code" }).click();
   const code = panel.locator("[data-pairing-code]");
+  await expect(panel.getByRole("button", { name: "Copy pairing command", exact: true })).toBeVisible();
   await expect(code).toBeVisible();
   await expect(panel.locator("pre")).toContainText(
     `--base ${new URL(page.url()).origin}`
   );
+  const pairingValue = await code.innerText();
   const paired = await runtime({
     operation: "pair",
     identityId: oscar.id,
-    proof: await code.innerText(),
+    proof: pairingValue,
   });
   expect(paired.ok(), await paired.text()).toBeTruthy();
   const first = await paired.json();
@@ -204,11 +206,21 @@ test("portable identities enforce runtime bindings, live grants and independent 
       await runtime({
         operation: "pair",
         identityId: oscar.id,
-        proof: await code.innerText(),
+        proof: pairingValue,
       })
     ).status()
   ).toBe(401);
-  await panel.getByRole("button", { name: "Dismiss pairing code" }).click();
+  await expect(panel.getByText("Device paired. Ready to launch.")).toBeVisible();
+  await expect(code).toHaveCount(0);
+  const launch = panel.getByRole("button", { name: "Copy Windows launch command" });
+  await launch.focus();
+  await expect(launch).toBeFocused();
+  await page.screenshot({ path: ".tmp/nd824-paired-desktop.png", fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await launch.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: ".tmp/nd824-paired-mobile.png", fullPage: true });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await panel.getByRole("button", { name: "Dismiss pairing guidance" }).click();
   const secondCode = await manage({
     operation: "authorize-device",
     identityId: oscar.id,

@@ -6,6 +6,8 @@ import { AgentCredentialLabelsField } from "./agent-credential-labels-field";
 import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
 import { AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR } from "@/lib/agent-credential-labels";
 import { Button } from "@/components/ui/button";
+import { agentDeviceState } from "@/lib/agent-device-state";
+import { AgentPairingGuidance } from "./agent-pairing-guidance";
 
 type Session = {
   id: string;
@@ -104,25 +106,30 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
   const [deviceName, setDeviceName] = useState("");
   const [deviceScopes, setDeviceScopes] = useState<AgentScope[]>([]);
   const [deviceDone, setDeviceDone] = useState(false);
-  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [pairing, setPairing] = useState<{ deviceId: string; code: string | null; expiresAt: string } | null>(null);
+  const [now, setNow] = useState(Date.now);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [appOrigin, setAppOrigin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const selected = identities.find((i) => i.id === selectedId);
+  const pairingDevice = selected?.devices.find(d => d.id === pairing?.deviceId);
+  const pairingState = pairingDevice ? agentDeviceState(pairingDevice, now) : "Expired";
+  const pendingUntil = Math.max(0, ...(selected?.devices.filter(d => agentDeviceState(d, now) === "Pending pairing").map(d => Date.parse(d.pairingExpiresAt)) ?? []));
   // Edits and refreshes can remove grants while a device draft stays open.
   const effectiveDeviceScopes = deviceScopes.filter((scope) =>
     selected?.scopes.includes(scope)
   );
   const effectiveDeviceDone = deviceDone && !!selected?.canMoveTasksToDone;
   const endpoint = `/api/projects/${projectId}/agent-identities`;
-  const refresh = useCallback(async () => {
-    const response = await fetch(endpoint, { cache: "no-store" });
+  const refresh = useCallback(async (signal?: AbortSignal) => {
+    const response = await fetch(endpoint, { cache: "no-store", signal });
     if (!response.ok)
       throw new Error("Agent identities could not be loaded. Try refreshing.");
     const data = await response.json();
-    setIdentities(data.identities);
+    if (!signal?.aborted) { setIdentities(data.identities); setNow(Date.now()); }
+    return data.identities as Identity[];
   }, [endpoint]);
   useEffect(() => {
     setAppOrigin(window.location.origin);
@@ -130,6 +137,23 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [refresh]);
+  useEffect(() => {
+    if (!pendingUntil || pendingUntil <= Date.now()) return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = async () => {
+      setNow(Date.now());
+      if (Date.now() >= pendingUntil || controller.signal.aborted) return;
+      try { await refresh(controller.signal); }
+      catch { if (!controller.signal.aborted) setError("Pairing status could not be checked. Refresh identities to try again."); }
+      if (!controller.signal.aborted) timer = setTimeout(tick, Math.max(0, Math.min(3000, pendingUntil - Date.now())));
+    };
+    timer = setTimeout(tick, Math.min(3000, pendingUntil - Date.now()));
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, [pendingUntil, refresh]);
+  useEffect(() => {
+    if (pairingState !== "Pending pairing") setPairing(value => value?.code ? { ...value, code: null } : value);
+  }, [pairingState]);
   const mutate = async (command: Record<string, unknown>) => {
     setBusy(true);
     setError(null);
@@ -144,8 +168,12 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
         throw new Error(
           `Change could not be saved (${data.error}). Review the fields and try again.`
         );
-      await refresh();
-      if (data.pairingCode) setPairingCode(data.pairingCode);
+      const latest = await refresh();
+      setNow(Date.now());
+      if (data.pairingCode) {
+        const device = latest.find(i => i.id === command.identityId)?.devices.find(d => d.id === data.deviceId);
+        if (device) setPairing({ deviceId: device.id, code: data.pairingCode, expiresAt: device.pairingExpiresAt });
+      }
       if (data.identityId) {
         setSelectedId(data.identityId);
         setDeviceScopes(scopes);
@@ -164,7 +192,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
   const select = (identity: Identity) => {
     setSelectedId(identity.id);
     setEditing(false);
-    setPairingCode(null);
+    setPairing(null);
     setConfirmDeactivate(false);
     setDeviceName("");
     setDeviceScopes(identity.scopes);
@@ -213,7 +241,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               setScopes(initialScopes);
               setDone(false);
               setEditing(true);
-              setPairingCode(null);
+              setPairing(null);
             }}
           >
             New identity
@@ -262,10 +290,10 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                 {identity.scopes.length} permissions ·{" "}
                 {
                   identity.devices.filter(
-                    (d) => !d.revokedAt && new Date(d.expiresAt) > new Date()
+                    (d) => agentDeviceState(d, now) === "Paired"
                   ).length
                 }{" "}
-                authorized devices
+                paired devices · {identity.devices.filter(d => agentDeviceState(d, now) === "Pending pairing").length} pending
               </span>
             </span>
             <span className="text-xs text-muted-foreground">
@@ -399,15 +427,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                     <div className="text-sm">
                       <strong className="font-medium">{d.name}</strong>
                       <span className="ml-2 text-muted-foreground">
-                        {d.revokedAt
-                          ? "Revoked"
-                          : new Date(d.expiresAt) <= new Date()
-                            ? "Expired"
-                            : d.authorizedAt
-                              ? "Connected"
-                              : new Date(d.pairingExpiresAt) <= new Date()
-                                ? "Pairing expired"
-                                : "Awaiting pairing"}
+                        {agentDeviceState(d, now)}
                       </span>
                     </div>
                     {!d.revokedAt && (
@@ -427,6 +447,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                       </Button>
                     )}
                   </div>
+                  {agentDeviceState(d, now) === "Paired" && <Button size="sm" variant="ghost" onClick={() => setPairing({ deviceId: d.id, code: null, expiresAt: d.pairingExpiresAt })}>Launch instructions for {d.name}</Button>}
                   <p className="text-xs text-muted-foreground">
                     Expires {date(d.expiresAt)} · Done moves{" "}
                     {d.canMoveTasksToDone && selected.canMoveTasksToDone
@@ -535,34 +556,17 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               </form>
             </details>
           )}
-          {pairingCode && (
-            <div
-              role="status"
-              className="space-y-2 rounded-md border border-border p-3 text-sm"
-            >
-              <p className="font-medium">Pair this device within 10 minutes</p>
-              <p>
-                Run the login command in your own terminal, then paste the
-                one-time code when prompted.
-              </p>
-              <pre className="overflow-x-auto whitespace-pre-wrap break-all text-xs">
-                node scripts/nd-agent.mjs login --base {appOrigin} --project{" "}
-                {projectId} --identity {selected.id}
-              </pre>
-              <code className="block select-all break-all" data-pairing-code>
-                {pairingCode}
-              </code>
-              <p className="text-xs text-muted-foreground">
-                Keep this code private. It can be used once.
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setPairingCode(null)}
-              >
-                Dismiss pairing code
-              </Button>
-            </div>
+          {pairing && (
+            <AgentPairingGuidance
+              key={pairing.deviceId}
+              origin={appOrigin}
+              projectId={projectId}
+              identityId={selected.id}
+              code={pairingState === "Pending pairing" ? pairing.code : null}
+              expiresAt={pairing.expiresAt}
+              state={pairingState}
+              onDismiss={() => setPairing(null)}
+            />
           )}
           <details className="border-t pt-3">
             <summary className="cursor-pointer text-sm font-medium">
