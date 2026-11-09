@@ -19,7 +19,7 @@ test("Docker executions retain actor identity with independent, isolated session
   const endpoint = `/api/projects/${project.id}/agent-identities`;
   const command = async (data: Record<string, unknown>) => {
     const response = await page.request.post(endpoint, { data });
-    expect(response.ok(), await response.text()).toBeTruthy();
+    expect(response.ok(), `Identity operation ${data.operation} returned ${response.status()}`).toBeTruthy();
     return response.json();
   };
   const scopes = ["project:read", "task:read", "task:write"];
@@ -72,6 +72,7 @@ test("Docker executions retain actor identity with independent, isolated session
     expect(task.task.createdBy.id).toBe(identityId);
     await expect(request(0, "GET", "/api/projects/wrong-project/tasks")).rejects.toThrow();
     const inspect = JSON.parse(await docker(["inspect", names[0]]))[0];
+    if (process.getuid) expect(inspect.Config.User).toBe(`${process.getuid()}:${process.getgid()}`);
     expect(inspect.Mounts).toHaveLength(1);
     expect(inspect.Mounts[0].Destination).toBe("/run/nd-agent");
     expect(inspect.Config.Env.join(" ")).not.toContain(pairingCode);

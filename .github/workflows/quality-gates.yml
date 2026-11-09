@@ -126,14 +126,17 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
-      - name: Run E2E smoke suite
+      - name: Validate native Linux vault and Docker broker
         env:
           ND_DOCKER_VALIDATION: "1"
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y libsecret-tools gnome-keyring
           docker pull node:24-bookworm
-          dbus-run-session -- bash -c 'printf "%s" "disposable-ci-keyring" | gnome-keyring-daemon --unlock; npm run test:e2e'
+          dbus-run-session -- bash -c 'printf "%s" "disposable-ci-keyring" | gnome-keyring-daemon --unlock; npm run test:e2e -- tests/e2e/nd-823-docker-broker.spec.ts'
+
+      - name: Run E2E smoke suite
+        run: npx playwright test
 
       - name: Upload Playwright report (on failure)
         if: failure()

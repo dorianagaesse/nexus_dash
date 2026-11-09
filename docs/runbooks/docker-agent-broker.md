@@ -63,6 +63,12 @@ Create the operator JSON config, replacing all example paths and IDs:
 
 Windows accepts absolute paths such as `C:/Users/Operator/nd-broker-state`.
 Use distinct worker names for concurrent executions of the same identity.
+On POSIX hosts the broker runs workers as its own numeric UID/GID, so they can
+read their mode-0600 binding with all Linux capabilities dropped. Worker images
+must support that UID and a read-only root filesystem. Windows Docker Desktop
+uses its host file-sharing permissions. No binding is made world-readable.
+Linux support requires a standard local Docker daemon without user namespace
+remapping; rootless/remapped daemons need a separate file-ownership adapter.
 Run `node scripts/nd-docker-agent.mjs CONFIG.json --create` to create and start
 the containers once. The broker remains in the foreground while Docker workers
 are detached. From a worker:

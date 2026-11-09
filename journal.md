@@ -11771,3 +11771,8 @@ sessions, stop/restart/recreation, renewal, grant reduction, owner revocation,
 wrong-project rejection and worker mount/secret checks. Production build passed.
 Native Linux host vault validation remains separate from Windows Docker evidence.
 Full repository gate results will be recorded before handoff.
+
+Linux CI exposed a host UID mismatch when capability-free container root read
+the private transport file. POSIX workers now use the broker UID/GID; private
+file modes and dropped capabilities are preserved. Native Linux Docker checks
+run before the full smoke suite, and test assertions avoid echoing pairing codes.

@@ -46,6 +46,9 @@ export class DockerBroker {
   constructor(config, vault, dependencies = {}) {
     this.config = validateConfig(config);
     this.vault = vault;
+    // With all capabilities dropped, container root cannot read a Linux host
+    // user's mode-0600 binding. Match that owner instead of weakening modes.
+    this.workerUser = process.getuid ? `${process.getuid()}:${process.getgid()}` : null;
     this.command = dependencies.docker ?? docker;
     this.open = dependencies.openRuntime ?? openRuntime;
     this.end = dependencies.end ?? (async (binding, sessionId) => runtimeCall(binding, {
@@ -113,7 +116,7 @@ export class DockerBroker {
     const [container] = JSON.parse(await this.command(["inspect", "--type", "container", worker.name]));
     const label = container.Config?.Labels?.["app.nexusdash.binding"];
     const mounts = container.Mounts ?? [];
-    if (label !== bindingKey(worker.binding) || container.HostConfig?.Privileged ||
+    if (label !== bindingKey(worker.binding) || (this.workerUser && container.Config?.User !== this.workerUser) || container.HostConfig?.Privileged ||
       !container.HostConfig?.ReadonlyRootfs || container.HostConfig?.CapAdd?.length ||
       !container.HostConfig?.CapDrop?.includes("ALL") ||
       !container.HostConfig?.SecurityOpt?.includes("no-new-privileges") ||
@@ -131,6 +134,7 @@ export class DockerBroker {
       const existing = await this.command(["container", "ls", "-a", "--filter", `name=^/${worker.name}$`, "--format", "{{.ID}}"]);
       if (existing) throw new Error(`Container ${worker.name} already exists; omit --create or remove it explicitly`);
       await this.command(["create", "--name", worker.name, "--label", `app.nexusdash.binding=${bindingKey(worker.binding)}`,
+        ...(this.workerUser ? ["--user", this.workerUser] : []),
         "--cap-drop=ALL", "--security-opt=no-new-privileges", "--read-only", "--tmpfs", "/tmp:rw,nosuid,nodev,size=128m",
         "--add-host=host.docker.internal:host-gateway", "--mount", `type=bind,source=${this.transport(worker)},target=/run/nd-agent,readonly`,
         "--env", "ND_AGENT_BINDING_FILE=/run/nd-agent/binding.json", worker.image, ...worker.command]);

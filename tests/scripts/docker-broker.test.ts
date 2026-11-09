@@ -98,6 +98,18 @@ test("configuration fails closed and Docker Desktop mount paths normalize", () =
   expect(hostMountPath("/tmp/Worker")).not.toBe(hostMountPath("/tmp/worker"));
 });
 
+test("POSIX workers run as the binding owner without restoring root capabilities", async () => {
+  const { broker } = await setup();
+  broker.workerUser = "1001:1001";
+  broker.command = vi.fn().mockResolvedValue("");
+  await broker.createWorkers();
+  const create = broker.command.mock.calls.find(([args]) => args[0] === "create")[0];
+  expect(create.slice(create.indexOf("--user"), create.indexOf("--user") + 2)).toEqual(["--user", "1001:1001"]);
+  expect(create).toContain("--cap-drop=ALL");
+  expect(create).toContain("--read-only");
+  await broker.close();
+});
+
 test("terminal cleanup rejection is forgotten and outages back off without consuming sibling auth budget", async () => {
   const { broker, end } = await setup();
   broker.pending.push({ binding, sessionId: "revoked", createdAt: Date.now() });
