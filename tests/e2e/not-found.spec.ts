@@ -23,23 +23,19 @@ test.describe("custom not-found page", () => {
 
         const projectsLink = page.getByRole("link", { name: "Go to projects" });
         await expect(projectsLink).toHaveAttribute("href", "/projects");
-        await expect(page.getByRole("link", { name: "Go home" })).toHaveAttribute("href", "/");
+        await expect(page.getByRole("main").getByRole("link")).toHaveCount(1);
         await projectsLink.focus();
-        await page.keyboard.press("Tab");
-        await expect(page.getByRole("link", { name: "Go home" })).toBeFocused();
+        await expect(projectsLink).toBeFocused();
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
         await page.screenshot({ path: testInfo.outputPath("not-found.png"), fullPage: true });
       });
     }
   }
 
-  test("lets signed-out visitors recover through home and projects", async ({ page }) => {
+  test("lets signed-out visitors recover through projects with the keyboard", async ({ page }) => {
     await page.goto(unknownPath);
-    await page.getByRole("link", { name: "Go home" }).click();
-    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
-
-    await page.goto(unknownPath);
-    await page.getByRole("link", { name: "Go to projects" }).click();
+    await page.getByRole("link", { name: "Go to projects" }).focus();
+    await page.keyboard.press("Enter");
     await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
   });
 
@@ -54,7 +50,8 @@ test.describe("custom not-found page", () => {
     await expect(page.getByRole("heading", { name: "Page not found", exact: false })).toHaveCount(0);
 
     await page.goto(unknownPath);
-    await page.getByRole("link", { name: "Go home" }).click();
+    await expect(page.getByRole("main").getByRole("link")).toHaveCount(1);
+    await page.getByRole("link", { name: "Go to projects" }).click();
     await expect(page).toHaveURL(/\/projects$/);
   });
 });

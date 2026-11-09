@@ -32,9 +32,6 @@ export default function NotFound() {
               <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
           </Button>
-          <Button asChild size="lg" variant="outline">
-            <Link href="/">Go home</Link>
-          </Button>
         </div>
       </div>
     </main>
