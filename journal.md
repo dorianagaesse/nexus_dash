@@ -11769,3 +11769,10 @@ Added uniquely named session actions, nearby operation feedback and device
 revocation confirmation. Integrated the latest ND-658 UI polish and ND-824
 pairing flow. Focused component coverage passed; full gate/browser evidence
 will be recorded before handoff.
+
+ND-825 handoff evidence: five focused component tests and the three affected
+portable-identity/session browser scenarios passed. Desktop and 390px mobile
+captures confirmed readable module fields, session actions and revocation
+consequences; keyboard activation and no horizontal overflow passed. Production
+build passed. Full CI and review evidence are maintained in PR #693, stacked on
+PR #692; no merge or deployment was performed.

@@ -90,7 +90,7 @@ function ScopeChoices({
         {AGENT_CREDENTIAL_PRESETS.filter(preset => !allowed || preset.scopes.some(scope => allowed.includes(scope))).map(preset => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
       </select>
     </label>
-    <p className="text-xs text-muted-foreground">Presets replace the selection with task permissions. Choose other modules below. Device grants stay within this identity?s permissions.</p>
+    <p className="text-xs text-muted-foreground">Presets replace the selection with task permissions. Choose other modules below. Device grants stay within the selected identity permissions.</p>
     <ProjectAgentPermissionFields value={scopes} onChange={onChange} allowed={allowed} />
     <details className="text-sm"><summary className="cursor-pointer">Reserved capabilities</summary>
       <p className="my-2 text-xs text-muted-foreground">Shared schedule grants are reserved for future use. They do not grant personal Calendar access.</p>
@@ -428,7 +428,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               <h4 className="break-words text-lg font-semibold tracking-tight [overflow-wrap:anywhere]">
                 {selected.name}
               </h4>
-              <details className="mt-1 text-xs text-muted-foreground"><summary className="cursor-pointer">Identity details</summary><p className="break-all">Identity ID: {selected.id}</p><p>{selected.identityMode ? "Runtime identity" : "Legacy credential and paired devices share this actor?s attribution."}</p></details>
+              <details className="mt-1 text-xs text-muted-foreground"><summary className="cursor-pointer">Identity details</summary><p className="break-all">Identity ID: {selected.id}</p><p>{selected.identityMode ? "Runtime identity" : "Legacy credentials and paired devices share this actor and its history."}</p></details>
             </div>
             <Button
               size="sm"
