@@ -1459,3 +1459,6 @@ restrictive notification policies. Definer-owned Realtime snapshots must apply
 the same filter explicitly. Advance User.notificationAccessUpdatedAt on relevant
 membership/owner changes; use it in snapshot versions so revocation refreshes
 existing clients without regressing the cursor or mutating email fingerprints.
+
+## ND-823: Docker runtime broker
+Keep paired proofs and renewable tokens in a trusted host broker. Use per-worker TLS capabilities and Docker execution reconciliation; workers never mount a vault or Docker socket. See [the runbook](../docs/runbooks/docker-agent-broker.md).
