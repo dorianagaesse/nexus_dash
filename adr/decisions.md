@@ -1391,6 +1391,32 @@ Keep UI-only or task-only notes in `journal.md`.
   SQL remain explicit exceptions in `docs/architecture/task-services.md`.
   Encryption will need those exceptions as well as the completed Task seam.
 
+## 2026-11-08 ? ND-130: Project module capability restrictions
+
+Use a shared module/action vocabulary for humans and agents. Human grants are
+optional restrictions within existing owner/editor/viewer ceilings; null keeps
+legacy access, an empty array denies all modules. Only project ownership grants
+administrative authority. Membership and invitation grants are stored as nullable
+JSON and copied on acceptance. Service checks and restrictive PostgreSQL policies
+compose with existing tenant, private-note, author, and owner safeguards.
+
+Split meeting/epic agent scopes from task scopes and migrate existing credentials
+to explicit equivalent grants. Reserve shared-schedule scopes without changing
+personal Calendar authorization. Shared broadcast messages carry invalidation
+metadata only to prevent an already-authorized socket from leaking module
+content after permissions change. This trades direct payload application for
+capability-filtered refreshes. See the project-capabilities runbook for rollout.
+
+
+## 2026-11-08 - ND-130: Editable agent scope grants
+
+Owners may replace a credential's scopes in an audited transaction without
+rotating its API key. Every authenticated agent request checks that the signed
+token's scopes remain a subset of the live grants. Removing a scope therefore
+rejects older broader tokens immediately; adding a scope requires a new token
+exchange to use it. Scope replacement locks the credential first to serialize
+concurrent owner edits. Meeting CRUD routes use the same agent-principal guard
+as listing, with module and private-note checks retained in services and RLS.
 ## 2026-11-08 - ND-191: personal todos in the existing project queue
 
 - Status: Proposed for review in ND-191; revised after product feedback.
@@ -1418,3 +1444,13 @@ Keep UI-only or task-only notes in `journal.md`.
   The client uses the existing local mutation lifecycle to refresh the actor's
   navigation count. Meeting completion and realtime transport are unchanged.
   ND-378 remains canceled; there is no global Todos or cross-project search.
+
+
+## 2026-11-09 - ND-130 review: notification copies retain module authorization
+
+Notifications and queued email are copies of protected module content. Enforce
+recipient read capability at creation, reads, enqueue and dispatch, and add
+restrictive notification policies. Definer-owned Realtime snapshots must apply
+the same filter explicitly. Advance User.notificationAccessUpdatedAt on relevant
+membership/owner changes; use it in snapshot versions so revocation refreshes
+existing clients without regressing the cursor or mutating email fingerprints.

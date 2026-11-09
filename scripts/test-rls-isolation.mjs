@@ -1,3 +1,4 @@
+import { testNotificationCapabilityRls } from "./test-notification-capability-rls.mjs";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -501,6 +502,7 @@ try {
   }
 
   await seed();
+  await testNotificationCapabilityRls({ admin, runtime, runtimeTransaction, expectRlsViolation, ids });
   await testProjectTodoRls({ admin, runtime, runtimeTransaction, expectRlsViolation, ids });
 
   // Public current author metadata is readable by members without exposing
@@ -644,15 +646,9 @@ try {
       );
       assert.equal(messages.rowCount, 1);
       assert.deepEqual(messages.rows[0].payload, {
-        eventId: `rls_realtime_event_${suffix}`,
         projectId: ids.projectA,
         version,
         serverTime: messages.rows[0].payload.serverTime,
-        actorUserId: ids.ownerA,
-        domain: "task",
-        action: "updated",
-        entityId: ids.taskA,
-        payload: { title: "Changed" },
       });
     });
 
@@ -1559,6 +1555,30 @@ try {
   assert.equal(ownershipTransfer.transfer.rows[0].result, "ok");
   assert.equal(ownershipTransfer.project.rows[0].ownerId, ids.editorB);
 
+  // ND-130: owners can replace scope grants atomically; other members and
+  // foreign owners cannot change them. Removed scopes fail the live-token guard.
+  await runtimeTransaction(ids.ownerB, async () => {
+    await runtime.query(`UPDATE "ApiCredential" SET "updatedAt" = now() WHERE id = $1`, [ids.credentialB]);
+    await runtime.query(`DELETE FROM "ApiCredentialScopeGrant" WHERE "credentialId" = $1`, [ids.credentialB]);
+    await runtime.query(`INSERT INTO "ApiCredentialScopeGrant" ("credentialId", scope) VALUES ($1, 'meeting_read')`, [ids.credentialB]);
+    const grants = await runtime.query(`SELECT scope FROM "ApiCredentialScopeGrant" WHERE "credentialId" = $1`, [ids.credentialB]);
+    assert.deepEqual(grants.rows, [{ scope: "meeting_read" }]);
+    for (const [scope, expected] of [["meeting_read", 1], ["meeting_write", 0]]) {
+      const usage = await runtime.query(`UPDATE "ApiCredential" c SET "lastUsedAt" = now()
+        WHERE c.id = $1 AND EXISTS (SELECT 1 FROM "ApiCredentialScopeGrant" g WHERE g."credentialId" = c.id AND g.scope = $2::"ApiCredentialScope")`, [ids.credentialB, scope]);
+      assert.equal(usage.rowCount, expected);
+    }
+  });
+  for (const actor of [ids.editorB, ids.viewerB, ids.ownerA]) {
+    await runtimeTransaction(actor, async () => {
+      const deleted = await runtime.query(`DELETE FROM "ApiCredentialScopeGrant" WHERE "credentialId" = $1`, [ids.credentialB]);
+      assert.equal(deleted.rowCount, 0);
+    });
+    await expectRlsViolation(() => runtimeTransaction(actor, () => runtime.query(
+      `INSERT INTO "ApiCredentialScopeGrant" ("credentialId", scope) VALUES ($1, 'meeting_delete')`, [ids.credentialB]
+    )), "non-owner scope grant insert");
+  }
+
   // ND-654: exercise the real credential policies under the least-privilege
   // runtime role, including transfers where the original owner stays or leaves.
   for (const previousOwnerLeaves of [false, true]) {
@@ -1697,6 +1717,61 @@ try {
     `SELECT "contentRevision" FROM "Task" WHERE id = $1 FOR UPDATE`, [ids.taskB]
   ));
   assert.equal(hiddenRevision.rowCount, 0, "conditional edit locks cannot expose another project's revision");
+
+  // Invitation acceptance must work under the runtime role and copy the exact grant.
+  // Older applications omit capabilities; reproducing that insert must fail closed.
+  const capabilityInvitationId = `rls_capability_invite_${suffix}`;
+  await admin.query(`UPDATE "User" SET "emailVerified"=now() WHERE id=$1`, [ids.outsider]);
+  await admin.query(`INSERT INTO "ProjectInvitation"
+    (id, "projectId", "invitedEmail", "invitedByUserId", role, "expiresAt", "createdAt", "updatedAt")
+    VALUES ($1,$2,$3,$4,'editor',now()+interval '1 day',now(),now())`,
+    [capabilityInvitationId, ids.projectA, `${ids.outsider}@example.test`, ids.ownerA]);
+  for (const grants of [null, [], ["task:read", "task:write"]]) {
+    await admin.query("SELECT set_config('app.user_id', $1, false)", [ids.ownerA]);
+    await admin.query(`UPDATE "ProjectInvitation" SET capabilities=$2::jsonb WHERE id=$1`,
+      [capabilityInvitationId, grants === null ? null : JSON.stringify(grants)]);
+    await admin.query("SELECT set_config('app.user_id', '', false)");
+    if (grants !== null) {
+      await expectRlsViolation(() => runtimeTransaction(ids.outsider, () => runtime.query(
+        `INSERT INTO "ProjectMembership" (id,"projectId","userId",role,"createdAt","updatedAt")
+         VALUES ($1,$2,$3,'editor',now(),now())`,
+        [`rls_invited_membership_${suffix}`, ids.projectA, ids.outsider]
+      )), "accepting a custom-grant invitation without copying its grants");
+    }
+    await runtimeTransaction(ids.outsider, async () => {
+      const membership = await runtime.query(`INSERT INTO "ProjectMembership"
+        (id,"projectId","userId",role,capabilities,"createdAt","updatedAt")
+        VALUES ($1,$2,$3,'editor',$4::jsonb,now(),now()) RETURNING capabilities`,
+        [`rls_invited_membership_${suffix}`, ids.projectA, ids.outsider, grants === null ? null : JSON.stringify(grants)]);
+      assert.deepEqual(membership.rows[0].capabilities, grants);
+      const accepted = await runtime.query(`UPDATE "ProjectInvitation" SET "acceptedAt"=now()
+        WHERE id=$1 AND "acceptedAt" IS NULL RETURNING id`, [capabilityInvitationId]);
+      assert.equal(accepted.rowCount, 1, "recipient can finish accepting the invitation");
+      const access = await runtime.query(`SELECT app.has_project_capability($1,'task:read') AS allowed`, [ids.projectA]);
+      assert.equal(access.rows[0].allowed, grants === null || grants.includes("task:read"));
+    });
+  }
+
+  // Owner-issued restrictions apply to parent/child reads and writes, even to assigned work.
+  await runtimeTransaction(ids.ownerB, async () => {
+    await runtime.query(`UPDATE "ProjectMembership" SET capabilities = '["task:read"]'::jsonb
+      WHERE "projectId"=$1 AND "userId"=$2`, [ids.projectB, ids.editorB]);
+    await runtime.query("SELECT set_config('app.user_id', $1, true)", [ids.editorB]);
+    assert.equal((await runtime.query(`SELECT id FROM "Task" WHERE id=$1`, [ids.taskB])).rowCount, 1);
+    assert.equal((await runtime.query(`UPDATE "Task" SET title='Forbidden' WHERE id=$1 RETURNING id`, [ids.taskB])).rowCount, 0);
+    assert.equal((await runtime.query(`SELECT id FROM "ProjectMeetingNote" WHERE id=$1`, [ids.meetingB])).rowCount, 0);
+    assert.equal((await runtime.query(`SELECT id FROM "ProjectMeetingNoteAction" WHERE id=$1`, [ids.meetingActionB])).rowCount, 0);
+    assert.equal((await runtime.query(`SELECT id FROM "Resource" WHERE id=$1`, [ids.resourceB])).rowCount, 0);
+    await runtime.query("SELECT set_config('app.user_id', $1, true)", [ids.ownerB]);
+    await runtime.query(`UPDATE "ProjectMembership" SET capabilities = '[]'::jsonb
+      WHERE "projectId"=$1 AND "userId"=$2`, [ids.projectB, ids.editorB]);
+    await runtime.query("SELECT set_config('app.user_id', $1, true)", [ids.editorB]);
+    assert.equal((await runtime.query(`SELECT id FROM "Task" WHERE id=$1`, [ids.taskB])).rowCount, 0);
+    assert.equal((await runtime.query(`SELECT id FROM "TaskComment" WHERE id=$1`, [ids.commentB])).rowCount, 0);
+    assert.equal((await runtime.query(`SELECT app.has_project_capability($1, 'task:read') AS allowed`, [ids.projectA])).rows[0].allowed, false);
+    await runtime.query("SELECT set_config('app.user_id', $1, true)", [ids.ownerB]);
+    assert.equal((await runtime.query(`SELECT app.has_project_capability($1, 'task:delete') AS allowed`, [ids.projectB])).rows[0].allowed, true);
+  });
 
   console.log(
     "RLS isolation matrix passed for absent actors, cross-project CRUD, role differences, child rows, append-only assignment history, revoked membership, safe project actor reads, responsibility resolution, ownership transfer, Calendar connections/sources/preferences, and agent credentials."

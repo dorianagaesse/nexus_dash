@@ -1,3 +1,4 @@
+import { useProjectCapability } from "@/components/project-capability-provider";
 import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -967,6 +968,7 @@ function TaskOptionsMenu({
   onUnarchiveTask,
   onRequestDeleteTask,
 }: TaskOptionsMenuProps) {
+  const canDelete = useProjectCapability("task:delete");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<"move" | "epic" | "assignee" | null>(null);
 
@@ -1344,7 +1346,7 @@ function TaskOptionsMenu({
             type="button"
             variant="ghost"
             className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
-            disabled={isMutating}
+            disabled={!canDelete || isMutating}
             onClick={() => {
               closeMenu();
               onRequestDeleteTask();

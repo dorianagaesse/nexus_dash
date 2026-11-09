@@ -646,6 +646,7 @@ export async function listTaskCommentsForProject(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "viewer",
+      capability: "task:read",
       db,
     });
     if (!access.ok) {
@@ -779,6 +780,7 @@ export async function createTaskCommentForProject(input: {
         actorUserId,
         projectId: input.projectId,
         minimumRole: "editor",
+      capability: "task:write",
         db,
       });
       if (!access.ok) {
@@ -1054,6 +1056,7 @@ export async function updateTaskCommentForProject(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -1295,6 +1298,7 @@ export async function listTaskCommentReactionsForComment(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "viewer",
+      capability: "task:read",
       db,
     });
     if (!access.ok) return createError(access.status, access.error);
@@ -1371,6 +1375,7 @@ export async function addTaskCommentReaction(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) return createError(access.status, access.error);
@@ -1492,6 +1497,7 @@ export async function removeTaskCommentReaction(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) return createError(access.status, access.error);

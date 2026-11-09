@@ -1,5 +1,7 @@
 "use client";
 
+import { effectiveProjectCapabilities, type ProjectCapability } from "@/lib/project-capabilities";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Bot, Settings2, Share2, Users, X } from "lucide-react";
@@ -117,6 +119,7 @@ export function ProjectDashboardOwnerActions({
   const [latestAgentCredentialSecret, setLatestAgentCredentialSecret] =
     useState<LatestAgentCredentialSecret | null>(null);
   const [inviteQuery, setInviteQuery] = useState("");
+  const [inviteCapabilities, setInviteCapabilities] = useState<ProjectCapability[] | null>(null);
   const [inviteRole, setInviteRole] = useState<ProjectCollaboratorRole>("editor");
   const [inviteResults, setInviteResults] = useState<CollaboratorIdentitySummary[]>([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
@@ -527,6 +530,7 @@ export function ProjectDashboardOwnerActions({
         body: JSON.stringify({
           invitedEmail,
           role: inviteRole,
+          capabilities: inviteCapabilities,
         }),
       });
       const payload = (await response.json().catch(() => null)) as
@@ -656,9 +660,10 @@ export function ProjectDashboardOwnerActions({
 
   const handleRoleChange = async (
     member: ProjectMemberSummary,
-    nextRole: ProjectCollaboratorRole
+    nextRole: ProjectCollaboratorRole,
+    capabilities?: ProjectCapability[]
   ) => {
-    if (member.role === nextRole || member.isOwner || isMutatingMemberId) {
+    if ((member.role === nextRole && capabilities === undefined) || member.isOwner || isMutatingMemberId) {
       return;
     }
 
@@ -672,7 +677,7 @@ export function ProjectDashboardOwnerActions({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ role: nextRole }),
+          body: JSON.stringify({ role: nextRole, capabilities: capabilities ?? effectiveProjectCapabilities(nextRole, member.capabilities) }),
         }
       );
       const payload = (await response.json().catch(() => null)) as
@@ -689,7 +694,7 @@ export function ProjectDashboardOwnerActions({
               ...previous,
               members: previous.members.map((entry) =>
                 entry.membershipId === member.membershipId
-                  ? { ...entry, role: nextRole }
+                  ? { ...entry, role: nextRole, capabilities: capabilities ?? effectiveProjectCapabilities(nextRole, member.capabilities) }
                   : entry
               ),
             }
@@ -697,7 +702,7 @@ export function ProjectDashboardOwnerActions({
       );
       pushToast({
         variant: "success",
-        message: `${member.displayName} is now ${nextRole}.`,
+        message: `Access updated for ${member.displayName}.`,
       });
     } catch (error) {
       pushToast({
@@ -801,35 +806,37 @@ export function ProjectDashboardOwnerActions({
     }
   };
 
-  const handleUpdateAgentCapabilities = async (credential: ProjectAgentCredentialSummary, allowed: boolean) => {
-    if (mutatingAgentCredentialId) return;
+  const handleUpdateAgentCapabilities = async (credential: ProjectAgentCredentialSummary, allowed: boolean | AgentScope[]): Promise<boolean> => {
+    if (mutatingAgentCredentialId) return false;
     setMutatingAgentCredentialId(credential.id);
     setAgentAccessActionError(null);
     try {
       const response = await fetch(`/api/projects/${projectId}/agent-access/${credential.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ canMoveTasksToDone: allowed }),
+        body: JSON.stringify(Array.isArray(allowed) ? { scopes: allowed } : { canMoveTasksToDone: allowed }),
       });
       const payload = (await response.json().catch(() => null)) as
-        { canMoveTasksToDone?: boolean; error?: string } | null;
-      if (!response.ok || typeof payload?.canMoveTasksToDone !== "boolean") {
+        { canMoveTasksToDone?: boolean; scopes?: AgentScope[]; error?: string } | null;
+      if (!response.ok || (Array.isArray(allowed) ? !Array.isArray(payload?.scopes) : typeof payload?.canMoveTasksToDone !== "boolean")) {
         throw new Error("Could not save agent capabilities. Please retry.");
       }
-      const canMoveTasksToDone = payload.canMoveTasksToDone;
+      const saved = payload!;
       setAgentAccessSummary((previous) =>
         previous ? { ...previous, credentials: previous.credentials.map((entry) =>
-          entry.id === credential.id ? { ...entry, canMoveTasksToDone } : entry
+          entry.id === credential.id ? { ...entry, ...(saved.canMoveTasksToDone === undefined ? {} : { canMoveTasksToDone: saved.canMoveTasksToDone }), ...(saved.scopes ? { scopes: saved.scopes } : {}) } : entry
         ) } : previous
       );
       await loadAgentAccessSummary();
       pushToast({ variant: "success", message: "Agent capabilities saved." });
+      return true;
     } catch (error) {
       const message = error instanceof Error
         ? error.message
         : "Could not save agent capabilities. Please retry.";
       setAgentAccessActionError({ action: "capabilities", message, credentialId: credential.id });
       pushToast({ variant: "error", message });
+      return false;
     } finally {
       setMutatingAgentCredentialId(null);
     }
@@ -1307,13 +1314,15 @@ export function ProjectDashboardOwnerActions({
                       inviteQuery={inviteQuery}
                       inviteEmailCandidate={inviteEmailCandidate}
                       inviteRole={inviteRole}
+                      inviteCapabilities={inviteCapabilities}
+                      onInviteCapabilitiesChange={setInviteCapabilities}
                       inviteResults={inviteResults}
                       generatedInvitationLink={generatedInvitationLink}
                       isSearchingUsers={isSearchingUsers}
                       isInvitingUserId={isInvitingUserId}
                       searchMessage={searchMessage}
                       onInviteQueryChange={handleInviteQueryChange}
-                      onInviteRoleChange={setInviteRole}
+                      onInviteRoleChange={(role) => { setInviteRole(role); setInviteCapabilities(null); }}
                       onInviteByEmail={(email) => void handleInviteEmail(email, email)}
                       onInvite={(user) => void handleInvite(user)}
                       onCopyInvitationLink={handleCopyInvitationLink}
@@ -1327,8 +1336,8 @@ export function ProjectDashboardOwnerActions({
                       isMutatingInvitationId={isMutatingInvitationId}
                       sendingInvitationEmailId={sendingInvitationEmailId}
                       invitationEmailDeliveries={invitationEmailDeliveries}
-                      onRoleChange={(member, nextRole) =>
-                        void handleRoleChange(member, nextRole)
+                      onRoleChange={(member, nextRole, capabilities) =>
+                        void handleRoleChange(member, nextRole, capabilities)
                       }
                       onRemoveMember={(member) => void handleRemoveMember(member)}
                       onTransferOwnership={(member) =>
@@ -1347,6 +1356,7 @@ export function ProjectDashboardOwnerActions({
                       projectId={projectId}
                       accessSummary={agentAccessSummary}
                       onUpdateCapabilities={(credential, allowed) => void handleUpdateAgentCapabilities(credential, allowed)}
+                      onUpdateScopes={(credential, scopes) => handleUpdateAgentCapabilities(credential, scopes)}
                       isLoadingAccessSummary={isLoadingAgentAccess}
                       accessLoadError={agentAccessLoadError}
                       actionError={agentAccessActionError}

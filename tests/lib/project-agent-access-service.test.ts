@@ -35,6 +35,7 @@ describe("project-agent-access-service", () => {
       ownerUserId: "owner-1",
       projectId: "project-1",
       tokenId: "token-1",
+      scopes: ["task:read"],
       credentialPublicId: "nda_generation1",
       requestId: "request-1",
       httpMethod: "GET",
@@ -54,6 +55,7 @@ describe("project-agent-access-service", () => {
         revokedAt: null,
         publicId: "nda_generation1",
         AND: [
+          { scopeGrants: { some: { scope: "task_read" } } },
           {
             OR: [{ expiresAt: null }, { expiresAt: { gt: expect.any(Date) } }],
           },
@@ -67,7 +69,7 @@ describe("project-agent-access-service", () => {
 
   test("only accepts legacy tokens on never-rotated credentials", async () => {
     await recordAgentRequestUsage({
-      credentialId: "credential-1", ownerUserId: "owner-1", projectId: "project-1", tokenId: "token-1",
+      credentialId: "credential-1", ownerUserId: "owner-1", projectId: "project-1", tokenId: "token-1", scopes: ["task:read"],
     });
     expect(prismaMock.apiCredential.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ lastRotatedAt: null, revokedAt: null }),
@@ -83,6 +85,7 @@ describe("project-agent-access-service", () => {
       ownerUserId: "owner-1",
       projectId: "project-1",
       tokenId: "token-1",
+      scopes: ["task:read"],
       credentialPublicId: "nda_generation1",
       requestId: "request-1",
       httpMethod: "GET",

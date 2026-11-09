@@ -444,6 +444,7 @@ export async function createTaskAttachmentFromForm(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -647,6 +648,7 @@ export async function createContextAttachmentFromForm(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "context:write",
       db,
     });
     if (!access.ok) {
@@ -834,6 +836,7 @@ export async function createTaskAttachmentUploadTarget(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -928,6 +931,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -1088,6 +1092,7 @@ export async function createContextAttachmentUploadTarget(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "context:write",
       db,
     });
     if (!access.ok) {
@@ -1188,6 +1193,7 @@ export async function finalizeContextAttachmentDirectUpload(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "context:write",
       db,
     });
     if (!access.ok) {
@@ -1345,6 +1351,7 @@ export async function cleanupTaskDirectUploadObject(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -1415,6 +1422,7 @@ export async function cleanupContextDirectUploadObject(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "context:write",
       db,
     });
     if (!access.ok) {
@@ -1489,6 +1497,7 @@ export async function deleteTaskAttachmentForProject(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -1603,6 +1612,7 @@ export async function deleteContextAttachmentForProject(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "owner",
+      capability: "context:write",
       db,
     });
     if (!access.ok) {
@@ -1700,6 +1710,7 @@ export async function getTaskAttachmentDownload(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "viewer",
+      capability: "task:read",
       db,
     });
     if (!access.ok) {
@@ -1807,6 +1818,7 @@ export async function getContextAttachmentDownload(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "viewer",
+      capability: "context:read",
       db,
     });
     if (!access.ok) {

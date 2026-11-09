@@ -1,3 +1,6 @@
+import { touchProjectActivity } from "@/lib/services/project-activity-service";
+import { Prisma } from "@prisma/client";
+import { effectiveProjectCapabilities, isValidCapabilityGrant } from "@/lib/project-capabilities";
 // Sharing reads, member role/offboarding mutations, and project member lookup.
 
 import type { ProjectMembershipRole } from "@prisma/client";
@@ -68,6 +71,7 @@ export async function getProjectSharingSummary(input: {
           select: {
             id: true,
             role: true,
+            capabilities: true,
             createdAt: true,
             user: {
               select: {
@@ -89,6 +93,7 @@ export async function getProjectSharingSummary(input: {
             projectId: true,
             invitedEmail: true,
             role: true,
+            capabilities: true,
             createdAt: true,
             expiresAt: true,
             acceptedAt: true,
@@ -125,6 +130,7 @@ export async function getProjectSharingSummary(input: {
         return {
           membershipId: membership.id,
           role: membership.role,
+          capabilities: effectiveProjectCapabilities(membership.role, membership.capabilities),
           joinedAt: membership.createdAt.toISOString(),
           isOwner: membership.user.id === project.ownerId,
           ...identity,
@@ -155,6 +161,7 @@ export async function updateProjectMemberRole(input: {
   projectId: string;
   membershipId: string;
   role: string;
+  capabilities?: unknown;
 }): Promise<ServiceResult<{ role: ProjectCollaboratorRole }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   const membershipId = normalizeInvitationId(input.membershipId);
@@ -170,6 +177,7 @@ export async function updateProjectMemberRole(input: {
     return createError(400, "invalid-role");
   }
   const targetRole = input.role;
+  if (!isValidCapabilityGrant(input.capabilities, input.role)) return createError(400, "invalid-capabilities");
 
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
@@ -200,7 +208,7 @@ export async function updateProjectMemberRole(input: {
       return createError(400, "cannot-change-owner-role");
     }
 
-    if (membership.role === targetRole) {
+    if (membership.role === targetRole && input.capabilities === undefined) {
       return createSuccess(200, { role: targetRole });
     }
 
@@ -208,9 +216,11 @@ export async function updateProjectMemberRole(input: {
       where: { id: membershipId },
       data: {
         role: targetRole,
+        ...(input.capabilities !== undefined ? { capabilities: input.capabilities === null ? Prisma.DbNull : input.capabilities as string[] } : {}),
       },
     });
 
+    await touchProjectActivity({ db, projectId: input.projectId });
     return createSuccess(200, { role: targetRole });
   });
 }
@@ -304,7 +314,7 @@ export async function getProjectRoleForActor(input: {
       return createError(access.status, access.error);
     }
 
-    return createSuccess(200, { role: access.role });
+    return createSuccess(200, { role: access.role, capabilities: access.capabilities });
   });
 }
 

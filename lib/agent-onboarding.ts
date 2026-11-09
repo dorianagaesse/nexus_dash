@@ -91,8 +91,28 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     title: "List meeting notes and todos",
     description:
       "List project meeting notes with todo creator, assignee, assigner, completion actor, and access state.",
-    requiredScopes: ["task:read"],
+    requiredScopes: ["meeting:read"],
     notes: ["External meeting participants are attendance context and cannot be assignees."],
+  },
+  {
+    tag: "Meetings", method: "POST", path: "/api/projects/{projectId}/meeting-notes",
+    title: "Create meeting note", description: "Create a team-visible meeting note.",
+    requiredScopes: ["meeting:write"], requestContentType: "application/json",
+    notes: ["Agents cannot create private notes; visibility defaults to team."],
+  },
+  {
+    tag: "Meetings", method: "GET", path: "/api/projects/{projectId}/meeting-notes/{noteId}",
+    title: "Read meeting note", description: "Read one team-visible meeting note.", requiredScopes: ["meeting:read"],
+    notes: ["Private notes remain inaccessible to agents, including credentials belonging to their creator."],
+  },
+  {
+    tag: "Meetings", method: "PATCH", path: "/api/projects/{projectId}/meeting-notes/{noteId}",
+    title: "Update meeting note", description: "Update a team-visible meeting note.", requiredScopes: ["meeting:write"], requestContentType: "application/json",
+    notes: ["Agents cannot change a note to private. Conditional If-Match revisions are supported."],
+  },
+  {
+    tag: "Meetings", method: "DELETE", path: "/api/projects/{projectId}/meeting-notes/{noteId}",
+    title: "Delete meeting note", description: "Delete a team-visible meeting note.", requiredScopes: ["meeting:delete"],
   },
   {
     tag: "Meetings",
@@ -101,7 +121,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     title: "Update meeting todo accountability",
     description:
       "Complete, reopen, assign, or unassign one meeting todo without replacing sibling todos.",
-    requiredScopes: ["task:write"],
+    requiredScopes: ["meeting:write"],
     requestContentType: "application/json",
     notes: [
       "Send exactly one of completed or assignee.",
@@ -125,7 +145,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/epics",
     title: "List epics",
     description: "List project epics with automatic status, progress, and linked task summaries.",
-    requiredScopes: ["task:read"],
+    requiredScopes: ["epic:read"],
     notes: [
       "Archived epics are excluded by default; pass includeArchived=true to include them.",
       "Epic status is derived automatically from linked task states.",
@@ -138,7 +158,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/epics",
     title: "Create epic",
     description: "Create a new project epic.",
-    requiredScopes: ["task:write"],
+    requiredScopes: ["epic:write"],
     requestContentType: "application/json",
     notes: ["Epic names must stay unique within a project."],
   },
@@ -148,7 +168,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/epics/{epicId}",
     title: "Update epic",
     description: "Update an existing project epic.",
-    requiredScopes: ["task:write"],
+    requiredScopes: ["epic:write"],
     requestContentType: "application/json",
     notes: ["Epic names must stay unique within a project."],
   },
@@ -158,7 +178,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/epics/{epicId}",
     title: "Delete epic",
     description: "Delete an epic and clear the epic link from its tasks.",
-    requiredScopes: ["task:write"],
+    requiredScopes: ["epic:delete"],
     notes: ["Deleting an epic does not delete its tasks."],
   },
   {
@@ -167,7 +187,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/epics/{epicId}/archive",
     title: "Archive epic",
     description: "Archive an epic so it is hidden from the default epic list.",
-    requiredScopes: ["task:write"],
+    requiredScopes: ["epic:write"],
     notes: [
       "Completed epics are archived automatically after a grace period; this operation archives an epic immediately.",
       "Archiving an epic does not change its linked tasks, and linking new tasks does not unarchive it.",
@@ -180,7 +200,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/epics/{epicId}/archive",
     title: "Restore epic",
     description: "Restore an archived epic to the default epic list.",
-    requiredScopes: ["task:write"],
+    requiredScopes: ["epic:write"],
     notes: ["Restoring an epic that is not archived is a no-op that returns the epic."],
   },
   {
@@ -664,7 +684,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "Stable item ids: assignment:task:<taskId> and assignment:meeting_todo:<actionId>.",
       "state=active|completed filters by artifact completion (Done task / completed to-do); invalid values are rejected.",
       "occurredAt is the assignment time; assignments stored before provenance tracking report null and sort as oldest.",
-      "Following a source reference is a separate read: task and meeting-note routes require task:read, so an attention:read-only credential gets 403 on them.",
+      "Following a source reference is a separate read: task routes require task:read and meeting-note routes require meeting:read, so an attention:read-only credential gets 403 on them.",
       `Filters: artifactType=task|meeting_todo, since/until, limit 1-${AGENT_ATTENTION_MAX_LIMIT} (default ${AGENT_ATTENTION_DEFAULT_LIMIT}), order asc|desc, and an opaque cursor.`,
       "Invalid filter values return agent-attention-invalid-filter; invalid or mismatched cursors return agent-attention-invalid-cursor.",
     ],
@@ -1038,7 +1058,7 @@ export function buildAgentAttentionExample(): string {
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
     "",
     "# 5. Follow the source reference before acting on an item. These source",
-    "#    reads need task:read on top of attention:read; an attention-only",
+    "#    reads need task:read or meeting:read on top of attention:read; an attention-only",
     "#    credential gets 403 and should work from the item summary instead:",
     "#    - artifact.type=task_comment -> GET .../tasks/$ARTIFACT_TASK_ID/comments",
     "#    - artifact.type=task         -> GET .../tasks/$ARTIFACT_TASK_ID",
@@ -1153,6 +1173,29 @@ function buildCommonErrorResponses() {
 export function buildAgentOpenApiDocument(appOrigin?: string | null) {
   const serverUrl = normalizeOrigin(appOrigin);
   const commonErrorResponses = buildCommonErrorResponses();
+  const meetingBody = {
+    type: "object",
+    properties: {
+      title: { type: "string" },
+      scheduledAt: { type: ["string", "null"], format: "date-time" },
+      visibility: { type: "string", enum: ["team"], description: "Agents can only access team notes; omitted visibility defaults to team on creation." },
+      inputNotes: { type: "string" }, outputNotes: { type: "string" }, decisions: { type: "string" },
+      labels: { type: "array", items: { type: "string" } },
+      status: { type: ["string", "null"] },
+      participants: { type: "array", items: { oneOf: [{ type: "string" }, { type: "object", properties: { userId: { type: ["string", "null"] }, displayName: { type: "string" } } }] } },
+      actions: { type: "array", items: { type: "object", required: ["content"], properties: {
+        id: { type: ["string", "null"] }, content: { type: "string" },
+        completedAt: { type: ["string", "null"], format: "date-time" },
+        assignee: { type: ["object", "null"], properties: { kind: { type: "string", enum: ["human", "agent"] }, id: { type: "string" } } },
+      } } },
+    },
+  };
+  const meetingResponse = { description: "Team meeting note returned", content: { "application/json": { schema: {
+    type: "object", required: ["note"], properties: { note: { type: "object", additionalProperties: true, required: ["id", "projectId", "title", "visibility"], properties: {
+      ...meetingBody.properties, id: { type: "string" }, projectId: { type: "string" },
+    } } },
+  } } } };
+
   const contentEtagHeaders = {
     ETag: { description: "Strong entity/content revision validator for conditional PATCH.", schema: { type: "string" } },
   };
@@ -3434,6 +3477,13 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
         },
       },
       "/api/projects/{projectId}/meeting-notes": {
+        post: {
+          ...buildOperationMetadata("POST", "/api/projects/{projectId}/meeting-notes"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }],
+          requestBody: { required: true, content: { "application/json": { schema: { ...meetingBody, required: ["title"] } } } },
+          responses: { 201: meetingResponse, ...commonErrorResponses },
+        },
         get: {
           ...buildOperationMetadata(
             "GET",
@@ -3506,6 +3556,27 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
             ...commonErrorResponses,
           },
+        },
+      },
+      "/api/projects/{projectId}/meeting-notes/{noteId}": {
+        get: {
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/meeting-notes/{noteId}"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { name: "noteId", in: "path", required: true, schema: { type: "string" } }],
+          responses: { 200: meetingResponse, ...commonErrorResponses },
+        },
+        patch: {
+          ...buildOperationMetadata("PATCH", "/api/projects/{projectId}/meeting-notes/{noteId}"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { name: "noteId", in: "path", required: true, schema: { type: "string" } }],
+          requestBody: { required: true, content: { "application/json": { schema: meetingBody } } },
+          responses: { 200: meetingResponse, ...commonErrorResponses },
+        },
+        delete: {
+          ...buildOperationMetadata("DELETE", "/api/projects/{projectId}/meeting-notes/{noteId}"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { name: "noteId", in: "path", required: true, schema: { type: "string" } }],
+          responses: { 200: { description: "Meeting note deleted", content: { "application/json": { schema: { $ref: "#/components/schemas/OkResponse" } } } }, ...commonErrorResponses },
         },
       },
       "/api/projects/{projectId}/meeting-notes/{noteId}/actions/{actionId}": {

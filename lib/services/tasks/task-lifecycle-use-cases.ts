@@ -71,6 +71,7 @@ export async function reorderProjectTasks(
       actorUserId: normalizedActorUserId,
       projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -185,6 +186,7 @@ export async function moveTaskStatusForProject(
       actorUserId: normalizedActorUserId,
       projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -233,7 +235,7 @@ export async function moveTaskStatusForProject(
         existingTask.archivedAt === null &&
         completedAtUnchanged
       ) {
-        const task = await loadTaskMutationPayload(db, projectId, taskId);
+        const task = await loadTaskMutationPayload(db, projectId, taskId, access.capabilities.includes("epic:read") && (!agentAccess || agentAccess.scopes.includes("epic:read")));
         if (!task) {
           return createError(404, "Task not found");
         }
@@ -269,7 +271,7 @@ export async function moveTaskStatusForProject(
 
       await touchProjectActivity({ db, projectId });
 
-      const task = await loadTaskMutationPayload(db, projectId, taskId);
+      const task = await loadTaskMutationPayload(db, projectId, taskId, access.capabilities.includes("epic:read") && (!agentAccess || agentAccess.scopes.includes("epic:read")));
       if (!task) {
         return createError(500, "Failed to move task");
       }
@@ -307,6 +309,7 @@ export async function archiveTaskForProject(
       actorUserId: normalizedActorUserId,
       projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -396,6 +399,7 @@ export async function unarchiveTaskForProject(
       actorUserId: normalizedActorUserId,
       projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -473,6 +477,7 @@ export async function deleteTaskForProject(
       actorUserId: normalizedActorUserId,
       projectId,
       minimumRole: "owner",
+      capability: "task:delete",
       db,
     });
     if (!access.ok) {

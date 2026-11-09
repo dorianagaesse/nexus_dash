@@ -1,4 +1,5 @@
 "use client";
+import { useProjectCapability } from "@/components/project-capability-provider";
 
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
@@ -248,6 +249,7 @@ export function ProjectEpicPanel({
     logLabel: "ProjectEpicPanel",
   });
   const initialEpicsRef = useRef(epics);
+  const canDelete = useProjectCapability("epic:delete");
   const [localEpics, setLocalEpics] = useState<ProjectEpicPanelEpic[]>(
     () => getLatestProjectEpicSnapshot(projectId) ?? epics
   );
@@ -1054,6 +1056,7 @@ export function ProjectEpicPanel({
                                     setPendingDeleteEpicId(epic.id)
                                   }
                                   aria-label={`Delete epic ${epic.name}`}
+                                  disabled={!canDelete}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>

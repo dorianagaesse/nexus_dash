@@ -244,6 +244,7 @@ describe("api-guard", () => {
       },
     });
     expect(projectAgentAccessServiceMock.recordAgentRequestUsage).toHaveBeenCalledWith({
+      scopes: ["task:read"],
       credentialId: "credential-1",
       ownerUserId: "owner-1",
       projectId: "project-1",

@@ -202,7 +202,7 @@ export function ProjectAgentCredentialList({
           >
             <option value="all">All capabilities</option>
             <option value="complete-tasks">Complete tasks</option>
-            {AGENT_SCOPE_DEFINITIONS.map(({ scope, label }) => (
+            {AGENT_SCOPE_DEFINITIONS.filter(({ scope }) => !scope.startsWith("schedule:")).map(({ scope, label }) => (
               <option key={scope} value={scope}>
                 {label}
               </option>
@@ -293,13 +293,7 @@ export function ProjectAgentCredentialList({
                     {describeAgentAccess(credential.scopes)}
                   </p>
                   <p className="break-words text-xs leading-relaxed text-muted-foreground">
-                    {describeAgentResources(credential.scopes)
-                      .map((resource) =>
-                        describeAgentAccess(credential.scopes) === "Custom access"
-                          ? `${resource.name}: ${resource.actions}`
-                          : resource.name
-                      )
-                      .join(" · ")}
+                    {describeAgentResources(credential.scopes).map((resource) => resource.name).join(", ")}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {credential.expiresAt
