@@ -1,12 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Bot,
+  ChevronDown,
+  ChevronRight,
+  Plus,
+  RefreshCw,
+} from "lucide-react";
 import { AGENT_CREDENTIAL_PRESETS, AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
 import { AgentCredentialLabelsField } from "./agent-credential-labels-field";
 import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
 import { AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR } from "@/lib/agent-credential-labels";
 import { ProjectAgentPermissionFields } from "./project-agent-permission-fields";
-import { AgentDeviceAccess, readablePermissions } from "./agent-device-access";
+import { AgentDeviceAccess } from "./agent-device-access";
 import { Button } from "@/components/ui/button";
 import { agentDeviceState } from "@/lib/agent-device-state";
 import { AgentPairingGuidance } from "./agent-pairing-guidance";
@@ -49,8 +56,19 @@ type Identity = {
 };
 const initialScopes: AgentScope[] = ["project:read", "task:read", "task:write"];
 const fieldClass =
-  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const statusClass =
+  "inline-flex shrink-0 items-center rounded-full border border-border px-2 py-1 text-xs font-medium text-muted-foreground";
+const summaryClass =
+  "flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-md py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden";
 const date = (v: string) => new Date(v).toLocaleString();
+const describePermissions = (scopes: AgentScope[]) =>
+  scopes
+    .map(
+      (scope) =>
+        AGENT_SCOPE_DEFINITIONS.find((s) => s.scope === scope)?.label ?? scope
+    )
+    .join(" Â· ");
 
 function ScopeChoices({
   scopes,
@@ -188,19 +206,22 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
     setDeviceDone(identity.canMoveTasksToDone);
   };
   return (
-    <section aria-label="Agent identities" className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold">Agent identities</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
+    <section aria-label="Agent identities" className="min-w-0 space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1 basis-72">
+          <h3 className="text-xl font-semibold tracking-tight">
+            Agent identities
+          </h3>
+          <p className="mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">
             One agent across devices and coding clients. Every launch has its
             own session.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
+            className="min-h-11 flex-1 sm:flex-none"
             disabled={busy || loading}
             onClick={async () => {
               setBusy(true);
@@ -216,10 +237,12 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               }
             }}
           >
+            <RefreshCw className="size-4" aria-hidden />
             Refresh identities
           </Button>
           <Button
             size="sm"
+            className="min-h-11 flex-1 sm:flex-none"
             disabled={busy}
             onClick={() => {
               setSelectedId(null);
@@ -233,16 +256,20 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               setPairing(null);
             }}
           >
+            <Plus className="size-4" aria-hidden />
             New identity
           </Button>
         </div>
       </div>
       {error && (
-        <p role="alert" className="text-sm text-destructive">
+        <p
+          role="alert"
+          className="rounded-lg border border-destructive/30 px-4 py-3 text-sm text-destructive"
+        >
           {error}{" "}
           <button
             type="button"
-            className="underline"
+            className="rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => {
               setError(null);
               void refresh().catch((e) => setError(e.message));
@@ -254,10 +281,10 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
       )}
       {loading ? (
         <p role="status" className="text-sm text-muted-foreground">
-          Loading identities…
+          Loading identitiesâ€¦
         </p>
       ) : !identities.length && !editing ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="rounded-xl border border-dashed border-border px-5 py-6 text-sm leading-relaxed text-muted-foreground">
           Create an identity, choose its permissions, then authorize a device to
           start working.
         </p>
@@ -270,22 +297,33 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
             aria-label={`${identity.name} ${identity.descriptiveLabels.join(" ")}`.trim()}
             aria-pressed={selectedId === identity.id}
             onClick={() => select(identity)}
-            className={`flex w-full items-center justify-between gap-3 px-2 py-3 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selectedId === identity.id ? "bg-muted" : ""}`}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selectedId === identity.id ? "bg-muted ring-1 ring-inset ring-border" : ""}`}
           >
-            <span>
-              <span className="font-medium">{identity.name}</span>
-              <AgentCredentialDescriptiveLabels labels={identity.descriptiveLabels} />
+            <Bot
+              className="size-5 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+            <span className="min-w-0 flex-1">
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="break-words font-semibold [overflow-wrap:anywhere]">
+                  {identity.name}
+                </span>
+                <AgentCredentialDescriptiveLabels
+                  labels={identity.descriptiveLabels}
+                />
+              </span>
               <span className="mt-1 block text-xs text-muted-foreground">
-                {identity.scopes.length} permissions ·{" "}
+                {identity.scopes.length}{" "}
+                {identity.scopes.length === 1 ? "permission" : "permissions"} Â·{" "}
                 {
                   identity.devices.filter(
                     (d) => agentDeviceState(d, now) === "Paired"
                   ).length
                 }{" "}
-                paired devices · {identity.devices.filter(d => agentDeviceState(d, now) === "Pending pairing").length} pending
+                paired devices Â· {identity.devices.filter(d => agentDeviceState(d, now) === "Pending pairing").length} pending
               </span>
             </span>
-            <span className="text-xs text-muted-foreground">
+            <span className={statusClass}>
               {identity.revokedAt
                 ? "Inactive"
                 : identity.expiresAt &&
@@ -293,12 +331,16 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                   ? "Expired"
                   : "Active"}
             </span>
+            <ChevronRight
+              className={`hidden size-4 shrink-0 text-muted-foreground sm:block ${selectedId === identity.id ? "rotate-90" : ""}`}
+              aria-hidden
+            />
           </button>
         ))}
       </div>
       {editing && (
         <form
-          className="space-y-4 border-t pt-4"
+          className="space-y-5 border-t pt-6"
           onSubmit={async (e) => {
             e.preventDefault();
             if (labelDraft.trim()) {
@@ -319,7 +361,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               setEditing(false);
           }}
         >
-          <h4 className="font-medium">
+          <h4 className="text-lg font-semibold tracking-tight">
             {selected ? `Edit ${selected.name}` : "Create identity"}
           </h4>
           <label className="block space-y-1 text-sm">
@@ -346,8 +388,9 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
             disabled={busy}
           />
           <ScopeChoices scopes={scopes} onChange={setScopes} />
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex min-h-11 cursor-pointer items-center gap-3 border-t pt-3 text-sm font-medium">
             <input
+              className="size-4 shrink-0 accent-primary focus-visible:ring-2 focus-visible:ring-ring"
               type="checkbox"
               checked={done}
               onChange={(e) => setDone(e.target.checked)}
@@ -355,16 +398,21 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
             Allow moving tasks to Done
           </label>
           <p className="text-xs text-muted-foreground">Done moves also require Tasks edit (Task Write). This option alone does not grant task editing.</p>
-          <div className="flex gap-2">
-            <Button type="submit" disabled={busy || !scopes.length}>
+          <div className="flex flex-wrap gap-2 border-t pt-4">
+            <Button
+              className="min-h-11"
+              type="submit"
+              disabled={busy || !scopes.length}
+            >
               {busy
-                ? "Saving…"
+                ? "Savingâ€¦"
                 : selected
                   ? "Save identity"
                   : "Create identity"}
             </Button>
             <Button
               variant="outline"
+              className="min-h-11"
               type="button"
               onClick={() => setEditing(false)}
             >
@@ -374,19 +422,18 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
         </form>
       )}
       {selected && !editing && (
-        <div className="space-y-5 border-t pt-4">
+        <div className="min-w-0 space-y-6 border-t pt-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h4 className="font-semibold">{selected.name}</h4>
+            <div className="min-w-0 flex-1 basis-48">
+              <h4 className="break-words text-lg font-semibold tracking-tight [overflow-wrap:anywhere]">
+                {selected.name}
+              </h4>
               <details className="mt-1 text-xs text-muted-foreground"><summary className="cursor-pointer">Identity details</summary><p className="break-all">Identity ID: {selected.id}</p><p>{selected.identityMode ? "Runtime identity" : "Legacy credential and paired devices share this actor?s attribution."}</p></details>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {readablePermissions(selected.scopes)} · Done moves{" "}
-                {selected.canMoveTasksToDone && selected.scopes.includes("task:write") ? "allowed" : "denied"}
-              </p>
             </div>
             <Button
               size="sm"
               variant="outline"
+              className="min-h-11"
               disabled={busy || !!selected.revokedAt}
               onClick={() => {
                 setName(selected.name);
@@ -401,15 +448,33 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               Edit identity
             </Button>
           </div>
+          <dl className="grid gap-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="min-w-0">
+              <dt className="font-medium">Permissions</dt>
+              <dd className="mt-1 leading-relaxed text-muted-foreground">
+                {describePermissions(selected.scopes)}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium">Move tasks to Done</dt>
+              <dd className="mt-1 text-muted-foreground">
+                {selected.canMoveTasksToDone && selected.scopes.includes("task:write") ? "Allowed" : "Not allowed"}
+              </dd>
+            </div>
+          </dl>
           <AgentDeviceAccess key={selected.id} identity={selected} now={now} busy={busy} mutate={mutate}
             onLaunch={device => setPairing({ deviceId: device.id, code: null, expiresAt: device.pairingExpiresAt })} />
           {!selected.revokedAt && (
-            <details className="border-t pt-3">
-              <summary className="cursor-pointer text-sm font-medium">
+            <details className="group border-t pt-2">
+              <summary className={summaryClass}>
                 Authorize a device
+                <ChevronDown
+                  className="size-4 shrink-0 text-muted-foreground group-open:rotate-180"
+                  aria-hidden
+                />
               </summary>
               <form
-                className="mt-3 space-y-4"
+                className="mt-3 space-y-5 pb-2"
                 onSubmit={async (e) => {
                   e.preventDefault();
                   if (!effectiveDeviceScopes.length) return;
@@ -424,7 +489,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               >
                 <p className="text-sm text-muted-foreground">
                   Authorize this device for {selected.name} only, for 90 days.
-                  Its permissions cannot exceed this identity’s permissions.
+                  Its permissions cannot exceed this identityâ€™s permissions.
                 </p>
                 <label className="block space-y-1 text-sm">
                   Device name
@@ -443,8 +508,9 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                   allowed={selected.scopes}
                 />
                 {selected.canMoveTasksToDone && (
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
                     <input
+                      className="size-4 shrink-0 accent-primary focus-visible:ring-2 focus-visible:ring-ring"
                       type="checkbox"
                       checked={effectiveDeviceDone}
                       onChange={(e) => setDeviceDone(e.target.checked)}
@@ -454,6 +520,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                 )}
                 <Button
                   type="submit"
+                  className="min-h-11"
                   disabled={busy || !effectiveDeviceScopes.length}
                 >
                   Generate pairing code
@@ -473,28 +540,35 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               onDismiss={() => setPairing(null)}
             />
           )}
-          <details className="border-t pt-3">
-            <summary className="cursor-pointer text-sm font-medium">
+          <details className="group border-t pt-2">
+            <summary className={summaryClass}>
               Recent activity
+              <ChevronDown
+                className="size-4 shrink-0 text-muted-foreground group-open:rotate-180"
+                aria-hidden
+              />
             </summary>
-            <ul className="mt-2 space-y-2">
+            <ul className="mt-2 divide-y divide-border">
               {selected.auditEvents.map((a) => (
-                <li key={a.id} className="text-xs">
+                <li
+                  key={a.id}
+                  className="break-words py-3 text-xs leading-relaxed [overflow-wrap:anywhere]"
+                >
                   <span>
                     {String(a.metadata?.operation ?? a.action).replaceAll(
                       "_",
                       " "
                     )}
-                    {a.metadata?.client ? ` · ${a.metadata.client}` : ""}
+                    {a.metadata?.client ? ` Â· ${a.metadata.client}` : ""}
                     {a.metadata?.deviceName
-                      ? ` · ${a.metadata.deviceName}`
+                      ? ` Â· ${a.metadata.deviceName}`
                       : ""}
-                    {a.metadata?.path ? ` · ${a.metadata.path}` : ""}
+                    {a.metadata?.path ? ` Â· ${a.metadata.path}` : ""}
                   </span>
                   <span className="block text-muted-foreground">
                     {date(a.createdAt)}
                     {a.metadata?.sessionId
-                      ? ` · Session ${a.metadata.sessionId}`
+                      ? ` Â· Session ${a.metadata.sessionId}`
                       : ""}
                   </span>
                 </li>
@@ -502,13 +576,14 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
             </ul>
           </details>
           {!selected.revokedAt && (
-            <div className="space-y-2 border-t pt-3">
-              <p className="text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-3 border-t pt-5">
+              <p className="min-w-0 flex-1 basis-64 text-xs leading-relaxed text-muted-foreground">
                 Deactivating ends all access. Assignments, mentions and
                 historical contributions remain attached to this identity.
               </p>
               <Button
                 variant="outline"
+                className="min-h-11 max-w-full whitespace-normal text-destructive hover:text-destructive"
                 disabled={busy}
                 onClick={() => {
                   if (!confirmDeactivate) setConfirmDeactivate(true);
@@ -526,6 +601,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               {confirmDeactivate && (
                 <Button
                   variant="ghost"
+                  className="min-h-11"
                   onClick={() => setConfirmDeactivate(false)}
                 >
                   Cancel
