@@ -11753,5 +11753,11 @@ the original run passed the other 143 scenarios, including notification revocati
 
 - Browser integration exposed a legacy permission test that did not expand the new disclosure, plus an identity-list 500 when a shared database contains newer scope enums. Updated the existing browser scenario and filtered runtime identity grant reads before Prisma enum deserialization; the compatibility browser test now asserts the identity endpoint as well as the legacy directory.
 
-## 2026-11-09 — ND-824 pairing completion
+### 2026-11-09 - ND-658: identity panel visual cleanup
+
+- Applied Impeccable's polish workflow to the existing identity manager: clearer identity/device/session hierarchy, readable permission labels, larger controls, keyboard focus, and wrapping for technical IDs and long names. Session controls include their client and device in accessible names. Paired-device wording describes completed pairing separately from session state.
+- Kept legacy API credentials visible behind their existing disclosure with a short explanation. No changes to authentication, grants, persistence, or API operations. Docker integration and functional setup/permission changes remain in ND-823/824/825.
+- Desktop and 390px mobile review passed without horizontal overflow; both edited components passed the Impeccable detector. Existing device-grant unit checks, lint, RLS inventory and production build passed. Full baseline results and final production-render evidence are recorded on PR #669.
+
+## 2026-11-09 - ND-824 pairing completion
 Built against ND-658 PR #669. Added accurate authorization states/counts, bounded pending refresh, consumed/expired code hiding, copy feedback and bound launch guidance. Component regressions cover completion and expiry; browser regression includes keyboard focus and desktop/mobile captures. Validation results will be recorded before handoff.

@@ -5,6 +5,11 @@ identity (for example **Oscar**, role label **Orchestrator**), chooses scopes,
 and separately grants **Allow moving tasks to Done**. Labels grant no access.
 An identity's ID is permanent. Use that ID for assignments and mentions.
 
+Select an identity to see its permissions, devices and sessions. Permissions
+use the same readable labels as the editor. A **Paired** device has completed
+pairing; each session separately shows its state and last activity. Expand
+**Legacy API credentials** to create, rotate or manage existing API keys.
+
 ## Pair each authorized device once
 
 1. Select the identity and expand **Authorize a device**. Name the laptop or
