@@ -5,14 +5,15 @@ import {
   Bot,
   ChevronDown,
   ChevronRight,
-  Laptop,
   Plus,
   RefreshCw,
 } from "lucide-react";
-import { AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
+import { AGENT_CREDENTIAL_PRESETS, AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
 import { AgentCredentialLabelsField } from "./agent-credential-labels-field";
 import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
 import { AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR } from "@/lib/agent-credential-labels";
+import { ProjectAgentPermissionFields } from "./project-agent-permission-fields";
+import { AgentDeviceAccess } from "./agent-device-access";
 import { Button } from "@/components/ui/button";
 import { agentDeviceState } from "@/lib/agent-device-state";
 import { AgentPairingGuidance } from "./agent-pairing-guidance";
@@ -78,40 +79,24 @@ function ScopeChoices({
   onChange: (v: AgentScope[]) => void;
   allowed?: AgentScope[];
 }) {
-  return (
-    <fieldset className="space-y-2">
-      <legend className="mb-2 text-sm font-medium">Permissions</legend>
-      <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
-        {AGENT_SCOPE_DEFINITIONS.filter(
-          (s) => !allowed || allowed.includes(s.scope)
-        ).map((s) => (
-          <label
-            key={s.scope}
-            className="flex min-h-11 cursor-pointer items-start gap-3 rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-muted/60 has-[:checked]:bg-muted/60"
-          >
-            <input
-              className="mt-1 size-4 shrink-0 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              type="checkbox"
-              checked={scopes.includes(s.scope)}
-              onChange={(e) =>
-                onChange(
-                  e.target.checked
-                    ? [...scopes, s.scope]
-                    : scopes.filter((v) => v !== s.scope)
-                )
-              }
-            />
-            <span className="min-w-0">
-              <span className="font-medium">{s.label}</span>
-              <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
-                {s.description}
-              </span>
-            </span>
-          </label>
-        ))}
-      </div>
-    </fieldset>
-  );
+  return <fieldset className="min-w-0 space-y-3">
+    <legend className="mb-2 text-sm font-medium">Permissions</legend>
+    <label className="block space-y-1 text-sm">Task permission preset
+      <select className={fieldClass} value="custom" onChange={event => {
+        const preset = AGENT_CREDENTIAL_PRESETS.find(item => item.id === event.target.value);
+        if (preset) onChange(preset.scopes.filter(scope => !allowed || allowed.includes(scope)));
+      }}>
+        <option value="custom">Custom permissions</option>
+        {AGENT_CREDENTIAL_PRESETS.filter(preset => !allowed || preset.scopes.some(scope => allowed.includes(scope))).map(preset => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+      </select>
+    </label>
+    <p className="text-xs text-muted-foreground">Presets replace the selection with task permissions. Choose other modules below. Device grants stay within the selected identity permissions.</p>
+    <ProjectAgentPermissionFields value={scopes} onChange={onChange} allowed={allowed} />
+    <details className="text-sm"><summary className="cursor-pointer">Reserved capabilities</summary>
+      <p className="my-2 text-xs text-muted-foreground">Shared schedule grants are reserved for future use. They do not grant personal Calendar access.</p>
+      {AGENT_SCOPE_DEFINITIONS.filter(item => item.scope.startsWith("schedule:") && (!allowed || allowed.includes(item.scope))).map(item => <label key={item.scope} className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={scopes.includes(item.scope)} onChange={event => onChange(event.target.checked ? [...scopes, item.scope] : scopes.filter(scope => scope !== item.scope))} />{item.label}</label>)}
+    </details>
+  </fieldset>;
 }
 
 export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
@@ -412,6 +397,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
             />
             Allow moving tasks to Done
           </label>
+          <p className="text-xs text-muted-foreground">Done moves also require Tasks edit (Task Write). This option alone does not grant task editing.</p>
           <div className="flex flex-wrap gap-2 border-t pt-4">
             <Button
               className="min-h-11"
@@ -442,9 +428,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               <h4 className="break-words text-lg font-semibold tracking-tight [overflow-wrap:anywhere]">
                 {selected.name}
               </h4>
-              <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
-                Identity: {selected.id}
-              </p>
+              <details className="mt-1 text-xs text-muted-foreground"><summary className="cursor-pointer">Identity details</summary><p className="break-all">Identity ID: {selected.id}</p><p>{selected.identityMode ? "Runtime identity" : "Legacy credentials and paired devices share this actor and its history."}</p></details>
             </div>
             <Button
               size="sm"
@@ -474,113 +458,12 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
             <div>
               <dt className="font-medium">Move tasks to Done</dt>
               <dd className="mt-1 text-muted-foreground">
-                {selected.canMoveTasksToDone ? "Allowed" : "Not allowed"}
+                {selected.canMoveTasksToDone && selected.scopes.includes("task:write") ? "Allowed" : "Not allowed"}
               </dd>
             </div>
           </dl>
-          <div>
-            <h5 className="mb-1 text-sm font-semibold">Devices and sessions</h5>
-            {!selected.devices.length && (
-              <p className="py-3 text-sm text-muted-foreground">
-                No devices authorized yet.
-              </p>
-            )}
-            <ul className="divide-y divide-border">
-              {selected.devices.map((d) => (
-                <li key={d.id} className="min-w-0 space-y-3 py-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex min-w-0 flex-1 basis-48 flex-wrap items-center gap-2 text-sm">
-                      <Laptop
-                        className="size-4 shrink-0 text-muted-foreground"
-                        aria-hidden
-                      />
-                      <strong className="min-w-0 break-words font-medium [overflow-wrap:anywhere]">
-                        {d.name}
-                      </strong>
-                      <span className={statusClass}>
-                        {agentDeviceState(d, now)}
-                      </span>
-                    </div>
-                    {!d.revokedAt && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="min-h-11"
-                        aria-label={`Revoke ${d.name}`}
-                        disabled={busy}
-                        onClick={() =>
-                          void mutate({
-                            operation: "revoke-device",
-                            identityId: selected.id,
-                            deviceId: d.id,
-                          })
-                        }
-                      >
-                        Revoke
-                      </Button>
-                    )}
-                  </div>
-                  {agentDeviceState(d, now) === "Paired" && <Button size="sm" variant="ghost" onClick={() => setPairing({ deviceId: d.id, code: null, expiresAt: d.pairingExpiresAt })}>Launch instructions for {d.name}</Button>}
-                  <p className="text-xs text-muted-foreground">
-                    Expires {date(d.expiresAt)} · Done moves{" "}
-                    {d.canMoveTasksToDone && selected.canMoveTasksToDone
-                      ? "allowed"
-                      : "denied"}
-                    <br />
-                    Effective permissions:{" "}
-                    {describePermissions(
-                      d.scopes.filter((s) => selected.scopes.includes(s))
-                    ) || "None"}
-                  </p>
-                  <div className="space-y-3 border-l border-border pl-4">
-                    {d.sessions.map((s) => (
-                      <div
-                        key={s.id}
-                        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm"
-                      >
-                        <span className="min-w-0 flex-1 basis-48 break-words [overflow-wrap:anywhere]">
-                          <span className="font-medium">{s.client}</span>
-                          {" · "}
-                          <span className="text-xs text-muted-foreground">
-                            {s.endedAt
-                              ? "Ended"
-                              : new Date(s.expiresAt) <= new Date()
-                                ? "Expired"
-                                : "Active"}
-                          </span>
-                          <br />
-                          <span className="text-xs leading-relaxed text-muted-foreground">
-                            Last active {date(s.lastActiveAt)}
-                            <span className="block break-all font-mono">
-                              {s.id}
-                            </span>
-                          </span>
-                        </span>
-                        {!s.endedAt && new Date(s.expiresAt) > new Date() && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="min-h-11"
-                            aria-label={`End session: ${s.client} on ${d.name}, ${s.id}`}
-                            disabled={busy}
-                            onClick={() =>
-                              void mutate({
-                                operation: "end-session",
-                                identityId: selected.id,
-                                sessionId: s.id,
-                              })
-                            }
-                          >
-                            End session
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <AgentDeviceAccess key={selected.id} identity={selected} now={now} busy={busy} mutate={mutate}
+            onLaunch={device => setPairing({ deviceId: device.id, code: null, expiresAt: device.pairingExpiresAt })} />
           {!selected.revokedAt && (
             <details className="group border-t pt-2">
               <summary className={summaryClass}>
@@ -632,7 +515,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                       checked={effectiveDeviceDone}
                       onChange={(e) => setDeviceDone(e.target.checked)}
                     />
-                    Allow Done moves from this device
+                    Allow Done moves from this device (requires Tasks edit)
                   </label>
                 )}
                 <Button
