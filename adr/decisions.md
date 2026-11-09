@@ -1307,6 +1307,71 @@ Keep UI-only or task-only notes in `journal.md`.
   saving. Denied updates create no success event.
 
 
+## 2026-11-05 - ND-656: Snapshot descriptive credential labels on comments
+
+- Status: Superseded by the 2026-11-08 current-author decision below.
+- Decision: Keep optional descriptive labels on `ApiCredential`, separate from
+  its name and scope grants. Copy the labels into `TaskComment` at posting and
+  project them with the stored author name; comment edits preserve both.
+  Owner-session services alone may administer credential metadata.
+- Consequences: Model information remains historically accurate after credential
+  rename, relabel, rotation, revocation or deletion. Existing comments keep an
+  empty label array rather than inheriting metadata added after posting. The
+  additive migration must precede the application deploy; token exchange and
+  authorization contracts remain unchanged.
+
+- Audit boundary: descriptive label edits remain display-metadata changes and
+  do not add an `AuthAuditEvent` action. The existing authentication audit covers
+  credential issuance, rotation, revocation, token exchange and request use.
+  Label edits change neither authority nor historical attribution; posting-time
+  comment snapshots remain the record of the labels used for each comment.
+  A general metadata-change audit can be added separately if required.
+
+## 2026-11-08 - ND-656: current public author identity for comments
+
+- Status: Accepted following Dorian's explicit preference for current names and
+  labels on all comments, including comments posted before metadata edits.
+- Decision: Add a project-scoped `AgentAuthorIdentity` containing only public
+  name and labels. Its stable ID matches the originating credential. A narrow
+  credential trigger maintains it atomically and invalidates project activity;
+  deleting the secret-bearing credential leaves the public identity intact.
+  Comments reference this identity independently of their credential FK and
+  resolve it in their existing authorized read, create and edit queries.
+- Migration: Backfill current credential metadata and links for existing
+  comments. A comment-insert trigger also links writes from older immutable
+  deployments. Already-orphaned comments retain snapshots: their original IDs
+  were removed by the old `ON DELETE SET NULL` behavior and cannot be recovered
+  reliably. New display reads never access credential secrets or require owner
+  access; forced RLS limits public identities to current project members.
+- Consequences: Adding, removing or changing labels, and renaming an agent,
+  changes every linked comment's author display. Empty current labels remain
+  empty instead of falling back to posting-time labels. Open threads refresh
+  on project metadata activity. Comment contents, creation/edit timestamps,
+  permissions and task revisions are unaffected. This is current profile data,
+  not evidence of which model generated an old comment; any future execution
+  provenance must be modeled separately. Legacy snapshots remain a fallback.
+## 2026-11-08 - ND-657: Bind agent bearer tokens to the current key generation
+
+- Status: Proposed for review.
+- Context: JWT `iat` uses whole seconds, while credential rotation records
+  milliseconds. Timestamp comparison rejects newly exchanged tokens within the
+  rotation second. Rounding the rotation time would accept old tokens, and a
+  millisecond issuance claim would still be ambiguous for equal timestamps or an
+  exchange racing rotation.
+- Decision: Sign the credential's existing `publicId` into each token as
+  `credentialPublicId`. Rotation already replaces this non-secret identifier
+  atomically with the secret hash. The usage update matches it alongside project,
+  creator, revocation, and expiry; issuance retains the generation read before
+  secret verification. No new database column or migration is needed.
+- Compatibility: Tokens without the claim remain usable only when
+  `lastRotatedAt` is null. Previously rotated credentials must re-exchange once
+  during rollout; accepting their legacy tokens cannot prove which key issued
+  them. Malformed claims fail signature/payload validation. JWT expiry remains
+  independent of the key generation.
+- Consequences: New keys work immediately and old generations fail even across
+  repeated rotations at one timestamp, clock skew, or delayed token issuance.
+  The existing atomic authorization update and audit transaction remain intact.
+
 ## 2026-11-08 - ND-663: complete the Task persistence boundary
 
 - Status: Proposed for user review; broader domain adoption remains a separate decision.
@@ -1326,6 +1391,32 @@ Keep UI-only or task-only notes in `journal.md`.
   SQL remain explicit exceptions in `docs/architecture/task-services.md`.
   Encryption will need those exceptions as well as the completed Task seam.
 
+## 2026-11-08 ? ND-130: Project module capability restrictions
+
+Use a shared module/action vocabulary for humans and agents. Human grants are
+optional restrictions within existing owner/editor/viewer ceilings; null keeps
+legacy access, an empty array denies all modules. Only project ownership grants
+administrative authority. Membership and invitation grants are stored as nullable
+JSON and copied on acceptance. Service checks and restrictive PostgreSQL policies
+compose with existing tenant, private-note, author, and owner safeguards.
+
+Split meeting/epic agent scopes from task scopes and migrate existing credentials
+to explicit equivalent grants. Reserve shared-schedule scopes without changing
+personal Calendar authorization. Shared broadcast messages carry invalidation
+metadata only to prevent an already-authorized socket from leaking module
+content after permissions change. This trades direct payload application for
+capability-filtered refreshes. See the project-capabilities runbook for rollout.
+
+
+## 2026-11-08 - ND-130: Editable agent scope grants
+
+Owners may replace a credential's scopes in an audited transaction without
+rotating its API key. Every authenticated agent request checks that the signed
+token's scopes remain a subset of the live grants. Removing a scope therefore
+rejects older broader tokens immediately; adding a scope requires a new token
+exchange to use it. Scope replacement locks the credential first to serialize
+concurrent owner edits. Meeting CRUD routes use the same agent-principal guard
+as listing, with module and private-note checks retained in services and RLS.
 ## 2026-11-08 - ND-191: personal todos in the existing project queue
 
 - Status: Proposed for review in ND-191; revised after product feedback.
@@ -1353,3 +1444,13 @@ Keep UI-only or task-only notes in `journal.md`.
   The client uses the existing local mutation lifecycle to refresh the actor's
   navigation count. Meeting completion and realtime transport are unchanged.
   ND-378 remains canceled; there is no global Todos or cross-project search.
+
+
+## 2026-11-09 - ND-130 review: notification copies retain module authorization
+
+Notifications and queued email are copies of protected module content. Enforce
+recipient read capability at creation, reads, enqueue and dispatch, and add
+restrictive notification policies. Definer-owned Realtime snapshots must apply
+the same filter explicitly. Advance User.notificationAccessUpdatedAt on relevant
+membership/owner changes; use it in snapshot versions so revocation refreshes
+existing clients without regressing the cursor or mutating email fingerprints.

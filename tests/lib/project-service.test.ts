@@ -42,6 +42,16 @@ vi.mock("@/lib/prisma", () => ({
   prisma: prismaMock,
 }));
 
+// Authorization is covered with real service queries in project-capabilities.test.ts.
+vi.mock("@/lib/services/project-access-service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/services/project-access-service")>();
+  const { PROJECT_CAPABILITIES } = await import("@/lib/project-capabilities");
+  return { ...actual,
+    getProjectAccess: vi.fn(async () => ({ ok: true, role: "owner", capabilities: [...PROJECT_CAPABILITIES] })),
+    requireProjectRole: vi.fn(async () => ({ ok: true, role: "owner", capabilities: [...PROJECT_CAPABILITIES] })),
+  };
+});
+
 import {
   createProject,
   getProjectDashboardById,
@@ -146,6 +156,7 @@ describe("project-service", () => {
           where: { userId: actorUserId },
           select: {
             role: true,
+            capabilities: true,
           },
           take: 1,
         },
@@ -808,6 +819,7 @@ describe("project-service", () => {
       select: {
         projectId: true,
         role: true,
+        capabilities: true,
       },
     });
   });
@@ -1016,7 +1028,7 @@ describe("project-service", () => {
 
       expect(result).toEqual({
         ok: true,
-        data: { task: taskRecord },
+        data: { task: { ...taskRecord, epic: null } },
       });
       expect(prismaMock.task.findFirst).toHaveBeenCalledTimes(1);
     });

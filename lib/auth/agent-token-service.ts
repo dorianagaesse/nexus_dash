@@ -10,6 +10,7 @@ interface AgentAccessTokenPayload {
   iss: string;
   aud: string;
   sub: string;
+  credentialPublicId?: string;
   jti: string;
   iat: number;
   exp: number;
@@ -30,6 +31,7 @@ interface VerifiedAgentAccessTokenSuccess {
   ok: true;
   data: {
     credentialId: string;
+    credentialPublicId?: string;
     projectId: string;
     ownerUserId: string;
     scopes: AgentScope[];
@@ -84,12 +86,23 @@ function isValidPayload(value: unknown): value is AgentAccessTokenPayload {
     return false;
   }
 
+  // Older tokens have no key-generation claim. The usage check only accepts
+  // those while the credential has never rotated.
+  if (
+    payload.credentialPublicId !== undefined &&
+    (typeof payload.credentialPublicId !== "string" ||
+      payload.credentialPublicId.trim().length === 0)
+  ) {
+    return false;
+  }
+
   const scopes = parseAgentScopes(payload.scopes);
   return scopes.length > 0 && scopes.length === payload.scopes.length;
 }
 
 export function issueAgentAccessToken(input: {
   credentialId: string;
+  credentialPublicId: string;
   projectId: string;
   ownerUserId: string;
   scopes: AgentScope[];
@@ -106,6 +119,7 @@ export function issueAgentAccessToken(input: {
     iss: AGENT_TOKEN_ISSUER,
     aud: AGENT_TOKEN_AUDIENCE,
     sub: input.credentialId,
+    credentialPublicId: input.credentialPublicId,
     jti: tokenId,
     iat: issuedAtSeconds,
     exp: issuedAtSeconds + runtimeConfig.ttlSeconds,
@@ -242,6 +256,7 @@ export function verifyAgentAccessToken(
     ok: true,
     data: {
       credentialId: payload.sub,
+      credentialPublicId: payload.credentialPublicId,
       projectId: payload.projectId,
       ownerUserId: payload.ownerUserId,
       scopes: parseAgentScopes(payload.scopes),

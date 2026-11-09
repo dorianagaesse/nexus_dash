@@ -1,3 +1,4 @@
+import { roleCapabilities } from "@/lib/project-capabilities";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const state = vi.hoisted(() => {
@@ -45,7 +46,7 @@ describe("Task application/data collaboration", () => {
     state.authorize.mockImplementation(async ({ db }) => {
       expect(db).toBe(state.db);
       state.events.push("authorize");
-      return { ok: true };
+      return { ok: true, role: "owner", capabilities: roleCapabilities("owner") };
     });
     state.db.$queryRaw.mockImplementation(async () => {
       state.events.push("lock");

@@ -1,4 +1,7 @@
 "use client";
+import { useState } from "react";
+import type { AgentScope } from "@/lib/agent-access";
+import { ProjectAgentPermissionFields } from "./project-agent-permission-fields";
 import { RefreshCw, ShieldX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SLIM_SCROLLBAR_CLASSES } from "@/components/ui/scrollbar";
@@ -11,9 +14,9 @@ import {
 } from "@/components/ui/dialog";
 import { DialogCloseButton } from "./project-agent-dialog-close";
 import { AgentTaskCompletionSwitch } from "./project-agent-credential-list";
+import { AgentCredentialLabelEditor } from "./agent-credential-label-editor";
+import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
 import {
-  describeAgentAccess,
-  describeAgentResources,
   formatAgentDate,
 } from "./project-agent-access-presentation";
 import {
@@ -31,7 +34,9 @@ interface Props {
     credential: ProjectAgentCredentialSummary,
     allowed: boolean
   ) => void;
+  onUpdateScopes: (credential: ProjectAgentCredentialSummary, scopes: AgentScope[]) => Promise<boolean>;
   onRotateCredential: (credential: ProjectAgentCredentialSummary) => void;
+  onUpdateCredentialLabels?: (credential: ProjectAgentCredentialSummary, labels: string[]) => Promise<boolean>;
   onRevokeCredential: (credential: ProjectAgentCredentialSummary) => void;
 }
 export function ProjectAgentCredentialDetailsDialog({
@@ -41,7 +46,9 @@ export function ProjectAgentCredentialDetailsDialog({
   onClose,
   onClosedFocus,
   onUpdateCapabilities,
+  onUpdateScopes,
   onRotateCredential,
+  onUpdateCredentialLabels,
   onRevokeCredential,
 }: Props) {
   return (
@@ -87,22 +94,30 @@ export function ProjectAgentCredentialDetailsDialog({
               </Badge>
             </div>
             <div className="space-y-6">
-              <section className="rounded-xl border border-border/70 p-4">
-                <h4 className="text-sm font-semibold">
-                  {describeAgentAccess(credential.scopes)}
-                </h4>
-                <dl className="mt-3 space-y-2 text-xs">
-                  {describeAgentResources(credential.scopes).map((resource) => (
-                    <div
-                      key={resource.name}
-                      className="flex flex-wrap justify-between gap-2"
-                    >
-                      <dt className="text-muted-foreground">{resource.name}</dt>
-                      <dd>{resource.actions}</dd>
-                    </div>
-                  ))}
-                </dl>
+              <section className="min-w-0 space-y-3">
+                <div>
+                  <h4 className="text-sm font-semibold">Descriptive labels</h4>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Add model names or other details to help people recognize this agent.
+                  </p>
+                </div>
+                {onUpdateCredentialLabels ? (
+                  <AgentCredentialLabelEditor
+                    key={credential.id}
+                    credentialId={credential.id}
+                    name={credential.label}
+                    labels={credential.descriptiveLabels}
+                    disabled={isMutating}
+                    onSave={(labels) => onUpdateCredentialLabels(credential, labels)}
+                  />
+                ) : <AgentCredentialDescriptiveLabels labels={credential.descriptiveLabels} />}
+                {actionError?.action === "labels" && actionError.credentialId === credential.id ? (
+                  <p role="alert" aria-label="Credential labels error" className="text-sm text-destructive">
+                    {actionError.message}
+                  </p>
+                ) : null}
               </section>
+              <AgentPermissionEditor key={credential.id} credential={credential} busy={isMutating} error={actionError?.action === "capabilities" && actionError.credentialId === credential.id ? actionError.message : null} onSave={onUpdateScopes} />
               <section className="space-y-3">
                 <div>
                   <h4 className="text-sm font-semibold">Task completion</h4>
@@ -225,4 +240,31 @@ export function ProjectAgentCredentialDetailsDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function AgentPermissionEditor({ credential, busy, error, onSave }: {
+  credential: ProjectAgentCredentialSummary;
+  busy: boolean;
+  error: string | null;
+  onSave: (credential: ProjectAgentCredentialSummary, scopes: AgentScope[]) => Promise<boolean>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<AgentScope[]>(credential.scopes);
+  const changed = draft.length !== credential.scopes.length || draft.some((scope) => !credential.scopes.includes(scope));
+  return <section className="space-y-3">
+    <div className="flex items-center justify-between gap-3">
+      <h4 className="text-sm font-semibold">Module permissions</h4>
+      {!editing && <Button type="button" variant="outline" size="sm" disabled={busy || credential.status !== "active"} onClick={() => { setDraft([...credential.scopes]); setEditing(true); }}>Edit permissions</Button>}
+    </div>
+    <ProjectAgentPermissionFields value={editing ? draft : credential.scopes} onChange={setDraft} disabled={!editing || busy} />
+    {editing && <>
+      <p className="text-xs leading-relaxed text-muted-foreground">Your API key stays the same. After a change, exchange it for a new access token. Removed permissions stop working immediately.</p>
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {!draft.length && <p role="alert" className="text-sm text-destructive">Select at least one permission.</p>}
+      <div className="flex justify-end gap-2 border-t border-border/60 pt-3">
+        <Button type="button" variant="outline" disabled={busy} onClick={() => setEditing(false)}>Cancel</Button>
+        <Button type="button" disabled={busy || !changed || !draft.length} onClick={async () => { if (await onSave(credential, draft)) setEditing(false); }}>{busy ? "Saving..." : "Save permissions"}</Button>
+      </div>
+    </>}
+  </section>;
 }
