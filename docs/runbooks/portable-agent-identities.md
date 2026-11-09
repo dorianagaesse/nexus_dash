@@ -138,6 +138,9 @@ for new workflows. Removing a legacy scope invalidates existing tokens containin
 that scope immediately; exchange a new token to use the remaining grants. Done
 permission remains live. Runtime sessions intersect their token scopes with live
 grants on each request, so remaining read access continues after a write reduction.
+Identity grant reads also ignore unsupported scope enum values before Prisma
+deserialization, preserving access to the identity manager on shared databases
+that have received a newer deployment's permission grants.
 
 The migration is additive and leaves historical foreign keys intact. See
 [the architecture decision](../../adr/nd-658-portable-agent-identities.md) and

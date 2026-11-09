@@ -28,6 +28,12 @@ const toDb = (scopes: AgentScope[]) =>
   scopes.map((s) => s.replace(":", "_") as ApiCredentialScope);
 const fromDb = (scopes: ApiCredentialScope[]) =>
   parseAgentScopes(scopes.map((s) => s.replace("_", ":")));
+// Shared databases may contain grants from a newer deployment. Filter before
+// Prisma deserializes unknown enum values, as legacy credential reads do.
+const supportedScopeGrants = {
+  where: { scope: { in: Object.values(ApiCredentialScope) } },
+  select: { scope: true },
+};
 const scopesFrom = (v: unknown) =>
   Array.isArray(v) && v.length > 0 && parseAgentScopes(v).length === v.length
     ? toDb(parseAgentScopes(v))
@@ -85,7 +91,7 @@ export async function manageAgentIdentities(input: {
             revokedAt: true,
             expiresAt: true,
             canMoveTasksToDone: true,
-            scopeGrants: { select: { scope: true } },
+            scopeGrants: supportedScopeGrants,
             runtimeDevices: {
               orderBy: { createdAt: "desc" },
               select: {
@@ -177,7 +183,7 @@ export async function manageAgentIdentities(input: {
       }
       const identity = await db.apiCredential.findFirst({
         where: { id: identityId, projectId: input.projectId },
-        include: { scopeGrants: true },
+        include: { scopeGrants: supportedScopeGrants },
       });
       if (!identity) return fail(404, "identity-not-found");
       const context = { ...input, identityId };
@@ -304,7 +310,7 @@ export async function exchangeRuntimeAccess(input: Record<string, unknown>) {
         include: {
           identity: {
             include: {
-              scopeGrants: true,
+              scopeGrants: supportedScopeGrants,
               project: { select: { ownerId: true } },
             },
           },
@@ -493,7 +499,7 @@ export async function validateRuntimeRequest(input: {
             },
             identity: {
               include: {
-                scopeGrants: true,
+                scopeGrants: supportedScopeGrants,
                 project: { select: { ownerId: true } },
               },
             },

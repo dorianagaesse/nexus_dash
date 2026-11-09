@@ -33,6 +33,11 @@ test("credential management tolerates permission scopes added by a newer deploym
     const saved = (await summary.json()).credentials.find((entry: { id: string }) => entry.id === credential.id);
     expect(saved.scopes).toEqual(["task:read", "task:write"]);
 
+    const identities = await page.request.get(`/api/projects/${project.id}/agent-identities`);
+    expect(identities.status()).toBe(200);
+    const identity = (await identities.json()).identities.find((entry: { id: string }) => entry.id === credential.id);
+    expect(identity.scopes).toEqual(["task:read", "task:write"]);
+
     await page.goto(`/projects/${project.id}`);
     await page.getByRole("button", { name: "Share project", exact: true }).click();
     await page.getByRole("button", { name: "Agent access", exact: true }).click();
