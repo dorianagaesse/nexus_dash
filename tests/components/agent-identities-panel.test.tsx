@@ -38,6 +38,11 @@ describe("AgentIdentitiesPanel device grants", () => {
   }
 
   function input(label: string, parent: ParentNode = container) {
+    const accessibleLabel = ({ "Task Read": "Tasks read", "Task Write": "Tasks edit" } as Record<string, string>)[label];
+    if (accessibleLabel) {
+      const field = parent.querySelector<HTMLInputElement>(`input[aria-label="${accessibleLabel}"]`);
+      if (field) return field;
+    }
     const result = Array.from(parent.querySelectorAll("label"))
       .find((element) => element.textContent?.trim().startsWith(label))
       ?.querySelector("input");
