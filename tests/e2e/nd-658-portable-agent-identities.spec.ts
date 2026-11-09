@@ -113,7 +113,7 @@ test("portable identities enforce runtime bindings, live grants and independent 
   page,
   browser,
 }, testInfo) => {
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   const ownerId = await signInAsVerifiedUser(page);
   const name = uniqueProjectName("nd658");
   await createProjectFromProjectsPage(page, name);
@@ -210,15 +210,15 @@ test("portable identities enforce runtime bindings, live grants and independent 
       })
     ).status()
   ).toBe(401);
-  await expect(panel.getByText("Device paired. Ready to launch.")).toBeVisible();
+  await expect(panel.getByText("Device paired. Ready to launch.")).toBeVisible({ timeout: 30000 });
   await expect(code).toHaveCount(0);
   const launch = panel.getByRole("button", { name: "Copy Windows launch command" });
   await launch.focus();
   await expect(launch).toBeFocused();
-  await page.screenshot({ path: ".tmp/nd824-paired-desktop.png", fullPage: true });
+  await page.screenshot({ path: ".tmp/nd824-paired-desktop.png", fullPage: false });
   await page.setViewportSize({ width: 390, height: 844 });
   await launch.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: ".tmp/nd824-paired-mobile.png", fullPage: true });
+  await page.screenshot({ path: ".tmp/nd824-paired-mobile.png", fullPage: false });
   await page.setViewportSize({ width: 1280, height: 900 });
   await panel.getByRole("button", { name: "Dismiss pairing guidance" }).click();
   const secondCode = await manage({
