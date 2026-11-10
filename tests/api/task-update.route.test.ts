@@ -1146,11 +1146,11 @@ describe("PATCH /api/projects/:projectId/tasks/:taskId", () => {
       data: [
         expect.objectContaining({
           recipientUserId: "owner-1",
-          body: "Build bot (agent) assigned you to Agent assigns owner.",
+          body: "Build bot assigned you to Agent assigns owner.",
           metadata: expect.objectContaining({
             actorKind: "agent",
             actorUserId: "owner-1",
-            actorDisplayName: "Build bot (agent)",
+            actorDisplayName: "Build bot",
             actorCredentialId: "credential-1",
             actorCredentialLabel: "Build bot",
           }),

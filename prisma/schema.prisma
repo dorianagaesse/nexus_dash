@@ -8,6 +8,7 @@ datasource db {
 }
 
 model User {
+  notificationAccessUpdatedAt DateTime @default(now())
   id                    String    @id @default(cuid())
   name                  String?
   email                 String?   @unique
@@ -20,6 +21,7 @@ model User {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
+  checklistTodos                      ProjectTodo[] @relation("ProjectTodoCreator")
   accounts                            Account[]
   sessions                            Session[]
   ownedProjects                       Project[]                                @relation("ProjectOwner")
@@ -220,6 +222,7 @@ model Project {
   updatedAt   DateTime @updatedAt
 
   owner              User                       @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  todos              ProjectTodo[]
   tasks              Task[]
   epics              Epic[]
   roadmapPhases      RoadmapPhase[]
@@ -230,6 +233,7 @@ model Project {
   invitations        ProjectInvitation[]
   taskRelations      TaskRelation[]
   apiCredentials     ApiCredential[]
+  agentAuthorIdentities AgentAuthorIdentity[]
   authAuditEvents    AuthAuditEvent[]
   notificationEmails ProjectNotificationEmail[]
   meetingNotes       ProjectMeetingNote[]
@@ -390,6 +394,7 @@ model ProjectActivityEvent {
 }
 
 model ProjectMembership {
+  capabilities Json?
   id        String                @id @default(cuid())
   projectId String
   userId    String
@@ -405,6 +410,7 @@ model ProjectMembership {
 }
 
 model ProjectInvitation {
+  capabilities Json?
   id              String                @id @default(cuid())
   projectId       String
   invitedEmail    String
@@ -661,6 +667,9 @@ model TaskComment {
   authorUserId               String
   authorAgentCredentialId    String?
   authorAgentCredentialLabel String?        @db.VarChar(80)
+  authorAgentCredentialDescriptiveLabels String[] @default([]) @db.VarChar(40)
+  authorAgentIdentityId       String?
+  authorAgentIdentity         AgentAuthorIdentity? @relation(fields: [authorAgentIdentityId], references: [id], onDelete: SetNull)
   task                       Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
   author                     User           @relation("TaskCommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
   authorAgentCredential      ApiCredential? @relation("TaskCommentAgentAuthorCredential", fields: [authorAgentCredentialId], references: [id], onDelete: SetNull)
@@ -675,6 +684,22 @@ model TaskComment {
   @@index([taskId, createdAt])
   @@index([authorUserId])
   @@index([authorAgentCredentialId])
+  @@index([authorAgentIdentityId])
+}
+
+// Public author metadata survives removal of the secret-bearing credential.
+// Its ID matches the credential ID; database triggers keep the metadata current.
+model AgentAuthorIdentity {
+  id                String   @id
+  projectId         String
+  label             String   @db.VarChar(80)
+  descriptiveLabels String[] @default([]) @db.VarChar(40)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  project           Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  comments          TaskComment[]
+
+  @@index([projectId])
 }
 
 model TaskCommentAgentMention {
@@ -921,6 +946,16 @@ model CalendarPreference {
 }
 
 enum ApiCredentialScope {
+  meeting_read
+  meeting_write
+  meeting_delete
+  epic_read
+  epic_write
+  epic_delete
+  schedule_read
+  schedule_write
+  schedule_delete
+
   project_read
   task_read
   task_write
@@ -964,6 +999,7 @@ model ApiCredential {
   createdByUserId    String
   revokedByUserId    String?
   label              String    @db.VarChar(80)
+  descriptiveLabels String[] @default([]) @db.VarChar(40)
   publicId           String    @unique @db.VarChar(64)
   secretHash         String
   expiresAt          DateTime?
@@ -1054,4 +1090,21 @@ model AuthRateLimitBucket {
   @@id([scope, key, windowStart])
   @@index([scope, key, blockedUntil])
   @@index([createdAt])
+}
+
+// Creator-private personal todos; meeting actions retain their own lifecycle.
+model ProjectTodo {
+  id              String   @id @default(cuid())
+  projectId       String
+  content         String   @db.VarChar(500)
+  completedAt     DateTime?
+  createdByUserId String?
+  revision        Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("ProjectTodoCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt, id])
 }

@@ -1,4 +1,5 @@
 "use client";
+import { useProjectCapability } from "@/components/project-capability-provider";
 
 import {
   type CSSProperties,
@@ -904,6 +905,7 @@ function RoadmapEventDetailModal({
   onEdit: (event: ProjectRoadmapPanelEvent) => void;
   onDelete: (eventId: string) => void;
 }) {
+  const canDelete = useProjectCapability("roadmap:delete");
   if (!event || !phase) {
     return null;
   }
@@ -975,6 +977,7 @@ function RoadmapEventDetailModal({
                 variant="ghost"
                 size="sm"
                 className={ROADMAP_ACTION_BUTTON_CLASS}
+                disabled={!canDelete}
                 onClick={() => onDelete(event.id)}
               >
                 <Trash2 className="h-4 w-4" />
@@ -1403,6 +1406,7 @@ function RoadmapEventCard({
   onDelete: (eventId: string) => void;
   onCycleStatus: (event: ProjectRoadmapPanelEvent) => void;
 }) {
+  const canDelete = useProjectCapability("roadmap:delete");
   const tone = getRoadmapStatusClasses(event.status);
   const nextStatus = getNextRoadmapStatus(event.status);
   const statusButtonTitle = isUpdatingStatus
@@ -1510,7 +1514,8 @@ function RoadmapEventCard({
                       variant="ghost"
                       size="sm"
                       className={ROADMAP_ACTION_BUTTON_CLASS}
-                      onClick={() => onDelete(event.id)}
+                      disabled={!canDelete}
+                onClick={() => onDelete(event.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                       Delete

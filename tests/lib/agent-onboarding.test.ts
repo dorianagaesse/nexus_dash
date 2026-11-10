@@ -419,7 +419,7 @@ describe("agent-onboarding contract", () => {
       AGENT_API_ENDPOINTS.filter((endpoint) => endpoint.tag === "Attention").every(
         (endpoint) =>
           endpoint.notes?.some((note) =>
-            note.includes("require task:read, so an attention:read-only credential gets 403")
+            (note.includes("require task:read, so an attention:read-only credential gets 403") || note.includes("meeting-note routes require meeting:read"))
           )
       )
     ).toBe(true);

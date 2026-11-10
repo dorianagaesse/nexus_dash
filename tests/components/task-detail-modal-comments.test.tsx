@@ -427,17 +427,20 @@ describe("TaskDetailModal comments", () => {
         author: {
           id: "credential-1",
           kind: "agent",
-          displayName: "Build bot (agent)",
+          displayName: "Build bot",
           usernameTag: null,
           avatarSeed: "nexusdash-agent-comment-avatar",
           agentCredentialId: "credential-1",
           agentCredentialLabel: "Build bot",
+          agentCredentialDescriptiveLabels: ["GPT-6", "Codex"],
           owner: ownerSummary,
         },
       },
     ]);
 
-    expect(document.body.textContent).toContain("Build bot (agent)");
+    expect(document.body.textContent).toContain("Build bot");
+    expect(document.body.querySelector('[role="group"][aria-label="Descriptive labels"]')?.textContent).toContain("GPT-6");
+    expect(document.body.querySelector('[role="group"][aria-label="Descriptive labels"]')?.textContent).toContain("Codex");
     expect(document.body.textContent).toContain("via owner#0001");
     expect(
       document.body.querySelector("[aria-label='Task reference ND-42']")
@@ -454,7 +457,7 @@ describe("TaskDetailModal comments", () => {
     const agentAuthor = {
       id: "credential-1",
       kind: "agent" as const,
-      displayName: "Build bot (agent)",
+      displayName: "Build bot",
       usernameTag: null,
       avatarSeed: "nexusdash-agent-comment-avatar",
       agentCredentialId: "credential-1",
@@ -471,12 +474,12 @@ describe("TaskDetailModal comments", () => {
 
     expect(
       document.body.querySelector(
-        "[title='Created by: Build bot (agent)'] [data-agent-avatar='true']"
+        "[title='Created by: Build bot'] [data-agent-avatar='true']"
       )
     ).not.toBeNull();
     expect(
       document.body.querySelector(
-        "[title='Last updated by: Build bot (agent)'] [data-agent-avatar='true']"
+        "[title='Last updated by: Build bot'] [data-agent-avatar='true']"
       )
     ).not.toBeNull();
     expect(document.body.querySelectorAll("[data-agent-avatar='true']")).toHaveLength(2);
@@ -834,7 +837,7 @@ describe("TaskDetailModal comments", () => {
       updatedAt: null,
       author: {
         id: "cred-agent-1",
-        displayName: "ReviewBot (agent)",
+        displayName: "ReviewBot",
         usernameTag: null,
         avatarSeed: "agent-seed",
         kind: "agent",

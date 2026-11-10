@@ -100,6 +100,7 @@ export async function searchProjectTaskIds(input: {
         actorUserId,
         projectId,
         minimumRole: "viewer",
+      capability: "task:read",
         db,
       });
       if (!access.ok) {
@@ -136,7 +137,7 @@ export async function searchProjectTaskIds(input: {
             task.status,
             task.blockedNote,
             ...getTaskLabelsFromStorage(task.labelsJson, task.label),
-            task.epic?.name,
+            access.capabilities.includes("epic:read") && (!input.agentAccess || input.agentAccess.scopes.includes("epic:read")) ? task.epic?.name : null,
             task.assigneeUser?.name,
             task.assigneeUser?.username,
             assigneeTag,
