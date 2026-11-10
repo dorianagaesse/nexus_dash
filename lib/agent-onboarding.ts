@@ -406,7 +406,8 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "Only the original author can edit the comment; for agent comments, the active credential ID must match.",
       "Supports updating plain-text content (up to 4000 characters) and agent mentions.",
       "Preserves attachments, reactions, author identity, and creation timestamp while setting updatedAt.",
-      "PATCH replaces agentMentionSelections: omission clears them. Preserve read agentMentions as { credentialId } selections and keep their visible tokens when editing unrelated text. Human mention notifications are not emitted on edit.",
+      "PATCH replaces agentMentionSelections: omission clears them. Before an unrelated edit, revalidate every read agentMentions entry against actor discovery; read labels are stored snapshots. Only active credentials with unchanged labels can be copied as { credentialId } selections while retaining their existing visible tokens. Human mention notifications are not emitted on edit.",
+      "Reselect renamed agents and update visible @{Credential Label} tokens to their current labels. Revoked, expired, or stale-label selections return 400 task-comment-agent-mention-invalid. Refresh actor discovery and require explicit reselection or removal before retrying; pause if any selection cannot be revalidated. Never silently filter invalid IDs and retry: a successful PATCH removes omitted stored mentions. A bounded search response alone does not prove an unreturned credential is inactive.",
     ],
   },
   {
@@ -844,8 +845,15 @@ export function buildAgentTaskCommentExample(): string {
     'curl "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/comments" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
     "",
-    "# On PATCH, preserve agentMentions with agentMentionSelections: agentMentions.map(({ credentialId }) => ({ credentialId }))",
-    "# Keep the visible @{Label} tokens too. Omission clears selections; edits do not notify human mentions.",
+    "# Before PATCH, revalidate EVERY stored credentialId and label against actor discovery; read labels are snapshots.",
+    'curl "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/actors/search?query=Release%20bot" -H "Authorization: Bearer $NEXUSDASH_AGENT_BEARER_TOKEN"',
+    "# Only when every selected credential is active and its label unchanged, preserve the visible @{Label} tokens",
+    "# and send agentMentionSelections: agentMentions.map(({ credentialId }) => ({ credentialId })).",
+    "# Reselect renamed agents and update their visible tokens to the current labels.",
+    "# Revoked/expired credentials or stale tokens cause 400 task-comment-agent-mention-invalid; refresh discovery",
+    "# and pause for explicit reselection/removal if any selection cannot be revalidated. Search is bounded:",
+    "# absence from one response does not prove inactivity. Never silently filter IDs and retry; omitted mentions are removed.",
+    "# Omission clears selections; edits do not notify human mentions.",
     "# The 4000-character limit applies to sanitized visible text, not HTML markup.",
   ].join("\n");
 }
@@ -2076,7 +2084,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               $ref: "#/components/schemas/TaskCommentAuthor",
             },
             agentMentions: {
-              type: "array", description: "Present when agent mentions exist. Preserve these credentialIds as agentMentionSelections when editing unrelated text.",
+              type: "array", description: "Present when agent mentions exist. Labels are stored snapshots. Before preserving these credentialIds as agentMentionSelections on edit, revalidate each against current actor discovery; credentials may have been renamed, revoked, or expired. See TaskCommentUpdateRequest for reselection and error handling.",
               items: { type: "object", required: ["credentialId", "label"], properties: { credentialId: { type: "string" }, label: { type: "string" } } },
             },
             attachments: {
@@ -2159,7 +2167,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               type: "array",
               maxItems: 50,
               description:
-                "Replaces all agent mention selections. Omission or [] clears them. To preserve existing mentions during an unrelated edit, map the read response agentMentions to { credentialId } and retain each exact visible @{Credential Label} token. Selected IDs alone are insufficient.",
+                "Replaces all agent mention selections. Omission or [] clears them. Before an unrelated edit, revalidate every read agentMentions entry against current actor discovery: read labels are stored snapshots. Only active credentials with unchanged labels can be mapped to { credentialId } while retaining their exact visible @{Credential Label} tokens. Reselect renamed agents and update visible tokens to their current labels. Revoked, expired, or stale-label selections return 400 task-comment-agent-mention-invalid; refresh discovery and pause for explicit reselection or removal if any selection cannot be revalidated. Never silently filter invalid IDs and retry: a successful PATCH removes omitted stored mentions. A bounded search response alone does not prove an unreturned credential is inactive. Selected IDs alone are insufficient.",
               items: {
                 type: "object",
                 required: ["credentialId"],

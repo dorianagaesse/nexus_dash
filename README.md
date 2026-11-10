@@ -697,9 +697,23 @@ visible `@{Credential Label}` token. Selected IDs do not replace visible tokens.
 Comment responses expose `agentMentions: [{ credentialId, label }]` when present.
 
 Comment PATCH replaces agent selections, including clearing them when omitted.
-For unrelated text edits, retain the visible tokens and map existing
-`agentMentions` to `agentMentionSelections: [{ credentialId }]`. Edits do not emit
-new human mention notifications. Create and edit accept sanitized rich-text HTML;
-the 4000-character limit counts UTF-16 code units in the server plain-text
+Before an unrelated text edit, revalidate every existing `agentMentions` entry
+against actor discovery: comment reads contain stored label snapshots, not a
+guarantee that the credentials are still active or their labels unchanged. Only
+then retain the matching visible tokens and map the entries to
+`agentMentionSelections: [{ credentialId }]`.
+
+For a renamed credential, reselect its current actor and update the visible
+`@{Credential Label}` token to the current label. Revoked or expired credentials,
+or renamed credentials with stale tokens, cause PATCH to return
+`400 task-comment-agent-mention-invalid`. Refresh actor discovery and surface the
+need for explicit reselection or removal before retrying. If any existing
+selection cannot be revalidated, pause the edit; do not silently filter out IDs
+and retry, because a successful PATCH with a reduced selection set removes the
+omitted stored mentions. A bounded search response alone does not prove an
+unreturned credential is inactive.
+
+Edits do not emit new human mention notifications. Create and edit accept
+sanitized rich-text HTML; the 4000-character limit counts UTF-16 code units in the server plain-text
 projection after sanitization and whitespace normalization, not raw HTML markup.
 Sanitizer-escaped entities and list markers can contribute to this count. See the hosted guide for complete examples and schemas.

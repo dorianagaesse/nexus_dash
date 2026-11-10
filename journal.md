@@ -1,5 +1,16 @@
 # Development Journal
 
+# 2026-11-10 - ND-674: mention-preservation review follow-up
+
+- Qualified the guide, OpenAPI descriptions, curl example and README: stored
+  mention labels must be checked against current actor discovery before PATCH.
+  Renamed agents need current visible tokens; revoked/expired selections require
+  explicit reselection or removal after `task-comment-agent-mention-invalid`.
+- Explained that silently filtering IDs removes omitted mentions on a successful
+  PATCH, and absence from a bounded search response does not prove inactivity.
+- Documentation-only validation: `git diff --check`, local link checks and
+  reference review against actor discovery and mention-resolution services.
+
 # 2026-11-08 - ND-674: actor discovery and mention contracts
 
 - Published actor search with its three alternative scopes, normalization,
