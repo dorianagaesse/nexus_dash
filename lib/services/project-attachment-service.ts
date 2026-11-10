@@ -1,4 +1,4 @@
-import { taskAttachmentActor, taskAttachmentActorSelect, type TaskAttachmentActor, type TaskAttachmentActorFields } from "@/lib/task-attachment-actor";
+import { isTaskAttachmentUploader, isTaskUploadStorageKey, taskUploadStorageOwnerId, taskAttachmentActor, taskAttachmentActorSelect, type TaskAttachmentActor, type TaskAttachmentActorFields } from "@/lib/task-attachment-actor";
 import { resolveTaskAttachmentUploader } from "@/lib/services/task-attachment-actor-service";
 import {
   createAttachmentSignedUploadUrl,
@@ -884,7 +884,7 @@ export async function createTaskAttachmentUploadTarget(input: {
         scope: "task",
         actorUserId,
         projectId: input.projectId,
-        ownerId: input.taskId,
+        ownerId: taskUploadStorageOwnerId(input.taskId, input.agentAccess?.credentialId),
         originalName: normalizedUpload.data.name,
         mimeType: normalizedUpload.data.mimeType,
         sizeBytes: normalizedUpload.data.sizeBytes,
@@ -968,13 +968,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
 
     const normalizedStorageKey = input.storageKey.trim();
     if (
-      !hasExpectedStoragePrefix(
-        normalizedStorageKey,
-        actorUserId,
-        input.projectId,
-        "task",
-        input.taskId
-      )
+      !isTaskUploadStorageKey(normalizedStorageKey, actorUserId, input.projectId, input.taskId, input.agentAccess?.credentialId)
     ) {
       return createError(400, "Invalid storage key");
     }
@@ -987,6 +981,12 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
 
     if (!normalizedUpload.ok) {
       return normalizedUpload;
+    }
+
+    // Serialize finalization and cleanup of the same object, including retries.
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${normalizedStorageKey}, 0))`;
+    if (await db.taskAttachment.findFirst({ where: { storageKey: normalizedStorageKey }, select: { id: true } })) {
+      return createError(409, "Upload already finalized");
     }
 
     try {
@@ -1082,7 +1082,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
       logServerError("finalizeTaskAttachmentDirectUpload", error);
       return createError(500, "Failed to upload attachment");
     }
-  });
+  }, { forceTransaction: true });
 }
 
 export async function createContextAttachmentUploadTarget(input: {
@@ -1390,15 +1390,15 @@ export async function cleanupTaskDirectUploadObject(input: {
 
     const normalizedStorageKey = input.storageKey.trim();
     if (
-      !hasExpectedStoragePrefix(
-        normalizedStorageKey,
-        actorUserId,
-        input.projectId,
-        "task",
-        input.taskId
-      )
+      !isTaskUploadStorageKey(normalizedStorageKey, actorUserId, input.projectId, input.taskId, input.agentAccess?.credentialId)
     ) {
       return createError(400, "Invalid storage key");
+    }
+
+    // Serialize finalization and cleanup of the same object, including retries.
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${normalizedStorageKey}, 0))`;
+    if (await db.taskAttachment.findFirst({ where: { storageKey: normalizedStorageKey }, select: { id: true } })) {
+      return createError(409, "Upload already finalized");
     }
 
     try {
@@ -1414,7 +1414,7 @@ export async function cleanupTaskDirectUploadObject(input: {
       logServerError("cleanupTaskDirectUploadObject", error);
       return createError(500, "Failed to cleanup uploaded file");
     }
-  });
+  }, { forceTransaction: true });
 }
 
 export async function cleanupContextDirectUploadObject(input: {
@@ -1534,7 +1534,7 @@ export async function deleteTaskAttachmentForProject(input: {
           id: true,
           kind: true,
           storageKey: true,
-          uploadedByUserId: true,
+          ...taskAttachmentActorSelect,
           commentId: true,
           isCommentDraft: true,
           task: {
@@ -1554,10 +1554,9 @@ export async function deleteTaskAttachmentForProject(input: {
         return createError(404, "Attachment not found");
       }
 
-      if (
-        access.role !== "owner" &&
-        (attachment.uploadedByUserId !== actorUserId || attachment.commentId !== null)
-      ) {
+      const isUploader = isTaskAttachmentUploader(attachment, actorUserId, input.agentAccess?.credentialId);
+      const isHumanOwner = access.role === "owner" && !input.agentAccess;
+      if (!isHumanOwner && (!isUploader || attachment.commentId !== null)) {
         return createError(403, "forbidden");
       }
 
@@ -1749,7 +1748,7 @@ export async function getTaskAttachmentDownload(input: {
           name: true,
           mimeType: true,
           storageKey: true,
-          uploadedByUserId: true,
+          ...taskAttachmentActorSelect,
           task: {
             select: {
               id: true,
@@ -1763,7 +1762,7 @@ export async function getTaskAttachmentDownload(input: {
         !attachment ||
         attachment.task.id !== input.taskId ||
         attachment.task.projectId !== input.projectId ||
-        (attachment.isCommentDraft && attachment.uploadedByUserId !== actorUserId) ||
+        (attachment.isCommentDraft && !isTaskAttachmentUploader(attachment, actorUserId, input.agentAccess?.credentialId)) ||
         attachment.kind !== ATTACHMENT_KIND_FILE ||
         !attachment.storageKey ||
         !hasExpectedStoragePrefix(

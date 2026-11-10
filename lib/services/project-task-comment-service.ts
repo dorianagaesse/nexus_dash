@@ -1,3 +1,4 @@
+import { taskAttachmentUploaderWhere } from "@/lib/task-attachment-actor";
 import { taskAttachmentActorSelect, type TaskAttachmentActorFields } from "@/lib/task-attachment-actor";
 import { logServerError } from "@/lib/observability/logger";
 import {
@@ -776,8 +777,8 @@ export async function createTaskCommentForProject(input: {
     return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
-  const result: ServiceResult<CreateTaskCommentTransactionData> =
-    await withActorRlsContext(actorUserId, async (db) => {
+  const result =
+    await withActorRlsContext<ServiceResult<CreateTaskCommentTransactionData>>(actorUserId, async (db) => {
       const access = await requireProjectRole({
         actorUserId,
         projectId: input.projectId,
@@ -807,7 +808,8 @@ export async function createTaskCommentForProject(input: {
           where: {
             id: { in: attachmentIds },
             taskId: input.taskId,
-            uploadedByUserId: actorUserId,
+            ...taskAttachmentUploaderWhere(actorUserId, input.agentAccess?.credentialId),
+            isCommentDraft: true,
             commentId: null,
           },
           select: { id: true, kind: true, mimeType: true },
@@ -845,7 +847,6 @@ export async function createTaskCommentForProject(input: {
         return agentMentionResolution;
       }
 
-      try {
         let actorKind: NotificationActorKind = "user";
         let actorCredentialId: string | null = null;
         let actorCredentialLabel: string | null = null;
@@ -912,7 +913,8 @@ export async function createTaskCommentForProject(input: {
             where: {
               id: { in: attachmentIds },
               taskId: input.taskId,
-              uploadedByUserId: actorUserId,
+              ...taskAttachmentUploaderWhere(actorUserId, input.agentAccess?.credentialId),
+              isCommentDraft: true,
               commentId: null,
             },
             data: { commentId: comment.id, isCommentDraft: false },
@@ -995,10 +997,12 @@ export async function createTaskCommentForProject(input: {
             pendingNotifications,
           },
         };
-      } catch (error) {
-        logServerError("createTaskCommentForProject", error);
-        return createError(500, "comment-create-failed");
+    }, { forceTransaction: true }).catch((error) => {
+      if (error instanceof Error && error.message === "Comment attachment binding changed during creation") {
+        return createError(409, "task-comment-attachment-invalid");
       }
+      logServerError("createTaskCommentForProject", error);
+      return createError(500, "comment-create-failed");
     });
 
   if (!result.ok) {

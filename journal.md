@@ -1,5 +1,33 @@
 # Development Journal
 
+# 2026-11-10 - ND-670: reconciliation after ND-669 merged
+
+- Merged current main at `01dc9763ba8f6813455bbaf2132cdfd82043e015` into
+  PR #684 after GitHub retargeted it to main. Preserved the original ND-670
+  application delta alongside main's capability and current-author changes.
+- Resolved duplicated parent additions in uploader helpers/imports and tests;
+  retained exact-actor draft checks, credential-specific keys, atomic binding
+  and both README/journal histories. Whitespace checks passed with main's
+  existing CRLF handling. Combined CI and Preview evidence are recorded on the PR.
+
+# 2026-11-08 - ND-670: draft attachment ownership
+
+- Bound unpublished task files to the exact human or credential uploader for
+  download, comment publication and removal. Human project owners retain an
+  explicit removal-only moderation exception.
+- Agent direct uploads now use credential-specific object paths. Serialized
+  finalization/cleanup rejects already-finalized objects. Human legacy paths
+  remain valid only for humans. Published files retain project-reader access.
+- Comment binding now always uses a transaction and propagates a failed atomic
+  bind through rollback before returning an error, avoiding orphan comments.
+- Added a three-actor browser/API regression with cross-actor denials, concurrent
+  publication, posted reader access and revoked/expired credential rejection.
+- Lint, RLS inventory/matrix, 2,405 unit/API tests (3 skipped), coverage thresholds
+  and production build passed. Eight local browser scenarios passed after fixing
+  the new fixture creator fields. Preview workflow 42490026682 verified runtime
+  `1f07733c2c80fa1eee6e377298da214dc542fc7d`; the hosted three-actor regression
+  passed at `https://nexus-dash-bqppck26v-dorian-agaesses-projects.vercel.app`.
+
 # 2026-11-10 - ND-669: current-main reconciliation
 
 - Merged current main at `2e1245779416338c3515eab82b29a1b65a103874` into

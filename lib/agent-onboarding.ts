@@ -520,7 +520,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/tasks/{taskId}/attachments/direct",
     title: "Finalize task attachment upload",
     description: "Attach a previously uploaded file to the task.",
-    notes: ["Set isCommentDraft=true for an unposted comment file. Drafts stay out of task reads, search, and activity until comment creation binds them; only the uploader can download them before posting."],
+    notes: ["Set isCommentDraft=true for an unposted comment file. Drafts stay out of task reads, search, and activity until comment creation binds them; only the same human or credential can download or bind them before posting. Credentials sharing a human owner remain distinct. Human project owners may remove drafts for moderation, but cannot read or bind another actor's draft."],
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
   },
@@ -4009,7 +4009,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 schema: {
                   allOf: [
                     { $ref: "#/components/schemas/AttachmentDirectFinalizeRequest" },
-                    { type: "object", properties: { isCommentDraft: { type: "boolean", default: false, description: "Keep the upload unpublished until comment binding." } } },
+                    { type: "object", properties: { isCommentDraft: { type: "boolean", default: false, description: "Keep the upload private to this human or credential until atomic comment binding. Use the exact storageKey returned to this actor; another actor cannot finalize or clean it up." } } },
                   ],
                 },
               },
