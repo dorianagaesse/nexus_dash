@@ -1,3 +1,4 @@
+import { taskAttachmentActor } from "@/lib/task-attachment-actor";
 import { Columns3 } from "lucide-react";
 
 import { KanbanBoard, type KanbanTask } from "@/components/kanban-board";
@@ -122,6 +123,7 @@ export async function KanbanBoardSection({
       status: task.status,
       position: task.position,
       attachments: task.attachments.map((attachment: TaskAttachment) => ({
+        uploadedBy: taskAttachmentActor(attachment),
         id: attachment.id,
         commentId: attachment.commentId,
         kind: attachment.kind,

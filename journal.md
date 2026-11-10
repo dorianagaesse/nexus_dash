@@ -1,5 +1,35 @@
 # Development Journal
 
+# 2026-11-10 - ND-669: current-main reconciliation
+
+- Merged current main at `2e1245779416338c3515eab82b29a1b65a103874` into
+  PR #683 without rewriting the stacked branch history. The only conflict was
+  the README's adjacent additions; retained task attachment attribution and the
+  project-capabilities runbook link. Application code merged automatically.
+- Verified the ND-669 application delta against main is preserved. Whitespace
+  checks account for main's existing CRLF files; combined validation and preview
+  evidence are recorded on the PR before handoff.
+
+# 2026-11-08 - ND-669: task attachment attribution
+
+- Added uploader kind, credential relation and durable display snapshot to task
+  attachments, keeping the user as the storage/RLS owner. Existing rows remain
+  human-attributed. Reused the project actor resolver and retained nullable
+  credential references so deletion preserves history.
+- Task create/link append, form/direct uploads, comment attachment projections
+  and file/link presentation carry the uploader. Attachment mutation activity
+  includes the actor; human writes clear stale agent editor metadata.
+- Added service, projection, real PostgreSQL and browser/API lifecycle coverage.
+  Validation uses disposable PostgreSQL on port 55669 with the Realtime stub
+  installed before migrations. Lint, RLS inventory, production build and the real
+  PostgreSQL matrix passed; eight local Playwright checks passed.
+- Preview workflow 42488988388 checked out commit
+  `21f418e8a29059abc306d106c64117baebc6bff2`; the hosted task upload lifecycle
+  test passed at `https://nexus-dash-qfb71g6fi-dorian-agaesses-projects.vercel.app`.
+  It verified R2 upload/download, distinct credential labels, deletion history,
+  UI display and human deletion. All 2,403 unit/API tests passed (3 skipped).
+
+
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 

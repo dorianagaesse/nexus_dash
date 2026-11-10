@@ -18,6 +18,7 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
   },
   taskAttachment: {
+    createMany: vi.fn(),
     create: vi.fn(),
     findUnique: vi.fn(),
     delete: vi.fn(),
@@ -65,6 +66,7 @@ vi.mock("@/lib/observability/logger", () => ({
 }));
 
 import {
+  createTaskAttachmentsFromDraft,
   createContextAttachmentUploadTarget,
   createContextAttachmentsFromDraft,
   createContextAttachmentFromForm,
@@ -102,6 +104,19 @@ describe("project-attachment-service", () => {
     prismaMock.project.update.mockResolvedValue({ id: "project-1" });
   });
 
+  test.each(["credential-a", "credential-b"])("persists distinct task link uploader %s", async (credentialId) => {
+    prismaMock.apiCredential.findFirst.mockResolvedValue({ id: credentialId, label: credentialId, revokedAt: null, expiresAt: null });
+    await createTaskAttachmentsFromDraft({ actorUserId, projectId: "project-1", taskId: "task-1", links: [{ name: "Spec", url: "https://example.com" }], files: [], agentAccess: { credentialId, projectId: "project-1", scopes: ["task:write"] } });
+    expect(prismaMock.taskAttachment.createMany).toHaveBeenCalledWith({ data: [expect.objectContaining({ uploadedByUserId: actorUserId, uploadedByKind: "agent", uploadedByCredentialId: credentialId, uploadedByDisplayNameSnapshot: credentialId })] });
+  });
+
+  test("human attachment deletion clears the previous agent editor", async () => {
+    prismaMock.taskAttachment.findUnique.mockResolvedValueOnce({ id: "att-1", kind: "link", task: { id: "task-1", projectId: "project-1" } });
+    const result = await deleteTaskAttachmentForProject({ actorUserId, projectId: "project-1", taskId: "task-1", attachmentId: "att-1" });
+    expect(result.ok).toBe(true);
+    expect(prismaMock.task.update).toHaveBeenCalledWith(expect.objectContaining({ data: { updatedByUserId: actorUserId, updatedByCredentialId: null, updatedByCredentialLabel: null } }));
+  });
+
   test("allows an editor to delete their own unbound task upload", async () => {
     prismaMock.project.findFirst.mockResolvedValueOnce({
       ownerId: "owner-1",
@@ -134,7 +149,7 @@ describe("project-attachment-service", () => {
           domain: "task",
           action: "updated",
           entityId: "task-1",
-          payload: { taskId: "task-1", deletedAttachmentId: "att-draft" },
+          payload: expect.objectContaining({ taskId: "task-1", deletedAttachmentId: "att-draft" }),
         }),
       })
     );
@@ -270,6 +285,7 @@ describe("project-attachment-service", () => {
             action: "updated",
             entityId: "task-1",
             payload: {
+              actor: { kind: "human", id: actorUserId, displayName: "ada" },
               taskId: "task-1",
               attachment: expect.objectContaining(attachment),
             },
@@ -437,7 +453,7 @@ describe("project-attachment-service", () => {
     expect(prismaMock.taskAttachment.create).toHaveBeenCalledTimes(1);
     expect(prismaMock.task.update).toHaveBeenCalledWith({
       where: { id: "task-1" },
-      data: { updatedByUserId: actorUserId },
+      data: { updatedByUserId: actorUserId, updatedByCredentialId: null, updatedByCredentialLabel: null },
       select: { id: true },
     });
     expect(attachmentStorageMock.deleteAttachmentFile).not.toHaveBeenCalled();
@@ -448,6 +464,7 @@ describe("project-attachment-service", () => {
           action: "updated",
           entityId: "task-1",
           payload: {
+            actor: { kind: "human", id: actorUserId, displayName: "ada" },
             taskId: "task-1",
             attachment: expect.objectContaining({
               kind: "file",

@@ -1,3 +1,4 @@
+import type { TaskAttachmentActor } from "@/lib/task-attachment-actor";
 import type { ProjectActorReference, ProjectActorSummary } from "@/lib/project-actor";
 import type { TaskStatus } from "@/lib/task-status";
 
@@ -89,6 +90,7 @@ export interface TaskAttachment {
   url: string | null;
   mimeType: string | null;
   sizeBytes: number | null;
+  uploadedBy?: TaskAttachmentActor;
   downloadUrl: string | null;
 }
 

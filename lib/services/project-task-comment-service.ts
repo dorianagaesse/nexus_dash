@@ -1,3 +1,4 @@
+import { taskAttachmentActorSelect, type TaskAttachmentActorFields } from "@/lib/task-attachment-actor";
 import { logServerError } from "@/lib/observability/logger";
 import {
   hasAgentMentionToken,
@@ -170,7 +171,7 @@ function mapTaskComment(input: {
     usernameDiscriminator: string | null;
     avatarSeed: string | null;
   };
-  attachments?: Array<{
+  attachments?: Array<TaskAttachmentActorFields & {
     id: string;
     commentId: string | null;
     kind: string;
@@ -700,6 +701,7 @@ export async function listTaskCommentsForProject(input: {
               url: true,
               mimeType: true,
               sizeBytes: true,
+              ...taskAttachmentActorSelect,
             },
           },
           agentMentions: {
@@ -899,6 +901,7 @@ export async function createTaskCommentForProject(input: {
                 url: true,
                 mimeType: true,
                 sizeBytes: true,
+                ...taskAttachmentActorSelect,
               },
             },
           },
@@ -928,6 +931,7 @@ export async function createTaskCommentForProject(input: {
               url: true,
               mimeType: true,
               sizeBytes: true,
+              ...taskAttachmentActorSelect,
             },
           });
         }
@@ -1172,6 +1176,7 @@ export async function updateTaskCommentForProject(
               url: true,
               mimeType: true,
               sizeBytes: true,
+              ...taskAttachmentActorSelect,
             },
           },
         },

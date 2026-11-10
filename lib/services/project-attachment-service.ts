@@ -1,3 +1,5 @@
+import { taskAttachmentActor, taskAttachmentActorSelect, type TaskAttachmentActor, type TaskAttachmentActorFields } from "@/lib/task-attachment-actor";
+import { resolveTaskAttachmentUploader } from "@/lib/services/task-attachment-actor-service";
 import {
   createAttachmentSignedUploadUrl,
   deleteAttachmentFile,
@@ -63,6 +65,7 @@ export interface AttachmentResponsePayload {
 
 export interface TaskAttachmentResponsePayload extends AttachmentResponsePayload {
   commentId: string | null;
+  uploadedBy?: TaskAttachmentActor;
 }
 
 export interface AttachmentDownloadPayload {
@@ -228,7 +231,7 @@ function requireAttachmentAgentScopes(input: {
 export function mapTaskAttachmentResponse(
   projectId: string,
   taskId: string,
-  attachment: {
+  attachment: TaskAttachmentActorFields & {
     id: string;
     commentId?: string | null;
     kind: string;
@@ -239,6 +242,7 @@ export function mapTaskAttachmentResponse(
   }
 ): TaskAttachmentResponsePayload {
   return {
+    ...(taskAttachmentActor(attachment) ? { uploadedBy: taskAttachmentActor(attachment) } : {}),
     id: attachment.id,
     kind: attachment.kind,
     name: attachment.name,
@@ -256,12 +260,15 @@ export function mapTaskAttachmentResponse(
 async function touchTaskActivity(
   db: DbClient,
   taskId: string,
-  actorUserId: string
+  actorUserId: string,
+  uploader: TaskAttachmentActorFields
 ) {
   await db.task.update({
     where: { id: taskId },
     data: {
       updatedByUserId: actorUserId,
+      updatedByCredentialId: uploader.uploadedByCredentialId ?? null,
+      updatedByCredentialLabel: uploader.uploadedByKind === "agent" ? uploader.uploadedByDisplayNameSnapshot : null,
     },
     select: {
       id: true,
@@ -297,8 +304,12 @@ export async function createTaskAttachmentsFromDraft(input: {
   links: ParsedAttachmentLink[];
   files: File[];
   db?: DbClient;
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<void> {
   const db = input.db ?? prisma;
+  if (!input.links.length && !input.files.length) return;
+  const uploader = await resolveTaskAttachmentUploader({ ...input, db });
+  if (!uploader.ok) throw new Error(uploader.error);
   const savedStorageKeys: string[] = [];
 
   try {
@@ -306,7 +317,7 @@ export async function createTaskAttachmentsFromDraft(input: {
       await db.taskAttachment.createMany({
         data: input.links.map((link) => ({
           taskId: input.taskId,
-          uploadedByUserId: input.actorUserId,
+          ...uploader.data,
           kind: ATTACHMENT_KIND_LINK,
           name: link.name,
           url: link.url,
@@ -331,7 +342,7 @@ export async function createTaskAttachmentsFromDraft(input: {
       await db.taskAttachment.create({
         data: {
           taskId: input.taskId,
-          uploadedByUserId: input.actorUserId,
+          ...uploader.data,
           kind: ATTACHMENT_KIND_FILE,
           name: storedFile.originalName,
           storageKey: storedFile.storageKey,
@@ -450,6 +461,8 @@ export async function createTaskAttachmentFromForm(input: {
     if (!access.ok) {
       return createError(access.status, access.error);
     }
+    const uploader = await resolveTaskAttachmentUploader({ db, actorUserId, projectId: input.projectId });
+    if (!uploader.ok) return createError(uploader.status, uploader.error);
 
     const task = await db.task.findUnique({
       where: { id: input.taskId },
@@ -487,7 +500,7 @@ export async function createTaskAttachmentFromForm(input: {
         const attachment = await db.taskAttachment.create({
           data: {
             taskId: input.taskId,
-            uploadedByUserId: actorUserId,
+            ...uploader.data,
             kind: ATTACHMENT_KIND_LINK,
             name: providedName || new URL(normalizedUrl).hostname,
             url: normalizedUrl,
@@ -500,10 +513,11 @@ export async function createTaskAttachmentFromForm(input: {
             url: true,
             mimeType: true,
             sizeBytes: true,
+            ...taskAttachmentActorSelect,
           },
         });
 
-        await touchTaskActivity(db, input.taskId, actorUserId);
+        await touchTaskActivity(db, input.taskId, actorUserId, uploader.data);
         await recordProjectActivityEvent({
           db,
           projectId: input.projectId,
@@ -512,6 +526,7 @@ export async function createTaskAttachmentFromForm(input: {
           action: "updated",
           entityId: input.taskId,
           payload: {
+            actor: taskAttachmentActor(uploader.data),
             taskId: input.taskId,
             attachment: mapTaskAttachmentResponse(
               input.projectId,
@@ -577,7 +592,7 @@ export async function createTaskAttachmentFromForm(input: {
         data: {
           taskId: input.taskId,
           isCommentDraft,
-          uploadedByUserId: actorUserId,
+          ...uploader.data,
           kind: ATTACHMENT_KIND_FILE,
           name: providedName || storedFile.originalName,
           storageKey: storedFile.storageKey,
@@ -592,11 +607,12 @@ export async function createTaskAttachmentFromForm(input: {
           url: true,
           mimeType: true,
           sizeBytes: true,
+          ...taskAttachmentActorSelect,
         },
       });
 
       if (!isCommentDraft) {
-        await touchTaskActivity(db, input.taskId, actorUserId);
+        await touchTaskActivity(db, input.taskId, actorUserId, uploader.data);
         await recordProjectActivityEvent({
           db,
           projectId: input.projectId,
@@ -605,6 +621,7 @@ export async function createTaskAttachmentFromForm(input: {
           action: "updated",
           entityId: input.taskId,
           payload: {
+            actor: taskAttachmentActor(uploader.data),
             taskId: input.taskId,
             attachment: mapTaskAttachmentResponse(
               input.projectId,
@@ -937,6 +954,8 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
     if (!access.ok) {
       return createError(access.status, access.error);
     }
+    const uploader = await resolveTaskAttachmentUploader({ db, actorUserId, projectId: input.projectId, agentAccess: input.agentAccess });
+    if (!uploader.ok) return createError(uploader.status, uploader.error);
 
     const task = await db.task.findUnique({
       where: { id: input.taskId },
@@ -1012,7 +1031,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
         data: {
           taskId: input.taskId,
           isCommentDraft,
-          uploadedByUserId: actorUserId,
+          ...uploader.data,
           kind: ATTACHMENT_KIND_FILE,
           name: normalizedUpload.data.name,
           storageKey: normalizedStorageKey,
@@ -1027,11 +1046,12 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
           url: true,
           mimeType: true,
           sizeBytes: true,
+          ...taskAttachmentActorSelect,
         },
       });
 
       if (!isCommentDraft) {
-        await touchTaskActivity(db, input.taskId, actorUserId);
+        await touchTaskActivity(db, input.taskId, actorUserId, uploader.data);
         await recordProjectActivityEvent({
           db,
           projectId: input.projectId,
@@ -1040,6 +1060,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
           action: "updated",
           entityId: input.taskId,
           payload: {
+            actor: taskAttachmentActor(uploader.data),
             taskId: input.taskId,
             attachment: mapTaskAttachmentResponse(
               input.projectId,
@@ -1503,6 +1524,8 @@ export async function deleteTaskAttachmentForProject(input: {
     if (!access.ok) {
       return createError(access.status, access.error);
     }
+    const uploader = await resolveTaskAttachmentUploader({ db, actorUserId, projectId: input.projectId, agentAccess: input.agentAccess });
+    if (!uploader.ok) return createError(uploader.status, uploader.error);
 
     try {
       const attachment = await db.taskAttachment.findUnique({
@@ -1557,7 +1580,7 @@ export async function deleteTaskAttachmentForProject(input: {
       });
 
       if (!attachment.isCommentDraft) {
-        await touchTaskActivity(db, input.taskId, actorUserId);
+        await touchTaskActivity(db, input.taskId, actorUserId, uploader.data);
         await recordProjectActivityEvent({
           db,
           projectId: input.projectId,
@@ -1565,7 +1588,7 @@ export async function deleteTaskAttachmentForProject(input: {
           domain: "task",
           action: "updated",
           entityId: input.taskId,
-          payload: { taskId: input.taskId, deletedAttachmentId: attachment.id },
+          payload: { taskId: input.taskId, deletedAttachmentId: attachment.id, actor: taskAttachmentActor(uploader.data) },
         });
       }
 
