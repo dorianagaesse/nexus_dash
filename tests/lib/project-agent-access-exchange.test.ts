@@ -132,6 +132,7 @@ describe("exchangeAgentApiKeyForAccessToken", () => {
     );
     expect(agentTokenServiceMock.issueAgentAccessToken).toHaveBeenCalledWith({
       credentialId: "credential-1",
+      credentialPublicId: "nda_public",
       projectId: "project-1",
       ownerUserId: "owner-1",
       scopes: ["roadmap:write", "task:read"],
@@ -158,6 +159,29 @@ describe("exchangeAgentApiKeyForAccessToken", () => {
       status: 429,
       error: "too-many-attempts",
     });
+  });
+
+  test("keeps the verified key generation if rotation races token issuance", async () => {
+    const row = {
+      id: "credential-1", label: "Worker", secret_hash: "old-hash", public_id: "nda_before",
+      project_id: "project-1", created_by_user_id: "owner-1", expires_at: null,
+      revoked_at: null, scopes: [ApiCredentialScope.task_read],
+    };
+    prismaMock.$queryRaw.mockResolvedValueOnce([row]);
+    passwordServiceMock.verifySecret.mockImplementationOnce(async () => {
+      // The lookup has already captured the old key; rotation commits while
+      // its expensive password verification is still in flight.
+      row.public_id = "nda_after";
+      row.secret_hash = "new-hash";
+      return true;
+    });
+
+    const result = await exchangeAgentApiKeyForAccessToken({ apiKey: "nda_before.old-secret" });
+
+    expect(result.ok).toBe(true);
+    expect(agentTokenServiceMock.issueAgentAccessToken).toHaveBeenCalledWith(expect.objectContaining({
+      credentialId: "credential-1", credentialPublicId: "nda_before",
+    }));
   });
 
   test("still issues a token when abuse-control cleanup fails after a valid exchange", async () => {

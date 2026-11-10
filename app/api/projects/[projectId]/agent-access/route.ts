@@ -13,6 +13,7 @@ import {
 
 interface CreateAgentCredentialRequestBody {
   label?: unknown;
+  descriptiveLabels?: unknown;
   scopes?: unknown;
   expiresInDays?: unknown;
 }
@@ -76,6 +77,8 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     actorUserId: authenticatedUser.userId,
     projectId: params.projectId,
     label: typeof payload.label === "string" ? payload.label : "",
+    ...(payload.descriptiveLabels !== undefined
+      ? { descriptiveLabels: payload.descriptiveLabels } : {}),
     scopes: Array.isArray(payload.scopes) ? payload.scopes : [],
     expiresInDays,
     requestId: resolveRequestId(request),

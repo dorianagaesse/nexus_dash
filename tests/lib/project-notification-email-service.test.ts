@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+const notificationAccessMock = vi.hoisted(() => ({ canReceiveProjectNotification: vi.fn(), notificationAccessWhere: vi.fn() }));
+vi.mock("@/lib/services/notification-access", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/services/notification-access")>(),
+  ...notificationAccessMock,
+}));
+
 const prismaMock = vi.hoisted(() => ({
   $queryRaw: vi.fn(),
   user: {
@@ -272,6 +278,8 @@ function findQueryRawSql(fragment: string): string {
 describe("project-notification-email-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    notificationAccessMock.canReceiveProjectNotification.mockResolvedValue(true);
+    notificationAccessMock.notificationAccessWhere.mockResolvedValue(undefined);
     prismaMock.user.findMany.mockResolvedValue([{ id: "user-1" }]);
     prismaMock.user.findUnique.mockResolvedValue({
       email: "dorian.agaesse@gmail.com",
@@ -305,6 +313,25 @@ describe("project-notification-email-service", () => {
     });
   });
 
+
+  test.each(["task_assignment", "task_comment_mention", "task_due_date_reminder", "meeting_todo_overdue_reminder"])("suppresses queued %s after module access is revoked", async (type) => {
+    const notification = mentionNotification({ type });
+    prismaMock.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "email-1" }]);
+    prismaMock.projectNotificationEmail.findMany.mockResolvedValueOnce([{ recipientUserId: "user-1" }]).mockResolvedValueOnce([
+      claimedGroup({ id: "email-1", projectId: "project-1", projectName: "Alpha", notification }),
+    ]);
+    notificationAccessMock.canReceiveProjectNotification.mockResolvedValue(false);
+    const summary = await dispatchProjectNotificationEmails({ appOrigin: "https://preview.nexusdash.test", now });
+    expect(notificationAccessMock.canReceiveProjectNotification).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: "user-1", projectId: "project-1", type }));
+    expect(outboundEmailMock.sendOutboundEmail).not.toHaveBeenCalled();
+    expect(summary).toMatchObject({ groupsClaimed: 1, groupsSkipped: 1, recipientEmailsSent: 0 });
+  });
+
+  test("does not queue inaccessible activity copies", async () => {
+    notificationAccessMock.canReceiveProjectNotification.mockResolvedValue(false);
+    await enqueueNotificationEmailForNotification({ db: prismaMock as never, notification: mentionNotification() });
+    expect(prismaMock.projectNotificationEmail.create).not.toHaveBeenCalled();
+  });
   test("ingests a project activity notification into a debounced pending group", async () => {
     await enqueueNotificationEmailForNotification({
       db: prismaMock as never,
@@ -839,7 +866,7 @@ describe("project-notification-email-service", () => {
       metadata: {
         ...mentionNotification().metadata,
         authorDisplayName: "Credential Owner",
-        actorDisplayName: "Build bot (agent)",
+        actorDisplayName: "Build bot",
       },
     });
     prismaMock.$queryRaw
@@ -866,7 +893,7 @@ describe("project-notification-email-service", () => {
     expect(outboundEmailMock.sendOutboundEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         text: expect.stringContaining(
-          "Build bot (agent) mentioned you on Ship orchestration"
+          "Build bot mentioned you on Ship orchestration"
         ),
       })
     );

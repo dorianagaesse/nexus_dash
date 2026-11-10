@@ -67,6 +67,7 @@ export interface TaskCommentAuthorSummary extends TaskPersonSummary {
   kind: TaskCommentAuthorKind;
   agentCredentialId: string | null;
   agentCredentialLabel: string | null;
+  agentCredentialDescriptiveLabels: string[];
   owner: TaskPersonSummary | null;
 }
 
@@ -126,13 +127,13 @@ function normalizeText(value: string | null | undefined): string {
 
 function buildAgentDisplayName(label: string | null | undefined): string {
   const normalizedLabel = normalizeText(label);
-  return normalizedLabel ? `${normalizedLabel} (agent)` : "Agent";
+  return normalizedLabel || "Agent";
 }
 
-async function resolveAgentCredentialLabel(input: {
+async function resolveAgentCredentialAttribution(input: {
   db: DbClient;
   agentAccess: AgentProjectAccessContext;
-}): Promise<string | null> {
+}): Promise<{ label: string | null; descriptiveLabels: string[] }> {
   const credential = await input.db.apiCredential.findFirst({
     where: {
       id: input.agentAccess.credentialId,
@@ -140,10 +141,14 @@ async function resolveAgentCredentialLabel(input: {
     },
     select: {
       label: true,
+      descriptiveLabels: true,
     },
   });
 
-  return normalizeText(credential?.label) || null;
+  return {
+    label: normalizeText(credential?.label) || null,
+    descriptiveLabels: credential?.descriptiveLabels ?? [],
+  };
 }
 
 function mapTaskComment(input: {
@@ -153,6 +158,12 @@ function mapTaskComment(input: {
   updatedAt?: Date | null;
   authorAgentCredentialId: string | null;
   authorAgentCredentialLabel: string | null;
+  authorAgentCredentialDescriptiveLabels?: string[];
+  authorAgentIdentity?: {
+    id: string;
+    label: string;
+    descriptiveLabels: string[];
+  } | null;
   author: {
     id: string;
     name: string | null;
@@ -176,9 +187,9 @@ function mapTaskComment(input: {
   }>;
 }, projectId: string, taskId: string): TaskCommentSummary {
   const owner = mapTaskPersonSummary(input.author)!;
-  const agentCredentialLabel = normalizeText(input.authorAgentCredentialLabel);
+  const agentCredentialLabel = normalizeText(input.authorAgentIdentity?.label ?? input.authorAgentCredentialLabel);
   const isAgentComment = Boolean(
-    input.authorAgentCredentialId || agentCredentialLabel
+    input.authorAgentIdentity || input.authorAgentCredentialId || agentCredentialLabel
   );
 
   return {
@@ -199,13 +210,15 @@ function mapTaskComment(input: {
       })),
     author: isAgentComment
       ? {
-          id: input.authorAgentCredentialId ?? input.author.id,
+          id: input.authorAgentIdentity?.id ?? input.authorAgentCredentialId ?? input.author.id,
           kind: "agent",
           displayName: buildAgentDisplayName(agentCredentialLabel),
           usernameTag: null,
           avatarSeed: AGENT_COMMENT_AVATAR_SEED,
           agentCredentialId: input.authorAgentCredentialId,
           agentCredentialLabel: agentCredentialLabel || null,
+          agentCredentialDescriptiveLabels: input.authorAgentIdentity?.descriptiveLabels
+            ?? input.authorAgentCredentialDescriptiveLabels ?? [],
           owner,
         }
       : {
@@ -213,6 +226,7 @@ function mapTaskComment(input: {
           kind: "user",
           agentCredentialId: null,
           agentCredentialLabel: null,
+          agentCredentialDescriptiveLabels: [],
           owner: null,
         },
   };
@@ -634,6 +648,7 @@ export async function listTaskCommentsForProject(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "viewer",
+      capability: "task:read",
       db,
     });
     if (!access.ok) {
@@ -665,6 +680,8 @@ export async function listTaskCommentsForProject(input: {
           updatedAt: true,
           authorAgentCredentialId: true,
           authorAgentCredentialLabel: true,
+          authorAgentCredentialDescriptiveLabels: true,
+          authorAgentIdentity: { select: { id: true, label: true, descriptiveLabels: true } },
           author: {
             select: {
               id: true,
@@ -766,6 +783,7 @@ export async function createTaskCommentForProject(input: {
         actorUserId,
         projectId: input.projectId,
         minimumRole: "editor",
+      capability: "task:write",
         db,
       });
       if (!access.ok) {
@@ -832,14 +850,17 @@ export async function createTaskCommentForProject(input: {
         let actorKind: NotificationActorKind = "user";
         let actorCredentialId: string | null = null;
         let actorCredentialLabel: string | null = null;
+        let actorCredentialDescriptiveLabels: string[] = [];
 
         if (input.agentAccess) {
           actorKind = "agent";
           actorCredentialId = input.agentAccess.credentialId;
-          actorCredentialLabel = await resolveAgentCredentialLabel({
+          const attribution = await resolveAgentCredentialAttribution({
             db,
             agentAccess: input.agentAccess,
           });
+          actorCredentialLabel = attribution.label;
+          actorCredentialDescriptiveLabels = attribution.descriptiveLabels;
         }
 
         const comment = await db.taskComment.create({
@@ -848,6 +869,7 @@ export async function createTaskCommentForProject(input: {
             authorUserId: actorUserId,
             authorAgentCredentialId: actorCredentialId,
             authorAgentCredentialLabel: actorCredentialLabel,
+            authorAgentCredentialDescriptiveLabels: actorCredentialDescriptiveLabels,
             content,
             updatedAt: null,
           },
@@ -858,6 +880,8 @@ export async function createTaskCommentForProject(input: {
             updatedAt: true,
             authorAgentCredentialId: true,
             authorAgentCredentialLabel: true,
+            authorAgentCredentialDescriptiveLabels: true,
+            authorAgentIdentity: { select: { id: true, label: true, descriptiveLabels: true } },
             author: {
               select: {
                 id: true,
@@ -1040,6 +1064,7 @@ export async function updateTaskCommentForProject(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -1066,6 +1091,7 @@ export async function updateTaskCommentForProject(
         taskId: true,
         authorUserId: true,
         authorAgentCredentialId: true,
+        authorAgentIdentityId: true,
         authorAgentCredentialLabel: true,
         attachments: { select: { id: true } },
       },
@@ -1080,7 +1106,7 @@ export async function updateTaskCommentForProject(
     }
 
     const isAgentComment = Boolean(
-      existingComment.authorAgentCredentialId ||
+      existingComment.authorAgentIdentityId || existingComment.authorAgentCredentialId ||
         normalizeText(existingComment.authorAgentCredentialLabel)
     );
 
@@ -1114,10 +1140,10 @@ export async function updateTaskCommentForProject(
 
       if (input.agentAccess) {
         actorCredentialId = input.agentAccess.credentialId;
-        actorCredentialLabel = await resolveAgentCredentialLabel({
+        actorCredentialLabel = (await resolveAgentCredentialAttribution({
           db,
           agentAccess: input.agentAccess,
-        });
+        })).label;
       }
 
       const comment = await db.taskComment.update({
@@ -1132,6 +1158,8 @@ export async function updateTaskCommentForProject(
           updatedAt: true,
           authorAgentCredentialId: true,
           authorAgentCredentialLabel: true,
+          authorAgentCredentialDescriptiveLabels: true,
+          authorAgentIdentity: { select: { id: true, label: true, descriptiveLabels: true } },
           author: {
             select: {
               id: true,
@@ -1279,6 +1307,7 @@ export async function listTaskCommentReactionsForComment(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "viewer",
+      capability: "task:read",
       db,
     });
     if (!access.ok) return createError(access.status, access.error);
@@ -1355,6 +1384,7 @@ export async function addTaskCommentReaction(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) return createError(access.status, access.error);
@@ -1476,6 +1506,7 @@ export async function removeTaskCommentReaction(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) return createError(access.status, access.error);

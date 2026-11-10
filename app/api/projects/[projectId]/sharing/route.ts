@@ -11,6 +11,7 @@ import {
 interface InviteRequestBody {
   invitedEmail?: unknown;
   role?: unknown;
+  capabilities?: unknown;
 }
 
 export async function GET(request: NextRequest, props: { params: Promise<{ projectId: string }> }) {
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ proj
     invitedEmail:
       typeof payload.invitedEmail === "string" ? payload.invitedEmail : "",
     role: typeof payload.role === "string" ? payload.role : "",
+    capabilities: payload.capabilities,
     appOrigin: resolveRequestOriginFromHeaders(request.headers),
   });
 
