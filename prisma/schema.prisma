@@ -727,6 +727,10 @@ model TaskCommentAgentMention {
 }
 
 model TaskCommentReaction {
+  actorKind ProjectActorKind @default(human)
+  actorCredentialId String?
+  actorDisplayNameSnapshot String @default("Unknown actor") @db.VarChar(80)
+  actorCredential ApiCredential? @relation("TaskCommentReactionActor", fields: [actorCredentialId], references: [id], onDelete: SetNull)
   id        String   @id @default(cuid())
   commentId String
   userId    String
@@ -736,7 +740,8 @@ model TaskCommentReaction {
   comment TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
   user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([commentId, userId, emoji])
+  // Human uniqueness is a partial index in the actor migration.
+  @@unique([commentId, actorCredentialId])
   @@index([commentId])
   @@index([userId])
 }
@@ -1023,6 +1028,8 @@ model ApiCredential {
   meetingTodoActionsCreated           ProjectMeetingNoteAction[]               @relation("MeetingTodoCreatedByCredential")
   meetingTodoActionsAssigned          ProjectMeetingNoteAction[]               @relation("MeetingTodoAssignedToCredential")
   meetingTodoActionsCompleted         ProjectMeetingNoteAction[]               @relation("MeetingTodoCompletedByCredential")
+  taskCommentReactions TaskCommentReaction[] @relation("TaskCommentReactionActor")
+
   taskAttachmentsUploaded TaskAttachment[] @relation("TaskAttachmentUploaderCredential")
   contextAttachmentsUploaded          ResourceAttachment[]                     @relation("ResourceAttachmentUploaderCredential")
   contextCardsCreated                 Resource[]                               @relation("ContextCardCreatedByCredential")

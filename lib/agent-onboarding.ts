@@ -403,6 +403,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requestContentType: "application/json",
     notes: [
       "Task comments preserve line breaks and can subsequently be edited via PATCH.",
+      "Prefer reactions to existing comments for acknowledgments, agreement, thanks, or confirmation whenever they convey the full message, keeping comment counts low. Use text for new information, questions, blockers, decisions, or required pickup/completion evidence. Read reactions first: POST toggles the same emoji off or replaces your previous emoji.",
       "A comment may include up to 10 previously uploaded file attachment ids (images, PDF, text, Markdown, CSV, or JSON); content may be empty when at least one file is attached.",
       "Agent-authored comments display the current author name and descriptive labels across all linked comments. No agent suffix is appended; author.kind identifies agent authors. Rotation, revocation and key deletion retain the public identity. Previously orphaned comments use saved attribution.",
       "Tag project agents by inserting the exact `@{Credential Label}` token in content and listing the credentialId in agentMentionSelections; mismatched, revoked, expired, or out-of-project selections fail the whole request with task-comment-agent-mention-invalid.",
@@ -434,6 +435,24 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       `Use this route to move a task between ${TASK_STATUSES.join(", ")}.`,
       "For a single task, prefer POST /api/projects/{projectId}/tasks/{taskId}/status instead of rewriting the whole board.",
     ],
+  },
+  {
+    tag: "Tasks", method: "GET", path: "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions",
+    title: "List comment reactions", description: "Reactions belong to a human or a specific credential; credentials sharing an owner have separate state.",
+    requiredScopes: ["task:read"],
+    notes: ["POST toggles the same emoji off or replaces this actor's previous emoji. DELETE affects only this actor's reaction. Each response groups counts and sets reacted for the caller; actor carries durable provenance and user is null for agents. Deleted credentials retain kind and displayName with a null actor id. Invalid emoji returns 400, insufficient access 403, and missing or mismatched project/task/comment/reaction parents 404 without mutation."],
+  },
+  {
+    tag: "Tasks", method: "POST", path: "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions",
+    title: "Toggle comment reaction", description: "Reactions belong to a human or a specific credential; credentials sharing an owner have separate state.",
+    requiredScopes: ["task:write"],
+    notes: ["POST toggles the same emoji off or replaces this actor's previous emoji. DELETE affects only this actor's reaction. Each response groups counts and sets reacted for the caller; actor carries durable provenance and user is null for agents. Deleted credentials retain kind and displayName with a null actor id. Invalid emoji returns 400, insufficient access 403, and missing or mismatched project/task/comment/reaction parents 404 without mutation."],
+  },
+  {
+    tag: "Tasks", method: "DELETE", path: "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions/{reactionId}",
+    title: "Remove own comment reaction", description: "Reactions belong to a human or a specific credential; credentials sharing an owner have separate state.",
+    requiredScopes: ["task:write"],
+    notes: ["POST toggles the same emoji off or replaces this actor's previous emoji. DELETE affects only this actor's reaction. Each response groups counts and sets reacted for the caller; actor carries durable provenance and user is null for agents. Deleted credentials retain kind and displayName with a null actor id. Invalid emoji returns 400, insufficient access 403, and missing or mismatched project/task/comment/reaction parents 404 without mutation."],
   },
   {
     tag: "Tasks",
@@ -2089,6 +2108,26 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 { type: "null" },
               ],
             },
+          },
+        },
+        TaskReactionResponse: {
+          type: "object", required: ["reactions"], properties: {
+            reactions: { type: "array", items: {
+              type: "object", required: ["emoji", "count", "reacted", "reactions"], properties: {
+                emoji: { type: "string" }, count: { type: "integer" }, reacted: { type: "boolean" },
+                reactions: { type: "array", items: {
+                  type: "object", required: ["id", "emoji", "actor", "user", "createdAt"], properties: {
+                    id: { type: "string" }, emoji: { type: "string" }, createdAt: { type: "string", format: "date-time" },
+                    actor: { type: "object", required: ["kind", "id", "displayName"], properties: {
+                      kind: { type: "string", enum: ["human", "agent"] },
+                      id: { type: ["string", "null"], description: "Null after credential deletion; never substitutes the human owner." },
+                      displayName: { type: "string" },
+                    } },
+                    user: { description: "Human compatibility summary; null for an agent.", anyOf: [{ $ref: "#/components/schemas/TaskCommentAuthor" }, { type: "null" }] },
+                  },
+                } },
+              },
+            } },
           },
         },
         TaskCommentRecord: {
@@ -3879,6 +3918,29 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
             ...commonErrorResponses,
           },
+        },
+      },
+      "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions": {
+        get: {
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { $ref: "#/components/parameters/TaskId" }, { $ref: "#/components/parameters/CommentId" }],
+          responses: { 200: { description: "Current grouped reactions", content: { "application/json": { schema: { $ref: "#/components/schemas/TaskReactionResponse" } } } }, ...commonErrorResponses },
+        },
+        post: {
+          ...buildOperationMetadata("POST", "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { $ref: "#/components/parameters/TaskId" }, { $ref: "#/components/parameters/CommentId" }],
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["emoji"], properties: { emoji: { type: "string", minLength: 1, maxLength: 32, description: "Trimmed nonempty string, at most 32 UTF-16 code units." } } } } } },
+          responses: { 200: { description: "Current grouped reactions", content: { "application/json": { schema: { $ref: "#/components/schemas/TaskReactionResponse" } } } }, ...commonErrorResponses },
+        },
+      },
+      "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions/{reactionId}": {
+        delete: {
+          ...buildOperationMetadata("DELETE", "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions/{reactionId}"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { $ref: "#/components/parameters/TaskId" }, { $ref: "#/components/parameters/CommentId" }, { name: "reactionId", in: "path", required: true, schema: { type: "string" } }],
+          responses: { 200: { description: "Current grouped reactions", content: { "application/json": { schema: { $ref: "#/components/schemas/TaskReactionResponse" } } } }, ...commonErrorResponses },
         },
       },
       "/api/projects/{projectId}/tasks/reorder": {
