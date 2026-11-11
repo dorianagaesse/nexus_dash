@@ -1,5 +1,27 @@
 # Development Journal
 
+# 2026-11-11 - ND-672: reconcile reaction parent validation with main
+
+- Merged main at `7c7d5978ddaaa62ea8b72cb516cf80d45cf7cbf1` into PR #686.
+  Preserved nested parent validation alongside current task capabilities,
+  independent reaction actors, attachment attribution and draft ownership.
+- Retained both documentation histories, attachment schema relations and
+  PostgreSQL lifecycle checks. Validation evidence is recorded on the PR.
+- Node 24.22.1 validation passed: lint, RLS inventory, 2,522 unit/API tests
+  (3 skipped), coverage thresholds, PostgreSQL isolation matrix and production
+  build. Both local Playwright reaction scenarios passed for actor isolation
+  and nested parent rejection with human and agent callers.
+
+# 2026-11-08 - ND-672: nested reaction parent validation
+
+- Forwarded task and comment IDs through reaction routes and validated the entire
+  project/task/comment/reaction chain before reading or mutating reactions.
+- Added route/service mismatch tests and a real API regression with two threads
+  and human/agent requests, checking that rejected paths leave both unchanged.
+- Lint, RLS inventory/matrix, 2,405 unit/API tests (3 skipped), coverage thresholds
+  and production build passed. Both targeted local reaction browser/API scenarios
+  passed, including credential lifecycle and mismatched parent non-mutation.
+
 # 2026-11-11 - ND-671: main reconciliation and reaction usage guidance
 
 - Merged current main into PR #685, preserving independent reaction actors,

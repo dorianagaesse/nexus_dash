@@ -749,6 +749,10 @@ active comment edits, focus or selection. Switching tasks cancels pending reads;
 late responses cannot replace the newly opened thread. Polling keeps the existing
 10-second active cadence; no separate thread polling loop is added.
 
+Reaction routes validate the entire project/task/comment/reaction path. A known
+comment under the wrong task, or a reaction under the wrong comment, returns 404
+and never reads or changes the other thread's reactions.
+
 ### Task attachment attribution
 
 Task link and file responses include `uploadedBy: { kind, id, displayName }`.
