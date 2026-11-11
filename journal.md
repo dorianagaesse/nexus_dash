@@ -11823,8 +11823,19 @@ the original run passed the other 143 scenarios, including notification revocati
   and two independent human browser sessions plus agent comment/reaction writes.
   Existing project activity supplies Broadcast and polling catch-up; no separate
   thread polling loop was introduced.
-- Initial validation: 2,521 unit/API tests passed (3 skipped), RLS inventory and
-  production build passed. Final coverage/browser checks are in progress. Preview
-  dispatch requires an authenticated GitHub Actions setup; the available connector
-  exposes PR creation but no workflow dispatch, and the cached HTTPS credential
-  returned 401. User requested no Copilot review monitoring.
+- Avoided no-op count updates and guarded queued selection synchronization so
+  closing or switching a task wins over an older reconciliation. All 34 focused
+  board/keyboard/reconciliation tests pass after these safeguards.
+- Validation passes on Node 24.22.1 with isolated local PostgreSQL: lint, RLS
+  inventory, 2,526 unit/API tests (3 skipped), coverage thresholds (95.56% lines,
+  89.12% branches), production build, and eight browser scenarios covering live
+  comments, recovery, deep links, bilateral relations and attachment sync.
+- CI run 43027243548 passed core checks and tenant isolation. Its first browser
+  attempt passed 155 cases but timed out reopening a related task; that scenario
+  passed locally and on retry. The retry exposed a timestamp-username collision
+  between this regression's two test accounts. Free the first generated username
+  before creating the second account; retain the shared helper unchanged.
+- PR #696 is the review surface. Preview dispatch still requires an authenticated
+  GitHub Actions setup: the connector has no dispatch tool and the cached HTTPS
+  credential returned 401. No Preview checkout/runtime claim is made. Copilot
+  review monitoring was omitted at the user's request.

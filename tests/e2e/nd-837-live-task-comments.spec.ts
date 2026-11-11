@@ -8,8 +8,10 @@ test("two human sessions keep open threads current after human and agent mutatio
   const secondContext = await browser.newContext();
   const second = await secondContext.newPage();
   const ownerId = await signInAsVerifiedUser(page);
-  const memberId = await signInAsVerifiedUser(second);
+  // The shared helper truncates timestamp-based usernames. Free this name
+  // before creating another account in the same clock tick on fast CI hosts.
   await prisma.user.update({ where: { id: ownerId }, data: { name: "Thread owner", username: null, usernameDiscriminator: null } });
+  const memberId = await signInAsVerifiedUser(second);
   await prisma.user.update({ where: { id: memberId }, data: { name: "Thread member", username: null, usernameDiscriminator: null } });
   const project = await prisma.project.create({ data: {
     name: uniqueProjectName("nd837"), ownerId,

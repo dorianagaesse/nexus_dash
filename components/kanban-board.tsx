@@ -705,12 +705,12 @@ export function KanbanBoard({
 
     if (!nextTask) {
       synchronizeTaskUrl(null);
-      setSelectedTask(null);
+      setSelectedTask((current) => current === selectedTask ? null : current);
       return;
     }
 
     if (nextTask !== selectedTask) {
-      setSelectedTask(nextTask);
+      setSelectedTask((current) => current === selectedTask ? nextTask : current);
     }
   }, [archivedDoneTasks, columns, selectedTask]);
 
@@ -2452,10 +2452,10 @@ export function KanbanBoard({
 
         if (abortController.signal.aborted) return;
 
-        applyTaskMutation(selectedTaskId, (task) => ({
-          ...task,
-          commentCount: mergeFetchedTaskComments(payload.comments, taskCommentsRef.current).length,
-        }));
+        const commentCount = mergeFetchedTaskComments(payload.comments, taskCommentsRef.current).length;
+        applyTaskMutation(selectedTaskId, (task) =>
+          task.commentCount === commentCount ? task : { ...task, commentCount }
+        );
         setTaskComments((currentComments) =>
           mergeFetchedTaskComments(payload.comments, currentComments)
         );
