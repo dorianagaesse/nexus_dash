@@ -1,5 +1,27 @@
 # Development Journal
 
+# 2026-11-11 - ND-831: mobile review fixes
+
+- Made mobile insertion gaps visible during drag and aligned their touch
+  selection with the finger position. Kept desktop and keyboard selection
+  on the existing drag library path.
+- Wrapped long names in confirmation descriptions and extended the 320px
+  browser checks to verify the full event name and a drop inside the gap.
+- Merged current main and preserved both journal histories. Validation
+  evidence is recorded on PR #695.
+
+<<<<<<< HEAD
+# 2026-11-11 - ND-831: mobile roadmap layout
+
+- Reproduced clipped milestone titles and event actions at 320px. Constrained
+  the mobile grid to the panel width and let long titles wrap in milestone
+  headers, event cards, and event details.
+- Enlarged primary touch targets and added Playwright coverage for grouped
+  milestones at 320px, 375px, and 430px and horizontal scrolling on desktop.
+- Kept the original drag handle mounted on narrow screens and measured the
+  drop lanes before lift. Verified touch scrolling and moving an event between
+  milestones in Chromium.
+=======
 # 2026-11-11 - ND-672: reconcile reaction parent validation with main
 
 - Merged main at `7c7d5978ddaaa62ea8b72cb516cf80d45cf7cbf1` into PR #686.
@@ -44,6 +66,7 @@
   build and seven local browser checks passed. Hosted lifecycle and tooltip
   checks passed at `https://nexus-dash-mrrtbkqj3-dorian-agaesses-projects.vercel.app`.
   Workflow 42490841055 verified `230ea34d69a4eb911ed07f87dff49c7dfd53dc86`.
+>>>>>>> origin/main
 
 # 2026-11-10 - ND-670: reconciliation after ND-669 merged
 
