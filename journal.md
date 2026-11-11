@@ -8,6 +8,70 @@
   reveals the selected list, and clearing the search restores the compact view.
 - Ran 12 focused Chromium scenarios covering the desktop and mobile creation
   flows, search, archive and restore, attribution, and linked tasks.
+# 2026-11-11 - ND-831: mobile review fixes
+
+- Made mobile insertion gaps visible during drag and aligned their touch
+  selection with the finger position. Kept desktop and keyboard selection
+  on the existing drag library path.
+- Wrapped long names in confirmation descriptions and extended the 320px
+  browser checks to verify the full event name and a drop inside the gap.
+- Merged current main and preserved both journal histories. Validation
+  evidence is recorded on PR #695.
+
+# 2026-11-11 - ND-831: mobile roadmap layout
+
+- Reproduced clipped milestone titles and event actions at 320px. Constrained
+  the mobile grid to the panel width and let long titles wrap in milestone
+  headers, event cards, and event details.
+- Enlarged primary touch targets and added Playwright coverage for grouped
+  milestones at 320px, 375px, and 430px and horizontal scrolling on desktop.
+- Kept the original drag handle mounted on narrow screens and measured the
+  drop lanes before lift. Verified touch scrolling and moving an event between
+  milestones in Chromium.
+# 2026-11-11 - ND-672: reconcile reaction parent validation with main
+
+- Merged main at `7c7d5978ddaaa62ea8b72cb516cf80d45cf7cbf1` into PR #686.
+  Preserved nested parent validation alongside current task capabilities,
+  independent reaction actors, attachment attribution and draft ownership.
+- Retained both documentation histories, attachment schema relations and
+  PostgreSQL lifecycle checks. Validation evidence is recorded on the PR.
+- Node 24.22.1 validation passed: lint, RLS inventory, 2,522 unit/API tests
+  (3 skipped), coverage thresholds, PostgreSQL isolation matrix and production
+  build. Both local Playwright reaction scenarios passed for actor isolation
+  and nested parent rejection with human and agent callers.
+
+# 2026-11-08 - ND-672: nested reaction parent validation
+
+- Forwarded task and comment IDs through reaction routes and validated the entire
+  project/task/comment/reaction chain before reading or mutating reactions.
+- Added route/service mismatch tests and a real API regression with two threads
+  and human/agent requests, checking that rejected paths leave both unchanged.
+- Lint, RLS inventory/matrix, 2,405 unit/API tests (3 skipped), coverage thresholds
+  and production build passed. Both targeted local reaction browser/API scenarios
+  passed, including credential lifecycle and mismatched parent non-mutation.
+
+# 2026-11-11 - ND-671: main reconciliation and reaction usage guidance
+
+- Merged current main into PR #685, preserving independent reaction actors,
+  attachment attribution and private draft ownership. Kept both PostgreSQL
+  lifecycle checks and applied current task capability checks to reactions.
+- Added reaction-first acknowledgment guidance to AGENTS.md, the workflow
+  runbook and the hosted agent guide, while retaining required work evidence.
+- Combined validation and active-branch preview evidence are recorded on the PR.
+
+# 2026-11-08 - ND-671: independent reaction actors
+
+- Reaction rows now store human/agent kind, nullable credential and a durable
+  snapshot. Human storage ownership stays separate from reaction identity.
+- Extracted the reaction service, shared actor-aware projection, and serialized
+  atomic toggle/replacement. Agent responses no longer project the human owner
+  as their reactor; tooltips identify agents. Published the three reaction routes.
+- Added a three-actor lifecycle browser test and PostgreSQL coverage for agent
+  reaction reads, write denial and credential deletion history.
+- Lint, RLS inventory/matrix, 2,402 unit/API tests (3 skipped), coverage thresholds,
+  build and seven local browser checks passed. Hosted lifecycle and tooltip
+  checks passed at `https://nexus-dash-mrrtbkqj3-dorian-agaesses-projects.vercel.app`.
+  Workflow 42490841055 verified `230ea34d69a4eb911ed07f87dff49c7dfd53dc86`.
 
 # 2026-11-10 - ND-670: reconciliation after ND-669 merged
 

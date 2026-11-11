@@ -40,7 +40,11 @@ Implemented today:
   - Meeting notes with searchable preparation inputs, label filters,
     participants, after-meeting outputs, todo tracking, overdue highlights,
     state, and archived history
-  - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
+  - Roadmap milestone lanes with grouped events, drag-and-drop regrouping,
+    and target-date planning. Milestones stack vertically on narrow screens
+    and form a horizontally scrollable timeline on desktop. During a touch
+    drag, visible insertion gaps let you create a milestone by releasing
+    your finger inside the gap.
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
   - Calendar panel (Google Calendar list/create/update/delete)
   - Task attachment additions and deletions sync into open task modals across
@@ -733,6 +737,21 @@ R2; local storage supports form uploads for signed-in users. Agent attachments
 store their credential ID and display-name snapshot separately from the user
 who owns the storage object. Revoked or deleted credentials retain historical
 agent attribution. Existing file limits, project access, and scope checks apply.
+
+### Comment reaction actors
+
+A human and each project credential have independent comment reactions. POST an
+emoji to `/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions`
+to toggle it off or replace your previous emoji. GET requires `task:read`; POST
+and DELETE `/{reactionId}` require `task:write`. Removal affects only your actor.
+Responses group counts and caller-specific `reacted` state. Each reaction's
+`actor` identifies the human or agent; `user` is null for agents. Credential
+removal preserves the agent display snapshot with a null actor ID. Reaction
+button tooltips show these actors, including the agent marker.
+
+Reaction routes validate the entire project/task/comment/reaction path. A known
+comment under the wrong task, or a reaction under the wrong comment, returns 404
+and never reads or changes the other thread's reactions.
 
 ### Task attachment attribution
 

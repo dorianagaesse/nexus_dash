@@ -32,6 +32,19 @@ plain English, as short as possible, one topic per comment; do not repeat the
 task description. Never move the card to Done: the reviewer or PR merger does
 that, even if an older brief or generated quickstart says otherwise.
 
+## Comments and reactions
+
+Prefer a reaction whenever it can replace a short acknowledgment, agreement,
+thanks, or confirmation without losing useful information. For example, use a
+thumbs-up reaction instead of adding "noted" or "thanks." Apply this to existing
+task comments whenever possible to keep discussion threads short. Read existing
+reactions before posting: POST toggles the same emoji off and replaces your
+previous emoji when choosing another.
+
+Use a comment when you have new information, a question, a blocker, a decision,
+or validation and handoff evidence. Required pickup and completion comments
+still apply; keep each concise and avoid extra acknowledgment replies.
+
 ## Agent credential setup
 
 Before accessing the Nexus Dash API, explicitly ask the user which credential
