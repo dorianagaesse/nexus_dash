@@ -81,14 +81,10 @@ async function createEpicChipFixture(page: Page): Promise<{
 
 async function openEpicDetails(page: Page, projectId: string) {
   await page.goto(`/projects/${projectId}#epics`);
-  const epic = page.getByRole("article", { name: EPIC_NAME });
+  const epic = page.getByRole("dialog", { name: EPIC_NAME });
   await clickUntilVisible(
-    page.getByRole("button", { name: "Show all", exact: true }),
+    page.getByRole("button", { name: `Open epic ${EPIC_NAME}` }),
     epic
-  );
-  await clickUntilVisible(
-    epic.getByRole("button", { name: `Show details for ${EPIC_NAME}` }),
-    epic.getByRole("button", { name: `Hide details for ${EPIC_NAME}` })
   );
   return epic;
 }

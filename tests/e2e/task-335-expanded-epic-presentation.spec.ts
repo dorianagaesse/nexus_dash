@@ -1,226 +1,82 @@
-import { mkdir } from "node:fs/promises";
-import path from "node:path";
-
 import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
-import { activateUntilVisible, clickUntilVisible } from "./helpers/interaction-helpers";
+import { clickUntilVisible } from "./helpers/interaction-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
 
-const screenshotDirectory = process.env.TASK335_SCREENSHOT_DIR?.trim();
-
-async function createDenseEpicFixture(userId: string) {
-  const project = await prisma.project.create({
-    data: {
-      ownerId: userId,
-      name: uniqueProjectName("expanded-epics"),
-      description: "Responsive epic presentation coverage.",
-      memberships: {
-        create: {
-          userId,
-          role: "owner",
-        },
-      },
-    },
-    select: { id: true },
-  });
-  const primaryEpicName = "Workspace sharing";
-  const primaryEpic = await prisma.epic.create({
-    data: {
-      projectId: project.id,
-      name: primaryEpicName,
-      description:
-        "Give collaborators the complete rollout narrative, expected outcome, and enough implementation context to make the initiative understandable at a glance.",
-      createdByUserId: userId,
-      updatedByUserId: userId,
-    },
-    select: { id: true },
-  });
-  const secondaryEpicName = "Launch readiness";
-
-  await prisma.epic.create({
-    data: {
-      projectId: project.id,
-      name: secondaryEpicName,
-      description: "Confirm the product is ready for the first invited teams.",
-      createdByUserId: userId,
-      updatedByUserId: userId,
-    },
-  });
-  await prisma.task.createMany({
-    data: Array.from({ length: 8 }, (_, index) => ({
-      projectId: project.id,
-      epicId: primaryEpic.id,
-      title:
-        index === 7
-          ? "Validate a deliberately long linked task title without truncating meaningful project context"
-          : `Workspace sharing task ${index + 1}`,
-      status: index < 2 ? "Done" : "Backlog",
-      completedAt: index < 2 ? new Date() : null,
-      position: index,
-      createdByUserId: userId,
-      updatedByUserId: userId,
-    })),
-  });
-
-  return {
-    projectId: project.id,
-    primaryEpicName,
-    secondaryEpicName,
-  };
-}
-
-test.describe("TASK-335 epic detail disclosure", () => {
-  test("keeps cards compact until their details are requested", async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 375, height: 812 });
+for (const width of [375, 1440]) {
+  test(`bounds epic rows and opens all linked tasks in completion order at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
     const userId = await signInAsVerifiedUser(page);
-    const fixture = await createDenseEpicFixture(userId);
-    await page.addInitScript(() => {
-      window.localStorage.setItem("nexusdash-theme", "light");
+    const project = await prisma.project.create({
+      data: {
+        name: uniqueProjectName("nd-832-epic-rows"),
+        ownerId: userId,
+        memberships: { create: { userId, role: "owner" } },
+      },
     });
-
-    await page.goto(`/projects/${fixture.projectId}#epics`);
-
-    const primaryEpic = page.getByRole("article", {
-      name: fixture.primaryEpicName,
+    const author = { projectId: project.id, createdByUserId: userId, updatedByUserId: userId };
+    await prisma.epic.createMany({
+      data: Array.from({ length: 35 }, (_, index) => ({
+        ...author,
+        name: `Initiative ${index + 1}`,
+        description: "An initiative with no linked tasks.",
+      })),
     });
-    const secondaryEpic = page.getByRole("article", {
-      name: fixture.secondaryEpicName,
+    const epic = await prisma.epic.create({
+      data: {
+        ...author,
+        name: "Workspace rollout",
+        description: "A complete description of the rollout and its expected outcome.",
+      },
     });
-    const description = primaryEpic.getByText("complete rollout narrative");
-    const linkedTasks = primaryEpic.getByRole("listitem");
-    const showDetails = primaryEpic.getByRole("button", {
-      name: `Show details for ${fixture.primaryEpicName}`,
+    const statuses = ["Done", "In Progress", "Blocked", "Backlog", "Done", "Backlog", "In Progress", "Blocked"];
+    await prisma.task.createMany({
+      data: statuses.map((status, index) => ({
+        ...author,
+        epicId: epic.id,
+        title: `Rollout work item ${index + 1}`,
+        status,
+        position: index,
+        completedAt: status === "Done" ? new Date() : null,
+      })),
     });
-
-    await clickUntilVisible(
-      page.getByRole("button", { name: "Show all", exact: true }),
-      primaryEpic
-    );
-    await expect(secondaryEpic).toBeVisible();
-    await expect(description).toBeHidden();
-    await expect(linkedTasks.first()).toBeHidden();
-    await expect(showDetails).toBeVisible();
-    await expect(showDetails).toHaveAttribute("aria-expanded", "false");
-    await expect(
-      primaryEpic.getByText("Show details", { exact: true })
-    ).toHaveCount(0);
-    await expect(
-      primaryEpic.getByRole("progressbar", {
-        name: `${fixture.primaryEpicName} progress`,
-      })
-    ).toHaveAttribute("aria-valuenow", "25");
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth
-      )
-    ).toBe(true);
-
-    const mobileEpicBounds = await primaryEpic.boundingBox();
-    const mobileDisclosureBounds = await showDetails.boundingBox();
-    const mobileEditBounds = await primaryEpic
-      .getByRole("button", {
-        name: `Edit epic ${fixture.primaryEpicName}`,
-      })
-      .boundingBox();
-    expect(mobileEpicBounds).not.toBeNull();
-    expect(mobileDisclosureBounds).not.toBeNull();
-    expect(mobileEditBounds).not.toBeNull();
-    expect(mobileEpicBounds!.x).toBeGreaterThanOrEqual(0);
-    expect(mobileEpicBounds!.x + mobileEpicBounds!.width).toBeLessThanOrEqual(
-      375
-    );
-    // Compact face = title, status, progress; the dense description, linked
-    // tasks, and attribution stay behind the disclosure.
-    expect(mobileEpicBounds!.height).toBeLessThan(360);
-    expect(mobileDisclosureBounds!.width).toBeGreaterThanOrEqual(44);
-    expect(mobileDisclosureBounds!.height).toBeGreaterThanOrEqual(44);
-    expect(mobileEditBounds!.x).toBeGreaterThan(mobileDisclosureBounds!.x);
-    expect(
-      mobileEditBounds!.x -
-        (mobileDisclosureBounds!.x + mobileDisclosureBounds!.width)
-    ).toBeLessThanOrEqual(9);
-
-    if (screenshotDirectory) {
-      await mkdir(screenshotDirectory, { recursive: true });
-      await primaryEpic.screenshot({
-        path: path.resolve(screenshotDirectory, "mobile-collapsed-epic.png"),
-      });
+    await page.goto(`/projects/${project.id}#epics`);
+    const row = page.getByRole("article", { name: epic.name });
+    const list = page.getByRole("region", { name: "Epic list", exact: true });
+    await expect(row).toBeVisible();
+    await expect(list.getByRole("article")).toHaveCount(36);
+    await expect(row.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "25");
+    await expect(row).toContainText("8");
+    const bounds = await list.boundingBox();
+    expect(bounds!.height).toBeLessThanOrEqual(576);
+    expect(await list.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+    for (const label of ["Edit", "Archive", "Delete"]) {
+      const action = row.getByRole("button", { name: `${label} epic ${epic.name}` });
+      await expect(action).toBeVisible();
+      const actionBounds = await action.boundingBox();
+      expect(actionBounds!.width).toBeGreaterThanOrEqual(44);
+      expect(actionBounds!.height).toBeGreaterThanOrEqual(44);
     }
-
-    const hideDetails = primaryEpic.getByRole("button", {
-      name: `Hide details for ${fixture.primaryEpicName}`,
-    });
-    await activateUntilVisible(hideDetails, async () => {
-      await showDetails.focus({ timeout: 1_000 });
-      await showDetails.press("Enter", { timeout: 1_000 });
-    });
-    await expect(hideDetails).toHaveAttribute("aria-expanded", "true");
-    await expect(description).toBeVisible();
-    await expect(linkedTasks).toHaveCount(7);
-    for (let taskIndex = 0; taskIndex < 6; taskIndex += 1) {
-      await expect(linkedTasks.nth(taskIndex)).toBeVisible();
-    }
-    await expect(primaryEpic.getByText("+2 more linked tasks")).toBeVisible();
-    await expect(
-      secondaryEpic.getByText("ready for the first invited teams")
-    ).toBeHidden();
-
-    await hideDetails.click();
-    await expect(description).toBeHidden();
-    await expect(showDetails).toHaveAttribute("aria-expanded", "false");
-
-    await page.setViewportSize({ width: 1440, height: 1000 });
-    await expect(primaryEpic).toBeVisible();
-    await expect(description).toBeHidden();
-    await expect(showDetails).toBeVisible();
-
-    const firstEpicBounds = await primaryEpic.boundingBox();
-    const secondEpicBounds = await secondaryEpic.boundingBox();
-    expect(firstEpicBounds).not.toBeNull();
-    expect(secondEpicBounds).not.toBeNull();
-    expect(
-      Math.abs(firstEpicBounds!.width - secondEpicBounds!.width)
-    ).toBeLessThan(2);
-    expect(Math.abs(firstEpicBounds!.y - secondEpicBounds!.y)).toBeLessThan(2);
-    expect(Math.abs(firstEpicBounds!.x - secondEpicBounds!.x)).toBeGreaterThan(
-      firstEpicBounds!.width
-    );
-
-    const editButton = primaryEpic.getByRole("button", {
-      name: `Edit epic ${fixture.primaryEpicName}`,
-    });
-    const editButtonBounds = await editButton.boundingBox();
-    expect(editButtonBounds).not.toBeNull();
-    expect(editButtonBounds!.width).toBeGreaterThanOrEqual(44);
-    expect(editButtonBounds!.height).toBeGreaterThanOrEqual(44);
-
-    const showDetailsBounds = await showDetails.boundingBox();
-    expect(showDetailsBounds).not.toBeNull();
-    expect(showDetailsBounds!.width).toBeGreaterThanOrEqual(44);
-    expect(showDetailsBounds!.height).toBeGreaterThanOrEqual(44);
-
-    await showDetails.click();
-    await expect(description).toBeVisible();
-
-    await page.getByRole("button", { name: "Switch to dark mode" }).click();
-    await expect(primaryEpic).toBeVisible();
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth
-      )
-    ).toBe(true);
-
-    if (screenshotDirectory) {
-      await primaryEpic.screenshot({
-        path: path.resolve(
-          screenshotDirectory,
-          "desktop-disclosed-epic-dark.png"
-        ),
-      });
-    }
+    const dialog = page.getByRole("dialog", { name: epic.name });
+    await clickUntilVisible(row.getByRole("button", { name: `Open epic ${epic.name}` }), dialog);
+    await expect(dialog.getByText(epic.description)).toBeVisible();
+    const links = dialog.getByRole("link");
+    await expect(links).toHaveCount(8);
+    expect(await links.allTextContents()).toEqual([
+      expect.stringContaining("Rollout work item 4"),
+      expect.stringContaining("Rollout work item 6"),
+      expect.stringContaining("Rollout work item 3"),
+      expect.stringContaining("Rollout work item 8"),
+      expect.stringContaining("Rollout work item 2"),
+      expect.stringContaining("Rollout work item 7"),
+      expect.stringContaining("Rollout work item 1"),
+      expect.stringContaining("Rollout work item 5"),
+    ]);
+    await links.first().click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole("dialog", { name: "Rollout work item 4", exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   });
-});
+}

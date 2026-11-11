@@ -126,14 +126,6 @@ function findButton(container: HTMLElement, labelFragment: string) {
   );
 }
 
-async function showAllEpics(container: HTMLElement) {
-  const showAll = findButton(container, "Show all");
-  expect(showAll).toBeDefined();
-  await act(async () => {
-    showAll?.click();
-  });
-}
-
 describe("project-epic-panel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -157,7 +149,7 @@ describe("project-epic-panel", () => {
       })
     );
 
-    const newEpicButton = Array.from(container.querySelectorAll("button")).find(
+    const newEpicButton = Array.from(document.body.querySelectorAll("button")).find(
       (button) => button.textContent?.includes("New epic")
     );
 
@@ -229,129 +221,50 @@ describe("project-epic-panel", () => {
     });
   });
 
-  test("keeps epic details collapsed while preserving semantic title and progress", async () => {
+  test("lists epics immediately with completion, task count, and no expanded details", async () => {
     projectSectionExpandedMock.isExpanded = true;
     const { container, root } = createTestRenderer();
-
-    await renderWithRoot(
-      root,
-      React.createElement(ProjectEpicPanel, {
-        projectId: "project-1",
-        canEdit: false,
-        epics: [epicWithDenseLinkedTasks],
-      })
-    );
-    await showAllEpics(container);
-
+    await renderWithRoot(root, React.createElement(ProjectEpicPanel, {
+      projectId: "project-1", canEdit: false, epics: [epicWithDenseLinkedTasks],
+    }));
     const article = container.querySelector("article");
-    const heading = article?.querySelector("h3");
+    expect(article?.textContent).toContain(epicWithDenseLinkedTasks.name);
+    expect(article?.textContent).toContain("25%");
+    expect(article?.textContent).toContain("8");
+    expect(container.textContent).not.toContain(epicWithDenseLinkedTasks.description);
+    expect(findButton(container, "Show all")).toBeUndefined();
     const progress = container.querySelector('[role="progressbar"]');
-    const disclosure = container.querySelector(
-      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
-    );
-    const detailsId = disclosure?.getAttribute("aria-controls");
-    const details = detailsId ? document.getElementById(detailsId) : null;
-
-    expect(article?.getAttribute("aria-labelledby")).toBe(heading?.id);
-    expect(heading?.textContent).toBe("Launch workspace sharing");
-    expect(details?.textContent).toContain(
-      epicWithDenseLinkedTasks.description
-    );
-    expect(details?.hidden).toBe(true);
     expect(progress?.getAttribute("aria-valuenow")).toBe("25");
-    expect(progress?.getAttribute("aria-valuetext")).toBe(
-      "2 of 8 tasks completed"
-    );
-    expect(disclosure?.getAttribute("aria-expanded")).toBe("false");
-    expect(disclosure?.className).toContain("min-h-11");
-    expect(disclosure?.className).toContain("min-w-11");
-    expect(disclosure?.textContent).toBe("");
-    expect(disclosure?.getAttribute("title")).toBe("Show details");
-    expect(details?.querySelectorAll("li")).toHaveLength(7);
-    expect(details?.textContent).toContain("+2 more linked tasks");
-    expect(
-      container.querySelector(
-        `button[aria-label="Edit epic ${epicWithDenseLinkedTasks.name}"]`
-      )
-    ).toBeNull();
-
-    await act(async () => {
-      root.unmount();
-    });
+    expect(progress?.getAttribute("aria-valuetext")).toBe("2 of 8 tasks completed");
+    expect(container.querySelector('[aria-label="Epic list"]')?.className).toContain("max-h-[clamp(20rem,64dvh,42rem)]");
+    await act(async () => root.unmount());
   });
 
-  test("expands and collapses each epic independently", async () => {
+  test("opens every linked task in a modal in completion order", async () => {
     projectSectionExpandedMock.isExpanded = true;
     const { container, root } = createTestRenderer();
-    const secondEpic = {
+    const statuses = ["Done", "In Progress", "Blocked", "Backlog", "Done", "Backlog", "In Progress", "Blocked"];
+    const epic = {
       ...epicWithDenseLinkedTasks,
-      id: "epic-2",
-      name: "Confirm launch readiness",
-      description: "Confirm the product is ready for invited teams.",
-      taskCount: 0,
-      completedTaskCount: 0,
-      progressPercent: 0,
-      linkedTasks: [],
+      linkedTasks: epicWithDenseLinkedTasks.linkedTasks.map((task, index) => ({ ...task, status: statuses[index] })),
     };
-
-    await renderWithRoot(
-      root,
-      React.createElement(ProjectEpicPanel, {
-        projectId: "project-1",
-        canEdit: true,
-        epics: [epicWithDenseLinkedTasks, secondEpic],
-      })
-    );
-    await showAllEpics(container);
-
-    const findDisclosure = (label: string) =>
-      container.querySelector(`button[aria-label="${label}"]`);
-    const firstDisclosure = findDisclosure(
-      `Show details for ${epicWithDenseLinkedTasks.name}`
-    );
-    const secondDisclosure = findDisclosure(
-      `Show details for ${secondEpic.name}`
-    );
-    const firstDetails = document.getElementById("epic-epic-1-details");
-    const secondDetails = document.getElementById("epic-epic-2-details");
-
-    expect(firstDisclosure?.getAttribute("aria-controls")).toBe(
-      "epic-epic-1-details"
-    );
-    expect(firstDetails?.hidden).toBe(true);
-    expect(secondDetails?.hidden).toBe(true);
-
+    await renderWithRoot(root, React.createElement(ProjectEpicPanel, {
+      projectId: "project-1", canEdit: false, epics: [epic],
+    }));
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]');
+    await act(async () => trigger?.click());
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain(epic.description);
+    const tasks = Array.from(dialog?.querySelectorAll("li") ?? []);
+    expect(tasks).toHaveLength(8);
+    expect(tasks.map((task) => task.querySelector("a")?.textContent?.match(/Backlog|Blocked|In Progress|Done/)?.[0])).toEqual([
+      "Backlog", "Backlog", "Blocked", "Blocked", "In Progress", "In Progress", "Done", "Done",
+    ]);
     await act(async () => {
-      firstDisclosure?.dispatchEvent(
-        new MouseEvent("click", { bubbles: true })
-      );
+      document.body.querySelector<HTMLButtonElement>('button[aria-label="Close epic details"]')?.click();
     });
-
-    const expandedDisclosure = findDisclosure(
-      `Hide details for ${epicWithDenseLinkedTasks.name}`
-    );
-    expect(expandedDisclosure?.getAttribute("aria-expanded")).toBe("true");
-    expect(expandedDisclosure?.getAttribute("title")).toBe("Hide details");
-    expect(firstDetails?.hidden).toBe(false);
-    expect(secondDisclosure?.getAttribute("aria-expanded")).toBe("false");
-    expect(secondDetails?.hidden).toBe(true);
-
-    await act(async () => {
-      expandedDisclosure?.dispatchEvent(
-        new MouseEvent("click", { bubbles: true })
-      );
-    });
-
-    expect(
-      findDisclosure(
-        `Show details for ${epicWithDenseLinkedTasks.name}`
-      )?.getAttribute("aria-expanded")
-    ).toBe("false");
-    expect(firstDetails?.hidden).toBe(true);
-
-    await act(async () => {
-      root.unmount();
-    });
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    await act(async () => root.unmount());
   });
 
   test("reconciles server-derived task counts and progress after a local task mutation", async () => {
@@ -403,10 +316,9 @@ describe("project-epic-panel", () => {
         epics: [emptyEpic],
       })
     );
-    await showAllEpics(container);
 
     expect(
-      container.querySelector('[role="progressbar"]')?.getAttribute(
+      document.body.querySelector('[role="progressbar"]')?.getAttribute(
         "aria-valuetext"
       )
     ).toBe("0 of 0 tasks completed");
@@ -427,23 +339,23 @@ describe("project-epic-panel", () => {
       }
     );
     expect(
-      container.querySelector('[role="progressbar"]')?.getAttribute(
+      document.body.querySelector('[role="progressbar"]')?.getAttribute(
         "aria-valuenow"
       )
     ).toBe("100");
     expect(
-      container.querySelector('[role="progressbar"]')?.getAttribute(
+      document.body.querySelector('[role="progressbar"]')?.getAttribute(
         "aria-valuetext"
       )
     ).toBe("1 of 1 tasks completed");
-    expect(container.textContent).toContain("1/1");
+    expect(document.body.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("100");
 
     await act(async () => {
       root.unmount();
     });
   });
 
-  test("keeps the editing article name synchronized with the name field", async () => {
+  test("keeps editing visible after clearing search and releases the refresh lock on cancel", async () => {
     projectSectionExpandedMock.isExpanded = true;
     const { container, root } = createTestRenderer();
 
@@ -455,9 +367,12 @@ describe("project-epic-panel", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
-    await showAllEpics(container);
 
-    const editButton = container.querySelector(
+    const search = container.querySelector<HTMLInputElement>('input[aria-label="Search epics"]');
+    expect(search).not.toBeNull();
+    await act(async () => setInputValue(search!, "workspace"));
+
+    const editButton = document.body.querySelector(
       `button[aria-label="Edit epic ${epicWithDenseLinkedTasks.name}"]`
     );
 
@@ -465,14 +380,12 @@ describe("project-epic-panel", () => {
       editButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    const article = container.querySelector("article");
-    const nameInput = container.querySelector(
-      `#edit-epic-name-${epicWithDenseLinkedTasks.id}`
+    const article = document.body.querySelector("article");
+    const nameInput = document.body.querySelector(
+      "#edit-epic-name"
     ) as HTMLInputElement | null;
 
-    expect(article?.getAttribute("aria-label")).toBe(
-      `Edit epic ${epicWithDenseLinkedTasks.name}`
-    );
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
 
     await act(async () => {
       if (nameInput) {
@@ -480,16 +393,28 @@ describe("project-epic-panel", () => {
       }
     });
 
-    expect(article?.getAttribute("aria-label")).toBe(
-      "Edit epic Launch collaboration beta"
-    );
+    expect(nameInput?.value).toBe("Launch collaboration beta");
+    expect(article?.textContent).toContain(epicWithDenseLinkedTasks.name);
 
-    const cancelButton = Array.from(article?.querySelectorAll("button") ?? []).find(
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button[aria-label="Clear epic search"]')?.click();
+      search?.blur();
+    });
+    expect(search?.value).toBe("");
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(nameInput?.value).toBe("Launch collaboration beta");
+    expect(container.querySelector('[data-project-live-refresh-lock="true"]')).not.toBeNull();
+
+    const cancelButton = Array.from(document.body.querySelectorAll("button")).find(
       (button) => button.textContent?.trim() === "Cancel"
     );
     expect(cancelButton).not.toBeUndefined();
     expect(cancelButton?.className).toContain("bg-secondary");
     expect(cancelButton?.className).toContain("text-secondary-foreground");
+
+    await act(async () => cancelButton?.click());
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    expect(container.querySelector('[data-project-live-refresh-lock="true"]')).toBeNull();
 
     await act(async () => {
       root.unmount();
@@ -557,10 +482,9 @@ describe("project-epic-panel", () => {
         epics: [emptyEpic],
       })
     );
-    await showAllEpics(container);
 
     expect(
-      container.querySelector('[role="progressbar"]')?.getAttribute(
+      document.body.querySelector('[role="progressbar"]')?.getAttribute(
         "aria-valuetext"
       )
     ).toBe("1 of 1 tasks completed");
@@ -591,19 +515,19 @@ describe("project-epic-panel attribution", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
-    await showAllEpics(container);
 
-    const details = document.getElementById("epic-epic-1-details");
-    expect(details?.hidden).toBe(true);
+    let details = document.body.querySelector('[role="dialog"]');
+    expect(details).toBeNull();
 
-    const disclosure = container.querySelector(
-      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    const disclosure = document.body.querySelector(
+      `button[aria-label="Open epic ${epicWithDenseLinkedTasks.name}"]`
     );
     await act(async () => {
       disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(details?.hidden).toBe(false);
+    details = document.body.querySelector('[role="dialog"]');
+    expect(details).not.toBeNull();
     expect(details?.textContent).toContain("Created by");
     expect(details?.textContent).toContain("Last edited by");
     expect(details?.textContent).toContain("dorian");
@@ -632,17 +556,16 @@ describe("project-epic-panel attribution", () => {
         epics: [agentEpic],
       })
     );
-    await showAllEpics(container);
 
     await act(async () => {
       container
         .querySelector(
-          `button[aria-label="Show details for ${agentEpic.name}"]`
+          `button[aria-label="Open epic ${agentEpic.name}"]`
         )
         ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    const details = document.getElementById("epic-epic-agent-details");
+    const details = document.body.querySelector('[role="dialog"]');
     expect(details?.textContent).toContain("Created by");
     expect(details?.textContent).toContain("Release Agent");
     expect(
@@ -695,12 +618,10 @@ describe("project-epic-panel archive controls", () => {
       archivedViewButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(container.querySelector("article")).toBeNull();
-    await showAllEpics(container);
 
     expect(container.textContent).toContain(archivedEpic.name);
     expect(
-      container.querySelector(`button[aria-label="Restore epic ${archivedEpic.name}"]`)
+      document.body.querySelector(`button[aria-label="Restore epic ${archivedEpic.name}"]`)
     ).not.toBeNull();
 
     await act(async () => {
@@ -728,11 +649,11 @@ describe("project-epic-panel archive controls", () => {
       })
     );
 
-    const searchInput = container.querySelector<HTMLInputElement>(
+    const searchInput = document.body.querySelector<HTMLInputElement>(
       'input[aria-label="Search epics"]'
     );
     expect(searchInput).not.toBeNull();
-    expect(container.querySelectorAll("article")).toHaveLength(0);
+    expect(document.body.querySelectorAll("article")).toHaveLength(1);
 
     await act(async () => {
       if (searchInput) {
@@ -740,7 +661,7 @@ describe("project-epic-panel archive controls", () => {
       }
     });
 
-    expect(container.querySelectorAll("article")).toHaveLength(1);
+    expect(document.body.querySelectorAll("article")).toHaveLength(1);
     expect(container.textContent).toContain(epicWithDenseLinkedTasks.name);
 
     await act(async () => {
@@ -749,10 +670,10 @@ describe("project-epic-panel archive controls", () => {
       }
     });
 
-    expect(container.querySelectorAll("article")).toHaveLength(0);
+    expect(document.body.querySelectorAll("article")).toHaveLength(0);
     expect(container.textContent).toContain("No matching epics.");
 
-    const clearButton = container.querySelector(
+    const clearButton = document.body.querySelector(
       'button[aria-label="Clear epic search"]'
     );
 
@@ -760,9 +681,8 @@ describe("project-epic-panel archive controls", () => {
       clearButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(container.querySelectorAll("article")).toHaveLength(0);
-    await showAllEpics(container);
-    expect(container.querySelectorAll("article")).toHaveLength(1);
+    expect(document.body.querySelectorAll("article")).toHaveLength(1);
+    expect(document.body.querySelectorAll("article")).toHaveLength(1);
 
     await act(async () => {
       root.unmount();
@@ -780,7 +700,6 @@ describe("project-epic-panel archive controls", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
-    await showAllEpics(container);
 
     await act(async () => {
       container
@@ -791,7 +710,7 @@ describe("project-epic-panel archive controls", () => {
     });
 
     expect(
-      container.querySelector(`#edit-epic-name-${epicWithDenseLinkedTasks.id}`)
+      document.body.querySelector("#edit-epic-name")
     ).not.toBeNull();
 
     await act(async () => {
@@ -807,13 +726,12 @@ describe("project-epic-panel archive controls", () => {
         new MouseEvent("click", { bubbles: true })
       );
     });
-    await showAllEpics(container);
 
     expect(
-      container.querySelector(`#edit-epic-name-${epicWithDenseLinkedTasks.id}`)
+      document.body.querySelector("#edit-epic-name")
     ).toBeNull();
     expect(
-      container.querySelector(
+      document.body.querySelector(
         `button[aria-label="Edit epic ${epicWithDenseLinkedTasks.name}"]`
       )
     ).not.toBeNull();
@@ -844,9 +762,8 @@ describe("project-epic-panel archive controls", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
-    await showAllEpics(container);
 
-    const archiveButton = container.querySelector(
+    const archiveButton = document.body.querySelector(
       `button[aria-label="Archive epic ${epicWithDenseLinkedTasks.name}"]`
     );
     expect(archiveButton).not.toBeNull();
@@ -899,9 +816,8 @@ describe("project-epic-panel archive controls", () => {
         new MouseEvent("click", { bubbles: true })
       );
     });
-    await showAllEpics(container);
 
-    const restoreButton = container.querySelector(
+    const restoreButton = document.body.querySelector(
       `button[aria-label="Restore epic ${archivedEpic.name}"]`
     );
 
@@ -925,10 +841,9 @@ describe("project-epic-panel archive controls", () => {
         new MouseEvent("click", { bubbles: true })
       );
     });
-    await showAllEpics(container);
 
     expect(
-      container.querySelector(`button[aria-label="Archive epic ${archivedEpic.name}"]`)
+      document.body.querySelector(`button[aria-label="Archive epic ${archivedEpic.name}"]`)
     ).not.toBeNull();
 
     await act(async () => {
@@ -948,9 +863,8 @@ describe("project-epic-panel archive controls", () => {
       })
     );
 
-    await showAllEpics(container);
     expect(
-      container.querySelector(
+      document.body.querySelector(
         `button[aria-label="Archive epic ${epicWithDenseLinkedTasks.name}"]`
       )
     ).toBeNull();
@@ -960,10 +874,9 @@ describe("project-epic-panel archive controls", () => {
         new MouseEvent("click", { bubbles: true })
       );
     });
-    await showAllEpics(container);
 
     expect(
-      container.querySelector(`button[aria-label="Restore epic ${archivedEpic.name}"]`)
+      document.body.querySelector(`button[aria-label="Restore epic ${archivedEpic.name}"]`)
     ).toBeNull();
 
     await act(async () => {
@@ -994,7 +907,6 @@ describe("project-epic-panel overlong linked-task titles", () => {
   }
 
   function renderExpandedEpic(
-    container: HTMLElement,
     root: Root,
     title: string
   ) {
@@ -1008,9 +920,8 @@ describe("project-epic-panel overlong linked-task titles", () => {
         epics: [buildEpicWithLongTitle(title)],
       })
     ).then(async () => {
-      await showAllEpics(container);
-      const disclosure = container.querySelector<HTMLElement>(
-        'button[aria-label="Show details for Launch workspace sharing"]'
+        const disclosure = document.body.querySelector<HTMLElement>(
+        'button[aria-label="Open epic Launch workspace sharing"]'
       );
       await act(async () => {
         disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -1018,38 +929,38 @@ describe("project-epic-panel overlong linked-task titles", () => {
     });
   }
 
-  test("clamps a long spaced linked-task title to two lines inside the epic chip", async () => {
+  test("wraps a long linked-task title in full inside the epic modal", async () => {
     const longTitle =
       "Validate a deliberately long linked task title without truncating meaningful context";
     const { container, root } = createTestRenderer();
-    await renderExpandedEpic(container, root, longTitle);
+    await renderExpandedEpic(root, longTitle);
 
-    const chip = container.querySelector<HTMLAnchorElement>(
+    const chip = document.body.querySelector<HTMLAnchorElement>(
       `a[title="${longTitle}"]`
     );
     expect(chip).not.toBeNull();
-    const titleSpan = chip?.querySelector<HTMLElement>("span.line-clamp-2");
+    const titleSpan = chip?.querySelector<HTMLElement>("span[data-task-title]");
     expect(titleSpan?.textContent).toBe(longTitle);
-    expect(titleSpan?.className).toContain("line-clamp-2");
+    expect(titleSpan?.className).not.toContain("line-clamp");
     expect(titleSpan?.className).toContain("[overflow-wrap:anywhere]");
     expect(chip?.textContent).toContain("Backlog");
 
     await act(async () => root.unmount());
   });
 
-  test("keeps the full unbroken-word title in the chip DOM with wrap and clamp styling", async () => {
+  test("wraps an unbroken linked-task title without truncation", async () => {
     const longWord =
       "Supercalifragilisticanticonstitutionallyambivalentlinkedtasktitle";
     const { container, root } = createTestRenderer();
-    await renderExpandedEpic(container, root, longWord);
+    await renderExpandedEpic(root, longWord);
 
-    const chip = container.querySelector<HTMLAnchorElement>(
+    const chip = document.body.querySelector<HTMLAnchorElement>(
       `a[title="${longWord}"]`
     );
     expect(chip).not.toBeNull();
-    const titleSpan = chip?.querySelector<HTMLElement>("span.line-clamp-2");
+    const titleSpan = chip?.querySelector<HTMLElement>("span[data-task-title]");
     expect(titleSpan?.textContent).toBe(longWord);
-    expect(titleSpan?.className).toContain("line-clamp-2");
+    expect(titleSpan?.className).not.toContain("line-clamp");
     expect(titleSpan?.className).toContain("[overflow-wrap:anywhere]");
 
     await act(async () => root.unmount());
@@ -1067,16 +978,15 @@ describe("project-epic-panel overlong linked-task titles", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
-    await showAllEpics(container);
 
-    const disclosure = container.querySelector<HTMLElement>(
-      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    const disclosure = document.body.querySelector<HTMLElement>(
+      `button[aria-label="Open epic ${epicWithDenseLinkedTasks.name}"]`
     );
     await act(async () => {
       disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    const chip = container.querySelector<HTMLAnchorElement>(
+    const chip = document.body.querySelector<HTMLAnchorElement>(
       'a[href="/projects/project-1/tasks/task-1"]'
     );
     expect(chip).not.toBeNull();
@@ -1099,16 +1009,15 @@ describe("project-epic-panel overlong linked-task titles", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
-    await showAllEpics(container);
 
-    const disclosure = container.querySelector<HTMLElement>(
-      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    const disclosure = document.body.querySelector<HTMLElement>(
+      `button[aria-label="Open epic ${epicWithDenseLinkedTasks.name}"]`
     );
     await act(async () => {
       disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    const chip = container.querySelector<HTMLAnchorElement>(
+    const chip = document.body.querySelector<HTMLAnchorElement>(
       'a[href="/projects/project-1/tasks/task-1"]'
     );
     expect(chip?.tagName).toBe("A");
@@ -1119,7 +1028,7 @@ describe("project-epic-panel overlong linked-task titles", () => {
 });
 
 describe("project-epic-panel linked-task chip activation", () => {
-  async function renderExpandedChips(container: HTMLElement, root: Root) {
+  async function renderExpandedChips(root: Root) {
     projectSectionExpandedMock.isExpanded = true;
 
     await renderWithRoot(
@@ -1130,25 +1039,24 @@ describe("project-epic-panel linked-task chip activation", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
-    await showAllEpics(container);
 
-    const disclosure = container.querySelector<HTMLElement>(
-      `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
+    const disclosure = document.body.querySelector<HTMLElement>(
+      `button[aria-label="Open epic ${epicWithDenseLinkedTasks.name}"]`
     );
     await act(async () => {
       disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
   }
 
-  function findFirstChip(container: HTMLElement) {
-    return container.querySelector<HTMLAnchorElement>(
+  function findFirstChip() {
+    return document.body.querySelector<HTMLAnchorElement>(
       'a[href="/projects/project-1/tasks/task-1"]'
     );
   }
 
   test("hands plain chip clicks to the board and keeps the deep-link URL without navigating", async () => {
     const { container, root } = createTestRenderer();
-    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    const replaceStateSpy = vi.spyOn(window.history, "pushState");
     const requestedTaskIds: string[] = [];
     const handleRequest = (event: Event) => {
       const detail = (event as CustomEvent<TaskOpenRequestDetail>).detail;
@@ -1158,8 +1066,8 @@ describe("project-epic-panel linked-task chip activation", () => {
     window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
 
     try {
-      await renderExpandedChips(container, root);
-      const chip = findFirstChip(container);
+      await renderExpandedChips(root);
+      const chip = findFirstChip();
       expect(chip).not.toBeNull();
 
       let navigationAllowed = true;
@@ -1170,11 +1078,9 @@ describe("project-epic-panel linked-task chip activation", () => {
       });
 
       expect(requestedTaskIds).toEqual(["task-1"]);
-      expect(replaceStateSpy).toHaveBeenCalledWith(
-        null,
-        "",
-        "/projects/project-1?taskId=task-1"
-      );
+      expect(replaceStateSpy).toHaveBeenCalled();
+      expect(window.location.search).toContain("taskId=task-1");
+      expect(document.body.querySelector('[role="dialog"]')).toBeNull();
       expect(navigationAllowed).toBe(false);
     } finally {
       window.removeEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
@@ -1187,13 +1093,13 @@ describe("project-epic-panel linked-task chip activation", () => {
 
   test("falls back to the deep-link navigation when no board claims the click", async () => {
     const { container, root } = createTestRenderer();
-    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    const replaceStateSpy = vi.spyOn(window.history, "pushState");
     const handleRequest = vi.fn();
     window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
 
     try {
-      await renderExpandedChips(container, root);
-      const chip = findFirstChip(container);
+      await renderExpandedChips(root);
+      const chip = findFirstChip();
 
       let navigationAllowed = false;
       await act(async () => {
@@ -1216,13 +1122,13 @@ describe("project-epic-panel linked-task chip activation", () => {
 
   test("leaves modified clicks to the browser for new-tab behavior", async () => {
     const { container, root } = createTestRenderer();
-    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+    const replaceStateSpy = vi.spyOn(window.history, "pushState");
     const handleRequest = vi.fn();
     window.addEventListener(TASK_OPEN_REQUEST_EVENT, handleRequest);
 
     try {
-      await renderExpandedChips(container, root);
-      const chip = findFirstChip(container);
+      await renderExpandedChips(root);
+      const chip = findFirstChip();
 
       let navigationAllowed = false;
       await act(async () => {
@@ -1285,7 +1191,6 @@ describe("project-epic-panel linked-task chip activation", () => {
         epics: [initialEpic],
       })
     );
-    await showAllEpics(container);
 
     expect(container.textContent).toContain("Remote epic initial");
 
@@ -1356,7 +1261,6 @@ describe("project-epic-panel linked-task chip activation", () => {
         epics: [initialEpic],
       })
     );
-    await showAllEpics(container);
 
     await act(async () => {
       dispatchProjectActivityRemoteEvent({
@@ -1374,7 +1278,7 @@ describe("project-epic-panel linked-task chip activation", () => {
       `/api/projects/${projectId}/epics?includeArchived=true`,
       expect.objectContaining({ cache: "no-store" })
     );
-    expect(container.textContent).toContain("1/2");
+    expect(document.body.querySelector('[role="progressbar"]')?.getAttribute("aria-valuetext")).toBe("1 of 2 tasks completed");
 
     await act(async () => {
       root.unmount();
@@ -1429,9 +1333,8 @@ describe("project-epic-panel linked-task chip activation", () => {
         epics: [initialEpic],
       })
     );
-    await showAllEpics(container);
 
-    const editButton = container.querySelector(
+    const editButton = document.body.querySelector(
       `button[aria-label="Edit epic ${initialEpic.name}"]`
     );
     expect(editButton).not.toBeNull();
@@ -1439,8 +1342,8 @@ describe("project-epic-panel linked-task chip activation", () => {
       editButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    const nameInput = container.querySelector(
-      `#edit-epic-name-${initialEpic.id}`
+    const nameInput = document.body.querySelector(
+      "#edit-epic-name"
     ) as HTMLInputElement | null;
     expect(nameInput).not.toBeNull();
     await act(async () => {
@@ -1461,7 +1364,7 @@ describe("project-epic-panel linked-task chip activation", () => {
     });
 
     expect(nameInput?.value).toBe("User typed draft name");
-    const card = container.querySelector("[data-project-live-refresh-lock]");
+    const card = document.body.querySelector("[data-project-live-refresh-lock]");
     expect(card?.getAttribute("data-project-live-refresh-lock")).toBe("true");
 
     await act(async () => {
@@ -1504,9 +1407,8 @@ describe("project-epic-panel linked-task chip activation", () => {
         epics: [initialEpic],
       })
     );
-    await showAllEpics(container);
 
-    const editButton = container.querySelector(
+    const editButton = document.body.querySelector(
       `button[aria-label="Edit epic ${initialEpic.name}"]`
     );
     await act(async () => {
@@ -1514,7 +1416,7 @@ describe("project-epic-panel linked-task chip activation", () => {
     });
 
     expect(
-      container.querySelector(`#edit-epic-name-${initialEpic.id}`)
+      document.body.querySelector("#edit-epic-name")
     ).not.toBeNull();
 
     await act(async () => {
@@ -1530,7 +1432,7 @@ describe("project-epic-panel linked-task chip activation", () => {
     });
 
     expect(
-      container.querySelector(`#edit-epic-name-${initialEpic.id}`)
+      document.body.querySelector("#edit-epic-name")
     ).toBeNull();
     expect(container.textContent).toContain("No active epics yet.");
 

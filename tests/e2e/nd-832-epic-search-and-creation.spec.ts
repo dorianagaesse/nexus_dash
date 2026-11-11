@@ -52,19 +52,15 @@ for (const { layout, width, height } of [
       await page.goto(`/projects/${project.id}#epics`);
       const search = page.getByRole("textbox", { name: "Search epics" });
       const view = page.getByRole("group", { name: "Epic list view" });
-      const showAll = page.getByRole("button", { name: "Show all", exact: true });
       const rollout = page.getByRole("article", { name: "Workspace rollout" });
       const releaseNotes = page.getByRole("article", { name: "Release notes" });
       const accountRefresh = page.getByRole("article", { name: "Account refresh" });
 
       await expect(search).toBeVisible();
-      await expect(rollout).toHaveCount(0);
-      await expect(releaseNotes).toHaveCount(0);
-      await clickUntilVisible(showAll, rollout);
+      await expect(rollout).toBeVisible();
       await expect(releaseNotes).toBeVisible();
       await expect(accountRefresh).toHaveCount(0);
-      await page.getByRole("button", { name: "Hide list", exact: true }).click();
-      await expect(rollout).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Show all", exact: true })).toHaveCount(0);
 
       await search.fill("  ACCESSIBILITY REVIEW  ");
       await expect(rollout).toBeVisible();
@@ -80,8 +76,6 @@ for (const { layout, width, height } of [
       ).toBeVisible();
       await page.getByRole("button", { name: "Clear epic search" }).click();
       await expect(search).toBeFocused();
-      await expect(accountRefresh).toHaveCount(0);
-      await showAll.click();
       await expect(accountRefresh).toBeVisible();
       await expect(rollout).toHaveCount(0);
 
@@ -120,7 +114,18 @@ for (const { layout, width, height } of [
       const createdEpic = page.getByRole("article", { name: "Onboarding guide" });
       await expect(createdEpic).toBeVisible();
       await search.fill("");
-      await expect(createdEpic).toHaveCount(0);
+      await expect(createdEpic).toBeVisible();
+      await createdEpic.getByRole("button", { name: /^Edit epic/ }).click();
+      const editDialog = page.getByRole("dialog", { name: "Edit epic", exact: true });
+      await expect(editDialog).toBeVisible();
+      await editDialog.getByLabel("Name", { exact: true }).fill("Unsaved change");
+      await editDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      await expect(editDialog).toBeHidden();
+      await expect(createdEpic).toBeVisible();
+      await search.fill("does not exist");
+      await page.getByRole("button", { name: "Clear epic search" }).click();
+      await expect(page.locator('[data-project-live-refresh-lock="true"]')).toHaveCount(0);
+      await expect(createdEpic).toBeVisible();
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth)
       ).toBeLessThanOrEqual(width);

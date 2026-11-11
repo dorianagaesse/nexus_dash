@@ -1,5 +1,17 @@
 # Development Journal
 
+# 2026-11-11 - ND-832: bounded epic rows and details
+
+- Replaced the card grid and browse toggle with immediate, searchable rows.
+  Matched the Kanban height cap and retained row-level edit, archive and delete.
+- Moved description, attribution and every linked task into a details dialog.
+  Tasks follow Backlog, Blocked, In Progress and Done order. Task links hand
+  focus to the board modal and preserve modified-click navigation.
+- Moved editing into a dialog so list filtering cannot hide an active draft
+  or leave its project refresh lock inaccessible.
+- Merged current main and retained both journal histories while resolving
+  the journal conflict, including conflict markers already present on main.
+
 # 2026-11-11 - ND-832: Search-first Epics section
 
 - Moved epic creation into the shared responsive dialog. Successful saves update

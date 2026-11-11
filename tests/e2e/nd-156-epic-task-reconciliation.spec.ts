@@ -1,7 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
-import { clickUntilVisible } from "./helpers/interaction-helpers";
 import {
   createProjectFromProjectsPage,
   openNewestProjectDashboard,
@@ -51,12 +50,9 @@ test("Epic counts reconcile after task create, reassignment, unlink, and link", 
   const epicArticles = page.locator("article:not([data-kanban-task-card])");
   const firstEpic = epicArticles.filter({ hasText: firstEpicName });
   const secondEpic = epicArticles.filter({ hasText: secondEpicName });
-  await clickUntilVisible(
-    page.getByRole("button", { name: "Show all", exact: true }),
-    firstEpic
-  );
-  await expect(firstEpic).toContainText("0/0");
-  await expect(secondEpic).toContainText("0/0");
+  await expect(firstEpic).toBeVisible();
+  await expect(firstEpic.locator('[role="progressbar"]')).toHaveAttribute("aria-valuetext", "0 of 0 tasks completed");
+  await expect(secondEpic.locator('[role="progressbar"]')).toHaveAttribute("aria-valuetext", "0 of 0 tasks completed");
 
   await page.getByRole("button", { name: "New task" }).click();
   await page.locator("#task-title").fill(taskTitle);
@@ -71,7 +67,7 @@ test("Epic counts reconcile after task create, reassignment, unlink, and link", 
   await page.getByRole("button", { name: "Create task" }).click();
   await createResponse;
 
-  await expect(firstEpic).toContainText("0/1");
+  await expect(firstEpic.locator('[role="progressbar"]')).toHaveAttribute("aria-valuetext", "0 of 1 tasks completed");
   await expect(firstEpic.locator('[role="progressbar"]')).toHaveAttribute(
     "aria-valuetext",
     "0 of 1 tasks completed"
@@ -82,14 +78,14 @@ test("Epic counts reconcile after task create, reassignment, unlink, and link", 
     .first()
     .click();
   await chooseQuickEpic(page, secondEpicName);
-  await expect(firstEpic).toContainText("0/0");
-  await expect(secondEpic).toContainText("0/1");
+  await expect(firstEpic.locator('[role="progressbar"]')).toHaveAttribute("aria-valuetext", "0 of 0 tasks completed");
+  await expect(secondEpic.locator('[role="progressbar"]')).toHaveAttribute("aria-valuetext", "0 of 1 tasks completed");
 
   await chooseQuickEpic(page, "No epic");
-  await expect(secondEpic).toContainText("0/0");
+  await expect(secondEpic.locator('[role="progressbar"]')).toHaveAttribute("aria-valuetext", "0 of 0 tasks completed");
 
   await chooseQuickEpic(page, firstEpicName);
-  await expect(firstEpic).toContainText("0/1");
+  await expect(firstEpic.locator('[role="progressbar"]')).toHaveAttribute("aria-valuetext", "0 of 1 tasks completed");
 
   await page.getByRole("button", { name: "Task options" }).click();
   await page.getByRole("button", { name: "Move to" }).click();
@@ -105,7 +101,7 @@ test("Epic counts reconcile after task create, reassignment, unlink, and link", 
     .click();
   await moveResponse;
 
-  await expect(firstEpic).toContainText("1/1");
+  await expect(firstEpic.locator('[role="progressbar"]')).toHaveAttribute("aria-valuetext", "1 of 1 tasks completed");
   await expect(firstEpic.locator('[role="progressbar"]')).toHaveAttribute(
     "aria-valuenow",
     "100"
