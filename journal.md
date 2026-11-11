@@ -1,5 +1,15 @@
 # Development Journal
 
+# 2026-11-11 - ND-831: mobile review fixes
+
+- Made mobile insertion gaps visible during drag and aligned their touch
+  selection with the finger position. Kept desktop and keyboard selection
+  on the existing drag library path.
+- Wrapped long names in confirmation descriptions and extended the 320px
+  browser checks to verify the full event name and a drop inside the gap.
+- Merged current main and preserved both journal histories. Validation
+  evidence is recorded on PR #695.
+
 <<<<<<< HEAD
 # 2026-11-11 - ND-831: mobile roadmap layout
 

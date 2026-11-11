@@ -130,6 +130,25 @@ function parseIntermediateMilestoneDropIndex(droppableId: string): number | null
   }
   return null;
 }
+
+function getTouchInsertionIndex(
+  container: HTMLElement | null,
+  point: { x: number; y: number } | null
+): number | null {
+  if (!point) return null;
+  const gaps = container?.querySelectorAll<HTMLElement>(
+    "[data-roadmap-mobile-between-milestones-dropzone]"
+  );
+  for (const gap of gaps ?? []) {
+    const bounds = gap.getBoundingClientRect();
+    if (point.x >= bounds.left && point.x <= bounds.right &&
+        point.y >= bounds.top && point.y <= bounds.bottom) {
+      return Number(gap.dataset.roadmapMobileBetweenMilestonesDropzone);
+    }
+  }
+  return null;
+}
+
 const ROADMAP_LANE_WIDTH_CLASS = "w-[21rem]";
 const CONNECTOR_CARD_HEIGHT = 212;
 const CONNECTOR_CARD_GAP = 16;
@@ -1237,10 +1256,14 @@ function RoadmapDesktopBetweenMilestonesDropZone({
 function RoadmapMobileBetweenMilestonesDropZone({
   canEdit,
   isDraggingEvent,
+  isTouchDraggingEvent,
+  isTouchOver,
   insertIndex,
 }: {
   canEdit: boolean;
   isDraggingEvent: boolean;
+  isTouchDraggingEvent: boolean;
+  isTouchOver: boolean;
   insertIndex: number;
 }) {
   if (!canEdit) {
@@ -1255,7 +1278,8 @@ function RoadmapMobileBetweenMilestonesDropZone({
       <Droppable
         droppableId={getIntermediateMilestoneDropId(insertIndex)}
         type="ROADMAP_EVENT"
-        isDropDisabled={!canEdit}
+        // Touch insertion uses the finger position rather than the card center.
+        isDropDisabled={!canEdit || isTouchDraggingEvent}
       >
         {(provided, snapshot) => (
           <div
@@ -1263,16 +1287,18 @@ function RoadmapMobileBetweenMilestonesDropZone({
             {...provided.droppableProps}
             data-roadmap-between-milestones-dropzone={insertIndex}
             data-roadmap-mobile-between-milestones-dropzone={insertIndex}
+            data-roadmap-insertion-active={isTouchOver || snapshot.isDraggingOver}
             className={cn(
-              "flex h-9 w-full items-center justify-center overflow-hidden rounded-[1.55rem] transition",
+              "relative flex h-9 w-full items-center justify-center gap-2 overflow-hidden rounded-[1.55rem] border border-dashed text-xs text-muted-foreground transition",
               isDraggingEvent
-                ? "pointer-events-auto opacity-0"
+                ? "pointer-events-auto border-border bg-muted/50 opacity-100"
                 : "pointer-events-none opacity-0",
-              snapshot.isDraggingOver &&
-                "opacity-100 bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66),0_0_0_1px_rgba(148,163,184,0.3)] dark:bg-slate-800/85 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(148,163,184,0.22)]"
+              (isTouchOver || snapshot.isDraggingOver) &&
+                "z-30 opacity-100 bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66),0_0_0_1px_rgba(148,163,184,0.3)] dark:bg-slate-800/85 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(148,163,184,0.22)]"
             )}
           >
             <PlusSquare className="h-5 w-5 text-muted-foreground/70" />
+            <span>Insert milestone</span>
             {provided.placeholder}
           </div>
         )}
@@ -1549,6 +1575,7 @@ function RoadmapMilestoneLane({
   phaseIndex,
   canEdit,
   isDesktop,
+  isTouchInsertionActive,
   maxEventsCount,
   statusMutationEventId,
   pendingStatusEventIds,
@@ -1562,6 +1589,7 @@ function RoadmapMilestoneLane({
   phaseIndex: number;
   canEdit: boolean;
   isDesktop: boolean;
+  isTouchInsertionActive: boolean;
   maxEventsCount: number;
   statusMutationEventId?: string | null;
   pendingStatusEventIds?: Set<string>;
@@ -1673,7 +1701,7 @@ function RoadmapMilestoneLane({
             data-roadmap-lane-dropzone={phase.id}
             className={cn(
               "px-1 pt-1 transition lg:pb-4",
-              snapshot.isDraggingOver &&
+              snapshot.isDraggingOver && !isTouchInsertionActive &&
                 "rounded-[1.8rem] bg-gradient-to-b from-slate-200/70 via-slate-200/40 to-slate-200/60 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.45),0_0_0_1px_rgba(148,163,184,0.3)] dark:from-slate-800/70 dark:via-slate-800/50 dark:to-slate-800/65 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(148,163,184,0.22)]"
             )}
             style={
@@ -1851,6 +1879,8 @@ export function ProjectRoadmapPanel({
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [isDesktopLayout, setIsDesktopLayout] = useState(false);
   const [isDraggingEvent, setIsDraggingEvent] = useState(false);
+  const [isTouchDraggingEvent, setIsTouchDraggingEvent] = useState(false);
+  const [touchInsertionIndex, setTouchInsertionIndex] = useState<number | null>(null);
   const [pendingStatusEventIds, setPendingStatusEventIds] = useState<Set<string>>(() => new Set());
   const statusMutationEventId = Array.from(pendingStatusEventIds)[0] ?? null;
   const [isPersistingMove, setIsPersistingMove] = useState(false);
@@ -1859,6 +1889,28 @@ export function ProjectRoadmapPanel({
   >({});
   const desktopRoadmapRef = useRef<HTMLDivElement | null>(null);
   const desktopRoadmapScrollRef = useRef<HTMLDivElement | null>(null);
+  const mobileRoadmapRef = useRef<HTMLDivElement | null>(null);
+  const touchPointRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (!isTouchDraggingEvent) return;
+    const updateTarget = () => setTouchInsertionIndex(
+      getTouchInsertionIndex(mobileRoadmapRef.current, touchPointRef.current)
+    );
+    const trackTouch = (event: TouchEvent) => {
+      const touch = event.touches[0] ?? event.changedTouches[0];
+      if (touch) touchPointRef.current = { x: touch.clientX, y: touch.clientY };
+      updateTarget();
+    };
+    window.addEventListener("touchmove", trackTouch, { capture: true, passive: true });
+    window.addEventListener("touchend", trackTouch, { capture: true, passive: true });
+    window.addEventListener("scroll", updateTarget, true);
+    return () => {
+      window.removeEventListener("touchmove", trackTouch, true);
+      window.removeEventListener("touchend", trackTouch, true);
+      window.removeEventListener("scroll", updateTarget, true);
+    };
+  }, [isTouchDraggingEvent]);
 
   useEffect(() => {
     setRoadmapPhases((currentPhases) => {
@@ -2622,10 +2674,19 @@ export function ProjectRoadmapPanel({
   }
 
   async function handleDragEnd(result: DropResult) {
-    const { destination, source, draggableId } = result;
+    const { source, draggableId } = result;
+    const touchInsertIndex = result.reason === "DROP" && !isDesktopLayout
+      ? getTouchInsertionIndex(mobileRoadmapRef.current, touchPointRef.current)
+      : null;
+    const destination = touchInsertIndex !== null
+      ? { droppableId: getIntermediateMilestoneDropId(touchInsertIndex), index: 0 }
+      : result.destination;
+    touchPointRef.current = null;
+    setTouchInsertionIndex(null);
+    setIsTouchDraggingEvent(false);
     setIsDraggingEvent(false);
 
-    if (!destination) {
+    if (result.reason === "CANCEL" || !destination) {
       return;
     }
 
@@ -3241,14 +3302,21 @@ export function ProjectRoadmapPanel({
                 // Measure the end drop lane while it is visible on narrow screens.
                 if (!isDesktopLayout) {
                   setIsDraggingEvent(true);
+                  setIsTouchDraggingEvent(touchPointRef.current !== null);
                 }
               }}
               onDragStart={() => setIsDraggingEvent(true)}
               onDragEnd={handleDragEnd}
             >
               <div
-                ref={isDesktopLayout ? desktopRoadmapScrollRef : null}
+                ref={isDesktopLayout ? desktopRoadmapScrollRef : mobileRoadmapRef}
                 data-roadmap-scroll-container="true"
+                onTouchStartCapture={(event) => {
+                  const touch = event.touches[0];
+                  touchPointRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+                }}
+                onMouseDownCapture={() => { touchPointRef.current = null; }}
+                onKeyDownCapture={() => { touchPointRef.current = null; }}
                 className={cn(
                   "min-w-0",
                   isDesktopLayout &&
@@ -3273,6 +3341,7 @@ export function ProjectRoadmapPanel({
                         phaseIndex={phaseIndex}
                         canEdit={canEdit}
                         isDesktop={isDesktopLayout}
+                        isTouchInsertionActive={touchInsertionIndex !== null}
                         maxEventsCount={maxEventsCount}
                         statusMutationEventId={statusMutationEventId}
                         pendingStatusEventIds={pendingStatusEventIds}
@@ -3300,6 +3369,8 @@ export function ProjectRoadmapPanel({
                         <RoadmapMobileBetweenMilestonesDropZone
                           canEdit={canEdit}
                           isDraggingEvent={isDraggingEvent}
+                          isTouchDraggingEvent={isTouchDraggingEvent}
+                          isTouchOver={touchInsertionIndex === phaseIndex + 1}
                           insertIndex={phaseIndex + 1}
                         />
                       ) : null}

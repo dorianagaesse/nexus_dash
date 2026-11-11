@@ -103,7 +103,19 @@ test.describe("roadmap on a touch viewport", () => {
     await page.keyboard.press("Escape");
 
     await firstEvent.getByRole("button", { name: "Delete", exact: true }).tap();
-    await expect(page.getByRole("alertdialog", { name: "Delete roadmap event?" })).toBeVisible();
+    const confirmation = page.getByRole("alertdialog", { name: "Delete roadmap event?" });
+    await expect(confirmation).toBeVisible();
+    const confirmationDescription = confirmation.getByText(`Delete ${longEventTitle}?`, { exact: true });
+    await expect(confirmationDescription).toContainText(longEventTitle);
+    await expect.poll(() => confirmationDescription.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return element.scrollWidth <= element.clientWidth &&
+        [...range.getClientRects()].every((rect) => rect.left >= 0 && rect.right <= innerWidth &&
+          rect.left >= bounds.left && rect.right <= bounds.right);
+    })).toBe(true);
+    await page.screenshot({ path: test.info().outputPath("delete-confirmation-320px.png") });
     await page.keyboard.press("Escape");
 
     await page.getByRole("button", { name: "New event", exact: true }).tap();
@@ -151,6 +163,61 @@ test.describe("roadmap on a touch viewport", () => {
     }
     await expect(destination).toHaveClass(/bg-gradient-to-b/);
     await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect(lanes.nth(1).getByRole("heading", { name: "Notify pilot customers" })).toBeVisible();
+  });
+
+  test("inserts a milestone with the finger inside the visible gap", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 850 });
+    const { timeline, lanes } = await openRoadmap(page);
+    const eventCard = lanes.first().getByRole("article").filter({ hasText: "Notify pilot customers" });
+    const handle = eventCard.locator("[data-roadmap-event-drag-handle]");
+    await handle.evaluate((element) => {
+      window.scrollBy({ top: element.getBoundingClientRect().top - 130, behavior: "instant" });
+    });
+    const handleBox = (await handle.boundingBox())!;
+    const startX = handleBox.x + handleBox.width / 2;
+    const startY = handleBox.y + handleBox.height / 2;
+    const touch = await page.context().newCDPSession(page);
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchStart", touchPoints: [{ x: startX, y: startY }],
+    });
+    await expect(page.locator("[data-roadmap-new-milestone-dropzone]")).toBeVisible();
+    const gap = timeline.locator("[data-roadmap-mobile-between-milestones-dropzone='1']");
+    await expect(gap).toHaveCSS("opacity", "1");
+    const gapBox = (await gap.boundingBox())!;
+    const endX = gapBox.x + gapBox.width / 2;
+    const endY = gapBox.y + gapBox.height / 2;
+    for (let step = 1; step <= 16; step += 1) {
+      await touch.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: startX + (endX - startX) * step / 16, y: startY + (endY - startY) * step / 16 }],
+      });
+    }
+    await expect(gap).toHaveAttribute("data-roadmap-insertion-active", "true");
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchMove", touchPoints: [{ x: endX, y: gapBox.y - 12 }],
+    });
+    await expect(gap).toHaveAttribute("data-roadmap-insertion-active", "false");
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchMove", touchPoints: [{ x: endX, y: endY }],
+    });
+    await expect(gap).toHaveAttribute("data-roadmap-insertion-active", "true");
+    const target = (await gap.boundingBox())!;
+    expect(endX).toBeGreaterThan(target.x);
+    expect(endX).toBeLessThan(target.x + target.width);
+    expect(endY).toBeGreaterThan(target.y);
+    expect(endY).toBeLessThan(target.y + target.height);
+    await page.screenshot({ path: test.info().outputPath("touch-insertion-gap-320px.png") });
+    const moved = page.waitForResponse((response) =>
+      response.url().endsWith("/roadmap/events/move") && response.request().method() === "POST"
+    );
+    await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    expect((await moved).ok()).toBe(true);
+    await expect(lanes).toHaveCount(4);
+    await expect(lanes.nth(1).getByRole("heading", { name: "Notify pilot customers" })).toBeVisible();
+    await expect(lanes.first().getByRole("article")).toHaveCount(1);
+    await page.reload();
+    await expect(timeline.locator("[data-roadmap-milestone]")).toHaveCount(4);
     await expect(lanes.nth(1).getByRole("heading", { name: "Notify pilot customers" })).toBeVisible();
   });
 });

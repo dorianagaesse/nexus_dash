@@ -39,7 +39,9 @@ Implemented today:
     state, and archived history
   - Roadmap milestone lanes with grouped events, drag-and-drop regrouping,
     and target-date planning. Milestones stack vertically on narrow screens
-    and form a horizontally scrollable timeline on desktop.
+    and form a horizontally scrollable timeline on desktop. During a touch
+    drag, visible insertion gaps let you create a milestone by releasing
+    your finger inside the gap.
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
   - Calendar panel (Google Calendar list/create/update/delete)
   - Task attachment additions and deletions sync into open task modals across
