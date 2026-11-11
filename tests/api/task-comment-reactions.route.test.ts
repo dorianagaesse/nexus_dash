@@ -106,7 +106,7 @@ describe("task comment reactions service", () => {
       operation(mockDb as never)
     );
 
-    const result = await listTaskCommentReactionsForComment({
+    const result = await listTaskCommentReactionsForComment({ taskId: "task-1",
       actorUserId: "test-user",
       projectId: "project-1",
       commentId: "comment-1",
@@ -126,7 +126,7 @@ describe("task comment reactions service", () => {
       operation(mockDb as never)
     );
 
-    const result = await listTaskCommentReactionsForComment({
+    const result = await listTaskCommentReactionsForComment({ taskId: "task-1",
       actorUserId: "test-user",
       projectId: "project-1",
       commentId: "nonexistent",
@@ -151,7 +151,7 @@ describe("task comment reactions service", () => {
       operation(mockDb as never)
     );
 
-    const result = await addTaskCommentReaction({
+    const result = await addTaskCommentReaction({ taskId: "task-1",
       actorUserId: "test-user",
       projectId: "project-1",
       commentId: "comment-1",
@@ -179,7 +179,7 @@ describe("task comment reactions service", () => {
       operation(mockDb as never)
     );
 
-    const result = await addTaskCommentReaction({
+    const result = await addTaskCommentReaction({ taskId: "task-1",
       actorUserId: "test-user",
       projectId: "project-1",
       commentId: "comment-1",
@@ -206,7 +206,7 @@ describe("task comment reactions service", () => {
       operation(mockDb as never)
     );
 
-    const result = await addTaskCommentReaction({
+    const result = await addTaskCommentReaction({ taskId: "task-1",
       actorUserId: "test-user",
       projectId: "project-1",
       commentId: "comment-1",
@@ -218,7 +218,7 @@ describe("task comment reactions service", () => {
   });
 
   test("addTaskCommentReaction returns 400 when emoji is empty", async () => {
-    const result = await addTaskCommentReaction({
+    const result = await addTaskCommentReaction({ taskId: "task-1",
       actorUserId: "test-user",
       projectId: "project-1",
       commentId: "comment-1",
@@ -244,7 +244,7 @@ describe("task comment reactions service", () => {
       operation(mockDb as never)
     );
 
-    const result = await removeTaskCommentReaction({
+    const result = await removeTaskCommentReaction({ commentId: "comment-1", taskId: "task-1",
       actorUserId: "test-user",
       projectId: "project-1",
       reactionId: "r1",
@@ -262,7 +262,7 @@ describe("task comment reactions service", () => {
       operation(mockDb as never)
     );
 
-    const result = await removeTaskCommentReaction({
+    const result = await removeTaskCommentReaction({ commentId: "comment-1", taskId: "task-1",
       actorUserId: "test-user",
       projectId: "project-1",
       reactionId: "nonexistent",
@@ -286,7 +286,7 @@ describe("task comment reactions service", () => {
       operation(mockDb as never)
     );
 
-    const result = await removeTaskCommentReaction({
+    const result = await removeTaskCommentReaction({ commentId: "comment-1", taskId: "task-1",
       actorUserId: "test-user",
       projectId: "project-1",
       reactionId: "r1",
@@ -307,7 +307,7 @@ test("agent reaction state excludes the human and another credential with the sa
   ].map(row => ({ ...row, createdAt: new Date() }));
   const db = createMockDb({ taskCommentReaction: { findMany: vi.fn().mockResolvedValue(rows) } });
   rlsContextMock.withActorRlsContext.mockImplementationOnce(async (_actor, operation) => operation(db));
-  const result = await listTaskCommentReactionsForComment({ actorUserId: "test-user", projectId: "project-1", commentId: "comment-1", agentAccess: { projectId: "project-1", credentialId: "a", scopes: ["task:read"] } });
+  const result = await listTaskCommentReactionsForComment({ taskId: "task-1", actorUserId: "test-user", projectId: "project-1", commentId: "comment-1", agentAccess: { projectId: "project-1", credentialId: "a", scopes: ["task:read"] } });
   expect(result.ok).toBe(true);
   if (!result.ok) return;
   expect(result.data.reactions.map(group => group.reacted)).toEqual([false, true, false, false]);
@@ -316,6 +316,27 @@ test("agent reaction state excludes the human and another credential with the sa
 
 test("denied reaction scope stops before database writes", async () => {
   projectAccessServiceMock.requireAgentProjectScopes.mockReturnValueOnce({ ok: false, status: 403, error: "agent-scope-denied" } as never);
-  const result = await addTaskCommentReaction({ actorUserId: "test-user", projectId: "project-1", commentId: "comment-1", emoji: "x", agentAccess: { projectId: "project-1", credentialId: "a", scopes: ["task:read"] } });
+  const result = await addTaskCommentReaction({ taskId: "task-1", actorUserId: "test-user", projectId: "project-1", commentId: "comment-1", emoji: "x", agentAccess: { projectId: "project-1", credentialId: "a", scopes: ["task:read"] } });
   expect(result).toEqual({ ok: false, status: 403, error: "agent-scope-denied" });
+});
+
+import { GET, POST } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/reactions/route";
+import { DELETE } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/reactions/[reactionId]/route";
+
+test.each(["GET", "POST", "DELETE"])("%s rejects every mismatched parent without reading or changing reactions", async method => {
+  for (const mismatch of ["task", "project", ...(method === "DELETE" ? ["comment"] : [])]) {
+    const db = createMockDb({
+      taskCommentReaction: { findUnique: vi.fn().mockResolvedValue({ id: "reaction-1", userId: "test-user", commentId: "comment-1", comment: { id: "comment-1", taskId: "task-1" } }) },
+    });
+    rlsContextMock.withActorRlsContext.mockImplementationOnce(async (_actor, operation) => operation(db));
+    const params = { projectId: mismatch === "project" ? "other-project" : "project-1", taskId: mismatch === "task" ? "other-task" : "task-1", commentId: mismatch === "comment" ? "other-comment" : "comment-1", reactionId: "reaction-1" };
+    const request = new Request("http://localhost/reactions", method === "POST" ? { method, headers: { "content-type": "application/json" }, body: JSON.stringify({ emoji: "x" }) } : { method });
+    const response = await ({ GET, POST, DELETE }[method as "GET" | "POST" | "DELETE"])(request as never, { params: Promise.resolve(params) });
+    expect(response.status).toBe(404);
+    expect((await response.json()).error).toBe(method === "DELETE" ? "reaction-not-found" : "comment-not-found");
+    expect(db.taskCommentReaction.findMany).not.toHaveBeenCalled();
+    expect(db.taskCommentReaction.create).not.toHaveBeenCalled();
+    expect(db.taskCommentReaction.deleteMany).not.toHaveBeenCalled();
+    expect(db.taskCommentReaction.delete).not.toHaveBeenCalled();
+  }
 });

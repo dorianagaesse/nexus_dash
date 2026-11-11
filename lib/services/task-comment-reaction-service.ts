@@ -36,6 +36,8 @@ type Result =
   | { ok: true; data: { reactions: TaskCommentReactionGroup[] } }
   | { ok: false; status: number; error: string };
 interface ActorInput {
+  taskId: string;
+  commentId: string;
   actorUserId: string;
   projectId: string;
   agentAccess?: AgentProjectAccessContext;
@@ -133,13 +135,14 @@ async function readGroups(
 async function hasComment(
   db: DbClient,
   commentId: string,
-  projectId: string
+  projectId: string,
+  taskId: string
 ): Promise<boolean> {
   const comment = await db.taskComment.findUnique({
     where: { id: commentId },
     select: { id: true, taskId: true },
   });
-  if (!comment) return false;
+  if (!comment || comment.taskId !== taskId) return false;
   const task = await db.task.findUnique({
     where: { id: comment.taskId },
     select: { projectId: true },
@@ -186,7 +189,7 @@ export async function listTaskCommentReactionsForComment(
     false,
     "reactions-list-failed",
     async (db) => {
-      if (!(await hasComment(db, input.commentId, input.projectId)))
+      if (!(await hasComment(db, input.commentId, input.projectId, input.taskId)))
         return error(404, "comment-not-found");
       return readGroups(db, input.commentId, input);
     }
@@ -203,7 +206,7 @@ export async function addTaskCommentReaction(
     true,
     "reaction-toggle-failed",
     async (db) => {
-      if (!(await hasComment(db, input.commentId, input.projectId)))
+      if (!(await hasComment(db, input.commentId, input.projectId, input.taskId)))
         return error(404, "comment-not-found");
       const actor = await resolveProjectMutationActor({ ...input, db });
       if (!actor.ok) return error(actor.status, actor.error);
@@ -244,7 +247,7 @@ export async function removeTaskCommentReaction(
         where: { id: input.reactionId },
         include: { comment: { select: { id: true, taskId: true } } },
       });
-      if (!reaction) return error(404, "reaction-not-found");
+      if (!reaction || reaction.commentId !== input.commentId || reaction.comment.taskId !== input.taskId) return error(404, "reaction-not-found");
       const task = await db.task.findUnique({
         where: { id: reaction.comment.taskId },
         select: { projectId: true },
