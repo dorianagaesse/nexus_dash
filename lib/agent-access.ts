@@ -1,16 +1,5 @@
-export const AGENT_SCOPE_VALUES = [
-  "project:read",
-  "task:read",
-  "task:write",
-  "task:delete",
-  "context:read",
-  "context:write",
-  "context:delete",
-  "roadmap:read",
-  "roadmap:write",
-  "roadmap:delete",
-  "attention:read",
-] as const;
+import { PROJECT_CAPABILITIES } from "@/lib/project-capabilities";
+export const AGENT_SCOPE_VALUES = ["project:read", ...PROJECT_CAPABILITIES, "attention:read"] as const;
 
 export type AgentScope = (typeof AGENT_SCOPE_VALUES)[number];
 
@@ -89,6 +78,13 @@ export const AGENT_SCOPE_DEFINITIONS: ReadonlyArray<AgentScopeDefinition> = [
     label: "Attention Read",
     description: "Read your own agent mention events and current assignments.",
   },
+  ...(["meeting", "epic", "schedule"] as const).flatMap((module) =>
+    (["read", "write", "delete"] as const).map((action) => ({
+      scope: `${module}:${action}` as AgentScope,
+      label: `${module === "meeting" ? "Meeting notes" : module === "epic" ? "Epics" : "Shared schedule (reserved)"} ${action}`,
+      description: module === "schedule" ? "Reserved for the future shared schedule; does not grant personal Calendar access." : `${action} project ${module === "meeting" ? "meeting notes" : "epics"}.`,
+    }))
+  ),
 ];
 
 function normalizeScope(value: unknown): AgentScope | null {
@@ -149,7 +145,7 @@ export const AGENT_CREDENTIAL_PRESETS: ReadonlyArray<AgentCredentialPreset> = [
     id: "read-write",
     label: "Read + write (no delete)",
     description:
-      "Read and update tasks, epics, and related content without destructive delete permission.",
+      "Read and update tasks without destructive delete permission. Select other modules separately.",
     scopes: ["project:read", "task:read", "task:write"],
     recommended: true,
   },

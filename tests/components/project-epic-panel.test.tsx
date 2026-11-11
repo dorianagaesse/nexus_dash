@@ -81,7 +81,7 @@ const testEpicAuthor = {
 const testEpicAgentAuthor = {
   kind: "agent" as const,
   id: "cred-1",
-  displayName: "Release Agent (agent)",
+  displayName: "Release Agent",
   usernameTag: null,
   avatarSeed: "nexusdash-agent-comment-avatar",
   agentCredentialId: "cred-1",
@@ -624,7 +624,7 @@ describe("project-epic-panel attribution", () => {
 
     const details = document.getElementById("epic-epic-agent-details");
     expect(details?.textContent).toContain("Created by");
-    expect(details?.textContent).toContain("Release Agent (agent)");
+    expect(details?.textContent).toContain("Release Agent");
     expect(
       details?.querySelector('[data-agent-avatar="true"]')
     ).not.toBeNull();

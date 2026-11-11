@@ -836,6 +836,7 @@ describe("project meeting notes routes", () => {
         inputNotes: "<p>Changed input only</p>", visibility: "  ",
       }, { "x-content-if-match": '"meeting-note:note-1:7"' }), noteParams("project-1", "note-1"));
       expect(meetingNoteServiceMock.updateProjectMeetingNote.mock.calls[0][0]).toStrictEqual({
+        agentAccess: undefined,
         actorUserId: "user-1", projectId: "project-1", noteId: "note-1",
         inputNotes: "<p>Changed input only</p>", expectedRevision: 7,
       });
@@ -854,6 +855,7 @@ describe("project meeting notes routes", () => {
       }), noteParams("project-1", "note-1"));
       expect(response.status).toBe(200);
       expect(meetingNoteServiceMock.updateProjectMeetingNote.mock.calls[0][0]).toStrictEqual({
+        agentAccess: undefined,
         actorUserId: "user-1", projectId: "project-1", noteId: "note-1", scheduledAt: null, status: null,
       });
     });
@@ -876,6 +878,7 @@ describe("project meeting notes routes", () => {
       const response = await updateMeetingNote(mutationRequest("PATCH", { visibility }), noteParams("project-1", "note-1"));
       expect(response.status).toBe(200);
       expect(meetingNoteServiceMock.updateProjectMeetingNote.mock.calls[0][0]).toStrictEqual({
+        agentAccess: undefined,
         actorUserId: "user-1", projectId: "project-1", noteId: "note-1", visibility,
       });
     });
@@ -915,12 +918,13 @@ describe("project meeting notes routes", () => {
       }), noteParams("project-1", "note-1"));
       expect(response.status).toBe(200);
       expect(meetingNoteServiceMock.updateProjectMeetingNote.mock.calls[0][0]).toStrictEqual({
+        agentAccess: undefined,
         actorUserId: "user-1", projectId: "project-1", noteId: "note-1", ...emptyFields,
       });
     });
 
     test.each(["POST", "PATCH"] as const)("%s checks authentication before malformed JSON", async (method) => {
-      apiGuardMock.requireAuthenticatedApiUser.mockResolvedValueOnce({
+      apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({
         ok: false,
         response: new Response(JSON.stringify({ error: "unauthorized" }), {
           status: 401, headers: { "content-type": "application/json" },

@@ -754,6 +754,7 @@ export function KanbanBoard({
     setIsClient(true);
   }, []);
 
+  const [commentAuthorVersion, setCommentAuthorVersion] = useState<string | null>(null);
   const selectedTaskId = selectedTask?.id ?? null;
   const selectedTaskCommentCount = selectedTask?.commentCount ?? 0;
   const selectedTaskUpdatedAt = selectedTask?.updatedAt ?? null;
@@ -828,6 +829,8 @@ export function KanbanBoard({
     };
   }, [
     isEditMode,
+    initialActivityVersion,
+    commentAuthorVersion,
     projectId,
     selectedTaskCommentCount,
     selectedTaskId,
@@ -2495,6 +2498,10 @@ export function KanbanBoard({
       ).detail?.activity;
       if (!activity || activity.projectId !== projectId) return;
       if (!activity.eventId && selectedTaskId) {
+        // Public agent metadata changes advance the project version without
+        // changing the task. Refresh an open thread even while modal locks
+        // defer the dashboard's broader remote refresh.
+        setCommentAuthorVersion(activity.version);
         if (appliedAttachmentVersion === activity.version) return;
         attachmentController?.abort();
         const controller = new AbortController();
