@@ -742,6 +742,13 @@ Responses group counts and caller-specific `reacted` state. Each reaction's
 removal preserves the agent display snapshot with a null actor ID. Reaction
 button tooltips show these actors, including the agent marker.
 
+Open task dialogs reconcile comments, counts and reactions through project
+activity, including Broadcast signals and polling or reconnect snapshots.
+Thread reads continue during task editing without replacing unsent comments,
+active comment edits, focus or selection. Switching tasks cancels pending reads;
+late responses cannot replace the newly opened thread. Polling keeps the existing
+10-second active cadence; no separate thread polling loop is added.
+
 ### Task attachment attribution
 
 Task link and file responses include `uploadedBy: { kind, id, displayName }`.

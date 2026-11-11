@@ -11783,3 +11783,21 @@ the original run passed the other 143 scenarios, including notification revocati
 - Validation passes: lint, RLS inventory, production build, 2,507 unit tests
   (3 skipped), coverage (95.56% lines, 89.12% branches), and all six focused
   404 browser checks. Reviewed desktop/mobile screenshots in both themes.
+
+## 2026-11-11 - ND-837 open task thread reconciliation
+
+- Reproduced an open-thread gap: task edit mode skipped comment reads even when
+  project activity changed. Version-only reconciliation also left board comment
+  counts unchanged, and late reaction reads could replace a newer task's state.
+- Kept targeted comment reads active during task editing, reconciled counts,
+  retained newer comment edits, and guarded reaction reads and mutations across
+  task switches and concurrent responses. Failed reads retain the visible thread.
+- Added regressions for task drafts/focus/selection, stale reaction responses,
+  and two independent human browser sessions plus agent comment/reaction writes.
+  Existing project activity supplies Broadcast and polling catch-up; no separate
+  thread polling loop was introduced.
+- Initial validation: 2,521 unit/API tests passed (3 skipped), RLS inventory and
+  production build passed. Final coverage/browser checks are in progress. Preview
+  dispatch requires an authenticated GitHub Actions setup; the available connector
+  exposes PR creation but no workflow dispatch, and the cached HTTPS credential
+  returned 401. User requested no Copilot review monitoring.

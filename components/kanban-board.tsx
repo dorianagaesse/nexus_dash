@@ -549,6 +549,8 @@ export function KanbanBoard({
   const [previewAttachment, setPreviewAttachment] =
     useState<TaskAttachment | null>(null);
   const [taskComments, setTaskComments] = useState<TaskComment[]>([]);
+  const taskCommentsRef = useRef(taskComments);
+  useEffect(() => { taskCommentsRef.current = taskComments; }, [taskComments]);
   const [taskCommentsError, setTaskCommentsError] = useState<string | null>(null);
   const [isLoadingTaskComments, setIsLoadingTaskComments] = useState(false);
   const [newTaskComment, setNewTaskComment] = useState("");
@@ -754,9 +756,8 @@ export function KanbanBoard({
     setIsClient(true);
   }, []);
 
-  const [commentAuthorVersion, setCommentAuthorVersion] = useState<string | null>(null);
+  const [commentActivityVersion, setCommentActivityVersion] = useState<string | null>(null);
   const selectedTaskId = selectedTask?.id ?? null;
-  const selectedTaskCommentCount = selectedTask?.commentCount ?? 0;
   const selectedTaskUpdatedAt = selectedTask?.updatedAt ?? null;
 
   useEffect(() => {
@@ -766,76 +767,6 @@ export function KanbanBoard({
     }
   }, [selectedTaskId]);
 
-  useEffect(() => {
-    if (!selectedTaskId) {
-      setTaskComments([]);
-      setTaskCommentsError(null);
-      setIsLoadingTaskComments(false);
-      setNewTaskComment("");
-      return;
-    }
-
-    if (isEditMode) {
-      return;
-    }
-
-    const abortController = new AbortController();
-    const loadTaskComments = async () => {
-      setIsLoadingTaskComments(true);
-      setTaskCommentsError(null);
-
-      try {
-        const response = await fetch(
-          `/api/projects/${projectId}/tasks/${selectedTaskId}/comments`,
-          {
-            signal: abortController.signal,
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            await readApiError(response, "Could not load task comments.")
-          );
-        }
-
-        const payload = (await response.json()) as {
-          comments: TaskComment[];
-        };
-
-        setTaskComments((currentComments) =>
-          mergeFetchedTaskComments(payload.comments, currentComments)
-        );
-      } catch (error) {
-        if (abortController.signal.aborted) {
-          return;
-        }
-
-        console.error("[KanbanBoard.loadTaskComments]", error);
-        setTaskComments([]);
-        setTaskCommentsError(
-          error instanceof Error ? error.message : "Could not load task comments."
-        );
-      } finally {
-        if (!abortController.signal.aborted) {
-          setIsLoadingTaskComments(false);
-        }
-      }
-    };
-
-    void loadTaskComments();
-
-    return () => {
-      abortController.abort();
-    };
-  }, [
-    isEditMode,
-    initialActivityVersion,
-    commentAuthorVersion,
-    projectId,
-    selectedTaskCommentCount,
-    selectedTaskId,
-    selectedTaskUpdatedAt,
-  ]);
 
   const {
     allTasks, allKnownLabels, taskSearchQuery, setTaskSearchQuery,
@@ -2487,6 +2418,78 @@ export function KanbanBoard({
   );
 
   useEffect(() => {
+    if (!selectedTaskId) {
+      setTaskComments([]);
+      setTaskCommentsError(null);
+      setIsLoadingTaskComments(false);
+      setNewTaskComment("");
+      return;
+    }
+
+    const abortController = new AbortController();
+    const loadTaskComments = async () => {
+      setIsLoadingTaskComments(true);
+      setTaskCommentsError(null);
+
+      try {
+        const response = await fetch(
+          `/api/projects/${projectId}/tasks/${selectedTaskId}/comments`,
+          {
+            cache: "no-store",
+            signal: abortController.signal,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            await readApiError(response, "Could not load task comments.")
+          );
+        }
+
+        const payload = (await response.json()) as {
+          comments: TaskComment[];
+        };
+
+        if (abortController.signal.aborted) return;
+
+        applyTaskMutation(selectedTaskId, (task) => ({
+          ...task,
+          commentCount: mergeFetchedTaskComments(payload.comments, taskCommentsRef.current).length,
+        }));
+        setTaskComments((currentComments) =>
+          mergeFetchedTaskComments(payload.comments, currentComments)
+        );
+      } catch (error) {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        console.error("[KanbanBoard.loadTaskComments]", error);
+        setTaskCommentsError(
+          error instanceof Error ? error.message : "Could not load task comments."
+        );
+      } finally {
+        if (!abortController.signal.aborted) {
+          setIsLoadingTaskComments(false);
+        }
+      }
+    };
+
+    void loadTaskComments();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [
+    applyTaskMutation,
+    initialActivityVersion,
+    commentActivityVersion,
+    projectId,
+    selectedTaskId,
+    selectedTaskUpdatedAt,
+  ]);
+
+  useEffect(() => {
     if (!selectedTaskId) return;
     const reconciliation = { taskId: selectedTaskId, revision: 0 };
     attachmentReconciliationRef.current = reconciliation;
@@ -2498,10 +2501,10 @@ export function KanbanBoard({
       ).detail?.activity;
       if (!activity || activity.projectId !== projectId) return;
       if (!activity.eventId && selectedTaskId) {
-        // Public agent metadata changes advance the project version without
-        // changing the task. Refresh an open thread even while modal locks
-        // defer the dashboard's broader remote refresh.
-        setCommentAuthorVersion(activity.version);
+        // Version-only activity includes reaction and author changes without a
+        // task update. Reload the thread (and its reactions) while the modal
+        // lock continues to protect task and comment drafts.
+        setCommentActivityVersion(activity.version);
         if (appliedAttachmentVersion === activity.version) return;
         attachmentController?.abort();
         const controller = new AbortController();
@@ -2671,10 +2674,14 @@ export function KanbanBoard({
           return;
         }
 
-        applyTaskMutation(commentPayload.taskId, (task) => ({
-          ...task,
-          commentCount: task.commentCount + 1,
-        }));
+        const alreadyLoaded = selectedTask?.id === commentPayload.taskId &&
+          taskCommentsRef.current.some((comment) => comment.id === commentPayload.comment?.id);
+        if (!alreadyLoaded) {
+          applyTaskMutation(commentPayload.taskId, (task) => ({
+            ...task,
+            commentCount: task.commentCount + 1,
+          }));
+        }
 
         if (selectedTask?.id === commentPayload.taskId && commentPayload.comment) {
           const incomingComment = commentPayload.comment;
@@ -2686,7 +2693,7 @@ export function KanbanBoard({
               (comment) =>
                 !isOptimisticTaskCommentRepresented(comment, [incomingComment])
             );
-            return [...withoutRepresentedOptimistic, incomingComment];
+            return mergeFetchedTaskComments([incomingComment], withoutRepresentedOptimistic);
           });
         }
 
