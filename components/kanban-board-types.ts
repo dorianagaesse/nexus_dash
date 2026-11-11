@@ -56,6 +56,7 @@ export interface TaskAuthor extends TaskPersonSummary {
 }
 
 export interface TaskCommentReaction {
+  reactions?: Array<{ id: string; actor: { kind: "human" | "agent"; id: string | null; displayName: string } }>;
   emoji: string;
   count: number;
   reacted: boolean;

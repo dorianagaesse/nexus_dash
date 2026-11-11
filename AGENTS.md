@@ -31,6 +31,10 @@ documentation when the task calls for it:
   comments as short as possible, in plain English; state the next step or
   handoff evidence, one topic per comment, without repeating the card. The
   reviewer or PR merger moves the card to Done.
+- Prefer reactions to existing task comments for acknowledgments, agreement,
+  thanks, or confirmation whenever they convey the full message. Reserve text
+  for new information and required pickup/completion evidence; see the
+  comments and reactions guidance in `docs/runbooks/agent-workflow.md`.
 - Push the branch and open a reviewable PR for repository changes unless the
   user explicitly asks otherwise. Handle applicable review feedback and
   report the delivered commit SHA. See the agent workflow runbook for status,

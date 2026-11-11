@@ -40,6 +40,9 @@ function createMockDb(overrides: Partial<{
   taskCommentReaction: { findUnique: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> };
 }> = {}) {
   return {
+    $executeRaw: vi.fn(),
+    user: { findUnique: vi.fn().mockResolvedValue({ id: "test-user", name: "Me", username: "me" }) },
+    apiCredential: { findFirst: vi.fn().mockResolvedValue({ id: "credential-1", label: "Agent A", revokedAt: null, expiresAt: null }) },
     taskComment: {
       findUnique: vi.fn(() => Promise.resolve({ id: "comment-1", taskId: "task-1" })),
       ...overrides.taskComment,
@@ -62,6 +65,31 @@ function createMockDb(overrides: Partial<{
 describe("task comment reactions service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  test.each([
+    ["list", "task:read"],
+    ["add", "task:write"],
+    ["remove", "task:write"],
+  ] as const)("%s honors denied task capability before accessing reactions", async (operation, capability) => {
+    const db = createMockDb();
+    projectAccessServiceMock.requireProjectRole.mockResolvedValueOnce({
+      ok: false, status: 403, error: "project-capability-denied",
+    } as never);
+    rlsContextMock.withActorRlsContext.mockImplementationOnce(async (_actor, callback) => callback(db));
+    const input = { actorUserId: "test-user", projectId: "project-1" };
+    const result = operation === "list"
+      ? await listTaskCommentReactionsForComment({ ...input, commentId: "comment-1" })
+      : operation === "add"
+        ? await addTaskCommentReaction({ ...input, commentId: "comment-1", emoji: "x" })
+        : await removeTaskCommentReaction({ ...input, reactionId: "r1" });
+    expect(result).toEqual({ ok: false, status: 403, error: "project-capability-denied" });
+    expect(projectAccessServiceMock.requireProjectRole).toHaveBeenCalledWith(expect.objectContaining({ capability }));
+    expect(db.taskComment.findUnique).not.toHaveBeenCalled();
+    expect(db.taskCommentReaction.findUnique).not.toHaveBeenCalled();
+    expect(db.taskCommentReaction.findMany).not.toHaveBeenCalled();
+    expect(db.taskCommentReaction.create).not.toHaveBeenCalled();
+    expect(db.taskCommentReaction.deleteMany).not.toHaveBeenCalled();
   });
 
   test("listTaskCommentReactionsForComment returns grouped reactions", async () => {
@@ -268,4 +296,26 @@ describe("task comment reactions service", () => {
     expect(result.status).toBe(403);
     expect(result.error).toBe("not-reaction-owner");
   });
+});
+test("agent reaction state excludes the human and another credential with the same owner", async () => {
+  const user = { id: "test-user", name: "Me", email: "me@example.test", username: "me", usernameDiscriminator: "1234", avatarSeed: "me" };
+  const rows = [
+    { id: "human", actorKind: "human", actorCredentialId: null, emoji: "human", user },
+    { id: "a", actorKind: "agent", actorCredentialId: "a", actorDisplayNameSnapshot: "Agent A", emoji: "agent-a", user },
+    { id: "b", actorKind: "agent", actorCredentialId: "b", actorDisplayNameSnapshot: "Agent B", emoji: "agent-b", user },
+    { id: "deleted", actorKind: "agent", actorCredentialId: null, actorDisplayNameSnapshot: "Former agent", emoji: "deleted", user },
+  ].map(row => ({ ...row, createdAt: new Date() }));
+  const db = createMockDb({ taskCommentReaction: { findMany: vi.fn().mockResolvedValue(rows) } });
+  rlsContextMock.withActorRlsContext.mockImplementationOnce(async (_actor, operation) => operation(db));
+  const result = await listTaskCommentReactionsForComment({ actorUserId: "test-user", projectId: "project-1", commentId: "comment-1", agentAccess: { projectId: "project-1", credentialId: "a", scopes: ["task:read"] } });
+  expect(result.ok).toBe(true);
+  if (!result.ok) return;
+  expect(result.data.reactions.map(group => group.reacted)).toEqual([false, true, false, false]);
+  expect(result.data.reactions[3].reactions[0]).toMatchObject({ user: null, actor: { kind: "agent", id: null, displayName: "Former agent" } });
+});
+
+test("denied reaction scope stops before database writes", async () => {
+  projectAccessServiceMock.requireAgentProjectScopes.mockReturnValueOnce({ ok: false, status: 403, error: "agent-scope-denied" } as never);
+  const result = await addTaskCommentReaction({ actorUserId: "test-user", projectId: "project-1", commentId: "comment-1", emoji: "x", agentAccess: { projectId: "project-1", credentialId: "a", scopes: ["task:read"] } });
+  expect(result).toEqual({ ok: false, status: 403, error: "agent-scope-denied" });
 });

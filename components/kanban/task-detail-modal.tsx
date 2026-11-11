@@ -1933,6 +1933,7 @@ function TaskReadOnlyContent({
                           {(taskCommentReactions.get(comment.id) ?? []).map((reaction) => (
                             <button
                               key={reaction.emoji}
+                              title={reaction.reactions?.map(({ actor }) => `${actor.displayName}${actor.kind === "agent" ? " (agent)" : ""}`).join(", ")}
                               type="button"
                               onClick={() => void toggleReaction(comment.id, reaction.emoji)}
                               className={cn(

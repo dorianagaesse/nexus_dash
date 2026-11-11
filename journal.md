@@ -1,5 +1,28 @@
 # Development Journal
 
+# 2026-11-11 - ND-671: main reconciliation and reaction usage guidance
+
+- Merged current main into PR #685, preserving independent reaction actors,
+  attachment attribution and private draft ownership. Kept both PostgreSQL
+  lifecycle checks and applied current task capability checks to reactions.
+- Added reaction-first acknowledgment guidance to AGENTS.md, the workflow
+  runbook and the hosted agent guide, while retaining required work evidence.
+- Combined validation and active-branch preview evidence are recorded on the PR.
+
+# 2026-11-08 - ND-671: independent reaction actors
+
+- Reaction rows now store human/agent kind, nullable credential and a durable
+  snapshot. Human storage ownership stays separate from reaction identity.
+- Extracted the reaction service, shared actor-aware projection, and serialized
+  atomic toggle/replacement. Agent responses no longer project the human owner
+  as their reactor; tooltips identify agents. Published the three reaction routes.
+- Added a three-actor lifecycle browser test and PostgreSQL coverage for agent
+  reaction reads, write denial and credential deletion history.
+- Lint, RLS inventory/matrix, 2,402 unit/API tests (3 skipped), coverage thresholds,
+  build and seven local browser checks passed. Hosted lifecycle and tooltip
+  checks passed at `https://nexus-dash-mrrtbkqj3-dorian-agaesses-projects.vercel.app`.
+  Workflow 42490841055 verified `230ea34d69a4eb911ed07f87dff49c7dfd53dc86`.
+
 # 2026-11-10 - ND-670: reconciliation after ND-669 merged
 
 - Merged current main at `01dc9763ba8f6813455bbaf2132cdfd82043e015` into
