@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
+import { clickUntilVisible } from "./helpers/interaction-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
 
 const longMilestoneTitle = "CustomerReadinessAndReleaseCoordination".repeat(2);
@@ -170,6 +171,11 @@ test.describe("roadmap on a touch viewport", () => {
     await page.setViewportSize({ width: 320, height: 850 });
     const { timeline, lanes } = await openRoadmap(page);
     const eventCard = lanes.first().getByRole("article").filter({ hasText: "Notify pilot customers" });
+    // Complete a client interaction before measuring the hydrated drag handle.
+    const details = page.getByRole("dialog", { name: "Notify pilot customers" });
+    await clickUntilVisible(eventCard.getByRole("button", { name: "View", exact: true }), details);
+    await details.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(details).toBeHidden();
     const handle = eventCard.locator("[data-roadmap-event-drag-handle]");
     await handle.evaluate((element) => {
       window.scrollBy({ top: element.getBoundingClientRect().top - 130, behavior: "instant" });

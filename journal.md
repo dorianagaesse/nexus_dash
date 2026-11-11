@@ -11,6 +11,8 @@
   or leave its project refresh lock inaccessible.
 - Merged current main and retained both journal histories while resolving
   the journal conflict, including conflict markers already present on main.
+- Stabilized the newly merged roadmap touch-insertion test by completing
+  a client interaction before measuring its hydrated drag handle.
 
 # 2026-11-11 - ND-832: Search-first Epics section
 
