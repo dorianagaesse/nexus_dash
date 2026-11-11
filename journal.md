@@ -1,5 +1,16 @@
 # Development Journal
 
+# 2026-11-11 - ND-831: mobile roadmap layout
+
+- Reproduced clipped milestone titles and event actions at 320px. Constrained
+  the mobile grid to the panel width and let long titles wrap in milestone
+  headers, event cards, and event details.
+- Enlarged primary touch targets and added Playwright coverage for grouped
+  milestones at 320px, 375px, and 430px and horizontal scrolling on desktop.
+- Kept the original drag handle mounted on narrow screens and measured the
+  drop lanes before lift. Verified touch scrolling and moving an event between
+  milestones in Chromium.
+
 # 2026-11-10 - ND-670: reconciliation after ND-669 merged
 
 - Merged current main at `01dc9763ba8f6813455bbaf2132cdfd82043e015` into
