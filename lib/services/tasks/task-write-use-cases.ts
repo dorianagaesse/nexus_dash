@@ -95,6 +95,7 @@ export async function createTaskForProject(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -145,6 +146,7 @@ export async function createTaskForProject(
         };
       }
 
+      if (command.epicId && (!access.capabilities.includes("epic:read") || (input.agentAccess && !input.agentAccess.scopes.includes("epic:read")))) return createError(403, "forbidden");
       const epicValidation = await validateEpicId({
         db,
         projectId: input.projectId,
@@ -207,6 +209,7 @@ export async function createTaskForProject(
       }
 
       await createTaskAttachmentsFromDraft({
+        agentAccess: input.agentAccess,
         actorUserId,
         projectId: input.projectId,
         taskId: createdTask.id,
@@ -242,7 +245,7 @@ export async function createTaskForProject(
         db,
         input.projectId,
         createdTask.id,
-        Boolean(epicValidation.data.epicId)
+        Boolean(epicValidation.data.epicId) && (access.capabilities.includes("epic:read") && (!input.agentAccess || input.agentAccess.scopes.includes("epic:read")))
       );
       if (!task) {
         return createError(500, "create-failed");
@@ -378,6 +381,7 @@ export async function updateTaskForProject(
       actorUserId: normalizedActorUserId,
       projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -390,7 +394,7 @@ export async function updateTaskForProject(
       });
       if (precondition === "missing") return createError(404, "Task not found");
       if (precondition === "conflict") {
-        const current = await loadTaskMutationPayload(db, projectId, taskId, true);
+        const current = await loadTaskMutationPayload(db, projectId, taskId, access.capabilities.includes("epic:read") && (!agentAccess || agentAccess.scopes.includes("epic:read")));
         if (!current) return createError(404, "Task not found");
         return editConflict({
           ...current,
@@ -430,6 +434,7 @@ export async function updateTaskForProject(
         return relatedTaskValidation;
       }
 
+      if (epicProvided && epicId && (!access.capabilities.includes("epic:read") || (agentAccess && !agentAccess.scopes.includes("epic:read")))) return createError(403, "forbidden");
       const epicValidation = epicProvided
         ? await validateEpicId({
             db,
@@ -526,6 +531,7 @@ export async function updateTaskForProject(
 
         if (parsedAttachmentLinks && parsedAttachmentLinks.length > 0) {
           await createTaskAttachmentsFromDraft({
+            agentAccess,
             actorUserId: normalizedActorUserId,
             projectId,
             taskId,
@@ -568,7 +574,7 @@ export async function updateTaskForProject(
           tx,
           projectId,
           taskId,
-          Boolean(epicValidation.data.epicId)
+          Boolean(epicValidation.data.epicId) && (access.capabilities.includes("epic:read") && (!agentAccess || agentAccess.scopes.includes("epic:read")))
         );
       };
 

@@ -49,7 +49,7 @@ describe("mapTaskAuthorRecord", () => {
     expect(result).toEqual({
       id: "cred-1",
       kind: "agent",
-      displayName: "Release bot (agent)",
+      displayName: "Release bot",
       usernameTag: null,
       avatarSeed: AGENT_TASK_AUTHOR_AVATAR_SEED,
       agentCredentialId: "cred-1",
@@ -68,7 +68,7 @@ describe("mapTaskAuthorRecord", () => {
     expect(result).toEqual({
       id: "owner-1",
       kind: "agent",
-      displayName: "Sprint helper (agent)",
+      displayName: "Sprint helper",
       usernameTag: null,
       avatarSeed: AGENT_TASK_AUTHOR_AVATAR_SEED,
       agentCredentialId: null,
@@ -103,8 +103,21 @@ describe("mapTaskAuthorRecord", () => {
       agentCredentialLabel: "  Build bot  ",
     });
 
-    expect(result.displayName).toBe("Build bot (agent)");
+    expect(result.displayName).toBe("Build bot");
     expect(result.agentCredentialLabel).toBe("Build bot");
+  });
+
+  test("preserves literal credential names while keeping agent identity metadata", () => {
+    const result = mapTaskAuthorRecord({
+      author: ownerRecord,
+      agentCredentialId: "cred-4",
+      agentCredentialLabel: "Support (agent)",
+    });
+
+    expect(result.displayName).toBe("Support (agent)");
+    expect(result.agentCredentialLabel).toBe("Support (agent)");
+    expect(result.kind).toBe("agent");
+    expect(result.avatarSeed).toBe(AGENT_TASK_AUTHOR_AVATAR_SEED);
   });
 
   test("treats a whitespace-only label as a human author when no id is present", () => {

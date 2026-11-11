@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import { getAgentProjectAccessContext, requireApiPrincipal } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
 import { recordProjectActivityEventVersion } from "@/lib/project-activity-event-response";
@@ -42,9 +42,9 @@ async function readJsonPayload(
 
 export async function GET(request: NextRequest, props: { params: Promise<{ projectId: string; noteId: string }> }) {
   const params = await props.params;
-  const user = await requireAuthenticatedApiUser(request);
+  const user = await requireApiPrincipal(request);
   if (!user.ok) return user.response;
-  const result = await getProjectMeetingNote({ ...params, actorUserId: user.userId });
+  const result = await getProjectMeetingNote({ ...params, actorUserId: user.principal.actorUserId, agentAccess: getAgentProjectAccessContext(user.principal) });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json({ note: serializeMeetingNote(result.data.note) }, { headers: withContentEtag({}, "meeting-note", result.data.note) });
 }
@@ -55,7 +55,7 @@ export async function PATCH(
 ) {
   const timing = startServerTiming("meeting-note.update");
   const params = await props.params;
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
+  const authenticatedUser = await requireApiPrincipal(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;
   }
@@ -75,7 +75,8 @@ export async function PATCH(
   }
 
   const result = await updateProjectMeetingNote({
-    actorUserId: authenticatedUser.userId,
+    agentAccess: getAgentProjectAccessContext(authenticatedUser.principal),
+    actorUserId: authenticatedUser.principal.actorUserId,
     projectId: params.projectId,
     noteId: params.noteId,
     ...parsed.data,
@@ -105,13 +106,14 @@ export async function DELETE(
   props: { params: Promise<{ projectId: string; noteId: string }> }
 ) {
   const params = await props.params;
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
+  const authenticatedUser = await requireApiPrincipal(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;
   }
 
   const result = await deleteProjectMeetingNote({
-    actorUserId: authenticatedUser.userId,
+    agentAccess: getAgentProjectAccessContext(authenticatedUser.principal),
+    actorUserId: authenticatedUser.principal.actorUserId,
     projectId: params.projectId,
     noteId: params.noteId,
   });
@@ -124,7 +126,7 @@ export async function DELETE(
     result.data.visibility === "private"
       ? new Date()
       : await recordProjectActivityEventVersion({
-          actorUserId: authenticatedUser.userId,
+          actorUserId: authenticatedUser.principal.actorUserId,
           projectId: params.projectId,
           domain: "meeting-note",
           action: "deleted",

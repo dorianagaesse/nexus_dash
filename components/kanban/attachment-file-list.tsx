@@ -74,6 +74,9 @@ export function AttachmentFileList({
                   {attachment.name}
                 </p>
               )}
+              {attachment.uploadedBy ? <p className="truncate text-[11px] text-muted-foreground">
+                Added by {attachment.uploadedBy.displayName}{attachment.uploadedBy.kind === "agent" ? " (agent)" : ""}
+              </p> : null}
               {attachment.kind === ATTACHMENT_KIND_FILE ? (
                 <p className="text-[11px] text-muted-foreground">
                   {formatAttachmentFileSize(attachment.sizeBytes)}

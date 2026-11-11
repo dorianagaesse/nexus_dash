@@ -1,3 +1,5 @@
+import { useProjectCapability } from "@/components/project-capability-provider";
+import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -966,6 +968,7 @@ function TaskOptionsMenu({
   onUnarchiveTask,
   onRequestDeleteTask,
 }: TaskOptionsMenuProps) {
+  const canDelete = useProjectCapability("task:delete");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<"move" | "epic" | "assignee" | null>(null);
 
@@ -1343,7 +1346,7 @@ function TaskOptionsMenu({
             type="button"
             variant="ghost"
             className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
-            disabled={isMutating}
+            disabled={!canDelete || isMutating}
             onClick={() => {
               closeMenu();
               onRequestDeleteTask();
@@ -1803,6 +1806,7 @@ function TaskReadOnlyContent({
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <p className="text-sm font-medium">{comment.author.displayName}</p>
+                          {isAgentCommentAuthor(comment.author) ? <AgentCredentialDescriptiveLabels labels={comment.author.agentCredentialDescriptiveLabels} /> : null}
                           {getCommentIdentityMeta(comment.author) ? (
                             <p className="text-[11px] text-muted-foreground">
                               {getCommentIdentityMeta(comment.author)}
@@ -1929,6 +1933,7 @@ function TaskReadOnlyContent({
                           {(taskCommentReactions.get(comment.id) ?? []).map((reaction) => (
                             <button
                               key={reaction.emoji}
+                              title={reaction.reactions?.map(({ actor }) => `${actor.displayName}${actor.kind === "agent" ? " (agent)" : ""}`).join(", ")}
                               type="button"
                               onClick={() => void toggleReaction(comment.id, reaction.emoji)}
                               className={cn(

@@ -1,20 +1,27 @@
 "use client";
 
 import { useRef, useState, type Ref } from "react";
-import { Check, ChevronDown, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import {
   AGENT_CREDENTIAL_PRESETS,
-  AGENT_SCOPE_DEFINITIONS,
   DEFAULT_AGENT_CREDENTIAL_PRESET_ID,
   MAX_AGENT_CREDENTIAL_LABEL_LENGTH,
   resolveAgentCredentialPreset,
   type AgentScope,
 } from "@/lib/agent-access";
 import { Button } from "@/components/ui/button";
+import { ProjectAgentPermissionFields } from "./project-agent-permission-fields";
 import { describeAgentAccess } from "./project-agent-access-presentation";
+import {
+  AGENT_DESCRIPTIVE_LABELS_HINT,
+  AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR,
+  parseAgentCredentialDescriptiveLabels,
+} from "@/lib/agent-credential-labels";
+import { AgentCredentialLabelsField } from "./agent-credential-labels-field";
 
 export interface CreateProjectAgentCredentialInput {
   label: string;
+  descriptiveLabels: string[];
   scopes: AgentScope[];
   expiresInDays: number | null;
 }
@@ -35,15 +42,17 @@ export function ProjectAgentCredentialForm({
   onCancel,
 }: ProjectAgentCredentialFormProps) {
   const [name, setName] = useState("");
+  const [labelsDraft, setLabelsDraft] = useState("");
+  const [labels, setLabels] = useState<string[]>([]);
+  const labelsRef = useRef<HTMLInputElement>(null);
   const [expiry, setExpiry] = useState("");
   const [scopes, setScopes] = useState<AgentScope[]>(() => [
     ...resolveAgentCredentialPreset(DEFAULT_AGENT_CREDENTIAL_PRESET_ID)!.scopes,
   ]);
   const [formError, setFormError] = useState<{
-    field: "name" | "permissions";
+    field: "name" | "labels" | "permissions";
     message: string;
   } | null>(null);
-  const presetsRef = useRef<HTMLDivElement>(null);
 
   return (
     <form
@@ -66,17 +75,24 @@ export function ProjectAgentCredentialForm({
           ).focus();
           return;
         }
+        const descriptiveLabels = parseAgentCredentialDescriptiveLabels(labels);
+        if (labelsDraft.trim() || !descriptiveLabels) {
+          setFormError({ field: "labels", message: labelsDraft.trim() ? AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR : AGENT_DESCRIPTIVE_LABELS_HINT });
+          labelsRef.current?.focus();
+          return;
+        }
         if (!scopes.length) {
           setFormError({
             field: "permissions",
             message: "Choose a preset or select at least one permission below.",
           });
-          presetsRef.current?.focus();
+          (event.currentTarget.elements.namedItem("project-agent-preset") as HTMLSelectElement).focus();
           return;
         }
         setFormError(null);
         onCreate({
           label,
+          descriptiveLabels,
           scopes,
           expiresInDays: expiry ? Number(expiry) : null,
         });
@@ -137,113 +153,29 @@ export function ProjectAgentCredentialForm({
             </select>
           </div>
         </div>
+        <AgentCredentialLabelsField
+          id="project-agent-descriptive-labels" label="Descriptive labels (optional)" inputRef={labelsRef}
+          labels={labels} onLabelsChange={setLabels} draft={labelsDraft} onDraftChange={setLabelsDraft}
+          error={formError?.field === "labels" ? formError.message : null}
+          onErrorChange={(message) => setFormError((current) => message
+            ? { field: "labels", message } : current?.field === "labels" ? null : current)}
+          disabled={isCreating}
+        />
         <div className="space-y-3">
-          <div>
-            <p className="text-sm font-medium">
-              What should this agent be able to do?
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Choose a starting point. You can customize the individual
-              permissions below.
-            </p>
-          </div>
-          <div
-            ref={presetsRef}
-            role="group"
-            aria-label="Scope presets"
-            aria-describedby={formError?.field === "permissions" ? "project-agent-permissions-error" : undefined}
-            tabIndex={-1}
-            className="grid gap-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:grid-cols-2"
-          >
-            {AGENT_CREDENTIAL_PRESETS.map((preset) => {
-              const selected =
-                scopes.length === preset.scopes.length &&
-                preset.scopes.every((scope) => scopes.includes(scope));
-              return (
-                <button
-                  type="button"
-                  key={preset.id}
-                  aria-pressed={selected}
-                  onClick={() => {
-                    setScopes([...preset.scopes]);
-                    setFormError((current) =>
-                      current?.field === "permissions" ? null : current
-                    );
-                  }}
-                  className={`min-w-0 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"}`}
-                >
-                  <span className="flex items-start justify-between gap-2 text-sm font-medium">
-                    <span>
-                      {preset.label}
-                      {preset.recommended ? (
-                        <span className="mt-0.5 block text-xs font-normal text-primary">
-                          Recommended
-                        </span>
-                      ) : null}
-                    </span>
-                    {selected ? (
-                      <Check
-                        className="h-4 w-4 shrink-0 text-primary"
-                        aria-hidden
-                      />
-                    ) : null}
-                  </span>
-                  <span className="mt-2 block text-xs leading-relaxed text-muted-foreground">
-                    {preset.description}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          {formError?.field === "permissions" ? (
-            <p id="project-agent-permissions-error" role="alert" className="text-sm text-destructive">
-              {formError.message}
-            </p>
-          ) : null}
+          <label htmlFor="project-agent-preset" className="block text-sm font-medium">Starting permissions</label>
+          <select id="project-agent-preset" aria-invalid={formError?.field === "permissions" || undefined} aria-describedby={`project-agent-preset-hint${formError?.field === "permissions" ? " project-agent-permissions-error" : ""}`} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={AGENT_CREDENTIAL_PRESETS.find((preset) => scopes.length === preset.scopes.length && preset.scopes.every((scope) => scopes.includes(scope)))?.id ?? "custom"}
+            onChange={(event) => { const preset = resolveAgentCredentialPreset(event.target.value); if (preset) { setScopes([...preset.scopes]); setFormError(null); } }}>
+            <option value="custom" disabled>Custom permissions</option>
+            {AGENT_CREDENTIAL_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.id === "full-access" ? "Tasks: read, edit and delete" : preset.id === "read-write" ? "Tasks: read and edit" : preset.id === "read-only" ? "Tasks: read only" : preset.label}</option>)}
+          </select>
+          <p id="project-agent-preset-hint" className="text-xs leading-relaxed text-muted-foreground">Start with task access, then choose other modules below.</p>
+          {formError?.field === "permissions" && <p id="project-agent-permissions-error" role="alert" className="text-sm text-destructive">{formError.message}</p>}
         </div>
-        <details className="group rounded-xl border border-border/70">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl p-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            Customize permissions{" "}
-            <span className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
-              {scopes.length} selected
-              <ChevronDown
-                className="h-4 w-4 transition-transform group-open:rotate-180"
-                aria-hidden
-              />
-            </span>
-          </summary>
-          <div className="grid gap-2 border-t border-border/70 p-3 sm:grid-cols-2">
-            {AGENT_SCOPE_DEFINITIONS.map((definition) => (
-              <label
-                key={definition.scope}
-                className="flex items-start gap-2.5 rounded-lg p-2 hover:bg-muted/50"
-              >
-                <input
-                  type="checkbox"
-                  value={definition.scope}
-                  checked={scopes.includes(definition.scope)}
-                  onChange={() => {
-                    setScopes((current) =>
-                      current.includes(definition.scope)
-                        ? current.filter((scope) => scope !== definition.scope)
-                        : [...current, definition.scope]
-                    );
-                    setFormError((current) =>
-                      current?.field === "permissions" ? null : current
-                    );
-                  }}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
-                />
-                <span className="min-w-0 text-xs">
-                  <span className="block font-medium">{definition.label}</span>
-                  <span className="mt-1 block leading-relaxed text-muted-foreground">
-                    {definition.description}
-                  </span>
-                </span>
-              </label>
-            ))}
-          </div>
-        </details>
+        <div className="space-y-3">
+          <div><h4 className="text-sm font-medium">Module permissions</h4><p className="mt-1 text-xs text-muted-foreground">Edit allows creating and updating. Delete is granted separately.</p></div>
+          <ProjectAgentPermissionFields value={scopes} onChange={(next) => { setScopes(next); setFormError(null); }} />
+        </div>
       </fieldset>
       <div className="flex items-start gap-2 rounded-xl bg-muted/50 p-3 text-xs leading-relaxed text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
