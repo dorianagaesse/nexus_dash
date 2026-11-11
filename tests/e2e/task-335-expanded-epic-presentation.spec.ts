@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
-import { activateUntilVisible } from "./helpers/interaction-helpers";
+import { activateUntilVisible, clickUntilVisible } from "./helpers/interaction-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
 
 const screenshotDirectory = process.env.TASK335_SCREENSHOT_DIR?.trim();
@@ -96,7 +96,10 @@ test.describe("TASK-335 epic detail disclosure", () => {
       name: `Show details for ${fixture.primaryEpicName}`,
     });
 
-    await expect(primaryEpic).toBeVisible();
+    await clickUntilVisible(
+      page.getByRole("button", { name: "Show all", exact: true }),
+      primaryEpic
+    );
     await expect(secondaryEpic).toBeVisible();
     await expect(description).toBeHidden();
     await expect(linkedTasks.first()).toBeHidden();

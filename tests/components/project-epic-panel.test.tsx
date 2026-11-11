@@ -126,6 +126,14 @@ function findButton(container: HTMLElement, labelFragment: string) {
   );
 }
 
+async function showAllEpics(container: HTMLElement) {
+  const showAll = findButton(container, "Show all");
+  expect(showAll).toBeDefined();
+  await act(async () => {
+    showAll?.click();
+  });
+}
+
 describe("project-epic-panel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -166,7 +174,7 @@ describe("project-epic-panel", () => {
     });
   });
 
-  test("renders secondary button styling for the create-panel Cancel button", async () => {
+  test("opens the create dialog and dismisses it with Cancel", async () => {
     projectSectionExpandedMock.isExpanded = true;
     const { container, root } = createTestRenderer();
 
@@ -184,9 +192,14 @@ describe("project-epic-panel", () => {
       newEpicButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    const cancelButton = findButton(container, "Cancel");
-    expect(cancelButton).not.toBeUndefined();
+    const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+    expect(dialog?.getAttribute("aria-modal")).toBe("true");
+    const cancelButton = dialog && findButton(dialog, "Cancel");
     expect(cancelButton?.className).toContain("bg-secondary");
+    await act(async () => {
+      cancelButton?.click();
+    });
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
 
     await act(async () => {
       root.unmount();
@@ -228,6 +241,7 @@ describe("project-epic-panel", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
+    await showAllEpics(container);
 
     const article = container.querySelector("article");
     const heading = article?.querySelector("h3");
@@ -288,6 +302,7 @@ describe("project-epic-panel", () => {
         epics: [epicWithDenseLinkedTasks, secondEpic],
       })
     );
+    await showAllEpics(container);
 
     const findDisclosure = (label: string) =>
       container.querySelector(`button[aria-label="${label}"]`);
@@ -388,6 +403,7 @@ describe("project-epic-panel", () => {
         epics: [emptyEpic],
       })
     );
+    await showAllEpics(container);
 
     expect(
       container.querySelector('[role="progressbar"]')?.getAttribute(
@@ -439,6 +455,7 @@ describe("project-epic-panel", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
+    await showAllEpics(container);
 
     const editButton = container.querySelector(
       `button[aria-label="Edit epic ${epicWithDenseLinkedTasks.name}"]`
@@ -540,6 +557,7 @@ describe("project-epic-panel", () => {
         epics: [emptyEpic],
       })
     );
+    await showAllEpics(container);
 
     expect(
       container.querySelector('[role="progressbar"]')?.getAttribute(
@@ -573,6 +591,7 @@ describe("project-epic-panel attribution", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
+    await showAllEpics(container);
 
     const details = document.getElementById("epic-epic-1-details");
     expect(details?.hidden).toBe(true);
@@ -613,6 +632,7 @@ describe("project-epic-panel attribution", () => {
         epics: [agentEpic],
       })
     );
+    await showAllEpics(container);
 
     await act(async () => {
       container
@@ -675,6 +695,9 @@ describe("project-epic-panel archive controls", () => {
       archivedViewButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
+    expect(container.querySelector("article")).toBeNull();
+    await showAllEpics(container);
+
     expect(container.textContent).toContain(archivedEpic.name);
     expect(
       container.querySelector(`button[aria-label="Restore epic ${archivedEpic.name}"]`)
@@ -709,6 +732,7 @@ describe("project-epic-panel archive controls", () => {
       'input[aria-label="Search epics"]'
     );
     expect(searchInput).not.toBeNull();
+    expect(container.querySelectorAll("article")).toHaveLength(0);
 
     await act(async () => {
       if (searchInput) {
@@ -736,6 +760,8 @@ describe("project-epic-panel archive controls", () => {
       clearButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
+    expect(container.querySelectorAll("article")).toHaveLength(0);
+    await showAllEpics(container);
     expect(container.querySelectorAll("article")).toHaveLength(1);
 
     await act(async () => {
@@ -754,6 +780,7 @@ describe("project-epic-panel archive controls", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
+    await showAllEpics(container);
 
     await act(async () => {
       container
@@ -780,6 +807,7 @@ describe("project-epic-panel archive controls", () => {
         new MouseEvent("click", { bubbles: true })
       );
     });
+    await showAllEpics(container);
 
     expect(
       container.querySelector(`#edit-epic-name-${epicWithDenseLinkedTasks.id}`)
@@ -816,6 +844,7 @@ describe("project-epic-panel archive controls", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
+    await showAllEpics(container);
 
     const archiveButton = container.querySelector(
       `button[aria-label="Archive epic ${epicWithDenseLinkedTasks.name}"]`
@@ -870,6 +899,7 @@ describe("project-epic-panel archive controls", () => {
         new MouseEvent("click", { bubbles: true })
       );
     });
+    await showAllEpics(container);
 
     const restoreButton = container.querySelector(
       `button[aria-label="Restore epic ${archivedEpic.name}"]`
@@ -895,6 +925,7 @@ describe("project-epic-panel archive controls", () => {
         new MouseEvent("click", { bubbles: true })
       );
     });
+    await showAllEpics(container);
 
     expect(
       container.querySelector(`button[aria-label="Archive epic ${archivedEpic.name}"]`)
@@ -917,17 +948,20 @@ describe("project-epic-panel archive controls", () => {
       })
     );
 
-    await act(async () => {
-      findButton(container, "Archived (1)")?.dispatchEvent(
-        new MouseEvent("click", { bubbles: true })
-      );
-    });
-
+    await showAllEpics(container);
     expect(
       container.querySelector(
         `button[aria-label="Archive epic ${epicWithDenseLinkedTasks.name}"]`
       )
     ).toBeNull();
+
+    await act(async () => {
+      findButton(container, "Archived (1)")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true })
+      );
+    });
+    await showAllEpics(container);
+
     expect(
       container.querySelector(`button[aria-label="Restore epic ${archivedEpic.name}"]`)
     ).toBeNull();
@@ -974,6 +1008,7 @@ describe("project-epic-panel overlong linked-task titles", () => {
         epics: [buildEpicWithLongTitle(title)],
       })
     ).then(async () => {
+      await showAllEpics(container);
       const disclosure = container.querySelector<HTMLElement>(
         'button[aria-label="Show details for Launch workspace sharing"]'
       );
@@ -1032,6 +1067,7 @@ describe("project-epic-panel overlong linked-task titles", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
+    await showAllEpics(container);
 
     const disclosure = container.querySelector<HTMLElement>(
       `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
@@ -1063,6 +1099,7 @@ describe("project-epic-panel overlong linked-task titles", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
+    await showAllEpics(container);
 
     const disclosure = container.querySelector<HTMLElement>(
       `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
@@ -1093,6 +1130,7 @@ describe("project-epic-panel linked-task chip activation", () => {
         epics: [epicWithDenseLinkedTasks],
       })
     );
+    await showAllEpics(container);
 
     const disclosure = container.querySelector<HTMLElement>(
       `button[aria-label="Show details for ${epicWithDenseLinkedTasks.name}"]`
@@ -1247,6 +1285,7 @@ describe("project-epic-panel linked-task chip activation", () => {
         epics: [initialEpic],
       })
     );
+    await showAllEpics(container);
 
     expect(container.textContent).toContain("Remote epic initial");
 
@@ -1317,6 +1356,7 @@ describe("project-epic-panel linked-task chip activation", () => {
         epics: [initialEpic],
       })
     );
+    await showAllEpics(container);
 
     await act(async () => {
       dispatchProjectActivityRemoteEvent({
@@ -1389,6 +1429,7 @@ describe("project-epic-panel linked-task chip activation", () => {
         epics: [initialEpic],
       })
     );
+    await showAllEpics(container);
 
     const editButton = container.querySelector(
       `button[aria-label="Edit epic ${initialEpic.name}"]`
@@ -1463,6 +1504,7 @@ describe("project-epic-panel linked-task chip activation", () => {
         epics: [initialEpic],
       })
     );
+    await showAllEpics(container);
 
     const editButton = container.querySelector(
       `button[aria-label="Edit epic ${initialEpic.name}"]`

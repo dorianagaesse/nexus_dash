@@ -40,7 +40,10 @@ test("shows created and last-edited attribution inside the epic details disclosu
 
   await page.goto(`/projects/${fixture.projectId}#epics`);
 
-  await page.getByRole("button", { name: "New epic" }).click();
+  await clickUntilVisible(
+    page.getByRole("button", { name: "New epic" }),
+    page.getByRole("dialog", { name: "New epic" })
+  );
   await page.locator("#create-epic-name").fill(epicName);
   await page
     .locator("#create-epic-description")
@@ -55,7 +58,10 @@ test("shows created and last-edited attribution inside the epic details disclosu
   await createResponse;
 
   const epicArticle = page.getByRole("article", { name: epicName });
-  await expect(epicArticle).toBeVisible();
+  await clickUntilVisible(
+    page.getByRole("button", { name: "Show all", exact: true }),
+    epicArticle
+  );
 
   // Attribution lives behind the disclosure, not on the compact face.
   const createdBy = epicArticle.locator('[title^="Created by:"]');
@@ -105,7 +111,10 @@ test("shows created and last-edited attribution inside the epic details disclosu
   await page.reload();
 
   const reloadedArticle = page.getByRole("article", { name: epicName });
-  await expect(reloadedArticle).toBeVisible();
+  await clickUntilVisible(
+    page.getByRole("button", { name: "Show all", exact: true }),
+    reloadedArticle
+  );
   await clickUntilVisible(
     reloadedArticle.getByRole("button", {
       name: `Show details for ${epicName}`,
@@ -171,7 +180,10 @@ test("renders agent credential attribution with the durable label snapshot", asy
   await page.goto(`/projects/${fixture.projectId}#epics`);
 
   const epicArticle = page.getByRole("article", { name: epicName });
-  await expect(epicArticle).toBeVisible();
+  await clickUntilVisible(
+    page.getByRole("button", { name: "Show all", exact: true }),
+    epicArticle
+  );
   await clickUntilVisible(
     epicArticle.getByRole("button", { name: `Show details for ${epicName}` }),
     epicArticle.getByRole("button", { name: `Hide details for ${epicName}` })

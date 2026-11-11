@@ -1,5 +1,14 @@
 # Development Journal
 
+# 2026-11-11 - ND-832: Search-first Epics section
+
+- Moved epic creation into the shared responsive dialog. Successful saves update
+  the local list immediately and select Active when creation starts from Archived.
+- Made name and description search the default within each view. Show all
+  reveals the selected list, and clearing the search restores the compact view.
+- Ran 12 focused Chromium scenarios covering the desktop and mobile creation
+  flows, search, archive and restore, attribution, and linked tasks.
+
 # 2026-11-10 - ND-670: reconciliation after ND-669 merged
 
 - Merged current main at `01dc9763ba8f6813455bbaf2132cdfd82043e015` into

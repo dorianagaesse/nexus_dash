@@ -34,6 +34,9 @@ Implemented today:
 - Project-scoped agent access with owner-managed API credentials, short-lived bearer-token exchange, and audit trail
 - Project dashboard with:
   - Context cards (CRUD + attachments)
+  - Epics with **New epic** creation in a dialog. Search by name or description
+    within **Active** or **Archived**, or select **Show all** to browse that
+    view. Clearing the search returns to the compact view.
   - Meeting notes with searchable preparation inputs, label filters,
     participants, after-meeting outputs, todo tracking, overdue highlights,
     state, and archived history
