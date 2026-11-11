@@ -41,6 +41,7 @@ export interface ProjectEpicOption extends TaskEpicSummary {
 }
 
 export interface TaskCommentAuthor extends TaskPersonSummary {
+  agentCredentialDescriptiveLabels?: string[];
   kind?: TaskCommentAuthorKind;
   agentCredentialId?: string | null;
   agentCredentialLabel?: string | null;
@@ -55,6 +56,7 @@ export interface TaskAuthor extends TaskPersonSummary {
 }
 
 export interface TaskCommentReaction {
+  reactions?: Array<{ id: string; actor: { kind: "human" | "agent"; id: string | null; displayName: string } }>;
   emoji: string;
   count: number;
   reacted: boolean;

@@ -1,3 +1,4 @@
+import { roleCapabilities } from "@/lib/project-capabilities";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const projectAccessServiceMock = vi.hoisted(() => ({
@@ -59,6 +60,7 @@ describe("project task search service", () => {
     projectAccessServiceMock.requireProjectRole.mockResolvedValue({
       ok: true,
       role: "viewer",
+      capabilities: roleCapabilities("viewer"),
     });
     projectAccessServiceMock.requireAgentProjectScopes.mockReturnValue({
       ok: true,

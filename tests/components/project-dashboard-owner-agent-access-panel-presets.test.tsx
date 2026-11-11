@@ -17,23 +17,6 @@ import {
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-function findPresetButton(
-  container: HTMLElement,
-  presetLabel: string
-): HTMLButtonElement {
-  const button = [...container.querySelectorAll("button")].find(
-    (candidate) =>
-      candidate.hasAttribute("aria-pressed") &&
-      (candidate.textContent ?? "").includes(presetLabel)
-  );
-
-  if (!button) {
-    throw new Error(`Preset button not found: ${presetLabel}`);
-  }
-
-  return button as HTMLButtonElement;
-}
-
 function findButton(container: HTMLElement, text: string): HTMLButtonElement {
   const button = [...container.querySelectorAll("button")].find((candidate) =>
     (candidate.textContent ?? "").includes(text)
@@ -47,17 +30,8 @@ function findButton(container: HTMLElement, text: string): HTMLButtonElement {
 }
 
 function getCheckedScopes(container: HTMLElement): AgentScope[] {
-  return AGENT_SCOPE_DEFINITIONS.filter((definition) => {
-    const input = [
-      ...container.querySelectorAll('input[type="checkbox"]'),
-    ].find(
-      (candidate) =>
-        candidate.closest("label")?.textContent?.includes(definition.label) ??
-        false
-    ) as HTMLInputElement | undefined;
-
-    return input?.checked ?? false;
-  }).map((definition) => definition.scope);
+  const checked = [...container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')].filter((input) => input.checked).map((input) => input.value);
+  return AGENT_SCOPE_DEFINITIONS.filter(({ scope }) => checked.includes(scope)).map(({ scope }) => scope);
 }
 
 describe("ProjectDashboardOwnerAgentAccessPanel preset application", () => {
@@ -103,14 +77,12 @@ describe("ProjectDashboardOwnerAgentAccessPanel preset application", () => {
 
     for (const preset of AGENT_CREDENTIAL_PRESETS) {
       await act(async () => {
-        findPresetButton(container, preset.label).dispatchEvent(
-          new MouseEvent("click", { bubbles: true })
-        );
+        const select = container.querySelector("#project-agent-preset") as HTMLSelectElement;
+        select.value = preset.id;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
       });
 
-      expect(
-        findPresetButton(container, preset.label).getAttribute("aria-pressed")
-      ).toBe("true");
+      expect((container.querySelector("#project-agent-preset") as HTMLSelectElement).value).toBe(preset.id);
       expect(getCheckedScopes(container)).toEqual(preset.scopes);
 
       await act(async () => {

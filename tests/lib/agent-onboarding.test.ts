@@ -419,7 +419,7 @@ describe("agent-onboarding contract", () => {
       AGENT_API_ENDPOINTS.filter((endpoint) => endpoint.tag === "Attention").every(
         (endpoint) =>
           endpoint.notes?.some((note) =>
-            note.includes("require task:read, so an attention:read-only credential gets 403")
+            (note.includes("require task:read, so an attention:read-only credential gets 403") || note.includes("meeting-note routes require meeting:read"))
           )
       )
     ).toBe(true);
@@ -602,4 +602,14 @@ test("documents bearer multipart task uploads and provider limits", () => {
   const endpoint = AGENT_API_ENDPOINTS.find(e => e.path === path);
   expect(endpoint?.requiredScopes).toEqual(["task:write"]);
   expect(endpoint?.notes?.join(" ")).toContain("attachmentFiles");
+});
+
+test("publishes actor-aware reaction endpoints and ownership semantics", () => {
+  const doc = buildAgentOpenApiDocument("https://example.test");
+  const path = "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions";
+  expect(doc.paths[path].get).toBeDefined();
+  expect(doc.paths[path].post.requestBody.content["application/json"].schema.properties.emoji.maxLength).toBe(32);
+  expect(doc.paths[`${path}/{reactionId}`].delete).toBeDefined();
+  expect(AGENT_API_ENDPOINTS.filter(e => e.path.startsWith(path)).map(e => e.requiredScopes)).toEqual([["task:read"], ["task:write"], ["task:write"]]);
+  expect(doc.components.schemas.TaskReactionResponse.properties.reactions.items.properties.reactions.items.properties.actor.properties.id.type).toContain("null");
 });

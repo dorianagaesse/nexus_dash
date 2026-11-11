@@ -1,4 +1,5 @@
 "use client";
+import { useProjectCapability } from "@/components/project-capability-provider";
 
 import { createPortal } from "react-dom";
 import {
@@ -1382,6 +1383,7 @@ export function ProjectMeetingNotesPanel({
   initialMeetingNoteId = null,
   initialMeetingTodoId = null,
 }: ProjectMeetingNotesPanelProps) {
+  const canDelete = useProjectCapability("meeting:delete");
   const initialSelectedNote =
     notes.find((note) => note.id === initialMeetingNoteId) ?? null;
   const { pushToast } = useToast();
@@ -3615,7 +3617,7 @@ export function ProjectMeetingNotesPanel({
                     type="button"
                     variant="ghost"
                     onClick={() => setPendingDeleteNoteId(selectedNote.id)}
-                    disabled={isSaving}
+                    disabled={!canDelete || isSaving}
                   >
                     <Trash2 className="h-4 w-4" />
                     Delete

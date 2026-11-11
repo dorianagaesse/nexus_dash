@@ -113,7 +113,7 @@ describe("KanbanBoardSection task attribution", () => {
     expect(props.initialTasks[0]?.createdBy).toMatchObject({
       id: "credential-create",
       kind: "agent",
-      displayName: "Release bot (agent)",
+      displayName: "Release bot",
       agentCredentialId: "credential-create",
       agentCredentialLabel: "Release bot",
       owner: {
@@ -123,7 +123,7 @@ describe("KanbanBoardSection task attribution", () => {
     expect(props.initialTasks[0]?.updatedBy).toMatchObject({
       id: "credential-update",
       kind: "agent",
-      displayName: "Triage bot (agent)",
+      displayName: "Triage bot",
       agentCredentialId: "credential-update",
       agentCredentialLabel: "Triage bot",
     });

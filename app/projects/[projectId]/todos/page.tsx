@@ -8,6 +8,8 @@ import {
   type ProjectMeetingTodoItem,
 } from "@/components/meeting-todos/project-meeting-todos";
 import { Badge } from "@/components/ui/badge";
+import { listProjectTodos } from "@/lib/services/project-todo-service";
+import type { ProjectTodoList } from "@/lib/project-todo";
 import { requireVerifiedSessionUserIdFromServer } from "@/lib/auth/server-guard";
 import { logServerError } from "@/lib/observability/logger";
 import {
@@ -51,6 +53,16 @@ export default async function ProjectTodosPage({
   ]);
   let result: ProjectMeetingTodoList | null = null;
   let loadError: string | null = null;
+  let personal: ProjectTodoList | null = null;
+  let personalError: string | null = null;
+
+  try {
+    const response = await listProjectTodos({ actorUserId, projectId });
+    if (response.ok) personal = response.data;
+  } catch (error) {
+    logServerError("ProjectTodosPage.listProjectTodos", error, { projectId });
+    personalError = "Could not load your personal todos. Refresh to retry.";
+  }
 
   try {
     result = await listProjectMeetingTodos({ actorUserId, projectId });
@@ -61,7 +73,7 @@ export default async function ProjectTodosPage({
     loadError = "Could not load meeting todos. Refresh to retry.";
   }
 
-  if (!loadError && !result) {
+  if (!loadError && !personalError && !result && !personal) {
     notFound();
   }
 
@@ -70,7 +82,7 @@ export default async function ProjectTodosPage({
     : [];
 
   return (
-    <main className="container py-6 sm:py-10">
+    <div className="container py-6 sm:py-10">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <div className="space-y-4">
           <Link
@@ -89,8 +101,7 @@ export default async function ProjectTodosPage({
               Todos
             </h1>
             <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-              Review this project&apos;s meeting follow-ups and open the source
-              meeting whenever you need more context.
+              Your personal todos and this project&apos;s meeting actions, in one place.
             </p>
           </div>
         </div>
@@ -101,9 +112,10 @@ export default async function ProjectTodosPage({
           currentActorUserId={result?.currentActorUserId ?? actorUserId}
           actors={result?.actors ?? []}
           initialTodos={initialTodos}
-          loadError={loadError}
+          personalTodos={personal}
+          loadError={personalError ?? loadError}
         />
       </div>
-    </main>
+    </div>
   );
 }

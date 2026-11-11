@@ -1,3 +1,5 @@
+import { ProjectCapabilityProvider } from "@/components/project-capability-provider";
+import { effectiveProjectCapabilities } from "@/lib/project-capabilities";
 import Link from "next/link";
 import {
   CheckCheck,
@@ -145,9 +147,10 @@ export default async function ProjectDashboardPage({
   const meetingNoteQuery = readQueryValue(resolvedSearchParams?.meetingNoteQuery);
   const actorRole =
     project.ownerId === actorUserId ? "owner" : (project.memberships[0]?.role ?? "viewer");
-  const canEditProjectContent = actorRole === "owner" || actorRole === "editor";
+  const capabilities = effectiveProjectCapabilities(actorRole, project.memberships[0]?.capabilities);
 
   return (
+    <ProjectCapabilityProvider capabilities={capabilities}>
     <main
       data-project-page
       className="container space-y-6 py-6 sm:space-y-8 sm:py-10"
@@ -266,59 +269,70 @@ export default async function ProjectDashboardPage({
         </div>
       ) : null}
 
+      {capabilities.includes("context:read") && (
       <Suspense fallback={<ProjectContextPanelSkeleton />}>
         <ProjectContextPanelSection
           projectId={project.id}
           actorUserId={actorUserId}
-          canEdit={canEditProjectContent}
+          canEdit={capabilities.includes("context:write")}
           storageProvider={storageProvider}
           collaborators={collaborators}
         />
       </Suspense>
+      )}
 
+      {capabilities.includes("meeting:read") && (
       <Suspense fallback={<ProjectMeetingNotesPanelSkeleton />}>
         <ProjectMeetingNotesPanelSection
           projectId={project.id}
           actorUserId={actorUserId}
-          canEdit={canEditProjectContent}
+          canEdit={capabilities.includes("meeting:write")}
           stewardFilter={meetingNoteStewardFilter}
           query={meetingNoteQuery}
           initialMeetingNoteId={initialMeetingNoteId}
           initialMeetingTodoId={initialMeetingTodoId}
         />
       </Suspense>
+      )}
 
+      {capabilities.includes("epic:read") && (
       <Suspense fallback={<ProjectEpicPanelSkeleton />}>
         <ProjectEpicPanelSection
           projectId={project.id}
           actorUserId={actorUserId}
-          canEdit={canEditProjectContent}
+          canEdit={capabilities.includes("epic:write")}
         />
       </Suspense>
+      )}
 
+      {capabilities.includes("task:read") && (
       <Suspense fallback={<KanbanBoardSkeleton />}>
         <KanbanBoardSection
           projectId={project.id}
           actorUserId={actorUserId}
-          canEdit={canEditProjectContent}
+          canEdit={capabilities.includes("task:write")}
           storageProvider={storageProvider}
           collaborators={collaborators}
           initialTaskId={initialTaskId}
           activityVersion={project.updatedAt.toISOString()}
         />
       </Suspense>
+      )}
 
+      {capabilities.includes("roadmap:read") && (
       <Suspense fallback={<ProjectRoadmapPanelSkeleton />}>
         <ProjectRoadmapPanelSection
           projectId={project.id}
           actorUserId={actorUserId}
-          canEdit={canEditProjectContent}
+          canEdit={capabilities.includes("roadmap:write")}
         />
       </Suspense>
+      )}
 
       <Suspense fallback={<ProjectCalendarPanelSkeleton />}>
         <ProjectCalendarPanelSection projectId={project.id} actorUserId={actorUserId} />
       </Suspense>
     </main>
+    </ProjectCapabilityProvider>
   );
 }

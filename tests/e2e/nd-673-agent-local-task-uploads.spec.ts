@@ -22,8 +22,8 @@ test("bearer multipart uploads retain actor identity, limits and comment privacy
     const created = await page.request.post(`${prefix}/tasks`, { headers: actors[0].headers, data: { title: "Local file lifecycle" } });
     expect(created.status()).toBe(201);
     taskUrl = `${prefix}/tasks/${(await created.json()).taskId}`;
-    const bytes = Buffer.from("Local agent file");
-    const file = { name: "agent.txt", mimeType: "text/plain", buffer: bytes };
+    const bytes = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aGz8AAAAASUVORK5CYII=", "base64");
+    const file = { name: "agent.png", mimeType: "image/png", buffer: bytes };
     for (const [headers, expected] of [[actors[1].headers, 403], [{ Authorization: "Bearer invalid-token" }, 401]] as const) {
       expect((await page.request.post(`${taskUrl}/attachments`, { headers, multipart: { kind: "file", file } })).status()).toBe(expected);
     }
