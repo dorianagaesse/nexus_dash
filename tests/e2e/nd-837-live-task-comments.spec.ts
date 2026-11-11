@@ -82,6 +82,12 @@ test("two human sessions keep open threads current after human and agent mutatio
       await expect(dialog.getByText("Agent comment", { exact: true })).toHaveCount(1);
     }
     await assertDraft();
+    // The local reaction acknowledges a project version newer than this
+    // remote comment, before the next activity poll has delivered it.
+    expect((await second.request.post(commentsUrl, { data: { content: "Concurrent member comment" } })).status()).toBe(201);
+    await dialogs[0].getByRole("button", { name: "👍", exact: true }).click();
+    await expect(dialogs[0].getByText("Concurrent member comment", { exact: true })).toBeVisible({ timeout: 25_000 });
+    await expect(composer).toContainText("Unsent local comment");
     await dialogs[0].getByTestId(`edit-comment-button-${commentId}`).click();
     const edit = dialogs[0].getByRole("textbox", { name: "Edit task comment", exact: true });
     await edit.fill("Unfinished comment edit");

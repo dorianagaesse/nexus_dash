@@ -68,6 +68,33 @@ function mockActivityVersion(version: string) {
 }
 
 describe("ProjectLiveRefresh", () => {
+  test("reconciles an open thread after a local acknowledgement even before a remote event is delivered", async () => {
+    const { root } = createTestRenderer();
+    const lock = document.createElement("div");
+    lock.setAttribute("role", "dialog"); document.body.append(lock);
+    const handler = vi.fn();
+    window.addEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, handler);
+    try {
+      await renderWithRoot(root, React.createElement(ProjectLiveRefresh, {
+        projectId: "project-1", initialVersion: "2026-05-30T10:00:00Z", pollIntervalMs: 50,
+      }));
+      await act(async () => {
+        const finish = beginProjectActivityMutation("project-1");
+        acknowledgeProjectActivity("project-1", "2026-05-30T10:03:00Z");
+        expect(handler).not.toHaveBeenCalled();
+        finish();
+      });
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler.mock.calls[0][0]).toMatchObject({ detail: { activity: {
+        eventId: null, version: "2026-05-30T10:03:00Z", projectId: "project-1",
+      } } });
+      expect(routerRefreshMock).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(PROJECT_ACTIVITY_REMOTE_EVENT, handler);
+      await act(async () => root.unmount()); lock.remove();
+    }
+  });
+
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();

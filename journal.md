@@ -11808,6 +11808,11 @@ the original run passed the other 143 scenarios, including notification revocati
 
 ## 2026-11-11 - ND-837 open task thread reconciliation
 
+- Reproduced the acknowledgement race independently: a local reaction can
+  acknowledge a project version covering a remote comment before its activity
+  arrives. With no deferred event, the old code never reconciled the thread and
+  then discarded that remote event as already acknowledged. Open surfaces now
+  catch up once after the last acknowledged local mutation finishes.
 - Reproduced an open-thread gap: task edit mode skipped comment reads even when
   project activity changed. Version-only reconciliation also left board comment
   counts unchanged, and late reaction reads could replace a newer task's state.
