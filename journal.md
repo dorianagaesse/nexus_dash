@@ -11689,6 +11689,29 @@ Low-value entries to avoid going forward:
   Both assertions retain their functional checks. Final rerun evidence is
   recorded on the PR and card.
 
+### 2026-11-08 — ND-815 custom 404 page
+
+- Created and read back ND-815, checked for overlapping board work, and moved
+  it to In Progress using the configured Codex identity. Started from current
+  origin/main in an isolated worktree to preserve unrelated roadmap edits.
+- Added the root App Router not-found page with NexusDash branding, existing
+  theme tokens and buttons, and Projects/Home recovery links. Existing route
+  authentication and API responses remain unchanged.
+- Added browser coverage for unknown URLs, missing projects, signed-in/out
+  recovery, keyboard navigation, noindex, and 320px/1440px light/dark layouts.
+  All six focused browser checks pass. Inspected all four theme/viewport
+  screenshots; controls remain visible and the page has no horizontal overflow.
+- Adjusted the missing-project test to allow the framework's duplicate noindex
+  tags during streaming. Unmatched URLs return HTTP 404; streamed project
+  boundaries retain the existing Next.js status behavior.
+- Validation: production build, lint, RLS inventory, release policy, and
+  whitespace checks pass. Unit tests: 2,434 passed, 3 skipped. Coverage passes
+  with 95.56% lines and 89.08% branches. Local validation uses an isolated
+  PostgreSQL database on port 55815; initial runs were restarted with explicit
+  database environment values and four Vitest workers.
+- Full npm run test:e2e passes: 141 passed, 2 skipped, including all six
+  new 404 checks. Desktop/mobile and light/dark screenshot review passed.
+- Copilot review monitoring is omitted at the user's explicit request.
 
 ### ND-130 integration handoff
 
@@ -11725,3 +11748,15 @@ meeting/epic scopes that ND-130 now supports, and the shell navigation notificat
 omitted project metadata. Switched to synthetic unknown enum values and supplied
 the notification project/task IDs. All eight affected browser scenarios pass locally;
 the original run passed the other 143 scenarios, including notification revocation.
+
+### 2026-11-09 — ND-815 recovery action follow-up
+
+- Removed Go home at the user's request because it redirects signed-in users
+  to Projects. The 404 page now has one Go to projects recovery link.
+- Updated the board brief, README, and existing browser assertions for the
+  single action, including keyboard recovery and both session states.
+- Integrated current main and resolved the journal-only conflict by retaining
+  both histories. Copilot review monitoring remains omitted as requested.
+- Validation passes: lint, RLS inventory, production build, 2,507 unit tests
+  (3 skipped), coverage (95.56% lines, 89.12% branches), and all six focused
+  404 browser checks. Reviewed desktop/mobile screenshots in both themes.
