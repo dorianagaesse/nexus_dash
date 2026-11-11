@@ -1,3 +1,4 @@
+import { describeProjectCapabilities } from "@/lib/project-capabilities";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -100,7 +101,7 @@ export default async function ProjectInvitationPage({
   )}&returnTo=${encodeURIComponent(invitationPath)}`;
   const verifyHref = `/verify-email?returnTo=${encodeURIComponent(invitationPath)}`;
   const logoutAction = `/api/auth/logout?returnTo=${encodeURIComponent(invitationPath)}`;
-  const roleCopy =
+  const roleCopy = invitation.capabilities ? describeProjectCapabilities(invitation.role, invitation.capabilities) :
     invitation.role === "viewer"
       ? "Read-only project access"
       : "Can edit project content after joining";

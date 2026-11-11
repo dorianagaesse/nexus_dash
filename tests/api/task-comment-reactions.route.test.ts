@@ -67,6 +67,31 @@ describe("task comment reactions service", () => {
     vi.clearAllMocks();
   });
 
+  test.each([
+    ["list", "task:read"],
+    ["add", "task:write"],
+    ["remove", "task:write"],
+  ] as const)("%s honors denied task capability before accessing reactions", async (operation, capability) => {
+    const db = createMockDb();
+    projectAccessServiceMock.requireProjectRole.mockResolvedValueOnce({
+      ok: false, status: 403, error: "project-capability-denied",
+    } as never);
+    rlsContextMock.withActorRlsContext.mockImplementationOnce(async (_actor, callback) => callback(db));
+    const input = { actorUserId: "test-user", projectId: "project-1" };
+    const result = operation === "list"
+      ? await listTaskCommentReactionsForComment({ ...input, commentId: "comment-1" })
+      : operation === "add"
+        ? await addTaskCommentReaction({ ...input, commentId: "comment-1", emoji: "x" })
+        : await removeTaskCommentReaction({ ...input, reactionId: "r1" });
+    expect(result).toEqual({ ok: false, status: 403, error: "project-capability-denied" });
+    expect(projectAccessServiceMock.requireProjectRole).toHaveBeenCalledWith(expect.objectContaining({ capability }));
+    expect(db.taskComment.findUnique).not.toHaveBeenCalled();
+    expect(db.taskCommentReaction.findUnique).not.toHaveBeenCalled();
+    expect(db.taskCommentReaction.findMany).not.toHaveBeenCalled();
+    expect(db.taskCommentReaction.create).not.toHaveBeenCalled();
+    expect(db.taskCommentReaction.deleteMany).not.toHaveBeenCalled();
+  });
+
   test("listTaskCommentReactionsForComment returns grouped reactions", async () => {
     const mockDb = createMockDb({
       taskCommentReaction: {

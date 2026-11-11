@@ -169,6 +169,7 @@ async function withReactionContext(
         actorUserId: input.actorUserId,
         projectId: input.projectId,
         minimumRole: write ? "editor" : "viewer",
+        capability: write ? "task:write" : "task:read",
         db,
       });
       if (!access.ok) return error(access.status, access.error);

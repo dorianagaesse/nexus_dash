@@ -310,6 +310,7 @@ describe("project-meeting-note-service", () => {
       actorUserId: "user-1",
       projectId: "project-1",
       minimumRole: "viewer",
+      capability: "meeting:read",
       db: dbMock,
     });
   });

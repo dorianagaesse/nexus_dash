@@ -1,3 +1,4 @@
+import { effectiveProjectCapabilities } from "@/lib/project-capabilities";
 import { ProjectMembershipRole } from "@prisma/client";
 
 import { isMeetingTodoOverdueAt } from "@/lib/meeting-todo";
@@ -8,7 +9,6 @@ import {
 } from "@/lib/meeting-todo-actor";
 import {
   buildProjectPrincipalWhere,
-  hasRequiredRole,
 } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
 import {
@@ -91,7 +91,7 @@ export async function listProjectMeetingTodos(input: {
         ownerId: true,
         memberships: {
           where: { userId: actorUserId },
-          select: { role: true },
+          select: { role: true, capabilities: true },
           take: 1,
         },
         meetingNotes: {
@@ -172,7 +172,9 @@ export async function listProjectMeetingTodos(input: {
       project.ownerId === actorUserId
         ? ProjectMembershipRole.owner
         : (project.memberships[0]?.role ?? ProjectMembershipRole.viewer);
-    const canEdit = hasRequiredRole(role, ProjectMembershipRole.editor);
+    const capabilities = effectiveProjectCapabilities(role, project.memberships[0]?.capabilities);
+    if (!capabilities.includes("meeting:read")) return null;
+    const canEdit = capabilities.includes("meeting:write");
     const referenceNowMs = input.referenceNowMs ?? Date.now();
     const todos = project.meetingNotes.flatMap((meeting) => {
       const participantOptions: MeetingTodoActorSummary[] = [];

@@ -1,3 +1,4 @@
+import { effectiveProjectCapabilities } from "@/lib/project-capabilities";
 import { loadLegacyTaskDashboard } from "./tasks/task-dashboard-data";
 import { archiveStaleDoneTasks } from "@/lib/services/tasks/task-data";
 export { projectKanbanTaskInclude, type ProjectKanbanTaskRecord } from "@/lib/services/tasks/task-data";
@@ -9,6 +10,7 @@ import { RESOURCE_TYPE_CONTEXT_CARD } from "@/lib/resource-type";
 import {
   buildProjectPrincipalWhere,
   requireAgentProjectScopes,
+  getProjectAccess,
   requireProjectRole,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
@@ -103,6 +105,7 @@ type ProjectSummaryRecord = Prisma.ProjectGetPayload<{
     memberships: {
       select: {
         role: true;
+        capabilities: true;
       };
     };
   };
@@ -250,6 +253,7 @@ export async function listProjectsWithCounts(
             select: {
               projectId: true,
               role: true,
+              capabilities: true,
             },
           })
         : [];
@@ -267,9 +271,12 @@ export async function listProjectsWithCounts(
       }
 
       const collaboratorRole = roleByProjectId.get(project.id);
+      const membership = memberships.find((entry) => entry.projectId === project.id);
+      const grants = effectiveProjectCapabilities(collaboratorRole ?? "viewer", membership?.capabilities);
       return {
         ...project,
         memberships: collaboratorRole ? [{ role: collaboratorRole }] : [],
+        _count: { tasks: grants.includes("task:read") ? project._count.tasks : 0, resources: grants.includes("context:read") ? project._count.resources : 0 },
       };
     });
   }) as Promise<ProjectWithCountsRecord[]>;
@@ -387,6 +394,10 @@ export async function getProjectSummaryById(
   }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const access = await getProjectAccess({ actorUserId: normalizedActorUserId, projectId, db });
+    if (!access.ok) return null;
+    const canRead = (module: "task" | "context" | "meeting") => access.capabilities.includes(`${module}:read`) &&
+      (!agentAccess || agentAccess.scopes.includes(`${module}:read`));
     const principalWhere = buildProjectPrincipalWhere(normalizedActorUserId);
 
     const [
@@ -414,18 +425,19 @@ export async function getProjectSummaryById(
             where: { userId: normalizedActorUserId },
             select: {
               role: true,
+              capabilities: true,
             },
             take: 1,
           },
         },
       }),
-      db.task.count({
+      canRead("task") ? db.task.count({
         where: {
           projectId,
           project: principalWhere,
         },
-      }),
-      db.task.count({
+      }) : Promise.resolve(0),
+      canRead("task") ? db.task.count({
         where: {
           projectId,
           project: principalWhere,
@@ -434,22 +446,22 @@ export async function getProjectSummaryById(
             in: ["In Progress", "Blocked"],
           },
         },
-      }),
-      db.task.count({
+      }) : Promise.resolve(0),
+      canRead("task") ? db.task.count({
         where: {
           projectId,
           project: principalWhere,
           OR: [{ status: "Done" }, { archivedAt: { not: null } }],
         },
-      }),
-      db.resource.count({
+      }) : Promise.resolve(0),
+      canRead("context") ? db.resource.count({
         where: {
           projectId,
           project: principalWhere,
           type: RESOURCE_TYPE_CONTEXT_CARD,
         },
-      }),
-      db.projectMeetingNote.count({
+      }) : Promise.resolve(0),
+      canRead("meeting") ? db.projectMeetingNote.count({
         where: {
           projectId,
           project: principalWhere,
@@ -462,16 +474,16 @@ export async function getProjectSummaryById(
                 ],
               }),
         },
-      }),
-      db.taskAttachment.count({
+      }) : Promise.resolve(0),
+      canRead("task") ? db.taskAttachment.count({
         where: {
           task: {
             projectId,
             project: principalWhere,
           },
         },
-      }),
-      db.resourceAttachment.count({
+      }) : Promise.resolve(0),
+      canRead("context") ? db.resourceAttachment.count({
         where: {
           resource: {
             projectId,
@@ -479,7 +491,7 @@ export async function getProjectSummaryById(
             type: RESOURCE_TYPE_CONTEXT_CARD,
           },
         },
-      }),
+      }) : Promise.resolve(0),
     ]);
 
     if (!project) {
@@ -619,8 +631,10 @@ export async function listProjectContextResources(
     return [];
   }
 
-  return withActorRlsContext(normalizedActorUserId, (db) =>
-    db.resource.findMany({
+  return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const access = await requireProjectRole({ actorUserId, projectId, minimumRole: "viewer", capability: "context:read", db });
+    if (!access.ok) return [];
+    return db.resource.findMany({
       where: {
         projectId,
         project: buildProjectPrincipalWhere(normalizedActorUserId),
@@ -682,8 +696,8 @@ export async function listProjectContextResources(
           },
         },
       },
-    })
-  );
+    });
+  });
 }
 
 export async function getProjectDashboardById(projectId: string, actorUserId: string) {
@@ -693,8 +707,9 @@ export async function getProjectDashboardById(projectId: string, actorUserId: st
   }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
-    await archiveStaleDoneTasks(db, projectId, normalizedActorUserId);
-
+    const access = await getProjectAccess({ actorUserId, projectId, db });
+    if (!access.ok || !access.capabilities.includes("task:read") || !access.capabilities.includes("context:read")) return null;
+    if (access.capabilities.includes("task:write")) await archiveStaleDoneTasks(db, projectId, normalizedActorUserId);
     return loadLegacyTaskDashboard(db, projectId, normalizedActorUserId);
   });
 }

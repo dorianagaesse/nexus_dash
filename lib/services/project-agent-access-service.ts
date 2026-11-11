@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
 
+import { parseAgentCredentialDescriptiveLabels } from "@/lib/agent-credential-labels";
+
 import {
   ApiCredentialScope,
   Prisma,
@@ -8,6 +10,7 @@ import {
 
 import {
   AGENT_API_KEY_PUBLIC_ID_PREFIX,
+  AGENT_SCOPE_VALUES,
   buildRawAgentApiKey,
   parseAgentScopes,
   parseRawAgentApiKey,
@@ -68,6 +71,7 @@ export interface ProjectAgentCredentialSummary {
   canMoveTasksToDone: boolean;
   id: string;
   label: string;
+  descriptiveLabels: string[];
   publicId: string;
   scopes: AgentScope[];
   status: AgentCredentialStatus;
@@ -101,6 +105,16 @@ export interface ProjectAgentAccessSummary {
 }
 
 const AGENT_SCOPE_TO_DB_SCOPE: Record<AgentScope, ApiCredentialScope> = {
+  "meeting:read": ApiCredentialScope.meeting_read,
+  "meeting:write": ApiCredentialScope.meeting_write,
+  "meeting:delete": ApiCredentialScope.meeting_delete,
+  "epic:read": ApiCredentialScope.epic_read,
+  "epic:write": ApiCredentialScope.epic_write,
+  "epic:delete": ApiCredentialScope.epic_delete,
+  "schedule:read": ApiCredentialScope.schedule_read,
+  "schedule:write": ApiCredentialScope.schedule_write,
+  "schedule:delete": ApiCredentialScope.schedule_delete,
+
   "project:read": ApiCredentialScope.project_read,
   "task:read": ApiCredentialScope.task_read,
   "task:write": ApiCredentialScope.task_write,
@@ -114,7 +128,22 @@ const AGENT_SCOPE_TO_DB_SCOPE: Record<AgentScope, ApiCredentialScope> = {
   "attention:read": ApiCredentialScope.attention_read,
 };
 
+// A shared database can contain scope enum values from a newer deployment.
+// Prisma rejects those values before application mapping can filter them, so
+// restrict relation reads in SQL, matching token exchange's supported scopes.
+const SUPPORTED_AGENT_DB_SCOPES = Object.values(AGENT_SCOPE_TO_DB_SCOPE);
+
 const DB_SCOPE_TO_AGENT_SCOPE: Record<ApiCredentialScope, AgentScope> = {
+  [ApiCredentialScope.meeting_read]: "meeting:read",
+  [ApiCredentialScope.meeting_write]: "meeting:write",
+  [ApiCredentialScope.meeting_delete]: "meeting:delete",
+  [ApiCredentialScope.epic_read]: "epic:read",
+  [ApiCredentialScope.epic_write]: "epic:write",
+  [ApiCredentialScope.epic_delete]: "epic:delete",
+  [ApiCredentialScope.schedule_read]: "schedule:read",
+  [ApiCredentialScope.schedule_write]: "schedule:write",
+  [ApiCredentialScope.schedule_delete]: "schedule:delete",
+
   [ApiCredentialScope.project_read]: "project:read",
   [ApiCredentialScope.task_read]: "task:read",
   [ApiCredentialScope.task_write]: "task:write",
@@ -316,6 +345,7 @@ function buildCredentialSummary(record: {
   canMoveTasksToDone: boolean;
   id: string;
   label: string;
+  descriptiveLabels: string[];
   publicId: string;
   expiresAt: Date | null;
   lastUsedAt: Date | null;
@@ -331,6 +361,7 @@ function buildCredentialSummary(record: {
   return {
     id: record.id,
     label: record.label,
+    descriptiveLabels: record.descriptiveLabels ?? [],
     publicId: record.publicId,
     canMoveTasksToDone: record.canMoveTasksToDone,
     scopes: record.scopeGrants.map((grant) => mapDbScopeToAgentScope(grant.scope)),
@@ -523,6 +554,7 @@ async function createCredentialRecordWithUniquePublicId(
     projectId: string;
     createdByUserId: string;
     label: string;
+    descriptiveLabels: string[];
     secretHash: string;
     expiresAt: Date | null;
     scopes: AgentScope[];
@@ -541,6 +573,7 @@ async function createCredentialRecordWithUniquePublicId(
           projectId: input.projectId,
           createdByUserId: input.createdByUserId,
           label: input.label,
+          descriptiveLabels: input.descriptiveLabels,
           publicId,
           secretHash: input.secretHash,
           expiresAt: input.expiresAt,
@@ -553,6 +586,7 @@ async function createCredentialRecordWithUniquePublicId(
         select: {
           id: true,
           label: true,
+          descriptiveLabels: true,
           publicId: true,
           canMoveTasksToDone: true,
           expiresAt: true,
@@ -563,6 +597,7 @@ async function createCredentialRecordWithUniquePublicId(
           createdAt: true,
           updatedAt: true,
           scopeGrants: {
+            where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
             select: {
               scope: true,
             },
@@ -609,6 +644,7 @@ async function rotateCredentialSecretWithUniquePublicId(
         select: {
           id: true,
           label: true,
+          descriptiveLabels: true,
           publicId: true,
           canMoveTasksToDone: true,
           expiresAt: true,
@@ -619,6 +655,7 @@ async function rotateCredentialSecretWithUniquePublicId(
           createdAt: true,
           updatedAt: true,
           scopeGrants: {
+            where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
             select: {
               scope: true,
             },
@@ -667,6 +704,7 @@ export async function getProjectAgentAccessSummary(input: {
         select: {
           id: true,
           label: true,
+          descriptiveLabels: true,
           publicId: true,
           canMoveTasksToDone: true,
           expiresAt: true,
@@ -677,6 +715,7 @@ export async function getProjectAgentAccessSummary(input: {
           createdAt: true,
           updatedAt: true,
           scopeGrants: {
+            where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
             orderBy: [{ scope: "asc" }],
             select: {
               scope: true,
@@ -721,6 +760,7 @@ export async function createProjectAgentCredential(input: {
   actorUserId: string;
   projectId: string;
   label: string;
+  descriptiveLabels?: unknown;
   scopes: AgentScope[];
   expiresInDays: number | null;
   requestId?: string | null;
@@ -741,6 +781,13 @@ export async function createProjectAgentCredential(input: {
   const label = normalizeAgentCredentialLabel(input.label);
   if (!isValidAgentCredentialLabel(label)) {
     return createError(400, "invalid-label");
+  }
+
+  const descriptiveLabels = parseAgentCredentialDescriptiveLabels(
+    input.descriptiveLabels === undefined ? [] : input.descriptiveLabels
+  );
+  if (!descriptiveLabels) {
+    return createError(400, "invalid-descriptive-labels");
   }
 
   const scopes = parseAgentScopes(input.scopes);
@@ -771,6 +818,7 @@ export async function createProjectAgentCredential(input: {
       projectId: input.projectId,
       createdByUserId: actorUserId,
       label,
+      descriptiveLabels,
       secretHash,
       expiresAt,
       scopes,
@@ -949,6 +997,7 @@ export async function revokeProjectAgentCredential(input: {
       select: {
         id: true,
         label: true,
+        descriptiveLabels: true,
         publicId: true,
         canMoveTasksToDone: true,
         expiresAt: true,
@@ -959,6 +1008,7 @@ export async function revokeProjectAgentCredential(input: {
         createdAt: true,
         updatedAt: true,
         scopeGrants: {
+          where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
           orderBy: [{ scope: "asc" }],
           select: {
             scope: true,
@@ -997,6 +1047,7 @@ export async function revokeProjectAgentCredential(input: {
       select: {
         id: true,
         label: true,
+        descriptiveLabels: true,
         publicId: true,
         canMoveTasksToDone: true,
         expiresAt: true,
@@ -1007,6 +1058,7 @@ export async function revokeProjectAgentCredential(input: {
         createdAt: true,
         updatedAt: true,
         scopeGrants: {
+          where: { scope: { in: SUPPORTED_AGENT_DB_SCOPES } },
           orderBy: [{ scope: "asc" }],
           select: {
             scope: true,
@@ -1172,6 +1224,7 @@ export async function exchangeAgentApiKeyForAccessToken(input: {
   );
   const issuedToken = issueAgentAccessToken({
     credentialId: credential.id,
+    credentialPublicId: credential.publicId,
     projectId: credential.projectId,
     ownerUserId: credential.createdByUserId,
     scopes,
@@ -1219,7 +1272,8 @@ export async function recordAgentRequestUsage(input: {
   ownerUserId: string;
   projectId: string;
   tokenId: string;
-  issuedAt: Date;
+  scopes: AgentScope[];
+  credentialPublicId?: string;
   requestId?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
@@ -1241,15 +1295,17 @@ export async function recordAgentRequestUsage(input: {
           projectId: input.projectId,
           createdByUserId: ownerUserId,
           revokedAt: null,
+          // Rotation replaces publicId atomically with the key. Bind usage to
+          // the key verified during exchange, even if rotation raced issuance.
+          // Legacy tokens cannot prove their generation after any rotation.
+          ...(input.credentialPublicId !== undefined
+            ? { publicId: input.credentialPublicId }
+            : { lastRotatedAt: null }),
           AND: [
+            // A previously issued token cannot retain a scope removed by the owner.
+            ...input.scopes.map((scope) => ({ scopeGrants: { some: { scope: AGENT_SCOPE_TO_DB_SCOPE[scope] } } })),
             {
               OR: [{ expiresAt: null }, { expiresAt: { gt: requestTimestamp } }],
-            },
-            {
-              OR: [
-                { lastRotatedAt: null },
-                { lastRotatedAt: { lte: input.issuedAt } },
-              ],
             },
           ],
         },
@@ -1302,16 +1358,27 @@ export async function updateProjectAgentCredentialCapabilities(input: {
   actorUserId: string;
   projectId: string;
   credentialId: string;
-  canMoveTasksToDone: boolean;
+  canMoveTasksToDone?: boolean;
+  scopes?: unknown;
   requestId?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
-}): Promise<ServiceResult<{ canMoveTasksToDone: boolean }>> {
+}): Promise<ServiceResult<{ canMoveTasksToDone?: boolean; scopes?: AgentScope[] }>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) return createError(401, "unauthorized");
-  if (typeof input.canMoveTasksToDone !== "boolean") {
+  if ((input.canMoveTasksToDone === undefined && input.scopes === undefined) ||
+      (input.canMoveTasksToDone !== undefined && typeof input.canMoveTasksToDone !== "boolean")) {
     return createError(400, "invalid-agent-capabilities");
   }
+  if (input.scopes !== undefined && (!Array.isArray(input.scopes) || input.scopes.length === 0 ||
+      !input.scopes.every((scope) => typeof scope === "string" && AGENT_SCOPE_VALUES.includes(scope as AgentScope)))) {
+    return createError(400, "invalid-agent-scopes");
+  }
+  const scopes = input.scopes === undefined ? undefined : parseAgentScopes(input.scopes);
+  const changes = {
+    ...(input.canMoveTasksToDone === undefined ? {} : { canMoveTasksToDone: input.canMoveTasksToDone }),
+    ...(scopes === undefined ? {} : { scopes }),
+  };
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
@@ -1322,9 +1389,14 @@ export async function updateProjectAgentCredentialCapabilities(input: {
     if (!access.ok) return createError(access.status, access.error);
     const result = await db.apiCredential.updateMany({
       where: { id: input.credentialId, projectId: input.projectId },
-      data: { canMoveTasksToDone: input.canMoveTasksToDone },
+      // Lock the credential before replacing grants so concurrent saves stay atomic.
+      data: { ...(input.canMoveTasksToDone === undefined ? {} : { canMoveTasksToDone: input.canMoveTasksToDone }), updatedAt: new Date() },
     });
     if (result.count !== 1) return createError(404, "credential-not-found");
+    if (scopes !== undefined) {
+      await db.apiCredentialScopeGrant.deleteMany({ where: { credentialId: input.credentialId } });
+      await db.apiCredentialScopeGrant.createMany({ data: scopes.map((scope) => ({ credentialId: input.credentialId, scope: AGENT_SCOPE_TO_DB_SCOPE[scope] })) });
+    }
     await db.authAuditEvent.create({
       data: {
         projectId: input.projectId,
@@ -1335,9 +1407,40 @@ export async function updateProjectAgentCredentialCapabilities(input: {
         requestId: normalizeTrimmedString(input.requestId ?? null),
         ipAddress: normalizeBoundedString(input.ipAddress ?? null, MAX_IP_ADDRESS_LENGTH),
         userAgent: normalizeBoundedString(input.userAgent ?? null, MAX_USER_AGENT_LENGTH),
-        metadata: { canMoveTasksToDone: input.canMoveTasksToDone },
+        metadata: changes,
       },
     });
-    return createSuccess(200, { canMoveTasksToDone: input.canMoveTasksToDone });
+    return createSuccess(200, changes);
   }, { forceTransaction: true });
+}
+
+/** Owner-only descriptive metadata update; leaves names, secrets and grants intact. */
+export async function updateProjectAgentCredentialDescriptiveLabels(input: {
+  actorUserId: string;
+  projectId: string;
+  credentialId: string;
+  descriptiveLabels: unknown;
+}): Promise<ServiceResult<{ credential: { id: string; descriptiveLabels: string[] } }>> {
+  const actorUserId = normalizeActorUserId(input.actorUserId);
+  if (!actorUserId) return createError(401, "unauthorized");
+  const descriptiveLabels = parseAgentCredentialDescriptiveLabels(input.descriptiveLabels);
+  if (!descriptiveLabels) return createError(400, "invalid-descriptive-labels");
+
+  return withActorRlsContext(actorUserId, async (db) => {
+    const access = await requireProjectRole({
+      actorUserId, projectId: input.projectId, minimumRole: "owner", db,
+    });
+    if (!access.ok) return createError(access.status, access.error);
+    const credential = await db.apiCredential.findFirst({
+      where: { id: input.credentialId, projectId: input.projectId },
+      select: { id: true },
+    });
+    if (!credential) return createError(404, "credential-not-found");
+    const updated = await db.apiCredential.update({
+      where: { id: credential.id, projectId: input.projectId },
+      data: { descriptiveLabels },
+      select: { id: true, descriptiveLabels: true },
+    });
+    return createSuccess(200, { credential: updated });
+  });
 }
