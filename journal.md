@@ -1,5 +1,11 @@
 # Development Journal
 
+# 2026-11-12 - PR #687: reconcile thread synchronization merge
+
+- Merged main at `00755cf` after PR #696 landed. Preserved both journal
+  histories in the only conflict; application files merged automatically.
+- `git diff --check` and documentation reference review passed.
+
 ## 2026-11-12 - ND-837: synchronize PR #696 with main
 
 - Merged main at `ec9f4afb1fad043130f599cd04533eea42d50339` into
@@ -13,6 +19,13 @@
   regression and the project/task/attachment/context/meeting/roadmap/calendar
   smoke suite. Existing Preview verification remains pending as previously
   recorded; this merge does not claim deployed runtime validation.
+
+# 2026-11-12 - PR #687: refresh merge compatibility
+
+- Merged main at `ec9f4af` into the upload branch. Resolved the journal-only
+  conflict by preserving both histories; application files merged automatically.
+- Verified the resolved merge with `git diff --check` and reviewed documentation
+  references. No application code was changed during conflict resolution.
 
 # 2026-11-12 - ND-832: epic color cues
 
@@ -62,6 +75,32 @@
 - Kept the original drag handle mounted on narrow screens and measured the
   drop lanes before lift. Verified touch scrolling and moving an event between
   milestones in Chromium.
+
+# 2026-11-11 - ND-673: reconcile local uploads with main
+
+- Merged current main into PR #687, retaining bearer multipart uploads, exact
+  credential attribution, private drafts and main's task capability checks.
+- Preserved reaction and attachment schema relations, PostgreSQL lifecycle
+  checks, endpoint tests and both documentation histories.
+- Combined validation evidence is recorded on the PR before handoff.
+
+# 2026-11-08 - ND-673: agent multipart task uploads
+
+- Enabled bearer principals on the existing task attachment form route and
+  propagated credential identity through scope checks, storage paths and actor
+  attribution. Reused the existing MIME/4 MiB limits and draft protections.
+- Published multipart schemas and the JSON-create then multipart-upload path for
+  local storage, retaining R2 direct upload and the multipart-at-create restriction.
+- Added local/API checks for regular and comment files, invalid tokens, missing
+  scopes, MIME/size rejection, attribution, privacy, binding and download/removal.
+- Lint, RLS inventory/matrix, 2,408 unit/API tests (3 skipped), coverage thresholds
+  and build passed. Eight local browser scenarios passed initially; the meeting
+  smoke bounding-box assertion missed its tolerance by 2.5px and passed an
+  unchanged isolated rerun. All three hosted upload/draft lifecycle checks passed.
+- Preview workflow 42491849366 verified `164ae18b` at
+  `https://nexus-dash-2527p5sp8-dorian-agaesses-projects.vercel.app`, covering the
+  multipart path and existing R2 direct upload, actor history and draft ownership.
+
 # 2026-11-11 - ND-672: reconcile reaction parent validation with main
 
 - Merged main at `7c7d5978ddaaa62ea8b72cb516cf80d45cf7cbf1` into PR #686.

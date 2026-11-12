@@ -354,7 +354,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "deadlineDate uses YYYY-MM-DD when provided.",
       "Provide labels as a string array. Task responses return the canonical labels field.",
       "Use attachmentLinks as an array of { name, url } objects.",
-      "Use the direct-upload attachment routes for binary files and images.",
+      "Use R2 direct upload (25 MiB) or the task multipart attachment route for local storage (4 MiB).",
       "Invalid relatedTaskIds return related-tasks-invalid with invalidRelatedTask { id, reason } when a task id is known. Reasons are archived, missing, cross-project, or self; project-bound agent tokens and callers without access to a foreign task see missing.",
       "Use assignee as { kind: \"human\" | \"agent\", id } to assign a project member or an active agent credential; the legacy human-only assigneeUserId string remains accepted and assignee wins when both are present.",
       "Assignment persists the credential identity for agents, along with who assigned it and when; revoked or expired credentials are rejected with assignee-invalid but existing assignments stay readable with an inactive status.",
@@ -519,6 +519,13 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "Delete scope does not imply read or write.",
       "Owner-level project role is still required at runtime.",
     ],
+  },
+  {
+    tag: "Tasks", method: "POST", path: "/api/projects/{projectId}/tasks/{taskId}/attachments",
+    title: "Upload a task file with multipart form data",
+    description: "Bearer-authenticated file or link attachment using local or R2 storage.",
+    requiredScopes: ["task:write"], requestContentType: "multipart/form-data",
+    notes: ["Create the task with JSON first, then upload here. Agent multipart task creation still rejects attachmentFiles. Files are limited to 4 MiB; use R2 direct upload for up to 25 MiB. Local storage does not issue signed upload targets. Set kind=file and provide file; isCommentDraft=true keeps the file private to this exact actor until comment binding. Human form uploads remain supported. Invalid MIME, empty or oversized files return 400; missing write scope returns 403; no human session fallback is used."],
   },
   {
     tag: "Tasks",
@@ -712,7 +719,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
 
 export const AGENT_LIMITATIONS: readonly string[] = [
   "Use application/json for agent write requests unless you are intentionally following a browser-oriented multipart flow.",
-  "Binary files and images use the direct-upload attachment routes; non-file writes should not rely on multipart/form-data.",
+  "Task files use R2 direct uploads or the bearer multipart attachment route for local storage. Context files still require R2 direct upload. Non-file writes normally use JSON.",
   "attachmentLinks must be arrays of { name, url } objects. Plain string URL arrays are not the canonical v1 format.",
   "Epic status and progress are automatic. Agents should not try to set them directly.",
   "Roadmap delete scope is separate from roadmap read/write. Grant it only when the agent should remove phases or events.",
@@ -939,7 +946,7 @@ export function buildAgentContextUpdateExample(): string {
 
 export function buildAgentAttachmentUploadExample(): string {
   return [
-    "# 1. Request a signed upload target",
+    "# R2 storage: request a signed upload target (up to 25 MiB)",
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/attachments/upload-url" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
@@ -955,6 +962,11 @@ export function buildAgentAttachmentUploadExample(): string {
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
     '  -d \'{"storageKey":"<upload.storageKey>","name":"architecture.png","mimeType":"image/png","sizeBytes":204800}\'',
+    "",
+    "# Local storage alternative: create a task with JSON first, then upload (4 MiB)",
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/attachments" --header "Authorization: Bearer $NEXUSDASH_AGENT_BEARER_TOKEN" --form "kind=file" --form "file=@./notes.txt;type=text/plain"',
+    "# Add --form isCommentDraft=true for a comment draft, then POST its attachmentIds to /comments.",
+    "# Agent multipart task creation with attachmentFiles remains unsupported.",
   ].join("\n");
 }
 
@@ -1425,6 +1437,17 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
               type: "string",
               format: "uri",
             },
+          },
+        },
+        TaskAttachmentFormRequest: {
+          type: "object", required: ["kind"],
+          oneOf: [{ properties: { kind: { const: "file" } }, required: ["file"] }, { properties: { kind: { const: "link" } }, required: ["url"] }],
+          properties: {
+            kind: { type: "string", enum: ["file", "link"] },
+            file: { type: "string", format: "binary", description: "Nonempty PDF, image, text/Markdown, CSV or JSON file; maximum 4,194,304 bytes." },
+            name: { type: "string", description: "Optional display name; defaults to the original filename or link host." },
+            url: { type: "string", format: "uri", description: "Required for kind=link." },
+            isCommentDraft: { type: "string", enum: ["true", "false"], default: "false", description: "Only valid with kind=file when true; private to the exact uploading actor until binding." },
           },
         },
         AttachmentRecord: {
@@ -4015,6 +4038,15 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
             ...commonErrorResponses,
           },
+        },
+      },
+      "/api/projects/{projectId}/tasks/{taskId}/attachments": {
+        post: {
+          ...buildOperationMetadata("POST", "/api/projects/{projectId}/tasks/{taskId}/attachments"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { $ref: "#/components/parameters/TaskId" }],
+          requestBody: { required: true, content: { "multipart/form-data": { schema: { $ref: "#/components/schemas/TaskAttachmentFormRequest" } } } },
+          responses: { 200: { description: "Attributed attachment created", content: { "application/json": { schema: { type: "object", required: ["attachment"], properties: { attachment: { $ref: "#/components/schemas/AttachmentRecord" } } } } } }, ...commonErrorResponses },
         },
       },
       "/api/projects/{projectId}/tasks/{taskId}/attachments/upload-url": {
