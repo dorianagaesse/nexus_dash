@@ -57,6 +57,7 @@ next-env.d.ts
 # local AI assistant configuration
 /.continue/
 /.config/
+/.nd/
 /.claude/
 
 # Python cache for workflow helper scripts

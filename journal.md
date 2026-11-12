@@ -12047,10 +12047,14 @@ the original run passed the other 143 scenarios, including notification revocati
   Windows DPAPI vault and runtime service checks passed (28 tests). The complete
   PostgreSQL matrix requires the Realtime stub before migrations; the initial
   attempt omitted it, so prepared a separate fresh database with that prerequisite.
-- Current main requires an explicit user credential selection before Nexus Dash
-  API access. Requested confirmation of `.config/.nd-codex.env`; live ND-658 and
-  ND-822–825 reads and updates remain pending that answer. TellmetrY uses its own
-  explicitly selected credential and ND-848 records the pickup.
+- Dorian selected `.nd/` as the credential directory. TellmetrY's existing
+  `.nd/.nd.codex-main.env` is scoped to TellmetrY; the Nexus Dash checkout has no
+  `.nd/` credential yet. Its live ND-658 and ND-822–825 reads and updates await
+  a Nexus Dash credential in that directory. No alternate credential was used.
 
 - Fresh-database rerun passed the full PostgreSQL isolation matrix, including
   ND-658 runtime grants, exact-proof bootstrap, revocation and expiry.
+
+- Updated the agent setup runbook and ignore rules to use `.nd/` for local
+  credentials, and corrected the PR handoff. Existing unrelated local
+  configuration and credentials were not deleted or moved.
