@@ -57,7 +57,7 @@ Before accessing the Nexus Dash API, explicitly ask the user which credential
 to use, as required by `AGENTS.md`. Use only the credential they identify;
 do not select one based on the coding client, model, provider, or filename.
 If a local credential file is needed, copy `.nd-nexus-dash.example.env` to the
-user-selected location under the gitignored `.nd/` directory and configure
+user-selected location under the gitignored `.config/` directory and configure
 its project ID and API key.
 
 Confirm that the selected credential has a project ID and API key without
