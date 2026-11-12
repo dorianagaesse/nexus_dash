@@ -34,6 +34,12 @@ Implemented today:
 - Project-scoped agent access with owner-managed API credentials, short-lived bearer-token exchange, and audit trail
 - Project dashboard with:
   - Context cards (CRUD + attachments)
+  - Epics listed in a bounded, scrollable view with title, completion, task count,
+    and edit/archive/delete actions. Colored flags identify epics across the list,
+    details dialog, and Kanban. **Active** and **Archived** show their epics
+    immediately, with name and description search. Open an epic to see its
+    description and every linked task, ordered Backlog, Blocked, In Progress,
+    then Done. Task links open the task directly. Creation and editing use dialogs.
   - Meeting notes with searchable preparation inputs, label filters,
     participants, after-meeting outputs, todo tracking, overdue highlights,
     state, and archived history

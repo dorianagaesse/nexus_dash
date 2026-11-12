@@ -1,5 +1,33 @@
 # Development Journal
 
+# 2026-11-12 - ND-832: epic color cues
+
+- Restored the Kanban epic colors as compact flags beside each epic name.
+  The same flag appears in the details dialog, with a tinted background
+  and a foreground adjusted for each theme.
+
+# 2026-11-11 - ND-832: bounded epic rows and details
+
+- Replaced the card grid and browse toggle with immediate, searchable rows.
+  Matched the Kanban height cap and retained row-level edit, archive and delete.
+- Moved description, attribution and every linked task into a details dialog.
+  Tasks follow Backlog, Blocked, In Progress and Done order. Task links hand
+  focus to the board modal and preserve modified-click navigation.
+- Moved editing into a dialog so list filtering cannot hide an active draft
+  or leave its project refresh lock inaccessible.
+- Merged current main and retained both journal histories while resolving
+  the journal conflict, including conflict markers already present on main.
+- Stabilized the newly merged roadmap touch-insertion test by completing
+  a client interaction before measuring its hydrated drag handle.
+
+# 2026-11-11 - ND-832: Search-first Epics section
+
+- Moved epic creation into the shared responsive dialog. Successful saves update
+  the local list immediately and select Active when creation starts from Archived.
+- Made name and description search the default within each view. Show all
+  reveals the selected list, and clearing the search restores the compact view.
+- Ran 12 focused Chromium scenarios covering the desktop and mobile creation
+  flows, search, archive and restore, attribution, and linked tasks.
 # 2026-11-11 - ND-831: mobile review fixes
 
 - Made mobile insertion gaps visible during drag and aligned their touch
@@ -10,7 +38,6 @@
 - Merged current main and preserved both journal histories. Validation
   evidence is recorded on PR #695.
 
-<<<<<<< HEAD
 # 2026-11-11 - ND-831: mobile roadmap layout
 
 - Reproduced clipped milestone titles and event actions at 320px. Constrained
@@ -21,7 +48,6 @@
 - Kept the original drag handle mounted on narrow screens and measured the
   drop lanes before lift. Verified touch scrolling and moving an event between
   milestones in Chromium.
-=======
 # 2026-11-11 - ND-672: reconcile reaction parent validation with main
 
 - Merged main at `7c7d5978ddaaa62ea8b72cb516cf80d45cf7cbf1` into PR #686.
@@ -66,7 +92,6 @@
   build and seven local browser checks passed. Hosted lifecycle and tooltip
   checks passed at `https://nexus-dash-mrrtbkqj3-dorian-agaesses-projects.vercel.app`.
   Workflow 42490841055 verified `230ea34d69a4eb911ed07f87dff49c7dfd53dc86`.
->>>>>>> origin/main
 
 # 2026-11-10 - ND-670: reconciliation after ND-669 merged
 
