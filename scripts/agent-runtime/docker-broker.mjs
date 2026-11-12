@@ -34,6 +34,10 @@ async function atomicJson(path, value) {
   await rename(`${path}.next`, path);
 }
 
+function retryDelay(attempts) {
+  return Math.min(300_000, 30_000 * 2 ** Math.min(attempts - 1, 4));
+}
+
 export function hostMountPath(path) {
   const normalized = path.replaceAll("\\", "/").replace(/^\/run\/desktop\/mnt\/host\/([a-z])\//i, "$1:/")
     .replace(/^\/host_mnt\/([a-z])\//i, "$1:/");
@@ -54,7 +58,10 @@ export class DockerBroker {
     this.end = dependencies.end ?? (async (binding, sessionId) => runtimeCall(binding, {
       operation: "end", sessionId, proof: await vault.read(bindingKey(binding)),
     }));
-    this.workers = new Map(config.workers.map(worker => [worker.name, { ...worker, generation: null, runtime: null, capability: null }]));
+    this.workers = new Map(config.workers.map(worker => [worker.name, {
+      ...worker, generation: null, runtime: null, capability: null,
+      canStart: false, attempts: 0, retryAt: 0, denied: false,
+    }]));
     this.pending = [];
     this.queue = Promise.resolve();
     this.stopping = false;
@@ -99,7 +106,7 @@ export class DockerBroker {
       catch (error) {
         if (![401, 403, 404].includes(error.status)) {
           entry.attempts = (entry.attempts ?? 0) + 1;
-          entry.retryAt = Date.now() + Math.min(300_000, 30_000 * 2 ** Math.min(entry.attempts - 1, 4));
+          entry.retryAt = Date.now() + retryDelay(entry.attempts);
           continue;
         }
         // Already ended/revoked/expired is terminal, not a reason to consume
@@ -160,20 +167,45 @@ export class DockerBroker {
     let generation;
     try { generation = await this.inspect(worker); }
     catch (error) { await this.retire(worker); throw error; }
-    if (generation === worker.generation) return;
-    await this.retire(worker);
-    worker.generation = generation;
-    if (!generation || this.stopping) return;
-    // One attempt per observed execution. Rejected/expired grants are never
-    // recovered by creating new identities or repeatedly starting sessions.
-    worker.runtime = await this.open(worker.binding, this.vault, `docker:${worker.name}`);
-    this.pending.push({ binding: worker.binding, sessionId: worker.runtime.sessionId, createdAt: Date.now() });
-    await this.save();
-    worker.capability = randomBytes(32).toString("base64url");
-    await atomicJson(join(this.transport(worker), "binding.json"), {
-      url: new URL(this.config.url).origin, capability: worker.capability,
-      sessionId: worker.runtime.sessionId, projectId: worker.binding.projectId, identityId: worker.binding.identityId,
-    });
+    if (generation !== worker.generation) {
+      await this.retire(worker);
+      worker.generation = generation;
+      // A new execution gets one start attempt. initialize() pre-records a
+      // running generation so a broker restart does not resurrect a session.
+      worker.canStart = true;
+      worker.attempts = 0;
+      worker.retryAt = 0;
+      worker.denied = false;
+    }
+    if (!generation || this.stopping || worker.runtime || !worker.canStart) return;
+    if (worker.denied || worker.retryAt > Date.now()) return;
+    try {
+      worker.runtime = await this.open(worker.binding, this.vault, `docker:${worker.name}`);
+      this.pending.push({ binding: worker.binding, sessionId: worker.runtime.sessionId, createdAt: Date.now() });
+      await this.save();
+      worker.capability = randomBytes(32).toString("base64url");
+      await atomicJson(join(this.transport(worker), "binding.json"), {
+        url: new URL(this.config.url).origin, capability: worker.capability,
+        sessionId: worker.runtime.sessionId, projectId: worker.binding.projectId, identityId: worker.binding.identityId,
+      });
+      worker.canStart = false;
+      worker.attempts = 0;
+      worker.retryAt = 0;
+    } catch (error) {
+      // A failure after the runtime exists (journal or binding persistence) must
+      // not leave an active session behind without a published capability.
+      if (worker.runtime) await this.retire(worker).catch(() => {});
+      if ([401, 403, 404].includes(error.status)) {
+        // Terminal rejection: no further session for this execution. Expired or
+        // revoked grants are never recovered by repeatedly starting sessions.
+        worker.denied = true;
+      } else {
+        // Transient origin/DNS/VPN/timeout failure: retry the same execution.
+        worker.attempts += 1;
+        worker.retryAt = Date.now() + retryDelay(worker.attempts);
+      }
+      throw error;
+    }
   }
 
   async reconcile() {

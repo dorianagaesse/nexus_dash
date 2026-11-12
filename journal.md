@@ -11776,3 +11776,17 @@ Linux CI exposed a host UID mismatch when capability-free container root read
 the private transport file. POSIX workers now use the broker UID/GID; private
 file modes and dropped capabilities are preserved. Native Linux Docker checks
 run before the full smoke suite, and test assertions avoid echoing pairing codes.
+
+### 2026-11-12 - ND-823 review follow-up
+
+- Addressed the PR #691 review. Transient session-start failures now retry the
+  observed execution with the same 30-second to five-minute backoff as stale
+  cleanup; terminal 401/403/404 rejection remains latched until the container
+  restarts, and broker recovery still requires an explicit execution change.
+- Startup now validates config before taking `broker.lock`, and lock cleanup
+  runs in `finally`, so config errors, a corrupt journal or a failed close no
+  longer leave a lock that reads as a crash or suppress the startup message.
+- E2E now exercises server-side wrong-identity rejection, removes macOS keychain
+  entries, and keeps the temp directory and image build inside cleanup; the
+  quality-gates smoke step builds independently of the prior Docker-validation
+  step.

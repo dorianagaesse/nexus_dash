@@ -105,16 +105,23 @@ use separate broker configurations/state directories for independent management.
   This prevents broker recovery from reviving an owner-ended session.
 - A broker crash leaves a `broker.lock` in its state directory. Verify the old
   process has stopped before removing that lock and restarting without `--create`.
-  Transient cleanup failures stay in `sessions.json` and retry with exponential
-  backoff from 30 seconds to five minutes; terminal authorization rejection
-  removes the entry without consuming the shared authentication failure budget.
-  Rejected renewal closes that execution to further requests;
-  entries expire after the session's 12-hour maximum. A crash between server
-  session creation and journal persistence can leave an orphan until that bound.
-  Bearers stay only in broker memory and expire in five minutes; workers have
-  no usable access while the broker is down.
+  A broker that fails its own startup (including an invalid config or a corrupt
+  journal) removes the lock it acquired, so a remaining lock means another
+  process owns it or a crash. Transient cleanup failures stay in `sessions.json`
+  and retry with exponential backoff from 30 seconds to five minutes; terminal
+  authorization rejection removes the entry without consuming the shared
+  authentication failure budget. Rejected renewal closes that execution to
+  further requests; entries expire after the session's 12-hour maximum. A crash
+  between server session creation and journal persistence can leave an orphan
+  until that bound. Bearers stay only in broker memory and expire in five
+  minutes; workers have no usable access while the broker is down.
 - Daemon failure retires local access. Once Docker recovers, explicitly restart
-  affected workers; the broker does not retry their session creation endlessly.
+  affected workers that had an active session; the broker does not recreate
+  their sessions automatically. A session start that fails transiently (DNS,
+  VPN, timeout or 5xx from the Nexus origin) is retried for the same execution
+  with 30-second to five-minute backoff. Terminal authorization rejection
+  (401/403/404) is latched until that container is restarted, and requests stay
+  fail-closed while no session exists.
 
 ## Isolation boundary
 

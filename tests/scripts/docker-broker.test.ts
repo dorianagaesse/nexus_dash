@@ -50,15 +50,49 @@ test("detached workers keep independent sessions; restart/recreation rotates cap
   await broker.close();
 });
 
-test("rejected authorization does not retry on every poll or inherit another worker's access", async () => {
+test("terminal start rejection is latched until the execution changes", async () => {
   const { broker, generations, openRuntime } = await setup();
   vi.spyOn(console, "error").mockImplementation(() => {});
-  openRuntime.mockRejectedValueOnce(new Error("revoked"));
+  openRuntime.mockRejectedValue(Object.assign(new Error("revoked"), { status: 401 }));
   generations.one = "container:start";
   await broker.reconcile();
+  let now = Date.now();
+  const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+  now += 3_600_000;
   await broker.reconcile();
   expect(openRuntime).toHaveBeenCalledTimes(1);
   expect(broker.workers.get("one").capability).toBeNull();
+  generations.one = "container:restart";
+  await broker.reconcile();
+  clock.mockRestore();
+  expect(openRuntime).toHaveBeenCalledTimes(2);
+  expect(broker.workers.get("one").capability).toBeNull();
+  await broker.close();
+});
+
+test("transient start failures retry the same execution with backoff", async () => {
+  const { broker, generations, openRuntime } = await setup();
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  openRuntime.mockRejectedValueOnce(new Error("origin timeout")).mockRejectedValueOnce(new Error("origin timeout"));
+  let now = Date.now();
+  const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+  generations.one = "container:start";
+  await broker.reconcile();
+  expect(broker.workers.get("one").attempts).toBe(1);
+  expect(broker.workers.get("one").retryAt).toBe(now + 30_000);
+  await broker.reconcile();
+  expect(openRuntime).toHaveBeenCalledTimes(1);
+  now += 30_001;
+  await broker.reconcile();
+  expect(openRuntime).toHaveBeenCalledTimes(2);
+  expect(broker.workers.get("one").attempts).toBe(2);
+  expect(broker.workers.get("one").retryAt).toBe(now + 60_000);
+  now += 60_001;
+  await broker.reconcile();
+  clock.mockRestore();
+  expect(openRuntime).toHaveBeenCalledTimes(3);
+  expect(broker.workers.get("one").capability).toBeTruthy();
+  expect(broker.workers.get("one").runtime.sessionId).toBe("session-1");
   await broker.close();
 });
 

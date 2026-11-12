@@ -32,7 +32,11 @@ test("Docker executions retain actor identity with independent, isolated session
     if (!secrets.has(key)) throw new Error("Missing exact binding"); return nativeVault.read(key);
   } };
   await pairDevice(binding, pairingCode, vault);
-  await expect(openRuntime({ ...binding, identityId: "wrong-identity" }, vault, "invalid")).rejects.toThrow();
+  // Return the valid Oscar proof for a mismatched binding so the start request
+  // reaches the server; the local exact-binding lookup is not what is under test.
+  const mismatchedVault = { read: async () => nativeVault.read(bindingKey(binding)) };
+  await expect(openRuntime({ ...binding, identityId: "wrong-identity" }, mismatchedVault, "invalid"))
+    .rejects.toThrow(/Runtime access rejected/);
   const nova = await command({ operation: "create", name: "Docker Nova", scopes, canMoveTasksToDone: false });
   const novaBinding = { ...binding, identityId: nova.identityId };
   const novaGrant = await command({ operation: "authorize-device", identityId: nova.identityId, name: "Independent Nova", scopes, canMoveTasksToDone: false });
@@ -41,22 +45,24 @@ test("Docker executions retain actor identity with independent, isolated session
   const suffix = Date.now();
   const names = [`nd823-one-${suffix}`, `nd823-two-${suffix}`, `nd823-nova-${suffix}`];
   const image = `nd823-worker:${suffix}`;
-  const certFile = join(directory, "cert.pem");
-  const keyFile = join(directory, "key.pem");
-  const openssl = process.env.ND_OPENSSL ?? (process.platform === "win32" ? "C:/Program Files/Git/usr/bin/openssl.exe" : "openssl");
-  execFileSync(openssl, ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-keyout", keyFile, "-out", certFile,
-    "-subj", "/CN=host.docker.internal", "-addext", "subjectAltName=DNS:host.docker.internal"], { windowsHide: true, stdio: "ignore" });
-  await copyFile(resolve("scripts/nd-sandbox-request.mjs"), join(directory, "request.mjs"));
-  await writeFile(join(directory, "Dockerfile"), "FROM node:24-bookworm\nCOPY request.mjs /request.mjs\n");
-  // Only the helper and Dockerfile enter the image; TLS key/proofs are excluded.
-  await writeFile(join(directory, ".dockerignore"), "*\n!Dockerfile\n!request.mjs\n");
-  execFileSync("docker", ["build", "-q", "-t", image, directory], { windowsHide: true, timeout: 60000, stdio: "pipe" });
-  const broker = new DockerBroker({ url: "https://host.docker.internal:44483", keyFile, certFile,
-    stateDirectory: join(directory, "state"), workers: names.map((name, index) => ({ name, image, binding: index === 2 ? novaBinding : binding, command: ["node", "-e", "setInterval(()=>{},1000)"] })) }, vault);
-  const readBinding = async (index: number) => JSON.parse(await readFile(join(broker.transport(broker.workers.get(names[index])), "binding.json"), "utf8"));
-  const request = (index: number, method = "GET", path = `/api/projects/${project.id}/tasks`, body?: string) =>
-    docker(["exec", names[index], "node", "/request.mjs", method, path, ...(body ? [body] : [])]);
+  let broker: DockerBroker | undefined;
   try {
+    const certFile = join(directory, "cert.pem");
+    const keyFile = join(directory, "key.pem");
+    const openssl = process.env.ND_OPENSSL ?? (process.platform === "win32" ? "C:/Program Files/Git/usr/bin/openssl.exe" : "openssl");
+    execFileSync(openssl, ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-keyout", keyFile, "-out", certFile,
+      "-subj", "/CN=host.docker.internal", "-addext", "subjectAltName=DNS:host.docker.internal"], { windowsHide: true, stdio: "ignore" });
+    await copyFile(resolve("scripts/nd-sandbox-request.mjs"), join(directory, "request.mjs"));
+    await writeFile(join(directory, "Dockerfile"), "FROM node:24-bookworm\nCOPY request.mjs /request.mjs\n");
+    // Only the helper and Dockerfile enter the image; TLS key/proofs are excluded.
+    await writeFile(join(directory, ".dockerignore"), "*\n!Dockerfile\n!request.mjs\n");
+    execFileSync("docker", ["build", "-q", "-t", image, directory], { windowsHide: true, timeout: 60000, stdio: "pipe" });
+    const workerBroker = new DockerBroker({ url: "https://host.docker.internal:44483", keyFile, certFile,
+      stateDirectory: join(directory, "state"), workers: names.map((name, index) => ({ name, image, binding: index === 2 ? novaBinding : binding, command: ["node", "-e", "setInterval(()=>{},1000)"] })) }, vault);
+    broker = workerBroker;
+    const readBinding = async (index: number) => JSON.parse(await readFile(join(workerBroker.transport(workerBroker.workers.get(names[index])), "binding.json"), "utf8"));
+    const request = (index: number, method = "GET", path = `/api/projects/${project.id}/tasks`, body?: string) =>
+      docker(["exec", names[index], "node", "/request.mjs", method, path, ...(body ? [body] : [])]);
     await broker.initialize();
     await broker.createWorkers();
     await broker.listen();
@@ -115,14 +121,16 @@ test("Docker executions retain actor identity with independent, isolated session
     await expect(request(1)).rejects.toThrow();
     expect(JSON.parse(await request(2)).tasks).toHaveLength(1);
   } finally {
-    await broker.close();
+    try { await broker?.close(); } catch { /* cleanup is best effort */ }
     for (const name of names) { try { await docker(["rm", "-f", name]); } catch { /* already removed */ } }
-    await docker(["image", "rm", image]);
+    try { await docker(["image", "rm", image]); } catch { /* build never completed */ }
     // This is the unique mkdtemp directory created by this test, never a supplied path.
-    await rm(directory, { recursive: true, force: true });
+    try { await rm(directory, { recursive: true, force: true }); } catch { /* retry on next temp cleanup */ }
     for (const item of [binding, novaBinding]) {
-      if (process.platform === "win32") await unlink(join(homedir(), ".nexusdash", "vault", bindingKey(item)));
-      else if (process.platform === "linux") execFileSync("secret-tool", ["clear", "service", "nexusdash-agent", "binding", bindingKey(item)]);
+      const key = bindingKey(item);
+      if (process.platform === "win32") await unlink(join(homedir(), ".nexusdash", "vault", key)).catch(() => {});
+      else if (process.platform === "linux") { try { execFileSync("secret-tool", ["clear", "service", "nexusdash-agent", "binding", key]); } catch { /* not stored */ } }
+      else if (process.platform === "darwin") { try { execFileSync("security", ["delete-generic-password", "-s", "nexusdash-agent", "-a", key]); } catch { /* not stored */ } }
     }
   }
 });

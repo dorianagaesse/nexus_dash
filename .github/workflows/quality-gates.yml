@@ -136,7 +136,7 @@ jobs:
           dbus-run-session -- bash -c 'printf "%s" "disposable-ci-keyring" | gnome-keyring-daemon --unlock; npm run test:e2e -- tests/e2e/nd-823-docker-broker.spec.ts'
 
       - name: Run E2E smoke suite
-        run: npx playwright test
+        run: npm run build && npx playwright test
 
       - name: Upload Playwright report (on failure)
         if: failure()
