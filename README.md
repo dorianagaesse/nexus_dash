@@ -752,6 +752,15 @@ Responses group counts and caller-specific `reacted` state. Each reaction's
 removal preserves the agent display snapshot with a null actor ID. Reaction
 button tooltips show these actors, including the agent marker.
 
+Open task dialogs reconcile comments, counts and reactions through project
+activity, including Broadcast signals and polling or reconnect snapshots.
+Thread reads continue during task editing without replacing unsent comments,
+active comment edits, focus or selection. Switching tasks cancels pending reads;
+late responses cannot replace the newly opened thread. Polling keeps the existing
+10-second active cadence; no separate thread polling loop is added.
+After a local mutation finishes, open surfaces also catch up once so its version
+acknowledgement cannot hide a concurrent remote comment or reaction.
+
 Reaction routes validate the entire project/task/comment/reaction path. A known
 comment under the wrong task, or a reaction under the wrong comment, returns 404
 and never reads or changes the other thread's reactions.
