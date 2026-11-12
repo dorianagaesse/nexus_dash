@@ -107,6 +107,13 @@ describe("project-attachment-service", () => {
     prismaMock.project.update.mockResolvedValue({ id: "project-1" });
   });
 
+  test("multipart agent uploads reject missing scope before touching storage", async () => {
+    const result = await createTaskAttachmentFromForm({ actorUserId, projectId: "project-1", taskId: "task-1", formData: new FormData(), agentAccess: { projectId: "project-1", credentialId: "a", scopes: ["task:read"] } });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(403);
+    expect(attachmentStorageMock.saveAttachmentFile).not.toHaveBeenCalled();
+  });
+
   test.each(["credential-a", "credential-b"])("persists distinct task link uploader %s", async (credentialId) => {
     prismaMock.apiCredential.findFirst.mockResolvedValue({ id: credentialId, label: credentialId, revokedAt: null, expiresAt: null });
     await createTaskAttachmentsFromDraft({ actorUserId, projectId: "project-1", taskId: "task-1", links: [{ name: "Spec", url: "https://example.com" }], files: [], agentAccess: { credentialId, projectId: "project-1", scopes: ["task:write"] } });

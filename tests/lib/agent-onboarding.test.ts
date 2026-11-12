@@ -610,6 +610,16 @@ test("comment mention schemas and examples support safe round-tripping", () => {
   expect(payload.agentMentionSelections[0]).toEqual({ credentialId: "credential_123" });
 });
 
+test("documents bearer multipart task uploads and provider limits", () => {
+  const doc = buildAgentOpenApiDocument("https://example.test");
+  const path = "/api/projects/{projectId}/tasks/{taskId}/attachments";
+  expect(doc.paths[path].post.requestBody.content["multipart/form-data"].schema.$ref).toBe("#/components/schemas/TaskAttachmentFormRequest");
+  expect(doc.components.schemas.TaskAttachmentFormRequest.properties.file.description).toContain("4,194,304");
+  const endpoint = AGENT_API_ENDPOINTS.find(e => e.path === path);
+  expect(endpoint?.requiredScopes).toEqual(["task:write"]);
+  expect(endpoint?.notes?.join(" ")).toContain("attachmentFiles");
+});
+
 test("publishes actor-aware reaction endpoints and ownership semantics", () => {
   const doc = buildAgentOpenApiDocument("https://example.test");
   const path = "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions";

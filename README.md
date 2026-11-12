@@ -34,10 +34,20 @@ Implemented today:
 - Project-scoped agent access with owner-managed API credentials, short-lived bearer-token exchange, and audit trail
 - Project dashboard with:
   - Context cards (CRUD + attachments)
+  - Epics listed in a bounded, scrollable view with title, completion, task count,
+    and edit/archive/delete actions. Colored flags identify epics across the list,
+    details dialog, and Kanban. **Active** and **Archived** show their epics
+    immediately, with name and description search. Open an epic to see its
+    description and every linked task, ordered Backlog, Blocked, In Progress,
+    then Done. Task links open the task directly. Creation and editing use dialogs.
   - Meeting notes with searchable preparation inputs, label filters,
     participants, after-meeting outputs, todo tracking, overdue highlights,
     state, and archived history
-  - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
+  - Roadmap milestone lanes with grouped events, drag-and-drop regrouping,
+    and target-date planning. Milestones stack vertically on narrow screens
+    and form a horizontally scrollable timeline on desktop. During a touch
+    drag, visible insertion gaps let you create a milestone by releasing
+    your finger inside the gap.
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
   - Calendar panel (Google Calendar list/create/update/delete)
   - Task attachment additions and deletions sync into open task modals across
@@ -777,6 +787,15 @@ Responses group counts and caller-specific `reacted` state. Each reaction's
 removal preserves the agent display snapshot with a null actor ID. Reaction
 button tooltips show these actors, including the agent marker.
 
+Open task dialogs reconcile comments, counts and reactions through project
+activity, including Broadcast signals and polling or reconnect snapshots.
+Thread reads continue during task editing without replacing unsent comments,
+active comment edits, focus or selection. Switching tasks cancels pending reads;
+late responses cannot replace the newly opened thread. Polling keeps the existing
+10-second active cadence; no separate thread polling loop is added.
+After a local mutation finishes, open surfaces also catch up once so its version
+acknowledgement cannot hide a concurrent remote comment or reaction.
+
 Reaction routes validate the entire project/task/comment/reaction path. A known
 comment under the wrong task, or a reaction under the wrong comment, returns 404
 and never reads or changes the other thread's reactions.
@@ -797,5 +816,21 @@ moderation; this grants neither read nor publishing access. Once posted, project
 readers may download the file. Binding is atomic and a draft can be published once.
 Direct-upload keys must be used by the actor that requested them. Finalization and
 cleanup reject an already-finalized key; agents cannot claim legacy human keys.
+
+### Agent files with local storage
+
+Create the task using JSON, then POST multipart form data to
+`/api/projects/{projectId}/tasks/{taskId}/attachments` with the bearer token,
+`kind=file` and `file`. This path supports local and R2 providers, with the
+existing 4 MiB MIME/size limit and actual credential attribution. For a comment
+file, add `isCommentDraft=true`, then POST its ID in `attachmentIds` to the task
+comments route. Only that credential may bind or read the unpublished file.
+
+Agent multipart task creation with `attachmentFiles` remains unsupported; the
+two-request create/upload flow is its supported equivalent. R2 direct upload
+remains preferred for files up to 25 MiB. Local storage returns 400 for signed
+upload targets; use multipart instead. Authentication or authorization failures
+must not trigger a fallback to a human session. Context-card local uploads remain
+outside this contract.
 
 Project module permissions and rollout: [project capabilities](docs/runbooks/project-capabilities.md).

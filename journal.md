@@ -1,5 +1,113 @@
 # Development Journal
 
+# 2026-11-12 - PR #688: reconcile upload and thread merges
+
+- Merged main at `917a642`, preserving both journal histories and both adjacent
+  onboarding contract tests. No runtime code required manual resolution.
+- All 18 onboarding contract tests and `git diff --check` passed.
+- Broader validation results and local build limitations are reported at handoff.
+
+# 2026-11-12 - PR #687: reconcile thread synchronization merge
+
+- Merged main at `00755cf` after PR #696 landed. Preserved both journal
+  histories in the only conflict; application files merged automatically.
+- `git diff --check` and documentation reference review passed.
+
+## 2026-11-12 - ND-837: synchronize PR #696 with main
+
+- Merged main at `ec9f4afb1fad043130f599cd04533eea42d50339` into
+  `fix/nd-837`. Git combined the changes without manual conflict resolution;
+  retained the thread reconciliation fixes and current epic/roadmap updates.
+- Lint, RLS inventory, production build, 2,526 unit/API tests (3 skipped),
+  and coverage thresholds pass on Node 24.22.1. Coverage remains 95.56% lines
+  and 89.12% branches. The saved-position test failed under default worker
+  load, then passed in isolation and in both full two-worker runs.
+- All seven Chromium checks pass: the two-human-session plus agent thread
+  regression and the project/task/attachment/context/meeting/roadmap/calendar
+  smoke suite. Existing Preview verification remains pending as previously
+  recorded; this merge does not claim deployed runtime validation.
+
+# 2026-11-12 - PR #687: refresh merge compatibility
+
+- Merged main at `ec9f4af` into the upload branch. Resolved the journal-only
+  conflict by preserving both histories; application files merged automatically.
+- Verified the resolved merge with `git diff --check` and reviewed documentation
+  references. No application code was changed during conflict resolution.
+
+# 2026-11-12 - ND-832: epic color cues
+
+- Restored the Kanban epic colors as compact flags beside each epic name.
+  The same flag appears in the details dialog, with a tinted background
+  and a foreground adjusted for each theme.
+
+# 2026-11-11 - ND-832: bounded epic rows and details
+
+- Replaced the card grid and browse toggle with immediate, searchable rows.
+  Matched the Kanban height cap and retained row-level edit, archive and delete.
+- Moved description, attribution and every linked task into a details dialog.
+  Tasks follow Backlog, Blocked, In Progress and Done order. Task links hand
+  focus to the board modal and preserve modified-click navigation.
+- Moved editing into a dialog so list filtering cannot hide an active draft
+  or leave its project refresh lock inaccessible.
+- Merged current main and retained both journal histories while resolving
+  the journal conflict, including conflict markers already present on main.
+- Stabilized the newly merged roadmap touch-insertion test by completing
+  a client interaction before measuring its hydrated drag handle.
+
+# 2026-11-11 - ND-832: Search-first Epics section
+
+- Moved epic creation into the shared responsive dialog. Successful saves update
+  the local list immediately and select Active when creation starts from Archived.
+- Made name and description search the default within each view. Show all
+  reveals the selected list, and clearing the search restores the compact view.
+- Ran 12 focused Chromium scenarios covering the desktop and mobile creation
+  flows, search, archive and restore, attribution, and linked tasks.
+# 2026-11-11 - ND-831: mobile review fixes
+
+- Made mobile insertion gaps visible during drag and aligned their touch
+  selection with the finger position. Kept desktop and keyboard selection
+  on the existing drag library path.
+- Wrapped long names in confirmation descriptions and extended the 320px
+  browser checks to verify the full event name and a drop inside the gap.
+- Merged current main and preserved both journal histories. Validation
+  evidence is recorded on PR #695.
+
+# 2026-11-11 - ND-831: mobile roadmap layout
+
+- Reproduced clipped milestone titles and event actions at 320px. Constrained
+  the mobile grid to the panel width and let long titles wrap in milestone
+  headers, event cards, and event details.
+- Enlarged primary touch targets and added Playwright coverage for grouped
+  milestones at 320px, 375px, and 430px and horizontal scrolling on desktop.
+- Kept the original drag handle mounted on narrow screens and measured the
+  drop lanes before lift. Verified touch scrolling and moving an event between
+  milestones in Chromium.
+
+# 2026-11-11 - ND-673: reconcile local uploads with main
+
+- Merged current main into PR #687, retaining bearer multipart uploads, exact
+  credential attribution, private drafts and main's task capability checks.
+- Preserved reaction and attachment schema relations, PostgreSQL lifecycle
+  checks, endpoint tests and both documentation histories.
+- Combined validation evidence is recorded on the PR before handoff.
+
+# 2026-11-08 - ND-673: agent multipart task uploads
+
+- Enabled bearer principals on the existing task attachment form route and
+  propagated credential identity through scope checks, storage paths and actor
+  attribution. Reused the existing MIME/4 MiB limits and draft protections.
+- Published multipart schemas and the JSON-create then multipart-upload path for
+  local storage, retaining R2 direct upload and the multipart-at-create restriction.
+- Added local/API checks for regular and comment files, invalid tokens, missing
+  scopes, MIME/size rejection, attribution, privacy, binding and download/removal.
+- Lint, RLS inventory/matrix, 2,408 unit/API tests (3 skipped), coverage thresholds
+  and build passed. Eight local browser scenarios passed initially; the meeting
+  smoke bounding-box assertion missed its tolerance by 2.5px and passed an
+  unchanged isolated rerun. All three hosted upload/draft lifecycle checks passed.
+- Preview workflow 42491849366 verified `164ae18b` at
+  `https://nexus-dash-2527p5sp8-dorian-agaesses-projects.vercel.app`, covering the
+  multipart path and existing R2 direct upload, actor history and draft ownership.
+
 # 2026-11-11 - ND-674: reconcile actor and mention contracts with main
 
 - Merged current main into PR #688, retaining actor discovery and mention
@@ -11838,3 +11946,37 @@ the original run passed the other 143 scenarios, including notification revocati
 - Validation passes: lint, RLS inventory, production build, 2,507 unit tests
   (3 skipped), coverage (95.56% lines, 89.12% branches), and all six focused
   404 browser checks. Reviewed desktop/mobile screenshots in both themes.
+
+## 2026-11-11 - ND-837 open task thread reconciliation
+
+- Reproduced the acknowledgement race independently: a local reaction can
+  acknowledge a project version covering a remote comment before its activity
+  arrives. With no deferred event, the old code never reconciled the thread and
+  then discarded that remote event as already acknowledged. Open surfaces now
+  catch up once after the last acknowledged local mutation finishes.
+- Reproduced an open-thread gap: task edit mode skipped comment reads even when
+  project activity changed. Version-only reconciliation also left board comment
+  counts unchanged, and late reaction reads could replace a newer task's state.
+- Kept targeted comment reads active during task editing, reconciled counts,
+  retained newer comment edits, and guarded reaction reads and mutations across
+  task switches and concurrent responses. Failed reads retain the visible thread.
+- Added regressions for task drafts/focus/selection, stale reaction responses,
+  and two independent human browser sessions plus agent comment/reaction writes.
+  Existing project activity supplies Broadcast and polling catch-up; no separate
+  thread polling loop was introduced.
+- Avoided no-op count updates and guarded queued selection synchronization so
+  closing or switching a task wins over an older reconciliation. All 34 focused
+  board/keyboard/reconciliation tests pass after these safeguards.
+- Validation passes on Node 24.22.1 with isolated local PostgreSQL: lint, RLS
+  inventory, 2,526 unit/API tests (3 skipped), coverage thresholds (95.56% lines,
+  89.12% branches), production build, and eight browser scenarios covering live
+  comments, recovery, deep links, bilateral relations and attachment sync.
+- CI run 43027243548 passed core checks and tenant isolation. Its first browser
+  attempt passed 155 cases but timed out reopening a related task; that scenario
+  passed locally and on retry. The retry exposed a timestamp-username collision
+  between this regression's two test accounts. Free the first generated username
+  before creating the second account; retain the shared helper unchanged.
+- PR #696 is the review surface. Preview dispatch still requires an authenticated
+  GitHub Actions setup: the connector has no dispatch tool and the cached HTTPS
+  credential returned 401. No Preview checkout/runtime claim is made. Copilot
+  review monitoring was omitted at the user's request.

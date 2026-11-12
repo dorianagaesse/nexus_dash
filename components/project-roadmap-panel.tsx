@@ -130,6 +130,25 @@ function parseIntermediateMilestoneDropIndex(droppableId: string): number | null
   }
   return null;
 }
+
+function getTouchInsertionIndex(
+  container: HTMLElement | null,
+  point: { x: number; y: number } | null
+): number | null {
+  if (!point) return null;
+  const gaps = container?.querySelectorAll<HTMLElement>(
+    "[data-roadmap-mobile-between-milestones-dropzone]"
+  );
+  for (const gap of gaps ?? []) {
+    const bounds = gap.getBoundingClientRect();
+    if (point.x >= bounds.left && point.x <= bounds.right &&
+        point.y >= bounds.top && point.y <= bounds.bottom) {
+      return Number(gap.dataset.roadmapMobileBetweenMilestonesDropzone);
+    }
+  }
+  return null;
+}
+
 const ROADMAP_LANE_WIDTH_CLASS = "w-[21rem]";
 const CONNECTOR_CARD_HEIGHT = 212;
 const CONNECTOR_CARD_GAP = 16;
@@ -137,7 +156,7 @@ const CONNECTOR_TOP_OFFSET = 56;
 const CONNECTOR_WIDTH = 148;
 
 const ROADMAP_ACTION_BUTTON_CLASS =
-  "rounded-full border border-transparent bg-transparent text-foreground/90 hover:border-slate-950 hover:bg-slate-950 hover:text-white dark:text-white/90 dark:hover:border-white dark:hover:bg-white dark:hover:text-slate-950";
+  "rounded-full border border-transparent bg-transparent text-foreground/90 hover:border-slate-950 hover:bg-slate-950 hover:text-white max-sm:h-11 max-sm:gap-1 max-sm:px-1.5 max-sm:text-xs dark:text-white/90 dark:hover:border-white dark:hover:bg-white dark:hover:text-slate-950";
 const ROADMAP_COUNT_BADGE_CLASS =
   "rounded-full border border-border/60 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground";
 
@@ -409,7 +428,7 @@ function RoadmapStatusBadge({
         type="button"
         className={cn(
           "rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60",
-          "cursor-pointer hover:scale-[1.01]",
+          "cursor-pointer hover:scale-[1.01] max-sm:min-h-11",
           tone.accent
         )}
         onClick={onClick}
@@ -856,9 +875,9 @@ function RoadmapDialogShell({
       >
         <div className="border-b border-border/60 bg-background px-5 py-4 sm:px-6 sm:py-5">
           <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <DialogTitle className="text-xl font-semibold text-foreground">
+                <DialogTitle className="min-w-0 text-xl font-semibold text-foreground [overflow-wrap:anywhere]">
                   {title}
                 </DialogTitle>
                 {headerBadge}
@@ -872,7 +891,7 @@ function RoadmapDialogShell({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-9 w-9 rounded-full"
+              className="h-11 w-11 shrink-0 rounded-full sm:h-9 sm:w-9"
               onClick={onClose}
               aria-label={`Close ${title}`}
               disabled={!dismissible}
@@ -937,7 +956,9 @@ function RoadmapEventDetailModal({
               Milestone lane
             </p>
             <p className="mt-2 text-sm font-medium text-foreground">{milestoneLabel}</p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">{phase.description}</p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
+              {phase.description}
+            </p>
           </div>
         ) : (
           <div className="rounded-2xl border border-border/60 bg-muted/25 px-4 py-3">
@@ -954,7 +975,7 @@ function RoadmapEventDetailModal({
             tone.phaseCard
           )}
         >
-          <p className="text-sm leading-7 text-foreground/90">
+          <p className="text-sm leading-7 text-foreground/90 [overflow-wrap:anywhere]">
             {event.description ?? "No extra note attached to this event yet."}
           </p>
         </div>
@@ -985,7 +1006,7 @@ function RoadmapEventDetailModal({
               </Button>
             </>
           ) : null}
-          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+          <Button type="button" variant="ghost" size="sm" className="max-sm:h-11" onClick={onClose}>
             Close
           </Button>
         </div>
@@ -1235,10 +1256,14 @@ function RoadmapDesktopBetweenMilestonesDropZone({
 function RoadmapMobileBetweenMilestonesDropZone({
   canEdit,
   isDraggingEvent,
+  isTouchDraggingEvent,
+  isTouchOver,
   insertIndex,
 }: {
   canEdit: boolean;
   isDraggingEvent: boolean;
+  isTouchDraggingEvent: boolean;
+  isTouchOver: boolean;
   insertIndex: number;
 }) {
   if (!canEdit) {
@@ -1247,16 +1272,14 @@ function RoadmapMobileBetweenMilestonesDropZone({
 
   return (
     <div
-      className={cn(
-        "w-full px-1 transition-all",
-        !isDraggingEvent && "hidden"
-      )}
+      className="w-full px-1"
       aria-hidden={!isDraggingEvent}
     >
       <Droppable
         droppableId={getIntermediateMilestoneDropId(insertIndex)}
         type="ROADMAP_EVENT"
-        isDropDisabled={!canEdit}
+        // Touch insertion uses the finger position rather than the card center.
+        isDropDisabled={!canEdit || isTouchDraggingEvent}
       >
         {(provided, snapshot) => (
           <div
@@ -1264,16 +1287,18 @@ function RoadmapMobileBetweenMilestonesDropZone({
             {...provided.droppableProps}
             data-roadmap-between-milestones-dropzone={insertIndex}
             data-roadmap-mobile-between-milestones-dropzone={insertIndex}
+            data-roadmap-insertion-active={isTouchOver || snapshot.isDraggingOver}
             className={cn(
-              "flex min-h-[90px] w-full items-center justify-center rounded-[1.55rem] px-4 py-6 text-center transition",
+              "relative flex h-9 w-full items-center justify-center gap-2 overflow-hidden rounded-[1.55rem] border border-dashed text-xs text-muted-foreground transition",
               isDraggingEvent
-                ? "pointer-events-auto opacity-0"
+                ? "pointer-events-auto border-border bg-muted/50 opacity-100"
                 : "pointer-events-none opacity-0",
-              snapshot.isDraggingOver &&
-                "opacity-100 bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66),0_0_0_1px_rgba(148,163,184,0.3)] dark:bg-slate-800/85 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(148,163,184,0.22)]"
+              (isTouchOver || snapshot.isDraggingOver) &&
+                "z-30 opacity-100 bg-slate-200/90 shadow-[0_34px_90px_-44px_rgba(15,23,42,0.66),0_0_0_1px_rgba(148,163,184,0.3)] dark:bg-slate-800/85 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(148,163,184,0.22)]"
             )}
           >
             <PlusSquare className="h-5 w-5 text-muted-foreground/70" />
+            <span>Insert milestone</span>
             {provided.placeholder}
           </div>
         )}
@@ -1391,6 +1416,7 @@ function RoadmapEventCard({
   event,
   eventIndex,
   canEdit,
+  isDesktop,
   isUpdatingStatus,
   onView,
   onEdit,
@@ -1400,6 +1426,7 @@ function RoadmapEventCard({
   event: ProjectRoadmapPanelEvent;
   eventIndex: number;
   canEdit: boolean;
+  isDesktop: boolean;
   isUpdatingStatus: boolean;
   onView: (eventId: string) => void;
   onEdit: (event: ProjectRoadmapPanelEvent) => void;
@@ -1414,7 +1441,12 @@ function RoadmapEventCard({
     : `Change status for ${event.title} to ${getRoadmapStatusLabel(nextStatus)}`;
 
   return (
-    <Draggable draggableId={event.id} index={eventIndex} isDragDisabled={!canEdit}>
+    <Draggable
+      draggableId={event.id}
+      index={eventIndex}
+      isDragDisabled={!canEdit}
+      disableInteractiveElementBlocking
+    >
       {(provided, snapshot) => {
         const content = (
           <article
@@ -1424,15 +1456,15 @@ function RoadmapEventCard({
             data-roadmap-event-status={event.status}
             data-roadmap-event-status-pending={isUpdatingStatus ? "true" : undefined}
             className={cn(
-              "relative min-h-[212px] rounded-[1.55rem] border p-4 shadow-[0_24px_64px_-46px_rgba(15,23,42,0.58)] transition",
+              "relative min-w-0 rounded-[1.55rem] border p-3 shadow-[0_24px_64px_-46px_rgba(15,23,42,0.58)] transition sm:p-4 lg:min-h-[212px]",
               tone.phaseCard,
               snapshot.isDragging &&
                 "z-20 scale-[1.01] shadow-[0_36px_100px_-44px_rgba(15,23,42,0.76)] dark:shadow-[0_36px_100px_-36px_rgba(0,0,0,0.95),0_0_0_1px_rgba(255,255,255,0.12)]"
             )}
           >
             <div className="space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 space-y-2">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 lg:flex lg:justify-between lg:gap-3">
+                <div className="contents lg:block lg:min-w-0 lg:space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <RoadmapStatusBadge
                       status={event.status}
@@ -1447,7 +1479,7 @@ function RoadmapEventCard({
                       title={canEdit ? statusButtonTitle : undefined}
                     />
                   </div>
-                  <h4 className="break-words text-lg font-semibold text-foreground">
+                  <h4 className="col-span-full row-start-2 min-w-0 text-lg font-semibold text-foreground [overflow-wrap:anywhere]">
                     {event.title}
                   </h4>
                 </div>
@@ -1455,7 +1487,7 @@ function RoadmapEventCard({
                 {canEdit ? (
                   <button
                     type="button"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-transparent text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    className="col-start-2 row-start-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-transparent text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-9 sm:w-9"
                     aria-label={`Drag ${event.title}`}
                     data-roadmap-event-drag-handle={event.id}
                     {...provided.dragHandleProps}
@@ -1474,7 +1506,7 @@ function RoadmapEventCard({
 
               {event.description ? (
                 <p
-                  className="break-words text-sm leading-6 text-muted-foreground"
+                  className="text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]"
                   style={EVENT_DESCRIPTION_PREVIEW_STYLE}
                 >
                   {event.description}
@@ -1485,7 +1517,7 @@ function RoadmapEventCard({
                 </p>
               )}
 
-              <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
+              <div className="flex flex-wrap items-center gap-x-0.5 gap-y-1 border-t border-border/40 pt-3 sm:gap-2">
                 <Button
                   type="button"
                   variant="ghost"
@@ -1515,7 +1547,7 @@ function RoadmapEventCard({
                       size="sm"
                       className={ROADMAP_ACTION_BUTTON_CLASS}
                       disabled={!canDelete}
-                onClick={() => onDelete(event.id)}
+                      onClick={() => onDelete(event.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                       Delete
@@ -1527,7 +1559,8 @@ function RoadmapEventCard({
           </article>
         );
 
-        if (snapshot.isDragging && typeof document !== "undefined") {
+        // Touch drags need the original handle to stay mounted throughout the gesture.
+        if (isDesktop && snapshot.isDragging && typeof document !== "undefined") {
           return createPortal(content, document.body);
         }
 
@@ -1542,6 +1575,7 @@ function RoadmapMilestoneLane({
   phaseIndex,
   canEdit,
   isDesktop,
+  isTouchInsertionActive,
   maxEventsCount,
   statusMutationEventId,
   pendingStatusEventIds,
@@ -1555,6 +1589,7 @@ function RoadmapMilestoneLane({
   phaseIndex: number;
   canEdit: boolean;
   isDesktop: boolean;
+  isTouchInsertionActive: boolean;
   maxEventsCount: number;
   statusMutationEventId?: string | null;
   pendingStatusEventIds?: Set<string>;
@@ -1574,7 +1609,7 @@ function RoadmapMilestoneLane({
 
   return (
     <section
-      className={cn("relative shrink-0", isDesktop ? ROADMAP_LANE_WIDTH_CLASS : "w-full")}
+      className={cn("relative min-w-0 shrink-0", isDesktop ? ROADMAP_LANE_WIDTH_CLASS : "w-full")}
       data-roadmap-milestone={phaseIndex + 1}
       data-roadmap-phase-id={phase.id}
     >
@@ -1588,10 +1623,10 @@ function RoadmapMilestoneLane({
           <span className="h-1.5 w-1.5 rounded-full bg-background" />
         </span>
         <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 lg:flex lg:flex-wrap lg:gap-1.5">
             <p
               className={cn(
-                "inline-flex max-w-full items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] shadow-[0_14px_30px_-24px_rgba(15,23,42,0.45)]",
+                "inline-flex max-w-full items-center justify-self-start rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] shadow-[0_14px_30px_-24px_rgba(15,23,42,0.45)]",
                 milestoneTone.badge
               )}
             >
@@ -1599,7 +1634,7 @@ function RoadmapMilestoneLane({
             </p>
             {hasCustomMilestoneTitle(phase.title) ? (
               <span
-                className="font-semibold text-sm text-foreground truncate max-w-[12rem]"
+                className="col-start-1 row-start-2 min-w-0 text-sm font-semibold text-foreground [overflow-wrap:anywhere] lg:max-w-[12rem] lg:truncate"
                 title={phase.title}
                 data-roadmap-phase-title={phase.id}
               >
@@ -1608,7 +1643,7 @@ function RoadmapMilestoneLane({
             ) : canEdit ? (
               <button
                 type="button"
-                className="text-xs italic text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+                className="col-start-1 row-start-2 justify-self-start text-xs italic text-muted-foreground/60 transition-colors hover:text-muted-foreground"
                 onClick={() => onEditMilestone(phase)}
                 data-roadmap-phase-title={phase.id}
               >
@@ -1618,7 +1653,7 @@ function RoadmapMilestoneLane({
             {canEdit ? (
               <button
                 type="button"
-                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground/50 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="col-start-2 row-start-1 row-span-2 inline-flex h-11 w-11 shrink-0 items-center justify-center self-start rounded text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:h-8 sm:w-8 lg:h-5 lg:w-5 lg:self-auto lg:text-muted-foreground/50"
                 onClick={() => onEditMilestone(phase)}
                 aria-label={`Edit ${hasCustomMilestoneTitle(phase.title) ? phase.title : milestoneLabel}`}
                 title="Edit milestone details"
@@ -1628,7 +1663,7 @@ function RoadmapMilestoneLane({
               </button>
             ) : null}
           </div>
-          <div className="flex items-center gap-2 pl-1 text-xs">
+          <div className="flex flex-wrap items-center gap-2 pl-1 text-xs">
             <p className={cn("font-medium", milestoneTone.accent)}>
               {getEventCountLabel(phase.events.length)}
             </p>
@@ -1642,7 +1677,7 @@ function RoadmapMilestoneLane({
             ) : null}
           </div>
           {phase.description ? (
-            <p className="pl-1 text-xs text-muted-foreground line-clamp-2">
+            <p className="line-clamp-2 pl-1 text-xs text-muted-foreground [overflow-wrap:anywhere]">
               {phase.description}
             </p>
           ) : canEdit ? (
@@ -1665,8 +1700,8 @@ function RoadmapMilestoneLane({
             {...provided.droppableProps}
             data-roadmap-lane-dropzone={phase.id}
             className={cn(
-              "px-1 pb-4 pt-1 transition",
-              snapshot.isDraggingOver &&
+              "px-1 pt-1 transition lg:pb-4",
+              snapshot.isDraggingOver && !isTouchInsertionActive &&
                 "rounded-[1.8rem] bg-gradient-to-b from-slate-200/70 via-slate-200/40 to-slate-200/60 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.45),0_0_0_1px_rgba(148,163,184,0.3)] dark:from-slate-800/70 dark:via-slate-800/50 dark:to-slate-800/65 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(148,163,184,0.22)]"
             )}
             style={
@@ -1706,6 +1741,7 @@ function RoadmapMilestoneLane({
                     event={event}
                     eventIndex={eventIndex}
                     canEdit={canEdit}
+                    isDesktop={isDesktop}
                     isUpdatingStatus={
                       pendingStatusEventIds
                         ? pendingStatusEventIds.has(event.id)
@@ -1843,6 +1879,8 @@ export function ProjectRoadmapPanel({
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [isDesktopLayout, setIsDesktopLayout] = useState(false);
   const [isDraggingEvent, setIsDraggingEvent] = useState(false);
+  const [isTouchDraggingEvent, setIsTouchDraggingEvent] = useState(false);
+  const [touchInsertionIndex, setTouchInsertionIndex] = useState<number | null>(null);
   const [pendingStatusEventIds, setPendingStatusEventIds] = useState<Set<string>>(() => new Set());
   const statusMutationEventId = Array.from(pendingStatusEventIds)[0] ?? null;
   const [isPersistingMove, setIsPersistingMove] = useState(false);
@@ -1851,6 +1889,28 @@ export function ProjectRoadmapPanel({
   >({});
   const desktopRoadmapRef = useRef<HTMLDivElement | null>(null);
   const desktopRoadmapScrollRef = useRef<HTMLDivElement | null>(null);
+  const mobileRoadmapRef = useRef<HTMLDivElement | null>(null);
+  const touchPointRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (!isTouchDraggingEvent) return;
+    const updateTarget = () => setTouchInsertionIndex(
+      getTouchInsertionIndex(mobileRoadmapRef.current, touchPointRef.current)
+    );
+    const trackTouch = (event: TouchEvent) => {
+      const touch = event.touches[0] ?? event.changedTouches[0];
+      if (touch) touchPointRef.current = { x: touch.clientX, y: touch.clientY };
+      updateTarget();
+    };
+    window.addEventListener("touchmove", trackTouch, { capture: true, passive: true });
+    window.addEventListener("touchend", trackTouch, { capture: true, passive: true });
+    window.addEventListener("scroll", updateTarget, true);
+    return () => {
+      window.removeEventListener("touchmove", trackTouch, true);
+      window.removeEventListener("touchend", trackTouch, true);
+      window.removeEventListener("scroll", updateTarget, true);
+    };
+  }, [isTouchDraggingEvent]);
 
   useEffect(() => {
     setRoadmapPhases((currentPhases) => {
@@ -2614,10 +2674,19 @@ export function ProjectRoadmapPanel({
   }
 
   async function handleDragEnd(result: DropResult) {
-    const { destination, source, draggableId } = result;
+    const { source, draggableId } = result;
+    const touchInsertIndex = result.reason === "DROP" && !isDesktopLayout
+      ? getTouchInsertionIndex(mobileRoadmapRef.current, touchPointRef.current)
+      : null;
+    const destination = touchInsertIndex !== null
+      ? { droppableId: getIntermediateMilestoneDropId(touchInsertIndex), index: 0 }
+      : result.destination;
+    touchPointRef.current = null;
+    setTouchInsertionIndex(null);
+    setIsTouchDraggingEvent(false);
     setIsDraggingEvent(false);
 
-    if (!destination) {
+    if (result.reason === "CANCEL" || !destination) {
       return;
     }
 
@@ -3065,7 +3134,11 @@ export function ProjectRoadmapPanel({
 
   return (
     <Card
-      className={PROJECT_SECTION_CARD_CLASS}
+      className={cn(
+        PROJECT_SECTION_CARD_CLASS,
+        "min-w-0",
+        isDraggingEvent && !isDesktopLayout && "overflow-visible [backdrop-filter:none]"
+      )}
       data-project-live-refresh-lock={
         isDraggingEvent ||
         isPersistingMove ||
@@ -3148,7 +3221,7 @@ export function ProjectRoadmapPanel({
             </SectionHelpAffordance>
 
             {canEdit ? (
-              <Button type="button" size="sm" className="w-full sm:w-auto" onClick={openCreateEvent}>
+              <Button type="button" size="sm" className="w-full max-sm:h-11 sm:w-auto" onClick={openCreateEvent}>
                 <PlusSquare className="h-4 w-4" />
                 New event
               </Button>
@@ -3158,7 +3231,7 @@ export function ProjectRoadmapPanel({
       </CardHeader>
 
       {isExpanded ? (
-        <CardContent className={cn("space-y-5", PROJECT_SECTION_CONTENT_CLASS)}>
+        <CardContent className={cn("space-y-5", PROJECT_SECTION_CONTENT_CLASS, "max-sm:px-3")}>
           {loadError ? (
             <div className="rounded-2xl border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {loadError}
@@ -3225,34 +3298,50 @@ export function ProjectRoadmapPanel({
             </div>
           ) : (
             <DragDropContext
+              onBeforeCapture={() => {
+                // Measure the end drop lane while it is visible on narrow screens.
+                if (!isDesktopLayout) {
+                  setIsDraggingEvent(true);
+                  setIsTouchDraggingEvent(touchPointRef.current !== null);
+                }
+              }}
               onDragStart={() => setIsDraggingEvent(true)}
               onDragEnd={handleDragEnd}
             >
               <div
-                ref={isDesktopLayout ? desktopRoadmapScrollRef : null}
+                ref={isDesktopLayout ? desktopRoadmapScrollRef : mobileRoadmapRef}
                 data-roadmap-scroll-container="true"
+                onTouchStartCapture={(event) => {
+                  const touch = event.touches[0];
+                  touchPointRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+                }}
+                onMouseDownCapture={() => { touchPointRef.current = null; }}
+                onKeyDownCapture={() => { touchPointRef.current = null; }}
                 className={cn(
+                  "min-w-0",
                   isDesktopLayout &&
                     "overflow-x-auto pb-4 [scrollbar-color:rgba(148,163,184,0.52)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[rgba(148,163,184,0.14)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.52)]"
                 )}
               >
                 <div
                   ref={isDesktopLayout ? desktopRoadmapRef : null}
-                  className={cn(
-                    "gap-5",
-                    isDesktopLayout ? "flex min-w-max items-start px-2 py-3" : "grid"
-                  )}
+                  className={
+                    isDesktopLayout
+                      ? "flex min-w-max items-start gap-5 px-2 py-3"
+                      : "grid grid-cols-1 gap-4"
+                  }
                 >
                   {roadmapPhases.map((phase, phaseIndex) => (
                     <div
                       key={phase.id}
-                      className={isDesktopLayout ? "contents" : "grid gap-5"}
+                      className={isDesktopLayout ? "contents" : "grid min-w-0 grid-cols-1"}
                     >
                       <RoadmapMilestoneLane
                         phase={phase}
                         phaseIndex={phaseIndex}
                         canEdit={canEdit}
                         isDesktop={isDesktopLayout}
+                        isTouchInsertionActive={touchInsertionIndex !== null}
                         maxEventsCount={maxEventsCount}
                         statusMutationEventId={statusMutationEventId}
                         pendingStatusEventIds={pendingStatusEventIds}
@@ -3280,6 +3369,8 @@ export function ProjectRoadmapPanel({
                         <RoadmapMobileBetweenMilestonesDropZone
                           canEdit={canEdit}
                           isDraggingEvent={isDraggingEvent}
+                          isTouchDraggingEvent={isTouchDraggingEvent}
+                          isTouchOver={touchInsertionIndex === phaseIndex + 1}
                           insertIndex={phaseIndex + 1}
                         />
                       ) : null}
