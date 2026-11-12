@@ -11675,6 +11675,46 @@ Low-value entries to avoid going forward:
   `git diff --check`, reference review, and release version policy passed. The prior
   Quality Gates run `42047520646` passed all jobs on `4617dce`.
 
+### 2026-11-06 - ND-658: portable identities and runtime access
+
+- Created an isolated worktree from `origin/main` (`83eda9c2`) because the root
+  checkout contained unrelated roadmap changes. Picked up ND-658 using the
+  Codex identity explicitly supplied in the session instructions.
+- Preserved stable actor IDs and added separate device authorization,
+  authentication credentials and concurrent sessions, live scope/capability
+  intersection, independent revocation, owner management and audited context.
+- Added the OS-vault launcher, single-use pairing and per-child loopback proxy.
+  Verified a Windows DPAPI round trip without printing the proof; removed the
+  test vault entry. macOS/Linux vault adapters require platform validation.
+- Added the additive migration and PostgreSQL runtime isolation matrix. A fresh
+  dedicated local database passed all migrations and the complete NOBYPASSRLS
+  matrix, including exact-proof bootstrap and immutable binding checks.
+- Unit/API suite passed (2,370 tests); subsequent coverage run passed (2,372
+  tests, 95.33% lines and 88.11% branches in the repository's configured scope).
+  Lint, RLS inventory and production build passed. The ND-658 desktop/mobile
+  browser scenario passed and screenshots were inspected; the full 132-test
+  browser suite is running before final handoff.
+- Ownership transfer invalidates old device grants. New owners can authorize
+  devices for the same identity without changing original attribution.
+- Added the portable identity runbook, hosted onboarding/OpenAPI contract and
+  focused ADR. No preview or deployment requested or performed.
+
+### 2026-11-06 - ND-658: completed local validation
+
+- Final unit/API and coverage runs: 2,372 passed, three intentionally skipped;
+  configured coverage remained 95.33% lines and 88.11% branches.
+- Full production-build/Playwright run passed: 130 tests, two intentionally
+  skipped (large-board baseline and preview-only auth isolation). Both ND-658
+  scenarios passed, including reauthorization after ownership transfer.
+- Added a refresh control, instance-bound setup command and visibility of all
+  active sessions plus seven days of recent sessions. Rebuilt and reran both
+  ND-658 browser scenarios successfully, including no-session-token rejection,
+  raw-key rotation denial, and retained assignments/mentions after deactivation.
+- Inspected desktop/mobile captures; the design detector reported no findings.
+  PR #669 is open. GitHub Quality Core and PostgreSQL Tenant Isolation passed on
+  the initial PR revision; final-head checks and requested Copilot review are
+  tracked on the PR. No deployment was triggered.
+
 ## 2026-11-07 - ND-547 reconcile PR #655 with main
 
 - Merged current main without rewriting branch history. Reapplied only ND-547 after the earlier review rollback caused Git to discard its implementation during the automatic merge. Preserved main's later Meeting Notes tests and all other task work.
@@ -11688,6 +11728,20 @@ Low-value entries to avoid going forward:
 - The public collaboration entry point remains a facade over owner invitations, membership/offboarding, recipient responses, shared policy/data/types, and email delivery. The architecture decision is proposed for user review rather than carrying forward the old approval claim.
 - Required validation, the invitation/membership browser lifecycle, real PostgreSQL isolation, and the detailed review response are recorded on #650. Leave the PR unmerged and the card In Progress for the user's review and merge.
 
+### 2026-11-08 - ND-658: address device-grant review
+
+- Reproduced PR #669's P2 finding with component tests: reducing identity scopes
+  and Done permission left hidden stale grants in the next pairing request.
+  A second regression exposed an enabled pairing button when refreshed identity
+  permissions no longer included any selected device scope.
+- Derive displayed and submitted device grants from the current identity,
+  preserve narrower device choices, and disable/guard empty-scope submissions.
+  Both tests failed before the fix and passed afterward. Updated the runbook.
+- Merged `origin/main` at `ac7b2fa3` into the existing PR branch, preserving both
+  sides of the journal conflict and all current-main collaboration/Meeting Notes
+  changes. The PostgreSQL isolation matrix passed after reconciliation.
+- Final baseline and CI results are recorded on PR #669. No deployment or merge
+  to main was performed; the card remains In Progress for reviewer handoff.
 
 ## 2026-11-08 - ND-663: complete Task data ownership
 
@@ -11859,6 +11913,30 @@ Low-value entries to avoid going forward:
   new 404 checks. Desktop/mobile and light/dark screenshot review passed.
 - Copilot review monitoring is omitted at the user's explicit request.
 
+### 2026-11-08 - ND-658: reconcile the merged agent-access work
+
+- Merged main at `e1dc3a3d` into PR #669, retaining the ND-655 searchable
+  credential directory/dialogs, ND-656 current public author metadata, ND-657
+  key-generation checks, ND-663 Task data boundary and ND-191 private todos.
+  Combined ADR/journal history and both PostgreSQL test matrices.
+- Portable identities now use ND-656's shared descriptive labels, validation
+  and editor. Removed the redundant role-label column from the unreleased
+  ND-658 migration; validated all migrations on a fresh local database.
+- Kept legacy key-generation enforcement while independently authorized runtime
+  sessions survive legacy key rotation. Added regression coverage for this
+  boundary and for runtime-authored comments following current identity labels.
+- Retained the device-grant review fix. Adapted legacy browser flows to the
+  merged credential dialogs under the legacy disclosure. Focused tests and
+  the complete PostgreSQL isolation matrix passed; final baseline/CI results
+  are recorded on PR #669.
+- Added and read back an explicit short test procedure on ND-658, with detailed
+  setup in the portable-identities runbook. No deployment or merge to main.
+- The integrated browser run exposed a closed legacy directory after returning
+  from revocation and an ambiguous label assertion across the two lists. Lifted
+  disclosure state above the offboarding dialog and scoped the legacy assertion
+  to its directory. The existing lifecycle scenarios cover both regressions.
+
+
 ### ND-130 integration handoff
 
 - The scoped-meeting and permission-editor follow-up passed 2,409 unit tests,
@@ -11940,3 +12018,17 @@ the original run passed the other 143 scenarios, including notification revocati
   GitHub Actions setup: the connector has no dispatch tool and the cached HTTPS
   credential returned 401. No Preview checkout/runtime claim is made. Copilot
   review monitoring was omitted at the user's request.
+
+### 2026-11-09 - ND-658: Windows validation and current-main integration
+
+- Reconciled PR #669 with main at `2e12457`, preserving ND-130 module permissions, notification isolation, runtime session audit context and both PostgreSQL matrices. Runtime usage checks receive the effective live scopes; legacy token scope removal still invalidates the token. Extended the guard regression assertion and corrected the compatibility documentation.
+- Native Windows DPAPI validation exposed an inherited PowerShell 7 module path that prevented Windows PowerShell from loading its security module. Reset only the child module path; the encrypted write/read roundtrip now passes. Added a Windows vault regression with isolated temporary storage.
+- Validation and manual-test environment evidence are recorded on PR #669. The user owns the Done transition; physical second-device and native macOS/Linux checks remain separate from local automation.
+
+- Browser integration exposed a legacy permission test that did not expand the new disclosure, plus an identity-list 500 when a shared database contains newer scope enums. Updated the existing browser scenario and filtered runtime identity grant reads before Prisma enum deserialization; the compatibility browser test now asserts the identity endpoint as well as the legacy directory.
+
+### 2026-11-09 - ND-658: identity panel visual cleanup
+
+- Applied Impeccable's polish workflow to the existing identity manager: clearer identity/device/session hierarchy, readable permission labels, larger controls, keyboard focus, and wrapping for technical IDs and long names. Session controls include their client and device in accessible names. Paired-device wording describes completed pairing separately from session state.
+- Kept legacy API credentials visible behind their existing disclosure with a short explanation. No changes to authentication, grants, persistence, or API operations. Docker integration and functional setup/permission changes remain in ND-823/824/825.
+- Desktop and 390px mobile review passed without horizontal overflow; both edited components passed the Impeccable detector. Existing device-grant unit checks, lint, RLS inventory and production build passed. Full baseline results and final production-render evidence are recorded on PR #669.

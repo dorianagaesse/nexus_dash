@@ -158,6 +158,20 @@ function buildGuideSections({
       content: (
         <>
           <div className="flex flex-wrap gap-2">{documentationActions}</div>
+          <div className="space-y-2 text-sm">
+            <h3 className="font-semibold">Portable identity launcher</h3>
+            <p>Create an identity in Project Settings ? Agent access, authorize a device,
+              then pair it once in your own terminal. The helper stores authentication in
+              the OS vault and renews access for each explicitly selected identity.</p>
+            <CodeBlock value={`node scripts/nd-agent.mjs login --base ${new URL(docsLinks.docsUrl).origin} --project PROJECT_ID --identity IDENTITY_ID\nnode scripts/nd-agent.mjs run --base ${new URL(docsLinks.docsUrl).origin} --project PROJECT_ID --identity IDENTITY_ID -- codex`} />
+            <p>Inside the launched client, use <code>node scripts/nd-agent.mjs request GET /api/projects/PROJECT_ID/tasks</code>.
+              Each launch has its own session. Identity, device and session permissions
+              are checked on every request; ending one session preserves the identity.</p>
+            <p className="text-xs text-muted-foreground">The helper is included in the NexusDash repository.
+              Windows uses DPAPI, macOS uses Keychain and Linux uses Secret Service.
+              Never paste a pairing code or a device credential into an AI conversation.</p>
+            <h3 className="pt-2 font-semibold">Legacy API key bootstrap</h3>
+          </div>
           <CodeBlock value={envBlock} />
           <p className="text-xs text-muted-foreground">
             Replace <code>NEXUSDASH_PROJECT_ID</code> and <code>NEXUSDASH_API_KEY</code> with

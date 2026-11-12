@@ -18,6 +18,7 @@ test("owners manage current author labels across all comments and credential lif
     await page.goto(`/projects/${project.id}`);
     await page.getByRole("button", { name: "Share project" }).click();
     await page.getByRole("button", { name: "Agent access", exact: true }).click();
+    await page.getByText("Legacy API credentials", { exact: true }).click();
     await page.getByRole("button", { name: "New credential", exact: true }).click();
     await page.locator("#project-agent-label").fill(name);
     const createLabels = page.getByLabel("Descriptive labels (optional)", { exact: true });
@@ -128,8 +129,10 @@ test("owners manage current author labels across all comments and credential lif
     await page.reload();
     await page.getByRole("button", { name: "Share project" }).click();
     await page.getByRole("button", { name: "Agent access", exact: true }).click();
-    await expect(page.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("GPT-6.1");
-    await expect(page.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("Research");
+    await page.getByText("Legacy API credentials", { exact: true }).click();
+    const directory = page.getByRole("region", { name: "Agent access", exact: true });
+    await expect(directory.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("GPT-6.1");
+    await expect(directory.getByRole("group", { name: "Descriptive labels", exact: true })).toContainText("Research");
     const edited = await agent.patch(`${commentsUrl}/${comment.id}`, { headers, data: { content: "Original model attribution, edited" } });
     expect(edited.status()).toBe(200);
     expect((await edited.json()).comment.author.agentCredentialDescriptiveLabels).toEqual(["GPT-6.1", "Research"]);

@@ -798,4 +798,13 @@ upload targets; use multipart instead. Authentication or authorization failures
 must not trigger a fallback to a human session. Context-card local uploads remain
 outside this contract.
 
+## Portable agent identities
+
+Owners manage persistent identities, device grants and concurrent sessions in
+Project Settings ? Agent access. The terminal launcher pairs each device once,
+stores authentication in the OS vault, and renews short-lived session access
+without giving long-lived keys to AI clients. See the
+[portable identity runbook](docs/runbooks/portable-agent-identities.md) for setup,
+permissions, revocation, compatibility and API contracts.
+
 Project module permissions and rollout: [project capabilities](docs/runbooks/project-capabilities.md).

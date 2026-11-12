@@ -62,6 +62,13 @@ export interface AgentApiEndpointDefinition {
 
 export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
   {
+    tag: "Auth", method: "POST", path: "/api/auth/agent/runtime",
+    title: "Pair a device or manage a bound runtime session",
+    description: "Launcher-only proof exchange for an explicitly selected identity and project.",
+    requiredScopes: [], requestContentType: "application/json",
+    notes: ["Pairing codes are single-use and expire in ten minutes.", "Start, renew and end require the authorized device proof. Renew and end also require the exact session ID.", "Tokens expire within five minutes; live authorization is rechecked on every request."],
+  },
+  {
     tag: "Auth",
     method: "POST",
     path: "/api/auth/agent/token",
@@ -2876,6 +2883,35 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
       },
     },
     paths: {
+      "/api/auth/agent/runtime": {
+        post: {
+          ...buildOperationMetadata("POST", "/api/auth/agent/runtime"),
+          security: [],
+          requestBody: { required: true, content: { "application/json": { schema: {
+            type: "object", required: ["operation", "projectId", "identityId", "proof"],
+            properties: {
+              operation: { type: "string", enum: ["pair", "start", "renew", "end"] },
+              projectId: { type: "string" }, identityId: { type: "string" },
+              proof: { type: "string", writeOnly: true, description: "Single-use pairing code for pair; otherwise the OS-vault-held device credential. Never expose to an AI client." },
+              client: { type: "string", maxLength: 80, description: "Required for start; descriptive only." },
+              sessionId: { type: "string", description: "Required for renew/end. Must belong to the exact device and identity." },
+            },
+          } } } },
+          responses: {
+            200: { description: "Paired device credential, bound session token, or session-ended acknowledgement. Cache-Control: no-store.", content: { "application/json": { schema: {
+              type: "object", properties: {
+                runtimeCredential: { type: "string", description: "Pair only: persist directly in OS vault." },
+                accessToken: { type: "string", description: "Start/renew only: keep in launcher memory." },
+                expiresInSeconds: { type: "integer", maximum: 300 }, sessionId: { type: "string" },
+                deviceId: { type: "string" }, identityId: { type: "string" }, projectId: { type: "string" },
+                scopes: { type: "array", items: { type: "string" } }, ended: { type: "boolean" },
+              },
+            } } } },
+            ...commonErrorResponses,
+            429: { description: "Too many failed runtime authentication attempts." },
+          },
+        },
+      },
       "/api/auth/agent/token": {
         post: {
           ...buildOperationMetadata("POST", "/api/auth/agent/token"),

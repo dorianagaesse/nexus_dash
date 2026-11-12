@@ -17,6 +17,8 @@ interface AgentAccessTokenPayload {
   projectId: string;
   ownerUserId: string;
   scopes: AgentScope[];
+  sessionId?: string;
+  deviceId?: string;
 }
 
 export interface IssuedAgentAccessToken {
@@ -30,6 +32,8 @@ export interface IssuedAgentAccessToken {
 interface VerifiedAgentAccessTokenSuccess {
   ok: true;
   data: {
+    sessionId?: string;
+    deviceId?: string;
     credentialId: string;
     credentialPublicId?: string;
     projectId: string;
@@ -82,6 +86,10 @@ function isValidPayload(value: unknown): value is AgentAccessTokenPayload {
     return false;
   }
 
+  if ((payload.sessionId !== undefined || payload.deviceId !== undefined) &&
+      (typeof payload.sessionId !== "string" || !payload.sessionId.trim() ||
+       typeof payload.deviceId !== "string" || !payload.deviceId.trim())) return false;
+
   if (!Array.isArray(payload.scopes)) {
     return false;
   }
@@ -106,13 +114,18 @@ export function issueAgentAccessToken(input: {
   projectId: string;
   ownerUserId: string;
   scopes: AgentScope[];
+  sessionId?: string;
+  deviceId?: string;
+  ttlSeconds?: number;
 }): IssuedAgentAccessToken {
   const runtimeConfig = getAgentTokenRuntimeConfig();
+  const ttlSeconds = Math.min(runtimeConfig.ttlSeconds, input.ttlSeconds ?? runtimeConfig.ttlSeconds);
+  if (input.ttlSeconds !== undefined && ttlSeconds < 1) throw new Error("session-expired");
   const tokenId = crypto.randomBytes(18).toString("base64url");
   const issuedAt = new Date();
   const issuedAtSeconds = Math.floor(issuedAt.getTime() / 1000);
   const expiresAt = new Date(
-    issuedAt.getTime() + runtimeConfig.ttlSeconds * 1000
+    issuedAt.getTime() + ttlSeconds * 1000
   );
 
   const payload: AgentAccessTokenPayload = {
@@ -122,10 +135,11 @@ export function issueAgentAccessToken(input: {
     credentialPublicId: input.credentialPublicId,
     jti: tokenId,
     iat: issuedAtSeconds,
-    exp: issuedAtSeconds + runtimeConfig.ttlSeconds,
+    exp: issuedAtSeconds + ttlSeconds,
     projectId: input.projectId,
     ownerUserId: input.ownerUserId,
     scopes: input.scopes,
+    ...(input.sessionId ? { sessionId: input.sessionId, deviceId: input.deviceId } : {}),
   };
 
   const headerSegment = encodeJsonSegment({
@@ -144,7 +158,7 @@ export function issueAgentAccessToken(input: {
     tokenId,
     issuedAt,
     expiresAt,
-    expiresInSeconds: runtimeConfig.ttlSeconds,
+    expiresInSeconds: ttlSeconds,
   };
 }
 
@@ -255,6 +269,7 @@ export function verifyAgentAccessToken(
   return {
     ok: true,
     data: {
+      ...(payload.sessionId ? { sessionId: payload.sessionId, deviceId: payload.deviceId } : {}),
       credentialId: payload.sub,
       credentialPublicId: payload.credentialPublicId,
       projectId: payload.projectId,

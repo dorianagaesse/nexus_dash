@@ -52,6 +52,13 @@ documentation when the task calls for it:
 
 ## Nexus Dash agent identity
 
+- When launched with `ND_AGENT_URL` and `ND_AGENT_CAPABILITY`, use the bound
+  session through `node scripts/nd-agent.mjs request`. The launcher has already
+  selected the identity; do not inspect the OS vault or select another key.
+  Missing, expired, or rejected bindings fail closed without credential fallback.
+  See `docs/runbooks/portable-agent-identities.md`. The rules below apply to
+  legacy workflows outside the launcher.
+
 - Before accessing the Nexus Dash API, explicitly ask the user which
   credential to use. Use only the credential they identify; do not infer it
   from the coding client, model, provider, or a local filename.

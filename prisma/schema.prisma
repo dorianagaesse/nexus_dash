@@ -38,6 +38,7 @@ model User {
   calendarPreference                  CalendarPreference?
   emailVerificationTokens             EmailVerificationToken[]
   passwordResetTokens                 PasswordResetToken[]
+  authorizedAgentDevices              AgentRuntimeDevice[]
   createdApiCredentials               ApiCredential[]                          @relation("ApiCredentialCreatedBy")
   revokedApiCredentials               ApiCredential[]                          @relation("ApiCredentialRevokedBy")
   authAuditEvents                     AuthAuditEvent[]                         @relation("AuthAuditEventActorUser")
@@ -998,6 +999,10 @@ enum AuthRateLimitScope {
 }
 
 model ApiCredential {
+  // Stable actor anchor; legacy column/model names preserve existing actor references.
+  identityMode       Boolean   @default(false)
+  avatarSeed         String?   @db.VarChar(64)
+  runtimeDevices     AgentRuntimeDevice[]
   canMoveTasksToDone Boolean   @default(false)
   id                 String    @id @default(cuid())
   projectId          String
@@ -1050,6 +1055,54 @@ model ApiCredential {
   @@index([projectId])
   @@index([createdByUserId])
   @@index([revokedByUserId])
+}
+
+model AgentRuntimeDevice {
+  authorizedByUserId String
+  authorizedBy       User @relation(fields: [authorizedByUserId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(cuid())
+  identityId         String
+  name               String   @db.VarChar(80)
+  scopes             ApiCredentialScope[]
+  canMoveTasksToDone Boolean  @default(false)
+  pairingHash        String?  @unique
+  pairingExpiresAt   DateTime
+  authorizedAt       DateTime?
+  expiresAt          DateTime
+  revokedAt          DateTime?
+  createdAt          DateTime @default(now())
+  identity           ApiCredential @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  credentials        AgentRuntimeCredential[]
+  sessions           AgentRuntimeSession[]
+
+  @@index([identityId])
+}
+
+model AgentRuntimeCredential {
+  id         String   @id @default(cuid())
+  deviceId   String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+  device     AgentRuntimeDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+}
+
+model AgentRuntimeSession {
+  id                 String   @id @default(cuid())
+  deviceId           String
+  client             String   @db.VarChar(80)
+  scopes             ApiCredentialScope[]
+  canMoveTasksToDone Boolean  @default(false)
+  expiresAt          DateTime
+  endedAt            DateTime?
+  lastActiveAt       DateTime @default(now())
+  createdAt          DateTime @default(now())
+  device             AgentRuntimeDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, createdAt])
 }
 
 model ApiCredentialScopeGrant {
