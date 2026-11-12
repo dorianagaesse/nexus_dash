@@ -212,13 +212,24 @@ test("portable identities enforce runtime bindings, live grants and independent 
   ).toBe(401);
   await expect(panel.getByText("Device paired. Ready to launch.")).toBeVisible({ timeout: 30000 });
   await expect(code).toHaveCount(0);
+  await expect(
+    panel.getByRole("button", { name: /1 paired device/ })
+  ).toBeVisible();
   const launch = panel.getByRole("button", { name: "Copy Windows launch command" });
   await launch.focus();
   await expect(launch).toBeFocused();
-  await page.screenshot({ path: ".tmp/nd824-paired-desktop.png", fullPage: false });
+  await page.screenshot({ path: testInfo.outputPath("nd824-paired-desktop.png"), fullPage: false });
   await page.setViewportSize({ width: 390, height: 844 });
   await launch.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: ".tmp/nd824-paired-mobile.png", fullPage: false });
+  await expect(
+    panel.getByRole("region", { name: "Device pairing instructions" })
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth
+    )
+  ).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("nd824-paired-mobile.png"), fullPage: false });
   await page.setViewportSize({ width: 1280, height: 900 });
   await panel.getByRole("button", { name: "Dismiss pairing guidance" }).click();
   const secondCode = await manage({

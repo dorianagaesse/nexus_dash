@@ -11760,4 +11760,9 @@ the original run passed the other 143 scenarios, including notification revocati
 - Desktop and 390px mobile review passed without horizontal overflow; both edited components passed the Impeccable detector. Existing device-grant unit checks, lint, RLS inventory and production build passed. Full baseline results and final production-render evidence are recorded on PR #669.
 
 ## 2026-11-09 - ND-824 pairing completion
-Built against ND-658 PR #669. Added accurate authorization states/counts, bounded pending refresh, consumed/expired code hiding, copy feedback and bound launch guidance. Component regressions cover completion and expiry; browser regression includes keyboard focus and desktop/mobile captures. Validation results will be recorded before handoff.
+Built against ND-658 PR #669. Added accurate authorization states/counts, bounded pending refresh, consumed/expired code hiding, copy feedback and bound launch guidance. Component regressions cover completion and expiry; browser regression includes keyboard focus and desktop/mobile captures.
+
+### 2026-11-12 - ND-824 review follow-up
+Addressed the PR #692 review. Polling errors clear once status checks recover; launch guidance and "Ready to launch" are withheld for inactive or expired identities, where runtime start rejects launches. The guidance is now a named region, identity buttons include paired/pending counts in their accessible names, and the singular device count reads correctly. E2E captures use the test output directory and check 390px overflow while guidance is visible.
+
+Validation passed locally against PostgreSQL 16: 2,544 unit/API tests (3 skipped), coverage thresholds, lint, RLS inventory, production build, and the two ND-658 portable-identity Playwright scenarios.

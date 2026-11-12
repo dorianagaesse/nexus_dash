@@ -14,7 +14,7 @@ import { AgentCredentialLabelsField } from "./agent-credential-labels-field";
 import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
 import { AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR } from "@/lib/agent-credential-labels";
 import { Button } from "@/components/ui/button";
-import { agentDeviceState } from "@/lib/agent-device-state";
+import { agentDeviceState, agentIdentityState } from "@/lib/agent-device-state";
 import { AgentPairingGuidance } from "./agent-pairing-guidance";
 
 type Session = {
@@ -54,6 +54,8 @@ type Identity = {
   }[];
 };
 const initialScopes: AgentScope[] = ["project:read", "task:read", "task:write"];
+const PAIRING_POLL_ERROR =
+  "Pairing status could not be checked. Refresh identities to try again.";
 const fieldClass =
   "min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const statusClass =
@@ -68,6 +70,21 @@ const describePermissions = (scopes: AgentScope[]) =>
         AGENT_SCOPE_DEFINITIONS.find((s) => s.scope === scope)?.label ?? scope
     )
     .join(" · ");
+const pairedDevicesLabel = (identity: Identity, now: number) => {
+  const count = identity.devices.filter(
+    (d) => agentDeviceState(d, now) === "Paired"
+  ).length;
+  return `${count} ${count === 1 ? "paired device" : "paired devices"}`;
+};
+const deviceSummary = (identity: Identity, now: number) => {
+  const permissions = `${identity.scopes.length} ${
+    identity.scopes.length === 1 ? "permission" : "permissions"
+  }`;
+  const pending = identity.devices.filter(
+    (d) => agentDeviceState(d, now) === "Pending pairing"
+  ).length;
+  return `${permissions} · ${pairedDevicesLabel(identity, now)} · ${pending} pending`;
+};
 
 function ScopeChoices({
   scopes,
@@ -136,6 +153,10 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const selected = identities.find((i) => i.id === selectedId);
+  const selectedIdentityState = selected
+    ? agentIdentityState(selected, now)
+    : null;
+  const canLaunch = selectedIdentityState === "Active";
   const pairingDevice = selected?.devices.find(d => d.id === pairing?.deviceId);
   const pairingState = pairingDevice ? agentDeviceState(pairingDevice, now) : "Expired";
   const pendingUntil = Math.max(0, ...(selected?.devices.filter(d => agentDeviceState(d, now) === "Pending pairing").map(d => Date.parse(d.pairingExpiresAt)) ?? []));
@@ -166,8 +187,13 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
     const tick = async () => {
       setNow(Date.now());
       if (Date.now() >= pendingUntil || controller.signal.aborted) return;
-      try { await refresh(controller.signal); }
-      catch { if (!controller.signal.aborted) setError("Pairing status could not be checked. Refresh identities to try again."); }
+      try {
+        await refresh(controller.signal);
+        if (!controller.signal.aborted)
+          setError(current => current === PAIRING_POLL_ERROR ? null : current);
+      } catch {
+        if (!controller.signal.aborted) setError(PAIRING_POLL_ERROR);
+      }
       if (!controller.signal.aborted) timer = setTimeout(tick, Math.max(0, Math.min(3000, pendingUntil - Date.now())));
     };
     timer = setTimeout(tick, Math.min(3000, pendingUntil - Date.now()));
@@ -309,7 +335,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
           <button
             type="button"
             key={identity.id}
-            aria-label={`${identity.name} ${identity.descriptiveLabels.join(" ")}`.trim()}
+            aria-label={`${identity.name} ${identity.descriptiveLabels.join(" ")} ${deviceSummary(identity, now)}`.trim()}
             aria-pressed={selectedId === identity.id}
             onClick={() => select(identity)}
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selectedId === identity.id ? "bg-muted ring-1 ring-inset ring-border" : ""}`}
@@ -328,23 +354,11 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                 />
               </span>
               <span className="mt-1 block text-xs text-muted-foreground">
-                {identity.scopes.length}{" "}
-                {identity.scopes.length === 1 ? "permission" : "permissions"} ·{" "}
-                {
-                  identity.devices.filter(
-                    (d) => agentDeviceState(d, now) === "Paired"
-                  ).length
-                }{" "}
-                paired devices · {identity.devices.filter(d => agentDeviceState(d, now) === "Pending pairing").length} pending
+                {deviceSummary(identity, now)}
               </span>
             </span>
             <span className={statusClass}>
-              {identity.revokedAt
-                ? "Inactive"
-                : identity.expiresAt &&
-                    new Date(identity.expiresAt) <= new Date()
-                  ? "Expired"
-                  : "Active"}
+              {agentIdentityState(identity, now)}
             </span>
             <ChevronRight
               className={`hidden size-4 shrink-0 text-muted-foreground sm:block ${selectedId === identity.id ? "rotate-90" : ""}`}
@@ -520,7 +534,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                       </Button>
                     )}
                   </div>
-                  {agentDeviceState(d, now) === "Paired" && <Button size="sm" variant="ghost" onClick={() => setPairing({ deviceId: d.id, code: null, expiresAt: d.pairingExpiresAt })}>Launch instructions for {d.name}</Button>}
+                  {agentDeviceState(d, now) === "Paired" && canLaunch && <Button size="sm" variant="ghost" onClick={() => setPairing({ deviceId: d.id, code: null, expiresAt: d.pairingExpiresAt })}>Launch instructions for {d.name}</Button>}
                   <p className="text-xs text-muted-foreground">
                     Expires {date(d.expiresAt)} · Done moves{" "}
                     {d.canMoveTasksToDone && selected.canMoveTasksToDone
@@ -654,6 +668,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               code={pairingState === "Pending pairing" ? pairing.code : null}
               expiresAt={pairing.expiresAt}
               state={pairingState}
+              identityState={selectedIdentityState ?? "Active"}
               onDismiss={() => setPairing(null)}
             />
           )}
