@@ -12051,3 +12051,6 @@ the original run passed the other 143 scenarios, including notification revocati
   API access. Requested confirmation of `.config/.nd-codex.env`; live ND-658 and
   ND-822–825 reads and updates remain pending that answer. TellmetrY uses its own
   explicitly selected credential and ND-848 records the pickup.
+
+- Fresh-database rerun passed the full PostgreSQL isolation matrix, including
+  ND-658 runtime grants, exact-proof bootstrap, revocation and expiry.
