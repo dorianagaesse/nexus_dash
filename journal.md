@@ -1,5 +1,25 @@
 # Development Journal
 
+# 2026-11-12 - PR #687: reconcile thread synchronization merge
+
+- Merged main at `00755cf` after PR #696 landed. Preserved both journal
+  histories in the only conflict; application files merged automatically.
+- `git diff --check` and documentation reference review passed.
+
+## 2026-11-12 - ND-837: synchronize PR #696 with main
+
+- Merged main at `ec9f4afb1fad043130f599cd04533eea42d50339` into
+  `fix/nd-837`. Git combined the changes without manual conflict resolution;
+  retained the thread reconciliation fixes and current epic/roadmap updates.
+- Lint, RLS inventory, production build, 2,526 unit/API tests (3 skipped),
+  and coverage thresholds pass on Node 24.22.1. Coverage remains 95.56% lines
+  and 89.12% branches. The saved-position test failed under default worker
+  load, then passed in isolation and in both full two-worker runs.
+- All seven Chromium checks pass: the two-human-session plus agent thread
+  regression and the project/task/attachment/context/meeting/roadmap/calendar
+  smoke suite. Existing Preview verification remains pending as previously
+  recorded; this merge does not claim deployed runtime validation.
+
 # 2026-11-12 - PR #687: refresh merge compatibility
 
 - Merged main at `ec9f4af` into the upload branch. Resolved the journal-only
@@ -11886,3 +11906,37 @@ the original run passed the other 143 scenarios, including notification revocati
 - Validation passes: lint, RLS inventory, production build, 2,507 unit tests
   (3 skipped), coverage (95.56% lines, 89.12% branches), and all six focused
   404 browser checks. Reviewed desktop/mobile screenshots in both themes.
+
+## 2026-11-11 - ND-837 open task thread reconciliation
+
+- Reproduced the acknowledgement race independently: a local reaction can
+  acknowledge a project version covering a remote comment before its activity
+  arrives. With no deferred event, the old code never reconciled the thread and
+  then discarded that remote event as already acknowledged. Open surfaces now
+  catch up once after the last acknowledged local mutation finishes.
+- Reproduced an open-thread gap: task edit mode skipped comment reads even when
+  project activity changed. Version-only reconciliation also left board comment
+  counts unchanged, and late reaction reads could replace a newer task's state.
+- Kept targeted comment reads active during task editing, reconciled counts,
+  retained newer comment edits, and guarded reaction reads and mutations across
+  task switches and concurrent responses. Failed reads retain the visible thread.
+- Added regressions for task drafts/focus/selection, stale reaction responses,
+  and two independent human browser sessions plus agent comment/reaction writes.
+  Existing project activity supplies Broadcast and polling catch-up; no separate
+  thread polling loop was introduced.
+- Avoided no-op count updates and guarded queued selection synchronization so
+  closing or switching a task wins over an older reconciliation. All 34 focused
+  board/keyboard/reconciliation tests pass after these safeguards.
+- Validation passes on Node 24.22.1 with isolated local PostgreSQL: lint, RLS
+  inventory, 2,526 unit/API tests (3 skipped), coverage thresholds (95.56% lines,
+  89.12% branches), production build, and eight browser scenarios covering live
+  comments, recovery, deep links, bilateral relations and attachment sync.
+- CI run 43027243548 passed core checks and tenant isolation. Its first browser
+  attempt passed 155 cases but timed out reopening a related task; that scenario
+  passed locally and on retry. The retry exposed a timestamp-username collision
+  between this regression's two test accounts. Free the first generated username
+  before creating the second account; retain the shared helper unchanged.
+- PR #696 is the review surface. Preview dispatch still requires an authenticated
+  GitHub Actions setup: the connector has no dispatch tool and the cached HTTPS
+  credential returned 401. No Preview checkout/runtime claim is made. Copilot
+  review monitoring was omitted at the user's request.

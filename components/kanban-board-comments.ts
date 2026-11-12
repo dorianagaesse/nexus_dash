@@ -50,6 +50,12 @@ export function mergeFetchedTaskComments(
   });
 
   currentComments.forEach((comment) => {
+    const fetched = commentsById.get(comment.id);
+    if (fetched && Date.parse(comment.updatedAt ?? comment.createdAt) > Date.parse(fetched.updatedAt ?? fetched.createdAt)) {
+      // A typed activity or local save may have arrived after the read began.
+      commentsById.set(comment.id, comment);
+      return;
+    }
     if (
       !commentsById.has(comment.id) &&
       !isOptimisticTaskCommentRepresented(comment, fetchedComments)
