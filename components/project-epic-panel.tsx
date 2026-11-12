@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/emoji-field";
 import { FORM_FOCUS_BORDER_CLASS } from "@/components/ui/focus-border-styles";
 import type { ProjectEpicSnapshot } from "@/lib/epic";
+import { EpicColorMark } from "@/components/epics/epic-color-mark";
 import { EpicDetailsDialog } from "@/components/epics/epic-details-dialog";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
@@ -757,12 +758,13 @@ export function ProjectEpicPanel({
                       type="button"
                       aria-label={`Open epic ${epic.name}`}
                       aria-haspopup="dialog"
-                      className="col-span-2 flex min-h-11 min-w-0 items-center rounded-md text-left hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:col-span-1"
+                      className="col-span-2 flex min-h-11 min-w-0 items-center gap-2.5 rounded-md text-left hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:col-span-1"
                       onClick={(event) => {
                         actionTriggerRef.current = event.currentTarget;
                         setViewedEpicId(epic.id);
                       }}
                     >
+                      <EpicColorMark name={epic.name} />
                       <h3 id={`epic-${epic.id}-title`} className="min-w-0 break-words text-sm font-semibold leading-6 [overflow-wrap:anywhere]">
                         {epic.name}
                       </h3>

@@ -4,6 +4,7 @@ import { useMemo, useRef, type MouseEvent } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
 
+import { EpicColorMark } from "@/components/epics/epic-color-mark";
 import { AgentAvatar } from "@/components/ui/agent-avatar";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import type { TaskAuthorSummary } from "@/lib/task-author";
@@ -131,11 +132,12 @@ export function EpicDetailsDialog({
         }}
       >
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/60 px-4 py-3 sm:px-6">
-          <div className="min-w-0 py-2">
+          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1 py-2">
+            <EpicColorMark name={epic.name} />
             <DialogTitle className="break-words text-lg [overflow-wrap:anywhere]">
               {epic.name}
             </DialogTitle>
-            <p className="mt-1 text-sm tabular-nums text-muted-foreground">
+            <p className="col-span-2 text-sm tabular-nums text-muted-foreground sm:col-span-1 sm:col-start-2">
               {epic.progressPercent}% complete · {epic.completedTaskCount} of {epic.taskCount} tasks completed
             </p>
           </div>

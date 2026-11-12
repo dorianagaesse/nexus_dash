@@ -1,5 +1,11 @@
 # Development Journal
 
+# 2026-11-12 - ND-832: epic color cues
+
+- Restored the Kanban epic colors as compact flags beside each epic name.
+  The same flag appears in the details dialog, with a tinted background
+  and a foreground adjusted for each theme.
+
 # 2026-11-11 - ND-832: bounded epic rows and details
 
 - Replaced the card grid and browse toggle with immediate, searchable rows.
