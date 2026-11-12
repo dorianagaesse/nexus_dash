@@ -12032,3 +12032,22 @@ the original run passed the other 143 scenarios, including notification revocati
 - Applied Impeccable's polish workflow to the existing identity manager: clearer identity/device/session hierarchy, readable permission labels, larger controls, keyboard focus, and wrapping for technical IDs and long names. Session controls include their client and device in accessible names. Paired-device wording describes completed pairing separately from session state.
 - Kept legacy API credentials visible behind their existing disclosure with a short explanation. No changes to authentication, grants, persistence, or API operations. Docker integration and functional setup/permission changes remain in ND-823/824/825.
 - Desktop and 390px mobile review passed without horizontal overflow; both edited components passed the Impeccable detector. Existing device-grant unit checks, lint, RLS inventory and production build passed. Full baseline results and final production-render evidence are recorded on PR #669.
+
+### 2026-11-12 - ND-848 pickup / ND-658 MCP preparation
+
+- Read the TellmetrY pilot handoff and preserved both original checkouts. In an
+  isolated worktree, merged the existing ND-658 foundation with current main
+  `917a6429`, preserving both README sections and journal histories. Published
+  integration commit `0bd421a9` to PR #669 and returned it to draft: MCP scope and
+  client acceptance remain unfinished.
+- Verified the installed Codex 0.161.0 and Claude Code 2.1.126 MCP setup syntax
+  against their official documentation. Inspected the current MCP SDK and
+  existing runtime/vault contracts; no adapter implementation is claimed.
+- Prepared disposable PostgreSQL on localhost:55848. Existing runtime client,
+  Windows DPAPI vault and runtime service checks passed (28 tests). The complete
+  PostgreSQL matrix requires the Realtime stub before migrations; the initial
+  attempt omitted it, so prepared a separate fresh database with that prerequisite.
+- Current main requires an explicit user credential selection before Nexus Dash
+  API access. Requested confirmation of `.config/.nd-codex.env`; live ND-658 and
+  ND-822–825 reads and updates remain pending that answer. TellmetrY uses its own
+  explicitly selected credential and ND-848 records the pickup.
