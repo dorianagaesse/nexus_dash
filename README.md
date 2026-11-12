@@ -739,3 +739,5 @@ without giving long-lived keys to AI clients. See the
 permissions, revocation, compatibility and API contracts.
 
 Project module permissions and rollout: [project capabilities](docs/runbooks/project-capabilities.md).
+
+Disposable Docker workers: [operator broker setup](docs/runbooks/docker-agent-broker.md).

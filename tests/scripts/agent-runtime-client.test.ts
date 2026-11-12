@@ -138,3 +138,24 @@ test("two concurrent launches have distinct local capabilities, renew the same s
     await b.close();
   }
 });
+
+test("terminal renewal rejection stops exchanges for that execution", async () => {
+  const realFetch = globalThis.fetch;
+  let renewals = 0;
+  vi.stubGlobal("fetch", vi.fn(async (url, options) => {
+    if (new URL(String(url)).hostname === "127.0.0.1") return realFetch(url, options);
+    const body = JSON.parse(options.body);
+    if (body.operation === "renew") { renewals++; return Response.json({ error: "revoked" }, { status: 401 }); }
+    if (body.operation === "end") return Response.json({ ended: true });
+    return Response.json({ projectId: "project", identityId: "oscar", deviceId: "device", sessionId: "session", accessToken: "short", expiresInSeconds: 1 });
+  }));
+  const runtime = await openRuntime(binding, { read: async () => "proof" }, "test");
+  try {
+    vi.spyOn(Date, "now").mockReturnValue(Date.now() + 2000);
+    const request = () => realFetch(runtime.url + "/api/projects/project/tasks", { headers: { authorization: `Bearer ${runtime.capability}` } });
+    expect((await request()).status).toBe(403);
+    expect((await request()).status).toBe(401);
+    expect((await request()).status).toBe(401);
+    expect(renewals).toBe(1);
+  } finally { await runtime.close(); }
+});

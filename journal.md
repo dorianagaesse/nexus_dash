@@ -11758,3 +11758,35 @@ the original run passed the other 143 scenarios, including notification revocati
 - Applied Impeccable's polish workflow to the existing identity manager: clearer identity/device/session hierarchy, readable permission labels, larger controls, keyboard focus, and wrapping for technical IDs and long names. Session controls include their client and device in accessible names. Paired-device wording describes completed pairing separately from session state.
 - Kept legacy API credentials visible behind their existing disclosure with a short explanation. No changes to authentication, grants, persistence, or API operations. Docker integration and functional setup/permission changes remain in ND-823/824/825.
 - Desktop and 390px mobile review passed without horizontal overflow; both edited components passed the Impeccable detector. Existing device-grant unit checks, lint, RLS inventory and production build passed. Full baseline results and final production-render evidence are recorded on PR #669.
+
+## 2026-11-10 - ND-823 disposable Docker identity broker
+Implemented host-vault authorization, a TLS transport with per-worker capabilities,
+Docker execution reconciliation and persisted stale-session cleanup. Missing or
+rejected bindings fail closed. Legacy credentials and server permissions remain
+unchanged. Built from main plus ND-658 PR #669, including its latest UI polish.
+
+Five broker lifecycle unit tests and a real Docker Desktop/Linux-engine scenario
+passed against a fresh local PostgreSQL database: actor continuity, independent
+sessions, stop/restart/recreation, renewal, grant reduction, owner revocation,
+wrong-project rejection and worker mount/secret checks. Production build passed.
+Native Linux host vault validation remains separate from Windows Docker evidence.
+Full repository gate results will be recorded before handoff.
+
+Linux CI exposed a host UID mismatch when capability-free container root read
+the private transport file. POSIX workers now use the broker UID/GID; private
+file modes and dropped capabilities are preserved. Native Linux Docker checks
+run before the full smoke suite, and test assertions avoid echoing pairing codes.
+
+### 2026-11-12 - ND-823 review follow-up
+
+- Addressed the PR #691 review. Transient session-start failures now retry the
+  observed execution with the same 30-second to five-minute backoff as stale
+  cleanup; terminal 401/403/404 rejection remains latched until the container
+  restarts, and broker recovery still requires an explicit execution change.
+- Startup now validates config before taking `broker.lock`, and lock cleanup
+  runs in `finally`, so config errors, a corrupt journal or a failed close no
+  longer leave a lock that reads as a crash or suppress the startup message.
+- E2E now exercises server-side wrong-identity rejection, removes macOS keychain
+  entries, and keeps the temp directory and image build inside cleanup; the
+  quality-gates smoke step builds independently of the prior Docker-validation
+  step.
