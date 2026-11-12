@@ -11684,3 +11684,7 @@ the original run passed the other 143 scenarios, including notification revocati
   open; no merge/deployment or live container authentication was performed.
 - Documentation validation: diff whitespace and relative/pinned source references
   checked. Synthetic probes do not replace the full implementation/RLS/E2E matrix.
+- Review follow-up: recorded the mutable `node:24-bookworm` tag (the 2026-11-12
+  review re-run reproduced the probes on a newer image) and added an
+  `ND822_NODE_IMAGE` digest-pinning option; scoped the source-based UI review to
+  ec050eb7 and noted later UI-only validation at ab1ad499. Docs-only.

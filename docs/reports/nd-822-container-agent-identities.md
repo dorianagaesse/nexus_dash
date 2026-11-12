@@ -52,7 +52,11 @@ laptop/broker separately rather than copying a vault or cloning a device proof.
 Local probes used Windows, Docker Desktop 4.46.0 / Engine 28.4.0, Linux containers,
 and the existing `node:24-bookworm` image ID
 `sha256:14078204b6bb268c107ceff6d3c43f45a888105e5c2b18b14c32b3409d93a1b0`.
-They imported the actual helper files at the reviewed commit. Upstream runtime
+The tag is mutable: a 2026-11-12 review re-run with Docker Engine 29.8.2 pulled
+a newer image (`sha256:8cbdee93...`) and reproduced the documented boundary
+results. These observations describe container behavior rather than one image
+build; pin the image to a digest when exact repetition matters. The probes
+imported the actual helper files at the reviewed commit. Upstream runtime
 responses, actor IDs and proofs were synthetic; no live Nexus credentials or
 production data entered a container. Only the isolated probe directory was
 mounted read-only. The containers and synthetic proxy were cleaned up.
@@ -191,18 +195,25 @@ Tasks; the board owns its current status and sequencing:
 - ND-825: simplify permission selection and active-session management, with
   operation-specific feedback and preserved legacy access.
 
-The earlier UI review was source-based: browser access was unavailable and no
-current rendered target was inspected. Visual polish needs desktop/mobile and
-keyboard verification. Do not imply that a zero-result TSX pattern detector
-validated usability or accessibility. VS Code/MCP integration remains optional
+The UI review recorded here is scoped to `ec050eb7`: it was source-based because
+browser access was unavailable and no rendered target of that commit was
+inspected. Do not imply that a zero-result TSX pattern detector validated
+usability or accessibility. The later PR #669 head `ab1ad499` is UI-only (no
+authentication, grant or persistence changes) and records production-render
+desktop/mobile/dark and keyboard validation with a green
+[Quality Gates run](https://github.com/dorianagaesse/nexus_dash/actions/runs/42715669889).
+That evidence covers visual polish for the current PR #669 head without changing
+the source findings at `ec050eb7`. VS Code/MCP integration remains optional
 future work, not a prerequisite to this identity foundation.
 
 ## Reproduce the synthetic Docker boundary probes
 
-Requirements: Node on the host, a running Linux Docker engine, and the Node image.
-Use a disposable probe directory; never mount the repository or credentials.
-From a checkout containing the reviewed commit, export only the three helper
-files with this Node snippet (save/run it as a temporary `.cjs` file):
+Requirements: Node on the host, a running Linux Docker engine, and the
+`node:24-bookworm` image. The tag is mutable; set `ND822_NODE_IMAGE` to a
+digest-pinned reference such as `node:24-bookworm@sha256:<digest>` when exact
+repetition matters. Use a disposable probe directory; never mount the repository
+or credentials. From a checkout containing the reviewed commit, export only the
+three helper files with this Node snippet (save/run it as a temporary `.cjs` file):
 
 ```js
 const fs = require('node:fs');
@@ -247,6 +258,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { openRuntime, launchAgent } from './agent-runtime/client.mjs';
 const binding={base:'https://nd822.invalid',projectId:'project',identityId:'oscar'};
+const nodeImage=process.env.ND822_NODE_IMAGE||'node:24-bookworm';
 const realFetch=globalThis.fetch;
 const lifecycle=[];
 let sequence=0;
@@ -277,13 +289,13 @@ const result={};
 try {
   result.hostControl=(await realFetch(runtime.url+'/api/projects/project/tasks',{headers:{authorization:`Bearer ${runtime.capability}`}})).status;
   const env={...process.env,ND_AGENT_URL:runtime.url,ND_AGENT_CAPABILITY:runtime.capability};
-  result.notForwarded=JSON.parse(await docker([...args,'node:24-bookworm','node','/probe/container-check.mjs'],env));
-  result.loopback=JSON.parse(await docker([...args,'-e','ND_AGENT_URL','-e','ND_AGENT_CAPABILITY','node:24-bookworm','node','/probe/container-check.mjs'],env));
-  result.hostAlias=JSON.parse(await docker([...args,'-e','ND_AGENT_URL','-e','ND_AGENT_CAPABILITY','node:24-bookworm','node','/probe/container-check.mjs'],{...env,ND_AGENT_URL:runtime.url.replace('127.0.0.1','host.docker.internal')}));
+  result.notForwarded=JSON.parse(await docker([...args,nodeImage,'node','/probe/container-check.mjs'],env));
+  result.loopback=JSON.parse(await docker([...args,'-e','ND_AGENT_URL','-e','ND_AGENT_CAPABILITY',nodeImage,'node','/probe/container-check.mjs'],env));
+  result.hostAlias=JSON.parse(await docker([...args,'-e','ND_AGENT_URL','-e','ND_AGENT_CAPABILITY',nodeImage,'node','/probe/container-check.mjs'],{...env,ND_AGENT_URL:runtime.url.replace('127.0.0.1','host.docker.internal')}));
 } finally { await runtime.close(); }
 const name='nd822-detached-probe';
 try {
-  result.detachedLauncherExit=await launchAgent(binding,vault,'docker',['run','-d','--name',name,'--network','none','node:24-bookworm','node','-e','setTimeout(()=>{},120000)']);
+  result.detachedLauncherExit=await launchAgent(binding,vault,'docker',['run','-d','--name',name,'--network','none',nodeImage,'node','-e','setTimeout(()=>{},120000)']);
   result.detachedContainerStillRunning=(await docker(['inspect','--format','{{.State.Running}}',name]))==='true';
   result.sessionEndedBeforeContainer=lifecycle.at(-1)==='end';
 } finally {await docker(['rm','-f',name]);}
