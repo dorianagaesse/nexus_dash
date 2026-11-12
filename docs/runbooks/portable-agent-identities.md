@@ -201,3 +201,6 @@ Automated gates: `npm run lint`, `npm run rls:check`, `npm test`,
 admin/runtime URLs. The ND-655, ND-656, ND-657 and ND-658 browser/service tests
 cover the integrated flows. Native macOS/Linux vault behavior still needs testing
 on those platforms; Windows DPAPI was exercised locally.
+
+## Pairing completion (ND-824)
+The identity list counts paired devices separately from pending authorizations. Paired means authorized, not live connectivity. Pending pairing refreshes every three seconds until its ten-minute deadline, then stops; used, expired and revoked codes are hidden. Copy the login command and enter the code in your own terminal from a repository checkout containing the helper. After pairing, copy the Windows or macOS/Linux launch command; launch guidance remains available on paired device rows. The helper requires Node and an unlocked platform vault. Legacy API credentials remain a supported optional flow with their existing setup help, creation, exchange, rotation and revocation.
