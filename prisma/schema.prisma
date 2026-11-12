@@ -727,6 +727,10 @@ model TaskCommentAgentMention {
 }
 
 model TaskCommentReaction {
+  actorKind ProjectActorKind @default(human)
+  actorCredentialId String?
+  actorDisplayNameSnapshot String @default("Unknown actor") @db.VarChar(80)
+  actorCredential ApiCredential? @relation("TaskCommentReactionActor", fields: [actorCredentialId], references: [id], onDelete: SetNull)
   id        String   @id @default(cuid())
   commentId String
   userId    String
@@ -736,7 +740,8 @@ model TaskCommentReaction {
   comment TaskComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
   user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([commentId, userId, emoji])
+  // Human uniqueness is a partial index in the actor migration.
+  @@unique([commentId, actorCredentialId])
   @@index([commentId])
   @@index([userId])
 }
@@ -796,6 +801,10 @@ model TaskAttachment {
   commentId        String?
   isCommentDraft   Boolean      @default(false)
   uploadedByUserId String
+  uploadedByCredentialId String?
+  uploadedByKind ContextCardActorKind @default(human)
+  uploadedByDisplayNameSnapshot String @default("Unknown uploader") @db.VarChar(80)
+  uploadedByCredential ApiCredential? @relation("TaskAttachmentUploaderCredential", fields: [uploadedByCredentialId], references: [id], onDelete: SetNull)
   task             Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
   comment          TaskComment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
   uploadedBy       User         @relation("TaskAttachmentUploader", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
@@ -810,6 +819,7 @@ model TaskAttachment {
   @@index([taskId])
   @@index([commentId])
   @@index([uploadedByUserId])
+  @@index([uploadedByCredentialId])
 }
 
 model ResourceAttachment {
@@ -1018,6 +1028,9 @@ model ApiCredential {
   meetingTodoActionsCreated           ProjectMeetingNoteAction[]               @relation("MeetingTodoCreatedByCredential")
   meetingTodoActionsAssigned          ProjectMeetingNoteAction[]               @relation("MeetingTodoAssignedToCredential")
   meetingTodoActionsCompleted         ProjectMeetingNoteAction[]               @relation("MeetingTodoCompletedByCredential")
+  taskCommentReactions TaskCommentReaction[] @relation("TaskCommentReactionActor")
+
+  taskAttachmentsUploaded TaskAttachment[] @relation("TaskAttachmentUploaderCredential")
   contextAttachmentsUploaded          ResourceAttachment[]                     @relation("ResourceAttachmentUploaderCredential")
   contextCardsCreated                 Resource[]                               @relation("ContextCardCreatedByCredential")
   contextCardsLastEdited              Resource[]                               @relation("ContextCardLastEditedByCredential")

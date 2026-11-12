@@ -319,52 +319,69 @@ export function TaskDetailModal({
   const selectedTaskId = selectedTask?.id ?? "";
   const [taskCommentReactions, setTaskCommentReactions] = useState<Map<string, TaskCommentReaction[]>>(new Map());
   const reactionsAbortControllerRef = useRef<AbortController | null>(null);
+  const reactionContextRef = useRef({
+    active: true,
+    revision: 0,
+    mutations: new Map<string, number>(),
+  });
+  useEffect(() => {
+    const reactionContext = { active: true, revision: 0, mutations: new Map<string, number>() };
+    reactionContextRef.current = reactionContext;
+    return () => { reactionContext.active = false; };
+  }, [projectId, selectedTaskId, isOpen]);
 
   const loadReactionsForComments = useCallback(
     async (comments: TaskComment[]) => {
-      if (!selectedTaskId || comments.length === 0) {
+      const reactionContext = reactionContextRef.current;
+      reactionsAbortControllerRef.current?.abort();
+      if (!isOpen || !selectedTaskId || comments.length === 0) {
         setTaskCommentReactions(new Map());
         return;
       }
 
-      if (reactionsAbortControllerRef.current) {
-        reactionsAbortControllerRef.current.abort();
-      }
-
       const abortController = new AbortController();
       reactionsAbortControllerRef.current = abortController;
+      const revision = reactionContext.revision;
 
       try {
         // Deferred: batched endpoint (TASK-127) to avoid N+1 on tasks with many comments
-        const reactionPromises = comments.map(async (comment) => {
+        const reactionPromises = comments.filter((comment) => !comment.id.startsWith("optimistic-comment-")).map(async (comment) => {
           try {
             const response = await fetch(
               `/api/projects/${projectId}/tasks/${selectedTaskId}/comments/${comment.id}/reactions`,
-              { signal: abortController.signal }
+              { cache: "no-store", signal: abortController.signal }
             );
-            if (!response.ok) return { commentId: comment.id, reactions: [] as TaskCommentReaction[] };
+            if (!response.ok) return null;
             const payload = (await response.json()) as { reactions: TaskCommentReaction[] };
             return { commentId: comment.id, reactions: payload.reactions };
           } catch {
-            return { commentId: comment.id, reactions: [] as TaskCommentReaction[] };
+            return null;
           }
         });
 
         const results = await Promise.all(reactionPromises);
-        const newMap = new Map<string, TaskCommentReaction[]>();
-        for (const result of results) {
-          newMap.set(result.commentId, result.reactions);
-        }
-        setTaskCommentReactions(newMap);
+        if (abortController.signal.aborted || !reactionContext.active || revision !== reactionContext.revision) return;
+        setTaskCommentReactions((previous) => {
+          const next = new Map(previous);
+          for (const result of results) {
+            if (result) next.set(result.commentId, result.reactions);
+          }
+          return next;
+        });
       } catch {
         // individual fetch errors are handled per-comment
       }
     },
-    [projectId, selectedTaskId]
+    [isOpen, projectId, selectedTaskId]
   );
 
   const toggleReaction = useCallback(
     async (commentId: string, emoji: string) => {
+      const reactionContext = reactionContextRef.current;
+      // A read started before this mutation must not replace its response.
+      reactionsAbortControllerRef.current?.abort();
+      const mutation = ++reactionContext.revision;
+      reactionContext.mutations.set(commentId, mutation);
       try {
         const response = await fetchProjectActivityMutation(
           projectId,
@@ -377,6 +394,8 @@ export function TaskDetailModal({
         }
 
         const payload = (await response.json()) as { reactions: TaskCommentReaction[] };
+        ++reactionContext.revision;
+        if (!reactionContext.active || reactionContext.mutations.get(commentId) !== mutation) return;
         setTaskCommentReactions((prev) => {
           const next = new Map(prev);
           next.set(commentId, payload.reactions);
@@ -396,7 +415,14 @@ export function TaskDetailModal({
     [toggleReaction]
   );
 
-  useEffect(() => { void loadReactionsForComments(taskComments); }, [taskComments, loadReactionsForComments]);
+  useEffect(() => {
+    void loadReactionsForComments(taskComments);
+    return () => reactionsAbortControllerRef.current?.abort();
+  }, [taskComments, loadReactionsForComments]);
+
+  useEffect(() => {
+    setTaskCommentReactions(new Map());
+  }, [projectId, selectedTaskId]);
 
   if (!isOpen || !selectedTask) {
     return null;
@@ -1933,6 +1959,7 @@ function TaskReadOnlyContent({
                           {(taskCommentReactions.get(comment.id) ?? []).map((reaction) => (
                             <button
                               key={reaction.emoji}
+                              title={reaction.reactions?.map(({ actor }) => `${actor.displayName}${actor.kind === "agent" ? " (agent)" : ""}`).join(", ")}
                               type="button"
                               onClick={() => void toggleReaction(comment.id, reaction.emoji)}
                               className={cn(

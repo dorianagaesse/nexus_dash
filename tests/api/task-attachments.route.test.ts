@@ -61,6 +61,18 @@ describe("task attachment routes", () => {
     apiGuardMock.getAgentProjectAccessContext.mockReturnValue(undefined);
   });
 
+  test("multipart upload passes bearer identity without consulting a human session", async () => {
+    const agentAccess = { credentialId: "agent-a", projectId: "p1", scopes: ["task:write"] };
+    apiGuardMock.requireApiPrincipal.mockResolvedValueOnce({ ok: true, principal: { kind: "agent", actorUserId: "owner", requestId: "request-agent" } });
+    apiGuardMock.getAgentProjectAccessContext.mockReturnValueOnce(agentAccess);
+    attachmentServiceMock.createTaskAttachmentFromForm.mockResolvedValueOnce({ ok: true, data: { id: "attachment" } });
+    const form = new FormData(); form.set("kind", "file"); form.set("file", new File(["hello"], "note.txt", { type: "text/plain" }));
+    const response = await postAttachment(new Request("http://localhost/upload", { method: "POST", body: form }) as never, { params: { projectId: "p1", taskId: "t1" } });
+    expect(response.status).toBe(200);
+    expect(attachmentServiceMock.createTaskAttachmentFromForm).toHaveBeenCalledWith(expect.objectContaining({ actorUserId: "owner", agentAccess }));
+    expect(apiGuardMock.requireAuthenticatedApiUser).not.toHaveBeenCalled();
+  });
+
   test("POST returns 400 when route params are missing", async () => {
     const request = new Request("http://localhost/api/projects/p1/tasks//attachments", {
       method: "POST",

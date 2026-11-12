@@ -209,6 +209,7 @@ export async function createTaskForProject(
       }
 
       await createTaskAttachmentsFromDraft({
+        agentAccess: input.agentAccess,
         actorUserId,
         projectId: input.projectId,
         taskId: createdTask.id,
@@ -530,6 +531,7 @@ export async function updateTaskForProject(
 
         if (parsedAttachmentLinks && parsedAttachmentLinks.length > 0) {
           await createTaskAttachmentsFromDraft({
+            agentAccess,
             actorUserId: normalizedActorUserId,
             projectId,
             taskId,

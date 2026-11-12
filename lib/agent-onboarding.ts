@@ -354,7 +354,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "deadlineDate uses YYYY-MM-DD when provided.",
       "Provide labels as a string array. Task responses return the canonical labels field.",
       "Use attachmentLinks as an array of { name, url } objects.",
-      "Use the direct-upload attachment routes for binary files and images.",
+      "Use R2 direct upload (25 MiB) or the task multipart attachment route for local storage (4 MiB).",
       "Invalid relatedTaskIds return related-tasks-invalid with invalidRelatedTask { id, reason } when a task id is known. Reasons are archived, missing, cross-project, or self; project-bound agent tokens and callers without access to a foreign task see missing.",
       "Use assignee as { kind: \"human\" | \"agent\", id } to assign a project member or an active agent credential; the legacy human-only assigneeUserId string remains accepted and assignee wins when both are present.",
       "Assignment persists the credential identity for agents, along with who assigned it and when; revoked or expired credentials are rejected with assignee-invalid but existing assignments stay readable with an inactive status.",
@@ -403,6 +403,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requestContentType: "application/json",
     notes: [
       "Task comments preserve line breaks and can subsequently be edited via PATCH.",
+      "Prefer reactions to existing comments for acknowledgments, agreement, thanks, or confirmation whenever they convey the full message, keeping comment counts low. Use text for new information, questions, blockers, decisions, or required pickup/completion evidence. Read reactions first: POST toggles the same emoji off or replaces your previous emoji.",
       "A comment may include up to 10 previously uploaded file attachment ids (images, PDF, text, Markdown, CSV, or JSON); content may be empty when at least one file is attached.",
       "Agent-authored comments display the current author name and descriptive labels across all linked comments. No agent suffix is appended; author.kind identifies agent authors. Rotation, revocation and key deletion retain the public identity. Previously orphaned comments use saved attribution.",
       "Tag project agents by inserting the exact `@{Credential Label}` token in content and listing the credentialId in agentMentionSelections; mismatched, revoked, expired, or out-of-project selections fail the whole request with task-comment-agent-mention-invalid.",
@@ -434,6 +435,24 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       `Use this route to move a task between ${TASK_STATUSES.join(", ")}.`,
       "For a single task, prefer POST /api/projects/{projectId}/tasks/{taskId}/status instead of rewriting the whole board.",
     ],
+  },
+  {
+    tag: "Tasks", method: "GET", path: "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions",
+    title: "List comment reactions", description: "Reactions belong to a human or a specific credential; credentials sharing an owner have separate state.",
+    requiredScopes: ["task:read"],
+    notes: ["POST toggles the same emoji off or replaces this actor's previous emoji. DELETE affects only this actor's reaction. Each response groups counts and sets reacted for the caller; actor carries durable provenance and user is null for agents. Deleted credentials retain kind and displayName with a null actor id. Invalid emoji returns 400, insufficient access 403, and missing or mismatched project/task/comment/reaction parents 404 without mutation."],
+  },
+  {
+    tag: "Tasks", method: "POST", path: "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions",
+    title: "Toggle comment reaction", description: "Reactions belong to a human or a specific credential; credentials sharing an owner have separate state.",
+    requiredScopes: ["task:write"],
+    notes: ["POST toggles the same emoji off or replaces this actor's previous emoji. DELETE affects only this actor's reaction. Each response groups counts and sets reacted for the caller; actor carries durable provenance and user is null for agents. Deleted credentials retain kind and displayName with a null actor id. Invalid emoji returns 400, insufficient access 403, and missing or mismatched project/task/comment/reaction parents 404 without mutation."],
+  },
+  {
+    tag: "Tasks", method: "DELETE", path: "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions/{reactionId}",
+    title: "Remove own comment reaction", description: "Reactions belong to a human or a specific credential; credentials sharing an owner have separate state.",
+    requiredScopes: ["task:write"],
+    notes: ["POST toggles the same emoji off or replaces this actor's previous emoji. DELETE affects only this actor's reaction. Each response groups counts and sets reacted for the caller; actor carries durable provenance and user is null for agents. Deleted credentials retain kind and displayName with a null actor id. Invalid emoji returns 400, insufficient access 403, and missing or mismatched project/task/comment/reaction parents 404 without mutation."],
   },
   {
     tag: "Tasks",
@@ -502,6 +521,13 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     ],
   },
   {
+    tag: "Tasks", method: "POST", path: "/api/projects/{projectId}/tasks/{taskId}/attachments",
+    title: "Upload a task file with multipart form data",
+    description: "Bearer-authenticated file or link attachment using local or R2 storage.",
+    requiredScopes: ["task:write"], requestContentType: "multipart/form-data",
+    notes: ["Create the task with JSON first, then upload here. Agent multipart task creation still rejects attachmentFiles. Files are limited to 4 MiB; use R2 direct upload for up to 25 MiB. Local storage does not issue signed upload targets. Set kind=file and provide file; isCommentDraft=true keeps the file private to this exact actor until comment binding. Human form uploads remain supported. Invalid MIME, empty or oversized files return 400; missing write scope returns 403; no human session fallback is used."],
+  },
+  {
     tag: "Tasks",
     method: "POST",
     path: "/api/projects/{projectId}/tasks/{taskId}/attachments/upload-url",
@@ -520,7 +546,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     path: "/api/projects/{projectId}/tasks/{taskId}/attachments/direct",
     title: "Finalize task attachment upload",
     description: "Attach a previously uploaded file to the task.",
-    notes: ["Set isCommentDraft=true for an unposted comment file. Drafts stay out of task reads, search, and activity until comment creation binds them; only the uploader can download them before posting."],
+    notes: ["Set isCommentDraft=true for an unposted comment file. Drafts stay out of task reads, search, and activity until comment creation binds them; only the same human or credential can download or bind them before posting. Credentials sharing a human owner remain distinct. Human project owners may remove drafts for moderation, but cannot read or bind another actor's draft."],
     requiredScopes: ["task:write"],
     requestContentType: "application/json",
   },
@@ -693,7 +719,7 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
 
 export const AGENT_LIMITATIONS: readonly string[] = [
   "Use application/json for agent write requests unless you are intentionally following a browser-oriented multipart flow.",
-  "Binary files and images use the direct-upload attachment routes; non-file writes should not rely on multipart/form-data.",
+  "Task files use R2 direct uploads or the bearer multipart attachment route for local storage. Context files still require R2 direct upload. Non-file writes normally use JSON.",
   "attachmentLinks must be arrays of { name, url } objects. Plain string URL arrays are not the canonical v1 format.",
   "Epic status and progress are automatic. Agents should not try to set them directly.",
   "Roadmap delete scope is separate from roadmap read/write. Grant it only when the agent should remove phases or events.",
@@ -920,7 +946,7 @@ export function buildAgentContextUpdateExample(): string {
 
 export function buildAgentAttachmentUploadExample(): string {
   return [
-    "# 1. Request a signed upload target",
+    "# R2 storage: request a signed upload target (up to 25 MiB)",
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/attachments/upload-url" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
@@ -936,6 +962,11 @@ export function buildAgentAttachmentUploadExample(): string {
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
     '  -d \'{"storageKey":"<upload.storageKey>","name":"architecture.png","mimeType":"image/png","sizeBytes":204800}\'',
+    "",
+    "# Local storage alternative: create a task with JSON first, then upload (4 MiB)",
+    'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/attachments" --header "Authorization: Bearer $NEXUSDASH_AGENT_BEARER_TOKEN" --form "kind=file" --form "file=@./notes.txt;type=text/plain"',
+    "# Add --form isCommentDraft=true for a comment draft, then POST its attachmentIds to /comments.",
+    "# Agent multipart task creation with attachmentFiles remains unsupported.",
   ].join("\n");
 }
 
@@ -1408,6 +1439,17 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
+        TaskAttachmentFormRequest: {
+          type: "object", required: ["kind"],
+          oneOf: [{ properties: { kind: { const: "file" } }, required: ["file"] }, { properties: { kind: { const: "link" } }, required: ["url"] }],
+          properties: {
+            kind: { type: "string", enum: ["file", "link"] },
+            file: { type: "string", format: "binary", description: "Nonempty PDF, image, text/Markdown, CSV or JSON file; maximum 4,194,304 bytes." },
+            name: { type: "string", description: "Optional display name; defaults to the original filename or link host." },
+            url: { type: "string", format: "uri", description: "Required for kind=link." },
+            isCommentDraft: { type: "string", enum: ["true", "false"], default: "false", description: "Only valid with kind=file when true; private to the exact uploading actor until binding." },
+          },
+        },
         AttachmentRecord: {
           type: "object",
           required: [
@@ -1420,6 +1462,15 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             "downloadUrl",
           ],
           properties: {
+            uploadedBy: {
+              type: "object", required: ["kind", "id", "displayName"],
+              description: "Task attachment uploader snapshot, distinct from the human storage owner. Deleted credentials retain kind and displayName with a null id.",
+              properties: {
+                kind: { type: "string", enum: ["human", "agent"] },
+                id: { type: ["string", "null"] },
+                displayName: { type: "string" },
+              },
+            },
             id: { type: "string" },
             commentId: {
               type: ["string", "null"],
@@ -2080,6 +2131,26 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 { type: "null" },
               ],
             },
+          },
+        },
+        TaskReactionResponse: {
+          type: "object", required: ["reactions"], properties: {
+            reactions: { type: "array", items: {
+              type: "object", required: ["emoji", "count", "reacted", "reactions"], properties: {
+                emoji: { type: "string" }, count: { type: "integer" }, reacted: { type: "boolean" },
+                reactions: { type: "array", items: {
+                  type: "object", required: ["id", "emoji", "actor", "user", "createdAt"], properties: {
+                    id: { type: "string" }, emoji: { type: "string" }, createdAt: { type: "string", format: "date-time" },
+                    actor: { type: "object", required: ["kind", "id", "displayName"], properties: {
+                      kind: { type: "string", enum: ["human", "agent"] },
+                      id: { type: ["string", "null"], description: "Null after credential deletion; never substitutes the human owner." },
+                      displayName: { type: "string" },
+                    } },
+                    user: { description: "Human compatibility summary; null for an agent.", anyOf: [{ $ref: "#/components/schemas/TaskCommentAuthor" }, { type: "null" }] },
+                  },
+                } },
+              },
+            } },
           },
         },
         TaskCommentRecord: {
@@ -3872,6 +3943,29 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           },
         },
       },
+      "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions": {
+        get: {
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { $ref: "#/components/parameters/TaskId" }, { $ref: "#/components/parameters/CommentId" }],
+          responses: { 200: { description: "Current grouped reactions", content: { "application/json": { schema: { $ref: "#/components/schemas/TaskReactionResponse" } } } }, ...commonErrorResponses },
+        },
+        post: {
+          ...buildOperationMetadata("POST", "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { $ref: "#/components/parameters/TaskId" }, { $ref: "#/components/parameters/CommentId" }],
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["emoji"], properties: { emoji: { type: "string", minLength: 1, maxLength: 32, description: "Trimmed nonempty string, at most 32 UTF-16 code units." } } } } } },
+          responses: { 200: { description: "Current grouped reactions", content: { "application/json": { schema: { $ref: "#/components/schemas/TaskReactionResponse" } } } }, ...commonErrorResponses },
+        },
+      },
+      "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions/{reactionId}": {
+        delete: {
+          ...buildOperationMetadata("DELETE", "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions/{reactionId}"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { $ref: "#/components/parameters/TaskId" }, { $ref: "#/components/parameters/CommentId" }, { name: "reactionId", in: "path", required: true, schema: { type: "string" } }],
+          responses: { 200: { description: "Current grouped reactions", content: { "application/json": { schema: { $ref: "#/components/schemas/TaskReactionResponse" } } } }, ...commonErrorResponses },
+        },
+      },
       "/api/projects/{projectId}/tasks/reorder": {
         post: {
           ...buildOperationMetadata("POST", "/api/projects/{projectId}/tasks/reorder"),
@@ -3946,6 +4040,15 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           },
         },
       },
+      "/api/projects/{projectId}/tasks/{taskId}/attachments": {
+        post: {
+          ...buildOperationMetadata("POST", "/api/projects/{projectId}/tasks/{taskId}/attachments"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { $ref: "#/components/parameters/TaskId" }],
+          requestBody: { required: true, content: { "multipart/form-data": { schema: { $ref: "#/components/schemas/TaskAttachmentFormRequest" } } } },
+          responses: { 200: { description: "Attributed attachment created", content: { "application/json": { schema: { type: "object", required: ["attachment"], properties: { attachment: { $ref: "#/components/schemas/AttachmentRecord" } } } } } }, ...commonErrorResponses },
+        },
+      },
       "/api/projects/{projectId}/tasks/{taskId}/attachments/upload-url": {
         post: {
           ...buildOperationMetadata(
@@ -4000,7 +4103,7 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
                 schema: {
                   allOf: [
                     { $ref: "#/components/schemas/AttachmentDirectFinalizeRequest" },
-                    { type: "object", properties: { isCommentDraft: { type: "boolean", default: false, description: "Keep the upload unpublished until comment binding." } } },
+                    { type: "object", properties: { isCommentDraft: { type: "boolean", default: false, description: "Keep the upload private to this human or credential until atomic comment binding. Use the exact storageKey returned to this actor; another actor cannot finalize or clean it up." } } },
                   ],
                 },
               },

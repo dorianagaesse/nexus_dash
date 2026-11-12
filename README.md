@@ -18,6 +18,8 @@ Implemented today:
 - Email verification and password recovery for credentials accounts
 - DB-backed session cookies
 - Protected routes: `/projects/**`, `/account/**`
+- Branded 404 page for unknown URLs and unavailable pages, with a Go to projects
+  recovery link, responsive layouts, and light/dark theme support
 - Project CRUD
 - Project Todos combines meeting actions and personal todos in one list. Add
   a todo for yourself with just text; edit, complete/reopen, or delete your own
@@ -32,10 +34,20 @@ Implemented today:
 - Project-scoped agent access with owner-managed API credentials, short-lived bearer-token exchange, and audit trail
 - Project dashboard with:
   - Context cards (CRUD + attachments)
+  - Epics listed in a bounded, scrollable view with title, completion, task count,
+    and edit/archive/delete actions. Colored flags identify epics across the list,
+    details dialog, and Kanban. **Active** and **Archived** show their epics
+    immediately, with name and description search. Open an epic to see its
+    description and every linked task, ordered Backlog, Blocked, In Progress,
+    then Done. Task links open the task directly. Creation and editing use dialogs.
   - Meeting notes with searchable preparation inputs, label filters,
     participants, after-meeting outputs, todo tracking, overdue highlights,
     state, and archived history
-  - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
+  - Roadmap milestone lanes with grouped events, drag-and-drop regrouping,
+    and target-date planning. Milestones stack vertically on narrow screens
+    and form a horizontally scrollable timeline on desktop. During a touch
+    drag, visible insertion gaps let you create a milestone by releasing
+    your finger inside the gap.
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
   - Calendar panel (Google Calendar list/create/update/delete)
   - Task attachment additions and deletions sync into open task modals across
@@ -731,5 +743,62 @@ R2; local storage supports form uploads for signed-in users. Agent attachments
 store their credential ID and display-name snapshot separately from the user
 who owns the storage object. Revoked or deleted credentials retain historical
 agent attribution. Existing file limits, project access, and scope checks apply.
+
+### Comment reaction actors
+
+A human and each project credential have independent comment reactions. POST an
+emoji to `/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions`
+to toggle it off or replace your previous emoji. GET requires `task:read`; POST
+and DELETE `/{reactionId}` require `task:write`. Removal affects only your actor.
+Responses group counts and caller-specific `reacted` state. Each reaction's
+`actor` identifies the human or agent; `user` is null for agents. Credential
+removal preserves the agent display snapshot with a null actor ID. Reaction
+button tooltips show these actors, including the agent marker.
+
+Open task dialogs reconcile comments, counts and reactions through project
+activity, including Broadcast signals and polling or reconnect snapshots.
+Thread reads continue during task editing without replacing unsent comments,
+active comment edits, focus or selection. Switching tasks cancels pending reads;
+late responses cannot replace the newly opened thread. Polling keeps the existing
+10-second active cadence; no separate thread polling loop is added.
+After a local mutation finishes, open surfaces also catch up once so its version
+acknowledgement cannot hide a concurrent remote comment or reaction.
+
+Reaction routes validate the entire project/task/comment/reaction path. A known
+comment under the wrong task, or a reaction under the wrong comment, returns 404
+and never reads or changes the other thread's reactions.
+
+### Task attachment attribution
+
+Task link and file responses include `uploadedBy: { kind, id, displayName }`.
+The uploader snapshot distinguishes agents from their human storage owner and
+survives credential deletion (`id: null`, agent kind and name retained). Task
+attachment add/delete writes also update the actual task editor and activity
+payload actor. Legacy uploads remain human-attributed; their history is not
+retroactively assigned to a credential.
+
+Unpublished task comment files belong to the exact uploading human or credential,
+including credentials with the same human owner. Only that actor may read or bind
+its draft to a comment. Human project owners may remove another actor's draft for
+moderation; this grants neither read nor publishing access. Once posted, project
+readers may download the file. Binding is atomic and a draft can be published once.
+Direct-upload keys must be used by the actor that requested them. Finalization and
+cleanup reject an already-finalized key; agents cannot claim legacy human keys.
+
+### Agent files with local storage
+
+Create the task using JSON, then POST multipart form data to
+`/api/projects/{projectId}/tasks/{taskId}/attachments` with the bearer token,
+`kind=file` and `file`. This path supports local and R2 providers, with the
+existing 4 MiB MIME/size limit and actual credential attribution. For a comment
+file, add `isCommentDraft=true`, then POST its ID in `attachmentIds` to the task
+comments route. Only that credential may bind or read the unpublished file.
+
+Agent multipart task creation with `attachmentFiles` remains unsupported; the
+two-request create/upload flow is its supported equivalent. R2 direct upload
+remains preferred for files up to 25 MiB. Local storage returns 400 for signed
+upload targets; use multipart instead. Authentication or authorization failures
+must not trigger a fallback to a human session. Context-card local uploads remain
+outside this contract.
 
 Project module permissions and rollout: [project capabilities](docs/runbooks/project-capabilities.md).

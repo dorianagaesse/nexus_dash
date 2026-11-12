@@ -24,6 +24,8 @@ export async function DELETE(
   const result = await removeTaskCommentReaction({
     actorUserId: principalResult.principal.actorUserId,
     projectId: params.projectId,
+    taskId: params.taskId,
+    commentId: params.commentId,
     reactionId: params.reactionId,
     agentAccess: getAgentProjectAccessContext(principalResult.principal),
   });

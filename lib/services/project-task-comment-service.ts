@@ -1,3 +1,5 @@
+import { taskAttachmentUploaderWhere } from "@/lib/task-attachment-actor";
+import { taskAttachmentActorSelect, type TaskAttachmentActorFields } from "@/lib/task-attachment-actor";
 import { logServerError } from "@/lib/observability/logger";
 import {
   hasAgentMentionToken,
@@ -170,7 +172,7 @@ function mapTaskComment(input: {
     usernameDiscriminator: string | null;
     avatarSeed: string | null;
   };
-  attachments?: Array<{
+  attachments?: Array<TaskAttachmentActorFields & {
     id: string;
     commentId: string | null;
     kind: string;
@@ -700,6 +702,7 @@ export async function listTaskCommentsForProject(input: {
               url: true,
               mimeType: true,
               sizeBytes: true,
+              ...taskAttachmentActorSelect,
             },
           },
           agentMentions: {
@@ -774,8 +777,8 @@ export async function createTaskCommentForProject(input: {
     return createError(agentScopeAccess.status, agentScopeAccess.error);
   }
 
-  const result: ServiceResult<CreateTaskCommentTransactionData> =
-    await withActorRlsContext(actorUserId, async (db) => {
+  const result =
+    await withActorRlsContext<ServiceResult<CreateTaskCommentTransactionData>>(actorUserId, async (db) => {
       const access = await requireProjectRole({
         actorUserId,
         projectId: input.projectId,
@@ -805,7 +808,8 @@ export async function createTaskCommentForProject(input: {
           where: {
             id: { in: attachmentIds },
             taskId: input.taskId,
-            uploadedByUserId: actorUserId,
+            ...taskAttachmentUploaderWhere(actorUserId, input.agentAccess?.credentialId),
+            isCommentDraft: true,
             commentId: null,
           },
           select: { id: true, kind: true, mimeType: true },
@@ -843,7 +847,6 @@ export async function createTaskCommentForProject(input: {
         return agentMentionResolution;
       }
 
-      try {
         let actorKind: NotificationActorKind = "user";
         let actorCredentialId: string | null = null;
         let actorCredentialLabel: string | null = null;
@@ -899,6 +902,7 @@ export async function createTaskCommentForProject(input: {
                 url: true,
                 mimeType: true,
                 sizeBytes: true,
+                ...taskAttachmentActorSelect,
               },
             },
           },
@@ -909,7 +913,8 @@ export async function createTaskCommentForProject(input: {
             where: {
               id: { in: attachmentIds },
               taskId: input.taskId,
-              uploadedByUserId: actorUserId,
+              ...taskAttachmentUploaderWhere(actorUserId, input.agentAccess?.credentialId),
+              isCommentDraft: true,
               commentId: null,
             },
             data: { commentId: comment.id, isCommentDraft: false },
@@ -928,6 +933,7 @@ export async function createTaskCommentForProject(input: {
               url: true,
               mimeType: true,
               sizeBytes: true,
+              ...taskAttachmentActorSelect,
             },
           });
         }
@@ -991,10 +997,12 @@ export async function createTaskCommentForProject(input: {
             pendingNotifications,
           },
         };
-      } catch (error) {
-        logServerError("createTaskCommentForProject", error);
-        return createError(500, "comment-create-failed");
+    }, { forceTransaction: true }).catch((error) => {
+      if (error instanceof Error && error.message === "Comment attachment binding changed during creation") {
+        return createError(409, "task-comment-attachment-invalid");
       }
+      logServerError("createTaskCommentForProject", error);
+      return createError(500, "comment-create-failed");
     });
 
   if (!result.ok) {
@@ -1172,6 +1180,7 @@ export async function updateTaskCommentForProject(
               url: true,
               mimeType: true,
               sizeBytes: true,
+              ...taskAttachmentActorSelect,
             },
           },
         },
@@ -1215,339 +1224,10 @@ export async function updateTaskCommentForProject(
   });
 }
 
-export interface TaskCommentReactionSummary {
-  id: string;
-  emoji: string;
-  user: TaskPersonSummary;
-  createdAt: Date;
-}
-
-export interface TaskCommentReactionGroup {
-  emoji: string;
-  count: number;
-  reacted: boolean;
-  reactions: TaskCommentReactionSummary[];
-}
-
-function groupReactionsForActor(
-  rawReactions: Array<{
-    id: string;
-    emoji: string;
-    createdAt: Date;
-    user: {
-      id: string;
-      name: string | null;
-      email: string | null;
-      username: string | null;
-      usernameDiscriminator: string | null;
-      avatarSeed: string | null;
-    };
-  }>,
-  actorUserId: string
-): TaskCommentReactionGroup[] {
-  const actorUserIdLower = actorUserId.toLowerCase();
-  const grouped = new Map<string, TaskCommentReactionGroup>();
-
-  for (const r of rawReactions) {
-    const summary: TaskCommentReactionSummary = {
-      id: r.id,
-      emoji: r.emoji,
-      user: mapTaskPersonSummary(r.user)!,
-      createdAt: r.createdAt,
-    };
-
-    if (!grouped.has(r.emoji)) {
-      grouped.set(r.emoji, {
-        emoji: r.emoji,
-        count: 0,
-        reacted: false,
-        reactions: [],
-      });
-    }
-
-    const group = grouped.get(r.emoji)!;
-    group.count++;
-    group.reactions.push(summary);
-    if (r.user.id.toLowerCase() === actorUserIdLower) {
-      group.reacted = true;
-    }
-  }
-
-  return Array.from(grouped.values());
-}
-
-export async function listTaskCommentReactionsForComment(input: {
-  actorUserId: string;
-  projectId: string;
-  commentId: string;
-  agentAccess?: AgentProjectAccessContext;
-}): Promise<ServiceResult<{ reactions: TaskCommentReactionGroup[] }>> {
-  const actorUserId = normalizeActorUserId(input.actorUserId);
-  if (!actorUserId) return createError(401, "unauthorized");
-
-  const agentScopeAccess = requireAgentProjectScopes({
-    agentAccess: input.agentAccess,
-    projectId: input.projectId,
-    requiredScopes: ["task:read"],
-  });
-  if (!agentScopeAccess.ok)
-    return createError(agentScopeAccess.status, agentScopeAccess.error);
-
-  return withActorRlsContext(actorUserId, async (db) => {
-    const access = await requireProjectRole({
-      actorUserId,
-      projectId: input.projectId,
-      minimumRole: "viewer",
-      capability: "task:read",
-      db,
-    });
-    if (!access.ok) return createError(access.status, access.error);
-
-    const comment = await db.taskComment.findUnique({
-      where: { id: input.commentId },
-      select: { id: true, taskId: true },
-    });
-    if (!comment) return createError(404, "comment-not-found");
-
-    const task = await db.task.findUnique({
-      where: { id: comment.taskId },
-      select: { projectId: true },
-    });
-    if (!task || task.projectId !== input.projectId)
-      return createError(404, "comment-not-found");
-
-    try {
-      const rawReactions = await db.taskCommentReaction.findMany({
-        where: { commentId: input.commentId },
-        orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          emoji: true,
-          createdAt: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              username: true,
-              usernameDiscriminator: true,
-              avatarSeed: true,
-            },
-          },
-        },
-      });
-
-      return {
-        ok: true,
-        data: { reactions: groupReactionsForActor(rawReactions, actorUserId) },
-      };
-    } catch (error) {
-      logServerError("listTaskCommentReactionsForComment", error);
-      return createError(500, "reactions-list-failed");
-    }
-  });
-}
-
-export async function addTaskCommentReaction(input: {
-  actorUserId: string;
-  projectId: string;
-  commentId: string;
-  emoji: string;
-  agentAccess?: AgentProjectAccessContext;
-}): Promise<ServiceResult<{ reactions: TaskCommentReactionGroup[] }>> {
-  const actorUserId = normalizeActorUserId(input.actorUserId);
-  if (!actorUserId) return createError(401, "unauthorized");
-
-  const emoji = typeof input.emoji === "string" ? input.emoji.trim() : "";
-  if (!emoji) return createError(400, "emoji-required");
-  if (emoji.length > 32) return createError(400, "emoji-too-long");
-
-  const agentScopeAccess = requireAgentProjectScopes({
-    agentAccess: input.agentAccess,
-    projectId: input.projectId,
-    requiredScopes: ["task:write"],
-  });
-  if (!agentScopeAccess.ok)
-    return createError(agentScopeAccess.status, agentScopeAccess.error);
-
-  return withActorRlsContext(actorUserId, async (db) => {
-    const access = await requireProjectRole({
-      actorUserId,
-      projectId: input.projectId,
-      minimumRole: "editor",
-      capability: "task:write",
-      db,
-    });
-    if (!access.ok) return createError(access.status, access.error);
-
-    const comment = await db.taskComment.findUnique({
-      where: { id: input.commentId },
-      select: { id: true, taskId: true },
-    });
-    if (!comment) return createError(404, "comment-not-found");
-
-    const task = await db.task.findUnique({
-      where: { id: comment.taskId },
-      select: { projectId: true },
-    });
-    if (!task || task.projectId !== input.projectId)
-      return createError(404, "comment-not-found");
-
-    try {
-      const existing = await db.taskCommentReaction.findMany({
-        where: { commentId: input.commentId, userId: actorUserId },
-      });
-
-      // If user already has this exact emoji, remove it (click = toggle off)
-      const sameEmoji = existing.find((r) => r.emoji === emoji);
-      if (sameEmoji) {
-        await db.taskCommentReaction.delete({ where: { id: sameEmoji.id } });
-        await touchProjectActivity({ db, projectId: input.projectId });
-        const rawReactions = await db.taskCommentReaction.findMany({
-          where: { commentId: input.commentId },
-          orderBy: { createdAt: "asc" },
-          select: {
-            id: true,
-            emoji: true,
-            createdAt: true,
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                username: true,
-                usernameDiscriminator: true,
-                avatarSeed: true,
-              },
-            },
-          },
-        });
-        return {
-          ok: true,
-          data: {
-            reactions: groupReactionsForActor(rawReactions, actorUserId),
-          },
-        };
-      }
-
-      if (existing.length > 0) {
-        await db.taskCommentReaction.deleteMany({
-          where: { commentId: input.commentId, userId: actorUserId },
-        });
-      }
-
-      if (emoji) {
-        await db.taskCommentReaction.create({
-          data: { commentId: input.commentId, userId: actorUserId, emoji },
-        });
-      }
-
-      await touchProjectActivity({ db, projectId: input.projectId });
-
-      const rawReactions = await db.taskCommentReaction.findMany({
-        where: { commentId: input.commentId },
-        orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          emoji: true,
-          createdAt: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              username: true,
-              usernameDiscriminator: true,
-              avatarSeed: true,
-            },
-          },
-        },
-      });
-
-      return {
-        ok: true,
-        data: { reactions: groupReactionsForActor(rawReactions, actorUserId) },
-      };
-    } catch (error) {
-      logServerError("addTaskCommentReaction", error);
-      return createError(500, "reaction-toggle-failed");
-    }
-  });
-}
-
-export async function removeTaskCommentReaction(input: {
-  actorUserId: string;
-  projectId: string;
-  reactionId: string;
-  agentAccess?: AgentProjectAccessContext;
-}): Promise<ServiceResult<{ reactions: TaskCommentReactionGroup[] }>> {
-  const actorUserId = normalizeActorUserId(input.actorUserId);
-  if (!actorUserId) return createError(401, "unauthorized");
-
-  const agentScopeAccess = requireAgentProjectScopes({
-    agentAccess: input.agentAccess,
-    projectId: input.projectId,
-    requiredScopes: ["task:write"],
-  });
-  if (!agentScopeAccess.ok)
-    return createError(agentScopeAccess.status, agentScopeAccess.error);
-
-  return withActorRlsContext(actorUserId, async (db) => {
-    const access = await requireProjectRole({
-      actorUserId,
-      projectId: input.projectId,
-      minimumRole: "editor",
-      capability: "task:write",
-      db,
-    });
-    if (!access.ok) return createError(access.status, access.error);
-
-    const reaction = await db.taskCommentReaction.findUnique({
-      where: { id: input.reactionId },
-      include: { comment: { select: { id: true, taskId: true } } },
-    });
-    if (!reaction) return createError(404, "reaction-not-found");
-
-    const task = await db.task.findUnique({
-      where: { id: reaction.comment.taskId },
-      select: { projectId: true },
-    });
-    if (!task || task.projectId !== input.projectId)
-      return createError(404, "reaction-not-found");
-    if (reaction.userId !== actorUserId)
-      return createError(403, "not-reaction-owner");
-
-    try {
-      await db.taskCommentReaction.delete({ where: { id: input.reactionId } });
-      await touchProjectActivity({ db, projectId: input.projectId });
-
-      const rawReactions = await db.taskCommentReaction.findMany({
-        where: { commentId: reaction.commentId },
-        orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          emoji: true,
-          createdAt: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              username: true,
-              usernameDiscriminator: true,
-              avatarSeed: true,
-            },
-          },
-        },
-      });
-
-      return {
-        ok: true,
-        data: { reactions: groupReactionsForActor(rawReactions, actorUserId) },
-      };
-    } catch (error) {
-      logServerError("removeTaskCommentReaction", error);
-      return createError(500, "reaction-remove-failed");
-    }
-  });
-}
+export {
+  listTaskCommentReactionsForComment,
+  addTaskCommentReaction,
+  removeTaskCommentReaction,
+  type TaskCommentReactionSummary,
+  type TaskCommentReactionGroup,
+} from "@/lib/services/task-comment-reaction-service";

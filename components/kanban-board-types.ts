@@ -1,3 +1,4 @@
+import type { TaskAttachmentActor } from "@/lib/task-attachment-actor";
 import type { ProjectActorReference, ProjectActorSummary } from "@/lib/project-actor";
 import type { TaskStatus } from "@/lib/task-status";
 
@@ -55,6 +56,7 @@ export interface TaskAuthor extends TaskPersonSummary {
 }
 
 export interface TaskCommentReaction {
+  reactions?: Array<{ id: string; actor: { kind: "human" | "agent"; id: string | null; displayName: string } }>;
   emoji: string;
   count: number;
   reacted: boolean;
@@ -89,6 +91,7 @@ export interface TaskAttachment {
   url: string | null;
   mimeType: string | null;
   sizeBytes: number | null;
+  uploadedBy?: TaskAttachmentActor;
   downloadUrl: string | null;
 }
 
