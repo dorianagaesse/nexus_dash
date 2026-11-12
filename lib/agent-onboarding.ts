@@ -56,6 +56,7 @@ export interface AgentApiEndpointDefinition {
   title: string;
   description: string;
   requiredScopes: AgentScope[];
+  scopeMatch?: "all" | "any";
   requestContentType?: AgentRequestContentType;
   notes?: readonly string[];
 }
@@ -297,6 +298,12 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
     requestContentType: "application/json",
   },
   {
+    tag: "Projects", method: "GET", path: "/api/projects/{projectId}/actors/search",
+    title: "Search project actors", description: "Discover project humans and active agent credentials for assignments and mentions.",
+    requiredScopes: ["project:read", "task:read", "task:write"], scopeMatch: "any",
+    notes: ["Any one of project:read OR task:read OR task:write is sufficient. Viewer project access is also required.", "The optional query is trimmed, one leading @ is removed, and matching is case-insensitive. Empty queries are allowed. Results match display names, username prefixes (ignoring a supplied discriminator for prefix matching), or human email. At most 12 results are ranked by exact/prefix match, then human before agent and display name; there is no pagination.", "Only active assignable actors are returned; revoked/expired credentials are excluded. Agent callers can discover the human owner; human callers omit themselves. Responses contain actor identity/status, projectRole and isOwner, never credential secrets. Responses use Cache-Control: no-store."],
+  },
+  {
     tag: "Tasks",
     method: "GET",
     path: "/api/projects/{projectId}/tasks",
@@ -421,6 +428,8 @@ export const AGENT_API_ENDPOINTS: ReadonlyArray<AgentApiEndpointDefinition> = [
       "Only the original author can edit the comment; for agent comments, the active credential ID must match.",
       "Supports updating plain-text content (up to 4000 characters) and agent mentions.",
       "Preserves attachments, reactions, author identity, and creation timestamp while setting updatedAt.",
+      "PATCH replaces agentMentionSelections: omission clears them. Before an unrelated edit, revalidate every read agentMentions entry against actor discovery; read labels are stored snapshots. Only active credentials with unchanged labels can be copied as { credentialId } selections while retaining their existing visible tokens. Human mention notifications are not emitted on edit.",
+      "Reselect renamed agents and update visible @{Credential Label} tokens to their current labels. Revoked, expired, or stale-label selections return 400 task-comment-agent-mention-invalid. Refresh actor discovery and require explicit reselection or removal before retrying; pause if any selection cannot be revalidated. Never silently filter invalid IDs and retry: a successful PATCH removes omitted stored mentions. A bounded search response alone does not prove an unreturned credential is inactive.",
     ],
   },
   {
@@ -871,14 +880,28 @@ export function buildAgentTaskUpdateExample(): string {
 
 export function buildAgentTaskCommentExample(): string {
   return [
+    "# Discover IDs and current labels/tags before constructing visible mention tokens",
+    'curl "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/actors/search?query=alice" -H "Authorization: Bearer $NEXUSDASH_AGENT_BEARER_TOKEN"',
+    "# Replace example IDs/tags below with actor search results",
     'curl -X POST "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/comments" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}" \\`,
     '  -H "Content-Type: application/json" \\',
-    '  -d \'{"content":"Waiting on design sign-off before moving this into In Progress."}\'',
+    '  -d \'{"content":"<p>Please review @alice#1234 and @{Release bot}.</p>","mentionSelections":[{"userId":"user_123","username":"alice","discriminator":"1234"}],"agentMentionSelections":[{"credentialId":"credential_123"}]}\'',
     "",
-    "# Read the full task thread",
+    "# Read the full task thread; agentMentions contains { credentialId, label }",
     'curl "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/tasks/$TASK_ID/comments" \\',
     `  -H "Authorization: Bearer $${AGENT_BEARER_TOKEN_ENV_NAME}"`,
+    "",
+    "# Before PATCH, revalidate EVERY stored credentialId and label against actor discovery; read labels are snapshots.",
+    'curl "$NEXUSDASH_BASE_URL/api/projects/$NEXUSDASH_PROJECT_ID/actors/search?query=Release%20bot" -H "Authorization: Bearer $NEXUSDASH_AGENT_BEARER_TOKEN"',
+    "# Only when every selected credential is active and its label unchanged, preserve the visible @{Label} tokens",
+    "# and send agentMentionSelections: agentMentions.map(({ credentialId }) => ({ credentialId })).",
+    "# Reselect renamed agents and update their visible tokens to the current labels.",
+    "# Revoked/expired credentials or stale tokens cause 400 task-comment-agent-mention-invalid; refresh discovery",
+    "# and pause for explicit reselection/removal if any selection cannot be revalidated. Search is bounded:",
+    "# absence from one response does not prove inactivity. Never silently filter IDs and retry; omitted mentions are removed.",
+    "# Omission clears selections; edits do not notify human mentions.",
+    "# The 4000-character limit applies to sanitized visible text, not HTML markup.",
   ].join("\n");
 }
 
@@ -1112,12 +1135,12 @@ function buildEndpointDescription(endpoint: AgentApiEndpointDefinition): string 
   return `${endpoint.description}\n\n${endpoint.notes.map((note) => `- ${note}`).join("\n")}`;
 }
 
-function buildSecurityScopesDescription(scopes: readonly AgentScope[]): string {
+function buildSecurityScopesDescription(scopes: readonly AgentScope[], match: "all" | "any" = "all"): string {
   if (scopes.length === 0) {
     return "No route-specific scope is required before token issuance.";
   }
 
-  return `Required scopes: ${scopes.join(", ")}.`;
+  return match === "any" ? `Any one scope is sufficient: ${scopes.join(" OR ")}.` : `Required scopes: ${scopes.join(", ")}.`;
 }
 
 function getAgentEndpointDefinition(
@@ -1138,10 +1161,12 @@ function buildOperationMetadata(method: AgentHttpMethod, path: string) {
   const endpoint = getAgentEndpointDefinition(method, path);
 
   return {
+    "x-required-scopes": endpoint.requiredScopes,
+    "x-scope-match": endpoint.scopeMatch ?? "all",
     tags: [endpoint.tag],
     summary: endpoint.title,
     description: `${buildEndpointDescription(endpoint)}\n\n${buildSecurityScopesDescription(
-      endpoint.requiredScopes
+      endpoint.requiredScopes, endpoint.scopeMatch
     )}`,
   } as const;
 }
@@ -1878,6 +1903,18 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
           },
         },
+        ProjectActorSearchResponse: {
+          type: "object", required: ["actors"], properties: {
+            actors: { type: "array", maxItems: 12, items: { allOf: [
+              { $ref: "#/components/schemas/ProjectActorSummary" },
+              { type: "object", required: ["projectRole", "isOwner"], properties: {
+                status: { const: "active" }, isAssignable: { const: true },
+                projectRole: { type: ["string", "null"], enum: ["owner", "editor", "viewer", null] },
+                isOwner: { type: "boolean" },
+              } },
+            ] } },
+          },
+        },
         TaskRecord: {
           type: "object",
           required: [
@@ -2166,6 +2203,10 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             author: {
               $ref: "#/components/schemas/TaskCommentAuthor",
             },
+            agentMentions: {
+              type: "array", description: "Present when agent mentions exist. Labels are stored snapshots. Before preserving these credentialIds as agentMentionSelections on edit, revalidate each against current actor discovery; credentials may have been renamed, revoked, or expired. See TaskCommentUpdateRequest for reselection and error handling.",
+              items: { type: "object", required: ["credentialId", "label"], properties: { credentialId: { type: "string" }, label: { type: "string" } } },
+            },
             attachments: {
               type: "array",
               items: { $ref: "#/components/schemas/AttachmentRecord" },
@@ -2189,7 +2230,14 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           type: "object",
           anyOf: [{ required: ["content"] }, { required: ["attachmentIds"] }],
           properties: {
-            content: { type: "string" },
+            content: { type: "string", description: "Plain text or sanitized rich-text HTML. At most 4000 UTF-16 code units of the normalized plain-text projection after sanitization (whitespace collapsed; encoded entities and list markers can contribute to the count); HTML markup does not count. Empty content requires an attachment." },
+            mentionSelections: {
+              type: "array", maxItems: 50, description: "Selected human identities for visible @username or @username#1234 tokens. IDs alone do not create a mention; usernames/tags must match the selected current project member. Only the first 50 entries are processed.",
+              items: { type: "object", required: ["userId", "username", "discriminator"], properties: {
+                userId: { type: "string", minLength: 1 }, username: { type: "string", minLength: 1 },
+                discriminator: { type: "string", pattern: "^[0-9]{4}$", description: "Current four-digit discriminator from usernameTag, without #. Selected human mentions require it." },
+              } },
+            },
             attachmentIds: {
               type: "array",
               minItems: 1,
@@ -2233,14 +2281,13 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
           properties: {
             content: {
               type: "string",
-              maxLength: 4000,
-              description: "Updated comment text.",
+              description: "Plain text or sanitized rich-text HTML, limited to 4000 UTF-16 code units of the normalized plain-text projection after sanitization (whitespace collapsed; encoded entities and list markers can contribute to the count), not raw HTML length. Editing does not emit new human mention notifications.",
             },
             agentMentionSelections: {
               type: "array",
               maxItems: 50,
               description:
-                "Active project agents tagged by this comment. Each entry requires the exact `@{Credential Label}` token of the credential in `content`.",
+                "Replaces all agent mention selections. Omission or [] clears them. Before an unrelated edit, revalidate every read agentMentions entry against current actor discovery: read labels are stored snapshots. Only active credentials with unchanged labels can be mapped to { credentialId } while retaining their exact visible @{Credential Label} tokens. Reselect renamed agents and update visible tokens to their current labels. Revoked, expired, or stale-label selections return 400 task-comment-agent-mention-invalid; refresh discovery and pause for explicit reselection or removal if any selection cannot be revalidated. Never silently filter invalid IDs and retry: a successful PATCH removes omitted stored mentions. A bounded search response alone does not prove an unreturned credential is inactive. Selected IDs alone are insufficient.",
               items: {
                 type: "object",
                 required: ["credentialId"],
@@ -2928,6 +2975,14 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             },
             ...commonErrorResponses,
           },
+        },
+      },
+      "/api/projects/{projectId}/actors/search": {
+        get: {
+          ...buildOperationMetadata("GET", "/api/projects/{projectId}/actors/search"),
+          security: [{ BearerAuth: [] }],
+          parameters: [{ $ref: "#/components/parameters/ProjectId" }, { name: "query", in: "query", required: false, schema: { type: "string", default: "" }, description: "Trimmed case-insensitive query; one leading @ is removed. Empty returns ranked actors, at most 12." }],
+          responses: { 200: { description: "Active actors; Cache-Control: no-store", content: { "application/json": { schema: { $ref: "#/components/schemas/ProjectActorSearchResponse" } } } }, ...commonErrorResponses },
         },
       },
       "/api/projects/{projectId}/tasks": {

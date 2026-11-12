@@ -741,6 +741,41 @@ store their credential ID and display-name snapshot separately from the user
 who owns the storage object. Revoked or deleted credentials retain historical
 agent attribution. Existing file limits, project access, and scope checks apply.
 
+### Actor discovery and comment mention round-tripping
+
+`GET /api/projects/{projectId}/actors/search?query=...` accepts any one of
+`project:read`, `task:read`, or `task:write`, with viewer project access. It trims
+the query, removes one leading `@`, matches case-insensitively, and returns at
+most 12 active actors without pagination. Revoked/expired credentials are omitted.
+
+For human mentions on comment creation, send `mentionSelections` with `userId`,
+`username`, and the current four-digit `discriminator` matching the visible `@username#1234`
+token. For agents, send `agentMentionSelections: [{ credentialId }]` and the exact
+visible `@{Credential Label}` token. Selected IDs do not replace visible tokens.
+Comment responses expose `agentMentions: [{ credentialId, label }]` when present.
+
+Comment PATCH replaces agent selections, including clearing them when omitted.
+Before an unrelated text edit, revalidate every existing `agentMentions` entry
+against actor discovery: comment reads contain stored label snapshots, not a
+guarantee that the credentials are still active or their labels unchanged. Only
+then retain the matching visible tokens and map the entries to
+`agentMentionSelections: [{ credentialId }]`.
+
+For a renamed credential, reselect its current actor and update the visible
+`@{Credential Label}` token to the current label. Revoked or expired credentials,
+or renamed credentials with stale tokens, cause PATCH to return
+`400 task-comment-agent-mention-invalid`. Refresh actor discovery and surface the
+need for explicit reselection or removal before retrying. If any existing
+selection cannot be revalidated, pause the edit; do not silently filter out IDs
+and retry, because a successful PATCH with a reduced selection set removes the
+omitted stored mentions. A bounded search response alone does not prove an
+unreturned credential is inactive.
+
+Edits do not emit new human mention notifications. Create and edit accept
+sanitized rich-text HTML; the 4000-character limit counts UTF-16 code units in the server plain-text
+projection after sanitization and whitespace normalization, not raw HTML markup.
+Sanitizer-escaped entities and list markers can contribute to this count. See the hosted guide for complete examples and schemas.
+
 ### Comment reaction actors
 
 A human and each project credential have independent comment reactions. POST an

@@ -1,5 +1,12 @@
 # Development Journal
 
+# 2026-11-12 - PR #688: reconcile upload and thread merges
+
+- Merged main at `917a642`, preserving both journal histories and both adjacent
+  onboarding contract tests. No runtime code required manual resolution.
+- All 18 onboarding contract tests and `git diff --check` passed.
+- Broader validation results and local build limitations are reported at handoff.
+
 # 2026-11-12 - PR #687: reconcile thread synchronization merge
 
 - Merged main at `00755cf` after PR #696 landed. Preserved both journal
@@ -100,6 +107,39 @@
 - Preview workflow 42491849366 verified `164ae18b` at
   `https://nexus-dash-2527p5sp8-dorian-agaesses-projects.vercel.app`, covering the
   multipart path and existing R2 direct upload, actor history and draft ownership.
+
+# 2026-11-11 - ND-674: reconcile actor and mention contracts with main
+
+- Merged current main into PR #688, retaining actor discovery and mention
+  contracts alongside reaction documentation, schemas and contract tests.
+- Resolved adjacent README, journal and onboarding-test additions by preserving
+  both branches. Validation results are recorded on the PR.
+
+# 2026-11-10 - ND-674: mention-preservation review follow-up
+
+- Qualified the guide, OpenAPI descriptions, curl example and README: stored
+  mention labels must be checked against current actor discovery before PATCH.
+  Renamed agents need current visible tokens; revoked/expired selections require
+  explicit reselection or removal after `task-comment-agent-mention-invalid`.
+- Explained that silently filtering IDs removes omitted mentions on a successful
+  PATCH, and absence from a bounded search response does not prove inactivity.
+- Documentation-only validation: `git diff --check`, local link checks and
+  reference review against actor discovery and mention-resolution services.
+
+# 2026-11-08 - ND-674: actor discovery and mention contracts
+
+- Published actor search with its three alternative scopes, normalization,
+  12-result bound and active-only response shape. The guide labels OR scopes.
+- Completed human mention selections and agent mention response schemas, added
+  discovery-based rich-text examples, and documented replacement on PATCH.
+- Removed the incorrect raw-HTML maxLength from comment edits. Documented the
+  normalized plain-text projection limit and required human discriminator.
+- Added runtime/contract tests for alternative scopes, response fields, bounds
+  and a browser/API example for mention preservation and rich-text limits.
+- Lint, RLS inventory, 2,404 unit/API tests (3 skipped), coverage thresholds and
+  build passed. The local and hosted discovery/mention/browser contract tests
+  passed. Workflow 42492696187 verified `ae82a86bcb16c79dfd33bbab426c2c33ac0f88d6`
+  at `https://nexus-dash-k7hq700v1-dorian-agaesses-projects.vercel.app`.
 
 # 2026-11-11 - ND-672: reconcile reaction parent validation with main
 
