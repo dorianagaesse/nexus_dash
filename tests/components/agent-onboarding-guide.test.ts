@@ -19,6 +19,8 @@ describe("agent-onboarding-guide", () => {
     expect(result).toContain("NEXUSDASH_AGENT_OPENAPI_URL=https://preview.nexusdash.test/api/docs/agent/v1/openapi.json");
     expect(result).toContain("Authentication flow");
     expect(result).toContain("Supported endpoints");
+    expect(result).toContain("/api/projects/{projectId}/actors/search");
+    expect(result).toContain("Any one of:");
     expect(result).toContain("/api/projects/{projectId}/epics");
     expect(result).toContain("/api/projects/{projectId}/roadmap");
     expect(result).toContain("/api/projects/{projectId}/roadmap/events/move");
