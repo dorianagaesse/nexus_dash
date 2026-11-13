@@ -163,7 +163,7 @@ function buildGuideSections({
             <p>Pair an authorized identity once in your own terminal. Keep the broker
               running separately, then open a session from your existing client&apos;s
               terminal tool. Use the returned session ID on every command.</p>
-            <CodeBlock value={`node /absolute/nexus_dash/scripts/nd-agent.mjs broker\nnode /absolute/nexus_dash/scripts/nd-agent.mjs session open --base ${new URL(docsLinks.docsUrl).origin} --project PROJECT_ID --identity IDENTITY_ID --client "Release review"\nnode /absolute/nexus_dash/scripts/nd-agent.mjs session status --session SESSION_ID\nnode /absolute/nexus_dash/scripts/nd-agent.mjs session request --session SESSION_ID --method GET --path /api/projects/PROJECT_ID/tasks\nnode /absolute/nexus_dash/scripts/nd-agent.mjs session close --session SESSION_ID`} />
+            <CodeBlock value={`node /absolute/nexus_dash/scripts/nd-agent.mjs broker\nnode /absolute/nexus_dash/scripts/nd-agent.mjs session open --base ${new URL(docsLinks.docsUrl).origin} --project PROJECT_ID --identity IDENTITY_ID --client "Release review"\nnode /absolute/nexus_dash/scripts/nd-agent.mjs session status --session SESSION_ID\nnode /absolute/nexus_dash/scripts/nd-agent.mjs session request --session SESSION_ID --method GET --path tasks\nnode /absolute/nexus_dash/scripts/nd-agent.mjs session close --session SESSION_ID`} />
             <p className="text-xs text-muted-foreground">Use a stable absolute helper path and an unlocked OS vault.
               Your client must permit terminal commands and local broker access.
               Each conversation opens its own session; an idle session expires after

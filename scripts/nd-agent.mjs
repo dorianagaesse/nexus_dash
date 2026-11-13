@@ -93,7 +93,7 @@ async function main() {
       "Usage: nd-agent.mjs broker [--broker DIRECTORY]\n" +
       "nd-agent.mjs session open --base ORIGIN --project ID --identity ID --client DESCRIPTION [--broker DIRECTORY] [--lease-seconds 60..3600]\n" +
       "nd-agent.mjs session status|close --session ID [--broker DIRECTORY]\n" +
-      "nd-agent.mjs session request --session ID --method METHOD --path /api/projects/PROJECT/... [--body-file FILE] [--broker DIRECTORY]\n" +
+      "nd-agent.mjs session request --session ID --method METHOD --path tasks [--body-file FILE] [--broker DIRECTORY]\n" +
       "nd-agent.mjs login|run --project ID --identity ID [--base ORIGIN] [-- executable args...]\nInside a launched client: nd-agent.mjs request METHOD /api/projects/PROJECT/... [JSON]"
     );
 }

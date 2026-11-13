@@ -79,8 +79,13 @@ test("independent CLI processes select and retain runtime identities through the
       }
       const snapshot = await (await page.request.get(`${root}/agent-identities`)).json();
       const clientSessions = snapshot.identities.flatMap((identity: { devices: { sessions: { id: string; client: string }[] }[] }) => identity.devices.flatMap((device) => device.sessions))
-        .filter((session: { client: string }) => ["Codex ordinary A", "Codex ordinary B", "Claude Code ordinary C"].includes(session.client));
-      expect(new Set(clientSessions.map((session: { id: string }) => session.id)).size).toBe(3);
+        .filter((session: { client: string }) => ["Codex ordinary A", "Codex ordinary B", "Claude Code ordinary C", "Claude Code ordinary D"].includes(session.client));
+      expect(new Set(clientSessions.map((session: { id: string }) => session.id)).size).toBe(4);
+      const actualTasks = (await (await page.request.get(`${root}/tasks`)).json()).tasks;
+      for (const [name, identityId, status] of [["Codex ordinary A", oscar.identityId, "Done"], ["Codex ordinary B", oscar.identityId, "Done"],
+        ["Claude Code ordinary C", nova.identityId, "Backlog"], ["Claude Code ordinary D", oscar.identityId, "Done"]]) {
+        expect(actualTasks.find((task: { title: string }) => task.title === `${name} updated contribution`)).toMatchObject({ createdBy: { id: identityId }, status });
+      }
     }
     if (process.env.ND_LONG_RUNTIME_TEST === "1") {
       // Let the issued five-minute bearer really expire. Request renewal is

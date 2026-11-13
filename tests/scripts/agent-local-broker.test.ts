@@ -74,6 +74,8 @@ test("ordinary command invocations retain explicit independent same/different id
   expect(JSON.parse(String(output.mock.calls.at(-1)?.[0]))).toMatchObject({ sessionId: a.sessionId, identityId: "oscar" });
   expect(await (await request(nova.sessionId)).json()).toEqual({ actor: "nova" });
   expect(await (await request(a.sessionId)).json()).toEqual({ actor: "oscar" });
+  expect(await (await request(nova.sessionId, "tasks")).json()).toEqual({ actor: "nova" });
+  expect(requests.at(-1)?.path).toBe("/api/projects/project/tasks");
   await brokerCall(directory, vault, `/sessions/${a.sessionId}`, "DELETE");
   expect((await request(a.sessionId)).status).toBe(403);
   expect((await request(b.sessionId)).status).toBe(200);
@@ -96,7 +98,7 @@ test("session references alone, browser origins, missing binding and ambiguous s
 
 test("broker rejects cross-project, authority paths and unsupported methods without forwarding", async () => {
   const a = await open();
-  for (const path of ["/api/projects/other/tasks", "//nexus.example/api/projects/project/tasks", "/api/projects/project/../../auth/agent/runtime", "/api/projects/project/%2f/tasks", "/api/projects/project\\tasks"]) {
+  for (const path of ["../other/tasks", "../../auth/agent/runtime", "tasks/../../other/tasks", "/api/projects/other/tasks", "//nexus.example/api/projects/project/tasks", "/api/projects/project/../../auth/agent/runtime", "/api/projects/project/%2f/tasks", "/api/projects/project\\tasks"]) {
     expect((await request(a.sessionId, path)).status).toBe(403);
   }
   expect((await brokerCall(directory, vault, `/sessions/${a.sessionId}/request`, "POST", { method: "CONNECT", path: "/api/projects/project/tasks" })).status).toBe(403);

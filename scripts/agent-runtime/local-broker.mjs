@@ -156,9 +156,13 @@ export class LocalBroker {
         if (request.method !== "POST" || !match[2] ||
           !["GET", "POST", "PATCH", "PUT", "DELETE"].includes(body.method))
           throw new Error("Invalid session operation");
-        projectRequestUrl(entry.binding.base, entry.binding.projectId, body.path);
+        // Project-relative paths also work from Git Bash/MSYS, which otherwise
+        // rewrites /api/... arguments before a native Node process sees them.
+        const path = typeof body.path === "string" && !body.path.startsWith("/")
+          ? `/api/projects/${entry.binding.projectId}/${body.path}` : body.path;
+        projectRequestUrl(entry.binding.base, entry.binding.projectId, path);
         if (body.body !== undefined && typeof body.body !== "string") throw new Error("Body must be JSON text");
-        const target = new URL(body.path, entry.runtime.url);
+        const target = new URL(path, entry.runtime.url);
         if (target.origin !== entry.runtime.url) throw new Error("Invalid runtime transport target");
         const upstream = await fetch(target, {
           method: body.method, redirect: "error", signal: AbortSignal.timeout(35_000),

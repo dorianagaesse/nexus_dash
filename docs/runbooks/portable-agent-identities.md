@@ -71,15 +71,19 @@ writing, verify it against the owner's intended identity:
 
 ```sh
 node /absolute/nexus_dash/scripts/nd-agent.mjs session status --session SESSION_ID
-node /absolute/nexus_dash/scripts/nd-agent.mjs session request --session SESSION_ID --method GET --path /api/projects/PROJECT_ID/tasks
-node /absolute/nexus_dash/scripts/nd-agent.mjs session request --session SESSION_ID --method GET --path '/api/projects/PROJECT_ID/tasks/search?q=release'
-node /absolute/nexus_dash/scripts/nd-agent.mjs session request --session SESSION_ID --method POST --path /api/projects/PROJECT_ID/tasks --body-file /absolute/task.json
+node /absolute/nexus_dash/scripts/nd-agent.mjs session request --session SESSION_ID --method GET --path tasks
+node /absolute/nexus_dash/scripts/nd-agent.mjs session request --session SESSION_ID --method GET --path 'tasks/search?q=release'
+node /absolute/nexus_dash/scripts/nd-agent.mjs session request --session SESSION_ID --method POST --path tasks --body-file /absolute/task.json
 node /absolute/nexus_dash/scripts/nd-agent.mjs session close --session SESSION_ID
 ```
 
 `task.json` contains ordinary JSON such as `{"title":"Review the release"}`.
 Use the same request form for task PATCH, comments and status moves with the
-documented API paths/bodies. Each invocation can be a new shell process, in any
+documented API paths/bodies. `--path tasks/TASK_ID/comments` is relative to the
+bound project; a full `/api/projects/PROJECT_ID/...` path is also accepted when
+the shell preserves it. Prefer relative paths in Windows Git Bash/MSYS, which
+rewrites absolute-looking arguments for native executables. Both forms enforce
+the same project boundary. Each invocation can be a new shell process, in any
 working directory. No ND parent wrapper, IDE restart, inherited environment,
 client-specific key file, MCP server or provider integration is required by
 this command interface. The client must be able to execute this trusted helper,

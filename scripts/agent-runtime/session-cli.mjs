@@ -41,7 +41,7 @@ export async function sessionCommand(operation, args, vault) {
     if (operation === "status" || operation === "close") {
       response = await brokerCall(directory, vault, `/sessions/${session}`, operation === "close" ? "DELETE" : "GET");
     } else if (operation === "request") {
-      if (!options["--method"] || !options["--path"]) throw new Error("Request requires --method METHOD --path /api/projects/PROJECT/...");
+      if (!options["--method"] || !options["--path"]) throw new Error("Request requires --method METHOD --path tasks (or a full bound project API path)");
       response = await brokerCall(directory, vault, `/sessions/${session}/request`, "POST", {
         method: options["--method"], path: options["--path"],
         ...(options["--body-file"] ? { body: await readFile(options["--body-file"], "utf8") } : {}),
