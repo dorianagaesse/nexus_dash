@@ -35,6 +35,9 @@ export default defineConfig({
         command: `npx next start --hostname 127.0.0.1 --port ${PORT}`,
         env: {
           NEXUSDASH_TEST_RLS_CONTEXT: "enabled",
+          ...(process.env.PLAYWRIGHT_APP_DATABASE_URL
+            ? { DATABASE_URL: process.env.PLAYWRIGHT_APP_DATABASE_URL }
+            : {}),
         },
         url: `${localBaseURL}/api/health/live`,
         timeout: 180_000,

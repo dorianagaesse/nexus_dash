@@ -1,0 +1,105 @@
+name: Native Agent Identity
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/agent-native-vault.yml'
+      - 'scripts/agent-runtime/**'
+      - 'scripts/nd-agent.mjs'
+      - 'lib/services/agent-runtime-service.ts'
+      - 'tests/scripts/agent-runtime-vault.test.ts'
+      - 'tests/e2e/nd-658-normal-start.spec.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-agent-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos-keychain:
+    name: macOS Keychain
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Use a disposable native keychain
+        run: |
+          security create-keychain -p native-test-only "$RUNNER_TEMP/nd-native.keychain-db"
+          security set-keychain-settings -lut 1800 "$RUNNER_TEMP/nd-native.keychain-db"
+          security unlock-keychain -p native-test-only "$RUNNER_TEMP/nd-native.keychain-db"
+          security list-keychains -d user -s "$RUNNER_TEMP/nd-native.keychain-db"
+          security default-keychain -d user -s "$RUNNER_TEMP/nd-native.keychain-db"
+      - name: Exercise native Keychain without arguments containing device secrets
+        env:
+          ND_NATIVE_VAULT_TEST: '1'
+        run: npx vitest run tests/scripts/agent-runtime-vault.test.ts
+      - name: Remove disposable keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/nd-native.keychain-db"
+
+  linux-secret-service:
+    name: Linux Secret Service and normal-start CLI
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: nexusdash
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexusdash"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash
+      RLS_TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexusdash
+      RLS_TEST_RUNTIME_DATABASE_URL: postgresql://nd_native:nd_native@127.0.0.1:5432/nexusdash
+      PLAYWRIGHT_APP_DATABASE_URL: postgresql://nd_native:nd_native@127.0.0.1:5432/nexusdash
+      AGENT_TOKEN_SIGNING_SECRET: native-test-signing-secret-01234567890123456789
+      RESEND_API_KEY: native-placeholder-key
+      REALTIME_TRANSPORT: polling
+      NODE_ENV: test
+      ND_NATIVE_VAULT_TEST: '1'
+      ND_LONG_RUNTIME_TEST: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:rls:realtime-stub
+      - run: npm run db:migrate
+      - run: npm run test:rls:setup
+      - run: sudo apt-get update && sudo apt-get install -y dbus-x11 gnome-keyring libsecret-tools
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Native vault and independent process integration
+        run: |
+          dbus-run-session -- bash -euc '
+            printf %s native-test-only | gnome-keyring-daemon --unlock --components=secrets
+            npx vitest run tests/scripts/agent-runtime-vault.test.ts
+            npx playwright test tests/e2e/nd-658-normal-start.spec.ts
+          '
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-identity-evidence
+          path: |
+            test-results
+            playwright-report
+          if-no-files-found: ignore

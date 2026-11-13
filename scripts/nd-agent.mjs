@@ -3,9 +3,15 @@ import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
 import { pairDevice, launchAgent } from "./agent-runtime/client.mjs";
 import { createVault } from "./agent-runtime/vault.mjs";
+import { sessionCommand } from "./agent-runtime/session-cli.mjs";
 
 async function main() {
   const [operation, ...args] = process.argv.slice(2);
+  if (operation === "broker" || operation === "session") {
+    const [command, ...sessionArgs] = operation === "broker" ? ["broker", ...args] : args;
+    await sessionCommand(command, sessionArgs, createVault());
+    return;
+  }
   if (operation === "request") {
     const [method, path, body] = args;
     const base = process.env.ND_AGENT_URL;
@@ -84,7 +90,11 @@ async function main() {
     );
   } else
     throw new Error(
-      "Usage: nd-agent.mjs login|run --project ID --identity ID [--base ORIGIN] [-- executable args...]\nInside a launched client: nd-agent.mjs request METHOD /api/projects/PROJECT/... [JSON]"
+      "Usage: nd-agent.mjs broker [--broker DIRECTORY]\n" +
+      "nd-agent.mjs session open --base ORIGIN --project ID --identity ID --client DESCRIPTION [--broker DIRECTORY] [--lease-seconds 60..3600]\n" +
+      "nd-agent.mjs session status|close --session ID [--broker DIRECTORY]\n" +
+      "nd-agent.mjs session request --session ID --method METHOD --path /api/projects/PROJECT/... [--body-file FILE] [--broker DIRECTORY]\n" +
+      "nd-agent.mjs login|run --project ID --identity ID [--base ORIGIN] [-- executable args...]\nInside a launched client: nd-agent.mjs request METHOD /api/projects/PROJECT/... [JSON]"
     );
 }
 main().catch((error) => {

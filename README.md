@@ -836,9 +836,12 @@ outside this contract.
 ## Portable agent identities
 
 Owners manage persistent identities, device grants and concurrent sessions in
-Project Settings ? Agent access. The terminal launcher pairs each device once,
-stores authentication in the OS vault, and renews short-lived session access
-without giving long-lived keys to AI clients. See the
+Project Settings → Agent access. Pair each authorized origin/project/identity
+once into the OS vault. An independent broker then lets an already-running
+terminal or IDE client open an explicit session through `nd-agent.mjs session`,
+without an ND parent wrapper or MCP. Each invocation retains its own session
+reference; status shows the bound identity and current permissions. The
+controlled launcher and legacy key workflows also remain supported. See the
 [portable identity runbook](docs/runbooks/portable-agent-identities.md) for setup,
 permissions, revocation, compatibility and API contracts.
 

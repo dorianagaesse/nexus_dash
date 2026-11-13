@@ -2948,10 +2948,15 @@ export function buildAgentOpenApiDocument(appOrigin?: string | null) {
             200: { description: "Paired device credential, bound session token, or session-ended acknowledgement. Cache-Control: no-store.", content: { "application/json": { schema: {
               type: "object", properties: {
                 runtimeCredential: { type: "string", description: "Pair only: persist directly in OS vault." },
-                accessToken: { type: "string", description: "Start/renew only: keep in launcher memory." },
+                accessToken: { type: "string", description: "Start/renew only: keep in trusted broker/launcher memory." },
                 expiresInSeconds: { type: "integer", maximum: 300 }, sessionId: { type: "string" },
                 deviceId: { type: "string" }, identityId: { type: "string" }, projectId: { type: "string" },
                 scopes: { type: "array", items: { type: "string" } }, ended: { type: "boolean" },
+                identityName: { type: "string", description: "Start/renew: current descriptive name, never an authentication proof." },
+                descriptiveLabels: { type: "array", items: { type: "string" } },
+                canMoveTasksToDone: { type: "boolean", description: "Current identity/device/session intersection, also requiring task:write." },
+                sessionExpiresAt: { type: "string", format: "date-time" },
+                deviceExpiresAt: { type: "string", format: "date-time" },
               },
             } } } },
             ...commonErrorResponses,

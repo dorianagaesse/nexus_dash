@@ -43,7 +43,114 @@ login and run. The default is `https://nexus-dash.app`. HTTP is accepted only on
 localhost for development. Origin, project ID and identity ID form an exact
 vault binding; the helper never searches for an alternative credential.
 
-## Launch and work
+## Work from an already-running client
+
+Keep a reviewed NexusDash checkout at a stable absolute path and use Node 24.
+An owner pairs each exact origin/project/identity connection once as above.
+The owner then starts an independent broker in a separate trusted terminal:
+
+```sh
+node /absolute/nexus_dash/scripts/nd-agent.mjs broker
+```
+
+This does not start or restart your coding client. In an existing Codex CLI,
+Codex VS Code conversation, Claude Code (including the project's DeepSeek
+provider), or another client with a permitted terminal tool, ask that execution
+to run:
+
+```sh
+node /absolute/nexus_dash/scripts/nd-agent.mjs session open --base ORIGIN --project PROJECT_ID --identity IDENTITY_ID --client "Codex / release review A"
+```
+
+Use the immutable IDs from the owner, not an agent name. A name, model/provider
+or client label cannot authenticate or select an unpaired identity. The result
+contains a non-secret `sessionId` and current origin/project/identity/device,
+identity name/labels, client description, effective scopes, Done permission and
+expiry. Keep that session reference in this conversation's instructions. Before
+writing, verify it against the owner's intended identity:
+
+```sh
+node /absolute/nexus_dash/scripts/nd-agent.mjs session status --session SESSION_ID
+node /absolute/nexus_dash/scripts/nd-agent.mjs session request --session SESSION_ID --method GET --path /api/projects/PROJECT_ID/tasks
+node /absolute/nexus_dash/scripts/nd-agent.mjs session request --session SESSION_ID --method GET --path '/api/projects/PROJECT_ID/tasks/search?q=release'
+node /absolute/nexus_dash/scripts/nd-agent.mjs session request --session SESSION_ID --method POST --path /api/projects/PROJECT_ID/tasks --body-file /absolute/task.json
+node /absolute/nexus_dash/scripts/nd-agent.mjs session close --session SESSION_ID
+```
+
+`task.json` contains ordinary JSON such as `{"title":"Review the release"}`.
+Use the same request form for task PATCH, comments and status moves with the
+documented API paths/bodies. Each invocation can be a new shell process, in any
+working directory. No ND parent wrapper, IDE restart, inherited environment,
+client-specific key file, MCP server or provider integration is required by
+this command interface. The client must be able to execute this trusted helper,
+access the same unlocked OS vault/session as the broker and contact loopback;
+the broker needs network access to the explicit Nexus origin. Tool approval and
+client sandbox/network policies still apply. Clients without a callable terminal
+or provisioned adapter are outside this interface. Client names in tests are
+descriptive labels; real client/conversation validation is recorded separately.
+
+Open a fresh session for every execution, including two conversations using the
+same identity. Each conversation explicitly retains its own reference; neither
+a terminal, workspace, process, profile nor cwd identifies a conversation.
+For an actual IDE concurrency check, use two separately opened conversation
+tabs (or separate profiles/windows if that client cannot run tabs concurrently),
+give each tab its own open result, and alternate status/write requests from each.
+Record the actual arrangement. Do not reuse a session reference across tabs.
+To deliberately switch identity, open another explicitly paired binding and use
+its new reference. Close the previous session when finished; another execution
+is unchanged. There is no machine-wide current identity or cwd selection file.
+
+The broker authenticates local CLI requests with a random capability held in
+the OS vault, separate from device proofs. `sessionId` alone grants no access.
+Only the broker reads identity proofs and holds renewable bearers; CLI output
+and its endpoint/journal files contain no credentials. The local capability is
+not printed or passed in argv. The trusted OS account can run the CLI and use
+its paired identities: this is protection from accidental cross-binding, not
+isolation from malicious processes with that account's privileges. Use separate
+OS accounts or the isolated Docker adapter for mutually untrusted workers.
+
+## Broker leases, shutdown and recovery
+
+The default state directory is `~/.nexusdash/broker`, outside the repository.
+Use `--broker ABSOLUTE_DIRECTORY` on both the broker and every session command
+to select another instance. On POSIX this directory must be owned by the user
+with no group/other permissions; authentication capability storage uses the OS
+vault on every platform. The endpoint binds only to `127.0.0.1`, rejects browser
+Origins and unexpected Host values, and accepts only authenticated commands.
+Project requests reuse the launcher's method/path/redirect/header restrictions.
+No caller cookies, upstream cookies or arbitrary Authorization headers pass
+through. JSON requests are limited to 1 MiB.
+
+An idle session lease is 30 minutes. Status or request activity renews that
+lease; `session open --lease-seconds N` accepts 60–3600 seconds. Lease activity
+never extends the server's twelve-hour session or ninety-day device bounds.
+The broker checks leases before each request and sweeps at ten-second intervals
+after queued operations finish. Operations are serialized; upstream timeouts
+can delay cleanup, but an expired lease cannot admit a new request.
+Explicit `session close` retires local access immediately and attempts server
+cleanup. Ctrl+C in the broker's terminal retires all of that broker's sessions.
+It does not end sessions in another broker or the launcher/Docker adapter.
+
+A generic helper cannot observe when an IDE conversation closes. Close it
+explicitly; forgotten conversations expire through the idle lease. A broker
+crash makes its local capabilities unusable. On restart the cleanup journal
+ends old sessions; it never reconstructs conversations or silently opens new
+sessions. After verifying the previous PID in `broker.lock` has stopped, remove
+that exact lock file and restart the broker. Then explicitly open new sessions.
+Do not remove a live broker's lock. Cleanup retries transient failures with
+30-second to five-minute backoff and drops terminal 401/403/404 rejections.
+Server sessions expire within twelve hours even if cleanup cannot reach Nexus;
+a crash between creation and journal persistence has that same orphan bound.
+
+Origin/network outages fail the current command; later commands can retry the
+same still-authorized session. Rejected renewal is terminal for that session:
+no automatic restart, alternative identity, raw-key fallback or reauthorization.
+The owner must resolve revocation/expiry, pair again if necessary, and the
+execution must explicitly open a new session. Status renews authorization to
+read current effective permissions; those permissions are still checked again
+at the next service authorization, so a status result is not a durable grant.
+
+## Controlled launcher option
 
 ```sh
 node scripts/nd-agent.mjs run --project PROJECT_ID --identity IDENTITY_ID -- codex
@@ -108,6 +215,16 @@ sandboxes. There is no shared memory, scheduling, locking or orchestration.
 
 ## API contract
 
+Externally provisioned sandboxes use ND-823's authenticated HTTPS transport and
+per-worker capabilities, not the native broker's OS-account capability or vault.
+Both adapters reuse `openRuntime` and the same REST authorization services.
+Docker lifecycle/isolation evidence remains with ND-823. Other sandbox adapters
+must provision an authenticated private capability, trusted TLS/network route,
+explicit immutable binding and a supervisor that closes/reconciles executions.
+Keep proofs/bearers outside workers, rotate worker capabilities on recreation,
+and create a new session under the same actor. No vendor sandbox is supported
+merely because it can reach HTTP; its provisioning and lifecycle need validation.
+
 Owner-only `GET /api/projects/{projectId}/agent-identities` returns identities,
 effective configuration, devices, recent sessions and audit events without
 authentication hashes. `POST` accepts an explicit `operation`:
@@ -126,7 +243,10 @@ and `proof`. `pair` consumes a pairing code and returns the device credential;
 `start` uses that credential and a `client` name; `renew` and `end` additionally
 require the exact `sessionId`. Missing, wrong-project or switched bindings are
 denied. These responses use `Cache-Control: no-store`. Failed authentication is
-rate-limited. Only the launcher should handle these proof-bearing exchanges.
+rate-limited. Only trusted pairing helpers and credential brokers should handle
+these proof-bearing exchanges. Start/renew additionally return non-secret
+identity name/labels, effective Done permission and device/session expiries for
+status display. The underlying token/proof fields remain broker-only.
 
 ## Compatibility and validation
 
@@ -138,8 +258,8 @@ remain independent of that key rotation.
 Existing API credentials retain their actor IDs and remain under **Legacy API
 credentials**. Their existing exchange/rotation and expiry behavior is retained;
 they can also authorize devices. New identities have no usable legacy API key
-and cannot be converted into raw keys by the rotation API. Prefer the launcher
-for new workflows. Removing a legacy scope invalidates existing tokens containing
+and cannot be converted into raw keys by the rotation API. The independent
+CLI/broker and controlled launcher are supported explicit choices. Removing a legacy scope invalidates existing tokens containing
 that scope immediately; exchange a new token to use the remaining grants. Done
 permission remains live. Runtime sessions intersect their token scopes with live
 grants on each request, so remaining read access continues after a write reduction.
@@ -168,15 +288,15 @@ identity IDs; localhost databases on separate laptops are not the same instance.
 1. Open **Share project → Agent access** as owner. Create Oscar with the
    descriptive label `Orchestrator` (press Enter to add it), task read/write and
    Done enabled. Create Nova with task read/write and Done disabled.
-2. Authorize two devices for Oscar. On each device run the displayed `login`
-   command and enter its own one-time code at the hidden prompt. Launch two
-   sessions on the first device and one on the second:
-   `node scripts/nd-agent.mjs run --base ORIGIN --project PROJECT_ID --identity IDENTITY_ID -- powershell.exe -NoProfile`
-   (macOS/Linux: use `-- bash`). In each bound shell, run
-   `node scripts/nd-agent.mjs request GET /api/projects/PROJECT_ID/tasks`.
+2. Authorize two devices for Oscar. On each physical laptop run the displayed
+   `login` command and enter its own code. Start an independent `broker` on
+   each. From already-running clients use `session open` twice on the first
+   laptop and once on the second, with the same identity ID. Record the actual
+   clients, providers and IDE conversation/profile arrangement. Use each
+   returned reference in `session status` and `session request` commands.
    All requests succeed; settings show one Oscar and three distinct sessions.
-3. Authorize, pair and launch Nova separately with its own identity ID. Create a
-   task/comment through Oscar's bound shell. Its author is Oscar. An Oscar
+3. Authorize, pair and open Nova separately with its own identity ID. Create a
+   task/comment through Oscar's session. Its author is Oscar. An Oscar
    status request may move the task to Done; the same request in a Nova session
    returns 403. After five minutes, another read succeeds through automatic renewal.
 4. End one session: only it fails on its next request. Revoke the first device:
@@ -194,10 +314,23 @@ identity IDs; localhost databases on separate laptops are not the same instance.
    Rotate a legacy key: its old bearer fails immediately and a newly exchanged
    token works immediately. A separately paired device session for that same
    legacy identity remains valid across the key rotation.
+8. Check the controlled `run -- executable` launcher still creates a distinct
+   session and its `request` command works. Close a normal-start session while
+   the launcher remains active and verify that it is unaffected.
+9. Close a conversation explicitly. Verify idle-lease expiry, network outage
+   and recovery using its existing reference, and broker crash/journal cleanup.
+   Owner-ended sessions and rejected renewal never start another session
+   automatically. Inspect endpoint/journal/output for proofs and bearers.
 
 Automated gates: `npm run lint`, `npm run rls:check`, `npm test`,
 `npm run test:coverage`, `npm run test:e2e` (includes build), then
 `npm run test:rls:setup` and `npm run test:rls` with the documented separate
 admin/runtime URLs. The ND-655, ND-656, ND-657 and ND-658 browser/service tests
-cover the integrated flows. Native macOS/Linux vault behavior still needs testing
-on those platforms; Windows DPAPI was exercised locally.
+cover the integrated flows. `tests/e2e/nd-658-normal-start.spec.ts` exercises
+native-vault pairing and separate CLI processes against migrated PostgreSQL;
+set `PLAYWRIGHT_APP_DATABASE_URL` to the NOBYPASSRLS application role while test
+fixtures retain the admin URL. `ND_LONG_RUNTIME_TEST=1` includes a real bearer
+expiry/renewal wait. `Native Agent Identity` adds native Linux Secret Service
+integration and macOS Keychain roundtrips. Record the exact run/SHA and separate
+actual client/physical-laptop evidence; a CI label or simulated device is not
+evidence of a real IDE conversation or second physical laptop.

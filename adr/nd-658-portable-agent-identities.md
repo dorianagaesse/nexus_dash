@@ -67,6 +67,35 @@ scheduling and conflict resolution are explicitly outside this design.
   cover fail-closed boundaries. Preview/deployment was explicitly excluded from
   this delivery by the requester.
 
+## Normal-start client adapter (2026-11-13)
+
+The owner clarification makes an independent REST/CLI broker part of ND-658.
+The existing controlled launcher remains supported. `LocalBroker` reuses the
+same `openRuntime` authorization/proxy core as that launcher and ND-823's Docker
+adapter; MCP is not a dependency. An already-running client opens an explicitly
+paired origin/project/identity binding and receives only non-secret status and
+a session reference. Every subsequent command supplies that reference, without
+inherited environment or a machine/cwd current-identity file. Names and client
+metadata do not authenticate. A switch creates another explicitly authorized
+session and cannot change an existing binding.
+
+Local transport authentication uses an independently generated OS-vault-held
+capability. A public session ID alone has no authority. The OS account and helper
+are trusted; equally privileged malicious processes are not isolated. Remote
+sandbox workers use a separately provisioned per-worker transport such as
+ND-823's HTTPS adapter, never the native account capability or device vault.
+
+An idle lease (30 minutes by default, explicit 1–60 minute range) bounds orphaned
+conversations while the server retains its five-minute bearer, twelve-hour
+session and ninety-day device limits. Status/request activity extends only the
+idle lease. Explicit close or broker shutdown ends local access. A cleanup
+journal retries unavailable server cleanup with bounded backoff; broker restart
+never reconstructs conversations or revives sessions. Session creation before
+journal persistence can orphan a server record until the twelve-hour ceiling.
+Exact IDE-conversation lifecycle requires a later host integration, not inference
+from a process, profile, workspace or terminal. Physical-device and actual-client
+evidence remain distinct from native-vault and independent-process automation.
+
 ## Integration with ND-657
 
 Legacy bearer requests retain the current key-generation check. Runtime tokens
