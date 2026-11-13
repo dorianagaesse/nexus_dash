@@ -1,3 +1,5 @@
+import { verifyAgentRuntimeIsolation } from "./agent-runtime/rls-matrix.mjs";
+
 import { testNotificationCapabilityRls } from "./test-notification-capability-rls.mjs";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
@@ -502,6 +504,8 @@ try {
   }
 
   await seed();
+  await verifyAgentRuntimeIsolation({ admin, runtime, runtimeTransaction, expectRlsViolation, ids });
+
   await testNotificationCapabilityRls({ admin, runtime, runtimeTransaction, expectRlsViolation, ids });
   await testProjectTodoRls({ admin, runtime, runtimeTransaction, expectRlsViolation, ids });
 

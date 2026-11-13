@@ -41,6 +41,7 @@ test("a viewer's open comment thread follows current agent labels without reload
     await page.goto(`/projects/${project.id}`);
     await page.getByRole("button", { name: "Share project", exact: true }).click();
     await page.getByRole("button", { name: "Agent access", exact: true }).click();
+    await page.getByText("Legacy API credentials", { exact: true }).click();
     await page.getByRole("button", { name: "Manage Current author", exact: true }).click();
     await page.getByRole("button", { name: "Edit descriptive labels for Current author", exact: true }).click();
     await page.getByRole("button", { name: "Remove label Original", exact: true }).click();

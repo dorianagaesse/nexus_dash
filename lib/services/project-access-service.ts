@@ -28,6 +28,8 @@ interface AgentProjectScopeAccessSuccess {
 type AgentProjectScopeAccessResult = ProjectAccessError | AgentProjectScopeAccessSuccess;
 
 export interface AgentProjectAccessContext {
+  sessionId?: string;
+  canMoveTasksToDone?: boolean;
   credentialId: string;
   projectId: string;
   scopes: AgentScope[];

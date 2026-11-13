@@ -41,6 +41,9 @@ export interface HumanApiPrincipal {
 }
 
 export interface AgentApiPrincipal {
+  sessionId?: string;
+  deviceId?: string;
+  canMoveTasksToDone?: boolean;
   kind: "agent";
   actorUserId: string;
   ownerUserId: string;
@@ -160,6 +163,7 @@ export function getAgentProjectAccessContext(
     credentialId: principal.credentialId,
     projectId: principal.projectId,
     scopes: principal.scopes,
+    ...(principal.sessionId ? { sessionId: principal.sessionId, canMoveTasksToDone: principal.canMoveTasksToDone } : {}),
   };
 }
 
@@ -181,6 +185,15 @@ export async function requireApiPrincipal(
       };
     }
 
+    let scopes = verifiedToken.data.scopes;
+    let runtimeAccess;
+    if (verifiedToken.data.sessionId && verifiedToken.data.deviceId) {
+      const { validateRuntimeRequest } = await import("@/lib/services/agent-runtime-service");
+      runtimeAccess = await validateRuntimeRequest({ ...verifiedToken.data, sessionId: verifiedToken.data.sessionId, deviceId: verifiedToken.data.deviceId });
+      if (!runtimeAccess.ok) return { ok: false, response: NextResponse.json({ error: runtimeAccess.error }, { status: runtimeAccess.status }) };
+      scopes = runtimeAccess.data.scopes;
+    }
+
     let requestUsageResult;
     try {
       requestUsageResult = await recordAgentRequestUsage({
@@ -188,7 +201,10 @@ export async function requireApiPrincipal(
         ownerUserId: verifiedToken.data.ownerUserId,
         projectId: verifiedToken.data.projectId,
         tokenId: verifiedToken.data.tokenId,
-        scopes: verifiedToken.data.scopes,
+        ...(verifiedToken.data.sessionId ? { sessionId: verifiedToken.data.sessionId, deviceId: verifiedToken.data.deviceId, client: runtimeAccess?.data?.client, deviceName: runtimeAccess?.data?.deviceName } : {}),
+        // Runtime grants already reflect the live ceilings. Legacy requests
+        // retain all token scopes for main's live scope-subset check.
+        scopes,
         credentialPublicId: verifiedToken.data.credentialPublicId,
         requestId,
         ipAddress: readClientIpAddress(request),
@@ -242,7 +258,8 @@ export async function requireApiPrincipal(
         ownerUserId: verifiedToken.data.ownerUserId,
         credentialId: verifiedToken.data.credentialId,
         projectId: verifiedToken.data.projectId,
-        scopes: verifiedToken.data.scopes,
+        scopes,
+        ...(verifiedToken.data.sessionId ? { sessionId: verifiedToken.data.sessionId, deviceId: verifiedToken.data.deviceId, canMoveTasksToDone: runtimeAccess?.data?.canMoveTasksToDone } : {}),
         tokenId: verifiedToken.data.tokenId,
         requestId,
       },

@@ -21,6 +21,7 @@ async function openAgentAccess(page: Page) {
     .getByRole("button", { name: "Share project", exact: true })
     .click();
   await page.getByRole("button", { name: "Agent access", exact: true }).click();
+  await page.getByText("Legacy API credentials", { exact: true }).click();
   return page.getByRole("region", { name: "Agent access", exact: true });
 }
 test.afterEach(async ({ page }) => {

@@ -47,20 +47,29 @@ still apply; keep each concise and avoid extra acknowledgment replies.
 
 ## Agent credential setup
 
-Before accessing the Nexus Dash API, explicitly ask the user which credential
-to use, as required by `AGENTS.md`. Use only the credential they identify;
-do not select one based on the coding client, model, provider, or filename.
-If a local credential file is needed, copy `.nd-nexus-dash.example.env` to the
-user-selected location under the gitignored `.config/` directory and configure
-its project ID and API key.
+The [portable identity workflow](portable-agent-identities.md) supports an
+independent broker for already-running clients. The owner pairs each explicit
+origin/project/identity once. The execution uses `session open`, retains the
+non-secret result and supplies `--session ID` on every status/request/close
+invocation. No parent launcher, IDE restart or MCP is required by that interface.
+Each conversation opens its own binding. Verify status before writes; never
+infer a conversation from a cwd, terminal or profile. The controlled `run`
+launcher remains supported, with `nd-agent.mjs request` inside its child.
+Missing or rejected bindings stop without legacy-key fallback.
+
+Legacy integrations retain the client-to-file mapping in `AGENTS.md`. Copy
+`.nd-nexus-dash.example.env` separately to the matching Codex, DeepSeek or Gemini
+file in the gitignored `.config/` directory and configure that client's own
+project ID and key. A changed Claude Code provider needs a separate identity;
+the provider name is not an entitlement to another client's key.
 
 Confirm that the selected credential has a project ID and API key without
 displaying the key. Exchange that key at `/api/auth/agent/token` for a
 short-lived bearer token at runtime. Make a small authorized Nexus Dash
 request, then check the credential label in the project's agent activity or
-audit view. If the user has not identified a credential, or it is missing,
-empty, or not configured, stop Nexus Dash API work and ask the user for the
-credential or setup needed. Never fall back to another credential.
+audit view. If the client is unclear, or its credential is missing, empty or
+not configured, stop legacy API work and report the setup needed. Never fall
+back to `.config/.nd-nexus-dash.env` or another client's credential.
 Never commit or print keys or tokens. These instructions guide selection but
 do not isolate secrets when clients can read the same filesystem.
 

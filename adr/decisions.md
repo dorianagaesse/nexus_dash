@@ -1306,6 +1306,11 @@ Keep UI-only or task-only notes in `journal.md`.
   value, and request metadata. The owner panel refreshes the audit trail after
   saving. Denied updates create no success event.
 
+### ND-658: portable agent identity and runtime access
+
+Keep stable actor IDs and separate device entitlements, authentication proofs and
+sessions. Recheck live grants on each runtime request; keep device proofs in the
+OS vault and the launcher parent. See [the focused decision](nd-658-portable-agent-identities.md).
 
 ## 2026-11-05 - ND-656: Snapshot descriptive credential labels on comments
 
@@ -1454,3 +1459,13 @@ restrictive notification policies. Definer-owned Realtime snapshots must apply
 the same filter explicitly. Advance User.notificationAccessUpdatedAt on relevant
 membership/owner changes; use it in snapshot versions so revocation refreshes
 existing clients without regressing the cursor or mutating email fingerprints.
+
+## 2026-11-13 - ND-658: independent client sessions reuse runtime authorization
+
+An already-running client explicitly opens an origin/project/identity binding
+through an authenticated OS-account broker; every command carries a non-secret
+session reference. No inherited ND environment, global current identity or MCP
+is required. The native adapter, controlled launcher and ND-823 Docker adapter
+share the runtime/proxy core. Idle leases and a cleanup journal bound orphaned
+conversations without pretending to observe IDE lifecycle. See
+[the portable identity decision](nd-658-portable-agent-identities.md#normal-start-client-adapter-2026-11-13).
