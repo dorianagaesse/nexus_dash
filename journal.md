@@ -11935,6 +11935,27 @@ omitted project metadata. Switched to synthetic unknown enum values and supplied
 the notification project/task IDs. All eight affected browser scenarios pass locally;
 the original run passed the other 143 scenarios, including notification revocation.
 
+## 2026-11-09 - ND-822: Docker identity investigation
+
+- Reviewed ND-658 at ec050eb7 against the user's goal of persistent actors across
+  disposable Docker workers and laptops; legacy credentials remain supported.
+- Ran real Linux-container boundary probes on Windows Docker Desktop using the
+  exact helper source and synthetic upstream/proofs. Confirmed missing Linux
+  vault, absent implicit environment forwarding, isolated loopback, rejected host
+  alias and premature session end when wrapping detached Docker. Positive host
+  proxy control passed; all probe containers and proxy were cleaned up.
+- Proposed an operator-controlled broker and explicit worker lifecycle. Recorded
+  legacy/runtime coexistence, rotation independence, shared-anchor revocation and
+  the runtime-only-to-key conversion limit. Created related ND-823/824/825 follow-ups
+  after checking for overlap. Physical second-device/native vault evidence remains
+  open; no merge/deployment or live container authentication was performed.
+- Documentation validation: diff whitespace and relative/pinned source references
+  checked. Synthetic probes do not replace the full implementation/RLS/E2E matrix.
+- Review follow-up: recorded the mutable `node:24-bookworm` tag (the 2026-11-12
+  review re-run reproduced the probes on a newer image) and added an
+  `ND822_NODE_IMAGE` digest-pinning option; scoped the source-based UI review to
+  ec050eb7 and noted later UI-only validation at ab1ad499. Docs-only.
+
 ### 2026-11-09 — ND-815 recovery action follow-up
 
 - Removed Go home at the user's request because it redirects signed-in users
