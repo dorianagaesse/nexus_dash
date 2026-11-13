@@ -32,7 +32,18 @@ checks. PowerShell/POSIX full project paths remain supported.
 | Native macOS | The same run passed a real Keychain store/read/replace/missing-binding roundtrip. This does not claim full macOS client/IDE or physical-laptop coverage. |
 | Transport and lifecycle | Broker tests cover unauthenticated session references, browser Origins, wrong origin/project/identity, path traversal/authority forms, independent same/different identities, no output/journal credentials, redirects/headers, idle expiry, restart cleanup, terminal renewal rejection and cleanup backoff. |
 | Repository baseline | Initial local lint, RLS inventory, 2,576 unit/API tests, coverage (95.56% lines / 89.12% branches), production build and real PostgreSQL isolation matrix passed. Final exact-head gates and full browser result belong to the PR's current check runs, not this historical count. |
-| Docker compatibility | A separate local merge of `897cd1b1` with ND-823 `09e9d049` retained its Docker implementation and the newer shared client core. Thirty-one focused broker/client tests passed. ADR/journal append conflicts and the duplicate shared-client renewal edit require reconciliation. Real lifecycle validation stays with ND-823. |
+| Docker compatibility | A separate local merge of `897cd1b1` with ND-823 `09e9d049` retained its Docker implementation and the newer shared client core (identical to `b7c8fa77`). Thirty-one focused broker/client tests and the real Docker Desktop lifecycle scenario passed against the new app with a NOBYPASSRLS role. ADR/journal append conflicts and the duplicate shared-client renewal edit require reconciliation. ND-823 remains a separate PR. |
+| Hosted onboarding | Desktop 1440px and mobile 390px Chromium render checks passed after correcting an overflowing scope-badge row. Identity/session setup and supported legacy access are now introduced accurately; Impeccable's detector and onboarding component tests pass. These are emulated layout checks. |
+
+An additional full browser run with **every** app flow under a NOBYPASSRLS role
+exposed a pre-existing `main` defect in collaborator offboarding: a child todo's
+parent revision trigger violates the note's `updatedByUserId` RLS check when a
+different actor last edited the parent. A minimal two-user PostgreSQL test
+reproduced error 42501; trigger, policy and offboarding service are unchanged
+from `main`. [ND-857](https://nexus-dash.app/projects/cmteshp27000004jic3pr6wy4/tasks/cmwe9rjjj000408jsc9kcknqj)
+tracks a separate fix with links to those sources. This extra run is not a full
+pass. It is distinct from the documented standard full baseline and the
+ND-658-specific native runtime/tenant checks under the restricted role.
 
 The opt-in actual-client test is reproducible through
 `ND_ACTUAL_CLIENT_TEST=1` and explicit installed executable paths, using those

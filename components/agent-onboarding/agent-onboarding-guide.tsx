@@ -62,17 +62,17 @@ const introItems: ReadonlyArray<{
 }> = [
   {
     icon: Bot,
-    title: "Provision per project",
+    title: "Authorize an identity",
     description:
-      "Create credentials from Project Settings > Agent access. Each credential stays scoped to one project and one explicit scope set.",
+      "Create a project identity, choose its permissions and pair each trusted device once. Legacy API credentials remain a supported option.",
   },
   {
     icon: KeyRound,
-    title: "Exchange before calling",
+    title: "Open an execution session",
     description: (
       <>
-        Agents do not use browser login. They exchange the one-time API key for a short-lived
-        bearer token at <code>/api/auth/agent/token</code>.
+        Use the broker from your current client or the controlled launcher. Each execution
+        gets its own session; renewable credentials stay with the trusted helper.
       </>
     ),
   },
@@ -265,7 +265,7 @@ function buildGuideSections({
                   </p>
                   <p className="text-sm text-muted-foreground">{endpoint.description}</p>
                 </div>
-                <div className="flex shrink-0 flex-wrap gap-2">
+                <div className="flex min-w-0 max-w-full flex-wrap gap-2">
                   {endpoint.scopeMatch === "any" ? <span className="text-xs text-muted-foreground">Any one of:</span> : null}
                   {endpoint.requiredScopes.length === 0 ? (
                     <Badge variant="outline" className="rounded-full">
