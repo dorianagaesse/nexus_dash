@@ -1,8 +1,7 @@
 "use client";
 import { useProjectCapability } from "@/components/project-capability-provider";
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Archive,
@@ -13,6 +12,7 @@ import {
   Pencil,
   PlusSquare,
   Trash2,
+  X,
 } from "lucide-react";
 
 import {
@@ -21,21 +21,24 @@ import {
   PROJECT_SECTION_HEADER_CLASS,
 } from "@/components/project-dashboard/project-section-chrome";
 import { useToast } from "@/components/toast-provider";
-import { AgentAvatar } from "@/components/ui/agent-avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   EmojiInputField,
   EmojiTextareaField,
 } from "@/components/ui/emoji-field";
-import { UserAvatar } from "@/components/ui/user-avatar";
-import {
-  getEpicColorFromName,
-  type EpicTaskSummary,
-  type ProjectEpicSnapshot,
-} from "@/lib/epic";
+import { FORM_FOCUS_BORDER_CLASS } from "@/components/ui/focus-border-styles";
+import type { ProjectEpicSnapshot } from "@/lib/epic";
+import { EpicColorMark } from "@/components/epics/epic-color-mark";
+import { EpicDetailsDialog } from "@/components/epics/epic-details-dialog";
 import { useProjectSectionExpanded } from "@/lib/hooks/use-project-section-expanded";
 import {
   fetchProjectActivityMutation,
@@ -51,9 +54,6 @@ import {
 } from "@/lib/project-epic-client";
 import { ListSearchInput } from "@/components/ui/list-search-input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { requestTaskOpen } from "@/lib/task-open-client";
-import { formatTaskReference } from "@/lib/task-reference";
-import type { TaskAuthorSummary } from "@/lib/task-author";
 import { cn } from "@/lib/utils";
 
 export type ProjectEpicPanelEpic = ProjectEpicSnapshot;
@@ -92,148 +92,6 @@ function mapEpicMutationError(errorCode: string): string {
   }
 }
 
-function EpicStatusBadge({
-  status,
-}: {
-  status: ProjectEpicPanelEpic["status"];
-}) {
-  const toneClass =
-    status === "Completed"
-      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
-      : status === "In progress"
-        ? "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-200"
-        : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200";
-
-  return (
-    <Badge variant="outline" className={toneClass}>
-      {status}
-    </Badge>
-  );
-}
-
-function EpicTaskChip({
-  task,
-  projectId,
-}: {
-  task: EpicTaskSummary;
-  projectId: string;
-}) {
-  const toneClass =
-    task.archivedAt != null || task.status === "Done"
-      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
-      : task.status === "In Progress"
-        ? "border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-200"
-        : task.status === "Blocked"
-          ? "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-200"
-          : "border-border/60 bg-background/70 text-muted-foreground";
-
-  const chipHref = `/projects/${projectId}/tasks/${task.id}`;
-
-  // Plain clicks open the task on the board's own client state so the whole
-  // dashboard does not re-render; the href stays as the fallback for new-tab
-  // and no-JS visits.
-  const handleChipClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (
-      event.button !== 0 ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey
-    ) {
-      return;
-    }
-
-    if (!requestTaskOpen(task.id)) {
-      return;
-    }
-
-    event.preventDefault();
-    window.history.replaceState(
-      null,
-      "",
-      `/projects/${projectId}?taskId=${encodeURIComponent(task.id)}${
-        window.location.hash
-      }`
-    );
-  };
-
-  return (
-    <li className="min-w-0 max-w-full">
-      <Link
-        href={chipHref}
-        prefetch={false}
-        onClick={handleChipClick}
-        title={task.title}
-        className={cn(
-          "flex min-w-0 max-w-full items-start gap-2 rounded-xl border px-2.5 py-2 text-xs font-medium transition-colors hover:border-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          toneClass
-        )}
-      >
-        <span className="shrink-0 select-all font-mono font-semibold tabular-nums opacity-80">
-          {formatTaskReference(task.referenceNumber)}
-        </span>
-        <span className="min-w-0 flex-1 break-words leading-5 [overflow-wrap:anywhere] line-clamp-2">
-          {task.title}
-        </span>
-        <span className="shrink-0 opacity-75">
-          {task.archivedAt != null ? "Archived" : task.status}
-        </span>
-      </Link>
-    </li>
-  );
-}
-
-function formatEpicActivityDate(value: string): string {
-  return new Date(value).toLocaleDateString();
-}
-
-function EpicAuthorInline({
-  label,
-  author,
-  timestamp,
-}: {
-  label: string;
-  author: TaskAuthorSummary;
-  timestamp: string;
-}) {
-  return (
-    <span
-      className="inline-flex min-w-0 max-w-full items-center gap-1.5"
-      title={`${label}: ${author.usernameTag ?? author.displayName}`}
-    >
-      {author.kind === "agent" ? (
-        <AgentAvatar
-          displayName={author.displayName}
-          decorative
-          className="h-5 w-5 shrink-0 border-border/70"
-        />
-      ) : (
-        <UserAvatar
-          avatarSeed={author.avatarSeed}
-          displayName={author.displayName}
-          decorative
-          className="h-5 w-5 shrink-0 border-border/70"
-        />
-      )}
-      <span className="min-w-0 truncate">
-        {label}{" "}
-        <span className="font-medium text-foreground">
-          {author.displayName}
-        </span>{" "}
-        {/* Server and browser locales can format the date differently; keep the
-            client's formatting without tripping a hydration mismatch. */}
-        <time
-          dateTime={timestamp}
-          suppressHydrationWarning
-          className="text-muted-foreground/80"
-        >
-          {formatEpicActivityDate(timestamp)}
-        </time>
-      </span>
-    </span>
-  );
-}
-
 export function ProjectEpicPanel({
   projectId,
   canEdit,
@@ -270,9 +128,16 @@ export function ProjectEpicPanel({
   const [listView, setListView] = useState<EpicListView>("active");
   const [query, setQuery] = useState("");
   const [isUpdatingArchive, setIsUpdatingArchive] = useState(false);
-  const [expandedEpicIds, setExpandedEpicIds] = useState<Set<string>>(
-    () => new Set()
-  );
+  const [viewedEpicId, setViewedEpicId] = useState<string | null>(null);
+  const actionTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const sectionToggleRef = useRef<HTMLButtonElement | null>(null);
+  const viewedEpic = localEpics.find((epic) => epic.id === viewedEpicId) ?? null;
+
+  const returnActionFocus = () => {
+    const target = actionTriggerRef.current;
+    if (target?.isConnected) target.focus();
+    else sectionToggleRef.current?.focus();
+  };
 
   useEffect(() => {
     if (epics === initialEpicsRef.current) {
@@ -283,7 +148,6 @@ export function ProjectEpicPanel({
     discardLatestProjectEpicSnapshot(projectId);
     setLocalEpics(epics);
   }, [epics, projectId]);
-
 
   const editingEpic = useMemo(
     () => localEpics.find((epic) => epic.id === editingEpicId) ?? null,
@@ -300,27 +164,27 @@ export function ProjectEpicPanel({
     [localEpics]
   );
 
-  const epicSearchTextById = useMemo(() => {
-    const searchTextById = new Map<string, string>();
-    for (const epic of localEpics) {
-      searchTextById.set(
-        epic.id,
-        `${epic.name} ${epic.description}`.toLocaleLowerCase()
-      );
+  const selectedEpics = listView === "active" ? activeEpics : archivedEpics;
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const visibleEpics = useMemo(() => {
+    if (!normalizedQuery) {
+      return selectedEpics;
     }
-    return searchTextById;
-  }, [localEpics]);
 
-  const visibleSourceEpics = listView === "active" ? activeEpics : archivedEpics;
-
-  const filteredEpics = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase();
-    return visibleSourceEpics.filter(
-      (epic) =>
-        !normalizedQuery ||
-        (epicSearchTextById.get(epic.id) ?? "").includes(normalizedQuery)
+    return selectedEpics.filter(
+      ({ name, description }) =>
+        name.toLocaleLowerCase().includes(normalizedQuery) ||
+        description.toLocaleLowerCase().includes(normalizedQuery)
     );
-  }, [epicSearchTextById, query, visibleSourceEpics]);
+  }, [normalizedQuery, selectedEpics]);
+
+  let listMessage = "";
+  if (normalizedQuery && visibleEpics.length === 0) {
+    listMessage = "No matching epics. Try another search.";
+  } else if (!normalizedQuery && selectedEpics.length === 0) {
+    listMessage =
+      listView === "active" ? "No active epics yet." : "No archived epics.";
+  }
 
   const pendingDeleteEpic = useMemo(
     () => localEpics.find((epic) => epic.id === pendingDeleteEpicId) ?? null,
@@ -444,20 +308,6 @@ export function ProjectEpicPanel({
     };
   }, [editingEpicId, pendingDeleteEpicId, projectId]);
 
-  const toggleEpicDetails = (epicId: string) => {
-    setExpandedEpicIds((previousIds) => {
-      const nextIds = new Set(previousIds);
-
-      if (nextIds.has(epicId)) {
-        nextIds.delete(epicId);
-      } else {
-        nextIds.add(epicId);
-      }
-
-      return nextIds;
-    });
-  };
-
   const handleCreateEpic = async () => {
     const normalizedName = createName.trim();
     const normalizedDescription = createDescription.trim();
@@ -497,7 +347,15 @@ export function ProjectEpicPanel({
       }
 
       const createdEpic = payload.epic;
-      setLocalEpics((previousEpics) => [createdEpic, ...previousEpics]);
+      setLocalEpics((previousEpics) => [
+        createdEpic,
+        ...previousEpics.filter((epic) => epic.id !== createdEpic.id),
+      ]);
+      if (listView === "archived") {
+        setListView("active");
+        cancelEdit();
+      }
+      setQuery("");
       closeCreate(true);
       refreshProjectData();
       pushToast({
@@ -689,7 +547,7 @@ export function ProjectEpicPanel({
       data-project-live-refresh-lock={
         isCreateOpen ||
         isCreating ||
-        Boolean(editingEpicId) ||
+        Boolean(editingEpic) ||
         isSavingEdit ||
         Boolean(pendingDeleteEpicId) ||
         isDeleting ||
@@ -701,6 +559,7 @@ export function ProjectEpicPanel({
       <CardHeader className={PROJECT_SECTION_HEADER_CLASS}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <button
+            ref={sectionToggleRef}
             type="button"
             onClick={() => setIsExpanded((previous) => !previous)}
             aria-expanded={isExpanded}
@@ -722,454 +581,354 @@ export function ProjectEpicPanel({
             </span>
           </button>
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            {canEdit ? (
-              <Button
-                type="button"
-                size="sm"
-                className="min-h-11 w-full sm:w-auto"
-                onClick={() => {
-                  resetCreateDraft();
+          {canEdit ? (
+            <Dialog
+              open={isCreateOpen}
+              onOpenChange={(open) => {
+                if (open) {
                   setIsExpanded(true);
                   setIsCreateOpen(true);
-                }}
+                } else {
+                  closeCreate();
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button type="button" size="sm" className="min-h-11 w-full sm:w-auto">
+                  <PlusSquare className="h-4 w-4" />
+                  New epic
+                </Button>
+              </DialogTrigger>
+
+              <DialogContent
+                aria-describedby={undefined}
+                dismissible={!isCreating}
+                className="flex max-h-[100dvh] max-w-lg flex-col gap-4 overflow-y-auto p-4 sm:max-h-[calc(100dvh-2rem)] sm:p-6"
               >
-                <PlusSquare className="h-4 w-4" />
-                New epic
-              </Button>
-            ) : null}
-          </div>
+                <div className="flex items-center justify-between gap-2">
+                  <DialogTitle className="text-lg">New epic</DialogTitle>
+                  <DialogClose asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-11 w-11"
+                      aria-label="Close epic creation"
+                      disabled={isCreating}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </DialogClose>
+                </div>
+
+                <form
+                  className="grid gap-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (!isCreating) void handleCreateEpic();
+                  }}
+                >
+                  <div className="grid gap-2">
+                    <label htmlFor="create-epic-name" className="text-sm font-medium">
+                      Name
+                    </label>
+                    <EmojiInputField
+                      id="create-epic-name"
+                      autoFocus
+                      required
+                      value={createName}
+                      onChange={(event) => setCreateName(event.target.value)}
+                      className={cn(
+                        "h-11 rounded-md border border-input bg-background px-3 text-base placeholder:text-muted-foreground sm:text-sm",
+                        FORM_FOCUS_BORDER_CLASS
+                      )}
+                      placeholder="Launch workspace sharing"
+                      maxLength={80}
+                      disabled={isCreating}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <label htmlFor="create-epic-description" className="text-sm font-medium">
+                      Description
+                    </label>
+                    <EmojiTextareaField
+                      id="create-epic-description"
+                      required
+                      value={createDescription}
+                      onChange={(event) => setCreateDescription(event.target.value)}
+                      className={cn(
+                        "min-h-24 rounded-md border border-input bg-background px-3 py-2 text-base placeholder:text-muted-foreground sm:text-sm",
+                        FORM_FOCUS_BORDER_CLASS
+                      )}
+                      placeholder="Explain the initiative and what success looks like."
+                      maxLength={3000}
+                      disabled={isCreating}
+                    />
+                  </div>
+                  {createError ? (
+                    <p
+                      role="alert"
+                      className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-red-700 dark:text-red-300"
+                    >
+                      {createError}
+                    </p>
+                  ) : null}
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <DialogClose asChild>
+                      <Button type="button" variant="secondary" disabled={isCreating} className="min-h-11">
+                        Cancel
+                      </Button>
+                    </DialogClose>
+                    <Button type="submit" disabled={isCreating} className="min-h-11">
+                      {isCreating ? "Creating..." : "Create epic"}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          ) : null}
         </div>
       </CardHeader>
 
       {isExpanded ? (
-        <CardContent className={cn("space-y-4", PROJECT_SECTION_CONTENT_CLASS)}>
+        <CardContent className={cn("flex flex-col gap-4", PROJECT_SECTION_CONTENT_CLASS)}>
           {loadError ? (
             <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200">
               {loadError}
             </div>
           ) : null}
 
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
             <ListSearchInput
               value={query}
               onValueChange={setQuery}
-              placeholder="Search epics by name or description"
+              placeholder="Search name or description"
               ariaLabel="Search epics"
               clearAriaLabel="Clear epic search"
             />
-            <SegmentedControl<EpicListView>
-              value={listView}
-              onValueChange={(nextView) => {
-                setListView(nextView);
-                cancelEdit();
-              }}
-              ariaLabel="Epic list view"
-              options={[
-                { value: "active", label: `Active (${activeEpics.length})` },
-                {
-                  value: "archived",
-                  label: `Archived (${archivedEpics.length})`,
-                },
-              ]}
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <SegmentedControl<EpicListView>
+                value={listView}
+                onValueChange={(nextView) => {
+                  if (nextView === listView) return;
+                  setListView(nextView);
+                  cancelEdit();
+                }}
+                ariaLabel="Epic list view"
+                className="min-w-max flex-1 max-sm:[&>button]:px-2 max-sm:[&>button]:text-xs xl:flex-none"
+                options={[
+                  { value: "active", label: `Active (${activeEpics.length})` },
+                  {
+                    value: "archived",
+                    label: `Archived (${archivedEpics.length})`,
+                  },
+                ]}
+              />
+            </div>
           </div>
 
-          {isCreateOpen ? (
-            <section className="space-y-3 rounded-2xl border border-border/70 bg-background/70 p-4">
-              <div className="space-y-1">
-                <h3 className="text-sm font-semibold">Create epic</h3>
-                <p className="text-xs text-muted-foreground">
-                  Give the initiative a clear flag and enough context to stay
-                  useful on the project page.
-                </p>
-              </div>
-              <div className="grid gap-3">
-                <div className="grid gap-2">
-                  <label
-                    htmlFor="create-epic-name"
-                    className="text-sm font-medium"
-                  >
-                    Name
-                  </label>
-                  <EmojiInputField
-                    id="create-epic-name"
-                    value={createName}
-                    onChange={(event) => setCreateName(event.target.value)}
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    placeholder="Launch workspace sharing"
-                    maxLength={80}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <label
-                    htmlFor="create-epic-description"
-                    className="text-sm font-medium"
-                  >
-                    Description
-                  </label>
-                  <EmojiTextareaField
-                    id="create-epic-description"
-                    value={createDescription}
-                    onChange={(event) =>
-                      setCreateDescription(event.target.value)
-                    }
-                    className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    placeholder="Explain the initiative and what success looks like."
-                    maxLength={3000}
-                  />
-                </div>
-              </div>
-              {createError ? (
-                <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  {createError}
-                </div>
-              ) : null}
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => closeCreate()}
-                  disabled={isCreating}
-                  className="w-full sm:w-auto"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => void handleCreateEpic()}
-                  disabled={isCreating}
-                  className="w-full sm:w-auto"
-                >
-                  {isCreating ? "Creating..." : "Create epic"}
-                </Button>
-              </div>
-            </section>
-          ) : null}
+          <p
+            role="status"
+            className={cn("text-sm text-muted-foreground", !listMessage && "sr-only")}
+          >
+            {listMessage}
+          </p>
 
-          {filteredEpics.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-5 py-8 text-center">
-              <p className="text-sm font-medium text-foreground">
-                {query.trim() !== ""
-                  ? "No matching epics."
-                  : listView === "archived"
-                    ? "No archived epics."
-                    : "No active epics yet."}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {query.trim() !== ""
-                  ? "Try another search."
-                  : listView === "archived"
-                    ? "Completed epics will land here."
-                    : "Create one to group related work under a clear initiative."}
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
-              {filteredEpics.map((epic) => {
-                const color = getEpicColorFromName(epic.name);
-                const isEditing = editingEpicId === epic.id;
-                const isDetailsExpanded = expandedEpicIds.has(epic.id);
-                const visibleTasks = epic.linkedTasks.slice(0, 6);
-                const hiddenTaskCount = Math.max(
-                  0,
-                  epic.linkedTasks.length - visibleTasks.length
-                );
-                const titleId = `epic-${epic.id}-title`;
-                const detailsId = `epic-${epic.id}-details`;
-
-                return (
+          {visibleEpics.length > 0 ? (
+            <div
+              role="region"
+              aria-label="Epic list"
+              tabIndex={0}
+              className="max-h-[clamp(20rem,64dvh,42rem)] min-h-0 overflow-y-auto overscroll-y-contain rounded-lg border border-border/60 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            >
+              <div aria-hidden="true" className="sticky top-0 z-10 hidden grid-cols-[minmax(0,1fr)_7rem_5rem_9rem] items-center gap-3 border-b border-border/60 bg-card px-3 py-2 text-xs font-medium text-muted-foreground sm:grid">
+                <span>Epic</span>
+                <span>Completion</span>
+                <span>Tasks</span>
+                <span className="text-right">Actions</span>
+              </div>
+              <div className="divide-y divide-border/60">
+                {visibleEpics.map((epic) => (
                   <article
                     key={epic.id}
-                    aria-label={
-                      isEditing
-                        ? `Edit epic ${editName.trim() || epic.name}`
-                        : undefined
-                    }
-                    aria-labelledby={isEditing ? undefined : titleId}
-                    className="min-w-0 overflow-hidden rounded-2xl border bg-card/85 shadow-[0_18px_48px_-42px_rgba(15,23,42,0.45)] backdrop-blur-sm"
-                    style={{
-                      borderColor: color.border,
-                    }}
+                    aria-labelledby={`epic-${epic.id}-title`}
+                    className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-3 py-2 transition-colors hover:bg-muted/20 sm:grid-cols-[minmax(0,1fr)_7rem_5rem_9rem]"
                   >
-                    <div
-                      className="h-1.5 w-full"
-                      style={{
-                        backgroundColor: color.accent,
+                    <button
+                      type="button"
+                      aria-label={`Open epic ${epic.name}`}
+                      aria-haspopup="dialog"
+                      className="col-span-2 flex min-h-11 min-w-0 items-center gap-2.5 rounded-md text-left hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:col-span-1"
+                      onClick={(event) => {
+                        actionTriggerRef.current = event.currentTarget;
+                        setViewedEpicId(epic.id);
                       }}
-                    />
-                    {isEditing ? (
-                      <div className="space-y-3 p-4">
-                        <div className="grid gap-2">
-                          <label
-                            htmlFor={`edit-epic-name-${epic.id}`}
-                            className="text-sm font-medium"
-                          >
-                            Name
-                          </label>
-                          <EmojiInputField
-                            id={`edit-epic-name-${epic.id}`}
-                            value={editName}
-                            onChange={(event) =>
-                              setEditName(event.target.value)
-                            }
-                            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                            maxLength={80}
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <label
-                            htmlFor={`edit-epic-description-${epic.id}`}
-                            className="text-sm font-medium"
-                          >
-                            Description
-                          </label>
-                          <EmojiTextareaField
-                            id={`edit-epic-description-${epic.id}`}
-                            value={editDescription}
-                            onChange={(event) =>
-                              setEditDescription(event.target.value)
-                            }
-                            className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                            maxLength={3000}
-                          />
-                        </div>
-                        {editError ? (
-                          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                            {editError}
-                          </div>
-                        ) : null}
-                        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => cancelEdit()}
-                            disabled={isSavingEdit}
-                            className="w-full sm:w-auto"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={() => void handleSaveEpic()}
-                            disabled={isSavingEdit}
-                            className="w-full sm:w-auto"
-                          >
-                            {isSavingEdit ? "Saving..." : "Save epic"}
-                          </Button>
+                    >
+                      <EpicColorMark name={epic.name} />
+                      <h3 id={`epic-${epic.id}-title`} className="min-w-0 break-words text-sm font-semibold leading-6 [overflow-wrap:anywhere]">
+                        {epic.name}
+                      </h3>
+                    </button>
+                    <div className="min-w-0 space-y-1 text-sm tabular-nums sm:contents">
+                      <div
+                        role="progressbar"
+                        aria-label={`${epic.name} progress`}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={epic.progressPercent}
+                        aria-valuetext={`${epic.completedTaskCount} of ${epic.taskCount} tasks completed`}
+                        className="space-y-1.5"
+                      >
+                        <span className="font-medium">
+                          {epic.progressPercent}%
+                          <span className="sr-only"> complete</span>
+                        </span>
+                        <div className="hidden h-1 w-20 overflow-hidden rounded-full bg-muted sm:block">
+                          <div className="h-full rounded-full bg-primary" style={{ width: `${epic.progressPercent}%` }} />
                         </div>
                       </div>
-                    ) : (
-                      <div className="space-y-4 p-4">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3
-                                id={titleId}
-                                className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-semibold"
-                                style={{
-                                  backgroundColor: color.soft,
-                                  borderColor: color.border,
-                                  color: color.accent,
-                                }}
-                              >
-                                <Flag className="h-3.5 w-3.5 shrink-0" />
-                                <span className="min-w-0 break-words [overflow-wrap:anywhere]">
-                                  {epic.name}
-                                </span>
-                              </h3>
-                              <EpicStatusBadge status={epic.status} />
-                              {epic.archivedAt ? (
-                                <Badge
-                                  variant="outline"
-                                  className="border-border/70 bg-muted/50 text-muted-foreground"
-                                >
-                                  Archived
-                                </Badge>
-                              ) : null}
-                            </div>
-                          </div>
-                          <div className="flex shrink-0 items-center justify-end gap-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="min-h-11 min-w-11 text-muted-foreground"
-                              aria-expanded={isDetailsExpanded}
-                              aria-controls={detailsId}
-                              aria-label={`${
-                                isDetailsExpanded ? "Hide" : "Show"
-                              } details for ${epic.name}`}
-                              title={`${
-                                isDetailsExpanded ? "Hide" : "Show"
-                              } details`}
-                              onClick={() => toggleEpicDetails(epic.id)}
-                            >
-                              {isDetailsExpanded ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )}
-                            </Button>
-                            {canEdit ? (
-                              <>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="min-h-11 min-w-11"
-                                  onClick={() => startEdit(epic)}
-                                  aria-label={`Edit epic ${epic.name}`}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="min-h-11 min-w-11"
-                                  disabled={isUpdatingArchive}
-                                  onClick={() =>
-                                    void handleToggleEpicArchived(
-                                      epic,
-                                      !epic.archivedAt
-                                    )
-                                  }
-                                  aria-label={
-                                    epic.archivedAt
-                                      ? `Restore epic ${epic.name}`
-                                      : `Archive epic ${epic.name}`
-                                  }
-                                >
-                                  {epic.archivedAt ? (
-                                    <ArchiveRestore className="h-4 w-4" />
-                                  ) : (
-                                    <Archive className="h-4 w-4" />
-                                  )}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="min-h-11 min-w-11"
-                                  onClick={() =>
-                                    setPendingDeleteEpicId(epic.id)
-                                  }
-                                  aria-label={`Delete epic ${epic.name}`}
-                                  disabled={!canDelete}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        <section
-                          aria-label={`Progress for ${epic.name}`}
-                          className="space-y-2 rounded-xl border border-border/50 bg-background/70 p-3"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <h4 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                              Progress
-                            </h4>
-                            <p className="text-sm font-semibold tabular-nums text-foreground">
-                              {epic.progressPercent}%
-                            </p>
-                          </div>
-                          <div
-                            role="progressbar"
-                            aria-label={`${epic.name} progress`}
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                            aria-valuenow={epic.progressPercent}
-                            aria-valuetext={`${epic.completedTaskCount} of ${epic.taskCount} tasks completed`}
-                            className="h-2 overflow-hidden rounded-full bg-muted"
+                      <span className="block text-xs text-muted-foreground sm:text-sm">
+                        {epic.taskCount}
+                        <span className="sm:sr-only"> {epic.taskCount === 1 ? "task" : "tasks"}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-end gap-1">
+                      {canEdit ? (
+                        <>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-11 w-11 shrink-0"
+                            aria-label={`Edit epic ${epic.name}`}
+                            title="Edit epic"
+                            onClick={(event) => {
+                              actionTriggerRef.current = event.currentTarget;
+                              startEdit(epic);
+                            }}
                           >
-                            <div
-                              className="h-full rounded-full transition-[width] duration-200 motion-reduce:transition-none"
-                              style={{
-                                width: `${epic.progressPercent}%`,
-                                backgroundColor: color.accent,
-                              }}
-                            />
-                          </div>
-                          <p className="text-xs leading-5 text-muted-foreground">
-                            <span className="font-medium tabular-nums text-foreground">
-                              {epic.completedTaskCount}/{epic.taskCount}
-                            </span>{" "}
-                            task{epic.taskCount === 1 ? "" : "s"} completed
-                          </p>
-                        </section>
-
-                        <div
-                          id={detailsId}
-                          hidden={!isDetailsExpanded}
-                          className="min-w-0 space-y-4 border-t border-border/50 pt-4"
-                        >
-                          <section className="space-y-2">
-                            <h4 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                              Description
-                            </h4>
-                            <p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground [overflow-wrap:anywhere]">
-                              {epic.description}
-                            </p>
-                          </section>
-
-                          <section className="min-w-0 space-y-2">
-                            <div className="flex items-center justify-between gap-3">
-                              <h4 className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                                Linked tasks
-                              </h4>
-                              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                                {epic.taskCount} total
-                              </span>
-                            </div>
-                            {epic.linkedTasks.length > 0 ? (
-                              <ul className="grid min-w-0 gap-2">
-                                {visibleTasks.map((task) => (
-                                  <EpicTaskChip
-                                    key={task.id}
-                                    task={task}
-                                    projectId={projectId}
-                                  />
-                                ))}
-                                {hiddenTaskCount > 0 ? (
-                                  <li className="text-xs text-muted-foreground">
-                                    +{hiddenTaskCount} more linked task
-                                    {hiddenTaskCount === 1 ? "" : "s"}
-                                  </li>
-                                ) : null}
-                              </ul>
+                            <Pencil className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-11 w-11 shrink-0"
+                            disabled={isUpdatingArchive}
+                            aria-label={`${epic.archivedAt ? "Restore" : "Archive"} epic ${epic.name}`}
+                            title={epic.archivedAt ? "Restore epic" : "Archive epic"}
+                            onClick={() => void handleToggleEpicArchived(epic, !epic.archivedAt)}
+                          >
+                            {epic.archivedAt ? (
+                              <ArchiveRestore className="h-4 w-4" aria-hidden="true" />
                             ) : (
-                              <p className="text-sm text-muted-foreground">
-                                No tasks linked yet.
-                              </p>
+                              <Archive className="h-4 w-4" aria-hidden="true" />
                             )}
-                          </section>
-
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-                            <EpicAuthorInline
-                              label="Created by"
-                              author={epic.createdBy}
-                              timestamp={epic.createdAt}
-                            />
-                            <EpicAuthorInline
-                              label="Last edited by"
-                              author={epic.updatedBy}
-                              timestamp={epic.updatedAt}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-11 w-11 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-red-700 dark:hover:text-red-300"
+                            aria-label={`Delete epic ${epic.name}`}
+                            title="Delete epic"
+                            disabled={!canDelete}
+                            onClick={(event) => {
+                              actionTriggerRef.current = event.currentTarget;
+                              setPendingDeleteEpicId(epic.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
                   </article>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          )}
+          ) : null}
         </CardContent>
       ) : null}
+
+      {viewedEpic ? (
+        <EpicDetailsDialog
+          projectId={projectId}
+          epic={viewedEpic}
+          onClose={() => setViewedEpicId(null)}
+          onReturnFocus={returnActionFocus}
+        />
+      ) : null}
+
+      <Dialog
+        open={Boolean(editingEpic)}
+        onOpenChange={(open) => {
+          if (!open) cancelEdit();
+        }}
+      >
+        <DialogContent
+          aria-describedby={undefined}
+          dismissible={!isSavingEdit}
+          className="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-y-auto p-4 sm:max-h-[calc(100dvh-2rem)] sm:p-6"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            returnActionFocus();
+          }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle className="text-lg">Edit epic</DialogTitle>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11"
+              aria-label="Close epic editing"
+              disabled={isSavingEdit}
+              onClick={() => cancelEdit()}
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </div>
+          <form
+            className="mt-4 grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!isSavingEdit) void handleSaveEpic();
+            }}
+          >
+            <div className="grid gap-2">
+              <label htmlFor="edit-epic-name" className="text-sm font-medium">Name</label>
+              <EmojiInputField
+                id="edit-epic-name"
+                autoFocus
+                required
+                value={editName}
+                maxLength={80}
+                disabled={isSavingEdit}
+                onChange={(event) => setEditName(event.target.value)}
+                className={cn("h-11 rounded-md border border-input bg-background px-3 text-base sm:text-sm", FORM_FOCUS_BORDER_CLASS)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="edit-epic-description" className="text-sm font-medium">Description</label>
+              <EmojiTextareaField
+                id="edit-epic-description"
+                required
+                value={editDescription}
+                maxLength={3000}
+                disabled={isSavingEdit}
+                onChange={(event) => setEditDescription(event.target.value)}
+                className={cn("min-h-28 rounded-md border border-input bg-background px-3 py-2 text-base sm:text-sm", FORM_FOCUS_BORDER_CLASS)}
+              />
+            </div>
+            {editError ? <p role="alert" className="text-sm text-red-700 dark:text-red-300">{editError}</p> : null}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" className="min-h-11" disabled={isSavingEdit} onClick={() => cancelEdit()}>Cancel</Button>
+              <Button type="submit" className="min-h-11" disabled={isSavingEdit}>{isSavingEdit ? "Saving..." : "Save epic"}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         isOpen={Boolean(pendingDeleteEpic)}

@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   AGENT_API_ENDPOINTS,
   buildAgentAttentionExample,
+  buildAgentTaskCommentExample,
   buildAgentOpenApiDocument,
 } from "@/lib/agent-onboarding";
 import {
@@ -592,4 +593,39 @@ describe("agent-onboarding contract", () => {
     expect(example).toContain("revoked, expired, or rotated away");
     expect(example).not.toContain("nda_");
   });
+});
+
+test("comment mention schemas and examples support safe round-tripping", () => {
+  const schemas = buildAgentOpenApiDocument("https://example.test").components.schemas;
+  expect(schemas.TaskCommentCreateRequest.properties.mentionSelections.items.required).toEqual(["userId", "username", "discriminator"]);
+  expect(schemas.TaskCommentRecord.properties.agentMentions.items.required).toEqual(["credentialId", "label"]);
+  expect(schemas.TaskCommentUpdateRequest.properties.agentMentionSelections.description).toContain("Omission or [] clears");
+  expect(schemas.TaskCommentUpdateRequest.properties.content).not.toHaveProperty("maxLength");
+  expect(schemas.TaskCommentUpdateRequest.properties.content.description).toContain("4000");
+  const example = buildAgentTaskCommentExample();
+  const payload = JSON.parse(example.split("\n").find(line => line.includes("  -d "))!.split("'")[1]);
+  expect(payload.content).toContain("@alice#1234");
+  expect(payload.content).toContain("@{Release bot}");
+  expect(payload.mentionSelections[0]).toEqual({ userId: "user_123", username: "alice", discriminator: "1234" });
+  expect(payload.agentMentionSelections[0]).toEqual({ credentialId: "credential_123" });
+});
+
+test("documents bearer multipart task uploads and provider limits", () => {
+  const doc = buildAgentOpenApiDocument("https://example.test");
+  const path = "/api/projects/{projectId}/tasks/{taskId}/attachments";
+  expect(doc.paths[path].post.requestBody.content["multipart/form-data"].schema.$ref).toBe("#/components/schemas/TaskAttachmentFormRequest");
+  expect(doc.components.schemas.TaskAttachmentFormRequest.properties.file.description).toContain("4,194,304");
+  const endpoint = AGENT_API_ENDPOINTS.find(e => e.path === path);
+  expect(endpoint?.requiredScopes).toEqual(["task:write"]);
+  expect(endpoint?.notes?.join(" ")).toContain("attachmentFiles");
+});
+
+test("publishes actor-aware reaction endpoints and ownership semantics", () => {
+  const doc = buildAgentOpenApiDocument("https://example.test");
+  const path = "/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions";
+  expect(doc.paths[path].get).toBeDefined();
+  expect(doc.paths[path].post.requestBody.content["application/json"].schema.properties.emoji.maxLength).toBe(32);
+  expect(doc.paths[`${path}/{reactionId}`].delete).toBeDefined();
+  expect(AGENT_API_ENDPOINTS.filter(e => e.path.startsWith(path)).map(e => e.requiredScopes)).toEqual([["task:read"], ["task:write"], ["task:write"]]);
+  expect(doc.components.schemas.TaskReactionResponse.properties.reactions.items.properties.reactions.items.properties.actor.properties.id.type).toContain("null");
 });

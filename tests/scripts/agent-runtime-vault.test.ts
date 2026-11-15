@@ -12,6 +12,22 @@ vi.mock("node:os", async (importOriginal) => ({
 
 import { createVault } from "../../scripts/agent-runtime/vault.mjs";
 
+test.skipIf(process.platform === "win32" || process.env.ND_NATIVE_VAULT_TEST !== "1")(
+  "native Keychain or Secret Service stores, replaces and reads an exact binding",
+  async () => {
+    const vault = createVault();
+    const key = randomBytes(32).toString("hex");
+    const first = randomBytes(32).toString("base64url");
+    const replacement = randomBytes(32).toString("base64url");
+    await vault.write(key, first);
+    expect(await vault.read(key)).toBe(first);
+    await vault.write(key, replacement);
+    expect(await vault.read(key)).toBe(replacement);
+    await expect(vault.read(randomBytes(32).toString("hex"))).rejects.toThrow();
+  },
+  30_000
+);
+
 test.skipIf(process.platform !== "win32")(
   "Windows DPAPI stores encrypted credentials and reads them from a PowerShell parent",
   async () => {

@@ -15,10 +15,18 @@ describe("agent-onboarding-guide", () => {
     );
 
     expect(result).toContain("Quickstart environment");
+    expect(result).toContain("Use your current client");
+    expect(result).toContain("Authorize an identity");
+    expect(result).toContain("Legacy API credentials remain a supported option");
+    expect(result).toContain("session open --base https://preview.nexusdash.test");
+    expect(result).toContain("session status --session SESSION_ID");
+    expect(result).toContain("session close --session SESSION_ID");
     expect(result).toContain("NEXUSDASH_BASE_URL=https://preview.nexusdash.test");
     expect(result).toContain("NEXUSDASH_AGENT_OPENAPI_URL=https://preview.nexusdash.test/api/docs/agent/v1/openapi.json");
     expect(result).toContain("Authentication flow");
     expect(result).toContain("Supported endpoints");
+    expect(result).toContain("/api/projects/{projectId}/actors/search");
+    expect(result).toContain("Any one of:");
     expect(result).toContain("/api/projects/{projectId}/epics");
     expect(result).toContain("/api/projects/{projectId}/roadmap");
     expect(result).toContain("/api/projects/{projectId}/roadmap/events/move");

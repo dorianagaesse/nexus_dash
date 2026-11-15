@@ -116,6 +116,19 @@ npm run test:rls
 The migration/admin URL and runtime URL must remain separate. See
 [`rls-tenant-isolation.md`](./rls-tenant-isolation.md).
 
+For the native identity CLI integration, set `PLAYWRIGHT_APP_DATABASE_URL` to
+the NOBYPASSRLS runtime URL after setup. Playwright fixtures keep `DATABASE_URL`
+as the disposable admin URL, while its app server uses the restricted role.
+With an unlocked OS vault, run
+`npx playwright test tests/e2e/nd-658-normal-start.spec.ts` (`ND_NATIVE_VAULT_TEST=1`
+on Linux/macOS). `ND_LONG_RUNTIME_TEST=1` includes actual five-minute bearer
+expiry and renewal. Optional `ND_ACTUAL_CLIENT_TEST=1` also invokes installed
+clients using explicit `ND_CODEX_EXECUTABLE`/`ND_CLAUDE_EXECUTABLE` paths and
+their existing provider authentication; it uses no ND launcher variables.
+Record the actual provider and transcripts separately from synthetic client
+labels. The `Native Agent Identity` workflow supplies reproducible headless
+Linux vault setup and a separate native macOS Keychain check.
+
 ## App + Database Through Docker Compose
 
 To run the full app and local Postgres through Docker Compose:
