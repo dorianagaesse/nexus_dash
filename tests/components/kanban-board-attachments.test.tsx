@@ -112,6 +112,40 @@ function makeTasks(ids: string[]): KanbanTask[] {
   })) as KanbanTask[];
 }
 
+test("activity snapshots refresh open comments and counts during task editing without touching drafts", async () => {
+  const task = { ...makeTasks(["a"])[0], commentCount: 1 };
+  const first = { id: "first", content: "<p>First</p>", createdAt: "2026-11-11T10:00:00Z", author: person };
+  const second = { ...first, id: "second", content: "<p>Remote</p>", createdAt: "2026-11-11T10:01:00Z" };
+  let comments = [first];
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ comments, task }))));
+  const container = document.createElement("div"); document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(<KanbanBoard canEdit projectId="project" actorUserId="owner" storageProvider="local" initialTasks={[task]} initialTaskId="a" archivedDoneTasks={[]} archivedEpics={[]} epics={[]} collaborators={[person]} />));
+    await act(async () => {
+      capture.modal.onActivateEditMode();
+      capture.modal.onEditTitleChange("Unfinished local title");
+      capture.modal.onNewTaskCommentChange("Unsent comment");
+    });
+    const input = container.querySelector("input")!;
+    input.focus(); input.setSelectionRange(3, 9);
+    comments = [{ ...first, content: "<p>Edited remotely</p>" }, second];
+    await act(async () => {
+      dispatchProjectActivityRemoteEvent({ projectId: "project", version: "2026-11-11T10:02:00Z", serverTime: "2026-11-11T10:02:00Z", eventId: null, domain: null, action: null, entityId: null, actorUserId: null, payload: null });
+    });
+    expect(capture.modal.taskComments.map((c: { id: string }) => c.id)).toEqual(["first", "second"]);
+    expect(capture.modal.taskComments[0].content).toContain("Edited remotely");
+    expect(capture.modal.selectedTask.commentCount).toBe(2);
+    expect(capture.grid.columns.Backlog[0].commentCount).toBe(2);
+    expect(capture.modal.editTitle).toBe("Unfinished local title");
+    expect(capture.modal.newTaskComment).toBe("Unsent comment");
+    expect(document.activeElement).toBe(input);
+    expect([input.selectionStart, input.selectionEnd]).toEqual([3, 9]);
+  } finally {
+    await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals();
+  }
+});
+
 test.each(["link", "file"])(
   "remote %s attachment deltas reconcile an open modal without replacing its draft or focus",
   async (kind) => {

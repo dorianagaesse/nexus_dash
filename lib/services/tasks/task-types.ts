@@ -1,3 +1,4 @@
+import type { TaskAttachmentActorFields } from "@/lib/task-attachment-actor";
 import type { RelatedTaskSummary } from "@/lib/task-related";
 import type { TaskEpicSummary } from "@/lib/epic";
 import type { AgentProjectAccessContext } from "@/lib/services/project-access-service";
@@ -65,7 +66,7 @@ export interface UpdatedTaskPayload {
     content: string;
     createdAt: Date;
   }[];
-  attachments: {
+  attachments: (TaskAttachmentActorFields & {
     id: string;
     commentId: string | null;
     kind: string;
@@ -73,7 +74,7 @@ export interface UpdatedTaskPayload {
     url: string | null;
     mimeType: string | null;
     sizeBytes: number | null;
-  }[];
+  })[];
 }
 
 export interface PendingTaskAssignmentNotification {

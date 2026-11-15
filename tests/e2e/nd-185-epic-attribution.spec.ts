@@ -31,7 +31,7 @@ async function createAttributionProject(ownerUserId: string) {
   };
 }
 
-test("shows created and last-edited attribution inside the epic details disclosure", async ({
+test("shows created and last-edited attribution inside the epic details modal", async ({
   page,
 }) => {
   const ownerUserId = await signInAsVerifiedUser(page);
@@ -40,7 +40,10 @@ test("shows created and last-edited attribution inside the epic details disclosu
 
   await page.goto(`/projects/${fixture.projectId}#epics`);
 
-  await page.getByRole("button", { name: "New epic" }).click();
+  await clickUntilVisible(
+    page.getByRole("button", { name: "New epic" }),
+    page.getByRole("dialog", { name: "New epic" })
+  );
   await page.locator("#create-epic-name").fill(epicName);
   await page
     .locator("#create-epic-description")
@@ -54,19 +57,14 @@ test("shows created and last-edited attribution inside the epic details disclosu
   await page.getByRole("button", { name: "Create epic" }).click();
   await createResponse;
 
-  const epicArticle = page.getByRole("article", { name: epicName });
-  await expect(epicArticle).toBeVisible();
+  const epicRow = page.getByRole("article", { name: epicName });
+  await expect(epicRow).toBeVisible();
+  const epicArticle = page.getByRole("dialog", { name: epicName });
 
-  // Attribution lives behind the disclosure, not on the compact face.
   const createdBy = epicArticle.locator('[title^="Created by:"]');
   const lastEditedBy = epicArticle.locator('[title^="Last edited by:"]');
-  await expect(createdBy).toBeHidden();
-  await expect(lastEditedBy).toBeHidden();
 
-  await clickUntilVisible(
-    epicArticle.getByRole("button", { name: `Show details for ${epicName}` }),
-    epicArticle.getByRole("button", { name: `Hide details for ${epicName}` })
-  );
+  await clickUntilVisible(epicRow.getByRole("button", { name: /^Open epic/ }), epicArticle);
 
   await expect(createdBy).toBeVisible();
   await expect(createdBy).toContainText(fixture.ownerUsername);
@@ -84,12 +82,11 @@ test("shows created and last-edited attribution inside the epic details disclosu
 
   // Editing the epic records the acting user as the last editor; the creator
   // attribution and the credential columns stay untouched.
-  await epicArticle
+  await epicArticle.getByRole("button", { name: "Close epic details" }).click();
+  await epicRow
     .getByRole("button", { name: `Edit epic ${epicName}` })
     .click();
-  const editingArticle = page.getByRole("article", {
-    name: `Edit epic ${epicName}`,
-  });
+  const editingArticle = page.getByRole("dialog", { name: "Edit epic", exact: true });
   await editingArticle
     .locator("textarea")
     .fill("Confirm the attribution survives an edit.");
@@ -104,15 +101,10 @@ test("shows created and last-edited attribution inside the epic details disclosu
 
   await page.reload();
 
-  const reloadedArticle = page.getByRole("article", { name: epicName });
-  await expect(reloadedArticle).toBeVisible();
+  const reloadedArticle = page.getByRole("dialog", { name: epicName });
   await clickUntilVisible(
-    reloadedArticle.getByRole("button", {
-      name: `Show details for ${epicName}`,
-    }),
-    reloadedArticle.getByRole("button", {
-      name: `Hide details for ${epicName}`,
-    })
+    page.getByRole("button", { name: /^Open epic/ }),
+    reloadedArticle
   );
   await expect(
     reloadedArticle.locator('[title^="Created by:"]')
@@ -170,12 +162,10 @@ test("renders agent credential attribution with the durable label snapshot", asy
 
   await page.goto(`/projects/${fixture.projectId}#epics`);
 
-  const epicArticle = page.getByRole("article", { name: epicName });
-  await expect(epicArticle).toBeVisible();
-  await clickUntilVisible(
-    epicArticle.getByRole("button", { name: `Show details for ${epicName}` }),
-    epicArticle.getByRole("button", { name: `Hide details for ${epicName}` })
-  );
+  const epicRow = page.getByRole("article", { name: epicName });
+  await expect(epicRow).toBeVisible();
+  const epicArticle = page.getByRole("dialog", { name: epicName });
+  await clickUntilVisible(epicRow.getByRole("button", { name: /^Open epic/ }), epicArticle);
 
   const createdBy = epicArticle.locator('[title^="Created by:"]');
   await expect(createdBy).toBeVisible();

@@ -61,7 +61,7 @@ export async function pairDevice(binding, pairingCode, vault) {
 }
 
 export function projectRequestUrl(base, projectId, path) {
-  if (typeof path !== "string" || !path.startsWith("/") || path.includes("\\"))
+  if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//") || path.includes("\\"))
     throw new Error("Invalid project request path");
   const target = new URL(path, base);
   const prefix = `/api/projects/${projectId}`;
@@ -89,6 +89,25 @@ export async function openRuntime(binding, vault, client) {
   let renewing;
   let closed = false;
   let denied = false;
+  async function renew() {
+    if (closed || denied) throw new Error("Session is closed or authorization was rejected");
+    renewing ??= runtimeCall(binding, { operation: "renew", proof, sessionId })
+      .then((next) => {
+        if (next.sessionId !== sessionId || next.deviceId !== token.deviceId ||
+          next.identityId !== binding.identityId || next.projectId !== binding.projectId) {
+          denied = true;
+          throw new Error("Runtime binding mismatch");
+        }
+        token = next;
+        renewAt = Date.now() + Math.max(1, next.expiresInSeconds - 30) * 1000;
+      })
+      .catch((error) => {
+        if ([401, 403, 404].includes(error.status)) denied = true;
+        throw error;
+      })
+      .finally(() => { renewing = null; });
+    await renewing;
+  }
   const capability = randomBytes(32).toString("base64url");
   const server = createServer(async (request, response) => {
     response.setHeader("Cache-Control", "no-store");
@@ -101,7 +120,8 @@ export async function openRuntime(binding, vault, client) {
       supplied.length !== expected.length ||
       !timingSafeEqual(supplied, expected)
     ) {
-      response.writeHead(401).end();
+      response.writeHead(401, { "Content-Type": "application/json" })
+        .end('{"error":"runtime-session-unavailable"}');
       return;
     }
     try {
@@ -120,33 +140,7 @@ export async function openRuntime(binding, vault, client) {
         chunks.push(chunk);
       }
       if (Date.now() >= renewAt) {
-        renewing ??= runtimeCall(binding, {
-          operation: "renew",
-          proof,
-          sessionId,
-        })
-          .then((next) => {
-            if (
-              next.sessionId !== sessionId ||
-              next.deviceId !== token.deviceId ||
-              next.identityId !== binding.identityId ||
-              next.projectId !== binding.projectId
-            )
-              throw new Error("Runtime binding mismatch");
-            token = next;
-            renewAt =
-              Date.now() + Math.max(1, next.expiresInSeconds - 30) * 1000;
-          })
-          .catch(error => {
-            // Terminal authorization rejection requires operator recovery. Do
-            // not let a worker hammer the proof exchange and block siblings.
-            if ([401, 403, 404].includes(error.status)) denied = true;
-            throw error;
-          })
-          .finally(() => {
-            renewing = null;
-          });
-        await renewing;
+        await renew();
       }
       const result = await fetch(target, {
         method: request.method,
@@ -181,6 +175,23 @@ export async function openRuntime(binding, vault, client) {
     sessionId,
     url: `http://127.0.0.1:${server.address().port}`,
     capability,
+    async status() {
+      // Re-read effective grants through the existing authorization service.
+      // Only this allowlist is returned; never serialize the token response.
+      await renew();
+      return {
+        origin: new URL(binding.base).origin,
+        projectId: binding.projectId,
+        identityId: binding.identityId,
+        identityName: token.identityName,
+        descriptiveLabels: token.descriptiveLabels,
+        sessionId, deviceId: token.deviceId, client,
+        scopes: token.scopes,
+        canMoveTasksToDone: token.canMoveTasksToDone,
+        sessionExpiresAt: token.sessionExpiresAt,
+        deviceExpiresAt: token.deviceExpiresAt,
+      };
+    },
     async close() {
       if (closed) return;
       closed = true;

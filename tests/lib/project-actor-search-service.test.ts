@@ -23,6 +23,7 @@ vi.mock("@/lib/services/rls-context", () => ({
   ),
 }));
 
+import { AGENT_API_ENDPOINTS, buildAgentOpenApiDocument } from "@/lib/agent-onboarding";
 import { searchProjectActors } from "@/lib/services/project-actor-service";
 
 const owner = {
@@ -170,4 +171,26 @@ describe("searchProjectActors", () => {
     expect(dbMock.project.findUnique).not.toHaveBeenCalled();
     expect(dbMock.$queryRaw).not.toHaveBeenCalled();
   });
+  test.each(["project:read", "task:read", "task:write"] as const)("published OR scope %s is sufficient at runtime", async scope => {
+    const doc = buildAgentOpenApiDocument("https://example.test");
+    const path = "/api/projects/{projectId}/actors/search";
+    expect(doc.paths[path].get["x-scope-match"]).toBe("any");
+    expect(AGENT_API_ENDPOINTS.find(e => e.path === path)?.requiredScopes).toContain(scope);
+    const result = await searchProjectActors({ actorUserId: "owner-1", projectId: "project-1", agentAccess: { credentialId: "caller", projectId: "project-1", scopes: [scope] }, query: "  @RELEASE  ", now: new Date("2026-09-09") });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.actors).toHaveLength(1);
+    const actor = result.data.actors[0];
+    expect(actor).toMatchObject({ kind: "agent", id: "credential-active", status: "active", isAssignable: true, projectRole: null, isOwner: false });
+    for (const key of doc.components.schemas.ProjectActorSummary.required) expect(actor).toHaveProperty(key);
+  });
+
+  test("actor results obey the published bound and reject unrelated scopes", async () => {
+    const denied = await searchProjectActors({ actorUserId: "owner-1", projectId: "project-1", agentAccess: { credentialId: "caller", projectId: "project-1", scopes: ["context:read"] }, query: "" });
+    expect(denied).toEqual({ ok: false, status: 403, error: "forbidden" });
+    dbMock.$queryRaw.mockResolvedValue(Array.from({ length: 20 }, (_, i) => ({ kind: "agent", actorId: `agent-${i}`, label: `Agent ${i}`, revokedAt: null, expiresAt: null })));
+    const result = await searchProjectActors({ actorUserId: "owner-1", projectId: "project-1", query: "" });
+    expect(result.ok && result.data.actors.length).toBe(buildAgentOpenApiDocument("https://example.test").components.schemas.ProjectActorSearchResponse.properties.actors.maxItems);
+  });
+
 });

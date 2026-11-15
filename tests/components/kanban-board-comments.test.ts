@@ -42,6 +42,11 @@ function createComment(
 const optimisticId = "optimistic-comment-1";
 
 describe("mergeFetchedTaskComments", () => {
+  test("keeps an edit received after a comment read started", () => {
+    const stale = createComment("comment-1", { updatedAt: "2026-11-11T10:00:00Z" });
+    const fresh = { ...stale, content: "<p>Newer edit</p>", updatedAt: "2026-11-11T10:01:00Z" };
+    expect(mergeFetchedTaskComments([stale], [fresh])).toEqual([fresh]);
+  });
   test("drops an optimistic comment when a fetched server comment carries the same attachment", () => {
     const sharedAttachment = createAttachment("att-1");
     const optimistic = createComment(optimisticId, {

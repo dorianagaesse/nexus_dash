@@ -466,6 +466,13 @@ export async function exchangeRuntimeAccess(input: Record<string, unknown>) {
         identityId: identity.id,
         projectId: identity.projectId,
         scopes,
+        identityName: identity.label,
+        descriptiveLabels: identity.descriptiveLabels,
+        sessionExpiresAt: session.expiresAt.toISOString(),
+        deviceExpiresAt: device.expiresAt.toISOString(),
+        canMoveTasksToDone:
+          scopes.includes("task:write") && identity.canMoveTasksToDone &&
+          device.canMoveTasksToDone && session.canMoveTasksToDone,
       });
     },
     { forceTransaction: true }

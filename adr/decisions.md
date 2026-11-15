@@ -1462,3 +1462,13 @@ existing clients without regressing the cursor or mutating email fingerprints.
 
 ## ND-823: Docker runtime broker
 Keep paired proofs and renewable tokens in a trusted host broker. Use per-worker TLS capabilities and Docker execution reconciliation; workers never mount a vault or Docker socket. See [the runbook](../docs/runbooks/docker-agent-broker.md).
+
+## 2026-11-13 - ND-658: independent client sessions reuse runtime authorization
+
+An already-running client explicitly opens an origin/project/identity binding
+through an authenticated OS-account broker; every command carries a non-secret
+session reference. No inherited ND environment, global current identity or MCP
+is required. The native adapter, controlled launcher and ND-823 Docker adapter
+share the runtime/proxy core. Idle leases and a cleanup journal bound orphaned
+conversations without pretending to observe IDE lifecycle. See
+[the portable identity decision](nd-658-portable-agent-identities.md#normal-start-client-adapter-2026-11-13).

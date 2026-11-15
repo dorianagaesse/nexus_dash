@@ -1,3 +1,4 @@
+import { taskAttachmentActorSelect } from "@/lib/task-attachment-actor";
 import type { Prisma } from "@prisma/client";
 import { taskPersonSummarySelect } from "@/lib/task-person";
 
@@ -106,6 +107,7 @@ export function taskMutationSelect(hasEpic = true) {
         url: true,
         mimeType: true,
         sizeBytes: true,
+        ...taskAttachmentActorSelect,
       },
     },
     epic: hasEpic ? { select: { id: true, name: true } } : false,
