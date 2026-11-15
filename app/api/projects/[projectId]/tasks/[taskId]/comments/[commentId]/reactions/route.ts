@@ -32,6 +32,7 @@ export async function GET(
   const result = await listTaskCommentReactionsForComment({
     actorUserId: principalResult.principal.actorUserId,
     projectId: params.projectId,
+    taskId: params.taskId,
     commentId: params.commentId,
     agentAccess: getAgentProjectAccessContext(principalResult.principal),
   });
@@ -72,6 +73,7 @@ export async function POST(
   const result = await addTaskCommentReaction({
     actorUserId: principalResult.principal.actorUserId,
     projectId: params.projectId,
+    taskId: params.taskId,
     commentId: params.commentId,
     emoji: typeof payload.emoji === "string" ? payload.emoji : "",
     agentAccess: getAgentProjectAccessContext(principalResult.principal),

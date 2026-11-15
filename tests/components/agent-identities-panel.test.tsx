@@ -20,8 +20,8 @@ describe("AgentIdentitiesPanel device grants", () => {
     name: string;
     descriptiveLabels: string[];
     identityMode: boolean;
-    revokedAt: null;
-    expiresAt: null;
+    revokedAt: string | null;
+    expiresAt: string | null;
     scopes: AgentScope[];
     canMoveTasksToDone: boolean;
     devices: { id: string; name: string; scopes: AgentScope[]; canMoveTasksToDone: boolean; authorizedAt: string | null; revokedAt: string | null; expiresAt: string; pairingExpiresAt: string; sessions: [] }[];
@@ -112,9 +112,9 @@ describe("AgentIdentitiesPanel device grants", () => {
       root.render(<AgentIdentitiesPanel projectId="project-1" />)
     );
     await click(
-      container.querySelector<HTMLButtonElement>(
-        '[aria-label="Oscar Orchestrator"]'
-      )!
+      Array.from(
+        container.querySelectorAll<HTMLButtonElement>("button")
+      ).find((element) => element.textContent?.includes("Oscar"))!
     );
   });
 
@@ -179,7 +179,22 @@ describe("AgentIdentitiesPanel device grants", () => {
     identity.devices[0].authorizedAt = new Date().toISOString();
     await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
     expect(container.textContent).toContain("Device paired. Ready to launch.");
-    expect(container.textContent).toContain("1 paired devices · 0 pending");
+    expect(container.textContent).toContain("1 paired device · 0 pending");
+    const identityButton = Array.from(
+      container.querySelectorAll("button")
+    ).find((element) => element.textContent?.includes("Oscar"));
+    expect(identityButton?.getAttribute("aria-label")).toContain(
+      "Oscar Orchestrator"
+    );
+    expect(identityButton?.getAttribute("aria-label")).toContain(
+      "1 paired device · 0 pending"
+    );
+    expect(identityButton?.textContent).toContain("1 paired device · 0 pending");
+    expect(
+      container.querySelector(
+        '[role="region"][aria-label="Device pairing instructions"]'
+      )
+    ).not.toBeNull();
     expect(container.querySelector("[data-pairing-code]")).toBeNull();
     expect(container.textContent).toContain("--project project-1 --identity oscar -- powershell.exe -NoProfile");
     const calls = vi.mocked(fetch).mock.calls.length;
@@ -197,4 +212,70 @@ describe("AgentIdentitiesPanel device grants", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
     expect(vi.mocked(fetch).mock.calls).toHaveLength(calls);
   });
+
+  test("clears a transient pairing polling error when polling recovers", async () => {
+    vi.useFakeTimers();
+    await authorize();
+    vi.mocked(fetch).mockImplementationOnce(
+      async () => new Response(null, { status: 500 })
+    );
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      "Pairing status could not be checked."
+    );
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  test("withdraws launch guidance when the identity is inactive or expired", async () => {
+    vi.useFakeTimers();
+    await authorize();
+    identity.devices[0].authorizedAt = new Date().toISOString();
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(container.textContent).toContain("Device paired. Ready to launch.");
+
+    identity.revokedAt = new Date().toISOString();
+    await click(button("Refresh identities"));
+    expect(container.textContent).toContain(
+      "Device paired. Identity inactive, so launch is unavailable."
+    );
+    expect(container.textContent).toContain(
+      "Runtime start is rejected while this identity is inactive."
+    );
+    expect(container.textContent).not.toContain("Copy Windows launch command");
+    expect(container.textContent).not.toContain(
+      "Launch instructions for Work laptop"
+    );
+
+    identity.revokedAt = null;
+    identity.expiresAt = new Date(Date.now() - 1000).toISOString();
+    await click(button("Refresh identities"));
+    expect(container.textContent).toContain(
+      "Device paired. Identity expired, so launch is unavailable."
+    );
+    expect(container.textContent).not.toContain("Copy Windows launch command");
+  });
+  test("keeps the displayed preset in sync with current grants and custom edits", async () => {
+    await click(button("New identity"));
+    const preset = container.querySelector<HTMLSelectElement>("select")!;
+    expect(preset.value).toBe("read-write");
+    await act(async () => {
+      preset.value = "read-only";
+      preset.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(preset.value).toBe("read-only");
+    await click(input("Task Read"));
+    expect(preset.value).toBe("custom");
+    expect(preset.querySelector<HTMLOptionElement>('option[value="custom"]')?.disabled).toBe(true);
+  });
+
+  test("constrained attention grants show neither an empty module table nor reserved disclosure", async () => {
+    identity.scopes = ["project:read", "attention:read"];
+    await click(button("Refresh identities"));
+    const deviceForm = container.querySelector("details form")!;
+    expect(deviceForm.textContent).toContain("Mentions and assignments");
+    expect(deviceForm.textContent).not.toContain("Module");
+    expect(deviceForm.textContent).not.toContain("Reserved capabilities");
+  });
+
 });

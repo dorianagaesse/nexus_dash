@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
+import { requireApiPrincipal, getAgentProjectAccessContext } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { withProjectActivityVersionHeader } from "@/lib/project-activity-version";
 import { createTaskAttachmentFromForm } from "@/lib/services/project-attachment-service";
@@ -10,11 +10,11 @@ export async function POST(
   props: { params: Promise<{ projectId: string; taskId: string }> }
 ) {
   const params = await props.params;
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
+  const authenticatedUser = await requireApiPrincipal(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;
   }
-  const actorUserId = authenticatedUser.userId;
+  const actorUserId = authenticatedUser.principal.actorUserId;
   const { projectId, taskId } = params;
 
   if (!projectId || !taskId) {
@@ -39,6 +39,7 @@ export async function POST(
     projectId,
     taskId,
     formData,
+    agentAccess: getAgentProjectAccessContext(authenticatedUser.principal),
   });
 
   if (!result.ok) {

@@ -294,6 +294,23 @@ function stubActorSearchFetch() {
 }
 
 describe("TaskDetailModal comments", () => {
+  test("ignores reaction responses from a previously selected task even when abort is ignored", async () => {
+    const { root } = createTestRenderer();
+    const pending: ((value: Response) => void)[] = [];
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => pending.push(resolve))));
+    const comment: TaskComment = { id: "comment-1", content: "<p>Hello</p>", createdAt: baseTask.createdAt, author: ownerSummary, reactions: [] };
+    const group = [{ emoji: "👍", count: 1, reacted: false, reactions: [{ actor: { kind: "human", displayName: "Old task actor" } }] }];
+    try {
+      await renderWithRoot(root, [comment], { canEdit: true });
+      await renderWithRoot(root, [{ ...comment, id: "comment-2" }], { canEdit: true, selectedTask: { ...baseTask, id: "task-2" } });
+      await act(async () => { pending[1](new Response(JSON.stringify({ reactions: group.map((g) => ({ ...g, reactions: [{ actor: { kind: "human", displayName: "New task actor" } }] })) }))); });
+      expect(document.querySelector("button[title='New task actor']")).not.toBeNull();
+      await act(async () => { pending[0](new Response(JSON.stringify({ reactions: group }))); });
+      expect(document.querySelector("button[title='New task actor']")).not.toBeNull();
+      expect(document.querySelector("button[title='Old task actor']")).toBeNull();
+    } finally { await act(async () => root.unmount()); }
+  });
+
   beforeEach(() => {
     taskForRender = baseTask;
     installRangeClientRectsMock();

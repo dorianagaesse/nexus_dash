@@ -4,6 +4,7 @@ import { useRef, useState, type Ref } from "react";
 import { ShieldCheck } from "lucide-react";
 import {
   AGENT_CREDENTIAL_PRESETS,
+  matchAgentCredentialPreset,
   DEFAULT_AGENT_CREDENTIAL_PRESET_ID,
   MAX_AGENT_CREDENTIAL_LABEL_LENGTH,
   resolveAgentCredentialPreset,
@@ -164,7 +165,7 @@ export function ProjectAgentCredentialForm({
         <div className="space-y-3">
           <label htmlFor="project-agent-preset" className="block text-sm font-medium">Starting permissions</label>
           <select id="project-agent-preset" aria-invalid={formError?.field === "permissions" || undefined} aria-describedby={`project-agent-preset-hint${formError?.field === "permissions" ? " project-agent-permissions-error" : ""}`} className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={AGENT_CREDENTIAL_PRESETS.find((preset) => scopes.length === preset.scopes.length && preset.scopes.every((scope) => scopes.includes(scope)))?.id ?? "custom"}
+            value={matchAgentCredentialPreset(scopes)?.id ?? "custom"}
             onChange={(event) => { const preset = resolveAgentCredentialPreset(event.target.value); if (preset) { setScopes([...preset.scopes]); setFormError(null); } }}>
             <option value="custom" disabled>Custom permissions</option>
             {AGENT_CREDENTIAL_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.id === "full-access" ? "Tasks: read, edit and delete" : preset.id === "read-write" ? "Tasks: read and edit" : preset.id === "read-only" ? "Tasks: read only" : preset.label}</option>)}

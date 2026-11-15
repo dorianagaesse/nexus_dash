@@ -8,14 +8,14 @@ import {
   Plus,
   RefreshCw,
 } from "lucide-react";
-import { AGENT_CREDENTIAL_PRESETS, AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
+import { matchAgentCredentialPreset, AGENT_CREDENTIAL_PRESETS, AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
 import { AgentCredentialLabelsField } from "./agent-credential-labels-field";
 import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
 import { AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR } from "@/lib/agent-credential-labels";
 import { ProjectAgentPermissionFields } from "./project-agent-permission-fields";
 import { AgentDeviceAccess } from "./agent-device-access";
 import { Button } from "@/components/ui/button";
-import { agentDeviceState } from "@/lib/agent-device-state";
+import { agentDeviceState, agentIdentityState } from "@/lib/agent-device-state";
 import { AgentPairingGuidance } from "./agent-pairing-guidance";
 
 type Session = {
@@ -55,6 +55,8 @@ type Identity = {
   }[];
 };
 const initialScopes: AgentScope[] = ["project:read", "task:read", "task:write"];
+const PAIRING_POLL_ERROR =
+  "Pairing status could not be checked. Refresh identities to try again.";
 const fieldClass =
   "min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const statusClass =
@@ -69,6 +71,21 @@ const describePermissions = (scopes: AgentScope[]) =>
         AGENT_SCOPE_DEFINITIONS.find((s) => s.scope === scope)?.label ?? scope
     )
     .join(" · ");
+const pairedDevicesLabel = (identity: Identity, now: number) => {
+  const count = identity.devices.filter(
+    (d) => agentDeviceState(d, now) === "Paired"
+  ).length;
+  return `${count} ${count === 1 ? "paired device" : "paired devices"}`;
+};
+const deviceSummary = (identity: Identity, now: number) => {
+  const permissions = `${identity.scopes.length} ${
+    identity.scopes.length === 1 ? "permission" : "permissions"
+  }`;
+  const pending = identity.devices.filter(
+    (d) => agentDeviceState(d, now) === "Pending pairing"
+  ).length;
+  return `${permissions} · ${pairedDevicesLabel(identity, now)} · ${pending} pending`;
+};
 
 function ScopeChoices({
   scopes,
@@ -79,23 +96,25 @@ function ScopeChoices({
   onChange: (v: AgentScope[]) => void;
   allowed?: AgentScope[];
 }) {
+  const reserved = AGENT_SCOPE_DEFINITIONS.filter(item => item.scope.startsWith("schedule:") &&
+    (!allowed || allowed.includes(item.scope) || scopes.includes(item.scope)));
   return <fieldset className="min-w-0 space-y-3">
     <legend className="mb-2 text-sm font-medium">Permissions</legend>
     <label className="block space-y-1 text-sm">Task permission preset
-      <select className={fieldClass} value="custom" onChange={event => {
+      <select className={fieldClass} value={matchAgentCredentialPreset(scopes)?.id ?? "custom"} onChange={event => {
         const preset = AGENT_CREDENTIAL_PRESETS.find(item => item.id === event.target.value);
         if (preset) onChange(preset.scopes.filter(scope => !allowed || allowed.includes(scope)));
       }}>
-        <option value="custom">Custom permissions</option>
+        <option value="custom" disabled>Custom permissions</option>
         {AGENT_CREDENTIAL_PRESETS.filter(preset => !allowed || preset.scopes.some(scope => allowed.includes(scope))).map(preset => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
       </select>
     </label>
     <p className="text-xs text-muted-foreground">Presets replace the selection with task permissions. Choose other modules below. Device grants stay within the selected identity permissions.</p>
     <ProjectAgentPermissionFields value={scopes} onChange={onChange} allowed={allowed} />
-    <details className="text-sm"><summary className="cursor-pointer">Reserved capabilities</summary>
+    {!!reserved.length && <details className="text-sm"><summary className="cursor-pointer">Reserved capabilities</summary>
       <p className="my-2 text-xs text-muted-foreground">Shared schedule grants are reserved for future use. They do not grant personal Calendar access.</p>
-      {AGENT_SCOPE_DEFINITIONS.filter(item => item.scope.startsWith("schedule:") && (!allowed || allowed.includes(item.scope))).map(item => <label key={item.scope} className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={scopes.includes(item.scope)} onChange={event => onChange(event.target.checked ? [...scopes, item.scope] : scopes.filter(scope => scope !== item.scope))} />{item.label}</label>)}
-    </details>
+      {reserved.map(item => <label key={item.scope} className="flex min-h-11 items-center gap-2"><input type="checkbox" disabled={!!allowed && !allowed.includes(item.scope)} checked={scopes.includes(item.scope)} onChange={event => onChange(event.target.checked ? [...scopes, item.scope] : scopes.filter(scope => scope !== item.scope))} />{item.label}</label>)}
+    </details>}
   </fieldset>;
 }
 
@@ -121,6 +140,10 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const selected = identities.find((i) => i.id === selectedId);
+  const selectedIdentityState = selected
+    ? agentIdentityState(selected, now)
+    : null;
+  const canLaunch = selectedIdentityState === "Active";
   const pairingDevice = selected?.devices.find(d => d.id === pairing?.deviceId);
   const pairingState = pairingDevice ? agentDeviceState(pairingDevice, now) : "Expired";
   const pendingUntil = Math.max(0, ...(selected?.devices.filter(d => agentDeviceState(d, now) === "Pending pairing").map(d => Date.parse(d.pairingExpiresAt)) ?? []));
@@ -151,8 +174,13 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
     const tick = async () => {
       setNow(Date.now());
       if (Date.now() >= pendingUntil || controller.signal.aborted) return;
-      try { await refresh(controller.signal); }
-      catch { if (!controller.signal.aborted) setError("Pairing status could not be checked. Refresh identities to try again."); }
+      try {
+        await refresh(controller.signal);
+        if (!controller.signal.aborted)
+          setError(current => current === PAIRING_POLL_ERROR ? null : current);
+      } catch {
+        if (!controller.signal.aborted) setError(PAIRING_POLL_ERROR);
+      }
       if (!controller.signal.aborted) timer = setTimeout(tick, Math.max(0, Math.min(3000, pendingUntil - Date.now())));
     };
     timer = setTimeout(tick, Math.min(3000, pendingUntil - Date.now()));
@@ -294,7 +322,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
           <button
             type="button"
             key={identity.id}
-            aria-label={`${identity.name} ${identity.descriptiveLabels.join(" ")}`.trim()}
+            aria-label={`${identity.name} ${identity.descriptiveLabels.join(" ")} ${deviceSummary(identity, now)}`.trim()}
             aria-pressed={selectedId === identity.id}
             onClick={() => select(identity)}
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selectedId === identity.id ? "bg-muted ring-1 ring-inset ring-border" : ""}`}
@@ -313,23 +341,11 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                 />
               </span>
               <span className="mt-1 block text-xs text-muted-foreground">
-                {identity.scopes.length}{" "}
-                {identity.scopes.length === 1 ? "permission" : "permissions"} ·{" "}
-                {
-                  identity.devices.filter(
-                    (d) => agentDeviceState(d, now) === "Paired"
-                  ).length
-                }{" "}
-                paired devices · {identity.devices.filter(d => agentDeviceState(d, now) === "Pending pairing").length} pending
+                {deviceSummary(identity, now)}
               </span>
             </span>
             <span className={statusClass}>
-              {identity.revokedAt
-                ? "Inactive"
-                : identity.expiresAt &&
-                    new Date(identity.expiresAt) <= new Date()
-                  ? "Expired"
-                  : "Active"}
+              {agentIdentityState(identity, now)}
             </span>
             <ChevronRight
               className={`hidden size-4 shrink-0 text-muted-foreground sm:block ${selectedId === identity.id ? "rotate-90" : ""}`}
@@ -537,6 +553,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               code={pairingState === "Pending pairing" ? pairing.code : null}
               expiresAt={pairing.expiresAt}
               state={pairingState}
+              identityState={selectedIdentityState ?? "Active"}
               onDismiss={() => setPairing(null)}
             />
           )}

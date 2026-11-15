@@ -27,16 +27,42 @@ test("active sessions precede history, actions identify each session, and revoca
     const actions = [...container.querySelectorAll('button[aria-label^="End Codex"]')];
     expect(actions).toHaveLength(2);
     expect(actions[0].getAttribute("aria-label")).not.toBe(actions[1].getAttribute("aria-label"));
-    const history = [...container.querySelectorAll("details")].find(d => d.textContent?.includes("Ended and expired sessions"))!;
+    const history = [...container.querySelectorAll("details")].find(d => d.textContent?.includes("Recent ended and expired sessions"))!;
     expect(history.open).toBe(false);
+    await act(async () => (actions[0] as HTMLButtonElement).click());
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Session could not be ended");
+    mutate.mockClear();
     await act(async () => button("Revoke Laptop").click());
     expect(mutate).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(button("Confirm revoke Laptop"));
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Revoking Laptop");
+    await act(async () => button("Cancel revocation").click());
+    expect(document.activeElement).toBe(button("Revoke Laptop"));
+    await act(async () => button("Revoke Laptop").click());
     expect(container.textContent).toContain("ends all its sessions and prevents new launches");
     await act(async () => button("Confirm revoke Laptop").click());
     expect(mutate).toHaveBeenCalledWith({ operation: "revoke-device", identityId: "oscar", deviceId: "laptop" });
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Refresh identities and retry");
+    expect(container.textContent).toContain("Refresh identities and retry");
     mutate.mockResolvedValue(true);
     await act(async () => button("Confirm revoke Laptop").click());
     expect(container.querySelector('[role="status"]')?.textContent).toContain("Laptop revoked");
   } finally { act(() => root.unmount()); container.remove(); }
+});
+
+
+test.each(["revoked", "expired"])("%s identities do not instruct owners to launch", async (state) => {
+  const now = Date.now();
+  const date = (delta: number) => new Date(now + delta).toISOString();
+  const identity = { id: "oscar", scopes: ["task:read"] as AgentScope[], canMoveTasksToDone: false,
+    revokedAt: state === "revoked" ? date(-1000) : null, expiresAt: state === "expired" ? date(-1000) : null,
+    devices: [{ id: "laptop", name: "Laptop", scopes: ["task:read"] as AgentScope[], canMoveTasksToDone: false,
+      authorizedAt: date(-1000), revokedAt: null, expiresAt: date(10000), pairingExpiresAt: date(-1000), sessions: [] }] };
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(<AgentDeviceAccess identity={identity} now={now} busy={false} mutate={vi.fn()} onLaunch={vi.fn()} />));
+    expect(container.textContent).toContain("This identity is inactive");
+    expect(container.textContent).not.toContain("Launch a paired device");
+    expect(container.textContent).not.toContain("Launch instructions");
+  } finally { act(() => root.unmount()); }
 });

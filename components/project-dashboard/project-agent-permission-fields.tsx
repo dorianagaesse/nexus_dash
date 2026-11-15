@@ -13,14 +13,16 @@ export function ProjectAgentPermissionFields({ value, onChange, disabled = false
   allowed?: AgentScope[];
 }) {
   const toggle = (scope: AgentScope) => onChange(value.includes(scope) ? value.filter((entry) => entry !== scope) : [...value, scope]);
+  const modules = PROJECT_MODULES.filter(({ id }) => id !== "schedule" &&
+    (!allowed || actions.some(action => allowed.includes(`${id}:${action.id}`))));
   return (
     <fieldset disabled={disabled} className="min-w-0 space-y-4">
       <legend className="sr-only">Agent permissions</legend>
-      <div className="overflow-hidden rounded-xl border border-border">
+      {!!modules.length && <div className="overflow-hidden rounded-xl border border-border">
         <div aria-hidden="true" className="grid grid-cols-[minmax(0,1fr)_repeat(3,3rem)] items-center border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground sm:px-4">
           <span>Module</span>{actions.map((action) => <span key={action.id} className="text-center">{action.label}</span>)}
         </div>
-        {PROJECT_MODULES.filter(({ id }) => id !== "schedule" && (!allowed || actions.some(action => allowed.includes(`${id}:${action.id}`)))).map(({ id, label }) => (
+        {modules.map(({ id, label }) => (
           <div key={id} className="grid grid-cols-[minmax(0,1fr)_repeat(3,3rem)] items-center border-b border-border/60 px-3 last:border-b-0 sm:px-4">
             <span className="py-3 text-sm font-medium">{label}</span>
             {actions.map((action) => {
@@ -32,7 +34,7 @@ export function ProjectAgentPermissionFields({ value, onChange, disabled = false
             })}
           </div>
         ))}
-      </div>
+      </div>}
       <div className="space-y-1">
         {([
           ["project:read", "Project details", "Read the project name and permitted summary counts."],

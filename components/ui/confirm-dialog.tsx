@@ -58,7 +58,7 @@ export function ConfirmDialog({
           <DialogTitle className="text-lg">{title}</DialogTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <DialogDescription>{description}</DialogDescription>
+          <DialogDescription className="[overflow-wrap:anywhere]">{description}</DialogDescription>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
             <Button
               type="button"
