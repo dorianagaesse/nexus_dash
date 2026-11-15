@@ -11961,3 +11961,12 @@ the original run passed the other 143 scenarios, including notification revocati
   GitHub Actions setup: the connector has no dispatch tool and the cached HTTPS
   credential returned 401. No Preview checkout/runtime claim is made. Copilot
   review monitoring was omitted at the user's request.
+
+### 2026-11-15 - ND-822 current-scope review correction
+
+Qualified the investigation as historical evidence at `ec050eb7` and added a
+prominent dated supersession note for the canonical 2026-11-13 ND-658 brief.
+Ordinary client/VS Code access is required; MCP remains optional. Distinguished
+later native/CLI evidence at `aaf364a3` from outstanding physical-laptop and
+actual IDE conversation checks; README no longer calls this the current limits.
+Documentation diff/whitespace and local/pinned link references checked.

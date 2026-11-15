@@ -4,7 +4,18 @@ Date: 2026-11-09. Status: investigation complete; container design proposed,
 not implemented. Reviewed ND-658 / [PR #669](https://github.com/dorianagaesse/nexus_dash/pull/669)
 at `ec050eb7e5de9f1a1bc9826b08765edc1b49b92e`.
 
-## Outcome and scope
+> **Superseded scope and evidence, 2026-11-15:** This is a historical investigation
+> of `ec050eb7` on 2026-11-09, not the current ND-658 merge contract. The owner's
+> canonical 2026-11-13 brief supersedes the former exclusion of ordinary
+> Codex/VS Code integration: normal-start client access is required; MCP remains
+> optional. PR #669 at `aaf364a3` records independent CLI/broker work, native Linux
+> runtime/renewal checks and macOS Keychain roundtrips. Physical second-laptop
+> and actual Codex VS Code conversation/profile evidence remain outstanding.
+> See [PR #669's current evidence](https://github.com/dorianagaesse/nexus_dash/pull/669)
+> and the live ND-658 brief for the controlling acceptance criteria. Original
+> source links and synthetic Docker probes below retain their historical scope.
+
+## Outcome and scope at `ec050eb7`
 
 The logical identity can outlive a laptop, container and agent execution. ND-658
 provides the server-side foundation, but its shipped launcher is a desktop
@@ -12,9 +23,10 @@ process launcher, not a Docker lifecycle integration. Do not describe it as
 container-ready or wrap `docker run -d` and assume it works.
 
 The user confirmed two PowerShell sessions on one Windows machine. That is
-concurrency evidence, not a physical second-device test. Ordinary Codex/VS Code
-conversation integration is not a merge requirement. Future disposable Docker
-agents and cross-device continuity are the intended direction.
+concurrency evidence, not a physical second-device test. At the time of this
+investigation, ordinary Codex/VS Code conversation integration was excluded from
+merge requirements. The 2026-11-13 brief supersedes that exclusion as noted above.
+Future disposable Docker agents and cross-device continuity were the intended direction.
 
 Legacy credentials remain a supported, explicitly selected option. This work
 does not deprecate them, migrate users away from them, or permit automatic
@@ -174,11 +186,12 @@ Those tests cover legacy exchange/rotation alongside device-session continuity;
 this investigation reviewed their code and existing CI evidence, not a fresh
 live authentication run.
 
-## Delivery and remaining evidence
+## Delivery and remaining evidence at `ec050eb7`
 
-ND-658 remains the desktop/multi-device foundation. Its physical second-laptop
-test and native macOS/Linux vault checks are still outstanding in the PR's
-review procedure. Passing Windows concurrent shells and these container probes
+At the investigated revision, ND-658 was the desktop/multi-device foundation. Its
+physical second-laptop test and native macOS/Linux vault checks were outstanding
+in that revision's review procedure. Later native checks and remaining physical/IDE
+gaps are distinguished in the dated note above. Passing Windows concurrent shells and these container probes
 do not replace them. The [Quality Gates run](https://github.com/dorianagaesse/nexus_dash/actions/runs/42604669641)
 is green for the reviewed head, and the reported review thread is resolved.
 No merge, deployment or new end-to-end product validation was performed here.
@@ -198,13 +211,14 @@ Tasks; the board owns its current status and sequencing:
 The UI review recorded here is scoped to `ec050eb7`: it was source-based because
 browser access was unavailable and no rendered target of that commit was
 inspected. Do not imply that a zero-result TSX pattern detector validated
-usability or accessibility. The later PR #669 head `ab1ad499` is UI-only (no
-authentication, grant or persistence changes) and records production-render
+usability or accessibility. The later UI-only PR #669 revision `ab1ad499` (no longer its head) has no
+authentication, grant or persistence changes and records production-render
 desktop/mobile/dark and keyboard validation with a green
 [Quality Gates run](https://github.com/dorianagaesse/nexus_dash/actions/runs/42715669889).
-That evidence covers visual polish for the current PR #669 head without changing
-the source findings at `ec050eb7`. VS Code/MCP integration remains optional
-future work, not a prerequisite to this identity foundation.
+That evidence covers visual polish at `ab1ad499`, without changing the source
+findings at `ec050eb7`. The former conclusion excluding VS Code integration is
+superseded by the 2026-11-13 brief; ordinary client/IDE access is now required.
+MCP remains optional, as distinct from the independent CLI/broker requirement.
 
 ## Reproduce the synthetic Docker boundary probes
 
