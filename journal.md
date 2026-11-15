@@ -12122,3 +12122,13 @@ History is qualified as recent, reflecting the seven-day creation window.
 Component regressions cover presets, constrained grants, inactive identities,
 session failure and focus. Integrated desktop/mobile pairing/access browser
 checks and required gates are rerun; exact evidence is recorded in PR #693.
+
+### 2026-11-15 - ND-824 current-base review integration
+
+Merged ND-658 `aaf364a3` into PR #692 and retained its independent session CLI,
+native validation boundaries and controlled launcher instructions together with
+pairing completion guidance. Poll recovery, inactive-identity suppression,
+named guidance, accessible device counts and guidance captures remain intact.
+Required gates and integrated pairing/native flows are rerun on this branch;
+exact results and workflow evidence are recorded in PR #692. This does not
+clear ND-658's physical-laptop or actual VS Code acceptance evidence.
