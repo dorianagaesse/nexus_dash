@@ -67,6 +67,9 @@ export function ImageAttachmentGrid({
             <p className="truncate px-2 py-1.5 pr-12 text-xs text-muted-foreground">
               {attachment.name}
             </p>
+            {attachment.uploadedBy ? <p className="truncate px-2 pb-1.5 pr-12 text-[11px] text-muted-foreground">
+              Added by {attachment.uploadedBy.displayName}{attachment.uploadedBy.kind === "agent" ? " (agent)" : ""}
+            </p> : null}
             {onRemove ? (
               <Button
                 type="button"
