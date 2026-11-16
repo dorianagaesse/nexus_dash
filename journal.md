@@ -11999,6 +11999,12 @@ the original run passed the other 143 scenarios, including notification revocati
   screenshot browser journeys pass. The full PostgreSQL isolation matrix passes.
 - Full browser validation reproduced an existing meeting-dismissal timing failure
   on unchanged main (6af9feb9). Used the existing `activateUntilVisible` helper
-  for that test's outside click; both recovery scenarios then passed. Full-suite
-  and final-head results will be recorded at handoff. Copilot review is omitted
-  at the user's request.
+  for that test's outside click; both recovery scenarios then passed. The full
+  suite had 167 passes and 2 skips, with only that now-repaired failure. Final
+  branch build plus the five screenshot/recovery scenarios pass, including
+  network failure/retry, recovery after reload, access revocation, and stale
+  writes. Coverage is 95.63% lines and 89.06% branches; the new service has
+  95.71% line coverage. Fresh-database migration and the complete RLS matrix pass.
+- PR #702 is open and ready for review. Copilot review monitoring was omitted
+  at the user's request; CI is tracked by GitHub Actions. The reviewer or merger
+  owns the move to Done.

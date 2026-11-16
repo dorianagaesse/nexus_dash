@@ -30,6 +30,7 @@ for (const width of [1440, 375]) {
   test(`ND-860 screenshot create, output, preview, recovery, and removal at ${width}px`, async ({
     page,
   }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize({ width, height: 900 });
     const userId = await signInAsVerifiedUser(page);
     const project = await prisma.project.create({
