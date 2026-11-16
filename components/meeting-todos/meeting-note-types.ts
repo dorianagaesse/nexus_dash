@@ -1,3 +1,4 @@
+import type { MeetingNoteScreenshot } from "@/lib/meeting-note-screenshot";
 import type { ProjectMeetingParticipantIdentity } from "@/lib/meeting-participant";
 import type { MeetingTodoActorSummary } from "@/lib/meeting-todo-actor";
 
@@ -27,6 +28,7 @@ export interface ProjectMeetingNotePanelNote {
   status: MeetingNoteStatus;
   visibility?: MeetingNoteVisibility;
   canOpenNote?: boolean;
+  screenshots?: MeetingNoteScreenshot[];
   inputNotes: string;
   outputNotes: string;
   decisions?: string;

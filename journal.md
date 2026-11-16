@@ -11980,3 +11980,31 @@ the original run passed the other 143 scenarios, including notification revocati
   GitHub Actions setup: the connector has no dispatch tool and the cached HTTPS
   credential returned 401. No Preview checkout/runtime claim is made. Copilot
   review monitoring was omitted at the user's request.
+
+
+## 2026-11-16 — ND-860: Screenshots in meeting inputs and outputs
+
+- Created ND-860 after checking the live board for overlap; verified the selected
+  credential's `macbook` attribution and moved the task to In Progress.
+- Added paste/file upload, thumbnails, full-size preview/download, section-specific
+  save/removal, and silent recovery of uploaded screenshot drafts. Reused the
+  shared rich-text editor, image grid, preview modal, and storage providers.
+- Added uploader-private drafts, atomic note binding, conditional-write revisions,
+  post-commit file cleanup, composite tenant foreign keys, and forced RLS with
+  meeting capabilities and explicit private-note visibility. Shared todo mutation
+  responses explicitly redact screenshot metadata as well as private note text.
+- Local validation uses Node 24.22.3, isolated PostgreSQL 16 on port 55460 (UTC),
+  local storage, and polling. Lint, RLS inventory, version policy, 2,551 unit/API
+  tests (3 skipped), coverage, production build, and focused desktop/mobile
+  screenshot browser journeys pass. The full PostgreSQL isolation matrix passes.
+- Full browser validation reproduced an existing meeting-dismissal timing failure
+  on unchanged main (6af9feb9). Used the existing `activateUntilVisible` helper
+  for that test's outside click; both recovery scenarios then passed. The full
+  suite had 167 passes and 2 skips, with only that now-repaired failure. Final
+  branch build plus the five screenshot/recovery scenarios pass, including
+  network failure/retry, recovery after reload, access revocation, and stale
+  writes. Coverage is 95.63% lines and 89.06% branches; the new service has
+  95.71% line coverage. Fresh-database migration and the complete RLS matrix pass.
+- PR #702 is open and ready for review. Copilot review monitoring was omitted
+  at the user's request; CI is tracked by GitHub Actions. The reviewer or merger
+  owns the move to Done.

@@ -46,7 +46,7 @@ import {
 } from "@/lib/rich-text-links";
 import { cn } from "@/lib/utils";
 
-interface RichTextEditorProps {
+export interface RichTextEditorProps {
   id: string;
   value: string;
   onChange: (value: string) => void;

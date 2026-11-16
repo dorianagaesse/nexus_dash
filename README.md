@@ -731,6 +731,20 @@ and agents. Todos remain project-visible even when their meeting is private;
 project editors can complete and reassign them. Private note text, participants,
 labels and titles are not revealed through shared todo views or mutation responses.
 
+### Meeting note screenshots
+
+Paste a screenshot into Inputs or Outputs, or use the editor's paperclip to
+choose images (up to 10 per section, 4 MB per image). Thumbnails open the shared
+full-size preview, with download available there. Save preparation or Save notes
+commits that section's images; removing an image takes effect on Save. Cancelling
+an edit leaves saved images intact. Dismissed drafts retain uploaded images with
+the note's existing silent recovery behavior.
+
+Screenshots follow project meeting permissions and the note's Private/Team
+visibility. Unsaved uploads are visible only to their uploader. Downloads are
+authenticated and uncached, so changing visibility or removing access takes effect
+on the next request. Local and R2 storage use the existing provider configuration.
+
 ### Agent context-card attachments
 
 Agents with `context:write` can create context cards with `attachmentLinks` and

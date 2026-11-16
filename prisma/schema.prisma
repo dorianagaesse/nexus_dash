@@ -28,6 +28,7 @@ model User {
   projectMemberships                  ProjectMembership[]
   projectInvitationsSent              ProjectInvitation[]                      @relation("ProjectInvitationInviter")
   taskAttachments                     TaskAttachment[]                         @relation("TaskAttachmentUploader")
+  meetingScreenshots MeetingNoteScreenshot[]
   taskComments                        TaskComment[]                            @relation("TaskCommentAuthor")
   tasksCreated                        Task[]                                   @relation("TaskCreatedBy")
   tasksUpdated                        Task[]                                   @relation("TaskUpdatedBy")
@@ -237,6 +238,7 @@ model Project {
   authAuditEvents    AuthAuditEvent[]
   notificationEmails ProjectNotificationEmail[]
   meetingNotes       ProjectMeetingNote[]
+  meetingScreenshots MeetingNoteScreenshot[]
 
   @@index([ownerId])
 }
@@ -267,9 +269,11 @@ model ProjectMeetingNote {
   updatedByUser     User                            @relation("ProjectMeetingNoteUpdatedBy", fields: [updatedByUserId], references: [id])
   stewardUser       User?                           @relation("ProjectMeetingNoteSteward", fields: [stewardUserId], references: [id], onDelete: SetNull)
   stewardCredential ApiCredential?                  @relation("MeetingNoteStewardCredential", fields: [stewardCredentialId], references: [id], onDelete: SetNull)
+  screenshots       MeetingNoteScreenshot[]
   actions           ProjectMeetingNoteAction[]
   participants      ProjectMeetingNoteParticipant[]
 
+  @@unique([id, projectId])
   @@index([projectId, scheduledAt])
   @@index([projectId, status, scheduledAt])
   @@index([projectId, visibility, scheduledAt])
@@ -278,6 +282,26 @@ model ProjectMeetingNote {
   @@index([updatedByUserId])
   @@index([stewardUserId])
   @@index([stewardCredentialId])
+}
+
+model MeetingNoteScreenshot {
+  id               String   @id @default(cuid())
+  projectId        String
+  noteId           String?
+  section          String   @db.VarChar(10)
+  uploadedByUserId String
+  name             String
+  storageKey       String   @unique
+  mimeType         String
+  sizeBytes        Int
+  createdAt        DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  note ProjectMeetingNote? @relation(fields: [noteId, projectId], references: [id, projectId], onDelete: Cascade)
+  uploadedBy User @relation(fields: [uploadedByUserId], references: [id])
+
+  @@index([projectId, noteId, section])
+  @@index([uploadedByUserId])
 }
 
 model ProjectMeetingNoteParticipant {
