@@ -287,6 +287,13 @@
       "enforcement": "rls",
       "owner": "project todo service",
       "rationale": "Personal todo rows require the human creator plus current project membership and role authorization; task capabilities apply through ND-130. Project owners have no visibility override."
+    },
+    {
+      "model": "MeetingNoteScreenshot",
+      "classification": "project-scoped-direct-rls",
+      "enforcement": "rls",
+      "owner": "meeting note screenshot service",
+      "rationale": "Drafts belong to the uploading human; saved screenshots inherit project membership and private/team note visibility."
     }
   ]
 }

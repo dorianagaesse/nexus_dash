@@ -1454,3 +1454,15 @@ restrictive notification policies. Definer-owned Realtime snapshots must apply
 the same filter explicitly. Advance User.notificationAccessUpdatedAt on relevant
 membership/owner changes; use it in snapshot versions so revocation refreshes
 existing clients without regressing the cursor or mutating email fingerprints.
+
+## 2026-11-16 — ND-860: Meeting screenshots inherit note visibility
+
+Store input/output screenshots in `MeetingNoteScreenshot`, with project-owned,
+uploader-private drafts bound atomically when the note is saved. A composite
+note/project foreign key and forced RLS enforce tenant ownership; restrictive
+meeting capabilities and explicit note visibility prevent todo-only contexts
+from exposing private images. Screenshot changes advance the parent content
+revision. Proxy downloads through authenticated routes with `private, no-store`
+so access and visibility changes apply to every subsequent read. Use the existing
+storage providers and shared image previews, with a 4 MB per-image form upload
+limit. Removed image objects are cleaned after the database transaction commits.

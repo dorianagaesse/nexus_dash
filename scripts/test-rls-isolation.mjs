@@ -1,3 +1,4 @@
+import { testMeetingScreenshotRls } from "./test-meeting-screenshot-rls.mjs";
 import { testNotificationCapabilityRls } from "./test-notification-capability-rls.mjs";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
@@ -504,6 +505,7 @@ try {
   await seed();
   await testNotificationCapabilityRls({ admin, runtime, runtimeTransaction, expectRlsViolation, ids });
   await testProjectTodoRls({ admin, runtime, runtimeTransaction, expectRlsViolation, ids });
+  await testMeetingScreenshotRls({ admin, runtime, runtimeTransaction, expectRlsViolation, ids });
 
   // Public current author metadata is readable by members without exposing
   // credential secrets, remains tenant-bound and outlives a deleted key.
