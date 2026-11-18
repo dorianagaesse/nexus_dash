@@ -16,6 +16,22 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-11-09 - ND-822: Container identity boundary and retained legacy access
+
+- Status: Proposed; Docker integration is not implemented by this investigation.
+- Context: ND-658's desktop launcher assumes an OS vault, shared loopback and a
+  foreground child. Docker probes confirmed that these do not establish worker
+  access or track detached container lifetime.
+- Decision: Recommend an operator-controlled broker outside the agent sandbox,
+  retaining authorization while issuing a fresh session per worker execution.
+  Preserve explicitly selected legacy credentials as a supported option; never
+  silently fall back from failed runtime authentication.
+- Consequences: Per-sandbox transport, credential isolation, lifecycle
+  reconciliation and expiry recovery need implementation and validation. Runtime
+  identities cannot currently be converted to raw-key identities. Legacy actors
+  can use both paths, but shared-anchor revocation/expiry disables both.
+- Links: [Investigation and reproduction](../docs/reports/nd-822-container-agent-identities.md).
+
 ## 2026-11-07 - ND-190: Collaboration use-case ownership
 
 - Status: Proposed for user review in #650; adoption follows the user's merge
@@ -1306,6 +1322,11 @@ Keep UI-only or task-only notes in `journal.md`.
   value, and request metadata. The owner panel refreshes the audit trail after
   saving. Denied updates create no success event.
 
+### ND-658: portable agent identity and runtime access
+
+Keep stable actor IDs and separate device entitlements, authentication proofs and
+sessions. Recheck live grants on each runtime request; keep device proofs in the
+OS vault and the launcher parent. See [the focused decision](nd-658-portable-agent-identities.md).
 
 ## 2026-11-08 - ND-536: Project-local task numbering
 
@@ -1472,6 +1493,16 @@ restrictive notification policies. Definer-owned Realtime snapshots must apply
 the same filter explicitly. Advance User.notificationAccessUpdatedAt on relevant
 membership/owner changes; use it in snapshot versions so revocation refreshes
 existing clients without regressing the cursor or mutating email fingerprints.
+
+## 2026-11-13 - ND-658: independent client sessions reuse runtime authorization
+
+An already-running client explicitly opens an origin/project/identity binding
+through an authenticated OS-account broker; every command carries a non-secret
+session reference. No inherited ND environment, global current identity or MCP
+is required. The native adapter, controlled launcher and ND-823 Docker adapter
+share the runtime/proxy core. Idle leases and a cleanup journal bound orphaned
+conversations without pretending to observe IDE lifecycle. See
+[the portable identity decision](nd-658-portable-agent-identities.md#normal-start-client-adapter-2026-11-13).
 
 ## 2026-11-16 — ND-860: Meeting screenshots inherit note visibility
 

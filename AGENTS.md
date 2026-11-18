@@ -52,12 +52,34 @@ documentation when the task calls for it:
 
 ## Nexus Dash agent identity
 
-- Before accessing the Nexus Dash API, explicitly ask the user which
-  credential to use. Use only the credential they identify; do not infer it
-  from the coding client, model, provider, or a local filename.
-- If the user has not identified a credential, or the selected credential is
-  missing, empty, or not configured, stop Nexus Dash API work and ask the user
-  for the credential or setup needed. Never fall back to another credential.
+- For an explicitly selected normal-start identity, open a session through
+  `node /absolute/nexus_dash/scripts/nd-agent.mjs session open` with the owner's
+  exact origin/project/identity IDs and your execution description. Retain its
+  non-secret session reference in this conversation and pass `--session ID`
+  to every `session status|request|close` invocation. Verify status before
+  writes. Each concurrent conversation opens its own session; no cwd, terminal,
+  profile or global current-identity selection identifies a conversation.
+  See `docs/runbooks/portable-agent-identities.md` for broker setup and recovery.
+- When launched with `ND_AGENT_URL` and `ND_AGENT_CAPABILITY`, use the bound
+  session through `node scripts/nd-agent.mjs request`. The launcher has already
+  selected the identity; do not inspect the OS vault or select another key.
+  Missing, expired, or rejected bindings fail closed without credential fallback.
+  See `docs/runbooks/portable-agent-identities.md`. The rules below apply to
+  legacy workflows when no runtime workflow was explicitly selected.
+
+- Preserve the legacy credential mapping for the coding client:
+  - Codex: `.config/.nd-codex.env`
+  - Claude Code running DeepSeek: `.config/.nd-deepseek.env`
+  - Gemini CLI: `.config/.nd-gemini.env`
+- This project's documented Claude Code identity is DeepSeek. If its actual
+  provider differs, configure a separate identity before legacy Nexus Dash
+  access; do not use the DeepSeek key for another provider.
+- If the client is unclear, its file is missing/empty, or its key is not
+  configured, stop legacy API work and report the setup needed. Never use
+  `.config/.nd-nexus-dash.env` or another client's credential as a fallback.
+- A missing, closed, expired or rejected runtime binding stops that workflow.
+  Never inspect the vault, switch sessions, load a legacy key or reauthorize
+  automatically to recover access. Only the trusted helpers handle credentials.
 - Exchange the selected API key for a short-lived bearer token at runtime.
   Never print, commit, or put either token in task content. The setup and
   verification procedure is in `docs/runbooks/agent-workflow.md`.

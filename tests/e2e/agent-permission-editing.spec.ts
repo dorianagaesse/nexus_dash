@@ -71,6 +71,7 @@ test("agents can edit shared meetings; owner scope edits immediately restrict ex
     await page.goto(`/projects/${projectId}`);
     await page.getByRole("button", { name: "Share project", exact: true }).click();
     await page.getByRole("button", { name: "Agent access", exact: true }).click();
+    await page.getByText("Legacy API credentials", { exact: true }).click();
     await page.getByRole("button", { name: "New credential", exact: true }).click();
     await capturePermissions(page, "create");
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
