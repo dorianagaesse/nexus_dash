@@ -114,8 +114,8 @@ OS accounts or the isolated Docker adapter for mutually untrusted workers.
 ## Broker leases, shutdown and recovery
 
 The default state directory is `~/.nexusdash/broker`, outside the repository.
-Use `--broker ABSOLUTE_DIRECTORY` on every session command and on any manually started broker
-to select another instance. On POSIX this directory must be owned by the user
+To select another instance, use `--broker ABSOLUTE_DIRECTORY` on every session
+command and on any manually started broker. On POSIX this directory must be owned by the user
 with no group/other permissions; authentication capability storage uses the OS
 vault on every platform. The endpoint binds only to `127.0.0.1`, rejects browser
 Origins and unexpected Host values, and accepts only authenticated commands.
@@ -138,8 +138,8 @@ explicitly; forgotten conversations expire through the idle lease. A broker
 crash makes its local capabilities unusable. On restart the cleanup journal
 ends old sessions; it never reconstructs conversations or silently opens new
 sessions. After verifying the previous PID in `broker.lock` has stopped, remove
-that exact lock file and explicitly open new sessions. For startup diagnostics
-or a broker you can stop with Ctrl+C, use the foreground `broker` command.
+that exact lock file. Start the foreground `broker` command to replace the
+stale endpoint and reconcile its journal, then explicitly open new sessions.
 Do not remove a live broker's lock. Cleanup retries transient failures with
 30-second to five-minute backoff and drops terminal 401/403/404 rejections.
 Server sessions expire within twelve hours even if cleanup cannot reach Nexus;
