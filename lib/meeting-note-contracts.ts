@@ -1,3 +1,4 @@
+import { MAX_MEETING_SCREENSHOTS } from "@/lib/meeting-note-screenshot";
 import type { ProjectMeetingParticipantInput } from "@/lib/meeting-participant";
 import {
   isMeetingTodoActorReference,
@@ -65,8 +66,7 @@ function readParticipants(value: unknown): ProjectMeetingParticipantInput[] {
     const record = entry as Record<string, unknown>;
     return [
       {
-        userId:
-          typeof record.userId === "string" ? record.userId : null,
+        userId: typeof record.userId === "string" ? record.userId : null,
         displayName: readString(record.displayName),
       },
     ];
@@ -104,13 +104,26 @@ function isRequestObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function contractError(error: "invalid-request-body" | "meeting-note-visibility-invalid") {
+function contractError(
+  error: "invalid-request-body" | "meeting-note-visibility-invalid"
+) {
   return { ok: false as const, status: 400 as const, error };
 }
 
 // Transport coercion only. Services retain rich-content normalization, business
 // validation, project authorization and persistence for every caller.
 function parseMeetingNoteFields(payload: Record<string, unknown>) {
+  for (const key of ["inputAttachmentIds", "outputAttachmentIds"]) {
+    const ids = payload[key];
+    if (
+      ids !== undefined &&
+      (!Array.isArray(ids) ||
+        ids.length > MAX_MEETING_SCREENSHOTS ||
+        ids.some((id) => typeof id !== "string" || !id.trim()))
+    ) {
+      return contractError("invalid-request-body");
+    }
+  }
   const visibility = readOptionalVisibility(payload.visibility);
   if (!visibility.ok) {
     return contractError("meeting-note-visibility-invalid");
@@ -124,7 +137,15 @@ function parseMeetingNoteFields(payload: Record<string, unknown>) {
       participants: readParticipants(payload.participants),
       labels: readStringArray(payload.labels),
       status: readOptionalString(payload.status),
-      ...(visibility.value === undefined ? {} : { visibility: visibility.value }),
+      ...(visibility.value === undefined
+        ? {}
+        : { visibility: visibility.value }),
+      ...(payload.inputAttachmentIds === undefined
+        ? {}
+        : { inputAttachmentIds: payload.inputAttachmentIds as string[] }),
+      ...(payload.outputAttachmentIds === undefined
+        ? {}
+        : { outputAttachmentIds: payload.outputAttachmentIds as string[] }),
       inputNotes: readString(payload.inputNotes),
       outputNotes: readString(payload.outputNotes),
       decisions: readString(payload.decisions),

@@ -36,7 +36,9 @@ test("independent CLI processes select and retain runtime identities through the
       name: `Native ${process.platform}`, scopes, canMoveTasksToDone: identity === oscar });
     await pairDevice(binding(identity.identityId), authorization.pairingCode, vault);
   }
-  const broker = await new LocalBroker(directory, vault).start();
+  // The POSIX native workflow exercises detached startup and can signal the
+  // broker for graceful teardown. Keep in-process teardown on Windows.
+  const broker = process.platform === "win32" ? await new LocalBroker(directory, vault).start() : null;
   // No wrapper, inherited ND variables or persistent shell. Every command below
   // is a fresh Node process, identical to a terminal tool in an existing client.
   const cli = async (command: string, args: string[], expectedCode = 0) => {
@@ -62,8 +64,10 @@ test("independent CLI processes select and retain runtime identities through the
     return cli("request", args, expectedCode);
   };
   try {
-    const a = await open(oscar.identityId, "Codex CLI / conversation A");
-    const b = await open(oscar.identityId, "Codex VS Code / conversation B");
+    const [a, b] = await Promise.all([
+      open(oscar.identityId, "Codex CLI / conversation A"),
+      open(oscar.identityId, "Codex VS Code / conversation B"),
+    ]);
     const n = await open(nova.identityId, "Claude Code / DeepSeek conversation C");
     expect(new Set([a.sessionId, b.sessionId, n.sessionId]).size).toBe(3);
     expect(a.identityId).toBe(b.identityId);
@@ -129,6 +133,22 @@ test("independent CLI processes select and retain runtime identities through the
       sessions: [a.sessionId, b.sessionId, n.sessionId], broker: "independent", commandProcesses: "fresh per invocation",
       clientNames: "descriptive test labels; this does not prove real IDE conversations or physical laptops" }, null, 2), contentType: "application/json" });
   } finally {
-    await broker.close();
+    if (broker) {
+      await broker.close();
+    } else {
+      const endpointFile = join(directory, "endpoint.json");
+      const endpoint = await readFile(endpointFile, "utf8").catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return null;
+        throw error;
+      });
+      if (endpoint) {
+        const { pid } = JSON.parse(endpoint);
+        process.kill(pid, "SIGTERM");
+        await expect.poll(async () => readFile(join(directory, "broker.lock"), "utf8").catch((error: NodeJS.ErrnoException) => {
+          if (error.code === "ENOENT") return null;
+          throw error;
+        }), { timeout: 20_000 }).toBeNull();
+      }
+    }
   }
 });

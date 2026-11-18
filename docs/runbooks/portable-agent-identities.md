@@ -47,13 +47,8 @@ vault binding; the helper never searches for an alternative credential.
 
 Keep a reviewed NexusDash checkout at a stable absolute path and use Node 24.
 An owner pairs each exact origin/project/identity connection once as above.
-The owner then starts an independent broker in a separate trusted terminal:
-
-```sh
-node /absolute/nexus_dash/scripts/nd-agent.mjs broker
-```
-
-This does not start or restart your coding client. In an existing Codex CLI,
+The first explicit session open starts the local broker in the background.
+In an existing Codex CLI,
 Codex VS Code conversation, Claude Code (including the project's DeepSeek
 provider), or another client with a permitted terminal tool, ask that execution
 to run:
@@ -61,6 +56,9 @@ to run:
 ```sh
 node /absolute/nexus_dash/scripts/nd-agent.mjs session open --base ORIGIN --project PROJECT_ID --identity IDENTITY_ID --client "Codex / release review A"
 ```
+
+A broker already running for this directory is reused. For startup diagnostics,
+run `node /absolute/nexus_dash/scripts/nd-agent.mjs broker` in a trusted terminal.
 
 Use the immutable IDs from the owner, not an agent name. A name, model/provider
 or client label cannot authenticate or select an unpaired identity. The result
@@ -116,7 +114,7 @@ OS accounts or the isolated Docker adapter for mutually untrusted workers.
 ## Broker leases, shutdown and recovery
 
 The default state directory is `~/.nexusdash/broker`, outside the repository.
-Use `--broker ABSOLUTE_DIRECTORY` on both the broker and every session command
+Use `--broker ABSOLUTE_DIRECTORY` on every session command and on any manually started broker
 to select another instance. On POSIX this directory must be owned by the user
 with no group/other permissions; authentication capability storage uses the OS
 vault on every platform. The endpoint binds only to `127.0.0.1`, rejects browser
@@ -140,7 +138,8 @@ explicitly; forgotten conversations expire through the idle lease. A broker
 crash makes its local capabilities unusable. On restart the cleanup journal
 ends old sessions; it never reconstructs conversations or silently opens new
 sessions. After verifying the previous PID in `broker.lock` has stopped, remove
-that exact lock file and restart the broker. Then explicitly open new sessions.
+that exact lock file and explicitly open new sessions. For startup diagnostics
+or a broker you can stop with Ctrl+C, use the foreground `broker` command.
 Do not remove a live broker's lock. Cleanup retries transient failures with
 30-second to five-minute backoff and drops terminal 401/403/404 rejections.
 Server sessions expire within twelve hours even if cleanup cannot reach Nexus;
@@ -293,8 +292,8 @@ identity IDs; localhost databases on separate laptops are not the same instance.
    descriptive label `Orchestrator` (press Enter to add it), task read/write and
    Done enabled. Create Nova with task read/write and Done disabled.
 2. Authorize two devices for Oscar. On each physical laptop run the displayed
-   `login` command and enter its own code. Start an independent `broker` on
-   each. From already-running clients use `session open` twice on the first
+   `login` command and enter its own code. From already-running clients use
+   `session open` twice on the first
    laptop and once on the second, with the same identity ID. Record the actual
    clients, providers and IDE conversation/profile arrangement. Use each
    returned reference in `session status` and `session request` commands.
