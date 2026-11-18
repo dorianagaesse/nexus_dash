@@ -129,6 +129,9 @@ Open `http://localhost:3000`.
 - Session persistence is database-backed (`Session` table) with HttpOnly cookie handling.
 - Logout endpoint: `POST /api/auth/logout`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
+- Legacy API credentials remain a supported option. For the historical portable
+  identity/container investigation at `ec050eb7` and its dated supersession note, see the
+  [Docker identity investigation](docs/reports/nd-822-container-agent-identities.md).
 - **Share project > Agent access** opens a credential directory with agent
   counts, readable access summaries, status, last use, expiry, and a separate
   task-completion switch for each agent. Search by name or descriptive label (ignoring case and
@@ -730,6 +733,20 @@ Only the creator can change visibility. Team notes are shared with project membe
 and agents. Todos remain project-visible even when their meeting is private;
 project editors can complete and reassign them. Private note text, participants,
 labels and titles are not revealed through shared todo views or mutation responses.
+
+### Meeting note screenshots
+
+Paste a screenshot into Inputs or Outputs, or use the editor's paperclip to
+choose images (up to 10 per section, 4 MB per image). Thumbnails open the shared
+full-size preview, with download available there. Save preparation or Save notes
+commits that section's images; removing an image takes effect on Save. Cancelling
+an edit leaves saved images intact. Dismissed drafts retain uploaded images with
+the note's existing silent recovery behavior.
+
+Screenshots follow project meeting permissions and the note's Private/Team
+visibility. Unsaved uploads are visible only to their uploader. Downloads are
+authenticated and uncached, so changing visibility or removing access takes effect
+on the next request. Local and R2 storage use the existing provider configuration.
 
 ### Agent context-card attachments
 
