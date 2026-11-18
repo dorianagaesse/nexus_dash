@@ -283,6 +283,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
             key={identity.id}
             aria-label={`${identity.name} ${identity.descriptiveLabels.join(" ")}`.trim()}
             aria-pressed={selectedId === identity.id}
+            disabled={busy}
             onClick={() => select(identity)}
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${selectedId === identity.id ? "bg-muted ring-1 ring-inset ring-border" : ""}`}
           >

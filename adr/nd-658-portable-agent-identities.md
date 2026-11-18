@@ -85,6 +85,11 @@ are trusted; equally privileged malicious processes are not isolated. Remote
 sandbox workers use a separately provisioned per-worker transport such as
 ND-823's HTTPS adapter, never the native account capability or device vault.
 
+Explicit session opening can start a broker in the background when its endpoint
+is absent. The broker lock coordinates concurrent starts. Status, request and
+close use only the existing endpoint. An authentication or transport failure
+does not retry session creation or replace a binding.
+
 An idle lease (30 minutes by default, explicit 1–60 minute range) bounds orphaned
 conversations while the server retains its five-minute bearer, twelve-hour
 session and ninety-day device limits. Status/request activity extends only the

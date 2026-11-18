@@ -102,6 +102,9 @@ the isolation matrix uses only the runtime URL.
 
 The matrix covers:
 
+- meeting screenshots: uploader-only drafts, private/team visibility (including
+  todo-only and agent contexts), module grants, cross-project binding, immutable
+  ownership, and screenshot-only revision changes;
 - absent and unknown actor context;
 - cross-project SELECT/INSERT/UPDATE/DELETE;
 - owner/editor/viewer differences;

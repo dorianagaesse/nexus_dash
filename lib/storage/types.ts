@@ -1,5 +1,5 @@
 export interface SaveStorageFileInput {
-  scope: "task" | "context-card";
+  scope: "task" | "context-card" | "meeting-note";
   actorUserId: string;
   projectId: string;
   ownerId: string;
@@ -20,7 +20,7 @@ export interface GetSignedDownloadUrlInput {
 }
 
 export interface CreateSignedUploadUrlInput {
-  scope: "task" | "context-card";
+  scope: "task" | "context-card" | "meeting-note";
   actorUserId: string;
   projectId: string;
   ownerId: string;

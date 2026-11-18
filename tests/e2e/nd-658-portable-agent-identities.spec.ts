@@ -60,7 +60,7 @@ test("a new owner reauthorizes the same identity without reviving the previous o
       },
     });
     expect(started.ok(), await started.text()).toBeTruthy();
-    return started.json();
+    return { ...(await started.json()), runtimeCredential };
   };
   const oldSession = await pairAndStart(page.request);
   const newContext = await browser.newContext({
@@ -77,7 +77,7 @@ test("a new owner reauthorizes the same identity without reviving the previous o
         await page.request.post(`${root}/ownership/transfer`, {
           data: {
             newOwnerMembershipId: membership.id,
-            previousOwnerLeaves: true,
+            previousOwnerLeaves: false,
           },
         })
       ).ok()
@@ -97,6 +97,25 @@ test("a new owner reauthorizes the same identity without reviving the previous o
     });
     expect(taskResponse.ok(), await taskResponse.text()).toBeTruthy();
     expect((await taskResponse.json()).task.createdBy.id).toBe(identityId);
+    const oldMembership = await prisma.projectMembership.findFirstOrThrow({
+      where: { projectId: project.id, userId: previousOwnerId },
+    });
+    const transferredBack = await newPage.request.post(`${root}/ownership/transfer`, {
+      data: { newOwnerMembershipId: oldMembership.id, previousOwnerLeaves: false },
+    });
+    expect(transferredBack.ok(), await transferredBack.text()).toBeTruthy();
+    const oldRead = await page.request.get(`${root}/tasks`, {
+      headers: { Authorization: `Bearer ${oldSession.accessToken}` },
+    });
+    expect(oldRead.status()).toBe(401);
+    const oldRenew = await page.request.post("/api/auth/agent/runtime", {
+      data: { operation: "renew", projectId: project.id, identityId,
+        proof: oldSession.runtimeCredential, sessionId: oldSession.sessionId },
+    });
+    expect(oldRenew.status()).toBe(401);
+    const reauthorized = await pairAndStart(page.request);
+    expect(reauthorized.identityId).toBe(identityId);
+    expect(reauthorized.sessionId).not.toBe(oldSession.sessionId);
     expect(
       (
         await prisma.apiCredential.findUniqueOrThrow({

@@ -16,6 +16,22 @@ Keep UI-only or task-only notes in `journal.md`.
 
 ## Active Decisions
 
+## 2026-11-09 - ND-822: Container identity boundary and retained legacy access
+
+- Status: Proposed; Docker integration is not implemented by this investigation.
+- Context: ND-658's desktop launcher assumes an OS vault, shared loopback and a
+  foreground child. Docker probes confirmed that these do not establish worker
+  access or track detached container lifetime.
+- Decision: Recommend an operator-controlled broker outside the agent sandbox,
+  retaining authorization while issuing a fresh session per worker execution.
+  Preserve explicitly selected legacy credentials as a supported option; never
+  silently fall back from failed runtime authentication.
+- Consequences: Per-sandbox transport, credential isolation, lifecycle
+  reconciliation and expiry recovery need implementation and validation. Runtime
+  identities cannot currently be converted to raw-key identities. Legacy actors
+  can use both paths, but shared-anchor revocation/expiry disables both.
+- Links: [Investigation and reproduction](../docs/reports/nd-822-container-agent-identities.md).
+
 ## 2026-11-07 - ND-190: Collaboration use-case ownership
 
 - Status: Proposed for user review in #650; adoption follows the user's merge
@@ -1472,3 +1488,15 @@ is required. The native adapter, controlled launcher and ND-823 Docker adapter
 share the runtime/proxy core. Idle leases and a cleanup journal bound orphaned
 conversations without pretending to observe IDE lifecycle. See
 [the portable identity decision](nd-658-portable-agent-identities.md#normal-start-client-adapter-2026-11-13).
+
+## 2026-11-16 — ND-860: Meeting screenshots inherit note visibility
+
+Store input/output screenshots in `MeetingNoteScreenshot`, with project-owned,
+uploader-private drafts bound atomically when the note is saved. A composite
+note/project foreign key and forced RLS enforce tenant ownership; restrictive
+meeting capabilities and explicit note visibility prevent todo-only contexts
+from exposing private images. Screenshot changes advance the parent content
+revision. Proxy downloads through authenticated routes with `private, no-store`
+so access and visibility changes apply to every subsequent read. Use the existing
+storage providers and shared image previews, with a 4 MB per-image form upload
+limit. Removed image objects are cleaned after the database transaction commits.

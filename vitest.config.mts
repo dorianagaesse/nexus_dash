@@ -19,6 +19,8 @@ export default defineConfig({
       reporter: ["text", "html", "json-summary"],
       reportsDirectory: "coverage",
       include: [
+        "lib/services/meeting-note-screenshot-service.ts",
+        "app/api/projects/[projectId]/meeting-notes/attachments/**/*.ts",
         "lib/project-todo.ts",
         "lib/services/project-todo-service.ts",
         "app/api/projects/[projectId]/todos/route.ts",

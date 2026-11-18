@@ -146,12 +146,53 @@ export async function verifyAgentRuntimeIsolation({
       0
     );
   }
+  const membership = `runtime_transfer_${ids.projectA}`;
+  await admin.query(
+    `INSERT INTO "ProjectMembership" (id, "projectId", "userId", role, "createdAt", "updatedAt")
+      VALUES ($1, $2, $3, 'editor', now(), now())`,
+    [membership, ids.projectA, ids.ownerB]
+  );
+  try {
+    await runtimeTransaction(ids.ownerA, async () => {
+      // The runtime service takes this owner lock before admitting new grants.
+      const ownerLock = await runtime.query(
+        `SELECT id FROM "Project" WHERE id = $1 AND "ownerId" = $2 FOR SHARE`,
+        [ids.projectA, ids.ownerA]
+      );
+      assert.equal(ownerLock.rowCount, 1);
+      const transfer = async (from, to) => {
+        await runtime.query("SELECT set_config('app.user_id', $1, true)", [from]);
+        const result = await runtime.query(
+          "SELECT app.transfer_project_ownership($1, $2, $3, false) AS result",
+          [from, ids.projectA, to]
+        );
+        assert.equal(result.rows[0].result, "ok");
+      };
+      await transfer(ids.ownerA, ids.ownerB);
+      await transfer(ids.ownerB, ids.ownerA);
+      await runtime.query("SELECT set_config('app.user_id', $1, true)", [ids.ownerA]);
+      assert.equal((await lookup(proofHash)).rowCount, 0);
+      assert.equal((await lookup(pairingHash, true)).rowCount, 0);
+      const ended = await runtime.query(
+        `SELECT "endedAt" IS NOT NULL AS ended FROM "AgentRuntimeSession" WHERE id = $1`,
+        [session]
+      );
+      assert.equal(ended.rows[0].ended, true);
+    });
+  } finally {
+    await admin.query('DELETE FROM "ProjectMembership" WHERE id = $1', [membership]);
+  }
   await runtimeTransaction(ids.ownerA, async () => {
     await runtime.query(
       `UPDATE "AgentRuntimeDevice" SET "revokedAt" = now() WHERE id = $1`,
       [device]
     );
     assert.equal((await lookup(proofHash)).rowCount, 0);
+    await runtime.query(
+      `UPDATE "AgentRuntimeDevice" SET "revokedAt" = NULL WHERE id = $1`,
+      [device]
+    );
+    assert.equal((await lookup(proofHash)).rowCount, 1);
   });
   await runtimeTransaction(ids.ownerA, async () => {
     await runtime.query(
