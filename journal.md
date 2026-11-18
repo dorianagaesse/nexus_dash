@@ -12163,6 +12163,29 @@ Physical second-laptop and actual VS Code evidence remain ND-658 gaps.
 - Hosted onboarding inspection found a pre-existing unshrinkable scope-badge row and a key-only introduction. A narrow Impeccable adaptation corrected both; desktop/mobile confirmation (1440px/390px), detector and 23 onboarding checks passed. Next dev's unrelated generated AGENTS block was removed after stopping the review server.
 - The extra entire-app restricted-role browser run exposed existing meeting-note child-revision RLS failures during ND-179 offboarding. A minimal two-user SQL reproduction returned 42501; affected migration/policy/service files are identical to main. Searched the board, created and read back ND-857 with source links and criteria. This expanded run is not reported as green; standard baseline and dedicated ND-658 restricted-role checks remain separate evidence.
 
+## 2026-11-09 - ND-824 pairing completion
+Built against ND-658 PR #669. Added accurate authorization states/counts, bounded pending refresh, consumed/expired code hiding, copy feedback and bound launch guidance. Component regressions cover completion and expiry; browser regression includes keyboard focus and desktop/mobile captures.
+
+### 2026-11-12 - ND-824 review follow-up
+Addressed the PR #692 review. Polling errors clear once status checks recover; launch guidance and "Ready to launch" are withheld for inactive or expired identities, where runtime start rejects launches. The guidance is now a named region, identity buttons include paired/pending counts in their accessible names, and the singular device count reads correctly. E2E captures use the test output directory and check 390px overflow while guidance is visible.
+
+Validation passed locally against PostgreSQL 16: 2,544 unit/API tests (3 skipped), coverage thresholds, lint, RLS inventory, production build, and the two ND-658 portable-identity Playwright scenarios.
+
+
+### 2026-11-15 - ND-824 current-base review integration
+
+Merged ND-658 `aaf364a3` into PR #692 and retained its independent session CLI,
+native validation boundaries and controlled launcher instructions together with
+pairing completion guidance. Poll recovery, inactive-identity suppression,
+named guidance, accessible device counts and guidance captures remain intact.
+Required gates and integrated pairing/native flows are rerun on this branch;
+exact results and workflow evidence are recorded in PR #692. This does not
+clear ND-658's physical-laptop or actual VS Code acceptance evidence.
+
+### 2026-11-18 - ND-824: integrate merged ND-658
+
+- Reconciled pairing guidance with current main. Identity selection remains disabled during pairing mutations.
+
 ## 2026-11-16 — ND-860: Screenshots in meeting inputs and outputs
 
 - Created ND-860 after checking the live board for overlap; verified the selected

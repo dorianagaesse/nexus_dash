@@ -338,3 +338,6 @@ expiry/renewal wait. `Native Agent Identity` adds native Linux Secret Service
 integration and macOS Keychain roundtrips. Record the exact run/SHA and separate
 actual client/physical-laptop evidence; a CI label or simulated device is not
 evidence of a real IDE conversation or second physical laptop.
+
+## Pairing completion (ND-824)
+The identity list counts paired devices separately from pending authorizations. Paired means authorized, not live connectivity. Pending pairing refreshes every three seconds until its ten-minute deadline, then stops; used, expired and revoked codes are hidden. Copy the login command and enter the code in your own terminal from a repository checkout containing the helper. After pairing, use the independent session CLI above or copy the Windows or macOS/Linux controlled launch command; launch guidance remains available on paired device rows. The helper requires Node and an unlocked platform vault. Legacy API credentials remain a supported optional flow with their existing setup help, creation, exchange, rotation and revocation.
