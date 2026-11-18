@@ -12013,6 +12013,27 @@ omitted project metadata. Switched to synthetic unknown enum values and supplied
 the notification project/task IDs. All eight affected browser scenarios pass locally;
 the original run passed the other 143 scenarios, including notification revocation.
 
+## 2026-11-09 - ND-822: Docker identity investigation
+
+- Reviewed ND-658 at ec050eb7 against the user's goal of persistent actors across
+  disposable Docker workers and laptops; legacy credentials remain supported.
+- Ran real Linux-container boundary probes on Windows Docker Desktop using the
+  exact helper source and synthetic upstream/proofs. Confirmed missing Linux
+  vault, absent implicit environment forwarding, isolated loopback, rejected host
+  alias and premature session end when wrapping detached Docker. Positive host
+  proxy control passed; all probe containers and proxy were cleaned up.
+- Proposed an operator-controlled broker and explicit worker lifecycle. Recorded
+  legacy/runtime coexistence, rotation independence, shared-anchor revocation and
+  the runtime-only-to-key conversion limit. Created related ND-823/824/825 follow-ups
+  after checking for overlap. Physical second-device/native vault evidence remains
+  open; no merge/deployment or live container authentication was performed.
+- Documentation validation: diff whitespace and relative/pinned source references
+  checked. Synthetic probes do not replace the full implementation/RLS/E2E matrix.
+- Review follow-up: recorded the mutable `node:24-bookworm` tag (the 2026-11-12
+  review re-run reproduced the probes on a newer image) and added an
+  `ND822_NODE_IMAGE` digest-pinning option; scoped the source-based UI review to
+  ec050eb7 and noted later UI-only validation at ab1ad499. Docs-only.
+
 ### 2026-11-09 — ND-815 recovery action follow-up
 
 - Removed Go home at the user's request because it redirects signed-in users
@@ -12058,6 +12079,15 @@ the original run passed the other 143 scenarios, including notification revocati
   GitHub Actions setup: the connector has no dispatch tool and the cached HTTPS
   credential returned 401. No Preview checkout/runtime claim is made. Copilot
   review monitoring was omitted at the user's request.
+
+### 2026-11-15 - ND-822 current-scope review correction
+
+Qualified the investigation as historical evidence at `ec050eb7` and added a
+prominent dated supersession note for the canonical 2026-11-13 ND-658 brief.
+Ordinary client/VS Code access is required; MCP remains optional. Distinguished
+later native/CLI evidence at `aaf364a3` from outstanding physical-laptop and
+actual IDE conversation checks; README no longer calls this the current limits.
+Documentation diff/whitespace and local/pinned link references checked.
 
 ### 2026-11-09 - ND-658: Windows validation and current-main integration
 
@@ -12119,3 +12149,7 @@ the original run passed the other 143 scenarios, including notification revocati
 
 - The Mac confirmed that the deactivated Oscar session could neither report status nor read a task. Nova retained its write access and Oscar?s task, comments, assignment and mention stayed linked. The two-laptop manual round is complete.
 - Addressed the final review by revoking portable authorization during ownership transfer, allowing authenticated cleanup after a scope reduction, keeping pairing results tied to the selected identity, and handling interrupted proxy responses before reporting a status. Added round-trip ownership and transport regression checks.
+
+### 2026-11-18 - ND-822: reconcile with merged ND-658
+
+- Preserved both journal histories and updated the historical report to link to the completed native and two-laptop evidence for ND-658. The synthetic Docker observations still apply to the pinned investigation revision.
