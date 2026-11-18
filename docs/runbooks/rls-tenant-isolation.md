@@ -102,6 +102,9 @@ the isolation matrix uses only the runtime URL.
 
 The matrix covers:
 
+- meeting screenshots: uploader-only drafts, private/team visibility (including
+  todo-only and agent contexts), module grants, cross-project binding, immutable
+  ownership, and screenshot-only revision changes;
 - absent and unknown actor context;
 - cross-project SELECT/INSERT/UPDATE/DELETE;
 - owner/editor/viewer differences;
@@ -119,7 +122,10 @@ The matrix covers:
   owner staying or leaving, original creator retention, immutable credential
   project/creator fields, unrelated credential isolation, and denial of former
   owner administration and historical agent request usage;
-- the exact-public-ID agent exchange function.
+- the exact-public-ID agent exchange function;
+- ND-658 runtime devices, authentication credentials and sessions: forced
+  owner-only CRUD, immutable identity/device bindings, exact-proof bootstrap,
+  revoked device rejection and expired authentication rejection.
 
 ## Troubleshooting
 

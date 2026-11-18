@@ -1,5 +1,12 @@
 # Development Journal
 
+# 2026-11-12 - PR #688: reconcile upload and thread merges
+
+- Merged main at `917a642`, preserving both journal histories and both adjacent
+  onboarding contract tests. No runtime code required manual resolution.
+- All 18 onboarding contract tests and `git diff --check` passed.
+- Broader validation results and local build limitations are reported at handoff.
+
 # 2026-11-12 - PR #687: reconcile thread synchronization merge
 
 - Merged main at `00755cf` after PR #696 landed. Preserved both journal
@@ -100,6 +107,39 @@
 - Preview workflow 42491849366 verified `164ae18b` at
   `https://nexus-dash-2527p5sp8-dorian-agaesses-projects.vercel.app`, covering the
   multipart path and existing R2 direct upload, actor history and draft ownership.
+
+# 2026-11-11 - ND-674: reconcile actor and mention contracts with main
+
+- Merged current main into PR #688, retaining actor discovery and mention
+  contracts alongside reaction documentation, schemas and contract tests.
+- Resolved adjacent README, journal and onboarding-test additions by preserving
+  both branches. Validation results are recorded on the PR.
+
+# 2026-11-10 - ND-674: mention-preservation review follow-up
+
+- Qualified the guide, OpenAPI descriptions, curl example and README: stored
+  mention labels must be checked against current actor discovery before PATCH.
+  Renamed agents need current visible tokens; revoked/expired selections require
+  explicit reselection or removal after `task-comment-agent-mention-invalid`.
+- Explained that silently filtering IDs removes omitted mentions on a successful
+  PATCH, and absence from a bounded search response does not prove inactivity.
+- Documentation-only validation: `git diff --check`, local link checks and
+  reference review against actor discovery and mention-resolution services.
+
+# 2026-11-08 - ND-674: actor discovery and mention contracts
+
+- Published actor search with its three alternative scopes, normalization,
+  12-result bound and active-only response shape. The guide labels OR scopes.
+- Completed human mention selections and agent mention response schemas, added
+  discovery-based rich-text examples, and documented replacement on PATCH.
+- Removed the incorrect raw-HTML maxLength from comment edits. Documented the
+  normalized plain-text projection limit and required human discriminator.
+- Added runtime/contract tests for alternative scopes, response fields, bounds
+  and a browser/API example for mention preservation and rich-text limits.
+- Lint, RLS inventory, 2,404 unit/API tests (3 skipped), coverage thresholds and
+  build passed. The local and hosted discovery/mention/browser contract tests
+  passed. Workflow 42492696187 verified `ae82a86bcb16c79dfd33bbab426c2c33ac0f88d6`
+  at `https://nexus-dash-k7hq700v1-dorian-agaesses-projects.vercel.app`.
 
 # 2026-11-11 - ND-672: reconcile reaction parent validation with main
 
@@ -11675,6 +11715,46 @@ Low-value entries to avoid going forward:
   `git diff --check`, reference review, and release version policy passed. The prior
   Quality Gates run `42047520646` passed all jobs on `4617dce`.
 
+### 2026-11-06 - ND-658: portable identities and runtime access
+
+- Created an isolated worktree from `origin/main` (`83eda9c2`) because the root
+  checkout contained unrelated roadmap changes. Picked up ND-658 using the
+  Codex identity explicitly supplied in the session instructions.
+- Preserved stable actor IDs and added separate device authorization,
+  authentication credentials and concurrent sessions, live scope/capability
+  intersection, independent revocation, owner management and audited context.
+- Added the OS-vault launcher, single-use pairing and per-child loopback proxy.
+  Verified a Windows DPAPI round trip without printing the proof; removed the
+  test vault entry. macOS/Linux vault adapters require platform validation.
+- Added the additive migration and PostgreSQL runtime isolation matrix. A fresh
+  dedicated local database passed all migrations and the complete NOBYPASSRLS
+  matrix, including exact-proof bootstrap and immutable binding checks.
+- Unit/API suite passed (2,370 tests); subsequent coverage run passed (2,372
+  tests, 95.33% lines and 88.11% branches in the repository's configured scope).
+  Lint, RLS inventory and production build passed. The ND-658 desktop/mobile
+  browser scenario passed and screenshots were inspected; the full 132-test
+  browser suite is running before final handoff.
+- Ownership transfer invalidates old device grants. New owners can authorize
+  devices for the same identity without changing original attribution.
+- Added the portable identity runbook, hosted onboarding/OpenAPI contract and
+  focused ADR. No preview or deployment requested or performed.
+
+### 2026-11-06 - ND-658: completed local validation
+
+- Final unit/API and coverage runs: 2,372 passed, three intentionally skipped;
+  configured coverage remained 95.33% lines and 88.11% branches.
+- Full production-build/Playwright run passed: 130 tests, two intentionally
+  skipped (large-board baseline and preview-only auth isolation). Both ND-658
+  scenarios passed, including reauthorization after ownership transfer.
+- Added a refresh control, instance-bound setup command and visibility of all
+  active sessions plus seven days of recent sessions. Rebuilt and reran both
+  ND-658 browser scenarios successfully, including no-session-token rejection,
+  raw-key rotation denial, and retained assignments/mentions after deactivation.
+- Inspected desktop/mobile captures; the design detector reported no findings.
+  PR #669 is open. GitHub Quality Core and PostgreSQL Tenant Isolation passed on
+  the initial PR revision; final-head checks and requested Copilot review are
+  tracked on the PR. No deployment was triggered.
+
 ## 2026-11-07 - ND-547 reconcile PR #655 with main
 
 - Merged current main without rewriting branch history. Reapplied only ND-547 after the earlier review rollback caused Git to discard its implementation during the automatic merge. Preserved main's later Meeting Notes tests and all other task work.
@@ -11688,6 +11768,20 @@ Low-value entries to avoid going forward:
 - The public collaboration entry point remains a facade over owner invitations, membership/offboarding, recipient responses, shared policy/data/types, and email delivery. The architecture decision is proposed for user review rather than carrying forward the old approval claim.
 - Required validation, the invitation/membership browser lifecycle, real PostgreSQL isolation, and the detailed review response are recorded on #650. Leave the PR unmerged and the card In Progress for the user's review and merge.
 
+### 2026-11-08 - ND-658: address device-grant review
+
+- Reproduced PR #669's P2 finding with component tests: reducing identity scopes
+  and Done permission left hidden stale grants in the next pairing request.
+  A second regression exposed an enabled pairing button when refreshed identity
+  permissions no longer included any selected device scope.
+- Derive displayed and submitted device grants from the current identity,
+  preserve narrower device choices, and disable/guard empty-scope submissions.
+  Both tests failed before the fix and passed afterward. Updated the runbook.
+- Merged `origin/main` at `ac7b2fa3` into the existing PR branch, preserving both
+  sides of the journal conflict and all current-main collaboration/Meeting Notes
+  changes. The PostgreSQL isolation matrix passed after reconciliation.
+- Final baseline and CI results are recorded on PR #669. No deployment or merge
+  to main was performed; the card remains In Progress for reviewer handoff.
 
 ## 2026-11-08 - ND-663: complete Task data ownership
 
@@ -11859,6 +11953,30 @@ Low-value entries to avoid going forward:
   new 404 checks. Desktop/mobile and light/dark screenshot review passed.
 - Copilot review monitoring is omitted at the user's explicit request.
 
+### 2026-11-08 - ND-658: reconcile the merged agent-access work
+
+- Merged main at `e1dc3a3d` into PR #669, retaining the ND-655 searchable
+  credential directory/dialogs, ND-656 current public author metadata, ND-657
+  key-generation checks, ND-663 Task data boundary and ND-191 private todos.
+  Combined ADR/journal history and both PostgreSQL test matrices.
+- Portable identities now use ND-656's shared descriptive labels, validation
+  and editor. Removed the redundant role-label column from the unreleased
+  ND-658 migration; validated all migrations on a fresh local database.
+- Kept legacy key-generation enforcement while independently authorized runtime
+  sessions survive legacy key rotation. Added regression coverage for this
+  boundary and for runtime-authored comments following current identity labels.
+- Retained the device-grant review fix. Adapted legacy browser flows to the
+  merged credential dialogs under the legacy disclosure. Focused tests and
+  the complete PostgreSQL isolation matrix passed; final baseline/CI results
+  are recorded on PR #669.
+- Added and read back an explicit short test procedure on ND-658, with detailed
+  setup in the portable-identities runbook. No deployment or merge to main.
+- The integrated browser run exposed a closed legacy directory after returning
+  from revocation and an ambiguous label assertion across the two lists. Lifted
+  disclosure state above the offboarding dialog and scoped the legacy assertion
+  to its directory. The existing lifecycle scenarios cover both regressions.
+
+
 ### ND-130 integration handoff
 
 - The scoped-meeting and permission-editor follow-up passed 2,409 unit tests,
@@ -11970,3 +12088,68 @@ Ordinary client/VS Code access is required; MCP remains optional. Distinguished
 later native/CLI evidence at `aaf364a3` from outstanding physical-laptop and
 actual IDE conversation checks; README no longer calls this the current limits.
 Documentation diff/whitespace and local/pinned link references checked.
+
+### 2026-11-09 - ND-658: Windows validation and current-main integration
+
+- Reconciled PR #669 with main at `2e12457`, preserving ND-130 module permissions, notification isolation, runtime session audit context and both PostgreSQL matrices. Runtime usage checks receive the effective live scopes; legacy token scope removal still invalidates the token. Extended the guard regression assertion and corrected the compatibility documentation.
+- Native Windows DPAPI validation exposed an inherited PowerShell 7 module path that prevented Windows PowerShell from loading its security module. Reset only the child module path; the encrypted write/read roundtrip now passes. Added a Windows vault regression with isolated temporary storage.
+- Validation and manual-test environment evidence are recorded on PR #669. The user owns the Done transition; physical second-device and native macOS/Linux checks remain separate from local automation.
+
+- Browser integration exposed a legacy permission test that did not expand the new disclosure, plus an identity-list 500 when a shared database contains newer scope enums. Updated the existing browser scenario and filtered runtime identity grant reads before Prisma enum deserialization; the compatibility browser test now asserts the identity endpoint as well as the legacy directory.
+
+### 2026-11-09 - ND-658: identity panel visual cleanup
+
+- Applied Impeccable's polish workflow to the existing identity manager: clearer identity/device/session hierarchy, readable permission labels, larger controls, keyboard focus, and wrapping for technical IDs and long names. Session controls include their client and device in accessible names. Paired-device wording describes completed pairing separately from session state.
+- Kept legacy API credentials visible behind their existing disclosure with a short explanation. No changes to authentication, grants, persistence, or API operations. Docker integration and functional setup/permission changes remain in ND-823/824/825.
+- Desktop and 390px mobile review passed without horizontal overflow; both edited components passed the Impeccable detector. Existing device-grant unit checks, lint, RLS inventory and production build passed. Full baseline results and final production-render evidence are recorded on PR #669.
+
+### 2026-11-13 - ND-658: normal-start CLI/broker completion
+
+- Read the current live handoff, attached v2 specification, existing PR reviews and Docker/runtime runbooks. Created an isolated worktree from current #669 and merged current main without replacing the existing branch history.
+- Added an independent native broker and explicit session open/status/request/close commands, sharing the launcher/Docker runtime core. Local transport authentication stays in the OS vault; output and cleanup journals contain non-secret references. Effective status comes from current server grants. Idle leases, explicit close and crash cleanup never reconstruct or automatically reopen conversations.
+- Preserved legacy credentials, current client-specific setup rules and the controlled launcher. Added native Linux/macOS workflow checks, separate-process Windows integration and optional actual installed-client smoke. The disposable app uses a NOBYPASSRLS role while fixtures/migrations use a separate admin URL.
+- Initial lint, inventory, 2,576 unit/API tests, coverage (95.56% lines / 89.12% branches), production build and PostgreSQL matrix passed. The first native long run passed real five-minute renewal and exposed an empty terminal-rejection body in its test reader; runtime rejections now return a safe JSON error and the reader accepts empty responses. Final exact-head evidence is recorded in the PR.
+- Physical second-laptop and actual IDE conversation evidence are separate outstanding checks; the owner is available the following day. Installed Claude Code currently uses MiniMax-M3 rather than the brief's documented DeepSeek. Do not report either mismatch as a completed DeepSeek or physical-device test. ND-825 conflicts against current ND-824 in its identity panel and journal; downstream reconciliation must preserve both cards' work.
+- Native Linux Secret Service with a NOBYPASSRLS app, full CLI task flow and real five-minute renewal, plus native macOS Keychain roundtrips, passed in run `43337494125` on `897cd1b1`. Four actual ordinary client executions then passed locally (two Codex/Oscar, Claude/Oscar and Claude/Nova), including read/search/create/update/comment and Oscar/Nova Done success/denial with server-side actor/status assertions. This caught and fixed Git Bash/MSYS rewriting full API path arguments; project-relative paths now work without weakening project restrictions. The optional harness also closes redirected stdin so Codex exec starts its supplied prompt. See `docs/reports/nd-658-normal-start-validation.md` for evidence boundaries and remaining checks.
+- Final runtime revision `b7c8fa77` passed native Linux/macOS run `43339086376`, local 2,576 unit/API tests, coverage and the PostgreSQL matrix. A separate ND-823 integration worktree passed 31 focused checks and the real Windows Docker Desktop lifecycle scenario against the new restricted-role app. No dependent PR was merged or overwritten.
+- Hosted onboarding inspection found a pre-existing unshrinkable scope-badge row and a key-only introduction. A narrow Impeccable adaptation corrected both; desktop/mobile confirmation (1440px/390px), detector and 23 onboarding checks passed. Next dev's unrelated generated AGENTS block was removed after stopping the review server.
+- The extra entire-app restricted-role browser run exposed existing meeting-note child-revision RLS failures during ND-179 offboarding. A minimal two-user SQL reproduction returned 42501; affected migration/policy/service files are identical to main. Searched the board, created and read back ND-857 with source links and criteria. This expanded run is not reported as green; standard baseline and dedicated ND-658 restricted-role checks remain separate evidence.
+
+## 2026-11-16 — ND-860: Screenshots in meeting inputs and outputs
+
+- Created ND-860 after checking the live board for overlap; verified the selected
+  credential's `macbook` attribution and moved the task to In Progress.
+- Added paste/file upload, thumbnails, full-size preview/download, section-specific
+  save/removal, and silent recovery of uploaded screenshot drafts. Reused the
+  shared rich-text editor, image grid, preview modal, and storage providers.
+- Added uploader-private drafts, atomic note binding, conditional-write revisions,
+  post-commit file cleanup, composite tenant foreign keys, and forced RLS with
+  meeting capabilities and explicit private-note visibility. Shared todo mutation
+  responses explicitly redact screenshot metadata as well as private note text.
+- Local validation uses Node 24.22.3, isolated PostgreSQL 16 on port 55460 (UTC),
+  local storage, and polling. Lint, RLS inventory, version policy, 2,551 unit/API
+  tests (3 skipped), coverage, production build, and focused desktop/mobile
+  screenshot browser journeys pass. The full PostgreSQL isolation matrix passes.
+- Full browser validation reproduced an existing meeting-dismissal timing failure
+  on unchanged main (6af9feb9). Used the existing `activateUntilVisible` helper
+  for that test's outside click; both recovery scenarios then passed. The full
+  suite had 167 passes and 2 skips, with only that now-repaired failure. Final
+  branch build plus the five screenshot/recovery scenarios pass, including
+  network failure/retry, recovery after reload, access revocation, and stale
+  writes. Coverage is 95.63% lines and 89.06% branches; the new service has
+  95.71% line coverage. Fresh-database migration and the complete RLS matrix pass.
+- PR #702 is open and ready for review. Copilot review monitoring was omitted
+  at the user's request; CI is tracked by GitHub Actions. The reviewer or merger
+  owns the move to Done.
+
+### 2026-11-18 - ND-658: two-laptop validation and broker setup
+
+- Verified actual Codex VS Code, Mac Codex CLI and Claude Code with MiniMax-M3 against the same disposable restricted-role instance at aaf364a3. Recorded concurrency, renewal, selective revocation, live grant reduction and deactivation evidence in the ND-658 validation report.
+- Added broker startup on explicit session open and rejected invalid leases before any runtime session creation. Reconciled main, retaining the meeting screenshot and agent runtime RLS matrices.
+
+- The Mac confirmed that the deactivated Oscar session could neither report status nor read a task. Nova retained its write access and Oscar?s task, comments, assignment and mention stayed linked. The two-laptop manual round is complete.
+- Addressed the final review by revoking portable authorization during ownership transfer, allowing authenticated cleanup after a scope reduction, keeping pairing results tied to the selected identity, and handling interrupted proxy responses before reporting a status. Added round-trip ownership and transport regression checks.
+
+### 2026-11-18 - ND-822: reconcile with merged ND-658
+
+- Preserved both journal histories and updated the historical report to link to the completed native and two-laptop evidence for ND-658. The synthetic Docker observations still apply to the pinned investigation revision.

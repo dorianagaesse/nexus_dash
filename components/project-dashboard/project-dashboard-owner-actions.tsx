@@ -98,6 +98,8 @@ export function ProjectDashboardOwnerActions({
   const [sidebarActionsTarget, setSidebarActionsTarget] =
     useState<HTMLElement | null>(null);
   const [activeTab, setActiveTab] = useState<ProjectDashboardSettingsTab>("general");
+  // Keep the directory visible when the offboarding dialog returns to settings.
+  const [legacyCredentialsOpen, setLegacyCredentialsOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState(projectName);
   const [descriptionDraft, setDescriptionDraft] = useState(projectDescription ?? "");
   const [isSavingProject, setIsSavingProject] = useState(false);
@@ -1353,6 +1355,8 @@ export function ProjectDashboardOwnerActions({
                     />
                   ) : (
                     <ProjectDashboardOwnerAgentAccessPanel
+                      legacyCredentialsOpen={legacyCredentialsOpen}
+                      onLegacyCredentialsOpenChange={setLegacyCredentialsOpen}
                       projectId={projectId}
                       accessSummary={agentAccessSummary}
                       onUpdateCapabilities={(credential, allowed) => void handleUpdateAgentCapabilities(credential, allowed)}

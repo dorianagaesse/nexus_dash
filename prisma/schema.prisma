@@ -28,6 +28,7 @@ model User {
   projectMemberships                  ProjectMembership[]
   projectInvitationsSent              ProjectInvitation[]                      @relation("ProjectInvitationInviter")
   taskAttachments                     TaskAttachment[]                         @relation("TaskAttachmentUploader")
+  meetingScreenshots MeetingNoteScreenshot[]
   taskComments                        TaskComment[]                            @relation("TaskCommentAuthor")
   tasksCreated                        Task[]                                   @relation("TaskCreatedBy")
   tasksUpdated                        Task[]                                   @relation("TaskUpdatedBy")
@@ -38,6 +39,7 @@ model User {
   calendarPreference                  CalendarPreference?
   emailVerificationTokens             EmailVerificationToken[]
   passwordResetTokens                 PasswordResetToken[]
+  authorizedAgentDevices              AgentRuntimeDevice[]
   createdApiCredentials               ApiCredential[]                          @relation("ApiCredentialCreatedBy")
   revokedApiCredentials               ApiCredential[]                          @relation("ApiCredentialRevokedBy")
   authAuditEvents                     AuthAuditEvent[]                         @relation("AuthAuditEventActorUser")
@@ -237,6 +239,7 @@ model Project {
   authAuditEvents    AuthAuditEvent[]
   notificationEmails ProjectNotificationEmail[]
   meetingNotes       ProjectMeetingNote[]
+  meetingScreenshots MeetingNoteScreenshot[]
 
   @@index([ownerId])
 }
@@ -267,9 +270,11 @@ model ProjectMeetingNote {
   updatedByUser     User                            @relation("ProjectMeetingNoteUpdatedBy", fields: [updatedByUserId], references: [id])
   stewardUser       User?                           @relation("ProjectMeetingNoteSteward", fields: [stewardUserId], references: [id], onDelete: SetNull)
   stewardCredential ApiCredential?                  @relation("MeetingNoteStewardCredential", fields: [stewardCredentialId], references: [id], onDelete: SetNull)
+  screenshots       MeetingNoteScreenshot[]
   actions           ProjectMeetingNoteAction[]
   participants      ProjectMeetingNoteParticipant[]
 
+  @@unique([id, projectId])
   @@index([projectId, scheduledAt])
   @@index([projectId, status, scheduledAt])
   @@index([projectId, visibility, scheduledAt])
@@ -278,6 +283,26 @@ model ProjectMeetingNote {
   @@index([updatedByUserId])
   @@index([stewardUserId])
   @@index([stewardCredentialId])
+}
+
+model MeetingNoteScreenshot {
+  id               String   @id @default(cuid())
+  projectId        String
+  noteId           String?
+  section          String   @db.VarChar(10)
+  uploadedByUserId String
+  name             String
+  storageKey       String   @unique
+  mimeType         String
+  sizeBytes        Int
+  createdAt        DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  note ProjectMeetingNote? @relation(fields: [noteId, projectId], references: [id, projectId], onDelete: Cascade)
+  uploadedBy User @relation(fields: [uploadedByUserId], references: [id])
+
+  @@index([projectId, noteId, section])
+  @@index([uploadedByUserId])
 }
 
 model ProjectMeetingNoteParticipant {
@@ -998,6 +1023,10 @@ enum AuthRateLimitScope {
 }
 
 model ApiCredential {
+  // Stable actor anchor; legacy column/model names preserve existing actor references.
+  identityMode       Boolean   @default(false)
+  avatarSeed         String?   @db.VarChar(64)
+  runtimeDevices     AgentRuntimeDevice[]
   canMoveTasksToDone Boolean   @default(false)
   id                 String    @id @default(cuid())
   projectId          String
@@ -1050,6 +1079,54 @@ model ApiCredential {
   @@index([projectId])
   @@index([createdByUserId])
   @@index([revokedByUserId])
+}
+
+model AgentRuntimeDevice {
+  authorizedByUserId String
+  authorizedBy       User @relation(fields: [authorizedByUserId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(cuid())
+  identityId         String
+  name               String   @db.VarChar(80)
+  scopes             ApiCredentialScope[]
+  canMoveTasksToDone Boolean  @default(false)
+  pairingHash        String?  @unique
+  pairingExpiresAt   DateTime
+  authorizedAt       DateTime?
+  expiresAt          DateTime
+  revokedAt          DateTime?
+  createdAt          DateTime @default(now())
+  identity           ApiCredential @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  credentials        AgentRuntimeCredential[]
+  sessions           AgentRuntimeSession[]
+
+  @@index([identityId])
+}
+
+model AgentRuntimeCredential {
+  id         String   @id @default(cuid())
+  deviceId   String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+  device     AgentRuntimeDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+}
+
+model AgentRuntimeSession {
+  id                 String   @id @default(cuid())
+  deviceId           String
+  client             String   @db.VarChar(80)
+  scopes             ApiCredentialScope[]
+  canMoveTasksToDone Boolean  @default(false)
+  expiresAt          DateTime
+  endedAt            DateTime?
+  lastActiveAt       DateTime @default(now())
+  createdAt          DateTime @default(now())
+  device             AgentRuntimeDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, createdAt])
 }
 
 model ApiCredentialScopeGrant {

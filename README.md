@@ -734,6 +734,20 @@ and agents. Todos remain project-visible even when their meeting is private;
 project editors can complete and reassign them. Private note text, participants,
 labels and titles are not revealed through shared todo views or mutation responses.
 
+### Meeting note screenshots
+
+Paste a screenshot into Inputs or Outputs, or use the editor's paperclip to
+choose images (up to 10 per section, 4 MB per image). Thumbnails open the shared
+full-size preview, with download available there. Save preparation or Save notes
+commits that section's images; removing an image takes effect on Save. Cancelling
+an edit leaves saved images intact. Dismissed drafts retain uploaded images with
+the note's existing silent recovery behavior.
+
+Screenshots follow project meeting permissions and the note's Private/Team
+visibility. Unsaved uploads are visible only to their uploader. Downloads are
+authenticated and uncached, so changing visibility or removing access takes effect
+on the next request. Local and R2 storage use the existing provider configuration.
+
 ### Agent context-card attachments
 
 Agents with `context:write` can create context cards with `attachmentLinks` and
@@ -743,6 +757,41 @@ R2; local storage supports form uploads for signed-in users. Agent attachments
 store their credential ID and display-name snapshot separately from the user
 who owns the storage object. Revoked or deleted credentials retain historical
 agent attribution. Existing file limits, project access, and scope checks apply.
+
+### Actor discovery and comment mention round-tripping
+
+`GET /api/projects/{projectId}/actors/search?query=...` accepts any one of
+`project:read`, `task:read`, or `task:write`, with viewer project access. It trims
+the query, removes one leading `@`, matches case-insensitively, and returns at
+most 12 active actors without pagination. Revoked/expired credentials are omitted.
+
+For human mentions on comment creation, send `mentionSelections` with `userId`,
+`username`, and the current four-digit `discriminator` matching the visible `@username#1234`
+token. For agents, send `agentMentionSelections: [{ credentialId }]` and the exact
+visible `@{Credential Label}` token. Selected IDs do not replace visible tokens.
+Comment responses expose `agentMentions: [{ credentialId, label }]` when present.
+
+Comment PATCH replaces agent selections, including clearing them when omitted.
+Before an unrelated text edit, revalidate every existing `agentMentions` entry
+against actor discovery: comment reads contain stored label snapshots, not a
+guarantee that the credentials are still active or their labels unchanged. Only
+then retain the matching visible tokens and map the entries to
+`agentMentionSelections: [{ credentialId }]`.
+
+For a renamed credential, reselect its current actor and update the visible
+`@{Credential Label}` token to the current label. Revoked or expired credentials,
+or renamed credentials with stale tokens, cause PATCH to return
+`400 task-comment-agent-mention-invalid`. Refresh actor discovery and surface the
+need for explicit reselection or removal before retrying. If any existing
+selection cannot be revalidated, pause the edit; do not silently filter out IDs
+and retry, because a successful PATCH with a reduced selection set removes the
+omitted stored mentions. A bounded search response alone does not prove an
+unreturned credential is inactive.
+
+Edits do not emit new human mention notifications. Create and edit accept
+sanitized rich-text HTML; the 4000-character limit counts UTF-16 code units in the server plain-text
+projection after sanitization and whitespace normalization, not raw HTML markup.
+Sanitizer-escaped entities and list markers can contribute to this count. See the hosted guide for complete examples and schemas.
 
 ### Comment reaction actors
 
@@ -800,5 +849,17 @@ remains preferred for files up to 25 MiB. Local storage returns 400 for signed
 upload targets; use multipart instead. Authentication or authorization failures
 must not trigger a fallback to a human session. Context-card local uploads remain
 outside this contract.
+
+## Portable agent identities
+
+Owners manage persistent identities, device grants and concurrent sessions in
+Project Settings → Agent access. Pair each authorized origin/project/identity
+once into the OS vault. An independent broker then lets an already-running
+terminal or IDE client open an explicit session through `nd-agent.mjs session`,
+without an ND parent wrapper or MCP. Each invocation retains its own session
+reference; status shows the bound identity and current permissions. The
+controlled launcher and legacy key workflows also remain supported. See the
+[portable identity runbook](docs/runbooks/portable-agent-identities.md) for setup,
+permissions, revocation, compatibility and API contracts.
 
 Project module permissions and rollout: [project capabilities](docs/runbooks/project-capabilities.md).

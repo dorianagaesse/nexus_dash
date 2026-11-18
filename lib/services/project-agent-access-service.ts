@@ -407,6 +407,10 @@ function buildAuditEventSummary(record: {
 }
 
 function buildAuditMetadata(input: {
+  sessionId?: string;
+  deviceId?: string | null;
+  client?: string | null;
+  deviceName?: string | null;
   scopes?: AgentScope[];
   publicId?: string;
   expiresAt?: Date | null;
@@ -416,6 +420,7 @@ function buildAuditMetadata(input: {
   failureReason?: string | null;
 }) {
   return {
+    ...(input.sessionId ? { sessionId: input.sessionId, deviceId: input.deviceId ?? null, client: input.client ?? null, deviceName: input.deviceName ?? null } : {}),
     scopes: input.scopes ?? null,
     publicId: input.publicId ?? null,
     expiresAt: input.expiresAt?.toISOString() ?? null,
@@ -699,6 +704,7 @@ export async function getProjectAgentAccessSummary(input: {
       db.apiCredential.findMany({
         where: {
           projectId: input.projectId,
+          identityMode: false,
         },
         orderBy: [{ createdAt: "desc" }],
         select: {
@@ -899,6 +905,7 @@ export async function rotateProjectAgentCredential(input: {
       select: {
         id: true,
         revokedAt: true,
+        identityMode: true,
         expiresAt: true,
       },
     });
@@ -906,6 +913,8 @@ export async function rotateProjectAgentCredential(input: {
     if (!existingCredential) {
       return createError(404, "credential-not-found");
     }
+
+    if (existingCredential.identityMode) return createError(409, "identity-uses-runtime-access");
 
     if (existingCredential.revokedAt) {
       return createError(409, "credential-revoked");
@@ -1268,6 +1277,10 @@ export async function exchangeAgentApiKeyForAccessToken(input: {
 }
 
 export async function recordAgentRequestUsage(input: {
+  sessionId?: string;
+  deviceId?: string;
+  client?: string;
+  deviceName?: string;
   credentialId: string;
   ownerUserId: string;
   projectId: string;
@@ -1293,12 +1306,14 @@ export async function recordAgentRequestUsage(input: {
         where: {
           id: credentialId,
           projectId: input.projectId,
-          createdByUserId: ownerUserId,
+          ...(input.sessionId ? { project: { ownerId: ownerUserId } } : { identityMode: false, createdByUserId: ownerUserId }),
           revokedAt: null,
           // Rotation replaces publicId atomically with the key. Bind usage to
           // the key verified during exchange, even if rotation raced issuance.
           // Legacy tokens cannot prove their generation after any rotation.
-          ...(input.credentialPublicId !== undefined
+          // Device sessions have already passed live runtime validation and
+          // remain independent of the legacy key's generation.
+          ...(input.sessionId ? {} : input.credentialPublicId !== undefined
             ? { publicId: input.credentialPublicId }
             : { lastRotatedAt: null }),
           AND: [
@@ -1329,6 +1344,7 @@ export async function recordAgentRequestUsage(input: {
           ipAddress: normalizeBoundedString(input.ipAddress ?? null, MAX_IP_ADDRESS_LENGTH),
           userAgent: normalizeBoundedString(input.userAgent ?? null, MAX_USER_AGENT_LENGTH),
           metadata: buildAuditMetadata({
+            ...(input.sessionId ? { sessionId: input.sessionId, deviceId: input.deviceId ?? null, client: input.client ?? null, deviceName: input.deviceName ?? null } : {}),
             tokenId: input.tokenId,
             httpMethod: input.httpMethod ?? null,
             path: input.path ?? null,

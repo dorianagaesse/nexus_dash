@@ -20,7 +20,8 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
     todos, with one completion queue and responsibility filters.
   - Context cards (create/edit/delete + attachments)
   - Meeting notes with searchable project-scoped history, creator-controlled
-    private/team visibility, task-style labels, label filters, structured
+    private/team visibility, section-specific screenshot attachments with paste,
+    upload, and preview, task-style labels, label filters, structured
     participants, preparation inputs, meeting outputs, todo tracking, overdue
     highlights, state, and archived done notes
   - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
@@ -50,6 +51,9 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
     the current name and descriptive labels from a retained public author
     identity, plus a shared agent avatar; updates apply to old comments too
 - Project-scoped agent access:
+  - persistent identities with per-identity scopes and Done capability, separately
+    authorized devices, OS-vault-backed independent CLI/broker or launcher access and concurrent
+    sessions with live revocation checks
   - owner-managed API credentials in project settings, with an independently
     controlled move-to-Done permission on each credential (off by default)
   - one-time raw API key reveal with rotate/revoke lifecycle
@@ -105,7 +109,7 @@ Current schema includes:
   project-page highlighting.
 - Collaboration on tasks: `TaskComment` with optional agent credential
   attribution metadata for agent-authored comments
-- Attachments: `TaskAttachment`, `ResourceAttachment` with `uploadedByUserId`
+- Attachments: `TaskAttachment`, `ResourceAttachment`, and `MeetingNoteScreenshot` with `uploadedByUserId`
 - Calendar: `GoogleCalendarCredential` (one row per user)
 - Notification email orchestration: `ProjectNotificationEmail` and
   `ProjectNotificationEmailItem`

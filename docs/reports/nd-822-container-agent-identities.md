@@ -4,16 +4,14 @@ Date: 2026-11-09. Status: investigation complete; container design proposed,
 not implemented. Reviewed ND-658 / [PR #669](https://github.com/dorianagaesse/nexus_dash/pull/669)
 at `ec050eb7e5de9f1a1bc9826b08765edc1b49b92e`.
 
-> **Superseded scope and evidence, 2026-11-15:** This is a historical investigation
-> of `ec050eb7` on 2026-11-09, not the current ND-658 merge contract. The owner's
-> canonical 2026-11-13 brief supersedes the former exclusion of ordinary
-> Codex/VS Code integration: normal-start client access is required; MCP remains
-> optional. PR #669 at `aaf364a3` records independent CLI/broker work, native Linux
-> runtime/renewal checks and macOS Keychain roundtrips. Physical second-laptop
-> and actual Codex VS Code conversation/profile evidence remain outstanding.
-> See [PR #669's current evidence](https://github.com/dorianagaesse/nexus_dash/pull/669)
-> and the live ND-658 brief for the controlling acceptance criteria. Original
-> source links and synthetic Docker probes below retain their historical scope.
+> **Scope and evidence update, 2026-11-18:** This investigation covers
+> `ec050eb7` on 2026-11-09. The 2026-11-13 ND-658 brief required normal-start
+> Codex and VS Code access and kept MCP optional. ND-658 has since merged. Its
+> [validation report](nd-658-normal-start-validation.md) records the physical
+> Windows/Mac and actual client checks. [PR #669](https://github.com/dorianagaesse/nexus_dash/pull/669)
+> records the final native checks and merge. The pinned source and synthetic
+> Docker observations below retain their original scope. The Docker broker
+> implementation is reviewed separately in [PR #691](https://github.com/dorianagaesse/nexus_dash/pull/691).
 
 ## Outcome and scope at `ec050eb7`
 
@@ -190,9 +188,8 @@ live authentication run.
 
 At the investigated revision, ND-658 was the desktop/multi-device foundation. Its
 physical second-laptop test and native macOS/Linux vault checks were outstanding
-in that revision's review procedure. Later native checks and remaining physical/IDE
-gaps are distinguished in the dated note above. Passing Windows concurrent shells and these container probes
-do not replace them. The [Quality Gates run](https://github.com/dorianagaesse/nexus_dash/actions/runs/42604669641)
+in that revision's review procedure. ND-658 recorded that later evidence
+separately, as linked in the dated note above. The [Quality Gates run](https://github.com/dorianagaesse/nexus_dash/actions/runs/42604669641)
 is green for the reviewed head, and the reported review thread is resolved.
 No merge, deployment or new end-to-end product validation was performed here.
 
