@@ -1,3 +1,4 @@
+import { roleCapabilities } from "@/lib/project-capabilities";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const projectAccessServiceMock = vi.hoisted(() => ({
@@ -113,7 +114,7 @@ describe("project-epic-service", () => {
     projectAccessServiceMock.requireAgentProjectScopes.mockReturnValue({ ok: true });
     projectAccessServiceMock.requireProjectRole.mockResolvedValue({
       ok: true,
-      role: "owner",
+      role: "owner", capabilities: roleCapabilities("owner"),
     });
     activityMock.touchProjectActivity.mockResolvedValue(undefined);
     dbMock.epic.findMany.mockResolvedValue([]);
@@ -241,8 +242,24 @@ describe("project-epic-service", () => {
     });
     expect(result.data.epic.createdBy).toMatchObject({
       kind: "agent",
-      displayName: "Release Agent (agent)",
+      displayName: "Release Agent",
     });
+  });
+
+  test("epic edits do not expose linked tasks without the human task-read grant", async () => {
+    projectAccessServiceMock.requireProjectRole.mockResolvedValueOnce({
+      ok: true, role: "editor", capabilities: ["epic:read", "epic:write"],
+    });
+    dbMock.epic.findFirst
+      .mockResolvedValueOnce({ id: "epic-1" })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(epicSummaryFixture({ tasks: [{ id: "hidden-task", title: "Private task", status: "Done", archivedAt: null }] }));
+    dbMock.epic.update.mockResolvedValueOnce({});
+    const result = await updateProjectEpic({
+      actorUserId: "member", projectId: "project-1", epicId: "epic-1",
+      name: "Updated epic", description: "Allowed epic change",
+    });
+    expect(result).toMatchObject({ ok: true, data: { epic: { linkedTasks: [], taskCount: 0, completedTaskCount: 0 } } });
   });
 
   test("records the acting user on epic updates", async () => {
@@ -637,7 +654,7 @@ describe("project-epic-service", () => {
   test("viewers list epics without running the archive sweep", async () => {
     projectAccessServiceMock.requireProjectRole.mockResolvedValueOnce({
       ok: true,
-      role: "viewer",
+      role: "viewer", capabilities: roleCapabilities("viewer"),
     });
     dbMock.epic.findMany.mockResolvedValueOnce([epicSummaryFixture()]);
 

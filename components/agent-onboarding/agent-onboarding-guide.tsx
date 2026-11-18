@@ -243,6 +243,7 @@ function buildGuideSections({
                   <p className="text-sm text-muted-foreground">{endpoint.description}</p>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
+                  {endpoint.scopeMatch === "any" ? <span className="text-xs text-muted-foreground">Any one of:</span> : null}
                   {endpoint.requiredScopes.length === 0 ? (
                     <Badge variant="outline" className="rounded-full">
                       Token exchange

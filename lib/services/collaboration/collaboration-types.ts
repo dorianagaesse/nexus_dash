@@ -1,3 +1,4 @@
+import type { ProjectCapability } from "@/lib/project-capabilities";
 // Shared collaboration result and projection contracts.
 
 import type { ProjectMembershipRole } from "@prisma/client";
@@ -33,6 +34,7 @@ export interface CollaboratorIdentitySummary {
 export interface ProjectMemberSummary extends CollaboratorIdentitySummary {
   membershipId: string;
   role: ProjectMembershipRole;
+  capabilities?: ProjectCapability[];
   joinedAt: string;
   isOwner: boolean;
 }
@@ -51,6 +53,7 @@ export interface ProjectInvitationSummary {
   role: ProjectCollaboratorRole;
   createdAt: string;
   expiresAt: string;
+  capabilities?: ProjectCapability[];
   inviteLinkPath: string;
 }
 
@@ -96,6 +99,7 @@ export interface ProjectInvitationRecipientView {
 }
 
 export interface PendingInvitationMetadataRow {
+  capabilities?: unknown;
   invitationId: string;
   projectId: string;
   projectName: string;
@@ -119,6 +123,7 @@ export interface InvitationMatchedUser {
 }
 
 export interface InvitationRecipientLookupRow {
+  capabilities?: unknown;
   invitationId: string;
   projectId: string;
   projectName: string;
@@ -137,6 +142,7 @@ export interface InvitationRecipientLookupRow {
 }
 
 export interface ProjectInvitationRecord {
+  capabilities?: unknown;
   id: string;
   projectId: string;
   invitedEmail: string;

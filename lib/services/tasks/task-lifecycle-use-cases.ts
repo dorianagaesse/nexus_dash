@@ -1,5 +1,4 @@
 import { deleteAttachmentFile } from "@/lib/attachment-storage";
-import { ATTACHMENT_KIND_FILE } from "@/lib/task-attachment";
 import { TASK_STATUSES, type TaskStatus } from "@/lib/task-status";
 import { logServerError } from "@/lib/observability/logger";
 import { touchProjectActivity } from "@/lib/services/project-activity-service";
@@ -16,6 +15,20 @@ import { normalizeText } from "./task-input";
 import { requireAgentDoneMoveCapability } from "./task-policy";
 import { resolveTaskAgentAttribution, taskAgentAuthorWriteData } from "./task-assignment";
 import { loadTaskMutationPayload, shiftTaskLanePositions, compactTaskSourceLane } from "./task-persistence";
+
+import {
+  persistTaskLanePlacement,
+  persistTaskArchive,
+  persistTaskRestore,
+  removeTaskWithDependents,
+} from "./task-write-data";
+import {
+  loadTasksForReorder,
+  loadTaskLaneState,
+  loadTaskDestinationLane,
+  loadTaskArchiveState,
+  loadTaskDeletionFiles,
+} from "./task-command-data";
 
 export async function reorderProjectTasks(
   projectId: string,
@@ -58,6 +71,7 @@ export async function reorderProjectTasks(
       actorUserId: normalizedActorUserId,
       projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -65,25 +79,7 @@ export async function reorderProjectTasks(
     }
 
     try {
-      const tasks = await db.task.findMany({
-        where: {
-          projectId,
-          id: { in: taskIds },
-          project: {
-            OR: [
-              { ownerId: normalizedActorUserId },
-              { memberships: { some: { userId: normalizedActorUserId } } },
-            ],
-          },
-        },
-        select: {
-          id: true,
-          status: true,
-          position: true,
-          archivedAt: true,
-          completedAt: true,
-        },
-      });
+      const tasks = await loadTasksForReorder(db, projectId, taskIds, normalizedActorUserId);
 
       if (tasks.length !== taskIds.length) {
         return createError(400, "One or more tasks do not belong to this project");
@@ -134,16 +130,13 @@ export async function reorderProjectTasks(
             }
 
             return [
-              db.task.update({
-                where: { id: taskId },
-                data: {
-                  status: column.status,
-                  position: index,
-                  archivedAt: null,
-                  updatedByUserId: normalizedActorUserId,
-                  ...agentAuthorData,
-                  completedAt: nextCompletedAt,
-                },
+              persistTaskLanePlacement(db, taskId, {
+                status: column.status,
+                position: index,
+                archivedAt: null,
+                updatedByUserId: normalizedActorUserId,
+                ...agentAuthorData,
+                completedAt: nextCompletedAt,
               }),
             ];
           })
@@ -193,6 +186,7 @@ export async function moveTaskStatusForProject(
       actorUserId: normalizedActorUserId,
       projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -200,17 +194,7 @@ export async function moveTaskStatusForProject(
     }
 
     try {
-      const existingTask = await db.task.findUnique({
-        where: { id: taskId },
-        select: {
-          id: true,
-          projectId: true,
-          status: true,
-          position: true,
-          archivedAt: true,
-          completedAt: true,
-        },
-      });
+      const existingTask = await loadTaskLaneState(db, taskId);
 
       if (!existingTask || existingTask.projectId !== projectId) {
         return createError(404, "Task not found");
@@ -222,20 +206,9 @@ export async function moveTaskStatusForProject(
       }
 
       const sameColumn = existingTask.status === targetStatus;
-      const destinationTasks = await db.task.findMany({
-        where: {
-          projectId,
-          status: targetStatus,
-          ...(sameColumn ? { NOT: { id: taskId } } : {}),
-          project: {
-            OR: [
-              { ownerId: normalizedActorUserId },
-              { memberships: { some: { userId: normalizedActorUserId } } },
-            ],
-          },
-        },
-        select: { id: true, position: true },
-        orderBy: [{ position: "asc" }],
+      const destinationTasks = await loadTaskDestinationLane(db, {
+        projectId, targetStatus, taskId, sameColumn,
+        actorUserId: normalizedActorUserId,
       });
 
       const destinationCount = destinationTasks.length;
@@ -262,7 +235,7 @@ export async function moveTaskStatusForProject(
         existingTask.archivedAt === null &&
         completedAtUnchanged
       ) {
-        const task = await loadTaskMutationPayload(db, projectId, taskId);
+        const task = await loadTaskMutationPayload(db, projectId, taskId, access.capabilities.includes("epic:read") && (!agentAccess || agentAccess.scopes.includes("epic:read")));
         if (!task) {
           return createError(404, "Task not found");
         }
@@ -283,16 +256,13 @@ export async function moveTaskStatusForProject(
         agentAccess,
       });
 
-      await db.task.update({
-        where: { id: taskId },
-        data: {
-          status: targetStatus,
-          position: finalPosition,
-          archivedAt: null,
-          updatedByUserId: normalizedActorUserId,
-          ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
-          completedAt: nextCompletedAt,
-        },
+      await persistTaskLanePlacement(db, taskId, {
+        status: targetStatus,
+        position: finalPosition,
+        archivedAt: null,
+        updatedByUserId: normalizedActorUserId,
+        ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
+        completedAt: nextCompletedAt,
       });
 
       if (!sameColumn) {
@@ -301,7 +271,7 @@ export async function moveTaskStatusForProject(
 
       await touchProjectActivity({ db, projectId });
 
-      const task = await loadTaskMutationPayload(db, projectId, taskId);
+      const task = await loadTaskMutationPayload(db, projectId, taskId, access.capabilities.includes("epic:read") && (!agentAccess || agentAccess.scopes.includes("epic:read")));
       if (!task) {
         return createError(500, "Failed to move task");
       }
@@ -339,6 +309,7 @@ export async function archiveTaskForProject(
       actorUserId: normalizedActorUserId,
       projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -346,15 +317,7 @@ export async function archiveTaskForProject(
     }
 
     try {
-      const existingTask = await db.task.findUnique({
-        where: { id: taskId },
-        select: {
-          id: true,
-          projectId: true,
-          status: true,
-          archivedAt: true,
-        },
-      });
+      const existingTask = await loadTaskArchiveState(db, taskId);
 
       if (!existingTask || existingTask.projectId !== projectId) {
         return createError(404, "Task not found");
@@ -378,16 +341,10 @@ export async function archiveTaskForProject(
         agentAccess,
       });
 
-      const archivedTask = await db.task.update({
-        where: { id: taskId },
-        data: {
-          archivedAt: new Date(),
-          updatedByUserId: normalizedActorUserId,
-          ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
-        },
-        select: {
-          archivedAt: true,
-        },
+      const archivedTask = await persistTaskArchive(db, taskId, {
+        archivedAt: new Date(),
+        updatedByUserId: normalizedActorUserId,
+        ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
       });
 
       if (!archivedTask.archivedAt) {
@@ -442,6 +399,7 @@ export async function unarchiveTaskForProject(
       actorUserId: normalizedActorUserId,
       projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -449,15 +407,7 @@ export async function unarchiveTaskForProject(
     }
 
     try {
-      const existingTask = await db.task.findUnique({
-        where: { id: taskId },
-        select: {
-          id: true,
-          projectId: true,
-          status: true,
-          archivedAt: true,
-        },
-      });
+      const existingTask = await loadTaskArchiveState(db, taskId);
 
       if (!existingTask || existingTask.projectId !== projectId) {
         return createError(404, "Task not found");
@@ -479,16 +429,10 @@ export async function unarchiveTaskForProject(
         agentAccess,
       });
 
-      await db.task.update({
-        where: { id: taskId },
-        data: {
-          archivedAt: null,
-          updatedByUserId: normalizedActorUserId,
-          ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
-        },
-        select: {
-          id: true,
-        },
+      await persistTaskRestore(db, taskId, {
+        archivedAt: null,
+        updatedByUserId: normalizedActorUserId,
+        ...taskAgentAuthorWriteData(agentAttribution, "updatedBy"),
       });
 
       await touchProjectActivity({ db, projectId });
@@ -533,6 +477,7 @@ export async function deleteTaskForProject(
       actorUserId: normalizedActorUserId,
       projectId,
       minimumRole: "owner",
+      capability: "task:delete",
       db,
     });
     if (!access.ok) {
@@ -540,20 +485,7 @@ export async function deleteTaskForProject(
     }
 
     try {
-      const existingTask = await db.task.findUnique({
-        where: { id: taskId },
-        select: {
-          id: true,
-          projectId: true,
-          attachments: {
-            where: {
-              kind: ATTACHMENT_KIND_FILE,
-              NOT: { storageKey: null },
-            },
-            select: { storageKey: true },
-          },
-        },
-      });
+      const existingTask = await loadTaskDeletionFiles(db, taskId);
 
       if (!existingTask || existingTask.projectId !== projectId) {
         return createError(404, "Task not found");
@@ -563,9 +495,7 @@ export async function deleteTaskForProject(
         .map((attachment) => attachment.storageKey)
         .filter((storageKey): storageKey is string => Boolean(storageKey));
 
-      await db.task.delete({
-        where: { id: taskId },
-      });
+      await removeTaskWithDependents(db, taskId);
 
       await Promise.all(
         storageKeys.map((storageKey) =>

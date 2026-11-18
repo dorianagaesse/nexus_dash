@@ -102,10 +102,10 @@ test("owners review and unassign active responsibility before removing a collabo
     await page.goto(`/projects/${project.id}`);
     await page.getByRole("button", { name: "Settings" }).click();
     await page.getByRole("button", { name: "Contributors" }).click();
-    await expect(page.getByText(memberLabel)).toBeVisible();
+    await expect(page.getByText(memberLabel, { exact: true })).toBeVisible();
 
     const memberRow = page
-      .getByText(memberLabel)
+      .getByText(memberLabel, { exact: true })
       .locator("xpath=ancestor::div[.//button[normalize-space()='Remove']][1]");
 
     await memberRow.getByRole("button", { name: "Transfer ownership" }).click();
@@ -122,7 +122,7 @@ test("owners review and unassign active responsibility before removing a collabo
     ).toBeVisible();
 
     const refreshedMemberRow = page
-      .getByText(memberLabel)
+      .getByText(memberLabel, { exact: true })
       .locator("xpath=ancestor::div[.//button[normalize-space()='Remove']][1]");
     await refreshedMemberRow.getByRole("button", { name: "Remove" }).click();
 

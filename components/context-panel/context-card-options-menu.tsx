@@ -1,4 +1,5 @@
 "use client";
+import { useProjectCapability } from "@/components/project-capability-provider";
 
 import { useState } from "react";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
@@ -24,6 +25,7 @@ export function ContextCardOptionsMenu({
   onOpenChange,
   triggerClassName,
 }: ContextCardOptionsMenuProps) {
+  const canDelete = useProjectCapability("context:delete");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const updateMenuOpen = (nextIsMenuOpen: boolean) => {
@@ -75,7 +77,7 @@ export function ContextCardOptionsMenu({
               updateMenuOpen(false);
               onDeleteCard(cardId);
             }}
-            disabled={deletingCardId === cardId}
+            disabled={!canDelete || deletingCardId === cardId}
           >
             <Trash2 className="h-4 w-4" />
             Delete

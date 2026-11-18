@@ -347,6 +347,7 @@ async function requireRoadmapAccess(input: {
     actorUserId: input.actorUserId,
     projectId: input.projectId,
     minimumRole: input.minimumRole,
+    capability: input.requiredAgentScopes[0] as "roadmap:read" | "roadmap:write" | "roadmap:delete",
     db: input.db,
   });
 

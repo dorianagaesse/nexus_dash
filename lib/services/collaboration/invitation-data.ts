@@ -18,6 +18,7 @@ export async function listPendingInvitationMetadataRows(
   return db.$queryRaw<PendingInvitationMetadataRow[]>(Prisma.sql`
     SELECT
       invitation_id AS "invitationId",
+      app.get_project_invitation_capabilities(invitation_id) AS "capabilities",
       project_id AS "projectId",
       project_name AS "projectName",
       invited_email AS "invitedEmail",
@@ -106,6 +107,7 @@ export async function findInvitationById(
   >(Prisma.sql`
     SELECT
       invitation_id AS "invitationId",
+      app.get_project_invitation_capabilities(invitation_id) AS "capabilities",
       project_id AS "projectId",
       project_name AS "projectName",
       invited_email AS "invitedEmail",
@@ -133,6 +135,7 @@ export async function findInvitationById(
     projectId: row.projectId,
     invitedEmail: row.invitedEmail,
     role: row.invitationRole,
+    capabilities: row.capabilities,
     createdAt: row.createdAt,
     expiresAt: row.expiresAt,
     acceptedAt: row.acceptedAt,

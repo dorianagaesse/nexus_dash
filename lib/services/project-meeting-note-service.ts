@@ -1,5 +1,14 @@
 import { Prisma } from "@prisma/client";
 
+import type { MeetingNoteScreenshot } from "@/lib/meeting-note-screenshot";
+import {
+  bindMeetingScreenshots,
+  cleanupMeetingScreenshotFiles,
+  mapMeetingScreenshot,
+  meetingScreenshotSelect,
+  validateMeetingScreenshots,
+} from "@/lib/services/meeting-note-screenshot-service";
+
 import { logServerError } from "@/lib/observability/logger";
 import {
   normalizeMeetingParticipantName,
@@ -169,6 +178,8 @@ export interface MeetingNoteMutationInput {
   labels?: string[];
   status?: string | null;
   visibility?: string | null;
+  inputAttachmentIds?: string[];
+  outputAttachmentIds?: string[];
   inputNotes?: string;
   outputNotes?: string;
   decisions?: string;
@@ -200,6 +211,7 @@ export interface ProjectMeetingNoteSummary {
   labels: string[];
   status: MeetingNoteStatus;
   visibility: MeetingNoteVisibility;
+  screenshots: MeetingNoteScreenshot[];
   inputNotes: string;
   outputNotes: string;
   decisions: string;
@@ -285,6 +297,14 @@ type MeetingNoteRecord = {
   status: string;
   visibility?: string;
   createdByUserId?: string;
+  screenshots?: Array<{
+    id: string;
+    projectId: string;
+    section: string;
+    name: string;
+    mimeType: string;
+    sizeBytes: number;
+  }>;
   inputNotes: string;
   outputNotes: string;
   decisions: string;
@@ -318,6 +338,10 @@ const meetingTodoActionActorInclude = {
 } as const;
 
 const meetingNoteActorInclude = {
+  screenshots: {
+    select: meetingScreenshotSelect,
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }] as Prisma.MeetingNoteScreenshotOrderByWithRelationInput[],
+  },
   stewardUser: { select: meetingTodoActorUserSelect },
   stewardCredential: { select: meetingTodoActorCredentialSelect },
   createdByUser: { select: meetingTodoActorUserSelect },
@@ -694,6 +718,7 @@ function mapMeetingNote(
     labels: parseTaskLabelsJson(note.labelsJson ?? ""),
     status: normalizeStatus(note.status),
     visibility: normalizeVisibility(note.visibility, "team"),
+    screenshots: (note.screenshots ?? []).map(mapMeetingScreenshot),
     inputNotes: note.inputNotes,
     outputNotes: note.outputNotes,
     decisions: note.decisions,
@@ -867,6 +892,7 @@ async function readMeetingNoteById(input: {
     return {
       ...summary,
       title: "Private meeting",
+      screenshots: [],
       inputNotes: "",
       outputNotes: "",
       decisions: "",
@@ -1204,7 +1230,7 @@ export async function listProjectMeetingNotes(input: {
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:read"],
+      requiredScopes: ["meeting:read"],
     });
     if (!agentScopeAccess.ok) {
       return [];
@@ -1221,6 +1247,7 @@ export async function listProjectMeetingNotes(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "viewer",
+      capability: "meeting:read",
       db,
     });
     if (!access.ok) {
@@ -1297,7 +1324,7 @@ export async function createProjectMeetingNote(
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:write"],
+      requiredScopes: ["meeting:write"],
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
@@ -1316,12 +1343,18 @@ export async function createProjectMeetingNote(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "meeting:write",
       db,
     });
     if (!access.ok) {
       return createError(access.status, access.error);
     }
 
+    if (input.agentAccess && (input.inputAttachmentIds !== undefined || input.outputAttachmentIds !== undefined)) {
+      return createError(403, "forbidden");
+    }
+    const screenshotError = await validateMeetingScreenshots({ ...input, db });
+    if (screenshotError) return screenshotError;
     try {
       const [participantResolution, mutationActor, actorRegistry] =
         await Promise.all([
@@ -1438,6 +1471,8 @@ export async function createProjectMeetingNote(
         changedAt: assignedAt,
       });
 
+      await bindMeetingScreenshots({ ...input, db, noteId: created.id });
+
       const note = await readMeetingNoteById({
         db,
         projectId: input.projectId,
@@ -1465,14 +1500,18 @@ export async function createProjectMeetingNote(
       }
 
       return {
-        ok: true,
+        ok: true as const,
         data: { note, activityVersion },
       };
     } catch (error) {
+      if (input.inputAttachmentIds !== undefined || input.outputAttachmentIds !== undefined) throw error;
       logServerError("createProjectMeetingNote", error);
       return createError(500, "meeting-note-create-failed");
     }
-  }, input.agentAccess ? { actorKind: "agent" } : undefined);
+  }, { forceTransaction: true, ...(input.agentAccess ? { actorKind: "agent" as const } : {}) }).catch((error) => {
+    logServerError("createProjectMeetingNote", error);
+    return createError(500, "meeting-note-create-failed");
+  });
 }
 
 export async function updateProjectMeetingNote(
@@ -1500,18 +1539,20 @@ export async function updateProjectMeetingNote(
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:write"],
+      requiredScopes: ["meeting:write"],
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
     }
   }
 
-  return withActorRlsContext(actorUserId, async (db) => {
+  const removedScreenshotKeys: string[] = [];
+  const result = await withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "meeting:write",
       db,
     });
     if (!access.ok) {
@@ -1581,6 +1622,11 @@ export async function updateProjectMeetingNote(
     ) {
       return createError(404, "meeting-note-not-found");
     }
+    if (input.agentAccess && (input.inputAttachmentIds !== undefined || input.outputAttachmentIds !== undefined)) {
+      return createError(403, "forbidden");
+    }
+    const screenshotError = await validateMeetingScreenshots({ ...input, db });
+    if (screenshotError) return screenshotError;
     const existingVisibility = normalizeVisibility(existing.visibility, "team");
     const existingCreatorId = existing.createdByUserId ?? actorUserId;
     if (input.visibility !== undefined && input.visibility !== null) {
@@ -1882,6 +1928,10 @@ export async function updateProjectMeetingNote(
         });
       }
 
+      removedScreenshotKeys.push(
+        ...await bindMeetingScreenshots({ ...input, db })
+      );
+
       const note = await readMeetingNoteById({
         db,
         projectId: input.projectId,
@@ -1909,17 +1959,23 @@ export async function updateProjectMeetingNote(
       }
 
       return {
-        ok: true,
+        ok: true as const,
         data: { note, activityVersion },
       };
     } catch (error) {
+      if (input.inputAttachmentIds !== undefined || input.outputAttachmentIds !== undefined) throw error;
       logServerError("updateProjectMeetingNote", error);
       return createError(500, "meeting-note-update-failed");
     }
   }, {
-    forceTransaction: input.expectedRevision !== undefined,
+    forceTransaction: true,
     ...(input.agentAccess ? { actorKind: "agent" as const } : {}),
+  }).catch((error) => {
+    logServerError("updateProjectMeetingNote", error);
+    return createError(500, "meeting-note-update-failed");
   });
+  if (result.ok) await cleanupMeetingScreenshotFiles(removedScreenshotKeys);
+  return result;
 }
 
 export async function getProjectMeetingNote(input: {
@@ -1934,7 +1990,7 @@ export async function getProjectMeetingNote(input: {
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:read"],
+      requiredScopes: ["meeting:read"],
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
@@ -1945,6 +2001,7 @@ export async function getProjectMeetingNote(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "viewer",
+      capability: "meeting:read",
       db,
     });
     if (!access.ok) return createError(access.status, access.error);
@@ -1979,7 +2036,7 @@ export async function setProjectMeetingNoteActionCompletion(
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:write"],
+      requiredScopes: ["meeting:write"],
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
@@ -1991,6 +2048,7 @@ export async function setProjectMeetingNoteActionCompletion(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "meeting:write",
       db,
     });
     if (!access.ok) {
@@ -2102,7 +2160,7 @@ export async function setProjectMeetingNoteActionAssignee(
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:write"],
+      requiredScopes: ["meeting:write"],
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
@@ -2114,6 +2172,7 @@ export async function setProjectMeetingNoteActionAssignee(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "meeting:write",
       db,
     });
     if (!access.ok) {
@@ -2284,7 +2343,7 @@ export async function setProjectMeetingNoteSteward(
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:write"],
+      requiredScopes: ["meeting:write"],
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
@@ -2296,6 +2355,7 @@ export async function setProjectMeetingNoteSteward(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "meeting:write",
       db,
     });
     if (!access.ok) {
@@ -2413,18 +2473,20 @@ export async function deleteProjectMeetingNote(input: {
     const agentScopeAccess = requireAgentProjectScopes({
       agentAccess: input.agentAccess,
       projectId: input.projectId,
-      requiredScopes: ["task:write"],
+      requiredScopes: ["meeting:delete"],
     });
     if (!agentScopeAccess.ok) {
       return createError(agentScopeAccess.status, agentScopeAccess.error);
     }
   }
 
-  return withActorRlsContext(actorUserId, async (db) => {
+  let screenshotKeys: string[] = [];
+  const result = await withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "meeting:delete",
       db,
     });
     if (!access.ok) {
@@ -2438,6 +2500,7 @@ export async function deleteProjectMeetingNote(input: {
       },
       select: {
         id: true,
+        screenshots: { select: { storageKey: true } },
         visibility: true,
         createdByUserId: true,
       },
@@ -2456,6 +2519,7 @@ export async function deleteProjectMeetingNote(input: {
     const existingVisibility = normalizeVisibility(existing.visibility, "team");
 
     try {
+      screenshotKeys = (existing.screenshots ?? []).map((row) => row.storageKey);
       await db.projectMeetingNote.delete({
         where: { id: noteId },
       });
@@ -2465,9 +2529,9 @@ export async function deleteProjectMeetingNote(input: {
       }
 
       return {
-        ok: true,
+        ok: true as const,
         data: {
-          ok: true,
+          ok: true as const,
           ...(existing.visibility !== undefined
             ? { visibility: existingVisibility }
             : {}),
@@ -2477,5 +2541,7 @@ export async function deleteProjectMeetingNote(input: {
       logServerError("deleteProjectMeetingNote", error);
       return createError(500, "meeting-note-delete-failed");
     }
-  }, input.agentAccess ? { actorKind: "agent" } : undefined);
+  }, { forceTransaction: true, ...(input.agentAccess ? { actorKind: "agent" as const } : {}) });
+  if (result.ok) await cleanupMeetingScreenshotFiles(screenshotKeys);
+  return result;
 }

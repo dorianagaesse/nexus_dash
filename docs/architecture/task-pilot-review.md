@@ -70,6 +70,9 @@ they are not production latency targets.
 Host paging noise in an earlier run exceeded these differences. No added query
 or statement work was found. Keep the existing sequential lane-write ordering.
 
+The following describes the ND-545/546 baseline; ND-663 supersedes its direct
+Task-write and legacy-dashboard exceptions in [the current service guidance](./task-services.md).
+
 The board still owns selected-task editing, discussion, recovery, and attachment
 orchestration. Simple service writes and the legacy dashboard read remain
 direct. Board and mutation attachment projections intentionally differ; both

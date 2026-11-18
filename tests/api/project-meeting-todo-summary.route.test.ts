@@ -7,6 +7,7 @@ const apiGuardMock = vi.hoisted(() => ({
 
 const todoServiceMock = vi.hoisted(() => ({
   getProjectMeetingTodoNavigationSummary: vi.fn(),
+  countOpenPersonalTodos: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/api-guard", () => ({
@@ -18,6 +19,8 @@ vi.mock("@/lib/services/project-meeting-todo-service", () => ({
     todoServiceMock.getProjectMeetingTodoNavigationSummary,
 }));
 
+vi.mock("@/lib/services/project-todo-service", () => ({ countOpenPersonalTodos: todoServiceMock.countOpenPersonalTodos }));
+
 import { GET } from "@/app/api/projects/[projectId]/meeting-todos/summary/route";
 
 const request = new NextRequest(
@@ -28,6 +31,7 @@ const params = { params: Promise.resolve({ projectId: "project-1" }) };
 describe("project meeting todo summary route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    todoServiceMock.countOpenPersonalTodos.mockResolvedValue(2);
     apiGuardMock.requireAuthenticatedApiUser.mockResolvedValue({
       ok: true,
       userId: "user-1",
@@ -45,7 +49,7 @@ describe("project meeting todo summary route", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     await expect(response.json()).resolves.toEqual({
-      activeCount: 3,
+      activeCount: 5,
       hasOverdue: true,
     });
     expect(

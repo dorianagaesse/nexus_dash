@@ -394,7 +394,7 @@ describe("project meeting todos", () => {
         container.querySelectorAll(
           'section[aria-label="Todo summary"] p.tabular-nums'
         )
-      ).map((element) => element.textContent);
+      ).map((element) => element.textContent?.split(" ")[0]);
 
     expect(summaryValues()).toEqual(["1", "0"]);
 
@@ -476,7 +476,7 @@ describe("project meeting todos", () => {
         container.querySelectorAll(
           'section[aria-label="Todo summary"] p.tabular-nums'
         )
-      ).map((element) => element.textContent);
+      ).map((element) => element.textContent?.split(" ")[0]);
 
     expect(summaryValues()).toEqual(["0", "0"]);
 
@@ -612,7 +612,7 @@ describe("project meeting todos", () => {
         container.querySelectorAll(
           'section[aria-label="Todo summary"] p.tabular-nums'
         )
-      ).map((element) => element.textContent);
+      ).map((element) => element.textContent?.split(" ")[0]);
 
     // C is open but not overdue while the meeting server state is done.
     expect(summaryValues()).toEqual(["1", "0"]);

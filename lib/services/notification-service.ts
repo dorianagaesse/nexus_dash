@@ -1,3 +1,4 @@
+import { canReceiveProjectNotification, notificationAccessWhere } from "@/lib/services/notification-access";
 import { Prisma } from "@prisma/client";
 
 import { logServerError } from "@/lib/observability/logger";
@@ -667,6 +668,7 @@ export async function listNotificationsForUser(
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
     try {
+      const visibility = await notificationAccessWhere(db, normalizedActorUserId);
       await syncProjectInvitationNotificationsForUser(
         db,
         normalizedActorUserId
@@ -674,6 +676,7 @@ export async function listNotificationsForUser(
 
       const notifications = await db.notification.findMany({
         where: {
+          AND: visibility,
           recipientUserId: normalizedActorUserId,
           resolvedAt: null,
         },
@@ -716,6 +719,7 @@ export async function getLatestUnreadNotificationForUser(
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
     try {
+      const visibility = await notificationAccessWhere(db, normalizedActorUserId);
       await syncProjectInvitationNotificationsForUser(
         db,
         normalizedActorUserId
@@ -723,6 +727,7 @@ export async function getLatestUnreadNotificationForUser(
 
       const notification = await db.notification.findFirst({
         where: {
+          AND: visibility,
           recipientUserId: normalizedActorUserId,
           resolvedAt: null,
           readAt: null,
@@ -753,6 +758,7 @@ export async function countUnreadNotificationsForUser(
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
     try {
+      const visibility = await notificationAccessWhere(db, normalizedActorUserId);
       await syncProjectInvitationNotificationsForUser(
         db,
         normalizedActorUserId
@@ -760,6 +766,7 @@ export async function countUnreadNotificationsForUser(
 
       return db.notification.count({
         where: {
+          AND: visibility,
           recipientUserId: normalizedActorUserId,
           resolvedAt: null,
           readAt: null,
@@ -783,6 +790,7 @@ export async function getNotificationRealtimeSnapshotForUser(
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
     try {
+      const visibility = await notificationAccessWhere(db, normalizedActorUserId);
       if (options.syncProjectInvitations !== false) {
         await syncProjectInvitationNotificationsForUser(
           db,
@@ -790,10 +798,11 @@ export async function getNotificationRealtimeSnapshotForUser(
         );
       }
 
-      const [latestNotification, unreadCount, latestUnreadNotification] =
+      const [latestNotification, unreadCount, latestUnreadNotification, recipient] =
         await Promise.all([
           db.notification.findFirst({
             where: {
+              AND: visibility,
               recipientUserId: normalizedActorUserId,
             },
             orderBy: [{ updatedAt: "desc" }],
@@ -803,6 +812,7 @@ export async function getNotificationRealtimeSnapshotForUser(
           }),
           db.notification.count({
             where: {
+              AND: visibility,
               recipientUserId: normalizedActorUserId,
               resolvedAt: null,
               readAt: null,
@@ -810,6 +820,7 @@ export async function getNotificationRealtimeSnapshotForUser(
           }),
           db.notification.findFirst({
             where: {
+              AND: visibility,
               recipientUserId: normalizedActorUserId,
               resolvedAt: null,
               readAt: null,
@@ -819,10 +830,17 @@ export async function getNotificationRealtimeSnapshotForUser(
               title: true,
             },
           }),
+          db.user.findUnique({
+            where: { id: normalizedActorUserId },
+            select: { notificationAccessUpdatedAt: true },
+          }),
         ]);
 
       return createSuccess(200, {
-        version: (latestNotification?.updatedAt ?? new Date(0)).toISOString(),
+        version: new Date(Math.max(
+          latestNotification?.updatedAt.getTime() ?? 0,
+          recipient?.notificationAccessUpdatedAt.getTime() ?? 0,
+        )).toISOString(),
         unreadCount,
         latestUnreadNotification: latestUnreadNotification
           ? { title: latestUnreadNotification.title }
@@ -852,9 +870,11 @@ export async function setNotificationReadState(input: {
 
   return withActorRlsContext(actorUserId, async (db) => {
     try {
+      const visibility = await notificationAccessWhere(db, actorUserId);
       const readAt = input.read ? new Date() : null;
       const result = await db.notification.updateMany({
         where: {
+          AND: visibility,
           id: notificationId,
           recipientUserId: actorUserId,
         },
@@ -1011,6 +1031,13 @@ async function createOrRefreshTaskCommentMentionNotification(input: {
   recipientUserId: string;
   notification: TaskCommentMentionNotificationInput;
 }) {
+  if (!await canReceiveProjectNotification({
+    db: input.db,
+    recipientUserId: input.recipientUserId,
+    projectId: input.notification.projectId,
+    type: "task_comment_mention",
+  })) return;
+
   const content = buildTaskCommentMentionNotificationContent(
     input.notification
   );
@@ -1258,6 +1285,13 @@ async function createOrRefreshTaskAssignmentNotification(input: {
   recipientUserId: string;
   notification: TaskAssignmentNotificationInput;
 }) {
+  if (!await canReceiveProjectNotification({
+    db: input.db,
+    recipientUserId: input.recipientUserId,
+    projectId: input.notification.projectId,
+    type: "task_assignment",
+  })) return;
+
   const content = buildTaskAssignmentNotificationContent(input.notification);
   const metadata = toJsonObject(buildTaskAssignmentMetadata(input.notification));
   const notificationWhere = {
@@ -1547,6 +1581,13 @@ async function createOrRefreshTaskDueDateReminderNotification(input: {
   recipientUserId: string;
   notification: TaskDueDateReminderNotificationInput;
 }) {
+  if (!await canReceiveProjectNotification({
+    db: input.db,
+    recipientUserId: input.recipientUserId,
+    projectId: input.notification.projectId,
+    type: "task_due_date_reminder",
+  })) return;
+
   const content = buildTaskDueDateReminderNotificationContent(input.notification);
   const metadata = toJsonObject(
     buildTaskDueDateReminderMetadata(input.notification)
@@ -1664,6 +1705,7 @@ export async function markAllNotificationsReadForUser(
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
     try {
+      const visibility = await notificationAccessWhere(db, normalizedActorUserId);
       await syncProjectInvitationNotificationsForUser(
         db,
         normalizedActorUserId
@@ -1671,6 +1713,7 @@ export async function markAllNotificationsReadForUser(
 
       const result = await db.notification.updateMany({
         where: {
+          AND: visibility,
           recipientUserId: normalizedActorUserId,
           resolvedAt: null,
           readAt: null,

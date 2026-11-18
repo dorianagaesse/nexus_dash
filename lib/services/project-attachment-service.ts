@@ -1,3 +1,5 @@
+import { isTaskAttachmentUploader, isTaskUploadStorageKey, taskUploadStorageOwnerId, taskAttachmentActor, taskAttachmentActorSelect, type TaskAttachmentActor, type TaskAttachmentActorFields } from "@/lib/task-attachment-actor";
+import { resolveTaskAttachmentUploader } from "@/lib/services/task-attachment-actor-service";
 import {
   createAttachmentSignedUploadUrl,
   deleteAttachmentFile,
@@ -63,6 +65,7 @@ export interface AttachmentResponsePayload {
 
 export interface TaskAttachmentResponsePayload extends AttachmentResponsePayload {
   commentId: string | null;
+  uploadedBy?: TaskAttachmentActor;
 }
 
 export interface AttachmentDownloadPayload {
@@ -228,7 +231,7 @@ function requireAttachmentAgentScopes(input: {
 export function mapTaskAttachmentResponse(
   projectId: string,
   taskId: string,
-  attachment: {
+  attachment: TaskAttachmentActorFields & {
     id: string;
     commentId?: string | null;
     kind: string;
@@ -239,6 +242,7 @@ export function mapTaskAttachmentResponse(
   }
 ): TaskAttachmentResponsePayload {
   return {
+    ...(taskAttachmentActor(attachment) ? { uploadedBy: taskAttachmentActor(attachment) } : {}),
     id: attachment.id,
     kind: attachment.kind,
     name: attachment.name,
@@ -256,12 +260,15 @@ export function mapTaskAttachmentResponse(
 async function touchTaskActivity(
   db: DbClient,
   taskId: string,
-  actorUserId: string
+  actorUserId: string,
+  uploader: TaskAttachmentActorFields
 ) {
   await db.task.update({
     where: { id: taskId },
     data: {
       updatedByUserId: actorUserId,
+      updatedByCredentialId: uploader.uploadedByCredentialId ?? null,
+      updatedByCredentialLabel: uploader.uploadedByKind === "agent" ? uploader.uploadedByDisplayNameSnapshot : null,
     },
     select: {
       id: true,
@@ -297,8 +304,12 @@ export async function createTaskAttachmentsFromDraft(input: {
   links: ParsedAttachmentLink[];
   files: File[];
   db?: DbClient;
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<void> {
   const db = input.db ?? prisma;
+  if (!input.links.length && !input.files.length) return;
+  const uploader = await resolveTaskAttachmentUploader({ ...input, db });
+  if (!uploader.ok) throw new Error(uploader.error);
   const savedStorageKeys: string[] = [];
 
   try {
@@ -306,7 +317,7 @@ export async function createTaskAttachmentsFromDraft(input: {
       await db.taskAttachment.createMany({
         data: input.links.map((link) => ({
           taskId: input.taskId,
-          uploadedByUserId: input.actorUserId,
+          ...uploader.data,
           kind: ATTACHMENT_KIND_LINK,
           name: link.name,
           url: link.url,
@@ -331,7 +342,7 @@ export async function createTaskAttachmentsFromDraft(input: {
       await db.taskAttachment.create({
         data: {
           taskId: input.taskId,
-          uploadedByUserId: input.actorUserId,
+          ...uploader.data,
           kind: ATTACHMENT_KIND_FILE,
           name: storedFile.originalName,
           storageKey: storedFile.storageKey,
@@ -433,22 +444,29 @@ export async function createTaskAttachmentFromForm(input: {
   projectId: string;
   taskId: string;
   formData: FormData;
+  agentAccess?: AgentProjectAccessContext;
 }): Promise<ServiceResult<AttachmentResponsePayload>> {
   const actorUserId = normalizeActorUserId(input.actorUserId);
   if (!actorUserId) {
     return createError(401, "unauthorized");
   }
 
+  const scopeError = requireAttachmentAgentScopes({ agentAccess: input.agentAccess, projectId: input.projectId, requiredScopes: ["task:write"] });
+  if (scopeError) return scopeError;
+
   return withActorRlsContext(actorUserId, async (db) => {
     const access = await requireProjectRole({
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
       return createError(access.status, access.error);
     }
+    const uploader = await resolveTaskAttachmentUploader({ db, actorUserId, projectId: input.projectId, agentAccess: input.agentAccess });
+    if (!uploader.ok) return createError(uploader.status, uploader.error);
 
     const task = await db.task.findUnique({
       where: { id: input.taskId },
@@ -486,7 +504,7 @@ export async function createTaskAttachmentFromForm(input: {
         const attachment = await db.taskAttachment.create({
           data: {
             taskId: input.taskId,
-            uploadedByUserId: actorUserId,
+            ...uploader.data,
             kind: ATTACHMENT_KIND_LINK,
             name: providedName || new URL(normalizedUrl).hostname,
             url: normalizedUrl,
@@ -499,10 +517,11 @@ export async function createTaskAttachmentFromForm(input: {
             url: true,
             mimeType: true,
             sizeBytes: true,
+            ...taskAttachmentActorSelect,
           },
         });
 
-        await touchTaskActivity(db, input.taskId, actorUserId);
+        await touchTaskActivity(db, input.taskId, actorUserId, uploader.data);
         await recordProjectActivityEvent({
           db,
           projectId: input.projectId,
@@ -511,6 +530,7 @@ export async function createTaskAttachmentFromForm(input: {
           action: "updated",
           entityId: input.taskId,
           payload: {
+            actor: taskAttachmentActor(uploader.data),
             taskId: input.taskId,
             attachment: mapTaskAttachmentResponse(
               input.projectId,
@@ -563,7 +583,7 @@ export async function createTaskAttachmentFromForm(input: {
         scope: "task",
         actorUserId,
         projectId: input.projectId,
-        ownerId: input.taskId,
+        ownerId: taskUploadStorageOwnerId(input.taskId, input.agentAccess?.credentialId),
         file: fileEntry,
       });
       storageKey = storedFile.storageKey;
@@ -576,7 +596,7 @@ export async function createTaskAttachmentFromForm(input: {
         data: {
           taskId: input.taskId,
           isCommentDraft,
-          uploadedByUserId: actorUserId,
+          ...uploader.data,
           kind: ATTACHMENT_KIND_FILE,
           name: providedName || storedFile.originalName,
           storageKey: storedFile.storageKey,
@@ -591,11 +611,12 @@ export async function createTaskAttachmentFromForm(input: {
           url: true,
           mimeType: true,
           sizeBytes: true,
+          ...taskAttachmentActorSelect,
         },
       });
 
       if (!isCommentDraft) {
-        await touchTaskActivity(db, input.taskId, actorUserId);
+        await touchTaskActivity(db, input.taskId, actorUserId, uploader.data);
         await recordProjectActivityEvent({
           db,
           projectId: input.projectId,
@@ -604,6 +625,7 @@ export async function createTaskAttachmentFromForm(input: {
           action: "updated",
           entityId: input.taskId,
           payload: {
+            actor: taskAttachmentActor(uploader.data),
             taskId: input.taskId,
             attachment: mapTaskAttachmentResponse(
               input.projectId,
@@ -647,6 +669,7 @@ export async function createContextAttachmentFromForm(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "context:write",
       db,
     });
     if (!access.ok) {
@@ -834,6 +857,7 @@ export async function createTaskAttachmentUploadTarget(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -864,7 +888,7 @@ export async function createTaskAttachmentUploadTarget(input: {
         scope: "task",
         actorUserId,
         projectId: input.projectId,
-        ownerId: input.taskId,
+        ownerId: taskUploadStorageOwnerId(input.taskId, input.agentAccess?.credentialId),
         originalName: normalizedUpload.data.name,
         mimeType: normalizedUpload.data.mimeType,
         sizeBytes: normalizedUpload.data.sizeBytes,
@@ -928,11 +952,14 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
       return createError(access.status, access.error);
     }
+    const uploader = await resolveTaskAttachmentUploader({ db, actorUserId, projectId: input.projectId, agentAccess: input.agentAccess });
+    if (!uploader.ok) return createError(uploader.status, uploader.error);
 
     const task = await db.task.findUnique({
       where: { id: input.taskId },
@@ -945,13 +972,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
 
     const normalizedStorageKey = input.storageKey.trim();
     if (
-      !hasExpectedStoragePrefix(
-        normalizedStorageKey,
-        actorUserId,
-        input.projectId,
-        "task",
-        input.taskId
-      )
+      !isTaskUploadStorageKey(normalizedStorageKey, actorUserId, input.projectId, input.taskId, input.agentAccess?.credentialId)
     ) {
       return createError(400, "Invalid storage key");
     }
@@ -964,6 +985,12 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
 
     if (!normalizedUpload.ok) {
       return normalizedUpload;
+    }
+
+    // Serialize finalization and cleanup of the same object, including retries.
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${normalizedStorageKey}, 0))`;
+    if (await db.taskAttachment.findFirst({ where: { storageKey: normalizedStorageKey }, select: { id: true } })) {
+      return createError(409, "Upload already finalized");
     }
 
     try {
@@ -1008,7 +1035,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
         data: {
           taskId: input.taskId,
           isCommentDraft,
-          uploadedByUserId: actorUserId,
+          ...uploader.data,
           kind: ATTACHMENT_KIND_FILE,
           name: normalizedUpload.data.name,
           storageKey: normalizedStorageKey,
@@ -1023,11 +1050,12 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
           url: true,
           mimeType: true,
           sizeBytes: true,
+          ...taskAttachmentActorSelect,
         },
       });
 
       if (!isCommentDraft) {
-        await touchTaskActivity(db, input.taskId, actorUserId);
+        await touchTaskActivity(db, input.taskId, actorUserId, uploader.data);
         await recordProjectActivityEvent({
           db,
           projectId: input.projectId,
@@ -1036,6 +1064,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
           action: "updated",
           entityId: input.taskId,
           payload: {
+            actor: taskAttachmentActor(uploader.data),
             taskId: input.taskId,
             attachment: mapTaskAttachmentResponse(
               input.projectId,
@@ -1057,7 +1086,7 @@ export async function finalizeTaskAttachmentDirectUpload(input: {
       logServerError("finalizeTaskAttachmentDirectUpload", error);
       return createError(500, "Failed to upload attachment");
     }
-  });
+  }, { forceTransaction: true });
 }
 
 export async function createContextAttachmentUploadTarget(input: {
@@ -1088,6 +1117,7 @@ export async function createContextAttachmentUploadTarget(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "context:write",
       db,
     });
     if (!access.ok) {
@@ -1188,6 +1218,7 @@ export async function finalizeContextAttachmentDirectUpload(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "context:write",
       db,
     });
     if (!access.ok) {
@@ -1345,6 +1376,7 @@ export async function cleanupTaskDirectUploadObject(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
@@ -1362,15 +1394,15 @@ export async function cleanupTaskDirectUploadObject(input: {
 
     const normalizedStorageKey = input.storageKey.trim();
     if (
-      !hasExpectedStoragePrefix(
-        normalizedStorageKey,
-        actorUserId,
-        input.projectId,
-        "task",
-        input.taskId
-      )
+      !isTaskUploadStorageKey(normalizedStorageKey, actorUserId, input.projectId, input.taskId, input.agentAccess?.credentialId)
     ) {
       return createError(400, "Invalid storage key");
+    }
+
+    // Serialize finalization and cleanup of the same object, including retries.
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${normalizedStorageKey}, 0))`;
+    if (await db.taskAttachment.findFirst({ where: { storageKey: normalizedStorageKey }, select: { id: true } })) {
+      return createError(409, "Upload already finalized");
     }
 
     try {
@@ -1386,7 +1418,7 @@ export async function cleanupTaskDirectUploadObject(input: {
       logServerError("cleanupTaskDirectUploadObject", error);
       return createError(500, "Failed to cleanup uploaded file");
     }
-  });
+  }, { forceTransaction: true });
 }
 
 export async function cleanupContextDirectUploadObject(input: {
@@ -1415,6 +1447,7 @@ export async function cleanupContextDirectUploadObject(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "context:write",
       db,
     });
     if (!access.ok) {
@@ -1489,11 +1522,14 @@ export async function deleteTaskAttachmentForProject(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "task:write",
       db,
     });
     if (!access.ok) {
       return createError(access.status, access.error);
     }
+    const uploader = await resolveTaskAttachmentUploader({ db, actorUserId, projectId: input.projectId, agentAccess: input.agentAccess });
+    if (!uploader.ok) return createError(uploader.status, uploader.error);
 
     try {
       const attachment = await db.taskAttachment.findUnique({
@@ -1502,7 +1538,7 @@ export async function deleteTaskAttachmentForProject(input: {
           id: true,
           kind: true,
           storageKey: true,
-          uploadedByUserId: true,
+          ...taskAttachmentActorSelect,
           commentId: true,
           isCommentDraft: true,
           task: {
@@ -1522,10 +1558,9 @@ export async function deleteTaskAttachmentForProject(input: {
         return createError(404, "Attachment not found");
       }
 
-      if (
-        access.role !== "owner" &&
-        (attachment.uploadedByUserId !== actorUserId || attachment.commentId !== null)
-      ) {
+      const isUploader = isTaskAttachmentUploader(attachment, actorUserId, input.agentAccess?.credentialId);
+      const isHumanOwner = access.role === "owner" && !input.agentAccess;
+      if (!isHumanOwner && (!isUploader || attachment.commentId !== null)) {
         return createError(403, "forbidden");
       }
 
@@ -1548,7 +1583,7 @@ export async function deleteTaskAttachmentForProject(input: {
       });
 
       if (!attachment.isCommentDraft) {
-        await touchTaskActivity(db, input.taskId, actorUserId);
+        await touchTaskActivity(db, input.taskId, actorUserId, uploader.data);
         await recordProjectActivityEvent({
           db,
           projectId: input.projectId,
@@ -1556,7 +1591,7 @@ export async function deleteTaskAttachmentForProject(input: {
           domain: "task",
           action: "updated",
           entityId: input.taskId,
-          payload: { taskId: input.taskId, deletedAttachmentId: attachment.id },
+          payload: { taskId: input.taskId, deletedAttachmentId: attachment.id, actor: taskAttachmentActor(uploader.data) },
         });
       }
 
@@ -1603,6 +1638,7 @@ export async function deleteContextAttachmentForProject(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "owner",
+      capability: "context:write",
       db,
     });
     if (!access.ok) {
@@ -1700,6 +1736,7 @@ export async function getTaskAttachmentDownload(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "viewer",
+      capability: "task:read",
       db,
     });
     if (!access.ok) {
@@ -1715,7 +1752,7 @@ export async function getTaskAttachmentDownload(input: {
           name: true,
           mimeType: true,
           storageKey: true,
-          uploadedByUserId: true,
+          ...taskAttachmentActorSelect,
           task: {
             select: {
               id: true,
@@ -1729,7 +1766,7 @@ export async function getTaskAttachmentDownload(input: {
         !attachment ||
         attachment.task.id !== input.taskId ||
         attachment.task.projectId !== input.projectId ||
-        (attachment.isCommentDraft && attachment.uploadedByUserId !== actorUserId) ||
+        (attachment.isCommentDraft && !isTaskAttachmentUploader(attachment, actorUserId, input.agentAccess?.credentialId)) ||
         attachment.kind !== ATTACHMENT_KIND_FILE ||
         !attachment.storageKey ||
         !hasExpectedStoragePrefix(
@@ -1807,6 +1844,7 @@ export async function getContextAttachmentDownload(input: {
       actorUserId,
       projectId: input.projectId,
       minimumRole: "viewer",
+      capability: "context:read",
       db,
     });
     if (!access.ok) {

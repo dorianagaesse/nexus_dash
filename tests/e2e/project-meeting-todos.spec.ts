@@ -299,10 +299,9 @@ test.describe("project meeting todos", () => {
     expect(todoContentRect).not.toBeNull();
     expect(chipRect).not.toBeNull();
     if (todoContentRect && chipRect) {
-      const verticalOverlap =
-        Math.min(todoContentRect.y + todoContentRect.height, chipRect.y + chipRect.height) -
-        Math.max(todoContentRect.y, chipRect.y);
-      expect(verticalOverlap).toBeGreaterThan(0);
+      // On phones, keep the content readable above its assignment control.
+      expect(chipRect.y).toBeGreaterThanOrEqual(todoContentRect.y + todoContentRect.height);
+      expect(todoContentRect.width).toBeGreaterThan(180);
     }
     await assigneeChip.click();
     // the fixture member renders as its username tag (displayName prefers username over name)
@@ -859,10 +858,12 @@ test.describe("project meeting todos", () => {
       name: "Todos, 1 open, 1 overdue",
     });
     await expect(todosTrigger).toBeVisible();
-    await todosTrigger.click();
-
     const todosDialog = page.getByRole("dialog", { name: "Meeting todos" });
-    await expect(todosDialog).toBeVisible();
+    // The trigger can be visible before hydration attaches its click handler.
+    await expect(async () => {
+      if (!(await todosDialog.isVisible())) await todosTrigger.click();
+      await expect(todosDialog).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 15000 });
     await expect(
       todosDialog.getByText("Open the source meeting from Todos")
     ).toBeVisible();

@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+const notificationAccessMock = vi.hoisted(() => ({ canReceiveProjectNotification: vi.fn(), notificationAccessWhere: vi.fn() }));
+vi.mock("@/lib/services/notification-access", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/services/notification-access")>(),
+  ...notificationAccessMock,
+}));
+
 const prismaMock = vi.hoisted(() => ({
   $queryRaw: vi.fn(),
+  user: { findUnique: vi.fn() },
   notification: {
     count: vi.fn(),
     createMany: vi.fn(),
@@ -29,6 +36,8 @@ vi.mock("@/lib/services/project-notification-email-service", () => ({
 import {
   countUnreadNotificationsForUser,
   createTaskDueDateReminderNotification,
+  createTaskAssignmentNotification,
+  createTaskCommentMentionNotification,
   getLatestUnreadNotificationForUser,
   getNotificationRealtimeSnapshotForUser,
   listNotificationsForUser,
@@ -40,12 +49,23 @@ import {
 describe("notification-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    notificationAccessMock.canReceiveProjectNotification.mockResolvedValue(true);
+    notificationAccessMock.notificationAccessWhere.mockResolvedValue(undefined);
     prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
     prismaMock.notification.findFirst.mockResolvedValue(null);
     prismaMock.notification.findMany.mockResolvedValue([]);
     prismaMock.notification.count.mockResolvedValue(0);
     prismaMock.$queryRaw.mockResolvedValue([]);
+    prismaMock.user.findUnique.mockResolvedValue(null);
+  });
+
+  test.each([createTaskAssignmentNotification, createTaskCommentMentionNotification, createTaskDueDateReminderNotification])("does not persist task data for a recipient without task access", async (create) => {
+    notificationAccessMock.canReceiveProjectNotification.mockResolvedValue(false);
+    await create({ db: prismaMock as never, recipientUserId: "member", notification: { projectId: "project-1" } as never });
+    expect(prismaMock.notification.createMany).not.toHaveBeenCalled();
+    expect(prismaMock.notification.updateMany).not.toHaveBeenCalled();
+    expect(enqueueEmailMock).not.toHaveBeenCalled();
   });
 
   test("syncs pending project invitations before listing active notifications", async () => {

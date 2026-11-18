@@ -32,8 +32,8 @@ GET /api/projects/{projectId}/tasks/reference?reference=ND-536&namespace=legacy
 ```
 
 Returns `{ id, projectId, reference, legacyReference, url }`, including archived
-tasks. Unknown/deleted numbers return 404. Access is checked in the service and
-through tenant RLS. `namespace` is `current` by default; no automatic fallback
+tasks. Unknown/deleted numbers return 404. The service and tenant RLS both
+enforce project task-read access. `namespace` is `current` by default; no automatic fallback
 exists because an old global number can identify a different current task.
 Follow the returned internal-ID URL. Hosted agent docs/OpenAPI include this
 endpoint. Legacy lookup is retained indefinitely unless a separate retirement

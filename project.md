@@ -14,10 +14,14 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
 - DB-backed session authentication with protected app routes (`/projects/**`, `/account/**`).
 - Multi-project workspace with project CRUD.
 - Project sharing v2 with owner-managed invites, role-based membership, email-bound invitation flows, and resumable invite acceptance.
+- Owner-managed module restrictions for invitations and memberships, with shared human/agent capability names, service checks, and restrictive PostgreSQL policies.
 - Project dashboard with core panels:
+  - Project Todos combines shared meeting actions and creator-private personal
+    todos, with one completion queue and responsibility filters.
   - Context cards (create/edit/delete + attachments)
   - Meeting notes with searchable project-scoped history, creator-controlled
-    private/team visibility, task-style labels, label filters, structured
+    private/team visibility, section-specific screenshot attachments with paste,
+    upload, and preview, task-style labels, label filters, structured
     participants, preparation inputs, meeting outputs, todo tracking, overdue
     highlights, state, and archived done notes
   - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
@@ -44,7 +48,8 @@ NexusDash is a personal/team execution workspace that keeps project planning, de
   - chronological author-attributed comment history in the task detail modal
   - lazy-loaded thread reads with lightweight board-level comment counts
   - agent-authored comments keep project credential attribution by displaying
-    the credential label with an `(agent)` suffix and a shared agent avatar
+    the current name and descriptive labels from a retained public author
+    identity, plus a shared agent avatar; updates apply to old comments too
 - Project-scoped agent access:
   - owner-managed API credentials in project settings, with an independently
     controlled move-to-Done permission on each credential (off by default)
@@ -107,7 +112,7 @@ Current schema includes:
   project-page highlighting.
 - Collaboration on tasks: `TaskComment` with optional agent credential
   attribution metadata for agent-authored comments
-- Attachments: `TaskAttachment`, `ResourceAttachment` with `uploadedByUserId`
+- Attachments: `TaskAttachment`, `ResourceAttachment`, and `MeetingNoteScreenshot` with `uploadedByUserId`
 - Calendar: `GoogleCalendarCredential` (one row per user)
 - Notification email orchestration: `ProjectNotificationEmail` and
   `ProjectNotificationEmailItem`

@@ -1,4 +1,5 @@
 "use client";
+import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
 
 import { useEffect, useId, useState } from "react";
 import { ArrowUpRight, Bot, Search, SlidersHorizontal } from "lucide-react";
@@ -112,7 +113,9 @@ export function ProjectAgentCredentialList({
   const hasFilters = normalizedQuery.length > 0 || filterCount > 0;
   const matches = credentials.filter(
     (credential) =>
-      credential.label.toLocaleLowerCase().includes(normalizedQuery) &&
+      [credential.label, ...(credential.descriptiveLabels ?? [])].some((value) =>
+        value.toLocaleLowerCase().includes(normalizedQuery)
+      ) &&
       (status === "all" || credential.status === status) &&
       (capability === "all" ||
         (capability === "complete-tasks"
@@ -144,7 +147,7 @@ export function ProjectAgentCredentialList({
             value={query}
             aria-describedby={`${filterId}-count`}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Find an agent by name…"
+            placeholder="Search names or labels…"
             className="h-10 w-full min-w-0 rounded-lg border border-input bg-background pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
@@ -199,7 +202,7 @@ export function ProjectAgentCredentialList({
           >
             <option value="all">All capabilities</option>
             <option value="complete-tasks">Complete tasks</option>
-            {AGENT_SCOPE_DEFINITIONS.map(({ scope, label }) => (
+            {AGENT_SCOPE_DEFINITIONS.filter(({ scope }) => !scope.startsWith("schedule:")).map(({ scope, label }) => (
               <option key={scope} value={scope}>
                 {label}
               </option>
@@ -269,6 +272,7 @@ export function ProjectAgentCredentialList({
                     <h4 className="[overflow-wrap:anywhere] text-sm font-semibold leading-snug">
                       {credential.label}
                     </h4>
+                    <AgentCredentialDescriptiveLabels labels={credential.descriptiveLabels} />
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <Badge
                         variant="outline"
@@ -289,13 +293,7 @@ export function ProjectAgentCredentialList({
                     {describeAgentAccess(credential.scopes)}
                   </p>
                   <p className="break-words text-xs leading-relaxed text-muted-foreground">
-                    {describeAgentResources(credential.scopes)
-                      .map((resource) =>
-                        describeAgentAccess(credential.scopes) === "Custom access"
-                          ? `${resource.name}: ${resource.actions}`
-                          : resource.name
-                      )
-                      .join(" · ")}
+                    {describeAgentResources(credential.scopes).map((resource) => resource.name).join(", ")}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {credential.expiresAt

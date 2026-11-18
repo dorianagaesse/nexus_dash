@@ -51,11 +51,7 @@ export function MeetingTodoActorIdentity({
       )}
       <span className={cn("min-w-0", compact && "truncate")}>
         {prefix} <span className="font-medium text-foreground">{actor.displayName}</span>
-        {actor.kind === "agent"
-          ? " (agent)"
-          : actor.kind === "participant"
-            ? " (external)"
-            : ""}
+        {actor.kind === "participant" ? " (external)" : ""}
       </span>
       {needsReassignment ? (
         <span className="inline-flex items-center gap-1 font-medium">

@@ -88,6 +88,7 @@ export function ProjectLiveRefresh({
   const pendingVersionRef = useRef<string | null>(null);
   const locallyDeferredActivitiesRef = useRef(new Map<string, ProjectActivityResponse>());
   const localMutationCountRef = useRef(0);
+  const localAcknowledgementPendingRef = useRef(false);
   const isRefreshingRef = useRef(false);
 
   useEffect(() => {
@@ -181,7 +182,12 @@ export function ProjectLiveRefresh({
       (left, right) => parseVersion(left.version) - parseVersion(right.version)
     );
     locallyDeferredActivitiesRef.current.clear();
-    let reconcileAcknowledgedActivity = false;
+    // A local version can cover remote writes whose Broadcast/poll delivery
+    // has not arrived yet. Open surfaces must catch up even with an empty
+    // deferred queue, before those older events are suppressed as echoes.
+    let reconcileAcknowledgedActivity =
+      localAcknowledgementPendingRef.current && hasRefreshLock();
+    localAcknowledgementPendingRef.current = false;
     for (const activity of activities) {
       if (isNewerVersion(activity.version, knownVersionRef.current)) {
         handleActivitySnapshot(activity);
@@ -212,6 +218,9 @@ export function ProjectLiveRefresh({
       }
 
       acknowledgeVersion(detail.version);
+      if (localMutationCountRef.current > 0) {
+        localAcknowledgementPendingRef.current = true;
+      }
     }
 
     window.addEventListener(

@@ -220,7 +220,7 @@ const MENTION_ITEMS = [
       taskId: "task-1",
       taskTitle: "Release task",
     },
-    summary: "owner mentioned Release bot (agent) in a comment on \"Release task\"",
+    summary: "owner mentioned Release bot in a comment on \"Release task\"",
     actor: {
       kind: "human" as const,
       id: "user-1",
@@ -240,11 +240,11 @@ const MENTION_ITEMS = [
       taskId: "task-2",
       taskTitle: "Archived follow-up",
     },
-    summary: "reviewer mentioned Release bot (agent) in a comment",
+    summary: "reviewer mentioned Release bot in a comment",
     actor: {
       kind: "agent" as const,
       id: "credential-2",
-      displayName: "Release bot (agent)",
+      displayName: "Release bot",
       usernameTag: null,
     },
     currentState: { status: "Done", archivedAt: new Date("2026-09-11T00:00:00.000Z") },
@@ -258,7 +258,7 @@ const ASSIGNMENT_ITEMS = [
     projectId: "p1",
     occurredAt: new Date("2026-09-12T11:30:00.000Z"),
     artifact: { type: "task" as const, id: "task-2", title: "Draft launch notes" },
-    summary: "owner assigned Release bot (agent) to task \"Draft launch notes\"",
+    summary: "owner assigned Release bot to task \"Draft launch notes\"",
     actor: {
       kind: "human" as const,
       id: "user-1",
@@ -283,7 +283,7 @@ const ASSIGNMENT_ITEMS = [
       meetingNoteId: "note-1",
       meetingNoteTitle: "Weekly sync",
     },
-    summary: "owner assigned Release bot (agent) to a meeting to-do",
+    summary: "owner assigned Release bot to a meeting to-do",
     actor: null,
     currentState: {
       assignmentState: "completed" as const,
@@ -346,7 +346,7 @@ describe("agent attention runtime/schema contract", () => {
     expect(items[1].actor).toEqual({
       kind: "agent",
       id: "credential-2",
-      displayName: "Release bot (agent)",
+      displayName: "Release bot",
       usernameTag: null,
     });
     expect(body.filters).toEqual({

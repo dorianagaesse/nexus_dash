@@ -1,3 +1,4 @@
+import { taskAttachmentActorSelect } from "@/lib/task-attachment-actor";
 import type { Prisma } from "@prisma/client";
 import { taskPersonSummarySelect } from "@/lib/task-person";
 
@@ -55,6 +56,18 @@ export const projectKanbanTaskInclude = {
   },
 } satisfies Prisma.TaskInclude;
 
+// The legacy dashboard predates person/epic/count hydration. Preserve its narrower
+// response while sharing publication and relation projections with board reads.
+export const legacyDashboardTasks = {
+  orderBy: [{ status: "asc" }, { position: "asc" }, { createdAt: "asc" }],
+  include: {
+    attachments: projectKanbanTaskInclude.attachments,
+    blockedFollowUps: projectKanbanTaskInclude.blockedFollowUps,
+    outgoingRelations: projectKanbanTaskInclude.outgoingRelations,
+    incomingRelations: projectKanbanTaskInclude.incomingRelations,
+  },
+} satisfies Prisma.TaskFindManyArgs;
+
 export type ProjectKanbanTaskRecord = Prisma.TaskGetPayload<{
   include: typeof projectKanbanTaskInclude;
 }>;
@@ -94,6 +107,7 @@ export function taskMutationSelect(hasEpic = true) {
         url: true,
         mimeType: true,
         sizeBytes: true,
+        ...taskAttachmentActorSelect,
       },
     },
     epic: hasEpic ? { select: { id: true, name: true } } : false,

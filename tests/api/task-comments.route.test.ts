@@ -153,6 +153,7 @@ describe("task comments route", () => {
             kind: "user",
             agentCredentialId: null,
             agentCredentialLabel: null,
+            agentCredentialDescriptiveLabels: [],
             owner: null,
           },
         },
@@ -168,6 +169,7 @@ describe("task comments route", () => {
             kind: "user",
             agentCredentialId: null,
             agentCredentialLabel: null,
+            agentCredentialDescriptiveLabels: [],
             owner: null,
           },
         },
@@ -193,6 +195,7 @@ describe("task comments route", () => {
         createdAt: new Date("2026-04-19T09:30:00.000Z"),
         authorAgentCredentialId: null,
         authorAgentCredentialLabel: "Build bot",
+        authorAgentCredentialDescriptiveLabels: ["GPT-6", "Codex"],
         author: {
           id: "owner-1",
           name: "Credential Owner",
@@ -220,12 +223,13 @@ describe("task comments route", () => {
           createdAt: "2026-04-19T09:30:00.000Z",
           author: {
             id: "owner-1",
-            displayName: "Build bot (agent)",
+            displayName: "Build bot",
             usernameTag: null,
             avatarSeed: "nexusdash-agent-comment-avatar",
             kind: "agent",
             agentCredentialId: null,
             agentCredentialLabel: "Build bot",
+            agentCredentialDescriptiveLabels: ["GPT-6", "Codex"],
             owner: {
               id: "owner-1",
               displayName: "owner",
@@ -236,6 +240,24 @@ describe("task comments route", () => {
         },
       ],
     });
+  });
+
+  test.each([{ descriptiveLabels: ["Current", "Codex"] }, { descriptiveLabels: [] }])("GET resolves current author labels $descriptiveLabels even after key deletion", async ({ descriptiveLabels }) => {
+    prismaMock.task.findUnique.mockResolvedValueOnce({ id: "task-1", projectId: "project-1" });
+    prismaMock.taskComment.findMany.mockResolvedValueOnce([{
+      id: "comment-agent", content: "Old comment", createdAt: new Date("2026-04-19T09:30:00.000Z"),
+      authorAgentCredentialId: null, authorAgentCredentialLabel: "Old name",
+      authorAgentCredentialDescriptiveLabels: ["Old label"],
+      authorAgentIdentity: { id: "agent-1", label: "Current name", descriptiveLabels },
+      author: { id: "owner-1", name: "Owner", email: "owner@example.com", username: null, usernameDiscriminator: null, avatarSeed: null },
+    }]);
+    const response = await GET(new Request("http://localhost/api/projects/project-1/tasks/task-1/comments") as never,
+      { params: Promise.resolve({ projectId: "project-1", taskId: "task-1" }) });
+    expect(response.status).toBe(200);
+    const { comments } = await response.json();
+    expect(comments[0].author).toMatchObject({ id: "agent-1", kind: "agent", displayName: "Current name",
+      agentCredentialId: null, agentCredentialDescriptiveLabels: descriptiveLabels });
+    expect(JSON.stringify(comments)).not.toContain("Old label");
   });
 
   test("GET returns 404 when task is outside the project", async () => {
@@ -326,6 +348,7 @@ describe("task comments route", () => {
           kind: "user",
           agentCredentialId: null,
           agentCredentialLabel: null,
+          agentCredentialDescriptiveLabels: [],
           owner: null,
         },
       },
@@ -336,6 +359,7 @@ describe("task comments route", () => {
         authorUserId: "test-user",
         authorAgentCredentialId: null,
         authorAgentCredentialLabel: null,
+        authorAgentCredentialDescriptiveLabels: [],
         content: "<p>Ready for review</p>",
         updatedAt: null,
       },
@@ -512,7 +536,7 @@ describe("task comments route", () => {
       comment: {
         author: {
           id: "credential-1",
-          displayName: "Build bot (agent)",
+          displayName: "Build bot",
           usernameTag: null,
           avatarSeed: "nexusdash-agent-comment-avatar",
           kind: "agent",
@@ -540,14 +564,14 @@ describe("task comments route", () => {
         expect.objectContaining({
           recipientUserId: "owner-1",
           body:
-            "Build bot (agent) mentioned you in a comment on Agent mention task.",
+            "Build bot mentioned you in a comment on Agent mention task.",
           sourceType: "task_comment_mention",
           sourceId: "comment-agent-mention",
           metadata: expect.objectContaining({
             authorDisplayName: "Owner",
             actorKind: "agent",
             actorUserId: "owner-1",
-            actorDisplayName: "Build bot (agent)",
+            actorDisplayName: "Build bot",
             actorCredentialId: "credential-1",
             actorCredentialLabel: "Build bot",
           }),
@@ -1454,6 +1478,9 @@ describe("task comments route", () => {
         id: { in: ["attachment-1"] },
         taskId: "task-1",
         uploadedByUserId: "test-user",
+        uploadedByKind: "human",
+        uploadedByCredentialId: null,
+        isCommentDraft: true,
         commentId: null,
       },
       data: { commentId: "comment-image", isCommentDraft: false },
@@ -1530,6 +1557,9 @@ describe("task comments route", () => {
         id: { in: ["attachment-2"] },
         taskId: "task-1",
         uploadedByUserId: "test-user",
+        uploadedByKind: "human",
+        uploadedByCredentialId: null,
+        isCommentDraft: true,
         commentId: null,
       },
       data: { commentId: "comment-file", isCommentDraft: false },

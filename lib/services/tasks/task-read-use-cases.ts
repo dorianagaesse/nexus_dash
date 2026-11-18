@@ -1,5 +1,6 @@
 import {
   requireAgentProjectScopes,
+  requireProjectRole,
   type AgentProjectAccessContext,
 } from "@/lib/services/project-access-service";
 import { withActorRlsContext } from "@/lib/services/rls-context";
@@ -37,9 +38,14 @@ export async function listProjectKanbanTasks(
   }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
-    await archiveStaleDoneTasks(db, projectId, normalizedActorUserId);
+    const access = await requireProjectRole({ actorUserId, projectId, minimumRole: "viewer", capability: "task:read", db });
+    if (!access.ok) return [];
 
-    return listProjectKanbanTaskRecords(db, projectId, normalizedActorUserId, filters);
+    if (access.capabilities.includes("task:write") && (!agentAccess || agentAccess.scopes.includes("task:write"))) await archiveStaleDoneTasks(db, projectId, normalizedActorUserId);
+
+    const tasks = await listProjectKanbanTaskRecords(db, projectId, normalizedActorUserId, filters);
+    const canReadEpics = access.capabilities.includes("epic:read") && (!agentAccess || agentAccess.scopes.includes("epic:read"));
+    return canReadEpics ? tasks : tasks.map((task) => ({ ...task, epic: null }));
   });
 }
 
@@ -64,12 +70,16 @@ export async function getProjectKanbanTaskById(
   }
 
   return withActorRlsContext(normalizedActorUserId, async (db) => {
+    const access = await requireProjectRole({ actorUserId, projectId, minimumRole: "viewer", capability: "task:read", db });
+    if (!access.ok) return createError(access.status, access.error);
+
     const task = await getProjectKanbanTaskRecord(db, projectId, taskId, normalizedActorUserId);
 
     if (!task) {
       return createError(404, "Task not found");
     }
 
-    return { ok: true, data: { task } };
+    const canReadEpics = access.capabilities.includes("epic:read") && (!agentAccess || agentAccess.scopes.includes("epic:read"));
+    return { ok: true, data: { task: canReadEpics ? task : { ...task, epic: null } } };
   });
 }

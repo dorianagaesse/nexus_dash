@@ -32,9 +32,7 @@ export function mapTaskAuthorRecord(input: {
     ? {
         id: input.agentCredentialId ?? owner.id,
         kind: "agent",
-        displayName: agentCredentialLabel
-          ? `${agentCredentialLabel} (agent)`
-          : "Agent",
+        displayName: agentCredentialLabel || "Agent",
         usernameTag: null,
         avatarSeed: AGENT_TASK_AUTHOR_AVATAR_SEED,
         agentCredentialId: input.agentCredentialId,

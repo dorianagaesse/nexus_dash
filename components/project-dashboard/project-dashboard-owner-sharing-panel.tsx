@@ -1,5 +1,8 @@
 "use client";
 
+import { ProjectCapabilityFields } from "./project-capability-fields";
+import type { ProjectCapability } from "@/lib/project-capabilities";
+
 import { useEffect, useState } from "react";
 import { Check, Copy, Mail, Search, UserPlus } from "lucide-react";
 
@@ -20,6 +23,8 @@ interface ProjectDashboardOwnerSharingPanelProps {
   inviteQuery: string;
   inviteEmailCandidate: string | null;
   inviteRole: ProjectCollaboratorRole;
+  inviteCapabilities?: ProjectCapability[] | null;
+  onInviteCapabilitiesChange?: (value: ProjectCapability[]) => void;
   inviteResults: CollaboratorIdentitySummary[];
   generatedInvitationLink: GeneratedProjectInvitationLink | null;
   isSearchingUsers: boolean;
@@ -40,6 +45,8 @@ export function ProjectDashboardOwnerSharingPanel({
   inviteQuery,
   inviteEmailCandidate,
   inviteRole,
+  inviteCapabilities,
+  onInviteCapabilitiesChange,
   inviteResults,
   generatedInvitationLink,
   isSearchingUsers,
@@ -148,6 +155,8 @@ export function ProjectDashboardOwnerSharingPanel({
           <option value="viewer">Viewer</option>
         </select>
       </div>
+
+      {onInviteCapabilitiesChange && <ProjectCapabilityFields role={inviteRole} value={inviteCapabilities} onChange={onInviteCapabilitiesChange} disabled={Boolean(isInvitingUserId)} />}
 
       <div className="space-y-2">
         {isShowingGeneratedInvitationLink && generatedInvitationLink ? (

@@ -222,6 +222,7 @@ export async function createContextCardForProject(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "context:write",
       db,
     });
     if (!access.ok) {
@@ -386,6 +387,7 @@ export async function updateContextCardForProject(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "editor",
+      capability: "context:write",
       db,
     });
     if (!access.ok) {
@@ -522,7 +524,8 @@ export async function getContextCardForProject(input: {
   const scope = requireAgentProjectScopes({ agentAccess: input.agentAccess, projectId: input.projectId, requiredScopes: ["context:read"] });
   if (!scope.ok) return createError(scope.status, scope.error);
   return withActorRlsContext(input.actorUserId, async (db) => {
-    const access = await requireProjectRole({ actorUserId: input.actorUserId, projectId: input.projectId, minimumRole: "viewer", db });
+    const access = await requireProjectRole({ actorUserId: input.actorUserId, projectId: input.projectId, minimumRole: "viewer",
+      capability: "context:read", db });
     if (!access.ok) return createError(access.status, access.error);
     const card = await readContextCardById(db, input.projectId, input.cardId);
     return card ? { ok: true, data: card } : createError(404, "context-card-not-found");
@@ -557,6 +560,7 @@ export async function deleteContextCardForProject(
       actorUserId,
       projectId: input.projectId,
       minimumRole: "owner",
+      capability: "context:delete",
       db,
     });
     if (!access.ok) {

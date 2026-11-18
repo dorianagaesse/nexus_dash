@@ -1,5 +1,261 @@
 # Development Journal
 
+## 2026-11-18 - ND-536: Refresh PR #673 against main
+
+- Integrated main at `63c82461`, preserving the project task counter alongside
+  the new Prisma relations, RLS inventory entries and isolation tests. The
+  ND-536 migration SQL is unchanged from the successful local rehearsal.
+- Require the same project task-read capability as task search for both lookup
+  namespaces, even when the database connection does not enforce actor RLS.
+- Shared Preview has feature-branch migration history and an older attachment
+  policy. Its daily data reset leaves those schema differences in place. Keep
+  staging deployment on hold pending a validated candidate and an agreed test
+  plan for the shared database.
+
+# 2026-11-12 - PR #688: reconcile upload and thread merges
+
+- Merged main at `917a642`, preserving both journal histories and both adjacent
+  onboarding contract tests. No runtime code required manual resolution.
+- All 18 onboarding contract tests and `git diff --check` passed.
+- Broader validation results and local build limitations are reported at handoff.
+
+# 2026-11-12 - PR #687: reconcile thread synchronization merge
+
+- Merged main at `00755cf` after PR #696 landed. Preserved both journal
+  histories in the only conflict; application files merged automatically.
+- `git diff --check` and documentation reference review passed.
+
+## 2026-11-12 - ND-837: synchronize PR #696 with main
+
+- Merged main at `ec9f4afb1fad043130f599cd04533eea42d50339` into
+  `fix/nd-837`. Git combined the changes without manual conflict resolution;
+  retained the thread reconciliation fixes and current epic/roadmap updates.
+- Lint, RLS inventory, production build, 2,526 unit/API tests (3 skipped),
+  and coverage thresholds pass on Node 24.22.1. Coverage remains 95.56% lines
+  and 89.12% branches. The saved-position test failed under default worker
+  load, then passed in isolation and in both full two-worker runs.
+- All seven Chromium checks pass: the two-human-session plus agent thread
+  regression and the project/task/attachment/context/meeting/roadmap/calendar
+  smoke suite. Existing Preview verification remains pending as previously
+  recorded; this merge does not claim deployed runtime validation.
+
+# 2026-11-12 - PR #687: refresh merge compatibility
+
+- Merged main at `ec9f4af` into the upload branch. Resolved the journal-only
+  conflict by preserving both histories; application files merged automatically.
+- Verified the resolved merge with `git diff --check` and reviewed documentation
+  references. No application code was changed during conflict resolution.
+
+# 2026-11-12 - ND-832: epic color cues
+
+- Restored the Kanban epic colors as compact flags beside each epic name.
+  The same flag appears in the details dialog, with a tinted background
+  and a foreground adjusted for each theme.
+
+# 2026-11-11 - ND-832: bounded epic rows and details
+
+- Replaced the card grid and browse toggle with immediate, searchable rows.
+  Matched the Kanban height cap and retained row-level edit, archive and delete.
+- Moved description, attribution and every linked task into a details dialog.
+  Tasks follow Backlog, Blocked, In Progress and Done order. Task links hand
+  focus to the board modal and preserve modified-click navigation.
+- Moved editing into a dialog so list filtering cannot hide an active draft
+  or leave its project refresh lock inaccessible.
+- Merged current main and retained both journal histories while resolving
+  the journal conflict, including conflict markers already present on main.
+- Stabilized the newly merged roadmap touch-insertion test by completing
+  a client interaction before measuring its hydrated drag handle.
+
+# 2026-11-11 - ND-832: Search-first Epics section
+
+- Moved epic creation into the shared responsive dialog. Successful saves update
+  the local list immediately and select Active when creation starts from Archived.
+- Made name and description search the default within each view. Show all
+  reveals the selected list, and clearing the search restores the compact view.
+- Ran 12 focused Chromium scenarios covering the desktop and mobile creation
+  flows, search, archive and restore, attribution, and linked tasks.
+# 2026-11-11 - ND-831: mobile review fixes
+
+- Made mobile insertion gaps visible during drag and aligned their touch
+  selection with the finger position. Kept desktop and keyboard selection
+  on the existing drag library path.
+- Wrapped long names in confirmation descriptions and extended the 320px
+  browser checks to verify the full event name and a drop inside the gap.
+- Merged current main and preserved both journal histories. Validation
+  evidence is recorded on PR #695.
+
+# 2026-11-11 - ND-831: mobile roadmap layout
+
+- Reproduced clipped milestone titles and event actions at 320px. Constrained
+  the mobile grid to the panel width and let long titles wrap in milestone
+  headers, event cards, and event details.
+- Enlarged primary touch targets and added Playwright coverage for grouped
+  milestones at 320px, 375px, and 430px and horizontal scrolling on desktop.
+- Kept the original drag handle mounted on narrow screens and measured the
+  drop lanes before lift. Verified touch scrolling and moving an event between
+  milestones in Chromium.
+
+# 2026-11-11 - ND-673: reconcile local uploads with main
+
+- Merged current main into PR #687, retaining bearer multipart uploads, exact
+  credential attribution, private drafts and main's task capability checks.
+- Preserved reaction and attachment schema relations, PostgreSQL lifecycle
+  checks, endpoint tests and both documentation histories.
+- Combined validation evidence is recorded on the PR before handoff.
+
+# 2026-11-08 - ND-673: agent multipart task uploads
+
+- Enabled bearer principals on the existing task attachment form route and
+  propagated credential identity through scope checks, storage paths and actor
+  attribution. Reused the existing MIME/4 MiB limits and draft protections.
+- Published multipart schemas and the JSON-create then multipart-upload path for
+  local storage, retaining R2 direct upload and the multipart-at-create restriction.
+- Added local/API checks for regular and comment files, invalid tokens, missing
+  scopes, MIME/size rejection, attribution, privacy, binding and download/removal.
+- Lint, RLS inventory/matrix, 2,408 unit/API tests (3 skipped), coverage thresholds
+  and build passed. Eight local browser scenarios passed initially; the meeting
+  smoke bounding-box assertion missed its tolerance by 2.5px and passed an
+  unchanged isolated rerun. All three hosted upload/draft lifecycle checks passed.
+- Preview workflow 42491849366 verified `164ae18b` at
+  `https://nexus-dash-2527p5sp8-dorian-agaesses-projects.vercel.app`, covering the
+  multipart path and existing R2 direct upload, actor history and draft ownership.
+
+# 2026-11-11 - ND-674: reconcile actor and mention contracts with main
+
+- Merged current main into PR #688, retaining actor discovery and mention
+  contracts alongside reaction documentation, schemas and contract tests.
+- Resolved adjacent README, journal and onboarding-test additions by preserving
+  both branches. Validation results are recorded on the PR.
+
+# 2026-11-10 - ND-674: mention-preservation review follow-up
+
+- Qualified the guide, OpenAPI descriptions, curl example and README: stored
+  mention labels must be checked against current actor discovery before PATCH.
+  Renamed agents need current visible tokens; revoked/expired selections require
+  explicit reselection or removal after `task-comment-agent-mention-invalid`.
+- Explained that silently filtering IDs removes omitted mentions on a successful
+  PATCH, and absence from a bounded search response does not prove inactivity.
+- Documentation-only validation: `git diff --check`, local link checks and
+  reference review against actor discovery and mention-resolution services.
+
+# 2026-11-08 - ND-674: actor discovery and mention contracts
+
+- Published actor search with its three alternative scopes, normalization,
+  12-result bound and active-only response shape. The guide labels OR scopes.
+- Completed human mention selections and agent mention response schemas, added
+  discovery-based rich-text examples, and documented replacement on PATCH.
+- Removed the incorrect raw-HTML maxLength from comment edits. Documented the
+  normalized plain-text projection limit and required human discriminator.
+- Added runtime/contract tests for alternative scopes, response fields, bounds
+  and a browser/API example for mention preservation and rich-text limits.
+- Lint, RLS inventory, 2,404 unit/API tests (3 skipped), coverage thresholds and
+  build passed. The local and hosted discovery/mention/browser contract tests
+  passed. Workflow 42492696187 verified `ae82a86bcb16c79dfd33bbab426c2c33ac0f88d6`
+  at `https://nexus-dash-k7hq700v1-dorian-agaesses-projects.vercel.app`.
+
+# 2026-11-11 - ND-672: reconcile reaction parent validation with main
+
+- Merged main at `7c7d5978ddaaa62ea8b72cb516cf80d45cf7cbf1` into PR #686.
+  Preserved nested parent validation alongside current task capabilities,
+  independent reaction actors, attachment attribution and draft ownership.
+- Retained both documentation histories, attachment schema relations and
+  PostgreSQL lifecycle checks. Validation evidence is recorded on the PR.
+- Node 24.22.1 validation passed: lint, RLS inventory, 2,522 unit/API tests
+  (3 skipped), coverage thresholds, PostgreSQL isolation matrix and production
+  build. Both local Playwright reaction scenarios passed for actor isolation
+  and nested parent rejection with human and agent callers.
+
+# 2026-11-08 - ND-672: nested reaction parent validation
+
+- Forwarded task and comment IDs through reaction routes and validated the entire
+  project/task/comment/reaction chain before reading or mutating reactions.
+- Added route/service mismatch tests and a real API regression with two threads
+  and human/agent requests, checking that rejected paths leave both unchanged.
+- Lint, RLS inventory/matrix, 2,405 unit/API tests (3 skipped), coverage thresholds
+  and production build passed. Both targeted local reaction browser/API scenarios
+  passed, including credential lifecycle and mismatched parent non-mutation.
+
+# 2026-11-11 - ND-671: main reconciliation and reaction usage guidance
+
+- Merged current main into PR #685, preserving independent reaction actors,
+  attachment attribution and private draft ownership. Kept both PostgreSQL
+  lifecycle checks and applied current task capability checks to reactions.
+- Added reaction-first acknowledgment guidance to AGENTS.md, the workflow
+  runbook and the hosted agent guide, while retaining required work evidence.
+- Combined validation and active-branch preview evidence are recorded on the PR.
+
+# 2026-11-08 - ND-671: independent reaction actors
+
+- Reaction rows now store human/agent kind, nullable credential and a durable
+  snapshot. Human storage ownership stays separate from reaction identity.
+- Extracted the reaction service, shared actor-aware projection, and serialized
+  atomic toggle/replacement. Agent responses no longer project the human owner
+  as their reactor; tooltips identify agents. Published the three reaction routes.
+- Added a three-actor lifecycle browser test and PostgreSQL coverage for agent
+  reaction reads, write denial and credential deletion history.
+- Lint, RLS inventory/matrix, 2,402 unit/API tests (3 skipped), coverage thresholds,
+  build and seven local browser checks passed. Hosted lifecycle and tooltip
+  checks passed at `https://nexus-dash-mrrtbkqj3-dorian-agaesses-projects.vercel.app`.
+  Workflow 42490841055 verified `230ea34d69a4eb911ed07f87dff49c7dfd53dc86`.
+
+# 2026-11-10 - ND-670: reconciliation after ND-669 merged
+
+- Merged current main at `01dc9763ba8f6813455bbaf2132cdfd82043e015` into
+  PR #684 after GitHub retargeted it to main. Preserved the original ND-670
+  application delta alongside main's capability and current-author changes.
+- Resolved duplicated parent additions in uploader helpers/imports and tests;
+  retained exact-actor draft checks, credential-specific keys, atomic binding
+  and both README/journal histories. Whitespace checks passed with main's
+  existing CRLF handling. Combined CI and Preview evidence are recorded on the PR.
+
+# 2026-11-08 - ND-670: draft attachment ownership
+
+- Bound unpublished task files to the exact human or credential uploader for
+  download, comment publication and removal. Human project owners retain an
+  explicit removal-only moderation exception.
+- Agent direct uploads now use credential-specific object paths. Serialized
+  finalization/cleanup rejects already-finalized objects. Human legacy paths
+  remain valid only for humans. Published files retain project-reader access.
+- Comment binding now always uses a transaction and propagates a failed atomic
+  bind through rollback before returning an error, avoiding orphan comments.
+- Added a three-actor browser/API regression with cross-actor denials, concurrent
+  publication, posted reader access and revoked/expired credential rejection.
+- Lint, RLS inventory/matrix, 2,405 unit/API tests (3 skipped), coverage thresholds
+  and production build passed. Eight local browser scenarios passed after fixing
+  the new fixture creator fields. Preview workflow 42490026682 verified runtime
+  `1f07733c2c80fa1eee6e377298da214dc542fc7d`; the hosted three-actor regression
+  passed at `https://nexus-dash-bqppck26v-dorian-agaesses-projects.vercel.app`.
+
+# 2026-11-10 - ND-669: current-main reconciliation
+
+- Merged current main at `2e1245779416338c3515eab82b29a1b65a103874` into
+  PR #683 without rewriting the stacked branch history. The only conflict was
+  the README's adjacent additions; retained task attachment attribution and the
+  project-capabilities runbook link. Application code merged automatically.
+- Verified the ND-669 application delta against main is preserved. Whitespace
+  checks account for main's existing CRLF files; combined validation and preview
+  evidence are recorded on the PR before handoff.
+
+# 2026-11-08 - ND-669: task attachment attribution
+
+- Added uploader kind, credential relation and durable display snapshot to task
+  attachments, keeping the user as the storage/RLS owner. Existing rows remain
+  human-attributed. Reused the project actor resolver and retained nullable
+  credential references so deletion preserves history.
+- Task create/link append, form/direct uploads, comment attachment projections
+  and file/link presentation carry the uploader. Attachment mutation activity
+  includes the actor; human writes clear stale agent editor metadata.
+- Added service, projection, real PostgreSQL and browser/API lifecycle coverage.
+  Validation uses disposable PostgreSQL on port 55669 with the Realtime stub
+  installed before migrations. Lint, RLS inventory, production build and the real
+  PostgreSQL matrix passed; eight local Playwright checks passed.
+- Preview workflow 42488988388 checked out commit
+  `21f418e8a29059abc306d106c64117baebc6bff2`; the hosted task upload lifecycle
+  test passed at `https://nexus-dash-qfb71g6fi-dorian-agaesses-projects.vercel.app`.
+  It verified R2 upload/download, distinct credential labels, deletion history,
+  UI display and human deletion. All 2,403 unit/API tests passed (3 skipped).
+
+
 This file is a concise execution log.
 Use it for important implementation milestones, blockers, validation runs, and release evidence.
 
@@ -46,6 +302,190 @@ Use it for important implementation milestones, blockers, validation runs, and r
 - Full local Playwright suite passed: 129 tests, 2 expected environment-specific
   skips (13.2 minutes), including the expanded task numbering, project-scoped
   lookup/search, foreign-project related-task exclusion, and stable-link flow.
+
+# 2026-11-08 - ND-656: merge ND-657 and restore label-editor focus reliably
+
+- Integrated main after ND-657 merged, preserving both ADR and journal histories
+  and retaining its key-generation token checks alongside scope compatibility.
+- Investigated the failed CI focus assertion. Label saves raced a whole-page
+  refresh and a one-frame focus callback; wait until the restored Edit labels
+  button is mounted and enabled. Project activity already refreshes comment
+  readers, so label saves keep the current dialog local. Added a regression
+  where the parent remains disabled after the save promise resolves.
+- Validation and the refreshed merge handoff are recorded in PR #661.
+
+# 2026-11-08 - ND-656: current names and labels across comment history
+
+- Replaced posting-time display with a retained public agent author identity,
+  following Dorian's revised direction. The additive migration backfills linked
+  old comments; credential triggers maintain current metadata and preserve it
+  after key deletion. Previously orphaned comments retain their fallback.
+- Comment reads/create/edit resolve current public metadata in their existing
+  queries, including empty label lists. Project activity refreshes open threads
+  without rewriting comment content, timestamps or task revisions. Added real
+  PostgreSQL backfill, retention, RLS and cross-tab viewer regressions.
+- Integrated current main and preserved both journal histories. Superseded the
+  original snapshot ADR and updated user/API docs; validation and the refreshed
+  Preview handoff are recorded in PR #661.
+
+# 2026-11-08 - ND-656: credential loading across shared Preview migrations
+
+- Identified the deployed owner-list failure as Prisma P2023: `meeting_read`
+  was absent from ND-656's generated scope enum after ND-130 added/backfilled
+  scopes in the shared Preview database. Token exchange already filtered its
+  raw scope strings, so the earlier agent-comment check missed this owner path.
+- Reproduced the HTTP 500 with a real PostgreSQL enum extension. Filter scope
+  relation reads before Prisma deserialization for listing, create, rotation
+  and revoke. Supported scopes remain unchanged; newer stored grants are not
+  deleted or rewritten by credential management.
+- Added a browser regression for owner loading, label edits, rotation, revoke
+  and retention of future scope grants. Updated the Preview rollout runbook;
+  validation and deployed owner-flow evidence are recorded in PR #661.
+
+# 2026-11-08 - ND-656: remove the automatic agent-name suffix
+
+- Removed the automatically appended `(agent)` from comment and creator names,
+  attention/assignment display text, and meeting-todo identity presentation.
+  Agent kind, credential IDs, avatars, descriptive labels and original name
+  snapshots remain intact. Explicitly named text is preserved verbatim.
+- Updated API documentation and existing attribution regressions. Validation
+  and the refreshed Preview handoff are recorded in PR #661.
+- Integrated ND-663 after it merged during this change; preserved both ADR
+  entries and the completed Task data-access boundary alongside the name fix.
+
+# 2026-11-08 - ND-656: Enter-to-add labels and task-label colors
+
+- Replaced comma-separated credential label fields with one shared chip editor
+  for creation and management. Enter explicitly adds a label; blur preserves
+  pending text, and save focuses pending text until it is added or cleared.
+  Individual remove buttons support label removal without rewriting a string.
+- Show the Enter instruction only for a focused, non-empty input. Reuse task
+  label color assignment and dark foregrounds for editor chips, directory
+  badges and comment attribution. Existing validation and snapshots remain.
+- Updated interaction regressions and documentation. Validation, refreshed
+  Preview evidence, and the requested ND-1 Preview comment are recorded on
+  PR #661; credentials remain in the user-provided ignored env file.
+
+# 2026-11-08 - ND-656: review after ND-655 merged
+
+- Integrated current main after PR #660 merged and resolved the stale stacked
+  UI, documentation, schema and test conflicts. Kept the accepted directory,
+  shared scrollbar, and protected Copy and close key handoff unchanged.
+- Added descriptive labels to the extracted creation form and credential
+  details dialog, retaining directory/comment badges and name-or-label search.
+  Label errors belong to their credential; saving locks competing credential
+  actions. Invalid fields receive focus; save/cancel restore the edit trigger.
+- Reviewed owner authorization, validation, additive metadata migration and
+  posting-time comment snapshots. Existing review feedback is already resolved.
+  Updated browser checks exercise the merged dialogs, failed/pending saves,
+  focus, maximum-length labels on mobile, and historical comment attribution.
+- Validation and the refreshed Preview handoff are recorded in PR #661.
+
+# 2026-11-08 - ND-657: reconcile review against current main
+
+- Addressed PR #671's integration blocker by merging main at `2f65f739` into
+  the existing task branch. Preserved both sides of the ADR and journal
+  additions, including ND-663 and ND-191, and retained the single-exchange
+  browser assertion instead of main's temporary retry workaround.
+- The review found no actionable correctness or security defects in ND-657.
+  Application auth code is unchanged; integrated validation and the final
+  commit are recorded on PR #671. Its base is now main, so the earlier stacking
+  instructions are historical. ND-657 remains In Progress for final review.
+
+
+# 2026-11-08 - ND-657: immediate agent token use after key rotation
+
+- Started from current main in an isolated worktree, then included ND-655's
+  branch as the prerequisite so its temporary browser re-exchange polling can
+  be removed in this change. ND-656 is independent and is not included.
+- Bound signed bearer tokens to the credential's existing public key ID. The
+  atomic usage write checks that generation with the existing project, creator,
+  revocation, and expiry filters. No schema change or timestamp tolerance is
+  needed. Legacy tokens are accepted only on never-rotated credentials;
+  previously rotated credentials must re-exchange their current key at rollout.
+- Added signed-claim validation, API-guard propagation, exchange-race coverage,
+  and real PostgreSQL service regressions at .000, .001, and .999 with a frozen
+  Date clock. Repeated same-millisecond rotations reject every previous key and
+  token; delayed old-generation issuance, revocation, and expiry remain denied.
+- Initial validation passed: 37 focused unit/API checks, all three deterministic
+  PostgreSQL boundary cases, lint, RLS inventory, production build, and the full
+  PostgreSQL isolation matrix. Full unit/coverage and browser runs are in progress.
+  Initial local setup attempts omitted unit-test DATABASE_URL and the matrix's
+  pre-migration Realtime stub; reruns use the documented explicit environment and
+  a separate matrix database initialized with that stub.
+- Final implementation validation: local lint, RLS inventory, 2,393 unit/API
+  tests (three expected skips), production build, and PostgreSQL isolation passed.
+  [Quality Gates 42427535277](https://github.com/dorianagaesse/nexus_dash/actions/runs/42427535277)
+  passed every job on `be33dc8aa4455e014cfa9b7fa972ec9179b9613d`, including
+  coverage (94.34% statements, 88.64% branches, 95.47% lines), all 136 browser
+  checks (two expected skips), and the container build.
+- The full local browser run passed 135 checks with two expected skips and one
+  unrelated meeting-todo dialog-opening timeout. That exact check passed unchanged
+  in isolation, and the full CI browser run was green. All four ND-655 UI checks
+  and the three deterministic ND-657 database cases passed in the full local run.
+- Delivered [PR #671](https://github.com/dorianagaesse/nexus_dash/pull/671),
+  stacked on ND-655 until its human merge. The final journal follow-up changes
+  documentation only; application code and tests match the validated implementation.
+  Automated review was requested; review results and any follow-up remain on the PR.
+
+# 2026-11-08 - ND-191: lightweight project checklist
+
+- Implemented text-only standalone checklist capture on the existing project
+  Todos page, with inline editing, completion/reopening, creator filtering,
+  owner deletion, and draft recovery after failed or conflicting writes.
+  Meeting follow-ups and the personal floating panel retain their contracts.
+- Used an isolated worktree from `origin/main` (`9d61fb52`) and opened PR #682.
+  Dorian canceled ND-378 during implementation; recorded the cancellation and
+  narrowed the epic to ND-191. No global search or navigation was implemented.
+- Coordinated `task:read/write/delete` with ND-130 / PR #680. The checklist's
+  RLS adapter delegates to the canonical capability function when installed;
+  no capability grants, identity framework, or realtime transport were copied.
+  Tested both baseline role enforcement and late capability-provider arrival.
+  Also applied ND-130's actual schema/enforcement migrations from `ebebbcfc`
+  to an isolated database containing ND-191: legacy, denied, task-read,
+  task-write, and meeting-only grants behaved correctly, and editors could
+  never delete checklist rows.
+- PostgreSQL validation used a dedicated container on port 55191. Installed
+  the existing Realtime policy stub before migrations for the standard matrix.
+  Local checks use Node 24.22.1; full Vitest runs use explicit `NODE_ENV=test`,
+  one thread worker and the verbose reporter on Windows.
+- Validation: full unit and coverage runs passed (2,425 tests, 3 skipped),
+  plus seven focused checklist recovery/filter tests. Coverage: 94.39% statements,
+  89.06% branches, 97.05% functions, 95.55% lines. Lint, RLS inventory, real
+  PostgreSQL matrix and production build passed. The full local browser run had
+  134 passes and 2 skips; its sole failure was a checklist test expecting a
+  checkbox to stay mounted after moving into Completed. Corrected that assertion
+  and rebuilt: all eight checklist/meeting-todo browser tests passed. Desktop
+  (1440px) and mobile (390px) captures are attached to the Playwright report;
+  the design detector returned no findings. Copilot review was skipped per
+  Dorian's instruction because it is currently unavailable.
+- A fresh visual/source review caught an active draft being closed by a
+  different item's mutation. Limited editor closure to saving that item's text;
+  unrelated completion/deletion and completion of the edited item now preserve
+  the draft. Regression tests cover each path.
+
+# 2026-11-08 - ND-425: agent task-edit coverage audit
+
+- Audited the current Kanban UI, shared task contracts, routes, services,
+  attachment/comment actor policies, and hosted agent OpenAPI from
+  `origin/main` at `9d61fb5243f90931fe238fc359324be24f516548`, using an isolated
+  worktree to preserve unrelated root edits.
+- Confirmed ND-649's PR #657 is merged. The user-authorized attempt to move
+  ND-649 to Done returned 403 `agent-done-move-disabled`; left its credential
+  permissions unchanged and reported the required owner action.
+- Added `docs/audits/nd-425-agent-task-api-coverage.md` with per-operation
+  coverage, source-derived findings, explicit exclusions, and historical
+  closure of ND-424 / GitHub #486 and ND-451. Corrected the runbook's stale
+  assertion that existing task link attachments can be edited in the UI.
+- Searched the live task/epic inventory and created the related epic
+  "Agent task API parity and actor-safe collaboration" with ND-669 through
+  ND-674: task attachment attribution, unpublished uploader isolation,
+  reaction attribution, nested reaction parents, local-storage task uploads,
+  and actor/mention contract documentation. Read back each card to verify its
+  Backlog lane, labels, criteria, report attachment, epic and relationships.
+- Validation: documentation-only diff; `git diff --check` and relative-link
+  validation passed. Inspected existing regression tests; no runtime tests,
+  schema changes, deployments or production file/reaction probes were needed.
 
 # 2026-11-08 - ND-375: production Broadcast configuration investigation
 
@@ -11207,6 +11647,65 @@ Low-value entries to avoid going forward:
 - Rechecked the static runtime import graph from Task/project facades, Task contracts, and Kanban: 132 local modules, no cycles involving the reviewed Task seams. Pilot guidance records current ND-545 measurement evidence and the existing unpublished-attachment exclusion. Meeting Notes contract work remains the bounded next application after user review and merge.
 - Required validation and the detailed review response are recorded on #654. Leave the PR unmerged for the user; later tasks remain parked. Retarget/reconcile #655 when ND-546 is user-merged; #650 remains parked until its turn.
 
+
+# 2026-11-05 - ND-656: descriptive agent credential labels
+
+- Added owner-managed descriptive metadata with shared validation (five labels,
+  40 characters each), creation/edit/removal controls, credential-list badges
+  and task-comment badges. A dedicated metadata endpoint leaves credential
+  names, keys and scope grants independent.
+- Added an additive migration for credential metadata and comment snapshots.
+  Comment reads and edits retain posting-time attribution after credential
+  rename, relabel, revocation or deletion; older comments keep empty arrays.
+  Documented this behavior in README, the agent contract and ADR decisions.
+- Initial validation on Node 24.22.1: lint, RLS inventory, 2,338 unit/API/component
+  tests (three skipped), coverage thresholds (94.16% statements, 88.11% branches),
+  production build and the PostgreSQL tenant-isolation matrix passed. Local
+  PostgreSQL 16 validation used its own database on port 5656, with the Realtime
+  stub installed before migrations and the database timezone set to UTC.
+- Rebased onto ND-655 branch `0fc376a` and placed the label badges and editor
+  in its extracted credential list. The PR is stacked on that branch while
+  ND-655 is under review.
+- Integrated validation passed: lint, RLS inventory, 2,338 unit/API/component
+  tests (three skipped), unchanged coverage thresholds, production build and
+  the PostgreSQL tenant-isolation matrix. Five local Chromium checks passed
+  across ND-655, ND-656 and active-agent pickers, including creation/edit/removal,
+  375px geometry with maximum-length labels, historical comment reloads, real
+  owner/editor sessions, bearer-only denial and cross-project rejection.
+- Preview [run 42039347200](https://github.com/dorianagaesse/nexus_dash/actions/runs/42039347200)
+  passed and applied the additive migration. Checkout logs verify
+  `feature/nd-656-agent-descriptive-labels` at
+  `dc706aa87a4838cffaa3e708260a00658c57367e`; readiness confirms Preview,
+  revision `dc706aa`, and database health on the
+  [immutable deployment](https://nexus-dash-56bpp4yy9-dorian-agaesses-projects.vercel.app).
+  All four ND-655/ND-656 Chromium checks passed against that deployment.
+  Preview fixtures used the matching project's admin session pooler, following
+  the existing TLS compatibility contract, and cleaned up their own records.
+- [PR #661](https://github.com/dorianagaesse/nexus_dash/pull/661) is open against
+  ND-655's branch for the user's agent review. The final follow-up changes only
+  test protection-header forwarding and this evidence; deployed runtime code
+  is unchanged. The task remains In Progress for the reviewer or merger.
+
+- Review follow-up: merged ND-655 through `800c835` (including its `f261a29`
+  credential-management changes), resolved the list imports, and integrated
+  label failures into the separate action-error model. Failed label saves keep
+  the draft and no longer offer a credential-loading retry.
+- Added named badge groups for assistive technology, name-or-label search with
+  the existing combined filters, and a limit of five distinct labels after
+  case-insensitive de-duplication. Aligned the comment POST documentation and
+  documented the intentional authentication-audit boundary in the ADR.
+- Revalidation passed: production type-check/build, lint, RLS inventory,
+  2,341 unit/API/component tests (three skipped), coverage gates (94.16%
+  statements, 88.11% branches), PostgreSQL tenant-isolation matrix, and all five
+  targeted local Chromium checks. Regressions include label-save failure and
+  recovery, accessible badge groups, model-label search and duplicate limits.
+- Refreshed preview [run 42046467857](https://github.com/dorianagaesse/nexus_dash/actions/runs/42046467857)
+  passed. Logs verify checkout of the task branch at
+  `8b5c2a404375bce9a26c1b8d6339ff8df3bd2d65`; immutable readiness confirms
+  Preview, that revision, and database health on the
+  [review-fix deployment](https://nexus-dash-dm7hrf2r4-dorian-agaesses-projects.vercel.app).
+  All four ND-655/ND-656 Chromium checks passed there, including the updated
+  error recovery, label search, accessibility and distinct-label validation.
 ## 2026-11-05 - ND-654: Per-credential Done-move permission
 
 - Replaced the project-wide Done-move toggle with the independently persisted
@@ -11284,6 +11783,57 @@ Low-value entries to avoid going forward:
 - Addressed the review's P1 integration finding. An independent TypeScript source comparison confirms all 60 original declarations remain identical after formatting/export normalization and all 25 public exports are preserved. Authorization, actor-scoped transactions, race/revocation handling, notification and post-commit email behavior, and responsibility-aware offboarding retain their existing code and ordering.
 - The public collaboration entry point remains a facade over owner invitations, membership/offboarding, recipient responses, shared policy/data/types, and email delivery. The architecture decision is proposed for user review rather than carrying forward the old approval claim.
 - Required validation, the invitation/membership browser lifecycle, real PostgreSQL isolation, and the detailed review response are recorded on #650. Leave the PR unmerged and the card In Progress for the user's review and merge.
+
+
+## 2026-11-08 - ND-663: complete Task data ownership
+
+- Started from `origin/main` at `ac7b2fa3` in an isolated worktree, preserving the
+  user's dirty root checkout. Read the live Task brief, moved it to In Progress,
+  and verified the Codex credential attribution on the pickup comment.
+- Moved Task command/lifecycle reads, scalar writes, history/follow-ups, search
+  documents and the legacy dashboard aggregate behind explicit-client data
+  operations. Kept authorization, policy, revision locks/retries, transaction
+  boundaries and activity/notification/storage ordering in application services.
+- Added scoped persistence/import guardrails, including the project-count
+  exception, and regressions for client ownership, lock/write ordering, conflict
+  hydration, foreign-project rejection and failed-child activity suppression.
+  Extended the real-PostgreSQL harness to check draft visibility in search and
+  the legacy dashboard as well as board/mutation responses.
+- Architecture guidance inventories remaining cross-domain operations and
+  encryption integration points. The decision is proposed for user review;
+  broader migration and encryption implementation are outside this task.
+- Detailed validation and performance evidence: `docs/architecture/task-data-boundary-validation.md`.
+  No Copilot review was requested or awaited, per the user's instruction.
+
+### ND-663 delivery validation
+
+- Full local validation passed: lint, RLS inventory, unit/API/component tests,
+  coverage (2,399 tests; 95.47% lines and 88.64% branches), production builds,
+  129 Chromium tests with two gated checks skipped, and the PostgreSQL isolation
+  matrix. Final boundary/client/lane tests passed 46 cases; rebuilt relation and
+  revision browser checks passed all four cases. Release policy, whitespace and
+  architecture references passed.
+- Preserved explicit empty diagnostic project scopes during final review and
+  added a regression. Increased only the ESLint configuration startup allowance
+  after a resource-contention timeout; the isolated full coverage rerun passed.
+- SQL driver counts stayed at 16/20/31 for board/update/reorder. The validation
+  report records repeat timings and shared-host tail variability.
+- PR: https://github.com/dorianagaesse/nexus_dash/pull/672. Application commit
+  `a00f47f3a01320fc095e676ddefd4c7a735482ff` passed GitHub Quality Core, E2E Smoke,
+  Tenant Isolation and Container Image in run `42427881143`; one unchanged meeting-dialog browser
+  assertion passed on retry of that same commit. Copilot review was skipped as
+  requested. The user reviews and merges; the board card remains In Progress.
+
+
+### ND-663 requested visual verification (2026-11-08)
+
+- Exercised the PR build locally in Chromium: 16 targeted interaction regressions
+  and one additional Task lifecycle walkthrough passed. Inspected desktop/mobile
+  screenshots covering persisted details, attachment/relation scrolling, archive,
+  restore and deletion. No uncaught browser errors or application fixes.
+- Recorded scope, harness corrections, artifact locations and local-only limits
+  in `docs/architecture/task-data-boundary-validation.md`.
+
 # 2026-11-08 - Dependabot queue cleanup and automation audit
 
 - Reviewed all three open Dependabot PRs. Merged #666 (Next lint config patch,
@@ -11298,3 +11848,219 @@ Low-value entries to avoid going forward:
   while retaining manual review. Corrected stale credential-failure guidance.
 - Evidence and per-PR decisions: docs/runbooks/dependabot-audit-2026-11-08.md.
   Work is isolated from the root checkout's existing local changes.
+
+
+### 2026-11-08 - ND-663 current-main reconciliation
+
+- Merged main at `4448df01` into PR #672 without rewriting review history.
+  The only conflict was appended journal content; retained both ND-663 evidence
+  and main's Dependabot audit. Application files merged automatically.
+- Whitespace, reference and release-policy checks passed. GitHub Quality Gates
+  validates the combined branch after push; no additional Copilot review requested.
+
+## 2026-11-08 - ND-130 granular project capabilities
+
+- Started from origin/main `9d61fb52` in an isolated worktree, preserving the root checkout's unrelated roadmap edits.
+- Added shared module/action capabilities, owner-managed invitation/member restrictions, explicit meeting/epic agent scopes, additive migrations, and service/RLS enforcement. Existing roles and credentials retain their access through migration.
+- Restricted dashboard projections, module controls, attachment access and child records. Shared broadcasts carry invalidation metadata only; authorized HTTP reads supply content.
+- Fresh PostgreSQL migrations and the expanded least-privilege isolation matrix passed. Lint, RLS inventory, build, and the initial full unit/coverage runs passed (2,403 tests plus 3 skipped; statements 94.35%, branches 88.72%). Follow-up cross-module response hardening has 40 focused regressions passing; CI exposed and prompted correction of one legacy authorization mock.
+- Full Playwright run: 132 passed, 2 skipped, and 2 outdated test assumptions corrected (contributor-name locator and explicit meeting scope). All 3 targeted browser reruns passed, including the expanded ND-130 scenario for invitation propagation, owner controls, direct API denial, linked-module redaction, and assignment without access. Desktop and 390px mobile screenshots were inspected.
+- Opened [PR #680](https://github.com/dorianagaesse/nexus_dash/pull/680). [Preview run 42487574736](https://github.com/dorianagaesse/nexus_dash/actions/runs/42487574736) succeeded for the explicit feature branch; logs verified application revision `1538d49` and database readiness. [Immutable preview](https://nexus-dash-r3fc8idav-dorian-agaesses-projects.vercel.app); later changes are test fixtures and handoff documentation only.
+- Copilot review is disabled; the user explicitly requested opening the PR without waiting for it.
+
+## 2026-11-08 - ND-130 preview invitation acceptance follow-up
+
+- Investigated the reported Notifications acceptance failure. The shared Preview auth alias served ND-191 revision `62e94a9`, while ND-130's immutable deployment served `1538d49`. ND-191 does not copy invitation capabilities, and the shared database correctly denies that broader membership insert.
+- Added runtime-role PostgreSQL acceptance regressions for legacy, empty, and custom grants, including rejection when an older application omits custom grants. The matrix passed. Changed ND-130's browser scenario to accept through the Notifications button; the full scenario and production build passed.
+- [Preview run 42525680805](https://github.com/dorianagaesse/nexus_dash/actions/runs/42525680805) redeployed the explicit ND-130 branch. Workflow logs and a fresh stable-alias readiness request confirmed revision `9603574` and a healthy database. [Immutable preview](https://nexus-dash-o8179fk7r-dorian-agaesses-projects.vercel.app). Existing pending invitations can be retried after refreshing onto this deployment.
+- Documented the shared-alias mismatch and same-revision requirement for two-account tests. Application authorization and database safeguards remain unchanged.
+
+
+## 2026-11-08 - ND-130 permission editing and meeting-note follow-up
+
+- Reproduced the full-access preview credential's meeting-note failure: create,
+  detail, update and delete routes used a human-only guard although their
+  services already accepted scoped agents. Switched those routes to agent
+  principals; private notes remain human creator-only and agents create team notes.
+- Replaced long permission cards/lists with module rows for people and a compact
+  Read/Edit/Delete matrix for agents. Hid reserved shared-schedule controls.
+- Added owner-managed scope editing on existing credentials, with explicit Save
+  and Cancel. Scope replacement and audit are transactional; the API key stays
+  unchanged and removed scopes immediately invalidate older broader tokens.
+- Added end-to-end coverage for meeting CRUD, read-only denials, private-note
+  protection, owner-only scope editing, cancel/save, unchanged keys and existing
+  token behavior. Extended the real PostgreSQL RLS matrix for scope replacement
+  and non-owner/cross-project denials. Updated hosted agent API documentation.
+
+## 2026-11-08 - ND-191 revision: one list and private personal capture
+
+- Dorian rejected the initial separate shared checklist. Revised the same PR
+  to one Todo list: existing meeting actions plus creator-private personal
+  items, one Open/Completed control and existing responsibility filters.
+  Capture and personal rows explain Only you; meeting rows explicitly say
+  Project members. Existing meeting-note privacy/assignment behavior remains.
+- Added a forward-only privacy migration. Service reads/counts/writes bind
+  both project and creator; RLS also rejects other members, project owners,
+  agents and revoked creators. No personal data enters shared activity events.
+  Own deletion uses task:write, coordinated with ND-130 PR #680. Actual ND-130
+  migrations pass legacy, denied, read-only, write and meeting-only grant cases.
+- Removed the separate checklist component and its redundant controls. Kept
+  recovery for failed capture, stale saves, remotely removed items and hidden
+  edits. Navigation counts include only the caller's own personal items.
+- Initial browser checks needed test fixes: scope the alert locator away from
+  Next's route announcer, match the existing lower-case accessible tab names,
+  and await navigation before reloading. No product behavior was changed to
+  satisfy those assertions. The corrected personal flows and existing meeting
+  flows pass. The first visual pass found a cramped mobile meeting title;
+  moved its assignee below the text on phones and confirmed the batched
+  desktop/mobile/light/dark/landscape captures. No horizontal overflow at
+  enlarged text. The manual design detector returned no findings.
+- PostgreSQL isolation matrix and 47 focused tests pass. The first broad unit
+  invocation omitted DATABASE_URL; reran with the documented local environment:
+  2,433 tests pass, 3 skipped. Required coverage/full browser gates and the
+  independent finish review are recorded in the final PR handoff.
+- Coverage passes: 95.56% lines and 89.08% branches. Fresh Impeccable review
+  accepted the single-list structure, explicit privacy and responsive layout,
+  and requested one loading-label encoding correction. Fixed the label to
+  Adding... and added a pending/duplicate-submission regression test. Final
+  reviewer verdict and complete browser/CI results are linked from PR #682.
+- The broad browser run exposed a superseded mobile assertion requiring
+  assignee/text vertical overlap. Updated it to require readable full-width
+  text above the chip. A separate unchanged floating-panel test missed a
+  pre-hydration click; applied the existing suite's bounded open/retry pattern.
+  Both assertions retain their functional checks. Final rerun evidence is
+  recorded on the PR and card.
+
+### 2026-11-08 — ND-815 custom 404 page
+
+- Created and read back ND-815, checked for overlapping board work, and moved
+  it to In Progress using the configured Codex identity. Started from current
+  origin/main in an isolated worktree to preserve unrelated roadmap edits.
+- Added the root App Router not-found page with NexusDash branding, existing
+  theme tokens and buttons, and Projects/Home recovery links. Existing route
+  authentication and API responses remain unchanged.
+- Added browser coverage for unknown URLs, missing projects, signed-in/out
+  recovery, keyboard navigation, noindex, and 320px/1440px light/dark layouts.
+  All six focused browser checks pass. Inspected all four theme/viewport
+  screenshots; controls remain visible and the page has no horizontal overflow.
+- Adjusted the missing-project test to allow the framework's duplicate noindex
+  tags during streaming. Unmatched URLs return HTTP 404; streamed project
+  boundaries retain the existing Next.js status behavior.
+- Validation: production build, lint, RLS inventory, release policy, and
+  whitespace checks pass. Unit tests: 2,434 passed, 3 skipped. Coverage passes
+  with 95.56% lines and 89.08% branches. Local validation uses an isolated
+  PostgreSQL database on port 55815; initial runs were restarted with explicit
+  database environment values and four Vitest workers.
+- Full npm run test:e2e passes: 141 passed, 2 skipped, including all six
+  new 404 checks. Desktop/mobile and light/dark screenshot review passed.
+- Copilot review monitoring is omitted at the user's explicit request.
+
+### ND-130 integration handoff
+
+- The scoped-meeting and permission-editor follow-up passed 2,409 unit tests,
+  coverage, lint, build, the real PostgreSQL isolation matrix, and 64 live checks
+  using the two supplied Preview credentials. Full access includes meeting CRUD
+  and Done transitions; read-only mutations returned 403. Temporary records were
+  removed. Preview run 42529527257 verified revision 65769da and both URL targets.
+- Integrated current main after ND-191 personal todos and ND-657 token rotation
+  landed. Resolved token-guard conflicts by retaining both current key-generation
+  binding and live scope-subset checks; preserved both branches' execution notes.
+
+
+## 2026-11-09 - ND-130 review follow-up
+
+- Confirmed the P1 notification-copy disclosure: task authorization did not gate
+  recipient notifications, stored copies, or delayed email. Added recipient
+  capability gates for task/meeting notifications, all inbox/banner queries,
+  email enqueue and dispatch, plus restrictive database policies and filtered
+  Realtime snapshots. A dedicated access cursor refreshes open clients when
+  grants or ownership change without changing queued notification fingerprints.
+- Resolved current-main conflicts while preserving agent descriptive labels,
+  task module guards and editable agent scopes. Added producer, inbox/banner,
+  queued-email and real PostgreSQL policy regressions for restricted recipients.
+
+Validation for the ND-130 review fix: 2,507 unit tests pass (3 intentional skips),
+coverage thresholds, lint, RLS inventory and production build pass. The real
+PostgreSQL matrix verifies recipient-grant insert/read enforcement and filtered
+Realtime snapshots. Four focused browser scenarios pass, including live inbox
+revocation, editable agent permissions and both descriptive-label scenarios.
+
+The full CI browser run exposed two stale fixtures: the forward-scope test used
+meeting/epic scopes that ND-130 now supports, and the shell navigation notification
+omitted project metadata. Switched to synthetic unknown enum values and supplied
+the notification project/task IDs. All eight affected browser scenarios pass locally;
+the original run passed the other 143 scenarios, including notification revocation.
+
+### 2026-11-09 — ND-815 recovery action follow-up
+
+- Removed Go home at the user's request because it redirects signed-in users
+  to Projects. The 404 page now has one Go to projects recovery link.
+- Updated the board brief, README, and existing browser assertions for the
+  single action, including keyboard recovery and both session states.
+- Integrated current main and resolved the journal-only conflict by retaining
+  both histories. Copilot review monitoring remains omitted as requested.
+- Validation passes: lint, RLS inventory, production build, 2,507 unit tests
+  (3 skipped), coverage (95.56% lines, 89.12% branches), and all six focused
+  404 browser checks. Reviewed desktop/mobile screenshots in both themes.
+
+## 2026-11-11 - ND-837 open task thread reconciliation
+
+- Reproduced the acknowledgement race independently: a local reaction can
+  acknowledge a project version covering a remote comment before its activity
+  arrives. With no deferred event, the old code never reconciled the thread and
+  then discarded that remote event as already acknowledged. Open surfaces now
+  catch up once after the last acknowledged local mutation finishes.
+- Reproduced an open-thread gap: task edit mode skipped comment reads even when
+  project activity changed. Version-only reconciliation also left board comment
+  counts unchanged, and late reaction reads could replace a newer task's state.
+- Kept targeted comment reads active during task editing, reconciled counts,
+  retained newer comment edits, and guarded reaction reads and mutations across
+  task switches and concurrent responses. Failed reads retain the visible thread.
+- Added regressions for task drafts/focus/selection, stale reaction responses,
+  and two independent human browser sessions plus agent comment/reaction writes.
+  Existing project activity supplies Broadcast and polling catch-up; no separate
+  thread polling loop was introduced.
+- Avoided no-op count updates and guarded queued selection synchronization so
+  closing or switching a task wins over an older reconciliation. All 34 focused
+  board/keyboard/reconciliation tests pass after these safeguards.
+- Validation passes on Node 24.22.1 with isolated local PostgreSQL: lint, RLS
+  inventory, 2,526 unit/API tests (3 skipped), coverage thresholds (95.56% lines,
+  89.12% branches), production build, and eight browser scenarios covering live
+  comments, recovery, deep links, bilateral relations and attachment sync.
+- CI run 43027243548 passed core checks and tenant isolation. Its first browser
+  attempt passed 155 cases but timed out reopening a related task; that scenario
+  passed locally and on retry. The retry exposed a timestamp-username collision
+  between this regression's two test accounts. Free the first generated username
+  before creating the second account; retain the shared helper unchanged.
+- PR #696 is the review surface. Preview dispatch still requires an authenticated
+  GitHub Actions setup: the connector has no dispatch tool and the cached HTTPS
+  credential returned 401. No Preview checkout/runtime claim is made. Copilot
+  review monitoring was omitted at the user's request.
+
+
+## 2026-11-16 — ND-860: Screenshots in meeting inputs and outputs
+
+- Created ND-860 after checking the live board for overlap; verified the selected
+  credential's `macbook` attribution and moved the task to In Progress.
+- Added paste/file upload, thumbnails, full-size preview/download, section-specific
+  save/removal, and silent recovery of uploaded screenshot drafts. Reused the
+  shared rich-text editor, image grid, preview modal, and storage providers.
+- Added uploader-private drafts, atomic note binding, conditional-write revisions,
+  post-commit file cleanup, composite tenant foreign keys, and forced RLS with
+  meeting capabilities and explicit private-note visibility. Shared todo mutation
+  responses explicitly redact screenshot metadata as well as private note text.
+- Local validation uses Node 24.22.3, isolated PostgreSQL 16 on port 55460 (UTC),
+  local storage, and polling. Lint, RLS inventory, version policy, 2,551 unit/API
+  tests (3 skipped), coverage, production build, and focused desktop/mobile
+  screenshot browser journeys pass. The full PostgreSQL isolation matrix passes.
+- Full browser validation reproduced an existing meeting-dismissal timing failure
+  on unchanged main (6af9feb9). Used the existing `activateUntilVisible` helper
+  for that test's outside click; both recovery scenarios then passed. The full
+  suite had 167 passes and 2 skips, with only that now-repaired failure. Final
+  branch build plus the five screenshot/recovery scenarios pass, including
+  network failure/retry, recovery after reload, access revocation, and stale
+  writes. Coverage is 95.63% lines and 89.06% branches; the new service has
+  95.71% line coverage. Fresh-database migration and the complete RLS matrix pass.
+- PR #702 is open and ready for review. Copilot review monitoring was omitted
+  at the user's request; CI is tracked by GitHub Actions. The reviewer or merger
+  owns the move to Done.

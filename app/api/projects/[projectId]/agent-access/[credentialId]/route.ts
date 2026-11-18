@@ -57,19 +57,17 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "invalid-json" }, { status: 400 });
   }
-  if (
-    !payload ||
-    typeof payload !== "object" ||
-    !("canMoveTasksToDone" in payload) ||
-    typeof payload.canMoveTasksToDone !== "boolean"
-  ) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload) ||
+      (!("canMoveTasksToDone" in payload) && !("scopes" in payload)) ||
+      ("canMoveTasksToDone" in payload && typeof payload.canMoveTasksToDone !== "boolean")) {
     return NextResponse.json({ error: "invalid-agent-capabilities" }, { status: 400 });
   }
   const result = await updateProjectAgentCredentialCapabilities({
     actorUserId: authenticatedUser.userId,
     projectId: params.projectId,
     credentialId: params.credentialId,
-    canMoveTasksToDone: payload.canMoveTasksToDone,
+    ...("canMoveTasksToDone" in payload ? { canMoveTasksToDone: payload.canMoveTasksToDone as boolean } : {}),
+    ...("scopes" in payload ? { scopes: payload.scopes } : {}),
     requestId: resolveRequestId(request),
     ipAddress: readClientIpAddress(request),
     userAgent: request.headers.get("user-agent"),

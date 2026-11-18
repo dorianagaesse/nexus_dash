@@ -29,7 +29,9 @@ test.each(["current", "legacy"])("resolves %s references with mandatory project 
     id: "stable-id", projectId: "project-a", reference: "ND-1", legacyReference: "ND-536",
     url: "/projects/project-a?taskId=stable-id",
   } });
-  expect(mocks.access).toHaveBeenCalledWith(expect.objectContaining({ projectId: "project-a", minimumRole: "viewer" }));
+  expect(mocks.access).toHaveBeenCalledWith(expect.objectContaining({
+    projectId: "project-a", minimumRole: "viewer", capability: "task:read",
+  }));
 });
 
 test("the same reference in a second project returns that project's internal identity", async () => {
@@ -68,6 +70,12 @@ test("denies wrong project/scopes before reading", async () => {
 test("denies missing membership before querying tasks", async () => {
   mocks.access.mockResolvedValue({ ok: false, status: 404, error: "not-found" });
   expect(await resolveProjectTaskReference(input)).toMatchObject({ ok: false, status: 404 });
+  expect(mocks.findFirst).not.toHaveBeenCalled();
+});
+
+test.each(["current", "legacy"])("rejects %s lookups without task read access before querying", async (namespace) => {
+  mocks.access.mockResolvedValue({ ok: false, status: 403, error: "forbidden" });
+  expect(await resolveProjectTaskReference({ ...input, namespace })).toEqual({ ok: false, status: 403, error: "forbidden" });
   expect(mocks.findFirst).not.toHaveBeenCalled();
 });
 

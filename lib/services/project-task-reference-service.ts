@@ -39,6 +39,7 @@ export async function resolveProjectTaskReference(input: {
         actorUserId: input.actorUserId,
         projectId: input.projectId,
         minimumRole: "viewer",
+        capability: "task:read",
         db,
       });
       if (!access.ok) return error(access.status, access.error);

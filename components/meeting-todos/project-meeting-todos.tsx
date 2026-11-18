@@ -11,6 +11,7 @@ import {
   Circle,
   ExternalLink,
   LoaderCircle,
+  Users,
   RotateCcw,
 } from "lucide-react";
 
@@ -19,6 +20,8 @@ import {
   MeetingTodoAssigneeChipReadonly,
 } from "@/components/meeting-todos/meeting-todo-assignee-chip";
 import { MeetingTodoActorIdentity } from "@/components/meeting-todos/meeting-todo-actor-control";
+import { PersonalTodoComposer, PersonalTodoEditor, PersonalTodoRow, usePersonalTodos } from "@/components/meeting-todos/personal-todos";
+import type { ProjectTodoList } from "@/lib/project-todo";
 import { Badge } from "@/components/ui/badge";
 import {
   isMeetingTodoAssignedToUser,
@@ -102,7 +105,10 @@ interface ProjectMeetingTodosProps {
   actors?: MeetingTodoActorSummary[];
   initialTodos: ProjectMeetingTodoItem[];
   loadError?: string | null;
+  personalTodos?: ProjectTodoList | null;
 }
+
+const EMPTY_PERSONAL_TODOS: ProjectTodoList["todos"] = [];
 
 type TodoView = "open" | "completed";
 type ResponsibilityView = "all" | "mine" | "unassigned";
@@ -247,10 +253,10 @@ function TodoRow({
         onSetCompleted={onSetCompleted}
       />
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
           <p
             className={cn(
-              "min-w-0 flex-1 break-words text-sm font-medium leading-6 text-foreground [overflow-wrap:anywhere] sm:text-[15px]",
+              "w-full min-w-0 break-words text-sm font-medium leading-6 text-foreground [overflow-wrap:anywhere] sm:w-auto sm:flex-1 sm:text-[15px]",
               isCompleted && "text-muted-foreground line-through"
             )}
           >
@@ -271,6 +277,7 @@ function TodoRow({
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5" title="Meeting todos are visible to project members, even when the meeting notes are private."><Users className="h-3.5 w-3.5" aria-hidden />Project members</span>
           {todo.meeting.canOpenNote === false ? (
             <span className="inline-flex min-h-11 items-center py-2 font-medium">Private meeting</span>
           ) : <Link
@@ -326,8 +333,10 @@ export function ProjectMeetingTodos({
   actors = [],
   initialTodos,
   loadError = null,
+  personalTodos = null,
 }: ProjectMeetingTodosProps) {
   const router = useRouter();
+  const personal = usePersonalTodos(projectId, personalTodos?.todos ?? EMPTY_PERSONAL_TODOS, () => router.refresh());
   const searchParams = useSearchParams();
   const view = normalizeView(searchParams.get("view"));
   const responsibility = normalizeResponsibility(
@@ -376,14 +385,18 @@ export function ProjectMeetingTodos({
     }
     return true;
   };
+  const personalInView = personal.todos.filter(todo => (todo.completedAt !== null) === (view === "completed"));
+  const visiblePersonal = responsibility === "unassigned" ? [] : personalInView;
+  const openCount = openTodos.length + personal.todos.filter(todo => todo.completedAt === null).length;
+  const completedCount = completedTodos.length + personal.todos.filter(todo => todo.completedAt !== null).length;
   const sourceTodos = (view === "completed" ? completedTodos : openTodos).filter(
     responsibilityMatches
   );
   const responsibilityCounts = {
-    all: (view === "completed" ? completedTodos : openTodos).length,
+    all: (view === "completed" ? completedTodos : openTodos).length + personalInView.length,
     mine: (view === "completed" ? completedTodos : openTodos).filter((todo) =>
       isMeetingTodoAssignedToUser(todo.assignee, currentActorUserId)
-    ).length,
+    ).length + personalInView.length,
     unassigned: (view === "completed" ? completedTodos : openTodos).filter(
       (todo) => todo.assignee === null
     ).length,
@@ -396,6 +409,7 @@ export function ProjectMeetingTodos({
     if (!canEdit || pendingCompletionIds.has(todo.id)) {
       return;
     }
+    personal.clearFeedback();
 
     const previous = {
       completedAt: todo.completedAt,
@@ -531,6 +545,7 @@ export function ProjectMeetingTodos({
     if (!canEdit || pendingActionId) {
       return;
     }
+    personal.clearFeedback();
 
     setPendingActionId(todo.id);
     setMutationError(null);
@@ -577,30 +592,15 @@ export function ProjectMeetingTodos({
   };
 
   return (
-    <div className="space-y-6">
-      <section
-        aria-label="Todo summary"
-        className="grid grid-cols-2 gap-3 sm:max-w-xl"
-      >
-        <div className="rounded-2xl border border-border/70 bg-card/70 px-4 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Open
-          </p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">
-            {openTodos.length}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.07] px-4 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-200">
-            Overdue
-          </p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-700 dark:text-amber-100">
-            {overdueCount}
-          </p>
-        </div>
+    <div className="space-y-4">
+      {personalTodos?.canEdit && <PersonalTodoComposer controller={personal} onCreated={() => {
+        if (view !== "open" || responsibility === "unassigned") router.push(buildTodosHref(projectId, "open", "mine"));
+      }} />}
+      <section aria-label="Todo summary" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <p className="tabular-nums">{openCount} open</p>
+        <p className={cn("tabular-nums", overdueCount > 0 && "text-amber-700 dark:text-amber-200")}>{overdueCount} overdue</p>
       </section>
-
-      <div className="rounded-2xl border border-border/70 bg-card/70 p-3 sm:p-4">
+      <div className="space-y-2">
         <nav
           aria-label="Todo views"
           className="grid max-w-md grid-cols-2 rounded-xl bg-muted/70 p-1"
@@ -608,7 +608,7 @@ export function ProjectMeetingTodos({
           {(["open", "completed"] as const).map((itemView) => {
             const isCurrent = view === itemView;
             const count =
-              itemView === "open" ? openTodos.length : completedTodos.length;
+              itemView === "open" ? openCount : completedCount;
             return (
               <Link
                 key={itemView}
@@ -629,7 +629,7 @@ export function ProjectMeetingTodos({
         </nav>
         <nav
           aria-label="Todo responsibility"
-          className="mt-3 grid grid-cols-1 gap-1 rounded-xl bg-muted/40 p-1 sm:grid-cols-3"
+          className="flex flex-wrap gap-1"
         >
           {(
             [
@@ -645,7 +645,7 @@ export function ProjectMeetingTodos({
                 href={buildTodosHref(projectId, view, itemResponsibility)}
                 aria-current={isCurrent ? "page" : undefined}
                 className={cn(
-                  "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   isCurrent
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -662,24 +662,30 @@ export function ProjectMeetingTodos({
       </div>
 
       <div aria-live="polite" aria-atomic="true">
-        {feedback ? (
-          <div className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200">
-            {feedback}
+        {(personal.feedback ?? feedback) ? (
+          <div className="text-sm text-muted-foreground">
+            {personal.feedback ?? feedback}
           </div>
         ) : null}
       </div>
-      {loadError || mutationError ? (
+      {loadError || mutationError || personal.error ? (
         <div
           role="alert"
           className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
-          {mutationError ?? loadError}
+          {personal.error ?? mutationError ?? loadError}
         </div>
       ) : null}
 
-      {sourceTodos.length > 0 ? (
+      {personal.editing && !visiblePersonal.some(todo => todo.id === personal.editing?.id) && (
+        <div className="space-y-2 rounded-xl border border-border p-4">
+          <p className="text-sm text-muted-foreground">Your unsaved edit is kept here while this todo is outside the current view.</p>
+          <PersonalTodoEditor controller={personal} todo={personal.editing} />
+        </div>
+      )}
+      {sourceTodos.length + visiblePersonal.length > 0 ? (
         <section
-          aria-label={`${view === "open" ? "Open" : "Completed"} meeting todos`}
+          aria-label={`${view === "open" ? "Open" : "Completed"} todos`}
           className="overflow-hidden rounded-2xl border border-border/70 bg-card/80"
         >
           <ul>
@@ -702,6 +708,8 @@ export function ProjectMeetingTodos({
                 }}
               />
             ))}
+            {visiblePersonal.map(todo => <PersonalTodoRow key={todo.id} todo={todo} controller={personal}
+              canEdit={personalTodos?.canEdit ?? false} canDelete={personalTodos?.canDelete ?? false} />)}
           </ul>
         </section>
       ) : (
@@ -721,12 +729,12 @@ export function ProjectMeetingTodos({
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
             {responsibility === "mine"
-              ? `There are no ${view} meeting todos assigned to you.`
+              ? `There are no ${view} todos assigned to you.`
               : responsibility === "unassigned"
-                ? `There are no ${view} meeting todos waiting for an assignee.`
+                ? `There are no ${view} todos waiting for an assignee.`
                 : view === "open"
-                  ? "There are no open meeting todos in this project."
-                  : "This project has no completed meeting todos."}
+                  ? "There are no open todos in this project."
+                  : "This project has no completed todos."}
           </p>
         </div>
       )}

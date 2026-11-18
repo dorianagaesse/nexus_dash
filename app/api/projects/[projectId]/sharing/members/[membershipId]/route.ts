@@ -10,6 +10,7 @@ import { parseResponsibilityResolution } from "@/lib/services/project-offboardin
 
 interface UpdateMemberRoleRequestBody {
   role?: unknown;
+  capabilities?: unknown;
 }
 
 export async function PATCH(
@@ -41,6 +42,7 @@ export async function PATCH(
     projectId: params.projectId,
     membershipId: params.membershipId,
     role: typeof payload.role === "string" ? payload.role : "",
+    capabilities: payload.capabilities,
   });
 
   if (!result.ok) {

@@ -1,3 +1,4 @@
+import { canReceiveProjectNotification, notificationAccessWhere, notificationReadCapability } from "@/lib/services/notification-access";
 import crypto from "node:crypto";
 
 import { Prisma } from "@prisma/client";
@@ -545,6 +546,13 @@ export async function enqueueNotificationEmailForNotification(input: {
     return;
   }
 
+  if (!await canReceiveProjectNotification({
+    db: input.db,
+    recipientUserId: input.notification.recipientUserId,
+    projectId: details.projectId,
+    type: input.notification.type,
+  })) return;
+
   if (!(await isRecipientVerified(input.db, input.notification.recipientUserId))) {
     return;
   }
@@ -843,6 +851,13 @@ async function createTaskDueDateReminderNotificationForCandidate(input: {
   db: DbClient;
   candidate: DueDateReminderCandidate;
 }): Promise<void> {
+  if (!await canReceiveProjectNotification({
+    db: input.db,
+    recipientUserId: input.candidate.recipientUserId,
+    projectId: input.candidate.projectId,
+    type: "task_due_date_reminder",
+  })) return;
+
   const deadlineDate = formatTaskDeadlineDate(input.candidate.deadlineAt);
   if (!deadlineDate) {
     return;
@@ -1003,6 +1018,13 @@ async function createMeetingTodoOverdueReminderNotificationForCandidate(input: {
   db: DbClient;
   candidate: MeetingTodoOverdueReminderCandidate;
 }): Promise<void> {
+  if (!await canReceiveProjectNotification({
+    db: input.db,
+    recipientUserId: input.candidate.recipientUserId,
+    projectId: input.candidate.projectId,
+    type: "meeting_todo_overdue_reminder",
+  })) return;
+
   const scheduledDate = formatTaskDeadlineDate(input.candidate.scheduledAt);
   if (!scheduledDate) {
     return;
@@ -1232,6 +1254,7 @@ async function loadClaimedGroupsForRecipient(input: {
   claimToken: string;
 }): Promise<ClaimedEmailGroup[]> {
   return withActorRlsContext(input.recipientUserId, async (db) => {
+    const visibility = await notificationAccessWhere(db, input.recipientUserId);
     const groups = await db.projectNotificationEmail.findMany({
       where: {
         recipientUserId: input.recipientUserId,
@@ -1269,6 +1292,7 @@ async function loadClaimedGroupsForRecipient(input: {
           },
         },
         items: {
+          where: { notification: visibility },
           orderBy: [{ createdAt: "asc" }],
           select: {
             id: true,
@@ -1575,6 +1599,21 @@ async function buildPreparedSection(input: {
   appOrigin: string;
   now: Date;
 }): Promise<PreparedSection | null> {
+  const allowedItems = await withActorRlsContext(input.group.recipientUserId, async (db) => {
+    const decisions = new Map<string, Promise<boolean>>();
+    const allowed = await Promise.all(input.group.items.map(async (item) => {
+      const type = item.notification.type;
+      if (!notificationReadCapability(type)) return true;
+      if (!isJsonObject(item.notification.metadata)) return false;
+      const projectId = readString(item.notification.metadata, "projectId");
+      if (!projectId || projectId !== input.group.projectId) return false;
+      const key = `${projectId}:${notificationReadCapability(type)}`;
+      if (!decisions.has(key)) decisions.set(key, canReceiveProjectNotification({ db, recipientUserId: input.group.recipientUserId, projectId, type }));
+      return decisions.get(key)!;
+    }));
+    return input.group.items.filter((_, index) => allowed[index]);
+  });
+  input.group = { ...input.group, items: allowedItems };
   const sentCoveredNotificationIds = await findSentCoveredNotificationIds({
     kind: input.group.kind,
     currentGroupId: input.group.id,

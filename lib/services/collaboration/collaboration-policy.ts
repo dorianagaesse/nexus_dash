@@ -1,3 +1,4 @@
+import { effectiveProjectCapabilities } from "@/lib/project-capabilities";
 // Shared collaboration normalization, identities, invitation states, and response mapping.
 
 import type { Prisma, ProjectMembershipRole } from "@prisma/client";
@@ -278,6 +279,7 @@ export function buildProjectInvitationSummary(input: {
     role: requireCollaboratorRole(invitationRole),
     createdAt: input.invitation.createdAt.toISOString(),
     expiresAt: input.invitation.expiresAt.toISOString(),
+    ...("capabilities" in input.invitation && input.invitation.capabilities != null ? { capabilities: effectiveProjectCapabilities(invitationRole, input.invitation.capabilities) } : {}),
     inviteLinkPath: buildProjectInvitationPath(invitationId),
   } satisfies ProjectInvitationSummary;
 }

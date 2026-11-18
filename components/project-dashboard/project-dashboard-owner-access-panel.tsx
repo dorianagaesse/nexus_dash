@@ -1,5 +1,8 @@
 "use client";
 
+import { ProjectCapabilityFields } from "./project-capability-fields";
+import type { ProjectCapability } from "@/lib/project-capabilities";
+
 import { useEffect, useState } from "react";
 import { ArrowRightLeft, Check, Copy, Mail } from "lucide-react";
 
@@ -28,7 +31,7 @@ interface ProjectDashboardOwnerAccessPanelProps {
     string,
     ProjectInvitationEmailDeliverySummary | undefined
   >;
-  onRoleChange: (member: ProjectMemberSummary, nextRole: ProjectCollaboratorRole) => void;
+  onRoleChange: (member: ProjectMemberSummary, nextRole: ProjectCollaboratorRole, capabilities?: ProjectCapability[]) => void;
   onRemoveMember: (member: ProjectMemberSummary) => void;
   onTransferOwnership: (member: ProjectMemberSummary) => void;
   onCopyInvitationLink: (invitation: ProjectInvitationSummary) => Promise<boolean> | boolean;
@@ -177,6 +180,9 @@ export function ProjectDashboardOwnerAccessPanel({
                       </Button>
                     </div>
                   )}
+                  {!member.isOwner && <ProjectCapabilityFields role={member.role} value={member.capabilities}
+                    label={`Module access for ${member.displayName}`} disabled={isMutatingMemberId === member.membershipId}
+                    onChange={(grants) => onRoleChange(member, member.role as ProjectCollaboratorRole, grants)} />}
                 </div>
               ))}
 

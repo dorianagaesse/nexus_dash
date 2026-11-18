@@ -34,6 +34,7 @@ const props: ComponentProps<typeof ProjectDashboardOwnerAgentAccessPanel> = {
   onClearActionError: () => {},
   onRefreshAccess: () => {},
   onUpdateCapabilities: () => {},
+  onUpdateScopes: async () => true,
   isCreatingCredential: false,
   mutatingCredentialId: null,
   latestIssuedSecret: null,

@@ -59,7 +59,7 @@ const MENTION_ITEM = {
     taskId: "task-1",
     taskTitle: "Release task",
   },
-  summary: "reviewer mentioned Release bot (agent) in a comment",
+  summary: "reviewer mentioned Release bot in a comment",
   actor: {
     kind: "human" as const,
     id: "user-1",

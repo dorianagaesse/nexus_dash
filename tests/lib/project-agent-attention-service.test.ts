@@ -400,7 +400,7 @@ describe("listAgentMentionEvents results", () => {
           taskTitle: "Release task",
         },
         summary:
-          'reviewer mentioned Release bot v2 (agent) in a comment on "Release task"',
+          'reviewer mentioned Release bot v2 in a comment on "Release task"',
         actor: HUMAN_ACTOR,
         currentState: { status: "Todo", archivedAt: null },
       },
@@ -416,7 +416,7 @@ describe("listAgentMentionEvents results", () => {
           taskTitle: "Release task",
         },
         summary:
-          'reviewer mentioned Release bot v2 (agent) in a comment on "Release task"',
+          'reviewer mentioned Release bot v2 in a comment on "Release task"',
         actor: HUMAN_ACTOR,
         currentState: { status: "Todo", archivedAt: null },
       },
@@ -463,11 +463,11 @@ describe("listAgentMentionEvents results", () => {
     }
     expect(result.data.items[0]).toMatchObject({
       summary:
-        'Build bot (agent) mentioned Release bot v2 (agent) in a comment on "Release task"',
+        'Build bot mentioned Release bot v2 in a comment on "Release task"',
       actor: {
         kind: "agent",
         id: "credential-2",
-        displayName: "Build bot (agent)",
+        displayName: "Build bot",
         usernameTag: null,
       },
     });
@@ -490,11 +490,11 @@ describe("listAgentMentionEvents results", () => {
     }
     expect(result.data.items[0]).toMatchObject({
       summary:
-        'Ghost bot (agent) mentioned Release bot v2 (agent) in a comment on "Release task"',
+        'Ghost bot mentioned Release bot v2 in a comment on "Release task"',
       actor: {
         kind: "agent",
         id: "historical-agent-Ghost%20bot",
-        displayName: "Ghost bot (agent)",
+        displayName: "Ghost bot",
         usernameTag: null,
       },
     });
@@ -511,7 +511,7 @@ describe("listAgentMentionEvents results", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data.items[0]?.summary).toContain(
-        "mentioned Release bot (agent)"
+        "mentioned Release bot"
       );
     }
   });
@@ -569,11 +569,11 @@ describe("listAgentAssignments", () => {
             meetingNoteTitle: "Weekly sync",
           },
           summary:
-            'Build bot (agent) assigned Release bot v2 (agent) to the meeting to-do "Cut the release notes" in "Weekly sync"',
+            'Build bot assigned Release bot v2 to the meeting to-do "Cut the release notes" in "Weekly sync"',
           actor: {
             kind: "agent",
             id: "credential-2",
-            displayName: "Build bot (agent)",
+            displayName: "Build bot",
             usernameTag: null,
           },
           currentState: {
@@ -589,7 +589,7 @@ describe("listAgentAssignments", () => {
           occurredAt: new Date("2026-09-12T11:00:00.000Z"),
           artifact: { type: "task", id: "task-1", title: "Ship the release" },
           summary:
-            'reviewer assigned Release bot v2 (agent) to task "Ship the release"',
+            'reviewer assigned Release bot v2 to task "Ship the release"',
           actor: HUMAN_ACTOR,
           currentState: {
             assignmentState: "active",
@@ -798,7 +798,7 @@ describe("listAgentAssignments", () => {
           title: "Legacy task",
         },
         summary:
-          'Unknown actor assigned Release bot v2 (agent) to task "Legacy task"',
+          'Unknown actor assigned Release bot v2 to task "Legacy task"',
         actor: null,
         currentState: {
           assignmentState: "active",

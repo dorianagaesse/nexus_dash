@@ -40,6 +40,7 @@ async function createProjectTaskNotification(
       targetPath: `/projects/${projectId}?taskId=${task.id}`,
       sourceType: "e2e_shell_navigation",
       sourceId: task.id,
+      metadata: { projectId: projectId!, taskId: task.id },
     },
   });
 

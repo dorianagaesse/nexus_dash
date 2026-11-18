@@ -115,7 +115,7 @@ function normalizeIdentifier(value: string | null | undefined): string {
 
 function formatAgentDisplayName(label: string | null | undefined): string {
   const normalizedLabel = normalizeIdentifier(label);
-  return normalizedLabel ? `${normalizedLabel} (agent)` : "Agent";
+  return normalizedLabel || "Agent";
 }
 
 interface AgentAttentionServiceInput {

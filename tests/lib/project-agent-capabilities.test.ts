@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const db = vi.hoisted(() => ({
   $transaction: vi.fn(),
   authAuditEvent: { create: vi.fn() },
+  apiCredentialScopeGrant: { deleteMany: vi.fn(), createMany: vi.fn() },
   project: {
     findFirst: vi.fn(),
   },
@@ -80,7 +81,7 @@ describe("project agent capability administration", () => {
       });
       expect(db.apiCredential.updateMany).toHaveBeenCalledWith({
         where: { id: "credential", projectId: "project" },
-        data: { canMoveTasksToDone: allowed },
+        data: { canMoveTasksToDone: allowed, updatedAt: expect.any(Date) },
       });
       expect(db.authAuditEvent.create).toHaveBeenCalledWith({
         data: {
@@ -101,8 +102,24 @@ describe("project agent capability administration", () => {
     expect(result).toEqual({ ok: false, status: 404, error: "credential-not-found" });
     expect(db.authAuditEvent.create).not.toHaveBeenCalled();
     expect(db.apiCredential.updateMany).toHaveBeenCalledWith({
-      where: { id: "foreign", projectId: "project" }, data: { canMoveTasksToDone: true },
+      where: { id: "foreign", projectId: "project" }, data: { canMoveTasksToDone: true, updatedAt: expect.any(Date) },
     });
   });
 
+  test.each([[], ["task:unknown"], null, "task:read"])("rejects invalid scope sets %j", async (scopes) => {
+    expect(await updateProjectAgentCredentialCapabilities({ actorUserId: "owner", projectId: "project", credentialId: "credential", scopes })).toMatchObject({ ok: false, status: 400 });
+    expect(db.apiCredential.updateMany).not.toHaveBeenCalled();
+  });
+
+  test("replaces scopes and audits them in the same transaction without rotating the key", async () => {
+    db.project.findFirst.mockResolvedValue({ ownerId: "owner", memberships: [] });
+    db.apiCredential.updateMany.mockResolvedValue({ count: 1 });
+    const result = await updateProjectAgentCredentialCapabilities({ actorUserId: "owner", projectId: "project", credentialId: "credential", scopes: ["meeting:read", "meeting:read"] });
+    expect(result).toMatchObject({ ok: true, data: { scopes: ["meeting:read"] } });
+    expect(db.$transaction).toHaveBeenCalledOnce();
+    expect(db.apiCredential.updateMany).toHaveBeenCalledWith({ where: { id: "credential", projectId: "project" }, data: { updatedAt: expect.any(Date) } });
+    expect(db.apiCredentialScopeGrant.deleteMany).toHaveBeenCalledWith({ where: { credentialId: "credential" } });
+    expect(db.apiCredentialScopeGrant.createMany).toHaveBeenCalledWith({ data: [{ credentialId: "credential", scope: "meeting_read" }] });
+    expect(db.authAuditEvent.create).toHaveBeenCalledWith({ data: expect.objectContaining({ metadata: { scopes: ["meeting:read"] } }) });
+  });
 });

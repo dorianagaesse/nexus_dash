@@ -93,6 +93,20 @@ credential list and per-credential permission controls against the new immutable
 URL; replace obsolete Preview links in the PR and board handoff. The shared
 Preview schema stays at its forward migration state.
 
+### Shared Preview scope-enum compatibility
+
+ND-130 adds meeting, epic and schedule values to `ApiCredentialScope` and
+backfills grants on existing credentials. Older immutable deployments cannot
+deserialize those values through a generated Prisma client that predates them;
+credential listing can return `P2023` even when readiness and token exchange
+work. Credential-management relation reads filter to the scopes supported by
+their build before Prisma deserialization, matching token exchange. This read
+filter leaves all stored grants intact during label edits, rotation and revoke.
+
+After permission migrations, validate the signed-in owner's credential list and
+lifecycle actions as well as readiness. The scope-compatibility browser test
+adds newer database enum values without regenerating its older Prisma client.
+
 ### ND-185 Preview Migration Recovery
 
 The 2026-10-04 ND-185 Preview run applied

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthenticatedApiUser } from "@/lib/auth/api-guard";
 import { getProjectMeetingTodoNavigationSummary } from "@/lib/services/project-meeting-todo-service";
+import { countOpenPersonalTodos } from "@/lib/services/project-todo-service";
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store",
@@ -31,5 +32,9 @@ export async function GET(
     );
   }
 
-  return NextResponse.json(summary, { headers: NO_STORE_HEADERS });
+  const personalCount = await countOpenPersonalTodos({
+    actorUserId: authenticatedUser.userId,
+    projectId,
+  });
+  return NextResponse.json({ ...summary, activeCount: summary.activeCount + personalCount }, { headers: NO_STORE_HEADERS });
 }

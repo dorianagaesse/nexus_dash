@@ -68,7 +68,7 @@ test("ND-655: readable directory, focused management flows, and independent comp
   const panel = await openAgentAccess(page);
   const list = panel.getByRole("list", { name: "Agent credentials" });
   await expect(list.getByRole("listitem")).toHaveCount(3);
-  await expect(list.getByText("Tasks: Edit", { exact: true })).toHaveCount(2);
+  await expect(list.getByText("Tasks", { exact: true })).toHaveCount(2);
   for (const label of ["Expired worker", "Revoked worker"]) {
     const inactive = list.getByRole("listitem", { name: label, exact: true });
     await expect(inactive.getByText("Inactive", { exact: true })).toBeVisible();
@@ -193,24 +193,13 @@ test("ND-655: readable directory, focused management flows, and independent comp
       })
     ).ok()
   ).toBeFalsy();
-  // ND-657: re-exchange across the existing second-precision rotation boundary.
-  let accessToken = "";
-  const rotatedKey = await key.inputValue();
-  await expect
-    .poll(async () => {
-      const exchange = await page.request.post("/api/auth/agent/token", {
-        data: { apiKey: rotatedKey },
-      });
-      expect(exchange.ok()).toBeTruthy();
-      accessToken = (await exchange.json()).accessToken;
-      return (
-        await page.request.get(`/api/projects/${projectId}/tasks`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        })
-      ).ok();
-    })
-    .toBe(true);
+  const exchange = await page.request.post("/api/auth/agent/token", {
+    data: { apiKey: await key.inputValue() },
+  });
+  expect(exchange.ok()).toBeTruthy();
+  const { accessToken } = await exchange.json();
   const headers = { Authorization: `Bearer ${accessToken}` };
+  expect((await page.request.get(`/api/projects/${projectId}/tasks`, { headers })).status()).toBe(200);
   expect(
     (
       await page.request.patch(capabilityPath, {
@@ -565,12 +554,11 @@ test("ND-655: dialog dismissal restores keyboard focus to its opening control", 
   await expect(name).toHaveAccessibleDescription(/Agent name must be between/);
   await name.fill("Keyboard review");
   await expect(name).not.toHaveAttribute("aria-invalid", "true");
-  await creation.getByText("Customize permissions", { exact: false }).click();
   for (const checkbox of await creation.getByRole("checkbox").all()) {
     await checkbox.uncheck();
   }
   await creation.getByRole("button", { name: "Create credential", exact: true }).click();
-  const presets = creation.getByRole("group", { name: "Scope presets" });
+  const presets = creation.getByLabel("Starting permissions", { exact: true });
   await expect(presets).toBeFocused();
   await expect(presets).toHaveAccessibleDescription(/Choose a preset or select at least one/);
   await page.keyboard.press("Escape");

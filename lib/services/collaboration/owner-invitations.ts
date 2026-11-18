@@ -1,3 +1,4 @@
+import { isValidCapabilityGrant } from "@/lib/project-capabilities";
 // Owner-authorized invitation discovery, replacement, delivery, and revocation.
 
 import { validateEmail } from "@/lib/services/account-security-policy";
@@ -180,6 +181,7 @@ export async function inviteUserToProject(input: {
   projectId: string;
   invitedEmail: string;
   role: string;
+  capabilities?: unknown;
   appOrigin?: string | null;
 }): Promise<
   ServiceResult<{
@@ -201,6 +203,7 @@ export async function inviteUserToProject(input: {
     return createError(400, "invalid-role");
   }
   const invitedRole = input.role;
+  if (!isValidCapabilityGrant(input.capabilities, input.role)) return createError(400, "invalid-capabilities");
 
   const now = new Date();
 
@@ -320,6 +323,7 @@ export async function inviteUserToProject(input: {
           invitedEmail,
           invitedByUserId: actorUserId,
           role: invitedRole,
+          ...(input.capabilities != null ? { capabilities: input.capabilities as string[] } : {}),
           expiresAt: buildInvitationExpiry(),
         },
         select: {
@@ -327,6 +331,7 @@ export async function inviteUserToProject(input: {
           projectId: true,
           invitedEmail: true,
           role: true,
+          capabilities: true,
           createdAt: true,
           expiresAt: true,
           acceptedAt: true,

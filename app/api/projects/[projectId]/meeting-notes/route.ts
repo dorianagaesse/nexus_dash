@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getAgentProjectAccessContext,
   requireApiPrincipal,
-  requireAuthenticatedApiUser,
 } from "@/lib/auth/api-guard";
 import { logServerWarning } from "@/lib/observability/logger";
 import { startServerTiming } from "@/lib/observability/server-timing";
@@ -84,7 +83,7 @@ export async function POST(
 ) {
   const timing = startServerTiming("meeting-note.create");
   const params = await props.params;
-  const authenticatedUser = await requireAuthenticatedApiUser(request);
+  const authenticatedUser = await requireApiPrincipal(request);
   if (!authenticatedUser.ok) {
     return authenticatedUser.response;
   }
@@ -103,7 +102,8 @@ export async function POST(
   }
 
   const result = await createProjectMeetingNote({
-    actorUserId: authenticatedUser.userId,
+    agentAccess: getAgentProjectAccessContext(authenticatedUser.principal),
+    actorUserId: authenticatedUser.principal.actorUserId,
     projectId: params.projectId,
     ...parsed.data,
   });

@@ -18,7 +18,15 @@ Implemented today:
 - Email verification and password recovery for credentials accounts
 - DB-backed session cookies
 - Protected routes: `/projects/**`, `/account/**`
+- Branded 404 page for unknown URLs and unavailable pages, with a Go to projects
+  recovery link, responsive layouts, and light/dark theme support
 - Project CRUD
+- Project Todos combines meeting actions and personal todos in one list. Add
+  a todo for yourself with just text; edit, complete/reopen, or delete your own
+  items. Personal todos show **Only you** and are hidden from other members,
+  including project owners. Meeting actions show **Project members** and retain
+  their existing assignment and private-note rules. Open/Completed and
+  responsibility filters apply to the combined list. Viewers remain read-only.
 - Project sharing with owner-managed membership/invitation flows, including email-bound invite links
 - In-app notification center for durable unread/read notification review, starting with project invitations
 - Project notification email digests, delayed invitation reminders, and
@@ -26,10 +34,20 @@ Implemented today:
 - Project-scoped agent access with owner-managed API credentials, short-lived bearer-token exchange, and audit trail
 - Project dashboard with:
   - Context cards (CRUD + attachments)
+  - Epics listed in a bounded, scrollable view with title, completion, task count,
+    and edit/archive/delete actions. Colored flags identify epics across the list,
+    details dialog, and Kanban. **Active** and **Archived** show their epics
+    immediately, with name and description search. Open an epic to see its
+    description and every linked task, ordered Backlog, Blocked, In Progress,
+    then Done. Task links open the task directly. Creation and editing use dialogs.
   - Meeting notes with searchable preparation inputs, label filters,
     participants, after-meeting outputs, todo tracking, overdue highlights,
     state, and archived history
-  - Roadmap event-first milestone lanes with grouped child events, drag-and-drop regrouping, and target-date planning
+  - Roadmap milestone lanes with grouped events, drag-and-drop regrouping,
+    and target-date planning. Milestones stack vertically on narrow screens
+    and form a horizontally scrollable timeline on desktop. During a touch
+    drag, visible insertion gaps let you create a milestone by releasing
+    your finger inside the gap.
   - Kanban board (`Backlog`, `In Progress`, `Blocked`, `Done`)
   - Calendar panel (Google Calendar list/create/update/delete)
   - Task attachment additions and deletions sync into open task modals across
@@ -38,7 +56,7 @@ Implemented today:
     Activity received during local saves reconciles afterward; comment uploads
     stay unpublished until their comment is posted
   - Task comments with agent-authored comment attribution through the project
-    credential label and a shared agent avatar
+    credential name, descriptive labels and a shared agent avatar
 - Per-user Google Calendar connection and calendar target setting (`/account/settings`)
 - Opening a task updates the browser URL; task modals offer **Copy link**.
   Shared links reopen that task after sign-in for people with project access.
@@ -113,7 +131,7 @@ Open `http://localhost:3000`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
 - **Share project > Agent access** opens a credential directory with agent
   counts, readable access summaries, status, last use, expiry, and a separate
-  task-completion switch for each agent. Search by name (ignoring case and
+  task-completion switch for each agent. Search by name or descriptive label (ignoring case and
   surrounding spaces). Open **Filters** to combine status and capability,
   including **Complete tasks**; **Clear filters** restores the full directory.
   Custom access lists the actions granted for each resource. **Complete tasks**
@@ -140,6 +158,13 @@ Open `http://localhost:3000`.
   Settings and Agent access dialogs use the same thin, transparent-track
   scrollbar as the task dialogs and agent guide.
 - Agent raw API keys exchange at `POST /api/auth/agent/token` into short-lived bearer tokens.
+- Key rotation immediately invalidates tokens from the previous key. A token
+  exchanged with the new key works immediately, even within the same millisecond.
+  Bearer tokens are bound to the key's public ID rather than a rounded issuance
+  timestamp; revocation and credential expiry are still checked on every request.
+  During the ND-657 rollout, older tokens without that binding remain usable only
+  on never-rotated credentials. Agents with previously rotated credentials must
+  exchange their current API key again if they receive `401`.
 - Agent v1 is limited to project/roadmap/task/context APIs and does not include calendar access.
 - In Sharing > Agent access, owners can enable **Task completion** separately
   on each credential. Task Write is still required. New and existing credentials
@@ -174,6 +199,39 @@ fails through the ordinary Save error and keeps the input. Explicit Cancel
 abandons the edit; reopening then starts from the latest event. Outside click,
 Escape, and the close icon preserve recovery. Context cards follow the same
 invisible-recovery rule with atomic content revisions.
+
+### Agent descriptive labels
+
+Project owners can add optional descriptive labels (for example, `GPT-6` and
+`Codex`) when creating a credential in **Sharing → Agent access**, or use
+**Manage > Edit labels** on an existing credential. Type one label and press
+**Enter** to add its chip; remove chips individually with their remove buttons.
+The Enter hint appears only while the focused input contains text. Labels use
+the same automatic background colors as task labels in the editor, credential
+directory and comment authors. At most five distinct labels are allowed, each
+1–40 characters after trimming, without commas or control characters. Duplicate
+labels are combined case-insensitively. Remove every chip to clear all labels;
+add or clear pending text before saving. Names, task labels and permissions are
+separate.
+
+Owner-session credential creation accepts `descriptiveLabels: string[]`;
+`PATCH /api/projects/{projectId}/agent-access/{credentialId}/labels` replaces
+that array and returns the credential ID and saved labels. The owner-only
+Agent access summary includes `descriptiveLabels`; agent bearer tokens cannot
+manage this metadata. These responses never include stored secret hashes.
+
+Task comments resolve the agent's current name and descriptive labels from a
+project-scoped public author identity, including comments posted before an edit.
+Agent display names use the credential name without an appended `(agent)`
+suffix; avatars, descriptive labels and structured actor kind distinguish them.
+The comment API exposes the array as `author.agentCredentialDescriptiveLabels`;
+task readers see the current labels beside the author name. Renaming and label
+additions/removals apply to all linked comments. Metadata edits refresh open
+threads through project activity without changing comment contents or timestamps.
+Rotation and revocation retain the same identity; deleting the API credential
+retains its final public name and labels. The additive migration links existing
+comments to current metadata. Older comments whose credential was already hard
+deleted retain their saved attribution because their original link is gone.
 
 ## Database and Migrations
 
@@ -679,6 +737,20 @@ and agents. Todos remain project-visible even when their meeting is private;
 project editors can complete and reassign them. Private note text, participants,
 labels and titles are not revealed through shared todo views or mutation responses.
 
+### Meeting note screenshots
+
+Paste a screenshot into Inputs or Outputs, or use the editor's paperclip to
+choose images (up to 10 per section, 4 MB per image). Thumbnails open the shared
+full-size preview, with download available there. Save preparation or Save notes
+commits that section's images; removing an image takes effect on Save. Cancelling
+an edit leaves saved images intact. Dismissed drafts retain uploaded images with
+the note's existing silent recovery behavior.
+
+Screenshots follow project meeting permissions and the note's Private/Team
+visibility. Unsaved uploads are visible only to their uploader. Downloads are
+authenticated and uncached, so changing visibility or removing access takes effect
+on the next request. Local and R2 storage use the existing provider configuration.
+
 ### Agent context-card attachments
 
 Agents with `context:write` can create context cards with `attachmentLinks` and
@@ -688,3 +760,97 @@ R2; local storage supports form uploads for signed-in users. Agent attachments
 store their credential ID and display-name snapshot separately from the user
 who owns the storage object. Revoked or deleted credentials retain historical
 agent attribution. Existing file limits, project access, and scope checks apply.
+
+### Actor discovery and comment mention round-tripping
+
+`GET /api/projects/{projectId}/actors/search?query=...` accepts any one of
+`project:read`, `task:read`, or `task:write`, with viewer project access. It trims
+the query, removes one leading `@`, matches case-insensitively, and returns at
+most 12 active actors without pagination. Revoked/expired credentials are omitted.
+
+For human mentions on comment creation, send `mentionSelections` with `userId`,
+`username`, and the current four-digit `discriminator` matching the visible `@username#1234`
+token. For agents, send `agentMentionSelections: [{ credentialId }]` and the exact
+visible `@{Credential Label}` token. Selected IDs do not replace visible tokens.
+Comment responses expose `agentMentions: [{ credentialId, label }]` when present.
+
+Comment PATCH replaces agent selections, including clearing them when omitted.
+Before an unrelated text edit, revalidate every existing `agentMentions` entry
+against actor discovery: comment reads contain stored label snapshots, not a
+guarantee that the credentials are still active or their labels unchanged. Only
+then retain the matching visible tokens and map the entries to
+`agentMentionSelections: [{ credentialId }]`.
+
+For a renamed credential, reselect its current actor and update the visible
+`@{Credential Label}` token to the current label. Revoked or expired credentials,
+or renamed credentials with stale tokens, cause PATCH to return
+`400 task-comment-agent-mention-invalid`. Refresh actor discovery and surface the
+need for explicit reselection or removal before retrying. If any existing
+selection cannot be revalidated, pause the edit; do not silently filter out IDs
+and retry, because a successful PATCH with a reduced selection set removes the
+omitted stored mentions. A bounded search response alone does not prove an
+unreturned credential is inactive.
+
+Edits do not emit new human mention notifications. Create and edit accept
+sanitized rich-text HTML; the 4000-character limit counts UTF-16 code units in the server plain-text
+projection after sanitization and whitespace normalization, not raw HTML markup.
+Sanitizer-escaped entities and list markers can contribute to this count. See the hosted guide for complete examples and schemas.
+
+### Comment reaction actors
+
+A human and each project credential have independent comment reactions. POST an
+emoji to `/api/projects/{projectId}/tasks/{taskId}/comments/{commentId}/reactions`
+to toggle it off or replace your previous emoji. GET requires `task:read`; POST
+and DELETE `/{reactionId}` require `task:write`. Removal affects only your actor.
+Responses group counts and caller-specific `reacted` state. Each reaction's
+`actor` identifies the human or agent; `user` is null for agents. Credential
+removal preserves the agent display snapshot with a null actor ID. Reaction
+button tooltips show these actors, including the agent marker.
+
+Open task dialogs reconcile comments, counts and reactions through project
+activity, including Broadcast signals and polling or reconnect snapshots.
+Thread reads continue during task editing without replacing unsent comments,
+active comment edits, focus or selection. Switching tasks cancels pending reads;
+late responses cannot replace the newly opened thread. Polling keeps the existing
+10-second active cadence; no separate thread polling loop is added.
+After a local mutation finishes, open surfaces also catch up once so its version
+acknowledgement cannot hide a concurrent remote comment or reaction.
+
+Reaction routes validate the entire project/task/comment/reaction path. A known
+comment under the wrong task, or a reaction under the wrong comment, returns 404
+and never reads or changes the other thread's reactions.
+
+### Task attachment attribution
+
+Task link and file responses include `uploadedBy: { kind, id, displayName }`.
+The uploader snapshot distinguishes agents from their human storage owner and
+survives credential deletion (`id: null`, agent kind and name retained). Task
+attachment add/delete writes also update the actual task editor and activity
+payload actor. Legacy uploads remain human-attributed; their history is not
+retroactively assigned to a credential.
+
+Unpublished task comment files belong to the exact uploading human or credential,
+including credentials with the same human owner. Only that actor may read or bind
+its draft to a comment. Human project owners may remove another actor's draft for
+moderation; this grants neither read nor publishing access. Once posted, project
+readers may download the file. Binding is atomic and a draft can be published once.
+Direct-upload keys must be used by the actor that requested them. Finalization and
+cleanup reject an already-finalized key; agents cannot claim legacy human keys.
+
+### Agent files with local storage
+
+Create the task using JSON, then POST multipart form data to
+`/api/projects/{projectId}/tasks/{taskId}/attachments` with the bearer token,
+`kind=file` and `file`. This path supports local and R2 providers, with the
+existing 4 MiB MIME/size limit and actual credential attribution. For a comment
+file, add `isCommentDraft=true`, then POST its ID in `attachmentIds` to the task
+comments route. Only that credential may bind or read the unpublished file.
+
+Agent multipart task creation with `attachmentFiles` remains unsupported; the
+two-request create/upload flow is its supported equivalent. R2 direct upload
+remains preferred for files up to 25 MiB. Local storage returns 400 for signed
+upload targets; use multipart instead. Authentication or authorization failures
+must not trigger a fallback to a human session. Context-card local uploads remain
+outside this contract.
+
+Project module permissions and rollout: [project capabilities](docs/runbooks/project-capabilities.md).
