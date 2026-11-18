@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import { prisma } from "../../lib/prisma";
 import { signInAsVerifiedUser } from "./helpers/auth-helpers";
 import { uniqueProjectName } from "./helpers/project-helpers";
+import { activateUntilVisible } from "./helpers/interaction-helpers";
 
 test("task drafts recover and meeting preparation saves on dismissal", async ({ page }) => {
   const userId = await signInAsVerifiedUser(page);
@@ -70,9 +71,10 @@ test("task drafts recover and meeting preparation saves on dismissal", async ({ 
 
     await page.getByRole("button", { name: "Prepare meeting" }).click();
     await page.locator("#meeting-inputs").fill("Agenda without a title");
-    await page.mouse.click(5, 5);
-    await page.mouse.click(5, 5);
-    await expect(page.getByText("Meeting title is required.")).toBeVisible();
+    await activateUntilVisible(
+      page.getByText("Meeting title is required."),
+      () => page.mouse.click(5, 5)
+    );
     expect(await prisma.projectMeetingNote.count({ where: { projectId: project.id } })).toBe(0);
     await page.locator("#meeting-title").fill("Recovered preparation");
     expect(await prisma.projectMeetingNote.count({ where: { projectId: project.id } })).toBe(0);

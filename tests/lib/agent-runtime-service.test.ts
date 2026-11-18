@@ -97,9 +97,11 @@ describe("portable runtime authorization", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.role.mockResolvedValue({ ok: true, role: "owner" });
-    mocks.db.$queryRaw.mockResolvedValue([
-      { device_id: "laptop", owner_id: "owner" },
-    ]);
+    mocks.db.$queryRaw.mockImplementation(async (query: TemplateStringsArray) =>
+      query.join(" ").includes("resolve_agent_runtime_proof")
+        ? [{ device_id: "laptop", owner_id: "owner" }]
+        : [{ id: "project" }]
+    );
     mocks.db.apiCredential.findFirst.mockResolvedValue(identity());
     mocks.db.agentRuntimeDevice.findUnique.mockResolvedValue(device());
     mocks.db.agentRuntimeCredential.findFirst.mockResolvedValue({
@@ -112,6 +114,19 @@ describe("portable runtime authorization", () => {
       tokenId: "token",
       expiresInSeconds: 300,
     });
+  });
+
+  test("an authenticated device can end its session after all shared scopes are removed", async () => {
+    const boundDevice = device();
+    boundDevice.identity.scopeGrants = [];
+    mocks.db.agentRuntimeDevice.findUnique.mockResolvedValue(boundDevice);
+    const binding = { projectId: "project", identityId: "oscar", proof, sessionId: "session" };
+    expect(await exchangeRuntimeAccess({ ...binding, operation: "renew" })).toMatchObject({ ok: false, status: 403 });
+    expect(await exchangeRuntimeAccess({ ...binding, operation: "end" })).toMatchObject({ ok: true, data: { ended: true } });
+    expect(mocks.db.agentRuntimeSession.update).toHaveBeenCalledWith({
+      where: { id: "session" }, data: { endedAt: expect.any(Date) },
+    });
+    expect(mocks.token).not.toHaveBeenCalled();
   });
 
   test("intersects token, session, device and current identity grants on every request", async () => {

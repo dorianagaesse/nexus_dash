@@ -156,11 +156,12 @@ export async function openRuntime(binding, vault, client) {
       // browser cookies. Only their response body and content type are forwarded.
       if (result.status >= 300 && result.status < 400)
         throw new Error("Redirect rejected");
+      const contents = Buffer.from(await result.arrayBuffer());
       response.writeHead(result.status, {
         "Content-Type":
           result.headers.get("content-type") ?? "application/json",
       });
-      response.end(Buffer.from(await result.arrayBuffer()));
+      response.end(contents);
     } catch {
       response
         .writeHead(403, { "Content-Type": "application/json" })

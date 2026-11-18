@@ -65,7 +65,14 @@ import {
   PROJECT_SECTION_HEADER_CLASS,
 } from "@/components/project-dashboard/project-section-chrome";
 import { RichTextContent } from "@/components/rich-text-content";
-import { RichTextEditor } from "@/components/rich-text-editor";
+import {
+  MeetingNoteScreenshotEditor,
+  MeetingScreenshotGallery,
+} from "@/components/meeting-notes/meeting-note-screenshots";
+import {
+  meetingScreenshotIds,
+  type MeetingNoteScreenshot,
+} from "@/lib/meeting-note-screenshot";
 import { useToast } from "@/components/toast-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -204,6 +211,7 @@ interface DraftAction {
 }
 
 interface PrepareDraft {
+  screenshots: MeetingNoteScreenshot[];
   title: string;
   scheduledAtLocal: string;
   participants: ProjectMeetingParticipantIdentity[];
@@ -215,6 +223,7 @@ interface PrepareDraft {
 }
 
 interface NotesDraft {
+  screenshots: MeetingNoteScreenshot[];
   outputNotes: string;
   status: MeetingNoteStatus;
   visibility: MeetingNoteVisibility;
@@ -227,6 +236,7 @@ interface PrepareDialogState {
 }
 
 const EMPTY_PREPARE_DRAFT: PrepareDraft = {
+  screenshots: [],
   title: "",
   scheduledAtLocal: "",
   participants: [],
@@ -238,6 +248,7 @@ const EMPTY_PREPARE_DRAFT: PrepareDraft = {
 };
 
 const EMPTY_NOTES_DRAFT: NotesDraft = {
+  screenshots: [],
   outputNotes: "",
   status: "actions_in_progress",
   visibility: "private",
@@ -446,6 +457,7 @@ function buildPrepareDraftFromNote(
     labels: note.labels,
     labelInput: "",
     visibility: resolveNoteVisibility(note),
+    screenshots: (note.screenshots ?? []).filter((row) => row.section === "input"),
     inputNotes: coerceRichTextHtml(note.inputNotes) ?? "",
   };
 }
@@ -454,6 +466,7 @@ function buildNotesDraftFromNote(
   note: ProjectMeetingNotePanelNote
 ): NotesDraft {
   return {
+    screenshots: (note.screenshots ?? []).filter((row) => row.section === "output"),
     outputNotes: coerceRichTextHtml(note.outputNotes) ?? "",
     status: note.status === "prepared" ? "actions_in_progress" : note.status,
     visibility: resolveNoteVisibility(note),
@@ -507,6 +520,8 @@ function mapMeetingNoteError(errorCode: string): string {
       return "Participant names must be 80 characters or fewer.";
     case "meeting-note-participant-user-invalid":
       return "That NexusDash collaborator no longer has access to this project.";
+    case "meeting-note-screenshots-invalid":
+      return "Some screenshots are unavailable. Remove them and upload again.";
     case "meeting-note-section-too-long":
       return "Meeting sections are too long.";
     case "meeting-note-too-many-actions":
@@ -843,6 +858,13 @@ function buildPrepareCommandPayload(
 ): Record<string, unknown> {
   if (!baseNote) return {};
   const payload: Record<string, unknown> = {};
+  const ids = meetingScreenshotIds(draft.screenshots);
+  const baseIds = meetingScreenshotIds(
+    (baseNote.screenshots ?? []).filter((row) => row.section === "input")
+  );
+  if (JSON.stringify(ids) !== JSON.stringify(baseIds)) {
+    payload.inputAttachmentIds = ids;
+  }
   if (draft.visibility !== resolveNoteVisibility(baseNote)) {
     payload.visibility = draft.visibility;
   }
@@ -855,6 +877,13 @@ function buildOutputCommandPayload(
 ): Record<string, unknown> {
   if (!baseNote) return {};
   const payload: Record<string, unknown> = {};
+  const ids = meetingScreenshotIds(draft.screenshots);
+  const baseIds = meetingScreenshotIds(
+    (baseNote.screenshots ?? []).filter((row) => row.section === "output")
+  );
+  if (JSON.stringify(ids) !== JSON.stringify(baseIds)) {
+    payload.outputAttachmentIds = ids;
+  }
   if (draft.status !== normalizedNotesStatus(baseNote.status)) {
     payload.status = draft.status;
   }
@@ -962,6 +991,13 @@ function meetingCommandReflected(
       return normalizedNotesStatus(acceptedNote.status) === command;
     case "visibility":
       return resolveNoteVisibility(acceptedNote) === command;
+    case "inputAttachmentIds":
+    case "outputAttachmentIds":
+      return JSON.stringify(command) === JSON.stringify(meetingScreenshotIds(
+        (acceptedNote.screenshots ?? []).filter((row) =>
+          row.section === (key === "inputAttachmentIds" ? "input" : "output")
+        )
+      ));
     case "actions":
       return (
         Array.isArray(command) &&
@@ -1433,6 +1469,7 @@ export function ProjectMeetingNotesPanel({
   );
   const [draftError, setDraftError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadingScreenshots, setUploadingScreenshots] = useState(false);
   const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(
     null
   );
@@ -2194,7 +2231,7 @@ export function ProjectMeetingNotesPanel({
   };
 
   const closePrepareDialog = () => {
-    if (isSaving) {
+    if (isSaving || uploadingScreenshots) {
       return;
     }
 
@@ -2513,7 +2550,7 @@ export function ProjectMeetingNotesPanel({
   }, [projectId, router, searchParams]);
 
   const closeNoteDialog = () => {
-    if (isSaving) {
+    if (isSaving || uploadingScreenshots) {
       return;
     }
 
@@ -2525,7 +2562,7 @@ export function ProjectMeetingNotesPanel({
   };
 
   const savePrepareDialog = async (options: { silent?: boolean } = {}) => {
-    if (!prepareDialog || isSaving) {
+    if (!prepareDialog || isSaving || uploadingScreenshots) {
       return;
     }
     if (prepareRecovery.conflict) {
@@ -2548,6 +2585,7 @@ export function ProjectMeetingNotesPanel({
         labels: prepareDraft.labels,
         status: "prepared",
         visibility: prepareDraft.visibility,
+        inputAttachmentIds: meetingScreenshotIds(prepareDraft.screenshots),
         inputNotes: coerceRichTextHtml(prepareDraft.inputNotes) ?? "",
         outputNotes: "",
         decisions: "",
@@ -2721,7 +2759,7 @@ export function ProjectMeetingNotesPanel({
   };
 
   const saveNotesDialog = async () => {
-    if (!selectedNote || isSaving) {
+    if (!selectedNote || isSaving || uploadingScreenshots) {
       return;
     }
     if (notesRecovery.conflict) {
@@ -2790,7 +2828,7 @@ export function ProjectMeetingNotesPanel({
   const handlePrepareLiveConflictResolve = async (
     choices: Record<string, "local" | "latest">
   ) => {
-    if (!prepareDialog || isSaving) {
+    if (!prepareDialog || isSaving || uploadingScreenshots) {
       return;
     }
     setIsSaving(true);
@@ -2836,7 +2874,7 @@ export function ProjectMeetingNotesPanel({
   const handleNotesLiveConflictResolve = async (
     choices: Record<string, "local" | "latest">
   ) => {
-    if (!selectedNote || isSaving) {
+    if (!selectedNote || isSaving || uploadingScreenshots) {
       return;
     }
     setIsSaving(true);
@@ -3286,7 +3324,7 @@ export function ProjectMeetingNotesPanel({
               ) ? (
                 <MeetingVisibilityToggle
                   visibility={prepareDraft.visibility}
-                  disabled={isSaving}
+                  disabled={isSaving || uploadingScreenshots}
                   onChange={(visibility) =>
                     setPrepareDraft((current) => ({
                       ...current,
@@ -3301,7 +3339,7 @@ export function ProjectMeetingNotesPanel({
                 />
               )
           }
-          dismissible={!isSaving}
+          dismissible={!isSaving && !uploadingScreenshots}
           footer={
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button
@@ -3313,7 +3351,7 @@ export function ProjectMeetingNotesPanel({
                   if (prepareRecovery.conflict || prepareLive.snapshot.conflict) prepareRecovery.discard();
                   closePrepareDialog();
                 }}
-                disabled={isSaving}
+                disabled={isSaving || uploadingScreenshots}
               >
                 Cancel
               </Button>
@@ -3321,7 +3359,7 @@ export function ProjectMeetingNotesPanel({
                 type="button"
                 onClick={() => void savePrepareDialog()}
                 disabled={
-                  isSaving
+                  isSaving || uploadingScreenshots
                 }
               >
                 {isSaving ? "Saving..." : "Save preparation"}
@@ -3398,7 +3436,7 @@ export function ProjectMeetingNotesPanel({
                   }))
                 }
                 includeTime
-                disabled={isSaving}
+                disabled={isSaving || uploadingScreenshots}
               />
             </div>
 
@@ -3433,7 +3471,7 @@ export function ProjectMeetingNotesPanel({
                   }))
                 }
                 maxItems={40}
-                disabled={isSaving}
+                disabled={isSaving || uploadingScreenshots}
                 steward={prepareNote?.steward ?? null}
                 stewardEligibleParticipantKeys={savedParticipantKeys}
                 stewardPending={
@@ -3483,7 +3521,7 @@ export function ProjectMeetingNotesPanel({
                 getTokenStyle={(label) => ({
                   backgroundColor: getTaskLabelColor(label),
                 })}
-                disabled={isSaving}
+                disabled={isSaving || uploadingScreenshots}
               />
               {labelSuggestions.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
@@ -3518,7 +3556,20 @@ export function ProjectMeetingNotesPanel({
               <label htmlFor="meeting-inputs" className="text-sm font-medium">
                 Inputs
               </label>
-              <RichTextEditor
+              <MeetingNoteScreenshotEditor
+                projectId={projectId}
+                section="input"
+                screenshots={prepareDraft.screenshots ?? []}
+                onScreenshotsChange={(value) =>
+                  setPrepareDraft((current) => ({
+                    ...current,
+                    screenshots: typeof value === "function"
+                      ? value(current.screenshots ?? [])
+                      : value,
+                  }))
+                }
+                onUploadingChange={setUploadingScreenshots}
+                disabled={isSaving || uploadingScreenshots}
                 id="meeting-inputs"
                 value={prepareDraft.inputNotes}
                 onChange={(value) =>
@@ -3583,7 +3634,7 @@ export function ProjectMeetingNotesPanel({
               ) ? (
                 <MeetingVisibilityToggle
                   visibility={notesDraft.visibility}
-                  disabled={isSaving}
+                  disabled={isSaving || uploadingScreenshots}
                   onChange={(visibility) =>
                     setNotesDraft((current) => ({
                       ...current,
@@ -3598,7 +3649,7 @@ export function ProjectMeetingNotesPanel({
                 />
               )
           }
-          dismissible={!isSaving}
+          dismissible={!isSaving && !uploadingScreenshots}
           maxWidthClassName="max-w-4xl"
           footer={
             canEdit ? (
@@ -3608,7 +3659,7 @@ export function ProjectMeetingNotesPanel({
                     type="button"
                     variant="outline"
                     onClick={() => openPrepareEdit(selectedNote)}
-                    disabled={isSaving}
+                    disabled={isSaving || uploadingScreenshots}
                   >
                     <Pencil className="h-4 w-4" />
                     Edit prep
@@ -3617,13 +3668,13 @@ export function ProjectMeetingNotesPanel({
                     type="button"
                     variant="ghost"
                     onClick={() => setPendingDeleteNoteId(selectedNote.id)}
-                    disabled={!canDelete || isSaving}
+                    disabled={!canDelete || isSaving || uploadingScreenshots}
                   >
                     <Trash2 className="h-4 w-4" />
                     Delete
                   </Button>
                 </div>
-                <Button type="button" variant="ghost" disabled={isSaving} onClick={() => {
+                <Button type="button" variant="ghost" disabled={isSaving || uploadingScreenshots} onClick={() => {
                   const latest = notesLive.snapshot.conflict?.latest.note;
                   if (latest) applyAcceptedMeetingNote(latest);
                   notesRecovery.discard();
@@ -3633,7 +3684,7 @@ export function ProjectMeetingNotesPanel({
                   type="button"
                   onClick={() => void saveNotesDialog()}
                   disabled={
-                    isSaving
+                    isSaving || uploadingScreenshots
                   }
                 >
                   {isSaving ? "Saving..." : "Save notes"}
@@ -3847,6 +3898,9 @@ export function ProjectMeetingNotesPanel({
                 className="text-sm text-foreground"
                 style={getMeetingNoteZoomTextStyle(inputNotesZoom)}
               />
+              <MeetingScreenshotGallery
+                screenshots={(selectedNote.screenshots ?? []).filter((row) => row.section === "input")}
+              />
             </SectionBlock>
 
             <div className="grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr),320px]">
@@ -3868,7 +3922,20 @@ export function ProjectMeetingNotesPanel({
                     ) : null}
                   </div>
                   {canEdit ? (
-                    <RichTextEditor
+                    <MeetingNoteScreenshotEditor
+                      projectId={projectId}
+                      section="output"
+                      screenshots={notesDraft.screenshots ?? []}
+                      onScreenshotsChange={(value) =>
+                        setNotesDraft((current) => ({
+                          ...current,
+                          screenshots: typeof value === "function"
+                            ? value(current.screenshots ?? [])
+                            : value,
+                        }))
+                      }
+                      onUploadingChange={setUploadingScreenshots}
+                      disabled={isSaving || uploadingScreenshots}
                       id="meeting-outputs"
                       value={notesDraft.outputNotes}
                       onChange={(value) =>
@@ -3892,14 +3959,19 @@ export function ProjectMeetingNotesPanel({
                       }
                     />
                   ) : (
-                    <RichTextContent
-                      html={selectedNote.outputNotes}
-                      emptyContentHtml="<p>No outputs captured.</p>"
-                      mentionUsers={collaborators}
-                      data-meeting-note-content="outputs"
-                      className="text-sm text-foreground"
-                      style={getMeetingNoteZoomTextStyle(outputNotesZoom)}
-                    />
+                    <div className="grid min-w-0 gap-2">
+                      <RichTextContent
+                        html={selectedNote.outputNotes}
+                        emptyContentHtml="<p>No outputs captured.</p>"
+                        mentionUsers={collaborators}
+                        data-meeting-note-content="outputs"
+                        className="text-sm text-foreground"
+                        style={getMeetingNoteZoomTextStyle(outputNotesZoom)}
+                      />
+                      <MeetingScreenshotGallery
+                        screenshots={(selectedNote.screenshots ?? []).filter((row) => row.section === "output")}
+                      />
+                    </div>
                   )}
                 </div>
               </div>
@@ -3921,7 +3993,7 @@ export function ProjectMeetingNotesPanel({
                         status,
                       }))
                     }
-                    disabled={!canEdit || isSaving}
+                    disabled={!canEdit || isSaving || uploadingScreenshots}
                   />
                 </div>
 
@@ -3934,7 +4006,7 @@ export function ProjectMeetingNotesPanel({
                         variant="outline"
                         size="sm"
                         onClick={addDraftAction}
-                        disabled={isSaving}
+                        disabled={isSaving || uploadingScreenshots}
                       >
                         <PlusSquare className="h-4 w-4" />
                         Add
@@ -4022,7 +4094,7 @@ export function ProjectMeetingNotesPanel({
                                 placeholder="Send recap to stakeholders"
                                 maxLength={240}
                                 aria-label={`Todo ${index + 1}`}
-                                disabled={!canEdit || isSaving}
+                                disabled={!canEdit || isSaving || uploadingScreenshots}
                               />
                               {canEdit ? (
                                 <MeetingTodoAssigneeChip
@@ -4039,7 +4111,7 @@ export function ProjectMeetingNotesPanel({
                                       selectedNote.participants
                                     )
                                   }
-                                  disabled={isSaving}
+                                  disabled={isSaving || uploadingScreenshots}
                                   pending={isSaving}
                                   bordered={false}
                                 />
@@ -4056,7 +4128,7 @@ export function ProjectMeetingNotesPanel({
                                   size="icon"
                                   onClick={() => removeDraftAction(action.id)}
                                   aria-label={`Remove todo ${index + 1}`}
-                                  disabled={isSaving}
+                                  disabled={isSaving || uploadingScreenshots}
                                   className="h-11 w-11 shrink-0"
                                 >
                                   <Trash2 className="h-4 w-4" />

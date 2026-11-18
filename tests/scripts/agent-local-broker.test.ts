@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { spawn } from "node:child_process";
 import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,6 +7,11 @@ import { createServer } from "node:http";
 import { LocalBroker, brokerCall } from "../../scripts/agent-runtime/local-broker.mjs";
 import { bindingKey } from "../../scripts/agent-runtime/client.mjs";
 import { sessionCommand } from "../../scripts/agent-runtime/session-cli.mjs";
+
+vi.mock("node:child_process", async (importOriginal) => ({
+  ...await importOriginal<typeof import("node:child_process")>(),
+  spawn: vi.fn(),
+}));
 
 const realFetch = globalThis.fetch;
 const binding = { base: "https://nexus.example", projectId: "project", identityId: "oscar" };
@@ -61,6 +67,41 @@ async function open(identityId = "oscar", leaseSeconds = 1800) {
   expect(response.status).toBe(201);
   return response.json();
 }
+
+function openArgs() {
+  return ["--broker", directory, "--base", binding.base, "--project", binding.projectId,
+    "--identity", binding.identityId, "--client", "ordinary client"];
+}
+
+test("only explicit open starts a missing broker and submits one session creation", async () => {
+  await broker.close();
+  await expect(sessionCommand("status", ["--broker", directory, "--session", "old-session"], vault)).rejects.toMatchObject({ code: "ENOENT" });
+  expect(spawn).not.toHaveBeenCalled();
+  const output = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+  vi.mocked(spawn).mockImplementationOnce(() => {
+    broker = new LocalBroker(directory, vault);
+    void broker.start();
+    return { once: vi.fn(), unref: vi.fn() } as unknown as ReturnType<typeof spawn>;
+  });
+  await sessionCommand("open", openArgs(), vault);
+  expect(spawn).toHaveBeenCalledTimes(1);
+  const opened = JSON.parse(String(output.mock.calls.at(-1)?.[0]));
+  expect(opened).toMatchObject({ identityId: binding.identityId, sessionId: "session-1" });
+  await sessionCommand("status", ["--broker", directory, "--session", opened.sessionId], vault);
+  expect(spawn).toHaveBeenCalledTimes(1);
+  expect(runtimeCalls.filter((call) => call.operation === "start")).toHaveLength(1);
+});
+
+test("invalid lease text and explicit null cannot silently open a default lease", async () => {
+  vi.mocked(spawn).mockClear();
+  for (const lease of ["nope", "59", "3601", "60.5", "1e3"]) {
+    await expect(sessionCommand("open", [...openArgs(), "--lease-seconds", lease], vault)).rejects.toThrow("Idle lease");
+  }
+  expect((await brokerCall(directory, vault, "/sessions", "POST", { binding, client: "test", leaseSeconds: null })).status).toBe(403);
+  expect(spawn).not.toHaveBeenCalled();
+  expect(runtimeCalls).toHaveLength(0);
+});
+
 const request = (id: string, path = "/api/projects/project/tasks") => brokerCall(directory, vault, `/sessions/${id}/request`, "POST", { method: "GET", path });
 
 test("ordinary command invocations retain explicit independent same/different identity sessions", async () => {
@@ -103,6 +144,19 @@ test("broker rejects cross-project, authority paths and unsupported methods with
   }
   expect((await brokerCall(directory, vault, `/sessions/${a.sessionId}/request`, "POST", { method: "CONNECT", path: "/api/projects/project/tasks" })).status).toBe(403);
   expect(requests).toHaveLength(0);
+});
+
+test("an interrupted runtime response produces an error instead of a successful status", async () => {
+  const opened = await open();
+  vi.mocked(fetch)
+    .mockImplementationOnce(realFetch)
+    .mockResolvedValueOnce(new Response(new ReadableStream({
+      start(controller) { controller.error(new Error("Runtime body interrupted")); },
+    })));
+  const interrupted = await request(opened.sessionId);
+  expect(interrupted.status).toBe(403);
+  expect(await interrupted.json()).toMatchObject({ error: "session-access-unavailable" });
+  expect((await request(opened.sessionId)).status).toBe(200);
 });
 
 test("status never exposes renewable credentials; terminal rejection cannot renew or restart a session", async () => {

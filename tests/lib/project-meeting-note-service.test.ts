@@ -2052,7 +2052,10 @@ describe("project-meeting-note-service", () => {
         },
       });
 
-      dbMock.projectMeetingNote.findFirst.mockResolvedValue(privateNoteByUser1);
+      dbMock.projectMeetingNote.findFirst.mockResolvedValue({
+        ...privateNoteByUser1,
+        screenshots: [{ id: "private-image", projectId: "project-1", section: "input", name: "private.png", mimeType: "image/png", sizeBytes: 10 }],
+      });
       const nonCreatorCompletion = await setProjectMeetingNoteActionCompletion({
         actorUserId: "user-2",
         projectId: "project-1",
@@ -2061,7 +2064,7 @@ describe("project-meeting-note-service", () => {
         completed: true,
       });
       expect(nonCreatorCompletion).toMatchObject({
-        ok: true, data: { note: { title: "Private meeting", inputNotes: "", outputNotes: "", decisions: "", participants: [], labels: [] } },
+        ok: true, data: { note: { title: "Private meeting", screenshots: [], inputNotes: "", outputNotes: "", decisions: "", participants: [], labels: [] } },
       });
 
       const agentAssignee = await setProjectMeetingNoteActionAssignee({
@@ -2073,7 +2076,7 @@ describe("project-meeting-note-service", () => {
         agentAccess,
       });
       expect(agentAssignee).toMatchObject({
-        ok: true, data: { note: { title: "Private meeting", inputNotes: "", outputNotes: "" } },
+        ok: true, data: { note: { title: "Private meeting", screenshots: [], inputNotes: "", outputNotes: "" } },
       });
 
       dbMock.projectMeetingNote.findFirst.mockResolvedValue({

@@ -26,10 +26,15 @@ async function readBody(request) {
 // The OS account and trusted CLI are the local authentication boundary. A
 // public session ID never authenticates a caller. The broker capability is
 // stored in the OS vault, independently of all per-identity device proofs.
-export async function brokerCall(directory, vault, path, method = "GET", body) {
+export async function readBrokerEndpoint(directory) {
   const endpoint = JSON.parse(await readFile(join(resolve(directory), "endpoint.json"), "utf8"));
-  if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(endpoint.url) || !path.startsWith("/sessions"))
-    throw new Error("Invalid local broker endpoint");
+  if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(endpoint.url)) throw new Error("Invalid local broker endpoint");
+  return endpoint;
+}
+
+export async function brokerCall(directory, vault, path, method = "GET", body) {
+  const endpoint = await readBrokerEndpoint(directory);
+  if (!path.startsWith("/sessions")) throw new Error("Invalid local broker request");
   const target = new URL(path, endpoint.url);
   if (target.origin !== endpoint.url) throw new Error("Invalid local broker request");
   return fetch(target, {
@@ -116,7 +121,7 @@ export class LocalBroker {
             throw new Error("Explicit client/execution description required");
           // Idle lease bounds orphaned conversations. Activity can extend it,
           // but never the server's fixed twelve-hour session ceiling.
-          const leaseSeconds = body.leaseSeconds ?? 1800;
+          const leaseSeconds = body.leaseSeconds === undefined ? 1800 : body.leaseSeconds;
           if (!Number.isInteger(leaseSeconds) || leaseSeconds < 60 || leaseSeconds > 3600)
             throw new Error("Idle lease must be 60 to 3600 seconds");
           const runtime = await this.openRuntime(binding, this.vault, body.client);
@@ -170,8 +175,9 @@ export class LocalBroker {
           ...(body.body === undefined ? {} : { body: body.body }),
         });
         entry.leaseExpiresAt = Date.now() + entry.leaseSeconds * 1000;
+        const contents = Buffer.from(await upstream.arrayBuffer());
         response.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") ?? "application/json" });
-        response.end(Buffer.from(await upstream.arrayBuffer()));
+        response.end(contents);
       });
     } catch {
       if (!response.headersSent) response.writeHead(403, { "Content-Type": "application/json" });
