@@ -87,7 +87,8 @@ On 2026-11-18, a fresh Mac Oscar session verified Task Write and Done before the
 owner removed them. The same session still read tasks and history. Task update
 and Done probes each returned forbidden and left the stored tasks unchanged.
 The owner deactivated Oscar while the Mac session was active, and the service
-ended that session. A newly opened Nova session wrote and read its own task and
+ended that session. Mac status and task reads on the same reference both
+returned access denied. A newly opened Nova session wrote and read its own task and
 read Oscar's contributions. Oscar's actor ID, assignment and mention remained
 linked. The assignee was reported as revoked and unavailable for new assignments.
 

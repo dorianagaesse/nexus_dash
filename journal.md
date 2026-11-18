@@ -12116,3 +12116,6 @@ the original run passed the other 143 scenarios, including notification revocati
 
 - Verified actual Codex VS Code, Mac Codex CLI and Claude Code with MiniMax-M3 against the same disposable restricted-role instance at aaf364a3. Recorded concurrency, renewal, selective revocation, live grant reduction and deactivation evidence in the ND-658 validation report.
 - Added broker startup on explicit session open and rejected invalid leases before any runtime session creation. Reconciled main, retaining the meeting screenshot and agent runtime RLS matrices.
+
+- The Mac confirmed that the deactivated Oscar session could neither report status nor read a task. Nova retained its write access and Oscar?s task, comments, assignment and mention stayed linked. The two-laptop manual round is complete.
+- Addressed the final review by revoking portable authorization during ownership transfer, allowing authenticated cleanup after a scope reduction, keeping pairing results tied to the selected identity, and handling interrupted proxy responses before reporting a status. Added round-trip ownership and transport regression checks.

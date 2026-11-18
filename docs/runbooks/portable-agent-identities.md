@@ -207,9 +207,10 @@ never silently restarts: launch explicitly again after correcting authorization.
 - Request audit records include the persistent identity, session ID, device ID,
   device name and client. Names and client metadata are descriptive, never proof
   of authentication. Select **Recent activity** on an identity to inspect them.
-- Project ownership transfer fails closed for prior-owner runtime grants. The
-  new owner can authorize new devices for the same identity; it does not revive
-  former-owner device grants or rewrite historical authorship.
+- Project ownership transfer revokes existing devices and proofs, cancels pending
+  pairing codes, and ends active sessions in the same transaction. An owner who
+  receives the project can authorize new devices for the same persistent identity.
+  Historical authorship is preserved.
 
 The helper prevents accidental identity mixing across concurrent launches. It
 does not isolate mutually untrusted programs with the same OS account, or

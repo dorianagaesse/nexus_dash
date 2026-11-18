@@ -175,8 +175,9 @@ export class LocalBroker {
           ...(body.body === undefined ? {} : { body: body.body }),
         });
         entry.leaseExpiresAt = Date.now() + entry.leaseSeconds * 1000;
+        const contents = Buffer.from(await upstream.arrayBuffer());
         response.writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") ?? "application/json" });
-        response.end(Buffer.from(await upstream.arrayBuffer()));
+        response.end(contents);
       });
     } catch {
       if (!response.headersSent) response.writeHead(403, { "Content-Type": "application/json" });

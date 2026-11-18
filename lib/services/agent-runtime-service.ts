@@ -41,6 +41,16 @@ const scopesFrom = (v: unknown) =>
 const alive = (v: { revokedAt: Date | null; expiresAt: Date | null }) =>
   !v.revokedAt && (!v.expiresAt || v.expiresAt.getTime() > Date.now());
 
+// Serialize runtime grant/session creation with project ownership transfers.
+// The transfer updates this same row before retiring the old authorizations.
+async function lockRuntimeOwner(db: Db, projectId: string, ownerId: string) {
+  const rows = await db.$queryRaw<Array<{ id: string }>>`
+    SELECT id FROM "Project" WHERE id = ${projectId} AND "ownerId" = ${ownerId}
+    FOR SHARE
+  `;
+  return rows.length === 1;
+}
+
 async function audit(
   db: Db,
   input: { projectId: string; identityId: string; actorUserId: string },
@@ -231,6 +241,8 @@ export async function manageAgentIdentities(input: {
           (c.canMoveTasksToDone && !identity.canMoveTasksToDone)
         )
           return fail(400, "invalid-device-grants");
+        if (!(await lockRuntimeOwner(db, input.projectId, input.actorUserId)))
+          return fail();
         const pairingCode = secret();
         const device = await db.agentRuntimeDevice.create({
           data: {
@@ -299,12 +311,15 @@ export async function exchangeRuntimeAccess(input: Record<string, unknown>) {
   const pairing = operation === "pair";
   if (!["pair", "start", "renew", "end"].includes(operation))
     return fail(400, "invalid-operation");
+  const projectId = text(input.projectId, 128);
+  if (!projectId || projectId !== input.projectId) return fail();
   const proof = text(input.proof, 128);
   const binding = await resolveRuntimeProof(proof, pairing);
   if (!binding) return fail();
   return withActorRlsContext(
     binding.owner_id,
     async (db) => {
+      if (!(await lockRuntimeOwner(db, projectId, binding.owner_id))) return fail();
       const device = await db.agentRuntimeDevice.findUnique({
         where: { id: binding.device_id },
         include: {
@@ -378,9 +393,9 @@ export async function exchangeRuntimeAccess(input: Record<string, unknown>) {
       const currentScopes = device.scopes.filter((s) =>
         identity.scopeGrants.some((g) => g.scope === s)
       );
-      if (!currentScopes.length) return fail(403, "runtime-permissions-empty");
       let session;
       if (operation === "start") {
+        if (!currentScopes.length) return fail(403, "runtime-permissions-empty");
         const client = text(input.client);
         if (!client || input.sessionId != null)
           return fail(400, "invalid-session-binding");

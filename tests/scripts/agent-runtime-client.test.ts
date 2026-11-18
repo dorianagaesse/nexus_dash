@@ -68,6 +68,7 @@ test("pairing saves authentication material to the vault under the exact binding
 test("two concurrent launches have distinct local capabilities, renew the same session, and never forward the device proof", async () => {
   const realFetch = globalThis.fetch;
   let sequence = 0;
+  let upstreamReadFails = false;
   const calls: {
     path: string;
     body: Record<string, unknown>;
@@ -91,6 +92,11 @@ test("two concurrent launches have distinct local capabilities, renew the same s
           accessToken: "short-token",
           expiresInSeconds: body.operation === "start" ? 1 : 300,
         });
+      }
+      if (upstreamReadFails) {
+        return new Response(new ReadableStream({
+          start(controller) { controller.error(new Error("Upstream body interrupted")); },
+        }));
       }
       return Response.json({ tasks: [] });
     })
@@ -124,6 +130,13 @@ test("two concurrent launches have distinct local capabilities, renew the same s
       headers: { authorization: `Bearer ${a.capability}` },
     });
     expect(response.status).toBe(200);
+    upstreamReadFails = true;
+    const read = () => realFetch(a.url + path, { headers: { authorization: `Bearer ${a.capability}` } });
+    const interrupted = await read();
+    expect(interrupted.status).toBe(403);
+    expect(await interrupted.json()).toEqual({ error: "runtime-request-rejected" });
+    upstreamReadFails = false;
+    expect((await read()).status).toBe(200);
     expect(
       calls.find((c) => c.body.operation === "renew")?.body.sessionId
     ).toBe(a.sessionId);

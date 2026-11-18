@@ -146,6 +146,19 @@ test("broker rejects cross-project, authority paths and unsupported methods with
   expect(requests).toHaveLength(0);
 });
 
+test("an interrupted runtime response produces an error instead of a successful status", async () => {
+  const opened = await open();
+  vi.mocked(fetch)
+    .mockImplementationOnce(realFetch)
+    .mockResolvedValueOnce(new Response(new ReadableStream({
+      start(controller) { controller.error(new Error("Runtime body interrupted")); },
+    })));
+  const interrupted = await request(opened.sessionId);
+  expect(interrupted.status).toBe(403);
+  expect(await interrupted.json()).toMatchObject({ error: "session-access-unavailable" });
+  expect((await request(opened.sessionId)).status).toBe(200);
+});
+
 test("status never exposes renewable credentials; terminal rejection cannot renew or restart a session", async () => {
   const a = await open();
   const output = await (await brokerCall(directory, vault, `/sessions/${a.sessionId}`)).text();
