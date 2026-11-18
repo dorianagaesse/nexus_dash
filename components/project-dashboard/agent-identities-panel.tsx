@@ -5,15 +5,18 @@ import {
   Bot,
   ChevronDown,
   ChevronRight,
-  Laptop,
   Plus,
   RefreshCw,
 } from "lucide-react";
-import { AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
+import { matchAgentCredentialPreset, AGENT_CREDENTIAL_PRESETS, AGENT_SCOPE_DEFINITIONS, type AgentScope } from "@/lib/agent-access";
 import { AgentCredentialLabelsField } from "./agent-credential-labels-field";
 import { AgentCredentialDescriptiveLabels } from "@/components/agent-credential-descriptive-labels";
 import { AGENT_DESCRIPTIVE_LABEL_PENDING_ERROR } from "@/lib/agent-credential-labels";
+import { ProjectAgentPermissionFields } from "./project-agent-permission-fields";
+import { AgentDeviceAccess } from "./agent-device-access";
 import { Button } from "@/components/ui/button";
+import { agentDeviceState, agentIdentityState } from "@/lib/agent-device-state";
+import { AgentPairingGuidance } from "./agent-pairing-guidance";
 
 type Session = {
   id: string;
@@ -52,6 +55,8 @@ type Identity = {
   }[];
 };
 const initialScopes: AgentScope[] = ["project:read", "task:read", "task:write"];
+const PAIRING_POLL_ERROR =
+  "Pairing status could not be checked. Refresh identities to try again.";
 const fieldClass =
   "min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const statusClass =
@@ -66,6 +71,21 @@ const describePermissions = (scopes: AgentScope[]) =>
         AGENT_SCOPE_DEFINITIONS.find((s) => s.scope === scope)?.label ?? scope
     )
     .join(" · ");
+const pairedDevicesLabel = (identity: Identity, now: number) => {
+  const count = identity.devices.filter(
+    (d) => agentDeviceState(d, now) === "Paired"
+  ).length;
+  return `${count} ${count === 1 ? "paired device" : "paired devices"}`;
+};
+const deviceSummary = (identity: Identity, now: number) => {
+  const permissions = `${identity.scopes.length} ${
+    identity.scopes.length === 1 ? "permission" : "permissions"
+  }`;
+  const pending = identity.devices.filter(
+    (d) => agentDeviceState(d, now) === "Pending pairing"
+  ).length;
+  return `${permissions} · ${pairedDevicesLabel(identity, now)} · ${pending} pending`;
+};
 
 function ScopeChoices({
   scopes,
@@ -76,40 +96,26 @@ function ScopeChoices({
   onChange: (v: AgentScope[]) => void;
   allowed?: AgentScope[];
 }) {
-  return (
-    <fieldset className="space-y-2">
-      <legend className="mb-2 text-sm font-medium">Permissions</legend>
-      <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
-        {AGENT_SCOPE_DEFINITIONS.filter(
-          (s) => !allowed || allowed.includes(s.scope)
-        ).map((s) => (
-          <label
-            key={s.scope}
-            className="flex min-h-11 cursor-pointer items-start gap-3 rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-muted/60 has-[:checked]:bg-muted/60"
-          >
-            <input
-              className="mt-1 size-4 shrink-0 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              type="checkbox"
-              checked={scopes.includes(s.scope)}
-              onChange={(e) =>
-                onChange(
-                  e.target.checked
-                    ? [...scopes, s.scope]
-                    : scopes.filter((v) => v !== s.scope)
-                )
-              }
-            />
-            <span className="min-w-0">
-              <span className="font-medium">{s.label}</span>
-              <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
-                {s.description}
-              </span>
-            </span>
-          </label>
-        ))}
-      </div>
-    </fieldset>
-  );
+  const reserved = AGENT_SCOPE_DEFINITIONS.filter(item => item.scope.startsWith("schedule:") &&
+    (!allowed || allowed.includes(item.scope) || scopes.includes(item.scope)));
+  return <fieldset className="min-w-0 space-y-3">
+    <legend className="mb-2 text-sm font-medium">Permissions</legend>
+    <label className="block space-y-1 text-sm">Task permission preset
+      <select className={fieldClass} value={matchAgentCredentialPreset(scopes)?.id ?? "custom"} onChange={event => {
+        const preset = AGENT_CREDENTIAL_PRESETS.find(item => item.id === event.target.value);
+        if (preset) onChange(preset.scopes.filter(scope => !allowed || allowed.includes(scope)));
+      }}>
+        <option value="custom" disabled>Custom permissions</option>
+        {AGENT_CREDENTIAL_PRESETS.filter(preset => !allowed || preset.scopes.some(scope => allowed.includes(scope))).map(preset => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+      </select>
+    </label>
+    <p className="text-xs text-muted-foreground">Presets replace the selection with task permissions. Choose other modules below. Device grants stay within the selected identity permissions.</p>
+    <ProjectAgentPermissionFields value={scopes} onChange={onChange} allowed={allowed} />
+    {!!reserved.length && <details className="text-sm"><summary className="cursor-pointer">Reserved capabilities</summary>
+      <p className="my-2 text-xs text-muted-foreground">Shared schedule grants are reserved for future use. They do not grant personal Calendar access.</p>
+      {reserved.map(item => <label key={item.scope} className="flex min-h-11 items-center gap-2"><input type="checkbox" disabled={!!allowed && !allowed.includes(item.scope)} checked={scopes.includes(item.scope)} onChange={event => onChange(event.target.checked ? [...scopes, item.scope] : scopes.filter(scope => scope !== item.scope))} />{item.label}</label>)}
+    </details>}
+  </fieldset>;
 }
 
 export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
@@ -126,25 +132,34 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
   const [deviceName, setDeviceName] = useState("");
   const [deviceScopes, setDeviceScopes] = useState<AgentScope[]>([]);
   const [deviceDone, setDeviceDone] = useState(false);
-  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [pairing, setPairing] = useState<{ deviceId: string; code: string | null; expiresAt: string } | null>(null);
+  const [now, setNow] = useState(Date.now);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [appOrigin, setAppOrigin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const selected = identities.find((i) => i.id === selectedId);
+  const selectedIdentityState = selected
+    ? agentIdentityState(selected, now)
+    : null;
+  const canLaunch = selectedIdentityState === "Active";
+  const pairingDevice = selected?.devices.find(d => d.id === pairing?.deviceId);
+  const pairingState = pairingDevice ? agentDeviceState(pairingDevice, now) : "Expired";
+  const pendingUntil = Math.max(0, ...(selected?.devices.filter(d => agentDeviceState(d, now) === "Pending pairing").map(d => Date.parse(d.pairingExpiresAt)) ?? []));
   // Edits and refreshes can remove grants while a device draft stays open.
   const effectiveDeviceScopes = deviceScopes.filter((scope) =>
     selected?.scopes.includes(scope)
   );
   const effectiveDeviceDone = deviceDone && !!selected?.canMoveTasksToDone;
   const endpoint = `/api/projects/${projectId}/agent-identities`;
-  const refresh = useCallback(async () => {
-    const response = await fetch(endpoint, { cache: "no-store" });
+  const refresh = useCallback(async (signal?: AbortSignal) => {
+    const response = await fetch(endpoint, { cache: "no-store", signal });
     if (!response.ok)
       throw new Error("Agent identities could not be loaded. Try refreshing.");
     const data = await response.json();
-    setIdentities(data.identities);
+    if (!signal?.aborted) { setIdentities(data.identities); setNow(Date.now()); }
+    return data.identities as Identity[];
   }, [endpoint]);
   useEffect(() => {
     setAppOrigin(window.location.origin);
@@ -152,6 +167,28 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [refresh]);
+  useEffect(() => {
+    if (!pendingUntil || pendingUntil <= Date.now()) return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = async () => {
+      setNow(Date.now());
+      if (Date.now() >= pendingUntil || controller.signal.aborted) return;
+      try {
+        await refresh(controller.signal);
+        if (!controller.signal.aborted)
+          setError(current => current === PAIRING_POLL_ERROR ? null : current);
+      } catch {
+        if (!controller.signal.aborted) setError(PAIRING_POLL_ERROR);
+      }
+      if (!controller.signal.aborted) timer = setTimeout(tick, Math.max(0, Math.min(3000, pendingUntil - Date.now())));
+    };
+    timer = setTimeout(tick, Math.min(3000, pendingUntil - Date.now()));
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, [pendingUntil, refresh]);
+  useEffect(() => {
+    if (pairingState !== "Pending pairing") setPairing(value => value?.code ? { ...value, code: null } : value);
+  }, [pairingState]);
   const mutate = async (command: Record<string, unknown>) => {
     setBusy(true);
     setError(null);
@@ -166,8 +203,12 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
         throw new Error(
           `Change could not be saved (${data.error}). Review the fields and try again.`
         );
-      await refresh();
-      if (data.pairingCode) setPairingCode(data.pairingCode);
+      const latest = await refresh();
+      setNow(Date.now());
+      if (data.pairingCode) {
+        const device = latest.find(i => i.id === command.identityId)?.devices.find(d => d.id === data.deviceId);
+        if (device) setPairing({ deviceId: device.id, code: data.pairingCode, expiresAt: device.pairingExpiresAt });
+      }
       if (data.identityId) {
         setSelectedId(data.identityId);
         setDeviceScopes(scopes);
@@ -186,7 +227,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
   const select = (identity: Identity) => {
     setSelectedId(identity.id);
     setEditing(false);
-    setPairingCode(null);
+    setPairing(null);
     setConfirmDeactivate(false);
     setDeviceName("");
     setDeviceScopes(identity.scopes);
@@ -240,7 +281,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               setScopes(initialScopes);
               setDone(false);
               setEditing(true);
-              setPairingCode(null);
+              setPairing(null);
             }}
           >
             <Plus className="size-4" aria-hidden />
@@ -281,7 +322,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
           <button
             type="button"
             key={identity.id}
-            aria-label={`${identity.name} ${identity.descriptiveLabels.join(" ")}`.trim()}
+            aria-label={`${identity.name} ${identity.descriptiveLabels.join(" ")} ${deviceSummary(identity, now)}`.trim()}
             aria-pressed={selectedId === identity.id}
             disabled={busy}
             onClick={() => select(identity)}
@@ -301,23 +342,11 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                 />
               </span>
               <span className="mt-1 block text-xs text-muted-foreground">
-                {identity.scopes.length}{" "}
-                {identity.scopes.length === 1 ? "permission" : "permissions"} ·{" "}
-                {
-                  identity.devices.filter(
-                    (d) => !d.revokedAt && new Date(d.expiresAt) > new Date()
-                  ).length
-                }{" "}
-                device authorizations
+                {deviceSummary(identity, now)}
               </span>
             </span>
             <span className={statusClass}>
-              {identity.revokedAt
-                ? "Inactive"
-                : identity.expiresAt &&
-                    new Date(identity.expiresAt) <= new Date()
-                  ? "Expired"
-                  : "Active"}
+              {agentIdentityState(identity, now)}
             </span>
             <ChevronRight
               className={`hidden size-4 shrink-0 text-muted-foreground sm:block ${selectedId === identity.id ? "rotate-90" : ""}`}
@@ -385,6 +414,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
             />
             Allow moving tasks to Done
           </label>
+          <p className="text-xs text-muted-foreground">Done moves also require Tasks edit (Task Write). This option alone does not grant task editing.</p>
           <div className="flex flex-wrap gap-2 border-t pt-4">
             <Button
               className="min-h-11"
@@ -415,9 +445,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               <h4 className="break-words text-lg font-semibold tracking-tight [overflow-wrap:anywhere]">
                 {selected.name}
               </h4>
-              <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
-                Identity: {selected.id}
-              </p>
+              <details className="mt-1 text-xs text-muted-foreground"><summary className="cursor-pointer">Identity details</summary><p className="break-all">Identity ID: {selected.id}</p><p>{selected.identityMode ? "Runtime identity" : "Legacy credentials and paired devices share this actor and its history."}</p></details>
             </div>
             <Button
               size="sm"
@@ -447,120 +475,12 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
             <div>
               <dt className="font-medium">Move tasks to Done</dt>
               <dd className="mt-1 text-muted-foreground">
-                {selected.canMoveTasksToDone ? "Allowed" : "Not allowed"}
+                {selected.canMoveTasksToDone && selected.scopes.includes("task:write") ? "Allowed" : "Not allowed"}
               </dd>
             </div>
           </dl>
-          <div>
-            <h5 className="mb-1 text-sm font-semibold">Devices and sessions</h5>
-            {!selected.devices.length && (
-              <p className="py-3 text-sm text-muted-foreground">
-                No devices authorized yet.
-              </p>
-            )}
-            <ul className="divide-y divide-border">
-              {selected.devices.map((d) => (
-                <li key={d.id} className="min-w-0 space-y-3 py-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex min-w-0 flex-1 basis-48 flex-wrap items-center gap-2 text-sm">
-                      <Laptop
-                        className="size-4 shrink-0 text-muted-foreground"
-                        aria-hidden
-                      />
-                      <strong className="min-w-0 break-words font-medium [overflow-wrap:anywhere]">
-                        {d.name}
-                      </strong>
-                      <span className={statusClass}>
-                        {d.revokedAt
-                          ? "Revoked"
-                          : new Date(d.expiresAt) <= new Date()
-                            ? "Expired"
-                            : d.authorizedAt
-                              ? "Paired"
-                              : new Date(d.pairingExpiresAt) <= new Date()
-                                ? "Pairing expired"
-                                : "Awaiting pairing"}
-                      </span>
-                    </div>
-                    {!d.revokedAt && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="min-h-11"
-                        aria-label={`Revoke ${d.name}`}
-                        disabled={busy}
-                        onClick={() =>
-                          void mutate({
-                            operation: "revoke-device",
-                            identityId: selected.id,
-                            deviceId: d.id,
-                          })
-                        }
-                      >
-                        Revoke
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-xs leading-relaxed text-muted-foreground">
-                    Expires {date(d.expiresAt)} · Done moves{" "}
-                    {d.canMoveTasksToDone && selected.canMoveTasksToDone
-                      ? "allowed"
-                      : "denied"}
-                    <br />
-                    Effective permissions:{" "}
-                    {describePermissions(
-                      d.scopes.filter((s) => selected.scopes.includes(s))
-                    ) || "None"}
-                  </p>
-                  <div className="space-y-3 border-l border-border pl-4">
-                    {d.sessions.map((s) => (
-                      <div
-                        key={s.id}
-                        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm"
-                      >
-                        <span className="min-w-0 flex-1 basis-48 break-words [overflow-wrap:anywhere]">
-                          <span className="font-medium">{s.client}</span>
-                          {" · "}
-                          <span className="text-xs text-muted-foreground">
-                            {s.endedAt
-                              ? "Ended"
-                              : new Date(s.expiresAt) <= new Date()
-                                ? "Expired"
-                                : "Active"}
-                          </span>
-                          <br />
-                          <span className="text-xs leading-relaxed text-muted-foreground">
-                            Last active {date(s.lastActiveAt)}
-                            <span className="block break-all font-mono">
-                              {s.id}
-                            </span>
-                          </span>
-                        </span>
-                        {!s.endedAt && new Date(s.expiresAt) > new Date() && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="min-h-11"
-                            aria-label={`End session: ${s.client} on ${d.name}, ${s.id}`}
-                            disabled={busy}
-                            onClick={() =>
-                              void mutate({
-                                operation: "end-session",
-                                identityId: selected.id,
-                                sessionId: s.id,
-                              })
-                            }
-                          >
-                            End session
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <AgentDeviceAccess key={selected.id} identity={selected} now={now} busy={busy} mutate={mutate}
+            onLaunch={device => setPairing({ deviceId: device.id, code: null, expiresAt: device.pairingExpiresAt })} />
           {!selected.revokedAt && (
             <details className="group border-t pt-2">
               <summary className={summaryClass}>
@@ -612,7 +532,7 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
                       checked={effectiveDeviceDone}
                       onChange={(e) => setDeviceDone(e.target.checked)}
                     />
-                    Allow Done moves from this device
+                    Allow Done moves from this device (requires Tasks edit)
                   </label>
                 )}
                 <Button
@@ -625,38 +545,18 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               </form>
             </details>
           )}
-          {pairingCode && (
-            <div
-              role="status"
-              className="space-y-3 rounded-xl border border-border p-4 text-sm sm:p-5"
-            >
-              <p className="font-medium">Pair this device within 10 minutes</p>
-              <p>
-                Run the login command in your own terminal, then paste the
-                one-time code when prompted.
-              </p>
-              <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-muted px-3 py-3 text-xs leading-relaxed">
-                node scripts/nd-agent.mjs login --base {appOrigin} --project{" "}
-                {projectId} --identity {selected.id}
-              </pre>
-              <code
-                className="block select-all break-all font-mono text-sm"
-                data-pairing-code
-              >
-                {pairingCode}
-              </code>
-              <p className="text-xs text-muted-foreground">
-                Keep this code private. It can be used once.
-              </p>
-              <Button
-                size="sm"
-                className="min-h-11"
-                variant="outline"
-                onClick={() => setPairingCode(null)}
-              >
-                Dismiss pairing code
-              </Button>
-            </div>
+          {pairing && (
+            <AgentPairingGuidance
+              key={pairing.deviceId}
+              origin={appOrigin}
+              projectId={projectId}
+              identityId={selected.id}
+              code={pairingState === "Pending pairing" ? pairing.code : null}
+              expiresAt={pairing.expiresAt}
+              state={pairingState}
+              identityState={selectedIdentityState ?? "Active"}
+              onDismiss={() => setPairing(null)}
+            />
           )}
           <details className="group border-t pt-2">
             <summary className={summaryClass}>

@@ -869,3 +869,5 @@ controlled launcher and legacy key workflows also remain supported. See the
 permissions, revocation, compatibility and API contracts.
 
 Project module permissions and rollout: [project capabilities](docs/runbooks/project-capabilities.md).
+
+Disposable Docker workers: [operator broker setup](docs/runbooks/docker-agent-broker.md).

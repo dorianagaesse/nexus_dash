@@ -12153,6 +12153,54 @@ later native/CLI evidence at `aaf364a3` from outstanding physical-laptop and
 actual IDE conversation checks; README no longer calls this the current limits.
 Documentation diff/whitespace and local/pinned link references checked.
 
+## 2026-11-10 - ND-823 disposable Docker identity broker
+Implemented host-vault authorization, a TLS transport with per-worker capabilities,
+Docker execution reconciliation and persisted stale-session cleanup. Missing or
+rejected bindings fail closed. Legacy credentials and server permissions remain
+unchanged. Built from main plus ND-658 PR #669, including its latest UI polish.
+
+Five broker lifecycle unit tests and a real Docker Desktop/Linux-engine scenario
+passed against a fresh local PostgreSQL database: actor continuity, independent
+sessions, stop/restart/recreation, renewal, grant reduction, owner revocation,
+wrong-project rejection and worker mount/secret checks. Production build passed.
+Native Linux host vault validation remains separate from Windows Docker evidence.
+Full repository gate results will be recorded before handoff.
+
+Linux CI exposed a host UID mismatch when capability-free container root read
+the private transport file. POSIX workers now use the broker UID/GID; private
+file modes and dropped capabilities are preserved. Native Linux Docker checks
+run before the full smoke suite, and test assertions avoid echoing pairing codes.
+
+### 2026-11-12 - ND-823 review follow-up
+
+- Addressed the PR #691 review. Transient session-start failures now retry the
+  observed execution with the same 30-second to five-minute backoff as stale
+  cleanup; terminal 401/403/404 rejection remains latched until the container
+  restarts, and broker recovery still requires an explicit execution change.
+- Startup now validates config before taking `broker.lock`, and lock cleanup
+  runs in `finally`, so config errors, a corrupt journal or a failed close no
+  longer leave a lock that reads as a crash or suppress the startup message.
+- E2E now exercises server-side wrong-identity rejection, removes macOS keychain
+  entries, and keeps the temp directory and image build inside cleanup; the
+  quality-gates smoke step builds independently of the prior Docker-validation
+  step.
+
+
+### 2026-11-15 - ND-823 current-base review integration
+
+Merged ND-658 `aaf364a3` into PR #691, preserving the independent CLI broker,
+status and shared renewal contract alongside Docker lifecycle reconciliation.
+The shared client matches the newer base, which already latches terminal
+401/403/404 renewal rejection. Retained the Docker regression for that latch,
+transient-start backoff, startup cleanup and server-side binding checks.
+Required baseline, ordinary-client and real Docker checks are rerun on the
+combined branch; exact results and workflow evidence are recorded in PR #691.
+Physical second-laptop and actual VS Code evidence remain ND-658 gaps.
+
+### 2026-11-18 - ND-823: integrate merged ND-658
+
+- Applied the ND-823 changes to current main, retaining the final ND-658 runtime and authorization fixes.
+
 ### 2026-11-09 - ND-658: Windows validation and current-main integration
 
 - Reconciled PR #669 with main at `2e12457`, preserving ND-130 module permissions, notification isolation, runtime session audit context and both PostgreSQL matrices. Runtime usage checks receive the effective live scopes; legacy token scope removal still invalidates the token. Extended the guard regression assertion and corrected the compatibility documentation.
@@ -12178,6 +12226,29 @@ Documentation diff/whitespace and local/pinned link references checked.
 - Final runtime revision `b7c8fa77` passed native Linux/macOS run `43339086376`, local 2,576 unit/API tests, coverage and the PostgreSQL matrix. A separate ND-823 integration worktree passed 31 focused checks and the real Windows Docker Desktop lifecycle scenario against the new restricted-role app. No dependent PR was merged or overwritten.
 - Hosted onboarding inspection found a pre-existing unshrinkable scope-badge row and a key-only introduction. A narrow Impeccable adaptation corrected both; desktop/mobile confirmation (1440px/390px), detector and 23 onboarding checks passed. Next dev's unrelated generated AGENTS block was removed after stopping the review server.
 - The extra entire-app restricted-role browser run exposed existing meeting-note child-revision RLS failures during ND-179 offboarding. A minimal two-user SQL reproduction returned 42501; affected migration/policy/service files are identical to main. Searched the board, created and read back ND-857 with source links and criteria. This expanded run is not reported as green; standard baseline and dedicated ND-658 restricted-role checks remain separate evidence.
+
+## 2026-11-09 - ND-824 pairing completion
+Built against ND-658 PR #669. Added accurate authorization states/counts, bounded pending refresh, consumed/expired code hiding, copy feedback and bound launch guidance. Component regressions cover completion and expiry; browser regression includes keyboard focus and desktop/mobile captures.
+
+### 2026-11-12 - ND-824 review follow-up
+Addressed the PR #692 review. Polling errors clear once status checks recover; launch guidance and "Ready to launch" are withheld for inactive or expired identities, where runtime start rejects launches. The guidance is now a named region, identity buttons include paired/pending counts in their accessible names, and the singular device count reads correctly. E2E captures use the test output directory and check 390px overflow while guidance is visible.
+
+Validation passed locally against PostgreSQL 16: 2,544 unit/API tests (3 skipped), coverage thresholds, lint, RLS inventory, production build, and the two ND-658 portable-identity Playwright scenarios.
+
+
+### 2026-11-15 - ND-824 current-base review integration
+
+Merged ND-658 `aaf364a3` into PR #692 and retained its independent session CLI,
+native validation boundaries and controlled launcher instructions together with
+pairing completion guidance. Poll recovery, inactive-identity suppression,
+named guidance, accessible device counts and guidance captures remain intact.
+Required gates and integrated pairing/native flows are rerun on this branch;
+exact results and workflow evidence are recorded in PR #692. This does not
+clear ND-658's physical-laptop or actual VS Code acceptance evidence.
+
+### 2026-11-18 - ND-824: integrate merged ND-658
+
+- Reconciled pairing guidance with current main. Identity selection remains disabled during pairing mutations.
 
 ## 2026-11-16 — ND-860: Screenshots in meeting inputs and outputs
 
@@ -12217,3 +12288,37 @@ Documentation diff/whitespace and local/pinned link references checked.
 ### 2026-11-18 - ND-822: reconcile with merged ND-658
 
 - Preserved both journal histories and updated the historical report to link to the completed native and two-laptop evidence for ND-658. The synthetic Docker observations still apply to the pinned investigation revision.
+
+Built against ND-658 PR #669. Added accurate authorization states/counts, bounded pending refresh, consumed/expired code hiding, copy feedback and bound launch guidance. Component regressions cover completion and expiry; browser regression includes keyboard focus and desktop/mobile captures. Validation results will be recorded before handoff.
+
+## 2026-11-10 - ND-825 access management
+Reused module permission fields and presets, separated reserved capabilities,
+explained Task Write/Done coupling, and prioritized active sessions over history.
+Added uniquely named session actions, nearby operation feedback and device
+revocation confirmation. Integrated the latest ND-658 UI polish and ND-824
+pairing flow. Focused component coverage passed; full gate/browser evidence
+will be recorded before handoff.
+
+ND-825 handoff evidence: five focused component tests and the three affected
+portable-identity/session browser scenarios passed. Desktop and 390px mobile
+captures confirmed readable module fields, session actions and revocation
+consequences; keyboard activation and no horizontal overflow passed. Production
+build passed. Full CI and review evidence are maintained in PR #693, stacked on
+PR #692; no merge or deployment was performed.
+
+### 2026-11-15 - ND-825 review fixes and pairing integration
+
+Integrated revised ND-824 and current ND-658 without dropping poll recovery,
+inactive-identity checks, named guidance or accessible device counts. Updated
+the ND-825 browser locator for those counts. Permission forms share exact preset
+matching; custom grants remain visible as Custom. Constrained device grants hide
+empty module/reserved sections. Inactive identities no longer suggest launching;
+revocation is announced and focuses confirmation, with cancel returning focus.
+History is qualified as recent, reflecting the seven-day creation window.
+Component regressions cover presets, constrained grants, inactive identities,
+session failure and focus. Integrated desktop/mobile pairing/access browser
+checks and required gates are rerun; exact evidence is recorded in PR #693.
+
+### 2026-11-18 - ND-825: integrate the updated pairing flow
+
+- Reconciled permission and session management with the updated pairing flow, preserving the final ND-658 runtime and authorization behavior.

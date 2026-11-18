@@ -1,0 +1,162 @@
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, expect, test, vi } from "vitest";
+import { DockerBroker, hostMountPath, validateConfig } from "../../scripts/agent-runtime/docker-broker.mjs";
+
+const folders: string[] = [];
+afterEach(async () => { vi.restoreAllMocks(); await Promise.all(folders.splice(0).map(path => rm(path, { recursive: true, force: true }))); });
+const binding = { base: "https://nexus-dash.app", projectId: "project", identityId: "oscar" };
+async function setup() {
+  const directory = await mkdtemp(join(tmpdir(), "nd-broker-"));
+  folders.push(directory);
+  const certFile = join(directory, "cert.pem");
+  await writeFile(certFile, "test certificate");
+  let sequence = 0;
+  const close = vi.fn();
+  const openRuntime = vi.fn(async () => ({ sessionId: `session-${++sequence}`, close }));
+  const end = vi.fn();
+  const broker = new DockerBroker({ url: "https://host.docker.internal:4443", stateDirectory: directory,
+    keyFile: "key", certFile, workers: ["one", "two"].map(name => ({ name, binding, image: "node:24", command: ["sleep", "infinity"] })) }, {}, { openRuntime, end });
+  const generations: Record<string, string | null> = { one: null, two: null };
+  vi.spyOn(broker, "inspect").mockImplementation(async worker => generations[worker.name]);
+  await broker.initialize();
+  return { broker, generations, openRuntime, close, end, directory };
+}
+
+test("detached workers keep independent sessions; restart/recreation rotates capability and session while retaining identity", async () => {
+  const { broker, generations, openRuntime, close } = await setup();
+  generations.one = "container-a:start-1";
+  generations.two = "container-b:start-1";
+  await broker.reconcile();
+  const first = JSON.parse(await readFile(join(broker.transport(broker.workers.get("one")), "binding.json"), "utf8"));
+  const second = broker.workers.get("two").runtime.sessionId;
+  await broker.reconcile();
+  expect(openRuntime).toHaveBeenCalledTimes(2);
+  generations.one = "container-a:start-2";
+  await broker.reconcile();
+  const restarted = JSON.parse(await readFile(join(broker.transport(broker.workers.get("one")), "binding.json"), "utf8"));
+  expect(restarted.identityId).toBe(first.identityId);
+  expect(restarted.sessionId).not.toBe(first.sessionId);
+  expect(restarted.capability).not.toBe(first.capability);
+  expect(broker.workers.get("two").runtime.sessionId).toBe(second);
+  generations.one = "container-c:start-3";
+  await broker.reconcile();
+  expect(openRuntime).toHaveBeenCalledTimes(4);
+  generations.one = null;
+  await broker.reconcile();
+  expect(broker.workers.get("one").runtime).toBeNull();
+  expect(close).toHaveBeenCalledTimes(3);
+  await broker.close();
+});
+
+test("terminal start rejection is latched until the execution changes", async () => {
+  const { broker, generations, openRuntime } = await setup();
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  openRuntime.mockRejectedValue(Object.assign(new Error("revoked"), { status: 401 }));
+  generations.one = "container:start";
+  await broker.reconcile();
+  let now = Date.now();
+  const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+  now += 3_600_000;
+  await broker.reconcile();
+  expect(openRuntime).toHaveBeenCalledTimes(1);
+  expect(broker.workers.get("one").capability).toBeNull();
+  generations.one = "container:restart";
+  await broker.reconcile();
+  clock.mockRestore();
+  expect(openRuntime).toHaveBeenCalledTimes(2);
+  expect(broker.workers.get("one").capability).toBeNull();
+  await broker.close();
+});
+
+test("transient start failures retry the same execution with backoff", async () => {
+  const { broker, generations, openRuntime } = await setup();
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  openRuntime.mockRejectedValueOnce(new Error("origin timeout")).mockRejectedValueOnce(new Error("origin timeout"));
+  let now = Date.now();
+  const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+  generations.one = "container:start";
+  await broker.reconcile();
+  expect(broker.workers.get("one").attempts).toBe(1);
+  expect(broker.workers.get("one").retryAt).toBe(now + 30_000);
+  await broker.reconcile();
+  expect(openRuntime).toHaveBeenCalledTimes(1);
+  now += 30_001;
+  await broker.reconcile();
+  expect(openRuntime).toHaveBeenCalledTimes(2);
+  expect(broker.workers.get("one").attempts).toBe(2);
+  expect(broker.workers.get("one").retryAt).toBe(now + 60_000);
+  now += 60_001;
+  await broker.reconcile();
+  clock.mockRestore();
+  expect(openRuntime).toHaveBeenCalledTimes(3);
+  expect(broker.workers.get("one").capability).toBeTruthy();
+  expect(broker.workers.get("one").runtime.sessionId).toBe("session-1");
+  await broker.close();
+});
+
+test("broker recovery cleans journaled sessions and requires an explicit new execution", async () => {
+  const { broker, generations, openRuntime, directory, end } = await setup();
+  await writeFile(join(directory, "sessions.json"), JSON.stringify([{ binding, sessionId: "stale", createdAt: Date.now() }]));
+  generations.one = "already-running:start";
+  await broker.initialize();
+  await broker.reconcile();
+  expect(end).toHaveBeenCalledWith(binding, "stale");
+  expect(openRuntime).not.toHaveBeenCalled();
+  generations.one = "already-running:restart";
+  await broker.reconcile();
+  expect(openRuntime).toHaveBeenCalledTimes(1);
+  await broker.close();
+});
+
+test("daemon failure immediately retires local access; stale cleanup remains journaled during outage", async () => {
+  const { broker, generations, end, close, directory } = await setup();
+  generations.one = "container:start";
+  await broker.reconcile();
+  end.mockRejectedValue(new Error("offline"));
+  close.mockRejectedValue(new Error("offline"));
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.mocked(broker.inspect).mockRejectedValue(new Error("daemon offline"));
+  await broker.reconcile();
+  expect(broker.workers.get("one").capability).toBeNull();
+  expect(JSON.parse(await readFile(join(directory, "sessions.json"), "utf8"))).toHaveLength(1);
+  end.mockResolvedValue(undefined);
+  await broker.close();
+});
+
+test("configuration fails closed and Docker Desktop mount paths normalize", () => {
+  expect(() => validateConfig({ url: "http://host.docker.internal" })).toThrow();
+  expect(() => validateConfig({ url: "https://host/path" })).toThrow();
+  expect(hostMountPath("/run/desktop/mnt/host/c/Users/Test")).toBe(hostMountPath("C:\\Users\\Test"));
+  expect(hostMountPath("/tmp/Worker")).not.toBe(hostMountPath("/tmp/worker"));
+});
+
+test("POSIX workers run as the binding owner without restoring root capabilities", async () => {
+  const { broker } = await setup();
+  broker.workerUser = "1001:1001";
+  broker.command = vi.fn().mockResolvedValue("");
+  await broker.createWorkers();
+  const create = broker.command.mock.calls.find(([args]) => args[0] === "create")[0];
+  expect(create.slice(create.indexOf("--user"), create.indexOf("--user") + 2)).toEqual(["--user", "1001:1001"]);
+  expect(create).toContain("--cap-drop=ALL");
+  expect(create).toContain("--read-only");
+  await broker.close();
+});
+
+test("terminal cleanup rejection is forgotten and outages back off without consuming sibling auth budget", async () => {
+  const { broker, end } = await setup();
+  broker.pending.push({ binding, sessionId: "revoked", createdAt: Date.now() });
+  end.mockRejectedValueOnce(Object.assign(new Error("revoked"), { status: 401 }));
+  await broker.cleanup();
+  await broker.cleanup();
+  expect(end).toHaveBeenCalledTimes(1);
+  expect(broker.pending).toHaveLength(0);
+  broker.pending.push({ binding, sessionId: "offline", createdAt: Date.now() });
+  end.mockRejectedValue(new Error("offline"));
+  await broker.cleanup();
+  await broker.cleanup();
+  expect(end).toHaveBeenCalledTimes(2);
+  expect(broker.pending[0].retryAt).toBeGreaterThan(Date.now());
+  await broker.close();
+});
