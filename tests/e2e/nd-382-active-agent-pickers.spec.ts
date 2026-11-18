@@ -28,6 +28,7 @@ test("active credential labels appear safely in mention and task-assignee picker
 
   await page.getByRole("button", { name: "Share project" }).click();
   await page.getByRole("button", { name: "Agent access" }).click();
+  await page.getByText("Legacy API credentials", { exact: true }).click();
   await page.getByRole("button", { name: "New credential", exact: true }).click();
   await page.locator("#project-agent-label").fill(uiLabel);
   await page.getByRole("button", { name: "Create credential" }).click();

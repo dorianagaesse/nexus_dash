@@ -62,17 +62,17 @@ const introItems: ReadonlyArray<{
 }> = [
   {
     icon: Bot,
-    title: "Provision per project",
+    title: "Authorize an identity",
     description:
-      "Create credentials from Project Settings > Agent access. Each credential stays scoped to one project and one explicit scope set.",
+      "Create a project identity, choose its permissions and pair each trusted device once. Legacy API credentials remain a supported option.",
   },
   {
     icon: KeyRound,
-    title: "Exchange before calling",
+    title: "Open an execution session",
     description: (
       <>
-        Agents do not use browser login. They exchange the one-time API key for a short-lived
-        bearer token at <code>/api/auth/agent/token</code>.
+        Use the broker from your current client or the controlled launcher. Each execution
+        gets its own session; renewable credentials stay with the trusted helper.
       </>
     ),
   },
@@ -158,6 +158,29 @@ function buildGuideSections({
       content: (
         <>
           <div className="flex flex-wrap gap-2">{documentationActions}</div>
+          <div className="space-y-2 text-sm">
+            <h3 className="font-semibold">Use your current client</h3>
+            <p>Pair an authorized identity once in your own terminal. Keep the broker
+              running separately, then open a session from your existing client&apos;s
+              terminal tool. Use the returned session ID on every command.</p>
+            <CodeBlock value={`node /absolute/nexus_dash/scripts/nd-agent.mjs broker\nnode /absolute/nexus_dash/scripts/nd-agent.mjs session open --base ${new URL(docsLinks.docsUrl).origin} --project PROJECT_ID --identity IDENTITY_ID --client "Release review"\nnode /absolute/nexus_dash/scripts/nd-agent.mjs session status --session SESSION_ID\nnode /absolute/nexus_dash/scripts/nd-agent.mjs session request --session SESSION_ID --method GET --path tasks\nnode /absolute/nexus_dash/scripts/nd-agent.mjs session close --session SESSION_ID`} />
+            <p className="text-xs text-muted-foreground">Use a stable absolute helper path and an unlocked OS vault.
+              Your client must permit terminal commands and local broker access.
+              Each conversation opens its own session; an idle session expires after
+              30 minutes. No client restart or MCP setup is required by this interface.</p>
+            <h3 className="font-semibold">Portable identity launcher</h3>
+            <p>Create an identity in Project Settings ? Agent access, authorize a device,
+              then pair it once in your own terminal. The helper stores authentication in
+              the OS vault and renews access for each explicitly selected identity.</p>
+            <CodeBlock value={`node scripts/nd-agent.mjs login --base ${new URL(docsLinks.docsUrl).origin} --project PROJECT_ID --identity IDENTITY_ID\nnode scripts/nd-agent.mjs run --base ${new URL(docsLinks.docsUrl).origin} --project PROJECT_ID --identity IDENTITY_ID -- codex`} />
+            <p>Inside the launched client, use <code>node scripts/nd-agent.mjs request GET /api/projects/PROJECT_ID/tasks</code>.
+              Each launch has its own session. Identity, device and session permissions
+              are checked on every request; ending one session preserves the identity.</p>
+            <p className="text-xs text-muted-foreground">The helper is included in the NexusDash repository.
+              Windows uses DPAPI, macOS uses Keychain and Linux uses Secret Service.
+              Never paste a pairing code or a device credential into an AI conversation.</p>
+            <h3 className="pt-2 font-semibold">Legacy API key bootstrap</h3>
+          </div>
           <CodeBlock value={envBlock} />
           <p className="text-xs text-muted-foreground">
             Replace <code>NEXUSDASH_PROJECT_ID</code> and <code>NEXUSDASH_API_KEY</code> with
@@ -242,7 +265,7 @@ function buildGuideSections({
                   </p>
                   <p className="text-sm text-muted-foreground">{endpoint.description}</p>
                 </div>
-                <div className="flex shrink-0 flex-wrap gap-2">
+                <div className="flex min-w-0 max-w-full flex-wrap gap-2">
                   {endpoint.scopeMatch === "any" ? <span className="text-xs text-muted-foreground">Any one of:</span> : null}
                   {endpoint.requiredScopes.length === 0 ? (
                     <Badge variant="outline" className="rounded-full">

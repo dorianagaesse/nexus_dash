@@ -1,6 +1,7 @@
 "use client";
 import type { AgentScope } from "@/lib/agent-access";
 
+import { AgentIdentitiesPanel } from "./agent-identities-panel";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
@@ -47,6 +48,8 @@ import { ProjectAgentSetupGuideDialog } from "./project-agent-setup-guide-dialog
 
 interface ProjectDashboardOwnerAgentAccessPanelProps {
   projectId: string;
+  legacyCredentialsOpen: boolean;
+  onLegacyCredentialsOpenChange: (open: boolean) => void;
   accessSummary: ProjectAgentAccessSummary | null;
   isLoadingAccessSummary: boolean;
   accessLoadError: string | null;
@@ -72,6 +75,8 @@ interface ProjectDashboardOwnerAgentAccessPanelProps {
 
 export function ProjectDashboardOwnerAgentAccessPanel({
   projectId,
+  legacyCredentialsOpen,
+  onLegacyCredentialsOpenChange,
   accessSummary,
   isLoadingAccessSummary,
   accessLoadError,
@@ -157,6 +162,17 @@ export function ProjectDashboardOwnerAgentAccessPanel({
 
   return (
     <>
+      <AgentIdentitiesPanel projectId={projectId} />
+      <details
+        className="border-t pt-4"
+        open={legacyCredentialsOpen}
+        onToggle={(event) => onLegacyCredentialsOpenChange(event.currentTarget.open)}
+      >
+        <summary className="min-h-11 cursor-pointer rounded-md py-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Legacy API credentials</summary>
+        <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+          API keys remain available for existing integrations and clients that use
+          token exchange. Create, rotate and manage them here.
+        </p>
       <section aria-label="Agent access" className="min-w-0 space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-start gap-3">
@@ -416,6 +432,7 @@ export function ProjectDashboardOwnerAgentAccessPanel({
           </section>
         ) : null}
       </section>
+      </details>
 
       <Dialog
         open={createOpen}
