@@ -158,6 +158,12 @@ export const AGENT_CREDENTIAL_PRESETS: ReadonlyArray<AgentCredentialPreset> = [
   },
 ];
 
+export function matchAgentCredentialPreset(scopes: readonly AgentScope[]): AgentCredentialPreset | null {
+  return AGENT_CREDENTIAL_PRESETS.find((preset) =>
+    scopes.length === preset.scopes.length && preset.scopes.every((scope) => scopes.includes(scope))
+  ) ?? null;
+}
+
 export const DEFAULT_AGENT_CREDENTIAL_PRESET_ID = "read-write";
 
 export function resolveAgentCredentialPreset(

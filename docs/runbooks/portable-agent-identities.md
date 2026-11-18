@@ -341,3 +341,22 @@ evidence of a real IDE conversation or second physical laptop.
 
 ## Pairing completion (ND-824)
 The identity list counts paired devices separately from pending authorizations. Paired means authorized, not live connectivity. Pending pairing refreshes every three seconds until its ten-minute deadline, then stops; used, expired and revoked codes are hidden. Copy the login command and enter the code in your own terminal from a repository checkout containing the helper. After pairing, use the independent session CLI above or copy the Windows or macOS/Linux controlled launch command; launch guidance remains available on paired device rows. The helper requires Node and an unlocked platform vault. Legacy API credentials remain a supported optional flow with their existing setup help, creation, exchange, rotation and revocation.
+
+## Permission and session management (ND-825)
+Identity and device grants use the same module Read/Edit/Delete fields as legacy
+credentials. Task presets replace the selection; other modules can then be
+selected explicitly. Reserved shared-schedule grants have their own disclosure
+and do not grant personal Calendar access. Moving tasks to Done requires both
+Task Write (Tasks edit) and the Done option; server policy is unchanged.
+
+Current sessions appear before device authorizations and recent ended/expired history (sessions created in the last seven days).
+Last activity is request history, not proof of a live connection. Exact timestamps
+and technical IDs remain available in details. Ending a session affects only that
+session; revoking a device requires confirmation and ends all its sessions.
+Existing legacy credentials and paired devices keep the same actor ID and
+attribution. Runtime-only identities are never converted automatically.
+
+The permission selector reflects exact current grants; additional custom grants show
+Custom permissions. Constrained device grants hide empty module and reserved-scope
+sections. Revoke confirmation is announced and receives keyboard focus; cancelling
+returns focus to its trigger. Inactive identities have no launch instructions.

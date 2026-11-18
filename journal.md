@@ -12224,3 +12224,37 @@ clear ND-658's physical-laptop or actual VS Code acceptance evidence.
 ### 2026-11-18 - ND-822: reconcile with merged ND-658
 
 - Preserved both journal histories and updated the historical report to link to the completed native and two-laptop evidence for ND-658. The synthetic Docker observations still apply to the pinned investigation revision.
+
+Built against ND-658 PR #669. Added accurate authorization states/counts, bounded pending refresh, consumed/expired code hiding, copy feedback and bound launch guidance. Component regressions cover completion and expiry; browser regression includes keyboard focus and desktop/mobile captures. Validation results will be recorded before handoff.
+
+## 2026-11-10 - ND-825 access management
+Reused module permission fields and presets, separated reserved capabilities,
+explained Task Write/Done coupling, and prioritized active sessions over history.
+Added uniquely named session actions, nearby operation feedback and device
+revocation confirmation. Integrated the latest ND-658 UI polish and ND-824
+pairing flow. Focused component coverage passed; full gate/browser evidence
+will be recorded before handoff.
+
+ND-825 handoff evidence: five focused component tests and the three affected
+portable-identity/session browser scenarios passed. Desktop and 390px mobile
+captures confirmed readable module fields, session actions and revocation
+consequences; keyboard activation and no horizontal overflow passed. Production
+build passed. Full CI and review evidence are maintained in PR #693, stacked on
+PR #692; no merge or deployment was performed.
+
+### 2026-11-15 - ND-825 review fixes and pairing integration
+
+Integrated revised ND-824 and current ND-658 without dropping poll recovery,
+inactive-identity checks, named guidance or accessible device counts. Updated
+the ND-825 browser locator for those counts. Permission forms share exact preset
+matching; custom grants remain visible as Custom. Constrained device grants hide
+empty module/reserved sections. Inactive identities no longer suggest launching;
+revocation is announced and focuses confirmation, with cancel returning focus.
+History is qualified as recent, reflecting the seven-day creation window.
+Component regressions cover presets, constrained grants, inactive identities,
+session failure and focus. Integrated desktop/mobile pairing/access browser
+checks and required gates are rerun; exact evidence is recorded in PR #693.
+
+### 2026-11-18 - ND-825: integrate the updated pairing flow
+
+- Reconciled permission and session management with the updated pairing flow, preserving the final ND-658 runtime and authorization behavior.

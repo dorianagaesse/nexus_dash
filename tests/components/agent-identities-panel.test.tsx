@@ -38,6 +38,11 @@ describe("AgentIdentitiesPanel device grants", () => {
   }
 
   function input(label: string, parent: ParentNode = container) {
+    const accessibleLabel = ({ "Task Read": "Tasks read", "Task Write": "Tasks edit" } as Record<string, string>)[label];
+    if (accessibleLabel) {
+      const field = parent.querySelector<HTMLInputElement>(`input[aria-label="${accessibleLabel}"]`);
+      if (field) return field;
+    }
     const result = Array.from(parent.querySelectorAll("label"))
       .find((element) => element.textContent?.trim().startsWith(label))
       ?.querySelector("input");
@@ -250,4 +255,27 @@ describe("AgentIdentitiesPanel device grants", () => {
     );
     expect(container.textContent).not.toContain("Copy Windows launch command");
   });
+  test("keeps the displayed preset in sync with current grants and custom edits", async () => {
+    await click(button("New identity"));
+    const preset = container.querySelector<HTMLSelectElement>("select")!;
+    expect(preset.value).toBe("read-write");
+    await act(async () => {
+      preset.value = "read-only";
+      preset.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(preset.value).toBe("read-only");
+    await click(input("Task Read"));
+    expect(preset.value).toBe("custom");
+    expect(preset.querySelector<HTMLOptionElement>('option[value="custom"]')?.disabled).toBe(true);
+  });
+
+  test("constrained attention grants show neither an empty module table nor reserved disclosure", async () => {
+    identity.scopes = ["project:read", "attention:read"];
+    await click(button("Refresh identities"));
+    const deviceForm = container.querySelector("details form")!;
+    expect(deviceForm.textContent).toContain("Mentions and assignments");
+    expect(deviceForm.textContent).not.toContain("Module");
+    expect(deviceForm.textContent).not.toContain("Reserved capabilities");
+  });
+
 });
