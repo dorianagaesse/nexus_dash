@@ -12089,6 +12089,54 @@ later native/CLI evidence at `aaf364a3` from outstanding physical-laptop and
 actual IDE conversation checks; README no longer calls this the current limits.
 Documentation diff/whitespace and local/pinned link references checked.
 
+## 2026-11-10 - ND-823 disposable Docker identity broker
+Implemented host-vault authorization, a TLS transport with per-worker capabilities,
+Docker execution reconciliation and persisted stale-session cleanup. Missing or
+rejected bindings fail closed. Legacy credentials and server permissions remain
+unchanged. Built from main plus ND-658 PR #669, including its latest UI polish.
+
+Five broker lifecycle unit tests and a real Docker Desktop/Linux-engine scenario
+passed against a fresh local PostgreSQL database: actor continuity, independent
+sessions, stop/restart/recreation, renewal, grant reduction, owner revocation,
+wrong-project rejection and worker mount/secret checks. Production build passed.
+Native Linux host vault validation remains separate from Windows Docker evidence.
+Full repository gate results will be recorded before handoff.
+
+Linux CI exposed a host UID mismatch when capability-free container root read
+the private transport file. POSIX workers now use the broker UID/GID; private
+file modes and dropped capabilities are preserved. Native Linux Docker checks
+run before the full smoke suite, and test assertions avoid echoing pairing codes.
+
+### 2026-11-12 - ND-823 review follow-up
+
+- Addressed the PR #691 review. Transient session-start failures now retry the
+  observed execution with the same 30-second to five-minute backoff as stale
+  cleanup; terminal 401/403/404 rejection remains latched until the container
+  restarts, and broker recovery still requires an explicit execution change.
+- Startup now validates config before taking `broker.lock`, and lock cleanup
+  runs in `finally`, so config errors, a corrupt journal or a failed close no
+  longer leave a lock that reads as a crash or suppress the startup message.
+- E2E now exercises server-side wrong-identity rejection, removes macOS keychain
+  entries, and keeps the temp directory and image build inside cleanup; the
+  quality-gates smoke step builds independently of the prior Docker-validation
+  step.
+
+
+### 2026-11-15 - ND-823 current-base review integration
+
+Merged ND-658 `aaf364a3` into PR #691, preserving the independent CLI broker,
+status and shared renewal contract alongside Docker lifecycle reconciliation.
+The shared client matches the newer base, which already latches terminal
+401/403/404 renewal rejection. Retained the Docker regression for that latch,
+transient-start backoff, startup cleanup and server-side binding checks.
+Required baseline, ordinary-client and real Docker checks are rerun on the
+combined branch; exact results and workflow evidence are recorded in PR #691.
+Physical second-laptop and actual VS Code evidence remain ND-658 gaps.
+
+### 2026-11-18 - ND-823: integrate merged ND-658
+
+- Applied the ND-823 changes to current main, retaining the final ND-658 runtime and authorization fixes.
+
 ### 2026-11-09 - ND-658: Windows validation and current-main integration
 
 - Reconciled PR #669 with main at `2e12457`, preserving ND-130 module permissions, notification isolation, runtime session audit context and both PostgreSQL matrices. Runtime usage checks receive the effective live scopes; legacy token scope removal still invalidates the token. Extended the guard regression assertion and corrected the compatibility documentation.
