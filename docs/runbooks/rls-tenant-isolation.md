@@ -125,7 +125,11 @@ The matrix covers:
 - the exact-public-ID agent exchange function;
 - ND-658 runtime devices, authentication credentials and sessions: forced
   owner-only CRUD, immutable identity/device bindings, exact-proof bootstrap,
-  revoked device rejection and expired authentication rejection.
+  revoked device rejection and expired authentication rejection;
+- ND-536's committed migration against isolated old-schema fixtures, including
+  deterministic renumbering, legacy mapping, concurrent allocation, rollback,
+  stable relations, and project-counter RLS. See
+  [`project-task-numbering.md`](./project-task-numbering.md).
 
 ## Troubleshooting
 

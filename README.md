@@ -238,6 +238,12 @@ deleted retain their saved attribution because their original link is gone.
 
 ## Database and Migrations
 
+Task display references (`ND-1`, `ND-2`, ...) are project-local. Internal CUIDs
+remain the stable API/link identity. Historical global numbers can be resolved
+explicitly through the project-scoped legacy lookup. See the
+[numbering and migration runbook](docs/runbooks/project-task-numbering.md) for
+the compatibility contract, production cutover checks, and restore procedure.
+
 Scripts:
 
 ```bash

@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import process from "node:process";
 
 import pg from "pg";
+import { testTaskReferenceMigration } from "./test-task-reference-migration.mjs";
 import { testProjectTodoRls } from "./test-project-todo-rls.mjs";
 
 const { Client } = pg;
@@ -22,6 +23,7 @@ if (!adminDatabaseUrl || !runtimeDatabaseUrl) {
 }
 
 const suffix = crypto.randomUUID().replaceAll("-", "");
+await testTaskReferenceMigration(adminDatabaseUrl, runtimeDatabaseUrl);
 const ids = {
   ownerA: `rls_owner_a_${suffix}`,
   ownerB: `rls_owner_b_${suffix}`,

@@ -226,6 +226,7 @@ model Project {
   owner              User                       @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   todos              ProjectTodo[]
   tasks              Task[]
+  taskReferenceCounter TaskReferenceCounter?
   epics              Epic[]
   roadmapPhases      RoadmapPhase[]
   roadmapEvents      RoadmapEvent[]
@@ -621,10 +622,17 @@ model RoadmapEvent {
   @@index([phaseId, position])
 }
 
+model TaskReferenceCounter {
+  projectId  String  @id
+  nextNumber Int     @default(1)
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
 model Task {
   id                                    String                    @id @default(cuid())
   contentRevision                       Int                       @default(0)
-  referenceNumber                       Int                       @unique @default(autoincrement())
+  referenceNumber                       Int                       @default(dbgenerated())
+  legacyReferenceNumber                 Int?                      @unique
   title                                 String
   description                           String?
   blockedNote                           String?
@@ -672,6 +680,7 @@ model Task {
   createdAt                             DateTime                  @default(now())
   updatedAt                             DateTime                  @updatedAt
 
+  @@unique([projectId, referenceNumber])
   @@index([projectId])
   @@index([projectId, deadlineAt])
   @@index([epicId])
