@@ -545,6 +545,34 @@ export function AgentIdentitiesPanel({ projectId }: { projectId: string }) {
               </form>
             </details>
           )}
+          {!selected.revokedAt && canLaunch && (
+            <details className="group border-t pt-2">
+              <summary className={summaryClass}>
+                Connect standalone nd CLI
+                <ChevronDown
+                  className="size-4 shrink-0 text-muted-foreground group-open:rotate-180"
+                  aria-hidden
+                />
+              </summary>
+              <div className="mt-3 space-y-3 pb-2 text-sm text-muted-foreground">
+                <p>
+                  On any machine with Node.js, install <code>nd</code> outside
+                  the repository checkout and approve {selected.name} in your
+                  browser. Each installation gets its own revocable 90-day grant
+                  above.
+                </p>
+                <code className="block min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-muted/40 p-3 font-mono text-xs text-foreground">
+                  {`npm install -g ${appOrigin || "https://nexus-dash.app"}/api/cli/nd.tgz\nnd login${appOrigin && appOrigin !== "https://nexus-dash.app" ? ` --base ${appOrigin}` : ""} --project ${projectId} --identity ${selected.id}`}
+                </code>
+                <p className="text-xs">
+                  Then start your coding client normally and use task commands
+                  such as <code>nd tasks search</code> and{" "}
+                  <code>nd task comment</code> without session IDs or broker
+                  setup.
+                </p>
+              </div>
+            </details>
+          )}
           {pairing && (
             <AgentPairingGuidance
               key={pairing.deviceId}

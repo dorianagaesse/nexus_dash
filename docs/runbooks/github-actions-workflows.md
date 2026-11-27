@@ -50,13 +50,15 @@ quoted heredocs so future failures represent the audit result itself.
 
 `Native Agent Identity` (`agent-native-vault.yml`) supplements Quality Gates
 for portable-agent runtime changes. It runs native macOS Keychain roundtrips
-and native Linux Secret Service pairing/broker commands against disposable
-PostgreSQL with a NOBYPASSRLS application role. Each CLI invocation is a fresh
-process; the long test lets a five-minute bearer expire before automatic
-renewal. It uploads `native-identity-evidence` and can be dispatched against an
-explicit branch with `gh workflow run agent-native-vault.yml --ref BRANCH`.
-It does not simulate a physical laptop or assert that named client labels are
-actual IDE conversations. Record those checks separately.
+(both the repository broker vault and the standalone `nd` CLI vault) and native
+Linux Secret Service pairing, standalone `nd` browser-approved CLI installation,
+and broker commands against disposable PostgreSQL with a NOBYPASSRLS application
+role. Each CLI invocation is a fresh process; the long test lets a five-minute
+bearer expire before automatic renewal. It uploads `native-identity-evidence`
+and can be dispatched against an explicit branch with
+`gh workflow run agent-native-vault.yml --ref BRANCH`. It does not simulate a
+physical laptop or assert that named client labels are actual IDE conversations.
+Record those checks separately.
 
 ### PR Validation
 

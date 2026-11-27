@@ -129,6 +129,14 @@ Open `http://localhost:3000`.
 - Session persistence is database-backed (`Session` table) with HttpOnly cookie handling.
 - Logout endpoint: `POST /api/auth/logout`.
 - Agent access is project-scoped and owner-managed from the project settings surface.
+- Operators can reuse an existing project agent identity across machines without
+  cloning the repository by installing the standalone `nd` CLI
+  (`npm install -g https://<origin>/api/cli/nd.tgz`), running `nd login`, and
+  approving the installation in `/cli/authorize`. Each installation gets a
+  separate 90-day revocable grant in the OS credential vault and handles bearer
+  renewal automatically behind task commands (`nd tasks search`, `nd task comment`).
+  Identity selection is per CLI profile (`ND_PROFILE` or `--profile NAME`) with no
+  mutable global switch; see `docs/runbooks/portable-agent-identities.md`.
 - Legacy API credentials remain a supported option. For the historical portable
   identity/container investigation at `ec050eb7` and its dated supersession note, see the
   [Docker identity investigation](docs/reports/nd-822-container-agent-identities.md).

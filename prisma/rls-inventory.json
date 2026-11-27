@@ -303,6 +303,13 @@
       "rationale": "Owner-only through the stable identity anchor; pre-authentication uses an exact high-entropy proof lookup with a fixed search path."
     },
     {
+      "model": "AgentCliPairingRequest",
+      "classification": "system-operational-exempt",
+      "enforcement": "service",
+      "owner": "agent CLI pairing service",
+      "rationale": "Short-lived browser CLI pairing requests are created and polled with SHA-256 secret digests before an authenticated actor or project context exists; approved installation grants live in owner-RLS AgentRuntimeDevice and AgentRuntimeCredential."
+    },
+    {
       "model": "ProjectTodo",
       "classification": "project-scoped-direct-rls",
       "enforcement": "rls",

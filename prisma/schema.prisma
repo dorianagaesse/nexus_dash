@@ -40,6 +40,7 @@ model User {
   emailVerificationTokens             EmailVerificationToken[]
   passwordResetTokens                 PasswordResetToken[]
   authorizedAgentDevices              AgentRuntimeDevice[]
+  approvedAgentCliPairings            AgentCliPairingRequest[]                 @relation("AgentCliPairingApprover")
   createdApiCredentials               ApiCredential[]                          @relation("ApiCredentialCreatedBy")
   revokedApiCredentials               ApiCredential[]                          @relation("ApiCredentialRevokedBy")
   authAuditEvents                     AuthAuditEvent[]                         @relation("AuthAuditEventActorUser")
@@ -1098,6 +1099,7 @@ model AgentRuntimeDevice {
   identity           ApiCredential @relation(fields: [identityId], references: [id], onDelete: Cascade)
   credentials        AgentRuntimeCredential[]
   sessions           AgentRuntimeSession[]
+  cliPairingRequest  AgentCliPairingRequest? @relation("AgentCliPairingDevice")
 
   @@index([identityId])
 }
@@ -1127,6 +1129,29 @@ model AgentRuntimeSession {
   device             AgentRuntimeDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
   @@index([deviceId, createdAt])
+}
+
+model AgentCliPairingRequest {
+  id                  String              @id @default(cuid())
+  userCodeHash        String              @unique
+  pollSecretHash      String              @unique
+  installSecretHash   String              @unique
+  requestedDeviceName String              @db.VarChar(80)
+  requestedProjectId  String?             @db.VarChar(128)
+  requestedIdentityId String?             @db.VarChar(128)
+  expiresAt           DateTime
+  approvedAt          DateTime?
+  deniedAt            DateTime?
+  deliveredAt         DateTime?
+  approvedByUserId    String?
+  approvedDeviceId    String?             @unique
+  createdAt           DateTime            @default(now())
+
+  approvedByUser User?               @relation("AgentCliPairingApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  approvedDevice AgentRuntimeDevice? @relation("AgentCliPairingDevice", fields: [approvedDeviceId], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt])
+  @@index([approvedByUserId])
 }
 
 model ApiCredentialScopeGrant {
