@@ -27,7 +27,10 @@ export function proxy(request: NextRequest): NextResponse {
   requestHeaders.set("x-request-id", requestId);
   // Derive this on the server; never trust a caller-supplied return destination.
   requestHeaders.delete(REQUEST_RETURN_TO_HEADER);
-  if (request.nextUrl.pathname.startsWith("/projects")) {
+  if (
+    request.nextUrl.pathname.startsWith("/projects") ||
+    request.nextUrl.pathname.startsWith("/cli/authorize")
+  ) {
     requestHeaders.set(
       REQUEST_RETURN_TO_HEADER,
       `${request.nextUrl.pathname}${request.nextUrl.search}`
@@ -45,5 +48,5 @@ export function proxy(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ["/api/:path*", "/projects/:path*"],
+  matcher: ["/api/:path*", "/projects/:path*", "/cli/authorize", "/cli/authorize/:path*"],
 };

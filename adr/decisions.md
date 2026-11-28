@@ -1500,3 +1500,7 @@ revision. Proxy downloads through authenticated routes with `private, no-store`
 so access and visibility changes apply to every subsequent read. Use the existing
 storage providers and shared image previews, with a 4 MB per-image form upload
 limit. Removed image objects are cleaned after the database transaction commits.
+
+## 2026-11-27 — ND-950: Browser-approved standalone `nd` CLI and profile-scoped identity selection
+
+Ship a zero-dependency standalone `nd` CLI (`packages/nd-cli`, installable outside any repository checkout via `GET /api/cli/nd.tgz`) paired through `/cli/authorize` and `AgentCliPairingRequest`. The CLI generates its 256-bit installation secret locally and sends only a SHA-256 digest; owner approval creates a standard 90-day `AgentRuntimeDevice` and `AgentRuntimeCredential` bound to an existing project identity, keeping actor continuity, live scope/Done intersection, and per-installation revocation in the existing runtime service and forced-RLS tables. Task commands (`nd tasks search`, `nd task comment`, etc.) cache and renew short-lived bearers inside the OS credential vault so coding clients receive zero pairing codes, broker steps, credentials, or session IDs. Identity selection granularity is per CLI profile (`ND_PROFILE`, default `default`, or `--profile NAME`) with no mutable global switch and an actor-mismatch guard on `nd login`, ensuring concurrent executions cannot change another execution's actor. See [the focused ADR](nd-950-browser-cli-pairing.md).

@@ -52,7 +52,16 @@ documentation when the task calls for it:
 
 ## Nexus Dash agent identity
 
-- For an explicitly selected normal-start identity, open a session through
+- When the standalone `nd` CLI is installed and connected for this profile
+  (`nd status` succeeds under `ND_PROFILE` or `default`), use `nd` task commands
+  (`nd tasks search`, `nd task show`, `nd task comment`, `nd task status`) directly
+  without asking for pairing codes, broker setup, credentials, or session IDs.
+  Selection granularity is per CLI profile (`ND_PROFILE` or `--profile NAME`) with
+  no global mutable switch. If `nd` reports expired or revoked authorization, stop
+  Nexus Dash API work and ask the operator to run `nd login` in their terminal;
+  never fall back to `.config/` keys or another profile. See
+  `docs/runbooks/portable-agent-identities.md`.
+- For an explicitly selected normal-start broker identity, open a session through
   `node /absolute/nexus_dash/scripts/nd-agent.mjs session open` with the owner's
   exact origin/project/identity IDs and your execution description. Retain its
   non-secret session reference in this conversation and pass `--session ID`

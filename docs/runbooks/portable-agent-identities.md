@@ -10,6 +10,77 @@ use the same readable labels as the editor. A **Paired** device has completed
 pairing; each session separately shows its state and last activity. Expand
 **Legacy API credentials** to create, rotate or manage existing API keys.
 
+## Standalone `nd` CLI with browser approval (ND-950)
+
+To reuse an existing identity (for example **Oscar**) on a new machine without
+cloning the NexusDash repository or passing broker/session instructions to the
+coding model:
+
+1. Install the standalone zero-dependency CLI directly from your NexusDash
+   origin:
+
+   ```sh
+   npm install -g https://nexus-dash.app/api/cli/nd.tgz
+   ```
+
+2. Run `nd login` in your own terminal:
+
+   ```sh
+   nd login
+   ```
+
+   Use `--base https://your-instance.example` for a non-default origin, or
+   `--profile nova` to configure an additional isolated identity profile.
+3. Confirm the eight-character code in `/cli/authorize`, select the project and
+   existing active identity, review or narrow the 90-day installation grant, and
+   approve. The browser displays the selected identity and granted permissions.
+   The private installation proof never leaves the CLI during pairing and is
+   saved in the OS credential vault (`~/.nexusdash/vault` via Windows DPAPI,
+   macOS Keychain, or Linux Secret Service), with non-secret profile metadata in
+   `~/.nexusdash/cli/profiles/<profile>.json`.
+4. Start your coding client normally and give it the task. The model uses task
+   commands directly with zero pairing codes, broker setup, credentials, or
+   session IDs:
+
+   ```sh
+   nd tasks search "ND-950"
+   nd task show ND-950 --comments
+   nd task comment ND-950 "Completed implementation; opening PR."
+   nd task status ND-950 "In Progress"
+   ```
+
+   `nd` caches and renews short-lived bearer tokens inside the OS vault on the
+   same 12-hour runtime session and reports an actionable `nd login` reconnect
+   message if the installation is revoked, ended, or expired.
+
+### Identity selection granularity and concurrent executions
+
+`nd` resolves identities strictly per **profile** (`ND_PROFILE`, defaulting to
+`default`, or `--profile <name>` on a command). There is **no** mutable global
+`use`/`switch` command, and `nd login` refuses to overwrite an existing profile
+with a different actor unless `--replace` is passed explicitly. Launching one
+client or shell with `ND_PROFILE=oscar` and another with `ND_PROFILE=nova` (or
+re-authenticating `nova`) never alters `oscar`'s concurrent actor. Two
+conversations inside one IDE window that inherit an identical unmodified
+process environment share that window's `ND_PROFILE` unless given `--profile` or
+launched from separate profiles/shells.
+
+### Two-laptop verification checklist (ND-950)
+
+1. On Laptop A and Laptop B, install `nd` (`npm install -g <origin>/api/cli/nd.tgz`)
+   outside any NexusDash checkout and run `nd login` on each machine, selecting
+   the **same** existing identity (**Oscar**) in `/cli/authorize`.
+2. Open the actual coding client on each laptop normally with a task-only prompt
+   (free of pairing codes, broker commands, credentials, and session IDs) that
+   searches for a task and posts a comment via `nd tasks search` and
+   `nd task comment`.
+3. Confirm in NexusDash that both comments share **Oscar**'s persistent actor ID
+   and that **Oscar** lists two separate **Paired** device installations.
+4. Revoke Laptop A's installation in **Project Settings → Agent access → Oscar →
+   Device authorizations**. Confirm Laptop A's next `nd` command fails closed
+   with the `nd login` reconnect prompt while Laptop B's next `nd` command
+   continues working as **Oscar**. Record the actual clients and laptops used.
+
 ## Pair each authorized device once
 
 1. Select the identity and expand **Authorize a device**. Name the laptop or

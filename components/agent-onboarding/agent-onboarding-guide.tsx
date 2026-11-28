@@ -159,6 +159,15 @@ function buildGuideSections({
         <>
           <div className="flex flex-wrap gap-2">{documentationActions}</div>
           <div className="space-y-2 text-sm">
+            <h3 className="font-semibold">Standalone nd CLI (browser-approved)</h3>
+            <p>Install <code>nd</code> on any machine without cloning the repository, approve
+              an existing project identity in your browser, and start your coding client
+              normally. The CLI stores the installation grant in the OS credential vault
+              and handles session renewal behind task commands.</p>
+            <CodeBlock value={`npm install -g ${new URL(docsLinks.docsUrl).origin}/api/cli/nd.tgz\nnd login${new URL(docsLinks.docsUrl).origin !== "https://nexus-dash.app" ? ` --base ${new URL(docsLinks.docsUrl).origin}` : ""}\nnd tasks search "release"\nnd task comment ND-123 "Ready for review"`} />
+            <p className="text-xs text-muted-foreground">Selection granularity is per CLI profile
+              (<code>ND_PROFILE</code>, default <code>default</code>, or <code>--profile NAME</code>),
+              with no mutable global switch so concurrent executions keep their bound actor.</p>
             <h3 className="font-semibold">Use your current client</h3>
             <p>Pair an authorized identity once in your own terminal. Keep the broker
               running separately, then open a session from your existing client&apos;s

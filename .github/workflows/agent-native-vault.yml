@@ -4,11 +4,18 @@ on:
   pull_request:
     paths:
       - '.github/workflows/agent-native-vault.yml'
+      - 'packages/nd-cli/**'
       - 'scripts/agent-runtime/**'
       - 'scripts/nd-agent.mjs'
+      - 'lib/services/agent-cli-pairing-service.ts'
       - 'lib/services/agent-runtime-service.ts'
+      - 'app/api/auth/agent/**'
+      - 'app/cli/authorize/**'
+      - 'components/agent-cli-authorize-card.tsx'
       - 'tests/scripts/agent-runtime-vault.test.ts'
+      - 'tests/scripts/nd-cli.test.ts'
       - 'tests/e2e/nd-658-normal-start.spec.ts'
+      - 'tests/e2e/nd-950-browser-cli-pairing.spec.ts'
   workflow_dispatch:
 
 permissions:
@@ -40,7 +47,7 @@ jobs:
       - name: Exercise native Keychain without arguments containing device secrets
         env:
           ND_NATIVE_VAULT_TEST: '1'
-        run: npx vitest run tests/scripts/agent-runtime-vault.test.ts
+        run: npx vitest run tests/scripts/agent-runtime-vault.test.ts tests/scripts/nd-cli.test.ts
       - name: Remove disposable keychain
         if: always()
         run: security delete-keychain "$RUNNER_TEMP/nd-native.keychain-db"
@@ -92,8 +99,8 @@ jobs:
         run: |
           dbus-run-session -- bash -euc '
             printf %s native-test-only | gnome-keyring-daemon --unlock --components=secrets
-            npx vitest run tests/scripts/agent-runtime-vault.test.ts
-            npx playwright test tests/e2e/nd-658-normal-start.spec.ts
+            npx vitest run tests/scripts/agent-runtime-vault.test.ts tests/scripts/nd-cli.test.ts
+            npx playwright test tests/e2e/nd-658-normal-start.spec.ts tests/e2e/nd-950-browser-cli-pairing.spec.ts
           '
       - uses: actions/upload-artifact@v7
         if: always()

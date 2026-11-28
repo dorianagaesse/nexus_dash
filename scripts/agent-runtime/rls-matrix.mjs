@@ -201,7 +201,77 @@ export async function verifyAgentRuntimeIsolation({
     );
     assert.equal((await lookup(proofHash)).rowCount, 0);
   });
+
+  const cliInstallA = `cli_install_a_${ids.credentialA}`;
+  const cliInstallB = `cli_install_b_${ids.credentialA}`;
+  const cliCredA = `cli_cred_a_${ids.credentialA}`;
+  const cliCredB = `cli_cred_b_${ids.credentialA}`;
+  const cliProofHashA = createHash("sha256").update(randomBytes(32)).digest("hex");
+  const cliProofHashB = createHash("sha256").update(randomBytes(32)).digest("hex");
+  const cliRequestId = `cli_req_${ids.credentialA}`;
+  const cliUserCodeHash = createHash("sha256").update(randomBytes(32)).digest("hex");
+  const cliPollHash = createHash("sha256").update(randomBytes(32)).digest("hex");
+
+  await admin.query(
+    `INSERT INTO "AgentCliPairingRequest" (id, "userCodeHash", "pollSecretHash", "installSecretHash", "requestedDeviceName", "expiresAt")
+     VALUES ($1, $2, $3, $4, 'Laptop A (nd)', now() + interval '10 minutes')`,
+    [cliRequestId, cliUserCodeHash, cliPollHash, cliProofHashA]
+  );
+  try {
+    await expectRlsViolation(
+      () =>
+        runtimeTransaction(ids.ownerA, () =>
+          runtime.query(
+            `UPDATE "AgentCliPairingRequest" SET "installSecretHash" = $2 WHERE id = $1`,
+            [cliRequestId, cliProofHashB]
+          )
+        ),
+      "immutable CLI pairing installSecretHash"
+    );
+
+    await runtimeTransaction(ids.ownerA, async () => {
+      await runtime.query(
+        `INSERT INTO "AgentRuntimeDevice" (id, "identityId", "authorizedByUserId", name, scopes, "pairingExpiresAt", "expiresAt", "authorizedAt")
+         VALUES ($1, $2, $3, 'Laptop A (nd)', ARRAY['task_read','task_write']::"ApiCredentialScope"[], now(), now() + interval '90 days', now()),
+                ($4, $2, $3, 'Laptop B (nd)', ARRAY['task_read','task_write']::"ApiCredentialScope"[], now(), now() + interval '90 days', now())`,
+        [cliInstallA, ids.credentialA, ids.ownerA, cliInstallB]
+      );
+      await runtime.query(
+        `INSERT INTO "AgentRuntimeCredential" (id, "deviceId", "tokenHash", "expiresAt")
+         VALUES ($1, $2, $3, now() + interval '90 days'),
+                ($4, $5, $6, now() + interval '90 days')`,
+        [cliCredA, cliInstallA, cliProofHashA, cliCredB, cliInstallB, cliProofHashB]
+      );
+      await runtime.query(
+        `UPDATE "AgentCliPairingRequest" SET "approvedAt" = now(), "approvedByUserId" = $2, "approvedDeviceId" = $3 WHERE id = $1`,
+        [cliRequestId, ids.ownerA, cliInstallA]
+      );
+      assert.deepEqual((await lookup(cliProofHashA, false)).rows, [
+        { device_id: cliInstallA, owner_id: ids.ownerA },
+      ]);
+      assert.deepEqual((await lookup(cliProofHashB, false)).rows, [
+        { device_id: cliInstallB, owner_id: ids.ownerA },
+      ]);
+      await runtime.query(
+        `UPDATE "AgentRuntimeDevice" SET "revokedAt" = now() WHERE id = $1`,
+        [cliInstallA]
+      );
+      await runtime.query(
+        `UPDATE "AgentRuntimeCredential" SET "revokedAt" = now() WHERE "deviceId" = $1`,
+        [cliInstallA]
+      );
+      assert.equal((await lookup(cliProofHashA, false)).rowCount, 0);
+      assert.deepEqual((await lookup(cliProofHashB, false)).rows, [
+        { device_id: cliInstallB, owner_id: ids.ownerA },
+      ]);
+    });
+  } finally {
+    await admin.query('DELETE FROM "AgentCliPairingRequest" WHERE id = $1', [
+      cliRequestId,
+    ]);
+  }
+
   console.log(
-    "ND-658 runtime RLS matrix passed: owner-only CRUD, immutable bindings, exact-proof bootstrap, revocation and expiry."
+    "ND-658 / ND-950 runtime RLS matrix passed: owner-only CRUD, immutable bindings, exact-proof bootstrap, CLI installation isolation, revocation and expiry."
   );
 }
